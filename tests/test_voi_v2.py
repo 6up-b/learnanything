@@ -532,7 +532,7 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     episode = _answer_probe(vault, repository, score=0)
     assert episode.status == "in_progress"
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    S.build_due_queue(vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), persist_explanations=True)
+    S.build_due_queue(vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert presentation is not None
     body = presentation.selection_components["voi_stopping"]

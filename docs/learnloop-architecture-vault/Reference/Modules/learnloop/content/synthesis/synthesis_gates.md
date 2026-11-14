@@ -127,8 +127,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
 - [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] — imports `facet_tokens`, `jaccard`; statically calls `facet_tokens`, `jaccard`
+- [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] — imports `ATTACH_GROWABLE_FIELDS`, `GateItem`, `ProvenanceRef`; statically calls `GateItem`, `ProvenanceRef`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `ASSESSMENT_ONLY_ROLES`, `GateItem`, `ProvenanceRef`; statically calls `GateItem`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `ATTACH_GROWABLE_FIELDS`, `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; statically calls `GateContext`, `GateDiagnostic`, `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `GateContext`, `GateDiagnostic`, `GateProposal`, `run_synthesis_gates`; statically calls `GateContext`, `GateDiagnostic`, `GateProposal`, `run_synthesis_gates`
 - [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `GateDiagnostic`; statically calls `GateDiagnostic`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `GateDiagnostic`; statically calls `GateDiagnostic`
 
@@ -151,7 +152,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]], [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]], [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]], [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]], [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

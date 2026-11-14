@@ -26,10 +26,10 @@ source_paths:
   - "tests/causal_shadow_selection_helpers.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/diagnostic_probe_single_use_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/exercise_authoring_helpers.py"
   - "tests/facet_identity_helpers.py"
   - "tests/goal_certification_any_of_helpers.py"
-  - "tests/helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -77,10 +77,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_shadow_selection_helpers.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/diagnostic_probe_single_use_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/exercise_authoring_helpers.py`
 - `tests/facet_identity_helpers.py`
 - `tests/goal_certification_any_of_helpers.py`
-- `tests/helpers.py`
 
 ## Extension and modification guidance
 

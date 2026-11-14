@@ -34,7 +34,7 @@ from learnloop.diagnosis.probe_families import builtin_family_templates
 from learnloop.diagnosis.probe_instance_generation import (
     mint_single_use_probe_surface,
 )
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
@@ -136,7 +136,7 @@ def test_minted_surface_serves_through_the_probe_branch_and_is_single_use(tmp_pa
         entry.item.id
         for entry in eligible_instruments(vault, repository, refreshed)
     }
-    queue = build_due_queue(vault, repository, clock=CLOCK, persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=CLOCK)
     scheduled = next(
         (entry for entry in queue if entry.practice_item_id == minted.practice_item_id),
         None,
@@ -154,8 +154,8 @@ def test_minted_surface_serves_through_the_probe_branch_and_is_single_use(tmp_pa
     )
     state = repository.practice_item_state(minted.practice_item_id)
     assert state is not None and not state.active
-    queue_after = build_due_queue(
-        vault, repository, clock=CLOCK, persist_explanations=False
+    queue_after = read_due_queue(
+        vault, repository, clock=CLOCK
     )
     assert minted.practice_item_id not in {
         entry.practice_item_id for entry in queue_after

@@ -55,7 +55,9 @@ export type LessonEntry =
       /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
       suggestion?: { decisionId: string; lessonId: string };
       /** IH7 (the owner's decision 2): the "learn this" preference this lesson was asked for with. */
-      preferenceId?: string }
+      preferenceId?: string;
+      /** A lesson opened from a diagnostic check: its episode, so the brief carries what the check found. */
+      probeEpisodeId?: string }
   | { kind: "resume"; lessonId: string }
   /** Teacher TE2: start from what the learner types. */
   | { kind: "typed" };
@@ -85,6 +87,7 @@ export function LessonScreen({
   onClose,
   onQuickCheck,
   onLookInLibrary,
+  onOpenFailed,
   onError,
 }: {
   entry: LessonEntry;
@@ -94,6 +97,9 @@ export function LessonScreen({
   /** TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover offers "Look in my library"
    *  first, opening the Library search with its phrase, before "Create it". */
   onLookInLibrary?: (phrase: string) => void;
+  /** A hand-off from a diagnostic check: an opening that fails for any reason (the teacher's route down, lessons
+   *  switched off, a refusal) goes back to the caller, which opens the tutor instead of leaving this screen's retry. */
+  onOpenFailed?: (message: string) => void;
   onError: (message: string) => void;
 }) {
   const [view, setView] = useState<LessonViewDto | null>(null);
@@ -137,6 +143,10 @@ export function LessonScreen({
         void api.lessonView({ lessonId: existing }).then(setView).catch(() => undefined);
         return null;
       }
+      if (input.action === "open" && onOpenFailed) {
+        onOpenFailed(message);
+        return null;
+      }
       if (code === "plan_unavailable" || code === "teacher_unavailable" || code === "provider_unavailable") {
         setUnavailable(message);
         const details = (err?.details ?? {}) as Record<string, unknown>;
@@ -160,7 +170,7 @@ export function LessonScreen({
     } finally {
       setBusy(false);
     }
-  }, [onError]);
+  }, [onError, onOpenFailed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -175,7 +185,8 @@ export function LessonScreen({
                  ...(entry.suggestion ? { origin: "router_suggestion" as const,
                                           suggestionDecisionId: entry.suggestion.decisionId,
                                           lessonId: entry.suggestion.lessonId } : {}),
-                 ...(entry.preferenceId && !entry.suggestion ? { preferenceId: entry.preferenceId } : {}) });
+                 ...(entry.preferenceId && !entry.suggestion ? { preferenceId: entry.preferenceId } : {}),
+                 ...(entry.probeEpisodeId && !entry.suggestion ? { probeEpisodeId: entry.probeEpisodeId } : {}) });
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

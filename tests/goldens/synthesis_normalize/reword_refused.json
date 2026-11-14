@@ -1,0 +1,271 @@
+{
+ "auto_apply_ids": null,
+ "conflict_candidates": [],
+ "criterion_targets": [],
+ "edge_diagnostics": [
+  {
+   "entity_refs": [
+    "facet_symmetry_definition",
+    "f_again"
+   ],
+   "gate": "exam_authority",
+   "message": "exam material would change facet facet_symmetry_definition's meaning (claim, preconditions) with no explanatory span beside it (f_again): an exam citation only ever aligns assessment (§4.2)",
+   "severity": "review",
+   "suggested_action": "kept registered facet facet_symmetry_definition as it is: a candidate carrying its id rewords it only with an explanatory span from the selected units (or reword it in the Library)"
+  },
+  {
+   "entity_refs": [
+    "facet_spectral_applicability",
+    "f_ref"
+   ],
+   "gate": "facet_reword_confirm",
+   "message": "The proposed new wording of facet facet_spectral_applicability (kind, claim, preconditions, postconditions) has no textbook, lecture, paper, reference or alternate-explanation source behind it (it cites no source), so it waits for your confirm before it changes the facet",
+   "severity": "review",
+   "suggested_action": "accept the proposal, then confirm the new wording or keep the current one (registry review or the proposals inbox)"
+  }
+ ],
+ "facet_identity_actions": [],
+ "facet_ids": [
+  "facet_symmetry_definition",
+  "facet_spectral_applicability"
+ ],
+ "facet_payloads": [
+  {
+   "aliases": [],
+   "applicability": [],
+   "claim": "Spectral.",
+   "concept_id": "concept_symmetry",
+   "error_signatures": [],
+   "id": "facet_spectral_applicability",
+   "instructional_repairs": [],
+   "kind": "definition",
+   "negative_examples": [],
+   "non_goals": [],
+   "positive_examples": [],
+   "postconditions": [],
+   "preconditions": [],
+   "provenance": {
+    "origin": "sourceset_synthesis",
+    "source_refs": []
+   },
+   "status": "reviewed"
+  }
+ ],
+ "gate_items": [
+  {
+   "client_item_id": "c_sym",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_symmetry",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "f_ref",
+   "depends_on": [
+    "c_sym"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "facet_spectral_applicability",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "facet",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "update",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Spectral.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_spectral_applicability",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": []
+    },
+    "status": "reviewed"
+   },
+   "provenance": [],
+   "reconciliation_intent": "restructure_unlocked"
+  },
+  {
+   "client_item_id": "bp",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "bp_01M3250V",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "task_blueprint",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "blueprints": [
+     {
+      "id": "bp_01M3250V",
+      "recipes": [
+       {
+        "all_of": [
+         {
+          "capability": "retrieval",
+          "facet": "facet_symmetry_definition",
+          "modality": "hard"
+         }
+        ],
+        "any_of": [],
+        "composition": "conjunctive",
+        "facets": [
+         "facet_symmetry_definition"
+        ],
+        "id": "recipe_01M3250V"
+       }
+      ],
+      "weight": 1.0
+     }
+    ]
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  }
+ ],
+ "graph_nomination": null,
+ "non_conflict_dispositions": [],
+ "recipe_components": [
+  {
+   "capability": "retrieval",
+   "facet": "facet_symmetry_definition"
+  }
+ ],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "c_sym",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "f_ref",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_sym"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75H",
+   "item_type": "facet",
+   "operation": "update",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Spectral.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "expected_target_hash": "sha256:64369a01d3d4e9e311a33ed589bf47ab18423362530feb6a76cd4db463211ce7",
+    "id": "facet_spectral_applicability",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "meaning_support": [
+     {
+      "citations": [],
+      "from": "f_ref"
+     }
+    ],
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": []
+    },
+    "status": "reviewed"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": "facet_spectral_applicability",
+   "target_entity_type": "facet",
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "bp",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75M",
+   "item_type": "task_blueprint",
+   "operation": "create",
+   "payload": {
+    "id": "bp_01M3250V",
+    "learning_object_id": "lo_diagonalize_symmetric",
+    "recipes": [
+     {
+      "all_of": [
+       {
+        "capability": "retrieval",
+        "facet": "facet_symmetry_definition",
+        "modality": "hard"
+       }
+      ],
+      "any_of": [],
+      "composition": "conjunctive",
+      "id": "recipe_01M3250V"
+     }
+    ],
+    "weight": 1.0
+   },
+   "source_ref_ids": [],
+   "target_entity_id": "lo_diagonalize_symmetric",
+   "target_entity_type": "learning_object",
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}

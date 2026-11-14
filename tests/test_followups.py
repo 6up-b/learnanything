@@ -9,7 +9,7 @@ from learnloop.diagnosis.followups import (
     evaluate_intervention_followup,
     evaluate_negative_surprise_followup,
 )
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 
 from tests.helpers import NOW, add_followup_item, create_basic_vault
 from tests.followups_helpers import _surprising_attempt
@@ -53,7 +53,7 @@ def test_negative_surprise_inserts_followup_when_item_exists(tmp_path, monkeypat
         "intervention_followup:queued:pi_svd_define_002",
     ]
     assert surprise["suppressed_actions"] == []
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
     assert queue[0].practice_item_id == "pi_svd_define_002"
     assert queue[0].components["intervention_followup"] == 1.0
     assert queue[0].plain_english[0] == "intervention follow-up"
@@ -82,7 +82,7 @@ def test_negative_surprise_followup_stops_forcing_after_followup_attempt(tmp_pat
     )
 
     assert repository.pending_followup_practice_item_ids() == []
-    queue = build_due_queue(loaded, repository, clock=later, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=later)
     assert not queue or queue[0].components.get("intervention_followup") is None
 
 
@@ -125,7 +125,7 @@ def test_manual_override_forces_followup_when_gate_silent(tmp_path):
     assert "intervention_followup:manual_trigger:pi_svd_define_001" in surprise["triggered_actions"]
     assert "intervention_followup:queued:pi_svd_define_002" in surprise["triggered_actions"]
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
     assert queue[0].practice_item_id == "pi_svd_define_002"
 
 

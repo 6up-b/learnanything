@@ -1235,7 +1235,7 @@ def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
     monkeypatch.setattr(S, "_exploration_support", support)
     monkeypatch.setattr(S, "_exploration_draws", lambda queue, session, now, alternatives: (0.0, 0.0))
     S.build_due_queue(
-        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), persist_explanations=True,
+        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id),
     )
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert presentation is not None and presentation.practice_item_id == other
@@ -1277,8 +1277,7 @@ def test_a_served_probe_records_its_probability_over_the_composed_queue(tmp_path
     trace = OfferTrace()
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     queue = S.build_due_queue(
-        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id),
-        persist_explanations=True, offer_trace=trace,
+        vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id), offer_trace=trace,
     )
     assert trace.greedy_item_ids[0] == "pi_svd_teach_001"  # the draw's sure pick
     assert "pi_svd_teach_001" not in [item.practice_item_id for item in queue]  # value dropped it

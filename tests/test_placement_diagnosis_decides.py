@@ -37,7 +37,7 @@ from learnloop.placement.rules import (
     diagnosis_reason,
 )
 from learnloop.placement.state import load_placement_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
@@ -109,7 +109,7 @@ def test_a_miss_the_diagnosis_does_not_call_a_gap_keeps_the_topic_in_maintenance
     assert (intent.intent, intent.reason, intent.outcome_reason) == ("maintenance", "check_passed", reason)
     # In maintenance: the LO's remaining learning items stay withheld from
     # routine serving (the miss's own follow-up lane is the explicit exception).
-    queue = build_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 2)), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 2)))
     assert "pi_svd_compute_002" not in _routine(queue)
 
 
@@ -133,7 +133,7 @@ def test_a_kept_miss_before_the_check_leaves_the_topic_assumed_and_a_gap_returns
 
 def test_the_decision_waits_while_the_diagnosis_is_pending(tmp_path):
     _paths, vault, repository = _assumed(tmp_path)
-    before = build_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 0.5)), persist_explanations=False)
+    before = read_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 0.5)))
     assert [s.learning_object_id for s in before if s.components.get("assumed_check")] == [LO]
 
     client = _Diagnosed(causal_class="transient_execution")
@@ -146,7 +146,7 @@ def test_the_decision_waits_while_the_diagnosis_is_pending(tmp_path):
     assert state.intent_by_lo[LO].intent == "assumed"
     assert state.awaiting_diagnosis_learning_object_ids == {LO}
     assert LO in state.open_by_lo and LO in state.due_learning_object_ids("2027-01-01T00:00:00Z")
-    queue = build_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 1.5)), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(at(DUE_HOURS + 1.5)))
     # No second check meanwhile (the miss's own follow-up lane aside).
     assert not [s for s in queue if s.learning_object_id == LO and s.followup_kind is None]
 
@@ -301,11 +301,11 @@ def test_the_kill_switch_ignores_diagnosis_decided_outcomes(tmp_path):
     _miss(vault, repository, _Diagnosed(causal_class="transient_execution"))
     moment = FrozenClock(at(DUE_HOURS + 2))
     assert _state(vault, repository)[1].intent == "maintenance"
-    on = build_due_queue(vault, repository, clock=moment, persist_explanations=False)
+    on = read_due_queue(vault, repository, clock=moment)
     assert not [s for s in on if s.learning_object_id == LO and s.components.get("new_material")]
 
     def fingerprint(v, r):
-        queue = build_due_queue(v, r, clock=moment, session=SchedulerSession(), persist_explanations=False)
+        queue = read_due_queue(v, r, clock=moment, session=SchedulerSession())
         return [(s.practice_item_id, round(s.priority, 12), sorted(s.components)) for s in queue]
 
     append_config(paths.root, "[placement]\nenabled = false")
@@ -376,7 +376,7 @@ def test_a_diagnosis_that_never_lands_stops_holding_the_check(tmp_path):
     assert (assumption.status, assumption.awaiting_diagnosis_attempt_id, intent.intent) == (
         "open", miss.attempt_id, "assumed",
     )
-    waiting = build_due_queue(vault, repository, clock=FrozenClock(at(deadline_hours - 1)), persist_explanations=False)
+    waiting = read_due_queue(vault, repository, clock=FrozenClock(at(deadline_hours - 1)))
     assert not [s for s in waiting if s.learning_object_id == LO and s.followup_kind is None]
     late = FrozenClock(at(deadline_hours + 1))
     assumption, intent = _state(vault, repository, now_iso=_iso(deadline_hours + 1))
@@ -387,7 +387,7 @@ def test_a_diagnosis_that_never_lands_stops_holding_the_check(tmp_path):
     assert (intent.intent, intent.outcome_reason) == ("learning", "no_diagnosis")
     state = load_placement_state(vault, repository, now_iso=_iso(deadline_hours + 1))
     assert state.awaiting_diagnosis_learning_object_ids == frozenset()
-    queue = build_due_queue(vault, repository, clock=late, persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=late)
     # Back to learning: routine serving reaches the LO again.
     assert [s for s in queue if s.learning_object_id == LO and s.followup_kind is None]
 
@@ -524,7 +524,7 @@ def test_the_first_serving_build_with_the_split_off_records_the_hold(tmp_path):
             "failed", "split_disabled", "learning",
         )
         assert assumption.resolution.decided_at == READ_AT
-    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 2)), persist_explanations=False)
+    read_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 2)))
     assert not any("split_held_at" in job["payload"] for job in repository.post_attempt_jobs(kind="diagnose"))
 
     build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 3)))

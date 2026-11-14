@@ -180,7 +180,7 @@ def test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_
 def test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why(world):
     """``why item:<id>`` and the slate record's exclusions by rule both carry ``cold_check_reserved``."""
 
-    from learnloop.scheduling.scheduler import OfferTrace, build_due_queue, exclusion_now
+    from learnloop.scheduling.scheduler import OfferTrace, exclusion_now, read_due_queue
     from learnloop.scheduling.slate_record import by_rule, merged_exclusions
 
     vault, repository = world
@@ -188,7 +188,7 @@ def test_a_reserved_cold_item_is_named_and_counted_by_the_slate_and_why(world):
     _scheduled_retry(repository, cold_item, not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z")
     assert exclusion_now(vault, repository, cold_item) == "cold_check_reserved"
     trace = OfferTrace()
-    build_due_queue(vault, repository, persist_explanations=False, offer_trace=trace)
+    read_due_queue(vault, repository, offer_trace=trace)
     recorded = by_rule(merged_exclusions(
         trace.exclusions, greedy_ids=trace.greedy_item_ids,
         considered_ids=[item.practice_item_id for item in trace.considered],

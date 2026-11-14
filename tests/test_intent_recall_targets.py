@@ -28,7 +28,7 @@ from learnloop.scheduling.intent.recall_targets import (
     ratio,
 )
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, interval_for_retention
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import iso
 from tests.helpers import append_config_toml
@@ -121,10 +121,10 @@ def test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off
         iv.choose("learning_object", "lo_b", "light_touch", NOW)
         iv.choose("learning_object", "lo_c", "pause", NOW + timedelta(seconds=1))
     at = NOW + timedelta(minutes=5)
-    with_intent = {s.practice_item_id: (s.priority, s.components) for s in build_due_queue(
-        on.vault, on.repository, clock=FrozenClock(at), persist_explanations=False)}
-    without = {s.practice_item_id: (s.priority, s.components) for s in build_due_queue(
-        off.vault, off.repository, clock=FrozenClock(at), persist_explanations=False)}
+    with_intent = {s.practice_item_id: (s.priority, s.components) for s in read_due_queue(
+        on.vault, on.repository, clock=FrozenClock(at))}
+    without = {s.practice_item_id: (s.priority, s.components) for s in read_due_queue(
+        off.vault, off.repository, clock=FrozenClock(at))}
     uncommitted = [item_id for item_id in without if item_id not in {"pi_b1", "pi_c1", "pi_c2"}]
     assert uncommitted
     for item_id in uncommitted:

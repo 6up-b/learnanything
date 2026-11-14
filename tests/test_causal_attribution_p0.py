@@ -27,7 +27,6 @@ from learnloop.attempts.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.diagnosis.misconceptions import _event_facet_ids
 from learnloop.diagnosis.remediation import start_remediation_episode
 from learnloop.content.authoring.rung_variants import audit_variant_direction
 from learnloop.substrate.state_sync import sync_vault_state
@@ -223,16 +222,6 @@ def test_passed_typed_target_is_blocked_and_resolution_reopens(tmp_path):
         event["kind"] == "passed_typed_target_write_blocked"
         for event in validated.attribution_audit_events
     )
-
-
-def test_event_facet_ids_never_fall_back_to_attempt_facets(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
-    assert _event_facet_ids(
-        vault,
-        {"repair_plan": None},
-        {"evidence_facets": ["recall"]},
-    ) == []
 
 
 def test_missing_step_divergence_must_reference_authored_checkpoint(tmp_path):

@@ -158,7 +158,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `imported_exercise_selection`, `record_proposal_delivery`, `record_proposal_selection`; calls `imported_exercise_selection`, `record_proposal_delivery`, `record_proposal_selection`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `reader_enabled`
 - [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] — imports `GENERATED_PROBE`, `PlanStepFilter`; calls `PlanStepFilter`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_due_queue`; calls `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_due_queue`, `read_due_queue`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `extraction_sections`; calls `extraction_sections`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
@@ -197,6 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
   - `test_the_sidecar_queues_a_serve_commission_after_the_serve`
+- [tests/test_due_queue_read_builds.py](../../../../../../tests/test_due_queue_read_builds.py) — direct import
+  - `test_the_plan_prefetch_builds_its_pool_on_the_read_only_attach`
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v2_todays_read_never_retries_a_plan_wait`
 - [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import

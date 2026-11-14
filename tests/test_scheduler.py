@@ -14,6 +14,7 @@ from learnloop.scheduling.scheduler import (
     _rotate_same_day_frontier_repeats,
     _selection_propensities,
     build_due_queue,
+    read_due_queue,
 )
 from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
@@ -65,11 +66,10 @@ def test_scheduler_bulk_loads_item_quality_once(tmp_path, monkeypatch):
         ),
     )
 
-    queue = build_due_queue(
+    queue = read_due_queue(
         vault,
         repository,
         clock=FrozenClock(NOW),
-        persist_explanations=False,
     )
 
     assert queue
@@ -193,7 +193,7 @@ def test_scheduler_scores_due_goal_item(tmp_path):
         )
     )
 
-    queue = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=clock)
 
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]
     assert queue[0].components["forgetting_risk"] > 0
@@ -353,7 +353,7 @@ def test_scheduler_orders_eligible_items_by_selection_reward_before_id(tmp_path)
             clock=clock,
         )
 
-    queue = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=clock)
 
     rewards = {item.practice_item_id: item.components["selection_reward"] for item in queue}
     assert queue[0].practice_item_id == "pi_svd_define_999"
@@ -362,19 +362,17 @@ def test_scheduler_orders_eligible_items_by_selection_reward_before_id(tmp_path)
 
     loaded.config.scheduler.selection_exploration_rate = 1.0
     loaded.config.scheduler.selection_exploration_reward_window = 1.0
-    explored = build_due_queue(
+    explored = read_due_queue(
         loaded,
         repository,
         clock=clock,
         session=SchedulerSession(session_id="explore_reward_order"),
-        persist_explanations=False,
     )
-    explored_again = build_due_queue(
+    explored_again = read_due_queue(
         loaded,
         repository,
         clock=clock,
         session=SchedulerSession(session_id="explore_reward_order"),
-        persist_explanations=False,
     )
     assert explored[0].practice_item_id == "pi_svd_define_001"
     assert explored_again[0].practice_item_id == explored[0].practice_item_id
@@ -483,7 +481,7 @@ def test_scheduler_selects_item_on_weak_canonical_facet_boundary(tmp_path):
         last_observed_at=NOW_ISO,
     )
 
-    queue = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=clock)
 
     assert queue[0].practice_item_id == "pi_spectral_boundary"
     assert queue[0].components["targeted_boundary_fit"] > 0
@@ -661,7 +659,7 @@ def test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate(tmp_path):
 
 
 def test_a_side_effect_free_build_withholds_without_rescheduling(tmp_path):
-    """`persist_explanations=False` means exactly that: the task is still
+    """A read build (``read_due_queue``) means exactly that: the task is still
     withheld (never served on contaminated evidence), but the queue writes
     nothing — the same decision is simply recomputed next build."""
 
@@ -671,11 +669,10 @@ def test_a_side_effect_free_build_withholds_without_rescheduling(tmp_path):
     _seed_reveal(
         repository, "pi_svd_define_001", 0.2, clock=FrozenClock(NOW + timedelta(hours=1))
     )
-    queue = build_due_queue(
+    queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW + timedelta(hours=2)),
-        persist_explanations=False,
     )
     assert all(item.followup_kind != "cold_retry" for item in queue)
     assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
@@ -683,8 +680,8 @@ def test_a_side_effect_free_build_withholds_without_rescheduling(tmp_path):
 
 def test_a_clean_cold_task_is_served_as_the_cold_lane(tmp_path):
     loaded, repository, _task = _cold_task_vault(tmp_path)
-    queue = build_due_queue(
-        loaded, repository, clock=FrozenClock(NOW), persist_explanations=False
+    queue = read_due_queue(
+        loaded, repository, clock=FrozenClock(NOW)
     )
     assert queue[0].practice_item_id == "pi_svd_define_001"
     assert queue[0].followup_kind == "cold_retry"
@@ -697,7 +694,7 @@ def test_ordinary_due_pick_carries_no_followup_kind(tmp_path):
     loaded = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert queue
     assert all(scheduled.followup_kind is None for scheduled in queue)

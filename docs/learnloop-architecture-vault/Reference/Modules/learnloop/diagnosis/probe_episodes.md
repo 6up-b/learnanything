@@ -233,6 +233,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/probe_block_end_helpers.py](../../../../../../tests/probe_block_end_helpers.py) — direct import
 - [tests/probe_episodes_helpers.py](../../../../../../tests/probe_episodes_helpers.py) — direct import
@@ -404,6 +405,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_preview_tutor_opening_after_stop_diagnosing`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_an_empty_stuck_probe_answer_is_the_unanswered_observation`
+- [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import

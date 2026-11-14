@@ -39,7 +39,7 @@ from learnloop.diagnosis.probe_families import (
 )
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.substrate.state_sync import sync_vault_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import (
@@ -655,7 +655,6 @@ def test_missing_instruments_park_episode_with_one_deduplicated_need(tmp_path):
 
 
 def test_pending_items_episode_keeps_lo_schedulable_with_belief_updates(tmp_path):
-    from learnloop.scheduling.scheduler import build_due_queue
 
     # The opening probe episode sync opens per new LO, which mvp-0.11 (placement) retired;
     # `placement.enabled` off serves it exactly. Goes with that switch in D7.
@@ -664,7 +663,7 @@ def test_pending_items_episode_keeps_lo_schedulable_with_belief_updates(tmp_path
     episode = repository.open_probe_episode(LO_ID)
     assert episode.status == "pending_items"
 
-    queue = build_due_queue(loaded, repository, clock=CLOCK, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=CLOCK)
     assert any(item.learning_object_id == LO_ID for item in queue)
     # No instrument -> no probe EIG; the item schedules as ordinary practice.
     scheduled = next(item for item in queue if item.learning_object_id == LO_ID)

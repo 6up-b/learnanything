@@ -24,11 +24,11 @@ source_paths:
   - "tests/ad_reachable_reads.py"
   - "tests/approach_map_fakes.py"
   - "tests/data_capture_codex_review_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/helpers.py"
   - "tests/hint_fakes.py"
   - "tests/identity_pins_helpers.py"
   - "tests/instruct_handoff_ih0_helpers.py"
-  - "tests/intent_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -66,11 +66,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_reachable_reads.py`
 - `tests/approach_map_fakes.py`
 - `tests/data_capture_codex_review_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
 - `tests/instruct_handoff_ih0_helpers.py`
-- `tests/intent_fakes.py`
 
 ## Extension and modification guidance
 

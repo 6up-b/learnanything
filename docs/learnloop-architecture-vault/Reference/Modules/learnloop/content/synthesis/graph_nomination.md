@@ -159,8 +159,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `CONCEPT_RECIPE`, `FACET_RECIPE`, `inventory_queries`, `undefined_concept_mentions`; statically calls `inventory_queries`, `undefined_concept_mentions`
 - [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] — imports `FACET_RECIPE`
 - [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] — imports `FACET_RECIPE`, `GraphNominator`
+- [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] — imports `annotate_mint_report`; statically calls `annotate_mint_report`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `GraphNominator`, `plan_ingest_embedding`; statically calls `plan_ingest_embedding`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_RECIPE`, `GraphNominator`, `annotate_mint_report`, `concept_query`, `plan_ingest_embedding`; statically calls `annotate_mint_report`, `concept_query`, `plan_ingest_embedding`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_RECIPE`, `GraphNominator`, `concept_query`, `plan_ingest_embedding`; statically calls `concept_query`, `plan_ingest_embedding`
 - [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] — imports `CONCEPT_RECIPE`, `FACET_RECIPE`, `GraphNominator`, `NOMINATION_VERSION`, `RegistryIndex`, `annotate_mint_report`, `raw_cosine`, `repair_query`; statically calls `GraphNominator`, `annotate_mint_report`, `raw_cosine`, `repair_query`
 
 ## Dependencies
@@ -193,7 +194,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]], [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]], [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]], [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]], [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]], [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]], [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

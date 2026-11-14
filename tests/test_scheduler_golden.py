@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
@@ -32,7 +32,7 @@ def test_scheduler_forgetting_risk_zero_before_due_date(tmp_path):
         clock=FrozenClock(NOW),
     )
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert queue == []
 
@@ -55,7 +55,7 @@ def test_scheduler_ties_by_lowest_practice_item_id_and_filters_inactive(tmp_path
             clock=FrozenClock(NOW),
         )
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_000", "pi_svd_define_001"]
 
@@ -68,7 +68,7 @@ def test_scheduler_ties_by_lowest_practice_item_id_and_filters_inactive(tmp_path
         active=False,
         clock=FrozenClock(NOW),
     )
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]
 
@@ -87,7 +87,7 @@ def test_scheduler_goal_frontier_follows_explicit_scope_only(tmp_path):
     repository.upsert_mastery_state(_mastery("lo_related"))
     repository.upsert_practice_item_state("pi_related_001", active=True, clock=FrozenClock(NOW))
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     # Only connected via an edge -> not in scope -> no goal frontier -> not scheduled.
     assert "pi_related_001" not in [item.practice_item_id for item in queue]
@@ -115,7 +115,7 @@ def test_scheduler_goal_frontier_follows_explicit_scope_only(tmp_path):
         },
     )
     loaded = load_vault(vault_root)
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
     related = [item for item in queue if item.practice_item_id == "pi_related_001"][0]
 
     assert related.components["goal_frontier"] == pytest.approx(0.8)
@@ -147,7 +147,7 @@ def test_scheduler_recent_error_decays_by_exp_days_over_seven(tmp_path):
         }
     )
 
-    queue = build_due_queue(loaded, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=FrozenClock(NOW))
 
     assert len(queue) == 1
     assert queue[0].components["recent_error"] == pytest.approx(0.7 * exp(-1))

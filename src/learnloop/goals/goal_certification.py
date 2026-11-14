@@ -9,10 +9,6 @@ claims, calibration residuals, and graph projections never certify.
 This module is read-side and pure over the persisted capability ledger
 (``facet_capability_evidence``, derived by KM2's canonical projection). It never
 writes evidence.
-
-Legacy vaults (mvp-0.6) have no capability ledger; the helpers degrade to the
-conservative empty answer there — the caller keeps the legacy mass-gate
-``certified`` axis untouched (§15).
 """
 
 from __future__ import annotations
@@ -24,7 +20,6 @@ from learnloop.db.repositories import Repository
 from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.learner.capability_mapping import default_capability_for
 from learnloop.learner.contract_reachability import CONTRACT_MODALITIES
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.vault.models import LearningObject, LoadedVault, recipe_components
 
 
@@ -111,10 +106,7 @@ def facet_demonstration(
     """The §9.5 demonstration state of one facet within an LO."""
 
     required, from_legacy = required_capabilities_for_facet(vault, learning_object, facet_id)
-    if is_canonical_state_vault(vault):
-        demonstrated = demonstrated_capabilities_for_facet(vault, repository, facet_id)
-    else:
-        demonstrated = set()
+    demonstrated = demonstrated_capabilities_for_facet(vault, repository, facet_id)
     matched = tuple(sorted(set(required) & demonstrated))
     return FacetDemonstration(
         facet_id=vault.canonical_facet_id(facet_id),
@@ -207,7 +199,7 @@ def recipe_gaps(
     obligations exist, or a recipe can be blocked by a cell that never appears in
     the queue that exists to close it.
 
-    Requires a canonical-state vault with authored blueprints; returns ``()``
+    Requires authored blueprints; returns ``()``
     otherwise, exactly as :func:`lo_certification` returns ``demonstrated=False``
     there (nothing to certify against).
 
@@ -216,7 +208,7 @@ def recipe_gaps(
     moment (RW6a "Since last time"); by default it is the ledger now.
     """
 
-    if not is_canonical_state_vault(vault) or not learning_object.blueprints:
+    if not learning_object.blueprints:
         return ()
     demo = demonstrated or _demonstrated_resolver(vault, repository)
     rows: list[RecipeGaps] = []
@@ -297,7 +289,7 @@ def lo_certification(
     planted integration gap keeps the LO undemonstrated, and a recipe that
     declares no contract-modality obligation at all certifies nothing.
 
-    Only meaningful on mvp-0.7 vaults with authored blueprints; returns
+    Only meaningful with authored blueprints; returns
     ``demonstrated=False`` otherwise (nothing to certify against).
 
     Delegates the per-recipe predicate to :func:`recipe_gaps` — one copy, so the

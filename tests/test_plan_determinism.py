@@ -176,8 +176,7 @@ def test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design(tmp_p
 
     def build(explore: bool) -> list:
         session = scheduler_module.SchedulerSession(session_id="s_x", available_minutes=25, seeded_exploration=explore)
-        return scheduler_module.build_due_queue(vault, repository, session=session, limit=None,
-                                                persist_explanations=False)
+        return scheduler_module.read_due_queue(vault, repository, session=session, limit=None)
 
     explored, greedy = build(True), build(False)
     assert explored[0].components.get("exploration_selected") == 1.0
@@ -198,11 +197,11 @@ def test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design(tmp_p
 
 def _greedy_queue(root: Path, session_id: str) -> list:
     vault = load_vault(root)
-    return scheduler_module.build_due_queue(
+    return scheduler_module.read_due_queue(
         vault, Repository(root / "state.sqlite"),
         session=scheduler_module.SchedulerSession(session_id=session_id, available_minutes=25,
                                                   seeded_exploration=False),
-        limit=None, persist_explanations=False,
+        limit=None,
     )
 
 
@@ -350,9 +349,10 @@ def test_the_per_session_draw_keeps_its_own_path(tmp_path, frozen):
     vault, repository = load_vault(root), Repository(root / "state.sqlite")
     firsts = set()
     for sid in SESSIONS:
+        # The surfaces named above serve, and only a serving build records the pair's serving.
         queue = scheduler_module.build_due_queue(
             vault, repository, session=scheduler_module.SchedulerSession(session_id=sid, available_minutes=25),
-            limit=None, persist_explanations=False,
+            limit=None,
         )
         firsts.add(next(item.practice_item_id for item in queue if item.practice_item_id in PAIR))
     assert firsts == set(PAIR)

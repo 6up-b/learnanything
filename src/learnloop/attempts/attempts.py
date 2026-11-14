@@ -106,7 +106,6 @@ from learnloop.learner.facet_state_reader import (
     canonical_facet_uncertainty_on,
     canonical_uncertainty_rows,
     facet_belief_corrections_on,
-    is_canonical_state_vault,
 )
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
@@ -1137,7 +1136,7 @@ def complete_self_graded_attempt(
         # A don't-know is deterministically attributed to recall_failure so it
         # writes an error event and feeds surprise / cross-LO propagation through
         # the standard pipeline (spec §"Attempt-type handling").
-        attribution_error_type = _dont_know_error_type(vault, draft.hints_used)
+        attribution_error_type = _dont_know_error_type(draft.hints_used)
     error_attributions = _self_grade_attributions(
         vault, fatal_errors, attribution_error_type, per_criterion_attributions
     )
@@ -3226,9 +3225,9 @@ def _refold_server_hints(vault: LoadedVault, repository: Repository, attempt: Ap
         return attempt if draft is attempt.draft else replace(attempt, draft=draft)
     grade = attempt.grade
     if (draft.attempt_type == "dont_know" or draft.declared_dont_know) and grade.error_attributions == (
-            _self_grade_attributions(vault, [], _dont_know_error_type(vault, attempt.draft.hints_used), [])):
+            _self_grade_attributions(vault, [], _dont_know_error_type(attempt.draft.hints_used), [])):
         grade = replace(grade, error_attributions=_self_grade_attributions(
-            vault, [], _dont_know_error_type(vault, draft.hints_used), []))
+            vault, [], _dont_know_error_type(draft.hints_used), []))
     logging.getLogger(__name__).info(
         "server hint fold changed before commit: item=%s submission=%s hints_used %s -> %s, primed %s -> %s",
         draft.practice_item_id, draft.submission_id, attempt.draft.hints_used, draft.hints_used,
@@ -3280,10 +3279,10 @@ def _apply_attempt_in_transaction(
         else attempt.grading_source
     )
     _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
-    # Canonical-state vaults own facet belief through the projection; the per-LO
-    # recall bridge is written only for legacy algorithm versions. The per-LO
-    # facet uncertainty (a diagnostic posterior, not belief) is written again
-    # from the facet-belief successor on (mvp-0.59, D-5), keyed by canonical facet id.
+    # The projection owns facet belief; the per-LO recall updates computed above
+    # are never persisted. The per-LO facet uncertainty (a diagnostic posterior,
+    # not belief) is written from the facet-belief successor on (mvp-0.59, D-5),
+    # keyed by canonical facet id.
     if canonical_facet_uncertainty_on(vault):
         application = replace(
             application,
@@ -3293,7 +3292,6 @@ def _apply_attempt_in_transaction(
         repository,
         application,
         replace_existing=attempt.replace_existing,
-        write_legacy_facet_state=not is_canonical_state_vault(vault),
         write_facet_uncertainty=canonical_facet_uncertainty_on(vault),
         keep_content_state=attempt_keeps_content_state(vault),
     )
@@ -3905,22 +3903,14 @@ def _persist_attempt_application(
     application: AttemptApplication,
     *,
     replace_existing: bool,
-    write_legacy_facet_state: bool = True,
     write_facet_uncertainty: bool = False,
     keep_content_state: bool = False,
 ) -> None:
-    # mvp-0.7 retires the legacy per-LO facet-state bridge: the derived updates
-    # are still computed (surprise/breadth/debug read them in memory) but never
-    # persisted — the canonical projection owns that state. The empty iterables
-    # also keep the repository hard-stop guard from ever tripping in normal flow.
-    # ``write_facet_uncertainty``: the facet-belief successor's per-LO uncertainty
-    # rows on a canonical vault (tagged with it, which the guard admits).
-    facet_recall_states = application.facet_recall_states if write_legacy_facet_state else ()
-    facet_uncertainty_states = (
-        application.facet_uncertainty_states
-        if write_legacy_facet_state or write_facet_uncertainty
-        else ()
-    )
+    # The per-LO facet recall updates are computed (surprise/breadth/debug read
+    # them in memory) but never persisted: the canonical projection owns facet
+    # belief. ``write_facet_uncertainty``: the facet-belief successor's per-LO
+    # uncertainty rows; below it the computed rows are dropped.
+    facet_uncertainty_states = application.facet_uncertainty_states if write_facet_uncertainty else ()
     if replace_existing:
         repository.replace_attempt_derived_outcome(
             attempt=application.attempt_record,
@@ -3928,7 +3918,6 @@ def _persist_attempt_application(
             surprise=application.surprise_record,
             practice_item_state=application.practice_item_state,
             mastery_state=application.mastery_state,
-            facet_recall_states=facet_recall_states,
             facet_uncertainty_states=facet_uncertainty_states,
             quality_state=application.quality_state,
             ability_transition=application.ability_transition,
@@ -3943,7 +3932,6 @@ def _persist_attempt_application(
             surprise=application.surprise_record,
             practice_item_state=application.practice_item_state,
             mastery_state=application.mastery_state,
-            facet_recall_states=facet_recall_states,
             facet_uncertainty_states=facet_uncertainty_states,
             quality_state=application.quality_state,
             ability_transition=application.ability_transition,
@@ -4259,18 +4247,11 @@ def load_attempt_prior_state(
         now_iso,
     )
     # KM2b: the belief priors this attempt reads come from the canonical shared
-    # state under mvp-0.7 (folded through aliases + merges) and from the legacy
-    # per-LO table under mvp-0.6 (byte-identical). One reader build per attempt.
-    if is_canonical_state_vault(vault):
-        reader = CanonicalFacetStateReader(vault, repository)
+    # state (folded through aliases + merges). One reader build per attempt.
+    reader = CanonicalFacetStateReader(vault, repository)
 
-        def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
-            return reader.state_for_facet(learning_object_id, facet, scope)
-
-    else:
-
-        def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
-            return repository.facet_recall_state(learning_object_id, facet, scope)
+    def _recall(facet: str, scope: str | None = None) -> FacetRecallState | None:
+        return reader.state_for_facet(learning_object_id, facet, scope)
 
     # held-grade-evidence: the recent attempts keep every exposure, and each
     # one the held predicate holds carries ``HELD_ROW_KEY``, so the readers of
@@ -5281,14 +5262,11 @@ def _attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> 
     return None
 
 
-def _dont_know_error_type(vault: LoadedVault, hints_used: int) -> str:
+def _dont_know_error_type(hints_used: int) -> str:
     legacy = SCAFFOLD_FAILURE_ERROR_TYPE if hints_used > 0 else DONT_KNOW_ERROR_TYPE
-    # KM4 §10.1: under mvp-0.7 the deterministic attribution speaks the canonical
-    # mechanism vocabulary (both recall_failure and scaffold_failure resolve to
-    # retrieval_failure). mvp-0.6 keeps the legacy names, so replay is unchanged.
-    if is_canonical_state_vault(vault):
-        return map_legacy_error_type(legacy)
-    return legacy
+    # KM4 §10.1: the deterministic attribution speaks the mechanism vocabulary
+    # (both recall_failure and scaffold_failure resolve to retrieval_failure).
+    return map_legacy_error_type(legacy)
 
 
 def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) -> dict[str, object] | None:

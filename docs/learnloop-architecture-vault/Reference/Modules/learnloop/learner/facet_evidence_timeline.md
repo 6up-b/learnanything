@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_evidence_timeline.py](../../../../../../src/learnloop/learner/facet_evidence_timeline.py) |
-| Source lines | 1265 |
+| Source lines | 1256 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, object]` (line 1102; public)
 - `class ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1113) — The §5.1 Ready-sentence ingredients, template-rendered from ledger state.
   - `as_dict(self) -> dict[str, object]` (line 1137; public)
-- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation | None` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1154) — §5.1 Ready-derivation ingredients for a canonical facet, or ``None``.
+- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1154) — §5.1 Ready-derivation ingredients for a canonical facet.
 
 ## Internal implementation anchors
 
@@ -115,7 +115,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `contract_unrecorded_attempts`; calls `contract_unrecorded_attempts`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `rubric_from_contract`; calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `allocate_success_mass`, `certification_credit`, `compile_criterion_targets`, `criterion_pseudo_mass`, `localize_criterion_outcomes`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`; calls `facet_belief_corrections_on`, `is_canonical_state_vault`, `resolve_canonical_facet`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_belief_corrections_on`, `resolve_canonical_facet`; calls `facet_belief_corrections_on`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `DEFAULT_REPEAT_SURFACE_DISCOUNT`, `FAILURE_THRESHOLD`, `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`; calls `attribution_weights`, `configured_repeat_discount`, `observed_unresolved_failure`, `p0_effective_evidence_mass`, `surface_group_id`, `transfer_tier_mass_scale`, `unassessed_evidence_row`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -183,7 +183,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_per_observation_itemization_sums_to_banked_credit`
   - `test_ready_derivation_matches_canonical_recall_slices`
-  - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
   - `test_from_scratch_fold_equals_incremental_fold_on_real_history`
   - `test_timeline_final_credit_equals_banked_ledger_credit`

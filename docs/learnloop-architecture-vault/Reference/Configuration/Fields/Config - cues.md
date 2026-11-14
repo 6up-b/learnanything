@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad23_contract_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figure_corpus.py"
   - "tests/figure_fixtures.py"
   - "tests/figure_offers_helpers.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/identity_pins_helpers.py"
-  - "tests/local_embeddings_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/cues"
@@ -72,6 +72,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad23_contract_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figure_corpus.py`
 - `tests/figure_fixtures.py`
 - `tests/figure_offers_helpers.py`
@@ -80,7 +81,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
-- `tests/local_embeddings_fakes.py`
 
 ## Extension and modification guidance
 

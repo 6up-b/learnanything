@@ -190,19 +190,70 @@ def build_due_queue(
     clock: Clock | None = None,
     session: SchedulerSession | None = None,
     limit: int | None = None,
-    persist_explanations: bool = True,
     offer_trace: OfferTrace | None = None,
     device_filter: DeviceFilter | None = None,
 ) -> list[ScheduledItem]:
-    """Today's routine queue: every item through one admission predicate, ranked, drawn from, composed.
+    """Today's routine queue, built to serve: the build's writes go with it.
+
+    Before ranking it reconciles supply, placement's fast track and the cold
+    lane's deferrals; with a session it then persists the offer
+    (:func:`_persist_offer`: a presentation the composition left no place for
+    ended, the contrast pair's drawn order, the slate, its explanations and
+    forecasts, and the slate's decision record). :func:`read_due_queue`
+    returns the same queue and writes none of these.
+    """
+
+    return _due_queue(
+        vault, repository, clock=clock, session=session, limit=limit, offer_trace=offer_trace,
+        device_filter=device_filter, serving=True,
+    )
+
+
+@pinned_repository_call
+def read_due_queue(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None = None,
+    session: SchedulerSession | None = None,
+    limit: int | None = None,
+    offer_trace: OfferTrace | None = None,
+    device_filter: DeviceFilter | None = None,
+) -> list[ScheduledItem]:
+    """The queue :func:`build_due_queue` would serve now, for a caller that
+    only looks at it (a chart, a shadow comparison, the simulator, the plan's
+    prefetch on a read-only attach). The build writes nothing of its own; the
+    follow-up tasks' lazy status marks (``Repository.due_followup_tasks``)
+    still apply on a writable attach."""
+
+    return _due_queue(
+        vault, repository, clock=clock, session=session, limit=limit, offer_trace=offer_trace,
+        device_filter=device_filter, serving=False,
+    )
+
+
+def _due_queue(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+    session: SchedulerSession | None,
+    limit: int | None,
+    offer_trace: OfferTrace | None,
+    device_filter: DeviceFilter | None,
+    serving: bool,
+) -> list[ScheduledItem]:
+    """Every item through one admission predicate, ranked, drawn from, composed.
 
     Each item is asked ``admission_reason`` once (a withheld item's reason is
     kept, never consulted); the admitted ones are scored and sorted by selection
     reward, the seeded exploration draws over that order, and the composition
     (teach-back cap, goal quota, requested floor, follow-ups, contrast pairs)
-    reorders it. ``persist_explanations`` marks a serving build: it alone
-    reconciles supply and, for a session, records the slate and the slate's
-    decision record; a read does none of these.
+    reorders it. Every write after the composition is in :func:`_persist_offer`
+    and the slate's decision record (``record_slate``, after the offer trace,
+    which reads the components the persist step stamps), and only a serving
+    build with a session reaches either. A serving build's writes before
+    ranking stay where they are: the reads after them must see them.
     """
 
     now = (clock or SystemClock()).now().astimezone(UTC)
@@ -210,7 +261,7 @@ def build_due_queue(
     config = vault.config
     # The slate's record goes with the slate row: a sessionless build (a plan read with no session, the TUI) writes
     # neither, so a read that changes nothing still commits nothing and the plan's memo stays warm.
-    records_slate = persist_explanations and session.session_id is not None
+    records_slate = serving and session.session_id is not None
     # Reason codes for the candidates the loop withholds, recorded when a caller
     # logs the offer and for the slate's record. Never consulted by the build.
     traced_exclusions = offer_trace.exclusions if offer_trace is not None else None
@@ -221,13 +272,12 @@ def build_due_queue(
         if traced_exclusions is not None:
             traced_exclusions.setdefault(reason, []).append(item_id)
 
-    if persist_explanations:
+    if serving:
         # Freshness supply reconciliation: a consumed (administered) single-use
         # diagnostic_probe surface leaves a diagnostic-coverage hole; derive the
         # deduplicated replacement-generation need here, on the path that always
         # runs right after an attempt. Idempotent and replay-safe (needs are a
-        # function of attempts + item state), and guarded by persist_explanations
-        # so explicitly side-effect-free queue builds stay pure.
+        # function of attempts + item state); a read build never writes them.
         from learnloop.diagnosis.diagnostic_surface_supply import (
             reconcile_diagnostic_surface_needs,
             reconcile_empty_probe_pools,
@@ -310,7 +360,7 @@ def build_due_queue(
         vault,
         repository,
         clock=clock,
-        persist=persist_explanations,
+        persist=serving,
         item_states=item_states,
         excluded_item_ids=reserved_item_ids | rung_variant_hold_ids | staged_owned_item_ids | held_out_item_ids,
     )
@@ -342,7 +392,7 @@ def build_due_queue(
     # task was created must be DEFERRED, not served. Burning the one single-use
     # measurement on contaminated evidence is the failure this prevents.
     pending_followups, cold_deferrals = _defer_revealed_cold_followups(
-        vault, repository, pending_followups, clock=clock, persist=persist_explanations
+        vault, repository, pending_followups, clock=clock, persist=serving
     )
     # KM2b: canonical shared facet state under mvp-0.7 (byte-identical legacy
     # per-LO reads under mvp-0.6). One reader build feeds the whole vault sweep.
@@ -623,11 +673,15 @@ def build_due_queue(
     )
     queue = _apply_seeded_exploration(queue, session, config, now)
 
+    # The contrast pairs' drawn order of the live composition, recorded by the persist step.
+    live_contrast_decisions: list[Any] = []
+
     def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
         # The deterministic composition after the exploration draw. One function
         # for the live build and for router R1's counterfactual outcomes, so an
         # offer's logged propensity is computed through exactly these steps;
-        # ``record`` is False only for those counterfactuals (no audit rows).
+        # ``record`` is False only for those counterfactuals, whose pair order is
+        # never the one served.
         composed = _enforce_teach_back_session_cap(
             composed, config.teach_back.session_cap, admitted=teach_back_admitted, keep=check_item_ids
         )
@@ -655,9 +709,10 @@ def build_due_queue(
             vault, composed, pending_followups, readiness_factor, item_states=item_states,
             generated_probes=generated_probe_ids(repository),
         )
-        return _apply_contrast_pair_order(
-            vault, repository, composed, session, clock=clock, record=record
-        )
+        composed, decisions = _apply_contrast_pair_order(vault, composed, session)
+        if record:
+            live_contrast_decisions[:] = decisions
+        return composed
 
     queue = compose(queue, record=True)
     active_session_presentation = (
@@ -665,12 +720,10 @@ def build_due_queue(
         if session.session_id is not None
         else None
     )
+    # The session's committed presentation this build ends ("invalidated"), by the persist step.
+    invalidated_presentation_id: str | None = None
     if active_session_presentation is not None and probe_block_reason is not None:
-        repository.end_probe_presentation(
-            active_session_presentation.id,
-            end_reason="invalidated",
-            clock=clock,
-        )
+        invalidated_presentation_id = active_session_presentation.id
         active_session_presentation = None
     if active_session_presentation is not None:
         # A selected presentation is a durable assignment, not a suggestion to
@@ -693,11 +746,7 @@ def build_due_queue(
             # desktop resumes it, so this build neither pins nor ends it.
             active_session_presentation = None
         else:
-            repository.end_probe_presentation(
-                active_session_presentation.id,
-                end_reason="invalidated",
-                clock=clock,
-            )
+            invalidated_presentation_id = active_session_presentation.id
             active_session_presentation = None
     considered_queue = list(queue)
     if limit is not None:
@@ -712,248 +761,21 @@ def build_due_queue(
         shadow_intent = shadow_intent_plan(vault, considered_queue)
     traced_slate_id: str | None = None
     traced_candidate_ids: dict[str, str] = {}
-    if persist_explanations and session.session_id is not None:
-        selected_ids = {item.practice_item_id for item in queue}
-        explanations = [
-            _explanation_payload(
-                item,
-                selected=item.practice_item_id in selected_ids,
-                # Later composition and learner choice change the action
-                # distribution. The pre-composition draw is not an OPE weight.
-                selection_propensity=None,
-            )
-            for item in considered_queue
-        ] + [
-            # "No silent caps": reserved diagnostic surfaces excluded by the
-            # freshness rules are logged as unselected candidates, so the slate
-            # says WHY a probe surface was withheld instead of omitting it.
-            _explanation_payload(excluded, selected=False, selection_propensity=None)
-            for excluded in probe_reserved_exclusions
-        ]
-        # Same contract for the cold lane: a single-use measurement held back
-        # because its answer was revealed is visible in the slate instead of
-        # looking like the task silently vanishing for a day. Merged onto the
-        # item's own row when it is already a candidate (the cold item is an
-        # ordinary practice card too, and the slate holds one row per item);
-        # appended as an unselected annotation when the deferral is the only
-        # reason the item was considered at all.
-        explanations = _merge_cold_deferral_explanations(
-            vault, explanations, cold_deferrals, readiness_factor
+    if serving and session.session_id is not None:
+        queue, traced_slate_id, traced_candidate_ids = _persist_offer(
+            vault, repository, clock=clock, session=session, limit=limit, queue=queue,
+            considered_queue=considered_queue, greedy_queue=greedy_queue,
+            probe_reserved_exclusions=probe_reserved_exclusions, cold_deferrals=cold_deferrals,
+            readiness_factor=readiness_factor, short_session=short_session, shadow_intent=shadow_intent,
+            open_episodes=open_episodes, active_session_presentation=active_session_presentation,
+            invalidated_presentation_id=invalidated_presentation_id, contrast_decisions=live_contrast_decisions,
+            probe_block_reason=probe_block_reason, episode_posterior_cache=episode_posterior_cache,
+            episode_eligible_cache=episode_eligible_cache, propensity_by_id=propensity_by_id,
+            voi_probe_decisions=voi_probe_decisions, teach_back_voi_decisions=teach_back_voi_decisions,
+            compose=compose, mastery_states=mastery_states, facet_states_by_lo=facet_states_by_lo,
+            quality_states=quality_states, probe_item_ids=probe_item_ids,
+            probe_entropy_before=probe_entropy_before,
         )
-        probe_presentation = None
-        probe_forecast_context: tuple[str, int] | None = None
-        if queue:
-            selected = queue[0]
-            episode = open_episodes.get(selected.learning_object_id)
-            if (
-                episode is not None
-                and episode.status == "in_progress"
-                and selected.components.get("probe_eig", 0.0) > 0.0
-                and active_session_presentation is None
-                and repository.active_probe_presentation(episode.id) is None
-                and probe_block_reason is None
-            ):
-                context = _load_episode_context(
-                    vault, repository, episode, episode_posterior_cache
-                )
-                if context is not None:
-                    eligible_by_id = _load_episode_eligible(
-                        vault,
-                        repository,
-                        episode,
-                        context,
-                        episode_eligible_cache,
-                    )
-                    eligible = eligible_by_id.get(selected.practice_item_id)
-                    if eligible is not None:
-                        extra_components = None
-                        if vault.config.probe.shadow.enabled:
-                            from learnloop.diagnosis.calibration_sessions import (
-                                routine_planner_shadow,
-                            )
-
-                            planner = routine_planner_shadow(vault, repository, episode.id)
-                            if planner is not None:
-                                extra_components = {"shadow_planner": planner}
-                        if selected.components.get("exploration_selected", 0.0) > 0.0:
-                            # Router R1 (mvp-0.15): the seeded exploration moved
-                            # this probe to the front; it is not the EIG pick
-                            # the presentation's other components describe.
-                            extra_components = {
-                                **(extra_components or {}),
-                                "scheduler_exploration": {
-                                    "mechanism": "scheduler_seeded_exploration",
-                                    "exploration_selected": True,
-                                    "exploration_rate": selected.components.get("exploration_rate"),
-                                    "exploration_propensity": propensity_by_id.get(
-                                        selected.practice_item_id, 0.0
-                                    ),
-                                    "greedy_item_id": greedy_queue[0].practice_item_id,
-                                },
-                            }
-                        voi_decision = voi_probe_decisions.get(episode.id)
-                        if voi_decision is not None:
-                            # mvp-0.21: the continue decision that admitted
-                            # this observation. It names value's own pick
-                            # (``recommended_ref``) and the item served, with
-                            # the SERVED item's complete forecast and how it
-                            # came to the front (router R1's seeded
-                            # exploration and its propensity, or the queue's
-                            # greedy order), so calibration scores the answer
-                            # against the forecast of the question asked.
-                            explored = selected.components.get("exploration_selected", 0.0) > 0.0
-                            served_by: dict[str, Any] = {
-                                "mechanism": (
-                                    "scheduler_seeded_exploration" if explored else "scheduler_greedy_order"
-                                ),
-                                # Review F11: the probability this item heads
-                                # the COMPOSED queue (every draw outcome
-                                # recomposed as the build composes), not the
-                                # pre-composition draw's, which is kept apart.
-                                "selection_propensity": _composed_head_probability(
-                                    selected.practice_item_id,
-                                    greedy_queue=greedy_queue,
-                                    considered=considered_queue,
-                                    session=session,
-                                    config=config,
-                                    compose=compose,
-                                    pinned_item_id=None,
-                                ),
-                                "selection_propensity_kind": "composed_outcomes",
-                                "base_draw_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
-                                "greedy_item_id": greedy_queue[0].practice_item_id,
-                            }
-                            if explored:
-                                served_by["exploration_rate"] = selected.components.get("exploration_rate")
-                            # The multi-family EVSI study's rank 1: where value
-                            # outranked the robust completion gate, the
-                            # committed receipt says what the gate would have
-                            # said (computed once per committed observation).
-                            gate_applies, gate_verdict = robust_gate_counterfactual(
-                                vault, repository, episode, context[1]
-                            )
-                            if gate_applies:
-                                voi_decision = voi.with_robust_gate_counterfactual(voi_decision, gate_verdict)
-                            extra_components = {
-                                **(extra_components or {}),
-                                "voi_stopping": voi_decision.as_dict(
-                                    served_ref=selected.practice_item_id, served_by=served_by
-                                ),
-                            }
-                        try:
-                            probe_presentation = presentation_commit_payload(
-                                vault,
-                                repository,
-                                episode,
-                                eligible,
-                                candidates=list(eligible_by_id.values()),
-                                extra_selection_components=extra_components,
-                                clock=clock,
-                            )
-                        except RoutineDisplayCovered:
-                            # UX Phase 4 round 7: its answer was just shown on
-                            # a routine display. No presentation is committed;
-                            # the slate still records and the item is served
-                            # as ordinary practice.
-                            probe_presentation = None
-                        else:
-                            probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
-        ability_by_lo: dict[str, dict[str, object]] = {}
-        # The decision_features receipt reads the error events through the
-        # diagnosis overlay (owner decision 2026-10-12/13, the Guide-fix
-        # audit's question 3): on a split vault its misconception posterior is
-        # the diagnoser's verdict, not the blind grader's taxonomy prior. A
-        # joint-graded event reads as stored, so a joint vault logs what it
-        # always logged. Logging only: nothing here is served.
-        feature_errors_by_lo = _errors_by_learning_object(repository.active_error_events_overlaid())
-        for explanation in explanations:
-            explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
-            explanation["propensity_kind"] = UNAVAILABLE_PROPENSITY_KIND
-            decision_item = vault.practice_items.get(explanation["practice_item_id"])
-            if decision_item is None:
-                continue
-            features = _selection_decision_features(
-                vault,
-                decision_item,
-                mastery_states=mastery_states,
-                facet_states_by_lo=facet_states_by_lo,
-                errors_by_lo=feature_errors_by_lo,
-                quality_states=quality_states,
-                ability_by_lo=ability_by_lo,
-            )
-            if features is not None:
-                explanation["decision_features"] = features
-        slate_id = repository.record_scheduler_slate(
-            explanations,
-            session_id=session.session_id,
-            algorithm_version=config.algorithms.algorithm_version,
-            requested_limit=limit,
-            session_context=_session_context(session, short_session=short_session, readiness_factor=readiness_factor, shadow_intent=shadow_intent),
-            config_snapshot=_scheduler_config_snapshot(config),
-            selection_policy=SELECTION_POLICY,
-            probe_presentation=probe_presentation,
-            clock=clock,
-        )
-        candidates = {row["practice_item_id"]: row["id"] for row in repository.scheduler_slate_candidates(slate_id)}
-        queue = [replace(scheduled, scheduler_slate_id=slate_id, scheduler_candidate_id=candidates[scheduled.practice_item_id]) for scheduled in queue]
-        if voi_probe_decisions or teach_back_voi_decisions:
-            # mvp-0.21 composed with EVSI calibration: the value decisions this
-            # offer acted on (teach-backs kept or dropped, probes withheld) are
-            # forecasts, one per decision per offer (router R1's grain), with
-            # R1's exploration marker on a teach-back the draw moved forward.
-            voi.record_offer_value_forecasts(
-                vault,
-                repository,
-                slate_id=slate_id,
-                candidate_ids=candidates,
-                probe_decisions=voi_probe_decisions,
-                teach_back_receipts=teach_back_voi_decisions,
-                exploration_by_item={
-                    scheduled.practice_item_id: {
-                        "mechanism": "scheduler_seeded_exploration",
-                        "exploration_selected": True,
-                        "exploration_rate": scheduled.components.get("exploration_rate"),
-                        "exploration_propensity": propensity_by_id.get(scheduled.practice_item_id, 0.0),
-                        "greedy_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
-                    }
-                    for scheduled in queue
-                    if scheduled.components.get("exploration_selected", 0.0) > 0.0
-                },
-                clock=clock,
-            )
-        committed = repository.active_probe_presentation_for_session(session.session_id)
-        if (
-            committed is not None
-            and probe_presentation is not None
-            and probe_forecast_context is not None
-            and committed.practice_item_id == probe_presentation["practice_item_id"]
-        ):
-            # EVSI calibration Part B: the selection's forecast, logged beside
-            # it (no serving change; idempotent per presentation).
-            record_presentation_forecast(
-                vault,
-                repository,
-                committed,
-                learning_object_id=probe_forecast_context[0],
-                candidate_count=probe_forecast_context[1],
-                clock=clock,
-            )
-        if committed is not None:
-            for scheduled in queue:
-                scheduled.components["probe_committed"] = (
-                    1.0 if scheduled.practice_item_id == committed.practice_item_id else 0.0
-                )
-        repository.insert_scheduler_explanations(
-            explanations,
-            session_id=session.session_id,
-            algorithm_version=config.algorithms.algorithm_version,
-            retention_limit=config.scheduler.candidate_log_retention_limit,
-            clock=clock,
-        )
-        _record_probe_elicitation(
-            repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
-        )
-        traced_slate_id, traced_candidate_ids = slate_id, candidates
     if offer_trace is not None:
         _fill_offer_trace(
             offer_trace,
@@ -1012,6 +834,328 @@ def build_due_queue(
             selection_policy=SELECTION_POLICY,
         )
     return queue
+
+
+def _persist_offer(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+    session: SchedulerSession,
+    limit: int | None,
+    queue: list[ScheduledItem],
+    considered_queue: list[ScheduledItem],
+    greedy_queue: list[ScheduledItem],
+    probe_reserved_exclusions: list[ScheduledItem],
+    cold_deferrals: list[dict[str, Any]],
+    readiness_factor: float | None,
+    short_session: bool,
+    shadow_intent: Any,
+    open_episodes: Mapping[str, Any],
+    active_session_presentation: Any,
+    invalidated_presentation_id: str | None,
+    contrast_decisions: list[Any],
+    probe_block_reason: str | None,
+    episode_posterior_cache: dict[str, Any],
+    episode_eligible_cache: dict[str, Any],
+    propensity_by_id: dict[str, float],
+    voi_probe_decisions: dict[str, Any],
+    teach_back_voi_decisions: list[dict[str, Any]],
+    compose: Any,
+    mastery_states: Mapping[str, MasteryState],
+    facet_states_by_lo: Mapping[str, Any],
+    quality_states: Mapping[str, PracticeItemQualityState],
+    probe_item_ids: dict[str, str],
+    probe_entropy_before: dict[str, float],
+) -> tuple[list[ScheduledItem], str, dict[str, str]]:
+    """Every write a serving build with a session makes after its composition.
+
+    In order: the session's presentation the composition left no place for is
+    ended, the contrast pairs' drawn order recorded, then the slate with its
+    explanations, decision features, the head probe's presentation and the
+    value forecasts. Returns the served queue stamped with its slate and
+    candidate ids, the slate id and the candidate ids by item. A read build
+    never reaches this, so it writes none of these rows.
+    """
+
+    config = vault.config
+    if invalidated_presentation_id is not None:
+        repository.end_probe_presentation(invalidated_presentation_id, end_reason="invalidated", clock=clock)
+    if contrast_decisions:
+        _record_contrast_pair_servings(repository, contrast_decisions, session, clock=clock)
+    selected_ids = {item.practice_item_id for item in queue}
+    explanations = [
+        _explanation_payload(
+            item,
+            selected=item.practice_item_id in selected_ids,
+            # Later composition and learner choice change the action
+            # distribution. The pre-composition draw is not an OPE weight.
+            selection_propensity=None,
+        )
+        for item in considered_queue
+    ] + [
+        # "No silent caps": reserved diagnostic surfaces excluded by the
+        # freshness rules are logged as unselected candidates, so the slate
+        # says WHY a probe surface was withheld instead of omitting it.
+        _explanation_payload(excluded, selected=False, selection_propensity=None)
+        for excluded in probe_reserved_exclusions
+    ]
+    # Same contract for the cold lane: a single-use measurement held back
+    # because its answer was revealed is visible in the slate instead of
+    # looking like the task silently vanishing for a day. Merged onto the
+    # item's own row when it is already a candidate (the cold item is an
+    # ordinary practice card too, and the slate holds one row per item);
+    # appended as an unselected annotation when the deferral is the only
+    # reason the item was considered at all.
+    explanations = _merge_cold_deferral_explanations(
+        vault, explanations, cold_deferrals, readiness_factor
+    )
+    probe_presentation, probe_forecast_context = _head_probe_presentation(
+        vault, repository, clock=clock, session=session, queue=queue, considered_queue=considered_queue,
+        greedy_queue=greedy_queue, open_episodes=open_episodes,
+        active_session_presentation=active_session_presentation, probe_block_reason=probe_block_reason,
+        episode_posterior_cache=episode_posterior_cache, episode_eligible_cache=episode_eligible_cache,
+        propensity_by_id=propensity_by_id, voi_probe_decisions=voi_probe_decisions, compose=compose,
+    )
+    ability_by_lo: dict[str, dict[str, object]] = {}
+    # The decision_features receipt reads the error events through the
+    # diagnosis overlay (owner decision 2026-10-12/13, the Guide-fix
+    # audit's question 3): on a split vault its misconception posterior is
+    # the diagnoser's verdict, not the blind grader's taxonomy prior. A
+    # joint-graded event reads as stored, so a joint vault logs what it
+    # always logged. Logging only: nothing here is served.
+    feature_errors_by_lo = _errors_by_learning_object(repository.active_error_events_overlaid())
+    for explanation in explanations:
+        explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
+        explanation["propensity_kind"] = UNAVAILABLE_PROPENSITY_KIND
+        decision_item = vault.practice_items.get(explanation["practice_item_id"])
+        if decision_item is None:
+            continue
+        features = _selection_decision_features(
+            vault,
+            decision_item,
+            mastery_states=mastery_states,
+            facet_states_by_lo=facet_states_by_lo,
+            errors_by_lo=feature_errors_by_lo,
+            quality_states=quality_states,
+            ability_by_lo=ability_by_lo,
+        )
+        if features is not None:
+            explanation["decision_features"] = features
+    slate_id = repository.record_scheduler_slate(
+        explanations,
+        session_id=session.session_id,
+        algorithm_version=config.algorithms.algorithm_version,
+        requested_limit=limit,
+        session_context=_session_context(session, short_session=short_session, readiness_factor=readiness_factor, shadow_intent=shadow_intent),
+        config_snapshot=_scheduler_config_snapshot(config),
+        selection_policy=SELECTION_POLICY,
+        probe_presentation=probe_presentation,
+        clock=clock,
+    )
+    candidates = {row["practice_item_id"]: row["id"] for row in repository.scheduler_slate_candidates(slate_id)}
+    queue = [replace(scheduled, scheduler_slate_id=slate_id, scheduler_candidate_id=candidates[scheduled.practice_item_id]) for scheduled in queue]
+    if voi_probe_decisions or teach_back_voi_decisions:
+        # mvp-0.21 composed with EVSI calibration: the value decisions this
+        # offer acted on (teach-backs kept or dropped, probes withheld) are
+        # forecasts, one per decision per offer (router R1's grain), with
+        # R1's exploration marker on a teach-back the draw moved forward.
+        voi.record_offer_value_forecasts(
+            vault,
+            repository,
+            slate_id=slate_id,
+            candidate_ids=candidates,
+            probe_decisions=voi_probe_decisions,
+            teach_back_receipts=teach_back_voi_decisions,
+            exploration_by_item={
+                scheduled.practice_item_id: {
+                    "mechanism": "scheduler_seeded_exploration",
+                    "exploration_selected": True,
+                    "exploration_rate": scheduled.components.get("exploration_rate"),
+                    "exploration_propensity": propensity_by_id.get(scheduled.practice_item_id, 0.0),
+                    "greedy_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
+                }
+                for scheduled in queue
+                if scheduled.components.get("exploration_selected", 0.0) > 0.0
+            },
+            clock=clock,
+        )
+    committed = repository.active_probe_presentation_for_session(session.session_id)
+    if (
+        committed is not None
+        and probe_presentation is not None
+        and probe_forecast_context is not None
+        and committed.practice_item_id == probe_presentation["practice_item_id"]
+    ):
+        # EVSI calibration Part B: the selection's forecast, logged beside
+        # it (no serving change; idempotent per presentation).
+        record_presentation_forecast(
+            vault,
+            repository,
+            committed,
+            learning_object_id=probe_forecast_context[0],
+            candidate_count=probe_forecast_context[1],
+            clock=clock,
+        )
+    if committed is not None:
+        for scheduled in queue:
+            scheduled.components["probe_committed"] = (
+                1.0 if scheduled.practice_item_id == committed.practice_item_id else 0.0
+            )
+    repository.insert_scheduler_explanations(
+        explanations,
+        session_id=session.session_id,
+        algorithm_version=config.algorithms.algorithm_version,
+        retention_limit=config.scheduler.candidate_log_retention_limit,
+        clock=clock,
+    )
+    _record_probe_elicitation(
+        repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
+    )
+    return queue, slate_id, candidates
+
+
+def _head_probe_presentation(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+    session: SchedulerSession,
+    queue: list[ScheduledItem],
+    considered_queue: list[ScheduledItem],
+    greedy_queue: list[ScheduledItem],
+    open_episodes: Mapping[str, Any],
+    active_session_presentation: Any,
+    probe_block_reason: str | None,
+    episode_posterior_cache: dict[str, Any],
+    episode_eligible_cache: dict[str, Any],
+    propensity_by_id: dict[str, float],
+    voi_probe_decisions: dict[str, Any],
+    compose: Any,
+) -> tuple[dict[str, Any] | None, tuple[str, int] | None]:
+    """The presentation the slate commits when the served head is an in-progress
+    episode's probe (and the forecast context to log beside it), or ``(None, None)``."""
+
+    config = vault.config
+    probe_presentation = None
+    probe_forecast_context: tuple[str, int] | None = None
+    if queue:
+        selected = queue[0]
+        episode = open_episodes.get(selected.learning_object_id)
+        if (
+            episode is not None
+            and episode.status == "in_progress"
+            and selected.components.get("probe_eig", 0.0) > 0.0
+            and active_session_presentation is None
+            and repository.active_probe_presentation(episode.id) is None
+            and probe_block_reason is None
+        ):
+            context = _load_episode_context(
+                vault, repository, episode, episode_posterior_cache
+            )
+            if context is not None:
+                eligible_by_id = _load_episode_eligible(
+                    vault,
+                    repository,
+                    episode,
+                    context,
+                    episode_eligible_cache,
+                )
+                eligible = eligible_by_id.get(selected.practice_item_id)
+                if eligible is not None:
+                    extra_components = None
+                    if vault.config.probe.shadow.enabled:
+                        from learnloop.diagnosis.calibration_sessions import (
+                            routine_planner_shadow,
+                        )
+
+                        planner = routine_planner_shadow(vault, repository, episode.id)
+                        if planner is not None:
+                            extra_components = {"shadow_planner": planner}
+                    if selected.components.get("exploration_selected", 0.0) > 0.0:
+                        # Router R1 (mvp-0.15): the seeded exploration moved
+                        # this probe to the front; it is not the EIG pick
+                        # the presentation's other components describe.
+                        extra_components = {
+                            **(extra_components or {}),
+                            "scheduler_exploration": {
+                                "mechanism": "scheduler_seeded_exploration",
+                                "exploration_selected": True,
+                                "exploration_rate": selected.components.get("exploration_rate"),
+                                "exploration_propensity": propensity_by_id.get(
+                                    selected.practice_item_id, 0.0
+                                ),
+                                "greedy_item_id": greedy_queue[0].practice_item_id,
+                            },
+                        }
+                    voi_decision = voi_probe_decisions.get(episode.id)
+                    if voi_decision is not None:
+                        # mvp-0.21: the continue decision that admitted
+                        # this observation. It names value's own pick
+                        # (``recommended_ref``) and the item served, with
+                        # the SERVED item's complete forecast and how it
+                        # came to the front (router R1's seeded
+                        # exploration and its propensity, or the queue's
+                        # greedy order), so calibration scores the answer
+                        # against the forecast of the question asked.
+                        explored = selected.components.get("exploration_selected", 0.0) > 0.0
+                        served_by: dict[str, Any] = {
+                            "mechanism": (
+                                "scheduler_seeded_exploration" if explored else "scheduler_greedy_order"
+                            ),
+                            # Review F11: the probability this item heads
+                            # the COMPOSED queue (every draw outcome
+                            # recomposed as the build composes), not the
+                            # pre-composition draw's, which is kept apart.
+                            "selection_propensity": _composed_head_probability(
+                                selected.practice_item_id,
+                                greedy_queue=greedy_queue,
+                                considered=considered_queue,
+                                session=session,
+                                config=config,
+                                compose=compose,
+                                pinned_item_id=None,
+                            ),
+                            "selection_propensity_kind": "composed_outcomes",
+                            "base_draw_propensity": propensity_by_id.get(selected.practice_item_id, 0.0),
+                            "greedy_item_id": greedy_queue[0].practice_item_id,
+                        }
+                        if explored:
+                            served_by["exploration_rate"] = selected.components.get("exploration_rate")
+                        # The multi-family EVSI study's rank 1: where value
+                        # outranked the robust completion gate, the
+                        # committed receipt says what the gate would have
+                        # said (computed once per committed observation).
+                        gate_applies, gate_verdict = robust_gate_counterfactual(
+                            vault, repository, episode, context[1]
+                        )
+                        if gate_applies:
+                            voi_decision = voi.with_robust_gate_counterfactual(voi_decision, gate_verdict)
+                        extra_components = {
+                            **(extra_components or {}),
+                            "voi_stopping": voi_decision.as_dict(
+                                served_ref=selected.practice_item_id, served_by=served_by
+                            ),
+                        }
+                    try:
+                        probe_presentation = presentation_commit_payload(
+                            vault,
+                            repository,
+                            episode,
+                            eligible,
+                            candidates=list(eligible_by_id.values()),
+                            extra_selection_components=extra_components,
+                            clock=clock,
+                        )
+                    except RoutineDisplayCovered:
+                        # UX Phase 4 round 7: its answer was just shown on
+                        # a routine display. No presentation is committed;
+                        # the slate still records and the item is served
+                        # as ordinary practice.
+                        probe_presentation = None
+                    else:
+                        probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
+    return probe_presentation, probe_forecast_context
 
 
 def probe_ties_admitted(config: LearnLoopConfig) -> bool:
@@ -1774,8 +1918,8 @@ def _defer_revealed_cold_followups(
       set): the task is withdrawn with its typed disposition and the item stays
       in the queue as ordinary practice, labelled (Codex review F2, F3).
 
-    The writes are persisted only on a build that is already allowed to write
-    (``persist_explanations``); a side-effect-free build still withholds the
+    The writes are persisted only on a serving build (:func:`build_due_queue`);
+    a read build (:func:`read_due_queue`) still withholds the
     task and recomputes the same decision next time. ``expires_at`` is never
     extended. Non-cold lanes are untouched. Below the tag, or with the switch
     off, the lane is mvp-0.26's (:func:`_predecessor_defer_revealed_cold_followups`).
@@ -1930,8 +2074,8 @@ def _predecessor_defer_revealed_cold_followups(
       through ``causal_orchestrator.sweep_expired_cold_retries``. "We could not
       get a clean measurement" is an honest ending; a measurement window that
       grows every time the answer is shown is not.
-    * The push is persisted only on a build that is already allowed to write
-      (``persist_explanations``); a deliberately side-effect-free build still
+    * The push is persisted only on a serving build (:func:`build_due_queue`);
+      a read build (:func:`read_due_queue`) still
       withholds the task, it just recomputes the same decision next time.
     * Non-cold follow-up lanes are untouched: an intervention follow-up is a
       re-practice, not a measurement, and being shown the answer is not a
@@ -2529,14 +2673,14 @@ _REQUESTED_PRIORITY_FLOOR = 0.05
 
 def _apply_contrast_pair_order(
     vault: LoadedVault,
-    repository: Repository,
     queue: list[ScheduledItem],
     session: SchedulerSession,
-    *,
-    clock: Clock | None = None,
-    record: bool = True,
-) -> list[ScheduledItem]:
+) -> tuple[list[ScheduledItem], list[Any]]:
     """Meas §3.A4: randomize which member of a contrast pair is served first.
+
+    Returns the reordered queue and the decisions a serving build records
+    (:func:`_record_contrast_pair_servings`, from :func:`_persist_offer`):
+    empty without a session.
 
     "*Revert if:* within-pair outcome differences are dominated by order effects —
     check by randomizing which member is served first." The randomization has to
@@ -2585,27 +2729,33 @@ def _apply_contrast_pair_order(
         SEED_PER_PAIR,
         apply_serving_decisions,
         plan_contrast_pair_serving,
-        record_contrast_pair_servings,
     )
 
     if not queue:
-        return queue
+        return queue, []
     if session.session_id is None and session.contrast_order_seed != SEED_PER_PAIR:
-        return queue
+        return queue, []
     ordered_ids = [item.practice_item_id for item in queue]
     decisions = plan_contrast_pair_serving(
         vault, ordered_ids, session_id=session.session_id, seed_scope=session.contrast_order_seed
     )
     if not decisions:
-        return queue
+        return queue, []
     reordered_ids = apply_serving_decisions(ordered_ids, decisions)
     by_id = {item.practice_item_id: item for item in queue}
-    if not record or session.session_id is None:
-        # A router R1 counterfactual composition, or a staged plan built with
-        # no session: the same order, no audit row (the pair's draw depends
-        # only on its seed, the session's and the pair's or the pair's alone,
-        # never on the order it is applied to).
-        return [by_id[item_id] for item_id in reordered_ids]
+    # A staged plan built with no session takes the pair's order but has no
+    # serving to record (the pair's draw depends only on its seed, never on the
+    # order it is applied to).
+    return [by_id[item_id] for item_id in reordered_ids], (list(decisions) if session.session_id is not None else [])
+
+
+def _record_contrast_pair_servings(
+    repository: Repository, decisions: list[Any], session: SchedulerSession, *, clock: Clock | None
+) -> None:
+    """The serving build's audit of the pairs' drawn order (Meas §3.A4)."""
+
+    from learnloop.diagnosis.contrast_pairs import record_contrast_pair_servings
+
     try:
         record_contrast_pair_servings(
             repository, decisions, session_id=session.session_id, clock=clock
@@ -2614,14 +2764,11 @@ def _apply_contrast_pair_order(
         # The order still changes; only the audit is lost. Failing the whole queue
         # build over a measurement record would trade the learner's session for a
         # metric, which is the wrong direction on standing constraint 10.
-        import logging
-
         logging.getLogger(__name__).warning(
             "failed to record contrast pair servings for session %s",
             session.session_id,
             exc_info=True,
         )
-    return [by_id[item_id] for item_id in reordered_ids]
 
 
 def _rotate_same_day_frontier_repeats(
@@ -2828,7 +2975,7 @@ def _record_probe_elicitation(
 
 
 def explain_practice_item(vault: LoadedVault, repository: Repository, practice_item_id: str) -> ScheduledItem | None:
-    queue = build_due_queue(vault, repository, persist_explanations=False)
+    queue = read_due_queue(vault, repository)
     for item in queue:
         if item.practice_item_id == practice_item_id:
             return item
@@ -2845,7 +2992,7 @@ def exclusion_now(vault: LoadedVault, repository: Repository, practice_item_id: 
     from learnloop.scheduling.slate_record import TEACH_BACK_SESSION_CAP, TEACH_BACK_VALUE, merged_exclusions
 
     trace = OfferTrace()
-    build_due_queue(vault, repository, persist_explanations=False, offer_trace=trace)
+    read_due_queue(vault, repository, offer_trace=trace)
     exclusions = merged_exclusions(
         trace.exclusions,
         greedy_ids=trace.greedy_item_ids,

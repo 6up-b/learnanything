@@ -135,6 +135,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/facet_identity_actions_helpers.py](../../../../../../tests/facet_identity_actions_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
@@ -381,7 +382,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
   - `test_high_unfamiliar_probe_posterior_records_intervention_need`
   - `test_intervention_need_targets_failed_facet_not_whole_item`

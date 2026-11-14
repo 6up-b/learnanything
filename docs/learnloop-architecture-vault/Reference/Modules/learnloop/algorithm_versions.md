@@ -183,7 +183,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `LESSON_SUGGESTIONS_VERSIONS`, `ROUTER_MIXTURE_VERSIONS`, `TEACHER_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `DATA_CAPTURE_VERSIONS`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CANONICAL_STATE_VERSIONS`, `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
@@ -239,7 +238,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 36 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 35 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -344,6 +343,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_te1b_and_the_latest`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_every_tag_defaults_the_switch_off`
+- [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
 - [tests/test_effective_defaults_golden.py](../../../../../tests/test_effective_defaults_golden.py) — direct import
   - `test_every_tag_has_the_latest_defaults_apart_from_its_label`
   - `test_the_golden_file_reads_back_as_the_effective_config`
@@ -420,8 +420,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
 - [tests/test_intent_fix_round7.py](../../../../../tests/test_intent_fix_round7.py) — direct import
 - [tests/test_intent_plan.py](../../../../../tests/test_intent_plan.py) — direct import
-- [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
-  - `test_every_canonical_version_refuses_legacy_facet_state_write`
 - [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_the_tag_is_one_constant_after_mvp035_and_the_latest`

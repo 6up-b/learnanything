@@ -264,6 +264,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_input_provenance_helpers.py](../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
@@ -301,6 +302,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
+- [tests/normalize_helpers.py](../../../../../../tests/normalize_helpers.py) — direct import
 - [tests/notes_linked_helpers.py](../../../../../../tests/notes_linked_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import
@@ -703,7 +705,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_records_the_current_projection_version`
 - [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — direct import
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
-  - `test_event_facet_ids_never_fall_back_to_attempt_facets`
   - `test_learner_confirmation_resolves_factor_to_provisional_belief`
   - `test_machine_review_scope_blocks_negative_observation_attribution`
   - `test_missing_step_divergence_must_reference_authored_checkpoint`
@@ -1915,6 +1916,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
 - [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
+  - `test_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_promotion_on_independent_surface`
   - `test_taxonomy_regrade_check_no_attribution_regressions`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
@@ -2624,7 +2626,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
   - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
@@ -2639,7 +2641,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
-  - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b3_replays_the_vaults_labelled_pairs`
@@ -3237,6 +3238,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
   - `test_reserved_book_is_unreadable_when_withheld_items_is`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
+- [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_a_lesson_opened_from_a_stopped_check_is_told_the_finding_in_topic_words`
+  - `test_each_kind_of_gap_is_named_in_the_topic_s_own_words`
+  - `test_the_lesson_rpc_passes_the_episode_only_for_a_learner_s_own_start`
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
   - `test_a_note_never_reaches_the_grader`
   - `test_the_brief_reads_the_deliverable_its_path_and_the_learners_notes`

@@ -8,8 +8,9 @@ import re
 from tests.router_mixture_helpers import rows
 
 
-#: What differs by construction between two runs: fresh ids, and the version label and its hashes.
-_VOLATILE = {"id", "snapshot_hash", "algorithm_version", "seed", "card_hash", "created_at"}
+#: What differs by construction between two runs: fresh ids, the version label and its hashes, and the wall-clock
+#: time a decision waited for its components (a measurement: 0 ms in one run can be 1 ms in its twin).
+_VOLATILE = {"id", "snapshot_hash", "algorithm_version", "seed", "card_hash", "created_at", "waited_ms"}
 
 
 def _canonical_rows(env):

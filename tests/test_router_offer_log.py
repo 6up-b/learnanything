@@ -33,7 +33,7 @@ from learnloop.scheduling.scheduler import (
     SchedulerSession,
     _apply_goal_quota,
     _fill_offer_trace,
-    build_due_queue,
+    read_due_queue,
 )
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -311,7 +311,7 @@ def test_every_counterfactual_outcome_reproduces_the_build_that_draw_would_make(
     clock = FrozenClock(NOW)
     session = SchedulerSession(session_id="s-exact")
     trace = OfferTrace()
-    live = build_due_queue(vault, repository, clock=clock, session=session, persist_explanations=False, offer_trace=trace)
+    live = read_due_queue(vault, repository, clock=clock, session=session, offer_trace=trace)
 
     assert len(trace.outcomes) > 2
     assert sum(outcome.probability for outcome in trace.outcomes) == pytest.approx(1.0)
@@ -326,7 +326,7 @@ def test_every_counterfactual_outcome_reproduces_the_build_that_draw_would_make(
             index = alternatives.index(outcome.explored_item_id)
             forced = (0.0, (index + 0.5) / len(alternatives))
         monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, _f=forced, **_k: _f)
-        rebuilt = build_due_queue(vault, repository, clock=clock, session=session, persist_explanations=False)
+        rebuilt = read_due_queue(vault, repository, clock=clock, session=session)
         assert [i.practice_item_id for i in rebuilt] == [i.practice_item_id for i in outcome.composed]
 
     # Composition after the draw is inside the propensity: exploring a

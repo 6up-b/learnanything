@@ -1402,6 +1402,9 @@ export interface StopProbeResultDto {
   version: number;
   stopped: boolean;
   decision: Record<string, unknown> | null;
+  /** The episode the stop converted (null when nothing was open), so the lesson opened next can name it. */
+  episodeId?: string | null;
+  learningObjectId?: string;
 }
 
 /** §5.7 block continuity: the item that would continue this LO's open episode,
@@ -10196,6 +10199,8 @@ export interface LessonTurnInput {
   /** IH7 (the owner's decision 2): a topic's lesson the learner asked for with "learn this" (its preference's id), so the
    *  brief may read the latest diagnosed miss on the topic. */
   preferenceId?: string;
+  /** A lesson opened from a diagnostic check names its episode, so the brief carries what the check found. */
+  probeEpisodeId?: string;
 }
 
 // ── Teacher TE1b: the router's lesson suggestion card in Today (spec_teacher_v1 §15.1, §19) ──
