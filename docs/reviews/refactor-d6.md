@@ -239,3 +239,33 @@ Part 1's landing gate passed the landing lane, durability and arc-close, but the
 - `test_router_r2b_serving.py::test_the_switches_at_the_successor_serve_their_predecessors_on_fixture_copies`: the mvp-0.22 arm carries `[router] enabled = false` and the mvp-0.23 arm `[router] mode = "staged"`, each the same switch as its successor-tag partner. Both equalities stand.
 
 Result: the owner lane passed 92 with 8 skipped (the same skips as the gate). The three edited files plus identity pins and test layout passed in the ordinary lane: 262 passed, 18 skipped (owner-lane tests skip there). The copies were made with the gate's `owner_copy_make.py` under `fixtures-local/owner-lane-d6` and deleted afterwards. This record holds counts only.
+
+# Part 2
+
+On branch `refactor/d6-part2-wip` in the worktree `learnanything-d6b`, on part 1's tip `dcad1593e4` (the WIP commit was rebuilt as working changes on it and committed package by package; its original is kept locally as `refactor/d6-part2-wip-orig`). Two decisions from the orchestrator: drop the `legacy` arm of identity pins C3-C5 (§11), and fix D-31 with the forced shadow tag (§12).
+
+## 11. The identity pins' legacy arm (a deliberate change, `ae305d5cf7`)
+
+The arm pinned C3 (router settings and the boundary seed), C4 (objective settings and the follow-up switch snapshot) and C5 (RO6's generator key) for a config whose file names no tag, which no door opens; it was all that kept `followups_tag`, `lesson_offers_tag`, `failure_share_tag` and `slip_gap_tag` (G44-G47) and three of their sets alive.
+
+**Shown before the change** (the playbook's rule for a deliberate change): a scratch script dumped C3, C3b, C4, C5 and C6 for the head (a new vault's config, `mvp-0.59`), the floor (the same config at `mvp-0.58`) and `legacy`, once with the four predicates present and once with them removed (and their callers simplified, §12): **the head's and the floor's values are byte-identical** (C3.router_settings, C3.boundary, C4.objective_settings, C4.switches, C5, C6 at both tags, and C3b's chooser identity); only the four `legacy` entries C3.boundary, C4.objective_settings, C4.switches and C5 move.
+
+**The golden's diff**, regenerated with `python tests/test_identity_pins.py --write` in the same commit as the arm's removal (`tests/identity_pins_helpers.OBJECTIVE_CONFIGS = ("init",)` for C3-C5; C6 and every other site keep both configs), is exactly five removed lines and nothing else:
+
+```
+-"C3.boundary.legacy" = "7ab958e5f56ba8c03c5f9cfc983a56589a049f9ea0c4745d707f78584af5af4d"
+-"C3.router_settings.legacy" = "8d74b91eff1514b6edb804c0e770d7bbca5497916e4c10a1c4aa5a74c220c6c8"
+-"C4.objective_settings.legacy" = "7d0031126b5f739971b79efc7318050908350ec823793345934b5ad5d1ebbb7f"
+-"C4.switches.legacy" = "76cf2839f6e21b203570a9c292a78bb0012eac181952a107a5e28e37276d9f92"
+-"C5.legacy" = "939fe197ac5cf177f77c5b5d66d1bdba8095ed3a4ac5f1d15fa514a2ef10041c"
+```
+
+The commit lands before the predicates go, so every commit passes the pins.
+
+## 12. D-31 (`75b9993787`)
+
+`version_floor.UnknownAlgorithmVersion`, a `BelowOldestSupported` with no upgrade route, is raised by `refuse_below_floor` for a named tag outside `SUCCESSOR_CHAIN` that is not below the floor (a newer checkout's `mvp-0.60`, `mvp-1.0`, another shape), and by `refuse_journal_below_floor` for a journal naming such a predecessor or target. Being a `BelowOldestSupported`, it is refused at every door that refuses the floor's refusal, with no change outside the module: `load_vault` (every CLI command, the desktop sidecar's `initialize` and reloads, the TUI, scripts, the MCP server's and phone host's per-request loads), `ops.doctor.run_doctor`, the MCP server's and phone host's attach (their `SchemaMismatch`, exit 78), `learnloop upgrade` (its result names the refusal), and `activation_journal.complete`. The one line outside the module: `shadow_rebuild.build_candidate_config` refuses a forced tag this code does not know (`is_unknown`).
+
+**The sidecar's code.** The desktop maps no vault-refusal code (`vault_below_oldest_supported` is read nowhere in `apps/learnloop-tauri/src`; the message is what it shows), so a distinct code would be a contract change with no consumer: the code stays and the message says "a tag this LearnLoop does not know ... a newer LearnLoop wrote this vault".
+
+**Fail-first:** `test_a_vault_at_a_tag_this_code_does_not_know_is_refused_at_each_door` (14 doors x 3 tags), `test_a_journal_naming_a_link_this_code_does_not_know_is_refused` and `test_a_shadow_rebuild_cannot_be_forced_to_a_tag_this_code_does_not_know` (3 tags): 46 cases, all failing on the previous module, all passing after. Two door helpers read the vault's tag instead of assuming `BELOW`. **Assertions changed:** `test_version_floor::test_a_journal_from_the_floor_is_still_completed_by_an_opener` names a chain link as its journal's target (its `mvp-0.999` is now refused before the completer, which would have left it standing anyway); `test_upgrades::test_a_jump_is_refused_and_nothing_changes` expects the door's refusal for its `mvp-0.9999` vault instead of the table's "cannot upgrade from", and reads the unchanged tag from the file (opening it is refused). Ledger D-31: fixed. ADR-019 gains the rule.
