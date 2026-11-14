@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/CalibrationScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/CalibrationScreen.tsx) |
-| Source lines | 454 |
+| Source lines | 463 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,25 +54,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function CalibrationScreen(` — function, line 42
+- `export function CalibrationScreen(` — function, line 43
 
 ## Internal implementation anchors
 
-- `const SESSION_TONE: Record<string, string> =` — const, line 24
-- `const EPISODE_TONE: Record<string, string> =` — const, line 31
-- `function minutes(value: number): string` — function, line 38
-- `const refresh = useCallback(()` — const, line 68
-- `const onFocus = ()` — const, line 82
-- `const nextTarget = progress?.status === "active" ? progress.nextTarget : null` — const, line 87
-- `const stop = useCallback(async ()` — const, line 89
-- `const quickCheck = progress?.quickCheck ?? null` — const, line 101
-- `const onKey = (event: KeyboardEvent)` — const, line 105
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 107
-- `const budgetFraction = progress.timeBudgetMinutes > 0 ? Math.min(progress.elapsedMinutes / progress.timeBudgetMinutes, 1) : 0` — const, line 182
-- `const VERDICT: Record<QuickCheckResultDto["verdict"],` — const, line 331
-- `function QuickCheckView(` — function, line 344
-- `const nextTarget = progress.status === "active" ? progress.nextTarget : null` — const, line 363
-- `const verdict = VERDICT[result.verdict]` — const, line 405
+- `const SESSION_TONE: Record<string, string> =` — const, line 25
+- `const EPISODE_TONE: Record<string, string> =` — const, line 32
+- `function minutes(value: number): string` — function, line 39
+- `const refresh = useCallback(()` — const, line 75
+- `const onFocus = ()` — const, line 89
+- `const nextTarget = progress?.status === "active" ? progress.nextTarget : null` — const, line 94
+- `const stop = useCallback(async ()` — const, line 96
+- `const quickCheck = progress?.quickCheck ?? null` — const, line 108
+- `const onKey = (event: KeyboardEvent)` — const, line 112
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 114
+- `const budgetFraction = progress.timeBudgetMinutes > 0 ? Math.min(progress.elapsedMinutes / progress.timeBudgetMinutes, 1) : 0` — const, line 191
+- `const VERDICT: Record<QuickCheckResultDto["verdict"],` — const, line 340
+- `function QuickCheckView(` — function, line 353
+- `const nextTarget = progress.status === "active" ? progress.nextTarget : null` — const, line 372
+- `const verdict = VERDICT[result.verdict]` — const, line 414
 
 ## Who imports or calls it
 
@@ -87,6 +87,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CalibrationSessionProgressDto`, `CommandError`, `GuidedRedoDto`, `QuickCheckProgressDto`, `QuickCheckResultDto`
+- [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `CheckHandoff`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export; imports `DialogueProbePanel`
 - [[Reference/Desktop/TypeScript/components/PlacementControls|src/components/PlacementControls.tsx]] — import-or-re-export; imports `ASSUMED_LABEL`
@@ -108,6 +109,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/CalibrationScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/CalibrationScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/checkHandoff.test.tsx](../../../../../../apps/learnloop-tauri/src/app/checkHandoff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_calibration_sessions.py](../../../../../../tests/test_calibration_sessions.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_exam_calibration.py](../../../../../../tests/test_exam_calibration.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

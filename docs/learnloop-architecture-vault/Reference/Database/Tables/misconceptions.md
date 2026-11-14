@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/teacher/brief.py`
 - `src/learnloop/teacher/episodes.py`
+- `src/learnloop/teacher/from_check.py`
 
 ### Direct SQL writers
 

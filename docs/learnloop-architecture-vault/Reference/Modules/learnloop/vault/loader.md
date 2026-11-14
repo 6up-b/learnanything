@@ -3237,6 +3237,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
   - `test_reserved_book_is_unreadable_when_withheld_items_is`
   - `test_the_matcher_reads_both_items_as_withheld_questions`
+- [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_a_lesson_opened_from_a_stopped_check_is_told_the_finding_in_topic_words`
+  - `test_each_kind_of_gap_is_named_in_the_topic_s_own_words`
+  - `test_the_lesson_rpc_passes_the_episode_only_for_a_learner_s_own_start`
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te1_curriculum_c4.py](../../../../../../tests/test_teacher_te1_curriculum_c4.py) — direct import
   - `test_a_note_never_reaches_the_grader`
   - `test_the_brief_reads_the_deliverable_its_path_and_the_learners_notes`

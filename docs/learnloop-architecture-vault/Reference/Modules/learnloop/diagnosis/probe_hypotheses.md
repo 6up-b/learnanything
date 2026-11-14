@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `triage_reason_for_label`; statically calls `triage_reason_for_label`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `CONFUSES_PREFIX`
+- [[Reference/Modules/learnloop/teacher/from_check|learnloop.teacher.from_check]] — imports `CONFUSES_PREFIX`, `H_OTHER`, `H_PROCEDURE_WITHOUT_SELECTION`, `H_RECALL_WITHOUT_MECHANISM`, `H_ROBUST`, `H_SCHEMA_WITHOUT_TRANSFER`, `H_SURFACE_ONLY`, `H_UNFAMILIAR`, `MISCONCEPTION_PREFIX`
 
 ## Dependencies
 
@@ -124,7 +125,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]], [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
