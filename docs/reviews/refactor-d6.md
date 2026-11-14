@@ -348,7 +348,7 @@ Other behaviour:
 
 **One imperfection.** AD's master switch also turns off the D21 dose arm, which below `mvp-0.30` acted on its own, so a vault put below `mvp-0.30` loses dose offers its predecessor had. No test reads that.
 
-**(b) How many tests depend on it.** I ran the whole landing lane with the hook disabled (behind the lock, 1,412 files in chunks of 100): **447 test cases failed and 1 errored, in 148 files**. The largest groups are data capture (about 80), the plan-determinism and router R2b/G-series journeys (about 60), TE1b (about 30) and RO1/the follow-up batch (about 25). With the hook, the same run passes. Two of these cases are explained differently:
+**(b) How many tests depend on it.** I ran the whole landing lane with the hook disabled (behind the lock, 1,412 files in chunks of 100): **447 test cases failed and 1 errored, in 148 files**. By file-name group: data capture 90, the plan-determinism and router R2b/G-series journeys 77, RO1 and the follow-up batch 41, TE1b 37. With the hook, the same run passes. Two of these cases are explained differently:
 - `test_data_capture_phone` passes either way once D-40 is fixed.
 - `test_mvp017_route_check_replay` calls `serve_as_at` directly.
 
