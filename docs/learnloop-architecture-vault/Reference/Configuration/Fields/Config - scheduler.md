@@ -33,11 +33,11 @@ source_paths:
   - "tests/test_goal_projection.py"
   - "tests/test_grading_cli.py"
   - "tests/test_irt_end_to_end.py"
+  - "tests/test_kill_switches.py"
   - "tests/test_misconception_routing.py"
   - "tests/test_plan_determinism.py"
   - "tests/test_predictive_eig.py"
   - "tests/test_recall_coverage_interventions.py"
-  - "tests/test_registry_audit.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/scheduler"
@@ -113,11 +113,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_goal_projection.py`
 - `tests/test_grading_cli.py`
 - `tests/test_irt_end_to_end.py`
+- `tests/test_kill_switches.py`
 - `tests/test_misconception_routing.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_predictive_eig.py`
 - `tests/test_recall_coverage_interventions.py`
-- `tests/test_registry_audit.py`
 
 ## Extension and modification guidance
 

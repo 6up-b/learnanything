@@ -453,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_decider_readiness_is_key_presence_without_network`
   - `test_the_llm_judge_runs_on_the_subscription_route_by_default`
+- [tests/test_kill_switches.py](../../../../../../tests/test_kill_switches.py) — direct import
+  - `test_every_switch_the_schema_or_a_tags_comment_names_is_in_the_table`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_one_switch_on_by_default_classified_and_gating`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import

@@ -7,6 +7,7 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/config/__init__.py"
   - "src/learnloop/config/compat.py"
+  - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/loader.py"
   - "src/learnloop/config/retired.py"
   - "src/learnloop/config/schema.py"
@@ -49,9 +50,10 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 70 | 81 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
+| [[Reference/Modules/learnloop/config/kill_switches|learnloop.config.kill_switches]] | [[Reference/Modules/learnloop/config/kill_switches#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 111 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 112 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies

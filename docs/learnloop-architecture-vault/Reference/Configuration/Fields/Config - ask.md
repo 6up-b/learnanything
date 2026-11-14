@@ -22,6 +22,7 @@ source_paths:
   - "tests/test_batch3_landing.py"
   - "tests/test_cold_retry_reschedule.py"
   - "tests/test_curriculum_c0b_landing.py"
+  - "tests/test_kill_switches.py"
   - "tests/test_reader_ca2_codex_review.py"
   - "tests/test_reader_ca2_one_ask.py"
   - "tests/test_reader_rw1c_review.py"
@@ -63,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_batch3_landing.py`
 - `tests/test_cold_retry_reschedule.py`
 - `tests/test_curriculum_c0b_landing.py`
+- `tests/test_kill_switches.py`
 - `tests/test_reader_ca2_codex_review.py`
 - `tests/test_reader_ca2_one_ask.py`
 - `tests/test_reader_rw1c_review.py`

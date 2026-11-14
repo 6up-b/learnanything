@@ -406,6 +406,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
 - [tests/test_intent_fix_round7.py](../../../../../tests/test_intent_fix_round7.py) — direct import
 - [tests/test_intent_plan.py](../../../../../tests/test_intent_plan.py) — direct import
+- [tests/test_kill_switches.py](../../../../../tests/test_kill_switches.py) — direct import
+  - `test_each_path_is_in_the_table_once_and_each_tag_is_a_real_one`
 - [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_the_tag_is_one_constant_after_mvp035_and_the_latest`

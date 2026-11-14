@@ -17,12 +17,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/242_hypothesis_marks.sql"
   - "src/learnloop/ai/disclosures.py"
+  - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/followup_run/marks.py"
-  - "src/learnloop/followup_serve/gates.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
