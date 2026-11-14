@@ -26,9 +26,7 @@ import sqlite3
 import threading
 from types import SimpleNamespace
 
-import pytest
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run.serving import PHONE_HANDOFF_LINE, is_holding
 from learnloop.followup_serve import identity, workflow as wf
@@ -199,14 +197,12 @@ def test_the_contract_on_the_phone_forbids_help_and_the_server_refuses_a_hint_du
                                   (item_id,)).fetchone()[0] == 0
 
 
-# -- switch off, and below the tag: V2's phone ----------------------------------------------------------------------
+# -- switch off: V2's phone (the host's switch is the only way back to it; the vault's tag no longer is) ----------
 
 
-@pytest.mark.parametrize("case", ["switch_off", "below_the_tag"])
-def test_without_phone_probes_the_phone_is_v2s(tmp_path, monkeypatch, case):
-    origin = V2_PHONE if case == "switch_off" else PHONE
-    version = TAG if case == "switch_off" else LESSON_OFFERS_ALGORITHM_VERSION
-    world = _world(tmp_path, monkeypatch, version=version, owner=origin)
+def test_without_phone_probes_the_phone_is_v2s(tmp_path, monkeypatch):
+    origin = V2_PHONE
+    world = _world(tmp_path, monkeypatch, version=TAG, owner=origin)
     attempt_id, row, repository = _ready(world, origin)
     item_id = row["practice_item_id"]
     events_before = repository.connection().execute("SELECT COUNT(*) FROM followup_workflow_events").fetchone()[0]

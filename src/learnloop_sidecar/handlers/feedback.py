@@ -217,7 +217,7 @@ def _with_followup(ctx: SidecarContext, vault: Any, repository: Any, attempt_id:
         return bundle
     # Mobile v2 V3 (D3): the hand-off line only while the phone serves no probe (phone_probes off, or below its tag).
     current = view(vault, repository, attempt_id,
-                   phone=ctx.request_origin is not None and not phone_probes_on(ctx.request_origin, vault.config))
+                   phone=ctx.request_origin is not None and not phone_probes_on(ctx.request_origin))
     if current is None:
         # §3 step 8: this answered a generated probe, so what the earlier miss held appears now.
         source = source_of_probe_attempt(repository, attempt_id)

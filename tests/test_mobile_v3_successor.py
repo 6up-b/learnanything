@@ -19,11 +19,9 @@ from learnloop.algorithm_versions import (
     PHONE_PROBES_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.vault.loader import load_vault
 from learnloop_mobile.config import MobileConfig
 from learnloop_sidecar.request_origin import RequestOrigin, phone_probes_on
 
-from tests.helpers import create_basic_vault, set_algorithm_version
 
 TAG = PHONE_PROBES_ALGORITHM_VERSION
 OLD = LESSON_OFFERS_ALGORITHM_VERSION
@@ -43,13 +41,8 @@ def test_the_switch_is_the_hosts_and_defaults_on():
     assert RequestOrigin(device_id="dev").phone_probes is False
 
 
-def test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+def test_the_gate_is_the_switch_and_never_the_desktop():
     on, off = RequestOrigin(device_id="dev", phone_probes=True), RequestOrigin(device_id="dev")
-    set_algorithm_version(paths, OLD)
-    assert not phone_probes_on(on, load_vault(paths.root).config)
-    set_algorithm_version(paths, TAG)
-    config = load_vault(paths.root).config
-    assert phone_probes_on(on, config)
-    assert not phone_probes_on(off, config)
-    assert not phone_probes_on(None, config)
+    assert phone_probes_on(on)
+    assert not phone_probes_on(off)
+    assert not phone_probes_on(None)

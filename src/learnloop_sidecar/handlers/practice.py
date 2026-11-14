@@ -350,7 +350,7 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
     if item is None:
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
-    phone_probes = phone_probes_on(ctx.request_origin, vault.config)
+    phone_probes = phone_probes_on(ctx.request_origin)
     refuse_generated_probe_door(ctx.request_origin, repository, item, serve=params.session_id is not None,
                                 phone_probes=phone_probes,
                                 owned=phone_claim_owner(ctx, repository, params.session_id, phone_probes=phone_probes))
@@ -517,7 +517,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # Mobile PR-6: committing a presentation is a serve, so an item the phone
     # cannot show never commits one from there.
     refuse_device_ineligible_item(ctx.request_origin, vault, item)
-    phone_probes = phone_probes_on(ctx.request_origin, vault.config)
+    phone_probes = phone_probes_on(ctx.request_origin)
     owned = phone_claim_owner(ctx, repository, params.session_id, phone_probes=phone_probes)
     refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes,
                                 owned=owned)
@@ -1367,7 +1367,7 @@ def _refuse_phone_probe_answer(ctx: SidecarContext, probe_presentation_id: str |
     if probe_presentation_id is None or ctx.request_origin is None:
         return
     vault, _repository = ctx.require_vault()
-    if not phone_probes_on(ctx.request_origin, vault.config):
+    if not phone_probes_on(ctx.request_origin):
         raise SidecarError("validation_error", "probe_presentation_id is not available from the phone",
                            details={"field": "probe_presentation_id"})
 

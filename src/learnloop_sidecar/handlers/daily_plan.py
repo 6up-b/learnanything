@@ -216,7 +216,7 @@ def _step_filter(ctx: SidecarContext, vault: Any, repository: Any, session_id: s
     from learnloop_sidecar.request_origin import phone_probes_on, plan_surface
     from learnloop_sidecar.serving import device_filter, device_policy
 
-    if phone_probes_on(ctx.request_origin, vault.config):
+    if phone_probes_on(ctx.request_origin):
         def generated_probe(practice_item_id: str) -> bool:
             return identity.served_elsewhere(repository, practice_item_id, PHONE_SURFACE)
     else:
