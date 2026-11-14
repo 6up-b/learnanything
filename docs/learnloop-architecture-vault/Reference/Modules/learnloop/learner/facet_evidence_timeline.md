@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/facet_evidence_timeline.py](../../../../../../src/learnloop/learner/facet_evidence_timeline.py) |
-| Source lines | 1256 |
+| Source lines | 1253 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,8 +71,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class ReadyCapabilitySlice` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1093) — One capability slice pooled into the facet's shared recall belief.
   - `as_dict(self) -> dict[str, object]` (line 1102; public)
 - `class ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1113) — The §5.1 Ready-sentence ingredients, template-rendered from ledger state.
-  - `as_dict(self) -> dict[str, object]` (line 1137; public)
-- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1154) — §5.1 Ready-derivation ingredients for a canonical facet.
+  - `as_dict(self) -> dict[str, object]` (line 1136; public)
+- `facet_ready_derivation(vault: LoadedVault, repository: Repository, facet_id: str, series: list[TimelinePoint], *, clock: Clock | None=None) -> ReadyDerivation` ([source](../../../../../../src/learnloop/learner/facet_evidence_timeline.py), line 1152) — §5.1 Ready-derivation ingredients for a canonical facet.
 
 ## Internal implementation anchors
 

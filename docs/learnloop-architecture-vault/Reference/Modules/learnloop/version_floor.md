@@ -47,34 +47,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py) |
-| Source lines | 201 |
+| Source lines | 254 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_below_floor(tag: str | None) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 68) — Whether a vault at ``tag`` is below the floor.
-- `upgrade_commands(vault_root: Path, tag: str | None) -> tuple[str, ...]` ([source](../../../../../src/learnloop/version_floor.py), line 81) — The commands that bring a vault at ``tag`` to the floor, in order, run in a LearnLoop checkout.
-- `class BelowOldestSupported(RuntimeError)` ([source](../../../../../src/learnloop/version_floor.py), line 111) — A vault (or an unfinished upgrade's journal) below the oldest supported tag: it is not opened.
-  - `__init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None=None, guard_required: bool=False) -> None` (line 114; internal)
-  - `_message(self) -> str` (line 127; internal)
-- `may_open_below_floor(vault_root: Path) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 151) — Whether this vault opens below the floor here: only a test that built it on purpose (or its copies).
-- `refuse_below_floor(vault_root: Path, config) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 157) — Raise :class:`BelowOldestSupported` if the vault's config (a ``LearnLoopConfig`` loaded from its ``learnloop.toml``) is below the floor, or names no tag, unless this vault may be opened anyway.
-- `refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 170) — Raise :class:`BelowOldestSupported` for a journalled upgrade from below the floor, unless allowed.
-- `allow_below_floor_in_tests(vault_root: Path) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 177) — Let a test's vault below the floor, and for the rest of that test any vault, open (``tests/helpers.py``'s ``allow_below_floor`` only).
-- `end_test_allowance() -> None` ([source](../../../../../src/learnloop/version_floor.py), line 185) — Close the running test's allowance (``tests/conftest.py``, after each test).
+- `is_below_floor(tag: str | None) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 78) — Whether a vault at ``tag`` is below the floor.
+- `is_unknown(tag: str | None) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 91) — Whether ``tag`` is one this code does not know: named, not below the floor, and not in the chain.
+- `refused_tag(tag: str | None) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 97) — Whether a vault at ``tag`` is refused: below the floor (or no tag), or a tag this code does not know.
+- `upgrade_commands(vault_root: Path, tag: str | None) -> tuple[str, ...]` ([source](../../../../../src/learnloop/version_floor.py), line 103) — The commands that bring a vault at ``tag`` to the floor, in order, run in a LearnLoop checkout.
+- `class BelowOldestSupported(RuntimeError)` ([source](../../../../../src/learnloop/version_floor.py), line 133) — A vault (or an unfinished upgrade's journal) below the oldest supported tag: it is not opened.
+  - `__init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None=None, guard_required: bool=False) -> None` (line 136; internal)
+  - `_message(self) -> str` (line 149; internal)
+- `class UnknownAlgorithmVersion(BelowOldestSupported)` ([source](../../../../../src/learnloop/version_floor.py), line 173) — A vault (or an unfinished upgrade's journal) at a tag this code does not know: it is not opened.
+  - `__init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None=None) -> None` (line 177; internal)
+  - `_message(self) -> str` (line 186; internal)
+- `may_open_below_floor(vault_root: Path) -> bool` ([source](../../../../../src/learnloop/version_floor.py), line 197) — Whether this vault opens below the floor here: only a test that built it on purpose (or its copies).
+- `refuse_below_floor(vault_root: Path, config) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 203) — Raise :class:`BelowOldestSupported` if the vault's config (a ``LearnLoopConfig`` loaded from its ``learnloop.toml``) is below the floor, or names no tag, unless this vault may be opened anyway.
+- `refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 218) — Raise :class:`BelowOldestSupported` for a journalled upgrade from below the floor, unless allowed.
+- `allow_below_floor_in_tests(vault_root: Path) -> None` ([source](../../../../../src/learnloop/version_floor.py), line 227) — Let a test's vault below the floor, and for the rest of that test any vault, open (``tests/helpers.py``'s ``allow_below_floor`` only).
+- `end_test_allowance() -> None` ([source](../../../../../src/learnloop/version_floor.py), line 235) — Close the running test's allowance (``tests/conftest.py``, after each test).
 
 ### Module constants
 
-- `_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 42)
-- `PRE_FLOOR_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 45)
-- `_PRE_FLOOR_WORKTREE` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 47)
-- `_PRE_CHAIN_STEPS` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 51)
-- `_TEST_ROOTS` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 56)
-- `_TEST_OPEN` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 60)
-- `_GUARDED_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 102)
-- `_GUARD_ROUTE` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 103)
+- `_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 52)
+- `PRE_FLOOR_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 55)
+- `_PRE_FLOOR_WORKTREE` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 57)
+- `_PRE_CHAIN_STEPS` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 61)
+- `_TEST_ROOTS` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 66)
+- `_TEST_OPEN` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 70)
+- `_GUARDED_TAG` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 124)
+- `_GUARD_ROUTE` ([src/learnloop/version_floor.py](../../../../../src/learnloop/version_floor.py), line 125)
 
 ### Explicit exports
 
@@ -82,17 +87,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `PRE_FLOOR_TAG`
 - `BelowOldestSupported`
+- `UnknownAlgorithmVersion`
 - `allow_below_floor_in_tests`
 - `end_test_allowance`
 - `is_below_floor`
+- `is_unknown`
 - `may_open_below_floor`
 - `refuse_below_floor`
 - `refuse_journal_below_floor`
+- `refused_tag`
 - `upgrade_commands`
 
 ## Internal implementation anchors
 
-- `_number(tag: str) -> int | None` ([source](../../../../../src/learnloop/version_floor.py), line 63)
+- `_number(tag: str) -> int | None` ([source](../../../../../src/learnloop/version_floor.py), line 73)
 
 ## Who imports or calls it
 
@@ -103,7 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `refuse_below_floor`; statically calls `refuse_below_floor`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `BelowOldestSupported`, `refuse_journal_below_floor`; statically calls `refuse_journal_below_floor`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `BelowOldestSupported`
-- [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `is_below_floor`, `may_open_below_floor`; statically calls `is_below_floor`, `may_open_below_floor`
+- [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `is_below_floor`, `is_unknown`, `may_open_below_floor`; statically calls `is_below_floor`, `is_unknown`, `may_open_below_floor`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `refuse_below_floor`; statically calls `refuse_below_floor`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `BelowOldestSupported`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `BelowOldestSupported`
@@ -112,7 +120,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LATEST_ALGORITHM_VERSION`, `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 
 ### Platform and third-party dependencies
 
@@ -136,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
 - [tests/helpers.py](../../../../../tests/helpers.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../tests/serve_eligibility_helpers.py) — direct import
+- [tests/successor_switches.py](../../../../../tests/successor_switches.py) — direct import
 - [tests/test_sidecar_stops_serving.py](../../../../../tests/test_sidecar_stops_serving.py) — direct import
   - `test_a_reload_refused_below_the_floor_stops_serving_until_a_load_succeeds`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
@@ -143,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_target_the_table_has_no_row_for_is_refused_before_any_step`
 - [tests/test_version_floor.py](../../../../../tests/test_version_floor.py) — direct import
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
+  - `test_a_journal_naming_a_link_this_code_does_not_know_is_refused`
   - `test_a_vault_whose_config_names_no_tag_is_refused`
   - `test_the_commands_run_the_pre_floor_code_through_its_steps`
   - `test_the_floor_is_a_tag_of_the_chain_and_the_chain_counts_up`

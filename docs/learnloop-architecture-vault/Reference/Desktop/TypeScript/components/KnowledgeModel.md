@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/KnowledgeModel.tsx](../../../../../../apps/learnloop-tauri/src/components/KnowledgeModel.tsx) |
-| Source lines | 1000 |
+| Source lines | 999 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function RecipeTree(` — function, line 257
 - `export function CapabilityGridView(` — function, line 375
 - `export function FacetEvidenceReceipt(` — function, line 767
-- `export function FacetEvidenceDrawer(` — function, line 903
+- `export function FacetEvidenceDrawer(` — function, line 902
 
 ## Internal implementation anchors
 
@@ -131,16 +131,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const latestCaps = timeline?.points.length ? timeline.points[timeline.points.length - 1].demonstratedCapabilities : []` — const, line 787
 - `const latestPoint = timeline?.points.length ? timeline.points[timeline.points.length - 1] : null` — const, line 790
 - `const latestTone = latestPoint && latestPoint.delta < 0 ? COLOR.red : latestPoint && latestPoint.delta > 0 ? COLOR.green : COLOR.textFaint` — const, line 791
-- `const receiptHeroStyle =` — const, line 931
-- `const receiptStatusLineStyle =` — const, line 937
-- `const receiptContextStyle =` — const, line 946
-- `const receiptSeparatorStyle =` — const, line 953
-- `const receiptTitleStyle =` — const, line 958
-- `const receiptBodyStyle =` — const, line 967
-- `const receiptSectionLabelStyle =` — const, line 971
-- `const observationEyebrowStyle =` — const, line 979
-- `const receiptEntityLinkStyle =` — const, line 986
-- `const receiptEntityLinkLabelStyle =` — const, line 996
+- `const receiptHeroStyle =` — const, line 930
+- `const receiptStatusLineStyle =` — const, line 936
+- `const receiptContextStyle =` — const, line 945
+- `const receiptSeparatorStyle =` — const, line 952
+- `const receiptTitleStyle =` — const, line 957
+- `const receiptBodyStyle =` — const, line 966
+- `const receiptSectionLabelStyle =` — const, line 970
+- `const observationEyebrowStyle =` — const, line 978
+- `const receiptEntityLinkStyle =` — const, line 985
+- `const receiptEntityLinkLabelStyle =` — const, line 995
 
 ## Who imports or calls it
 

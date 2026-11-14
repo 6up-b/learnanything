@@ -47,20 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/data_capture/gates.py](../../../../../../src/learnloop/data_capture/gates.py) |
-| Source lines | 39 |
+| Source lines | 34 |
 | Owning package | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 18)
-- `serving_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 23)
-- `objective_receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 32) — RO0's additive receipts and columns (``[router_objective] receipts``): at every algorithm version.
+- `receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 17)
+- `serving_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 22)
+- `objective_receipts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/data_capture/gates.py), line 27) — RO0's additive receipts and columns (``[router_objective] receipts``): at every algorithm version.
 
 ### Module constants
 
-- `OUTCOME_VERSION_V3` ([src/learnloop/data_capture/gates.py](../../../../../../src/learnloop/data_capture/gates.py), line 15)
+- `OUTCOME_VERSION_V3` ([src/learnloop/data_capture/gates.py](../../../../../../src/learnloop/data_capture/gates.py), line 14)
 
 ### Explicit exports
 
@@ -104,7 +104,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `DATA_CAPTURE_VERSIONS`
+No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
@@ -127,7 +127,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a1_prefilter.py](../../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
   - `test_the_voi_flag_follows_the_successors_switch`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_switches_are_on_by_default_and_the_gate_reads_the_tag`
+  - `test_the_switches_are_on_by_default_and_the_gate_is_the_switch`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
   - `test_the_switch_is_on_by_default_and_classified`
 

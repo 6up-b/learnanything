@@ -47,33 +47,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py) |
-| Source lines | 151 |
+| Source lines | 143 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `successor_active(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 44) — At the successor's tag or later, with the master switch on.
-- `switch_on(config: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 51) — One of the six switches, read only at the tag (below it: off).
-- `selection_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 59)
-- `generation_contract_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 63)
-- `subject_view_live(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 67) — Live decisions read the subject view (``promoted_predictor``).
-- `coupling_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 73)
-- `reading_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 77)
-- `verdicts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 81)
-- `lesson_opportunities_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 88) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read by the objective's lesson interface.
-- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 101) — The Reader's dose arm (outside the successor; every version).
-- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 110) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
-- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 123)
+- `successor_active(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 42) — The master switch on.
+- `switch_on(config: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 48) — One of the six switches, under the master switch.
+- `selection_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 56)
+- `generation_contract_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 60)
+- `subject_view_live(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 64) — Live decisions read the subject view (``promoted_predictor``).
+- `coupling_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 70)
+- `reading_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 74)
+- `verdicts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 78)
+- `lesson_opportunities_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 85) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read by the objective's lesson interface.
+- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 93) — The Reader's dose arm (outside the successor; every version).
+- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 102) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
+- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 115)
 
 ### Module constants
 
-- `SUCCESSOR` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 34)
-- `SWITCHES` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 35)
-- `DOSE_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 37)
-- `LESSON_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 85)
-- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 107)
+- `SUCCESSOR` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 32)
+- `SWITCHES` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 33)
+- `DOSE_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 35)
+- `LESSON_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 82)
+- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 99)
 
 ### Explicit exports
 
@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_section(config: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 40)
+- `_section(config: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 38)
 
 ## Who imports or calls it
 
@@ -127,7 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `ad_enabled`; calls `ad_enabled`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`, `ADAPTIVE_DIFFICULTY_VERSIONS`, `LESSON_OPPORTUNITY_VERSIONS`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`
 
 ### Platform and third-party dependencies
 
@@ -150,7 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad23_owner_decisions.py](../../../../../../tests/test_ad23_owner_decisions.py) — direct import
   - `test_the_owner_defaults_of_2026_10_19`
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
-  - `test_below_the_tag_every_switch_reads_off_whatever_the_config_says`
+  - `test_every_switch_reads_on_and_the_master_turns_them_and_the_dose_arm_off`
   - `test_new_vaults_start_at_the_successor_with_every_switch_on`
   - `test_the_switches_compose`
 - [tests/test_ad_guard_offer_receipts.py](../../../../../../tests/test_ad_guard_offer_receipts.py) — direct import

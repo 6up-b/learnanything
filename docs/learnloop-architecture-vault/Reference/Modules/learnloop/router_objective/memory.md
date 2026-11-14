@@ -171,7 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_linear_form_is_mvp049s_bitwise`
   - `test_the_linear_prior_has_negative_slopes_the_monotone_prior_has_none`
   - `test_the_monotone_fit_recovers_rising_slopes_and_is_the_posterior_mode`
-  - `test_the_numeric_policy_reads_the_monotone_combiner_only_at_the_tag_with_its_switch`
+  - `test_the_numeric_policy_reads_the_monotone_combiner_only_with_its_switch`
   - `test_the_probe_before_and_after_r6_is_pinned`
   - `test_the_rollouts_on_the_monotone_prior_never_predict_lower_performance_for_higher_ability`
 - [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import

@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/hypothesis_marks_migration_helpers.py"
   - "tests/sim_probe_validation_helpers.py"
+  - "tests/successor_switches.py"
   - "tests/test_architecture.py"
   - "tests/test_followup_fg1c_r1_exposure_independence.py"
   - "tests/test_followup_successor.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
   - "tests/test_mobile_v2_feedback.py"
   - "tests/test_probe_instance_generation.py"
-  - "tests/test_probe_llm_instances.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followup"
@@ -61,6 +61,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/hypothesis_marks_migration_helpers.py`
 - `tests/sim_probe_validation_helpers.py`
+- `tests/successor_switches.py`
 - `tests/test_architecture.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_successor.py`
@@ -70,7 +71,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_mobile_v2_feedback.py`
 - `tests/test_probe_instance_generation.py`
-- `tests/test_probe_llm_instances.py`
 
 ## Extension and modification guidance
 

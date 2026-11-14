@@ -85,7 +85,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 16 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 7 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 7 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
@@ -140,7 +140,7 @@ flowchart LR
     n_learnloop_config["learnloop.config"]
     n_learnloop_sidecar_handlers -->|323| center
     center -->|6| n_learnloop_sidecar_handlers
-    center -->|16| n_learnloop
+    center -->|15| n_learnloop
     center -->|7| n_learnloop_ai
     center -->|7| n_learnloop_vault
     center -->|5| n_learnloop_daily_plan

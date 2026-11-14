@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/learner_profile.py](../../../../../../src/learnloop/learner/learner_profile.py) |
-| Source lines | 92 |
+| Source lines | 88 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `read_learner_profile(paths: VaultPaths) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 30)
 - `write_learner_profile(paths: VaultPaths, *, starting_level: str, level_note: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 45)
-- `seed_global_learner_claim(repository, starting_level: str, *, keep_replaced: bool=False, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 64) — Replace the init-wizard global claim with one for ``starting_level``.
+- `seed_global_learner_claim(repository, starting_level: str, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/learner_profile.py), line 64) — Replace the init-wizard global claim with one for ``starting_level``.
 
 ### Module constants
 

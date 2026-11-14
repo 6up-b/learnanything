@@ -122,7 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_config.py](../../../../../../tests/test_field_config.py) — direct import
   - `test_offline_config_never_opens_dotenv_or_global_settings`
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
-  - `test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were`
+  - `test_new_vaults_get_true_effectively`
 - [tests/test_pf_cli.py](../../../../../../tests/test_pf_cli.py) — direct import
   - `test_template_keeps_generation_off_and_caps_publication`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import

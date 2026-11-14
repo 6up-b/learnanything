@@ -68,7 +68,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 19 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 16 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
@@ -110,7 +110,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     center -->|19| n_learnloop_diagnosis
     center -->|16| n_learnloop_followup_serve
-    center -->|11| n_learnloop
+    center -->|10| n_learnloop
     center -->|9| n_learnloop_db
     n_learnloop_sidecar_handlers -->|9| center
     center -->|7| n_learnloop_daily_plan

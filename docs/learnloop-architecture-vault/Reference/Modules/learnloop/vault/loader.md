@@ -485,8 +485,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unlanded_commission_expires_seven_days_after_its_job_and_a_fresh_one_is_drawn`
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import
   - `test_below_the_tag_a_rebuild_writes_no_ad_state`
-  - `test_below_the_tag_every_switch_reads_off_whatever_the_config_says`
   - `test_every_switch_false_serves_the_predecessor_on_fixture_copies`
+  - `test_every_switch_reads_on_and_the_master_turns_them_and_the_dose_arm_off`
   - `test_new_vaults_start_at_the_successor_with_every_switch_on`
 - [tests/test_ad23_t1_routes.py](../../../../../../tests/test_ad23_t1_routes.py) — direct import
   - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`
@@ -1800,8 +1800,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 - [tests/test_ih5_successor.py](../../../../../../tests/test_ih5_successor.py) — direct import
   - `test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly`
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
-  - `test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below`
+  - `test_the_gate_reads_off_switched_off_and_with_the_objective_off`
+  - `test_the_prefetch_key_names_the_switch_as_it_serves`
 - [tests/test_ih6_workbench_open_item.py](../../../../../../tests/test_ih6_workbench_open_item.py) — direct import
   - `test_the_desktop_learns_the_switch_from_its_config_only_while_on`
   - `test_the_gate_reads_the_tag_the_switch_and_the_workbench`
@@ -2111,8 +2111,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_two_process.py](../../../../../../tests/test_mobile_two_process.py) — direct import
   - `test_the_desktop_and_the_host_coexist_with_no_lost_writes`
 - [tests/test_mobile_v3_probes.py](../../../../../../tests/test_mobile_v3_probes.py) — direct import
-- [tests/test_mobile_v3_successor.py](../../../../../../tests/test_mobile_v3_successor.py) — direct import
-  - `test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop`
 - [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
   - `test_f4_reopened_the_guide_plans_placed_question_is_judged_by_its_items_stored_source`
 - [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
@@ -3027,9 +3025,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_gates_need_the_tag_the_objective_and_sg2_needs_sg1`
   - `test_the_whole_card_off_and_below_the_tag_is_byte_identical_and_on_differs_by_the_section_alone`
 - [tests/test_sg_successor.py](../../../../../../tests/test_sg_successor.py) — direct import
-  - `test_sg2_is_in_ro6s_generator_payload_at_the_tag_and_sg1_is_not`
-  - `test_the_gates_read_off_below_the_tag`
-  - `test_the_prefetch_key_names_both_switches_at_the_tag_and_keeps_its_bytes_below`
+  - `test_sg2_is_in_ro6s_generator_payload_and_sg1_is_not`
+  - `test_the_prefetch_key_names_both_switches_as_they_serve`
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
@@ -3180,6 +3177,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly`
   - `test_seen_stem_records_follow_the_seen_revision_and_scored_rows`
   - `test_without_vectors_the_embedding_arms_abstain_and_say_so`
+- [tests/test_successor_switches.py](../../../../../../tests/test_successor_switches.py) — direct import
+  - `test_an_older_tag_gets_exactly_the_documented_switches`
+  - `test_back_at_the_head_the_switches_are_reversed`
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_fix_content_skips_unparseable_items_and_reports_them`
@@ -3249,8 +3249,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_and_held_out_sentinels_never_reach_the_teacher_or_a_screen`
   - `test_forecasts_are_receipts_with_their_bindings`
   - `test_help_that_gives_the_solution_away_withdraws_the_check_with_no_attempt`
-  - `test_off_or_below_the_tag_no_lesson_opens`
   - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
+  - `test_switched_off_no_lesson_opens`
   - `test_the_minted_check_item_is_held_to_its_lesson`
   - `test_while_a_check_is_open_its_solution_is_never_shown`
   - `test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass`
@@ -3447,6 +3447,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writer_upserts_graph_error_lo_and_practice_item`
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
   - `test_a_shadow_rebuild_cannot_be_forced_below_the_floor`
+  - `test_a_shadow_rebuild_cannot_be_forced_to_a_tag_this_code_does_not_know`
   - `test_a_vault_at_the_floor_or_the_head_opens`
   - `test_a_vault_whose_config_names_no_tag_is_refused`
   - `test_the_route_names_what_works_at_pre_floor_for_a_required_guard`

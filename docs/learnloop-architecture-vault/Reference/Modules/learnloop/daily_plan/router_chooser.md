@@ -212,8 +212,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
-  - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
   - `test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model`
+  - `test_r5_1_with_the_objective_off_fg1s_gate_is_unchanged`
   - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 
 ## Modification guidance

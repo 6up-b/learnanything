@@ -254,7 +254,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_decisions_p_bar_enters_as_ads_latent_and_reads_back_as_itself`
   - `test_an_unpractised_attempt_and_a_probe_are_drawn_from_ads_own_predictive`
   - `test_the_beliefs_step_is_the_laplace_step_under_ads_predictive`
-  - `test_the_numeric_policy_reads_ads_own_predictive_only_at_the_tag_with_its_switch`
+  - `test_the_numeric_policy_reads_ads_own_predictive_only_with_its_switch`
   - `test_the_probe_with_ads_own_predictive_is_pinned`
   - `test_without_the_link_the_rollouts_are_mvp049s_bitwise`
 - [tests/test_rofu_ad_stable.py](../../../../../../tests/test_rofu_ad_stable.py) — direct import
@@ -264,12 +264,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_review_draw.py](../../../../../../tests/test_rofu_review_draw.py) — direct import
   - `test_a_practised_topics_outcome_is_drawn_from_the_memory_models_own_p_perform`
   - `test_a_review_right_after_a_review_is_almost_never_a_lapse_with_the_switch_on`
-  - `test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch`
+  - `test_the_numeric_policy_draws_consistently_only_with_its_switch`
 - [tests/test_rofu_speed.py](../../../../../../tests/test_rofu_speed.py) — direct import
   - `test_a_deadline_admits_more_draws_merged_so_the_default_is_the_per_block_loop`
   - `test_merged_sessions_equal_the_per_block_loop`
   - `test_the_merged_path_calls_the_fsrs_update_far_fewer_times`
-  - `test_the_numeric_policy_merges_only_at_the_tag_with_its_switch`
+  - `test_the_numeric_policy_merges_only_with_its_switch`
 - [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
 - [tests/test_rospeed_ad_link.py](../../../../../../tests/test_rospeed_ad_link.py) — direct import
   - `test_the_baselines_and_the_gain_are_the_landing_codes_bit_for_bit`

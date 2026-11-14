@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py) |
-| Source lines | 165 |
+| Source lines | 164 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 154)
-- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 161)
+- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 153)
+- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 160)
 
 ## Who imports or calls it
 
@@ -109,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/device_eligibility_helpers.py](../../../../../../tests/device_eligibility_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/facet_reword_paths_helpers.py](../../../../../../tests/facet_reword_paths_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
@@ -120,7 +121,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/rw2b_fix11_base_sequence.py](../../../../../../tests/rw2b_fix11_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/rw2c_base_sequence.py](../../../../../../tests/rw2c_base_sequence.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 - [tests/rw2c_state_parity.py](../../../../../../tests/rw2c_state_parity.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
-- [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]]
 
 ## Modification guidance
 
