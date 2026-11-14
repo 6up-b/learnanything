@@ -116,14 +116,10 @@ def on_your_own(row: Mapping[str, Any]) -> bool:
 
 
 def intent_enabled(config: Any) -> bool:
-    """Is intent live for this config: at the successor (``mvp-0.29``) or a
-    later tag, with ``intent.enabled`` on (DL2 Codex re-review F2)?"""
+    """Is intent live for this config: ``intent.enabled`` on (the successor ``mvp-0.29``'s switch)?"""
 
-    from learnloop.algorithm_versions import INTENT_VERSIONS
-
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
     intent = getattr(config, "intent", None)
-    return version in INTENT_VERSIONS and bool(getattr(intent, "enabled", False))
+    return bool(getattr(intent, "enabled", False))
 
 
 def check_date(snapshot: CommitmentSnapshot, *, default_days: int) -> tuple[datetime, str]:
