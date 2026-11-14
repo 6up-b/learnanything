@@ -447,7 +447,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `module`; calls `record_stop_acceptance`, `record_stop_override`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; calls `record`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `CHECKS_OFF`, `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`; calls `check_mode`, `lessons_compete_with_followups_on`, `workbench_is_open_item_on`
-- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability`
 - [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] — imports `CHOICE_PRESET`, `TIER_KEEP`, `TIER_LIGHT`, `TIER_PUSH`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_serving`; calls `intent_serving`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`; calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_hold_until`, `cold_check_serve_decision`, `cold_check_serve_hold`
