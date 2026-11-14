@@ -65,7 +65,7 @@ import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn 
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { LessonEntry } from "../screens/LessonScreen";
-import type { CheckHandoff } from "./checkHandoff";
+import { useCheckHandoff } from "./checkHandoff";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
 import { setAlgoConfig } from "./algoConfig";
@@ -247,11 +247,6 @@ export function App() {
   const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
   // Teacher TE1: the open lesson ("Teach me this" on a topic or a Reader selection), shown over the shell.
   const [lessonEntry, setLessonEntry] = useState<LessonEntry | null>(null);
-  // The open lesson came from a diagnostic check: the tutor opening to run if it can't open (teachFromCheck).
-  const checkFallbackRef = useRef<(() => void) | null>(null);
-  useEffect(() => {
-    if (lessonEntry === null) checkFallbackRef.current = null;
-  }, [lessonEntry]);
   // Learner field F2: the overlay is a "Check what I already know" quick check.
   // Its answers return straight to the check (results are revealed at the end),
   // instead of opening feedback after each one.
@@ -433,6 +428,8 @@ export function App() {
     },
     [pushNotice]
   );
+  // A diagnostic check's hand-offs open a lesson on its topic, or the caller's tutor opening (checkHandoff.ts).
+  const { teachFromCheck, openFailed: lessonFromCheckFailed } = useCheckHandoff(setLessonEntry, notify, lessonEntry);
   // An error from an action the shell can run again: Try again when the
   // sidecar says it is retryable (simple shell). Classic shows the message.
   const reportError = useCallback(
@@ -1369,28 +1366,6 @@ export function App() {
   // Teacher TE1: "Teach me this" on a Reader selection opens a lesson on its section's topics.
   function teachMeFromReader(request: { extractionId: string; spanIds: string[] }) {
     setLessonEntry({ kind: "open", entry: "reader_selection", selection: request });
-  }
-
-  // A diagnostic check's hand-off ("Teach me this" at its end, "Stop diagnosing and teach me" during it): a lesson on
-  // the check's topic naming its episode, or the caller's tutor opening when lessons are off. The fallback is kept
-  // until the lesson opens or closes, so an opening that fails runs it instead of leaving the learner at a retry.
-  function teachFromCheck(handoff: CheckHandoff) {
-    if (!algoConfig().lessons) {
-      handoff.fallback();
-      return;
-    }
-    checkFallbackRef.current = handoff.fallback;
-    setLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [handoff.learningObjectId],
-                     ...(handoff.title ? { title: handoff.title } : {}),
-                     ...(handoff.probeEpisodeId ? { probeEpisodeId: handoff.probeEpisodeId } : {}) });
-  }
-
-  function lessonFromCheckFailed(message: string) {
-    const fallback = checkFallbackRef.current;
-    checkFallbackRef.current = null;
-    setLessonEntry(null);
-    notify(`${message} The tutor opens instead.`);
-    fallback?.();
   }
 
   // Learner field F2: "Check what I already know" from the LO inspector.
@@ -2474,7 +2449,7 @@ export function App() {
             onClose={() => setLessonEntry(null)}
             onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
             onLookInLibrary={lookInLibrary}
-            {...(checkFallbackRef.current ? { onOpenFailed: lessonFromCheckFailed } : {})}
+            {...(lessonFromCheckFailed ? { onOpenFailed: lessonFromCheckFailed } : {})}
             onError={onError}
           />
         </Suspense>
