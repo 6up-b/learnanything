@@ -166,3 +166,185 @@ decision, not part of a structure step.
 
 `build_due_queue` 829 lines; `_BuildAdmission` 397; `scheduler.py` 3,862. No source changed, so the structure ratchet,
 identity pins and functions over 200 lines are unchanged.
+
+## 8. The I2-1 fix (coordinator's decision on step 0: the goldens, then I2-1 as the persist split)
+
+This is option C, done as the fix for I2-1. It lands alone (behaviour track) with no algorithm tag: it removes
+writes no spec asked for, and §8.5 checks that replay and the shadow rebuild do not read the fields involved.
+Commits, in order:
+
+1. `131f7abdb6`: whole-queue goldens at the base (`tests/test_due_queue_golden.py`, `tests/due_queue_helpers.py`,
+   `tests/goldens/due_queue/`). The vault is one synthetic vault with these pieces:
+   - DL2's intent vault: three practised LOs due now, and placement's never-practised LOs as new material;
+   - a due "Check once" on `lo_a`;
+   - an in-progress probe episode with two admitted instruments, and a presentation the session committed an hour
+     earlier (value stopping was off for that one build);
+   - a teach-back on the probe's LO;
+   - a contrast pair on `lo_c`;
+   - a cold retry deferred because its answer was shown after it was set;
+   - a wide exploration window, so the draw has near-ties and explores.
+
+   It is built three ways: a serving build with that session, a read build with the same session, and a read build
+   with no session. Each record pins:
+   - the returned queue (ids, order, priorities, components, explanations, reward debug, slate and candidate ids);
+   - from the offer trace: the exploration's support, roll, choice, realized item and every outcome's composed
+     order, plus the exclusions, cold deferrals, pin and VoI decisions;
+   - every row the build added, changed or removed, table by table.
+
+   Ids read `<ulid:n>` in order of first appearance. The ULID stream is also seeded, but how many ids the setup
+   mints varies with the hash seed, so one decision-record id moved under `PYTHONHASHSEED=1`, and ids are therefore
+   numbered rather than kept. Floats are rounded to ten places. The goldens pass under `PYTHONHASHSEED` 0, 1, 12345
+   and 777 at `-n 4`. `test_the_vault_reaches_every_stage` fails if the vault stops reaching a stage.
+2. `3c189d12f5`: I2-1's fail-first tests (`tests/test_due_queue_read_builds.py`). At the base, four are red for the
+   bug's reasons:
+   - a read build with a session writes 2 `contrast_pair_servings` rows;
+   - it ends the session's committed presentation when the composition leaves it no place;
+   - the plan prefetch's own pool build (`_env(prefetch=True).eligible`) on a read-only attach raises
+     `attempt to write a readonly database`, after logging the failed contrast write;
+   - `staged_policy.decide` leaves the comparator's 2 serving rows.
+
+   The serving build's own invalidation is the green control.
+3. `6c7918046e`: the fix.
+
+### 8.1 What changed
+
+- `persist_explanations` is gone. `build_due_queue` is the serving build and `read_due_queue` the read; both call
+  `_due_queue(..., serving=...)`. I kept the name `build_due_queue` for serving because every caller that omitted
+  the flag already got the serving build, so 60-odd call sites keep their meaning and their text.
+- Every write after the composition is in one persist step, `_persist_offer`, which only a serving build with a
+  session reaches. It runs, in order:
+  1. it ends the presentation the composition left no place for (or that a probe block invalidated);
+  2. it records the contrast pairs' drawn order (`compose` now returns it, and `_apply_contrast_pair_order` no
+     longer takes a repository);
+  3. it writes the slate block that was inline, unchanged and moved: explanations, the head probe's presentation
+     (now `_head_probe_presentation`), decision features, slate, candidates, value forecasts, presentation
+     forecast, explanations, elicitation.
+
+  The slate's decision record (`record_slate`) is the one write left after the offer trace, still only on the
+  serving path with a session. The trace has to be filled first, because its counterfactual compositions copy the
+  `probe_committed` component the persist step stamps.
+- For serving builds, the invalidation and the contrast record now come after the presentation decision instead of
+  inside the composition. Nothing read between the old and new positions depends on them: the shadow-intent plan is
+  pure, and the persist step's presentation reads come after the invalidation, as before. The serving golden is
+  byte-identical.
+- A serving build's writes before ranking keep their place and order, still guarded (`serving`): surface-needs and
+  empty-pool reconciliation, placement's hold and fast track, and the cold lane's deferral writes. They sit between
+  reads that must see them (placement reads its state after the fast track), so they cannot move behind the persist
+  step without reordering.
+- A read build still writes one thing: `Repository.due_followup_tasks` marks due tasks `served` and lapsed ones
+  `expired`, and releases cold reservations. These are documented lazy marks inside the repository read, which a
+  read-only attach skips. The no-session read golden shows the mark (`followup_tasks`: 1 changed, `pending` to
+  `served`). Removing it would change rows outside the allowed delta, so it stays: ledger I2-2.
+
+### 8.2 The flag's fate per caller
+
+| Caller | Before | After |
+|---|---|---|
+| CLI `review`, `PlanEnv.build_eligible`, sidecar today's queue, skip-requeue, TUI | default (serving) | `build_due_queue`, unchanged |
+| sidecar plan `eligible` | `not prefetch` | `read_due_queue` for the prefetch, `build_due_queue` otherwise |
+| sim runner, staged comparator, facets chart, knowledge map, `explain_practice_item`, `exclusion_now` | False | `read_due_queue` |
+| `scripts/voi_cap_report.py` / `scripts/benchmark_sqlite_concurrency.py` | False / True | `read_due_queue` / `build_due_queue` |
+| tests | 117 uses | ported by a script: False to `read_due_queue`, True dropped; `ruff --fix F401` removed the imports left unused; `assumed_known_helpers._queue(persist=...)` picks the entry by hand |
+
+### 8.2a How the change was made
+
+The callers, scripts and test uses were ported by the script described in the "tests" row above. Three edits in
+`scheduler.py` were also made by small scripts rather than the Edit tool:
+- the line-range move of the slate block into `_persist_offer` and `_head_probe_presentation` (the moved lines are
+  unchanged except for indentation);
+- two docstring rewordings in the cold-deferral docstrings;
+- docstring and doc rewordings: `facets.py`, `Inspect Persistent State`, and the test docstrings in §8.4 (plus the golden module's own).
+
+### 8.3 The delta
+
+Only read builds with a session change, and only in two ways: no `contrast_pair_servings` rows, and no presentation
+invalidation. The returned queue is identical for every caller, because the build never re-reads either write.
+- The read-with-session golden was regenerated in the fix commit. It differs by exactly the 2 removed
+  `contrast_pair_servings` rows: 32 JSON lines deleted, nothing else.
+- The serving golden and the no-session read golden are byte-identical.
+
+### 8.4 Tests changed
+
+- **`test_intent_orchestrator_rulings::test_r1_every_gate_of_the_build_is_the_admission_predicates`.** It inspects
+  the candidate loop's source and named `build_due_queue`, now a three-line wrapper. It reads `_due_queue` instead;
+  no assertion changed. This points a source check at the new location, which T4 discourages. I chose it over
+  deleting the R1 guard, and it is listed here for the reviewer.
+- **`test_plan_determinism::test_the_per_session_draw_keeps_its_own_path`.** This is the bug's own test. Its
+  docstring names the serving surfaces (Today's full list, skip, CLI, TUI, DL1's plan), but it built with
+  `persist_explanations=False` and asserted the contrast rows that build recorded. It now builds with
+  `build_due_queue`; its assertions are unchanged.
+- **Docstrings only:** `test_instruct_handoff_ih0`, `test_scheduler`, `test_slate_record`.
+
+### 8.5 Who reads the removed writes
+
+- **`contrast_pair_servings`** is a RECEIPT (`db/table_roles.py`). Only `diagnosis/contrast_pairs.py` reads it (the
+  order-effect metric and the randomization balance report) through the repository. No replayer, the rebuild
+  orchestrator and the upgrade table do not read it.
+- **`probe_presentations`** is a RAW_LEDGER. The shadow rebuild reads it (`substrate/compat/activity_backfill.py`
+  turns presentations into administrations and exposures), but only ids, items, `served_at` and `created_at`, never
+  the `status`, `end_reason` or `ended_at` the invalidation sets. The fields are read on the live path:
+  - the next serving build's active-presentation lookup;
+  - attempt submission, which links an attempt to the item's active presentation;
+  - placement's opening-episode test (`submitted` status);
+  - EVSI and field reports.
+
+  So the one live effect is this: a presentation a read build used to end now stays active until the next serving
+  build ends it under the same conditions, or until it is consumed.
+
+### 8.6 Proof
+
+- Goldens: as in §8.3.
+- Fail-first: green after the fix. The prefetch's pool build answers on its read-only attach with the contrast pair
+  in the pool, and the comparator leaves no serving row.
+- Targeted tests: all 1,261 files `affected_tests.py` names (the 179 scheduler, contrast-pair, probe, placement,
+  slate, plan, prefetch, intent, VoI and follow-up files, the two edited ones, then the rest in chunks of 100 at
+  `-n 4`). Results are in §8.7.
+- P-shadow: on fresh backup-API copies of the three Nov 3 owner copies, upgraded to the head, `rebuild --shadow
+  --json` on base code and on branch code gives identical output apart from the timestamp, database hashes and
+  marker id. On every copy: `learner_state_diff.summary` facet 0, mastery 0, schedule 0; `schedule_effects` 0 due
+  dates moved; queue-due counts equal before and after.
+- Identity pins are unmoved.
+
+## 9. For the owner: the decision the pure core waits on
+
+The rest of I2 (a pure `rank_due` in two stages: §5's option A, sub-steps I2a-I2c) needs one answer: **may a queue
+build read ahead of its decisions?** A two-stage core needs the build to make some reads before it knows whether it
+needs them. That changes what a build reads and how it can fail. It does not change what it decides: every draw,
+order and written row stays as it is. Per build, as best I can estimate from the code (not measured):
+
+| Read moved ahead | Builds that pay more | Added work (estimate) | Today |
+|---|---|---|---|
+| Each in-progress, unblocked probe episode's context, eligible instruments, VoI decision and per-instrument familiarity | builds with such an episode none of whose items gets past the earlier gates (all routine-excluded, intent-held or device-held) | about 5 queries plus one per eligible instrument, and the VoI valuation's compute, per such episode | read only when an item reaches the probe gate |
+| The device's refusal (eligibility rules plus the host's media predicate) for every item | phone builds | one predicate call per item the other gates already withheld (up to the vault's item count); the media predicate may look up stored assets | asked last, only for items every other gate admitted |
+| taught-first signals for all LOs | placement builds with no new material in the ranked queue | 2 queries (`load_answers`, blocking signals) | read only when new-material slots exist |
+| practice latencies (one scan of `practice_attempts` with a latency) | builds that value nothing (no probe decision, teach-back site off) | 1 query | read on first valuation |
+
+The DL2 check split stays the one shell read between the two stages, as today: it already runs before the candidate
+loop, so it adds nothing.
+
+**The failure mode it adds:** a read that raises now fails the build even where today's build never made it. For
+example, a broken hypothesis set on an episode no candidate reaches, or a media lookup for an item another gate
+withheld. Recommendation: accept the superset reads for the probe episodes, taught-first and latencies, which are
+cheap and rare, and measure the phone's device predicate on the owner copies before deciding that one.
+
+### 8.7 Measures
+
+- **The same queue on real data.** On each owner copy, a read build with a session at a fixed clock returns the same
+  queue under base and branch code: the same count and the same digest of ids, priorities, components and
+  explanations. arxiv_v2: 32 items. linear_algebra: 43. probability: 67.
+- **Build time.** Three builds per process, two processes per side, alternated, on the copies. Another lane's full
+  suite was running on the machine, so the numbers are noisy. Warm builds, in seconds:
+
+  | Copy | Read, base | Read, branch | Serving with a session, base | Serving with a session, branch |
+  |---|---|---|---|---|
+  | linear_algebra | 0.015-0.016 | 0.015-0.017 | 0.126-0.131 | 0.124-0.228 |
+  | arxiv_v2 | 0.021-0.022 | 0.020 | 0.084-0.092 | 0.083-0.090 |
+  | probability | 0.014-0.015 | 0.015-0.016 | 0.071-0.124 | 0.066-0.149 |
+
+  No difference beyond the noise. The two branch outliers (0.228 and 0.149) each sit beside runs at the base's level
+  in the same process.
+- **Lines.** `build_due_queue` was 829 lines and is now a 24-line wrapper. The new pieces are `read_due_queue` (20
+  lines), the shared body `_due_queue` (602), `_persist_offer` (177) and `_head_probe_presentation` (141); the
+  last two moved out of the old body, and most of their added length is keyword signatures. `scheduler.py` went
+  from 3,862 to 4,009 lines. Functions over 200 lines: unchanged, since `_due_queue` replaces `build_due_queue`
+  and both new functions are under 200. The structure ratchet is unchanged.
