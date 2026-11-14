@@ -421,7 +421,10 @@ def test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_cop
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     traces = []
-    for name, version, toml in (("pre", "mvp-0.22", None), ("off", A, "[router]\nenabled = false\n")):
+    # Both arms switched off: below R2a's tag the router was off by the tag, a half that is gone, so the predecessor's
+    # tag stands beside the successor's with the switch, and the plan must not depend on which.
+    off = "[router]\nenabled = false\n"
+    for name, version, toml in (("pre", "mvp-0.22", off), ("off", A, off)):
         root = tmp_path / name
         copy_tree_with_databases(owner_vault(fixture), root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)
