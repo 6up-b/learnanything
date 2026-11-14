@@ -560,12 +560,10 @@ class Ledger:
                 (DEVICE_DEFERRED_EVENT,)):
             self.block_events.setdefault((str(block_id), str(item_id)), []).append((str(kind), str(created)))
         items = sorted({str(entry.get("practice_item_id")) for entry in self.administrations})
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
-        received = "a.received_at" if "received_at" in columns else "NULL"
         for start in range(0, len(items), 500):
             chunk = items[start:start + 500]
             for row in connection.execute(
-                    f"SELECT a.*, {received} AS ro5_received_at, p.block_id AS ro5_block_id FROM practice_attempts a "
+                    "SELECT a.*, a.received_at AS ro5_received_at, p.block_id AS ro5_block_id FROM practice_attempts a "
                     "LEFT JOIN plan_presentations p ON p.id = a.plan_presentation_id "
                     f"WHERE a.practice_item_id IN ({','.join('?' for _ in chunk)}) ORDER BY a.created_at, a.id", chunk):
                 found = dict(row)

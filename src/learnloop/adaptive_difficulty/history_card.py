@@ -104,18 +104,16 @@ def _json(value: Any, default: Any) -> Any:
         return default
 
 
-def _columns(connection: Any, table: str) -> set[str]:
-    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
+#: The tables the card reads that carry ``received_at`` (the others' availability is ``created_at``);
+#: ``tests/test_f1_schema_facts.py`` pins it equal to the migrated schema.
+_RECEIVED_AT_TABLES = frozenset({"practice_attempts", "interaction_events"})
 
 
-def available_sql(connection: Any, table: str) -> str:
+def available_sql(table: str) -> str:
     """A table's availability time in SQL: ``coalesce(received_at, created_at)`` where it has
     ``received_at``, else ``created_at`` (spec §6.3)."""
 
-    columns = _columns(connection, table)
-    if "received_at" in columns:
-        return "COALESCE(received_at, created_at)"
-    return "created_at"
+    return "COALESCE(received_at, created_at)" if table in _RECEIVED_AT_TABLES else "created_at"
 
 
 def _marks(values: Sequence[Any]) -> str:
@@ -199,7 +197,7 @@ class _Reads:
         # RO1's predicate, and the availability time at every version (a backdated import is out until
         # it arrived): both bound the read, and the work happened before the serve.
         known = attempt_time_sql(config)
-        available = available_sql(self.connection, "practice_attempts")
+        available = available_sql("practice_attempts")
         membership = "IN" if scope else "NOT IN"
         return self._bounded(
             "attempts" if scope else "other_attempts", "practice_attempts",
@@ -216,7 +214,7 @@ class _Reads:
             (*ids, *self.scope_items, self.served_at), "COALESCE(shown_at, requested_at) DESC, id DESC")
 
     def questions(self) -> list[dict[str, Any]]:
-        available = available_sql(self.connection, "question_events")
+        available = available_sql("question_events")
         return self._bounded(
             "questions", "question_events",
             f"practice_item_id IN ({_marks(self.scope_items)}) AND {available} <= ?",
@@ -238,14 +236,14 @@ class _Reads:
     def reader_sources(self, table: str, ids: Sequence[str]) -> list[dict[str, Any]]:
         if not ids:
             return []
-        available = available_sql(self.connection, table)
+        available = available_sql(table)
         return self._bounded("reader_sources", table, f"id IN ({_marks(ids)}) AND {available} <= ?",
                              (*ids, self.served_at), "created_at DESC, id DESC")
 
     def digests(self, extractions: Sequence[str]) -> list[dict[str, Any]]:
         if not extractions:
             return []
-        available = available_sql(self.connection, "reader_session_digests")
+        available = available_sql("reader_session_digests")
         return self._bounded("digests", "reader_session_digests",
                              f"extraction_id IN ({_marks(extractions)}) AND {available} <= ? "
                              "AND dismissed_at IS NULL",
@@ -260,7 +258,7 @@ class _Reads:
         the row limit so questions on other LOs never displace them. Otherwise the newest questions on
         any LO, for the ones only the anchor's mapping at the serve places on the scope."""
 
-        available = available_sql(self.connection, "question_events")
+        available = available_sql("question_events")
         contexts = sorted(READER_CONTEXTS)
         if not scoped:
             return self._bounded("recent_inquiries", "question_events",
@@ -287,7 +285,7 @@ class _Reads:
 
         if not question_ids and not event_ids:
             return []
-        available = available_sql(self.connection, "interaction_events")
+        available = available_sql("interaction_events")
         return self._bounded(
             "exchanges", "interaction_events",
             f"kind = 'reader_answer_submitted' AND (json_extract(payload_json, '$.question_event_id') IN "
@@ -313,7 +311,7 @@ class _Reads:
         return self._bounded("inquiry_roots", "question_events", f"id IN ({_marks(ids)})", tuple(ids), "id")
 
     def gaps(self, los: Sequence[str], attempt_ids: Sequence[str]) -> list[dict[str, Any]]:
-        available = available_sql(self.connection, "learner_text_gaps")
+        available = available_sql("learner_text_gaps")
         return self._bounded(
             "gaps", "learner_text_gaps",
             f"(anchor_learning_object_id IN ({_marks(los)}) OR attempt_id IN ({_marks(attempt_ids)})) "

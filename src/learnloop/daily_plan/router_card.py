@@ -444,12 +444,9 @@ class CardGatherer:
         if not los:
             return []
         known = attempt_time_sql(self.vault.config)
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
-        status = "reference_status" if "reference_status" in columns else "NULL AS reference_status"
-        tap = "answer_confidence" if "answer_confidence" in columns else "NULL AS answer_confidence"
         rows = connection.execute(
             f"SELECT id, practice_item_id, learning_object_id, practice_mode, attempt_type, correctness, hints_used, "
-            f"primed, learner_answer_md, created_at, {status}, {tap} FROM practice_attempts "
+            f"primed, learner_answer_md, created_at, reference_status, answer_confidence FROM practice_attempts "
             # RO1: filtered by what was known at the decision; ordered, and shown,
             # by when it happened (created_at), as before.
             f"WHERE learning_object_id IN ({_marks(los)}) AND {known} < ? ORDER BY created_at DESC, id DESC",

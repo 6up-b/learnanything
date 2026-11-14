@@ -200,10 +200,6 @@ def taps_limit(taps: Sequence[Any]) -> str | None:
 # -- reads ----------------------------------------------------------------------------
 
 
-def _columns(connection: Any, table: str) -> set[str]:
-    return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
-
-
 def _chunks(values: Sequence[str]) -> Iterable[Sequence[str]]:
     for start in range(0, len(values), _CHUNK):
         yield values[start:start + _CHUNK]
@@ -213,11 +209,7 @@ def read_hedges(connection: Any, attempt_ids: Iterable[Any] | None = None) -> di
     """Each attempt's hedge read from its current grading evidence (all
     attempts when ``attempt_ids`` is None); attempts with none are absent."""
 
-    columns = _columns(connection, "grading_evidence")
-    if not {"learner_confidence", "superseded_at"} <= columns:
-        return {}
-    grader = "local_grader_id" if "local_grader_id" in columns else "NULL"
-    query = (f"SELECT attempt_id, learner_confidence, {grader} FROM grading_evidence "
+    query = ("SELECT attempt_id, learner_confidence, local_grader_id FROM grading_evidence "
              "WHERE superseded_at IS NULL AND learner_confidence IN ('hedged', 'confident')")
     reads: dict[str, list[str]] = {}
 
@@ -244,8 +236,6 @@ def taps_before(connection: Any, before_iso: str, config: Any) -> list[int]:
 
     from learnloop.router_objective_switches import attempt_time_sql
 
-    if "answer_confidence" not in _columns(connection, "practice_attempts"):
-        return []
     known = attempt_time_sql(config)
     rows = connection.execute(
         f"SELECT answer_confidence FROM practice_attempts WHERE answer_confidence IS NOT NULL AND {known} < ?",
@@ -289,15 +279,11 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
         return None
     marks = ",".join("?" for _ in los)
     with repository.connection() as connection, read_snapshot(connection):
-        columns = _columns(connection, "practice_attempts")
-        if "answer_confidence" not in columns:
-            return None
-        probe = "probe_presentation_id" if "probe_presentation_id" in columns else "NULL AS probe_presentation_id"
         # RO1 (landing ruling R1): what was known before the cutoff; shown by when it happened.
         known = attempt_time_sql(getattr(vault, "config", None))
         rows = [dict(row) for row in connection.execute(
             "SELECT id, learning_object_id, practice_item_id, attempt_type, correctness, answer_confidence, "
-            f"created_at, {probe} FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "
+            f"created_at, probe_presentation_id FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "
             "ORDER BY created_at DESC, id DESC",
             (*los, before_iso),
         )]
