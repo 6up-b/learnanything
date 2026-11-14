@@ -50,7 +50,7 @@ from learnloop.attempts.attempts import (
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.learner.mastery import display_mastery
 from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
@@ -1006,7 +1006,7 @@ def _retrievability_prior(repository: Repository, item_id: str, clock: FrozenClo
     if last is None:
         return None
     elapsed_days = max(0.0, (clock.now() - last).total_seconds() / 86400)
-    return forgetting_curve(state.stability, elapsed_days)
+    return retrievability(state.stability, elapsed_days)
 
 
 def _belief_mae(

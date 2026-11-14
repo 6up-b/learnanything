@@ -542,10 +542,10 @@ class CardGatherer:
                 stability = getattr(state, "stability", None)
                 last_at = parse_utc(getattr(state, "last_attempt_at", None)) if state is not None else None
                 if stability and last_at is not None and now is not None:
-                    from learnloop.scheduling.fsrs import forgetting_curve
+                    from learnloop.scheduling.fsrs import retrievability
 
                     elapsed = max((now - last_at).total_seconds() / 86400.0, 0.0)
-                    recalls.append(forgetting_curve(float(stability), elapsed))
+                    recalls.append(retrievability(float(stability), elapsed))
             if recalls:
                 row["recall_now"] = round(sum(recalls) / len(recalls), 4)
             ad_fields = self._adaptive_difficulty(lo, unknowns)

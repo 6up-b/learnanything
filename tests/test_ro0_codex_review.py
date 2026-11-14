@@ -21,7 +21,7 @@ from learnloop.reader import reader_inquiry as RI
 from learnloop.router_objective import decision_state as DS
 from learnloop.router_objective import goal_lifecycle as GL
 from learnloop.router_objective import trajectory as T
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 from learnloop.daily_plan.router_chooser import INSERT_NOW
@@ -317,7 +317,7 @@ def _reading(tmp_path, *, now, closes, session=None):
     session_id = _session(repository, *session) if session else None
     for close in closes:
         _closed(repository, vault.config, clock=clock, **close)
-    material = DS.prepare(vault, repository, candidates=[], session_id=session_id, forgetting_curve=forgetting_curve, clock=clock)
+    material = DS.prepare(vault, repository, candidates=[], session_id=session_id, retrievability=retrievability, clock=clock)
     return material, json.loads(material.content)["active_minutes"]
 
 

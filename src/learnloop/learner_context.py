@@ -1546,7 +1546,7 @@ def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: dat
     vault's title and id."""
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
-    from learnloop.scheduling.fsrs import forgetting_curve
+    from learnloop.scheduling.fsrs import retrievability
 
     los = set(los)
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
@@ -1569,7 +1569,7 @@ def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: dat
         if not stability or last is None:
             continue
         elapsed = max((now - last).total_seconds() / 86400.0, 0.0)
-        recall = float(forgetting_curve(float(stability), elapsed, weights))
+        recall = float(retrievability(float(stability), elapsed, weights))
         entry = by_lo.setdefault(item.learning_object_id, {"recalls": [], "due_now": 0, "next_due_at": None})
         entry["recalls"].append(recall)
         due = getattr(state, "due_at", None)

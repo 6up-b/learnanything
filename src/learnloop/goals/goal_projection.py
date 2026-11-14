@@ -70,7 +70,7 @@ from learnloop.learner.facet_state_reader import (
     is_canonical_state_vault,
 )
 from learnloop.params.fitted_params import resolve_fsrs_weights
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.goals.goal_certification import facet_demonstration
 from learnloop.learner.mastery import covering_learner_claim
 from learnloop.learner.measurement_state import UNKNOWN as MEASUREMENT_UNKNOWN
@@ -401,8 +401,8 @@ def _retention_ratio(
             continue
         horizon_days = (horizon - last_attempt).total_seconds() / 86400
         now_days = (now - last_attempt).total_seconds() / 86400
-        baseline = max(forgetting_curve(state.stability, now_days, fsrs_weights), 1e-6)
-        retention_ratio = clamp(forgetting_curve(state.stability, horizon_days, fsrs_weights) / baseline)
+        baseline = max(retrievability(state.stability, now_days, fsrs_weights), 1e-6)
+        retention_ratio = clamp(retrievability(state.stability, horizon_days, fsrs_weights) / baseline)
         numerator += weight * retention_ratio
         weight_total += weight
     if weight_total <= 0.0:

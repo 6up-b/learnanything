@@ -10,7 +10,7 @@ import pytest
 from learnloop.daily_plan.engine import advance, build_plan, learner_pick
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import decision_state as DS
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
 
@@ -148,13 +148,13 @@ def test_ad_failing_is_said_and_everything_else_is_kept(tmp_path):
         raise RuntimeError("no")
 
     material = DS.prepare(env.vault, env.repository, candidates=[{"learning_object_ids": ["lo"]}], session_id=None,
-                          forgetting_curve=forgetting_curve, ad_fields=broken, clock=env.clock)
+                          retrievability=retrievability, ad_fields=broken, clock=env.clock)
     assert '"status":"unavailable"' in material.content and material.candidate_los == 1
 
 
 def test_a_path_that_reads_no_ad_says_so(tmp_path):
     env = _plan(tmp_path)
-    material = DS.prepare(env.vault, env.repository, candidates=[], session_id=None, forgetting_curve=forgetting_curve,
+    material = DS.prepare(env.vault, env.repository, candidates=[], session_id=None, retrievability=retrievability,
                           clock=env.clock)
     assert f'"status":"{DS.AD_NOT_READ}"' in material.content
 

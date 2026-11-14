@@ -1020,7 +1020,7 @@ forbidden_modules = [
 # The incumbent adapter reuses only mastery.py's pure arithmetic. A symbol-level
 # test restricts that import, whose module also contains historical DB helpers.
 # PF-a memory arms reuse only the pure FSRS fold and FSRS-6 default weights
-# (scheduling.fsrs imports nothing but learnloop.numeric).
+# (scheduling.fsrs imports nothing but numpy and learnloop.numeric).
 ignore_imports = [
     "learnloop.field.predictors -> learnloop.learner.mastery",
     "learnloop.field.memory -> learnloop.scheduling.family_memory_model",
@@ -1094,6 +1094,10 @@ ignore_imports = [
     # event (adaptive_difficulty.outcomes, over AD's priors and model and delayed_completion), read
     # function-locally; AD never imports the objective's package.
     "learnloop.router_objective.checks -> learnloop.adaptive_difficulty.outcomes",
+    # The memory model's vectorized retrievability is scheduling.fsrs's (one definition of the
+    # forgetting curve, refactor RE2); fsrs imports only numpy and learnloop.numeric, so the
+    # edge cannot form a runtime cycle.
+    "learnloop.router_objective.memory -> learnloop.scheduling.fsrs",
     # AD2+AD3's pure reads of the firewall's carve-out and the default trajectory.
     "learnloop.adaptive_difficulty.reading -> learnloop.attempts.salience_firewall",
     "learnloop.adaptive_difficulty.replay -> learnloop.attempts.salience_firewall",
