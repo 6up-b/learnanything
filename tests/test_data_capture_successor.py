@@ -37,7 +37,7 @@ def test_the_successor_is_one_constant_after_te1b_and_the_latest():
     assert TAG in DATA_CAPTURE_VERSIONS and OLD not in DATA_CAPTURE_VERSIONS
 
 
-def test_the_switches_are_on_by_default_and_the_gate_reads_the_tag():
+def test_the_switches_are_on_by_default_and_the_gate_is_the_switch():
     assert DataCaptureConfig().serving is True and DataCaptureConfig().receipts is True
 
     class Config:
@@ -47,11 +47,8 @@ def test_the_switches_are_on_by_default_and_the_gate_reads_the_tag():
             algorithm_version = TAG
 
     assert serving_on(Config) and receipts_on(Config)
-    Config.algorithms.algorithm_version = OLD
-    assert not serving_on(Config) and receipts_on(Config), "receipts act at every version"
-    Config.algorithms.algorithm_version = TAG
     Config.data_capture = DataCaptureConfig(serving=False)
-    assert not serving_on(Config)
+    assert not serving_on(Config) and receipts_on(Config), "receipts act whatever serving says"
 
 
 def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
