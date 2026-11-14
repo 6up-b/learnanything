@@ -601,9 +601,10 @@ def test_the_switches_at_the_successor_serve_their_predecessors_on_fixture_copie
             out.append((lane, chosen_by, items, {**detail, **({"router": router} if router else {})}))
         return out
 
-    pre = trace("pre", "mvp-0.22", None)
+    # Each predecessor's tag with its switch: the tag halves are gone, so the older tags would serve the successor.
+    pre = trace("pre", "mvp-0.22", "[router]\nenabled = false\n")
     off = trace("off", B, "[router]\nenabled = false\n")
     assert pre and pre == off
-    a = trace("a", ROUTER_STAGED_FRAME_ALGORITHM_VERSION, None)
+    a = trace("a", ROUTER_STAGED_FRAME_ALGORITHM_VERSION, '[router]\nmode = "staged"\n')
     staged = trace("staged", B, '[router]\nmode = "staged"\n')
     assert a and a == staged
