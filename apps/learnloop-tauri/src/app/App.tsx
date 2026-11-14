@@ -65,6 +65,7 @@ import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn 
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { LessonEntry } from "../screens/LessonScreen";
+import type { CheckHandoff } from "./checkHandoff";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
 import { setAlgoConfig } from "./algoConfig";
@@ -246,6 +247,11 @@ export function App() {
   const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
   // Teacher TE1: the open lesson ("Teach me this" on a topic or a Reader selection), shown over the shell.
   const [lessonEntry, setLessonEntry] = useState<LessonEntry | null>(null);
+  // The open lesson came from a diagnostic check: the tutor opening to run if it can't open (teachFromCheck).
+  const checkFallbackRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (lessonEntry === null) checkFallbackRef.current = null;
+  }, [lessonEntry]);
   // Learner field F2: the overlay is a "Check what I already know" quick check.
   // Its answers return straight to the check (results are revealed at the end),
   // instead of opening feedback after each one.
@@ -1365,6 +1371,28 @@ export function App() {
     setLessonEntry({ kind: "open", entry: "reader_selection", selection: request });
   }
 
+  // A diagnostic check's hand-off ("Teach me this" at its end, "Stop diagnosing and teach me" during it): a lesson on
+  // the check's topic naming its episode, or the caller's tutor opening when lessons are off. The fallback is kept
+  // until the lesson opens or closes, so an opening that fails runs it instead of leaving the learner at a retry.
+  function teachFromCheck(handoff: CheckHandoff) {
+    if (!algoConfig().lessons) {
+      handoff.fallback();
+      return;
+    }
+    checkFallbackRef.current = handoff.fallback;
+    setLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [handoff.learningObjectId],
+                     ...(handoff.title ? { title: handoff.title } : {}),
+                     ...(handoff.probeEpisodeId ? { probeEpisodeId: handoff.probeEpisodeId } : {}) });
+  }
+
+  function lessonFromCheckFailed(message: string) {
+    const fallback = checkFallbackRef.current;
+    checkFallbackRef.current = null;
+    setLessonEntry(null);
+    notify(`${message} The tutor opens instead.`);
+    fallback?.();
+  }
+
   // Learner field F2: "Check what I already know" from the LO inspector.
   async function startQuickCheck(learningObjectIds: string[]) {
     // F1: after an implicit start, the vault this check was asked on; the
@@ -1992,6 +2020,8 @@ export function App() {
           }}
           onOpenRepair={openRepair}
           onGuidedRedo={openGuidedRedo}
+          onTeachFromCheck={teachFromCheck}
+          onAsk={setAskTarget}
           onExit={exitCalibration}
           onError={onError}
         />
@@ -2086,6 +2116,7 @@ export function App() {
             onAskAvailabilityChange={onPracticeAskAllowed}
             onInspect={setInspectorId}
             onAsk={setAskTarget}
+            onTeachFromCheck={teachFromCheck}
             onAskState={onPracticeAskState}
             onAskOpener={onPracticeAskOpener}
             onError={onError}
@@ -2101,6 +2132,7 @@ export function App() {
             sessionId={session.sessionId}
             onContinueDiagnostic={openPractice}
             onAsk={setAskTarget}
+            onTeachFromCheck={teachFromCheck}
             onOpenRepair={openRepair}
             onGuidedRedo={openGuidedRedo}
             onBack={() => {
@@ -2442,6 +2474,7 @@ export function App() {
             onClose={() => setLessonEntry(null)}
             onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
             onLookInLibrary={lookInLibrary}
+            {...(checkFallbackRef.current ? { onOpenFailed: lessonFromCheckFailed } : {})}
             onError={onError}
           />
         </Suspense>

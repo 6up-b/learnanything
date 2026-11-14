@@ -177,7 +177,7 @@ it("a short check looks like any other question, with one line on when feedback 
   const text = bodyText();
   expect(text).not.toMatch(/diagnostic|observation|probe/i);
   expect(screen.queryByRole("button", { name: /^Hint/ })).toBeNull();
-  expect(screen.getByRole("button", { name: /Teach me instead/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Stop diagnosing and teach me/ })).toBeTruthy();
 });
 
 it("classic restores the card exactly: the item id, the mode pill and the grader", async () => {

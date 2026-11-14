@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { CommandError, DialogueTurnDto, GuidedRedoDto, ProbeBlockEndDto } from "../api/dto";
+import type { CommandError, DialogueTurnDto, GuidedRedoDto, ProbeBlockEndDto, StopProbeResultDto } from "../api/dto";
 import { algoConfig, STUCK_PROMPT_TEXT } from "../app/algoConfig";
+import { type CheckHandoff, STOP_AND_TEACH_LABEL } from "../app/checkHandoff";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ProbeBlockResult } from "./ProbeBlockResult";
 import { COLOR, FONT_MONO, Faint } from "./term";
@@ -35,6 +36,8 @@ export function DialogueProbePanel({
   learningObjectId,
   sessionId,
   onDone,
+  onTeachFromCheck,
+  onAsk,
   onOpenRepair,
   onGuidedRedo,
   onError
@@ -43,6 +46,11 @@ export function DialogueProbePanel({
   sessionId: string;
   /** Block finished (or failed to start): blockEnd is the §5.7 payload when one ran. */
   onDone: (blockEnd: ProbeBlockEndDto | null) => void;
+  /** "Stop diagnosing and teach me": the block ends and App opens a lesson on the topic over whatever `onDone`
+   *  returns to (or runs the fallback). Absent: the stop ends the block and shows its results, teaching nothing. */
+  onTeachFromCheck?: (handoff: CheckHandoff) => void;
+  /** The fallback's proactive tutor opening on the turn's question. */
+  onAsk?: (target: { context: "practice"; practiceItemId: string; sessionId: string; proactiveOpen: true }) => void;
   /** Repair-journey entrances on the released turns (App's openRepair / openGuidedRedo). */
   onOpenRepair?: (misconceptionId: string) => void;
   onGuidedRedo?: (redo: GuidedRedoDto) => void;
@@ -195,20 +203,41 @@ export function DialogueProbePanel({
     [phase, turn, answer, confidence, stuck, sessionId, advance, endBlock, onError]
   );
 
-  // §3: Stop diagnosing and teach me — convert the episode to tutoring, then
-  // close the block so unsubmitted presentations are invalidated.
+  // §3: Stop diagnosing and teach me — convert the episode, then close the block so unsubmitted presentations are
+  // invalidated and the committed turns are released and normalized, then hand the topic to a lesson.
   const stopAndTeach = useCallback(async () => {
     if (turn == null) {
       void endBlock();
       return;
     }
+    const practiceItemId = turn.practiceItemId;
+    let stopped: StopProbeResultDto | null = null;
     try {
-      await api.stopProbeDiagnosing(turn.practiceItemId);
+      stopped = await api.stopProbeDiagnosing(practiceItemId);
     } catch (error) {
       onError((error as CommandError).message ?? String(error));
     }
-    void endBlock();
-  }, [turn, endBlock, onError]);
+    if (!onTeachFromCheck || stopped == null) {
+      // No host to teach, or the stop failed (the check may still be measuring): the block's results show as before.
+      void endBlock();
+      return;
+    }
+    let ended: ProbeBlockEndDto | null = null;
+    if (dialogueState.current != null) {
+      setPhase("ending");
+      try {
+        ended = (await api.endProbeDialogue(dialogueState.current)).blockEnd;
+      } catch (error) {
+        onError((error as CommandError).message ?? String(error));
+      }
+    }
+    onTeachFromCheck({
+      learningObjectId,
+      probeEpisodeId: stopped.episodeId ?? ended?.episodeId ?? null,
+      fallback: () => onAsk?.({ context: "practice", practiceItemId, sessionId, proactiveOpen: true })
+    });
+    onDone(ended);
+  }, [turn, endBlock, onError, onTeachFromCheck, onAsk, onDone, learningObjectId, sessionId]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -378,7 +407,7 @@ export function DialogueProbePanel({
                 disabled={phase === "submitting"}
                 onClick={() => void stopAndTeach()}
               >
-                <span className="queue-title">Stop diagnosing and teach me</span>
+                <span className="queue-title">{STOP_AND_TEACH_LABEL}</span>
               </button>
             </div>
           </>
