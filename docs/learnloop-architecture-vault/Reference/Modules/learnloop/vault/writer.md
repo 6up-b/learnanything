@@ -160,6 +160,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/curriculum_c2b_past_papers_helpers.py](../../../../../../tests/curriculum_c2b_past_papers_helpers.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/device_eligibility_helpers.py](../../../../../../tests/device_eligibility_helpers.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_identity_helpers.py](../../../../../../tests/exam_protection_identity_helpers.py) — direct import
@@ -337,6 +338,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
 - [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
   - `test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`
 - [tests/test_reader_cues.py](../../../../../../tests/test_reader_cues.py) — direct import

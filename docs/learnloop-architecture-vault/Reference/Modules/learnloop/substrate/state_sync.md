@@ -135,6 +135,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/facet_identity_actions_helpers.py](../../../../../../tests/facet_identity_actions_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
@@ -357,6 +358,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
   - `test_quick_check_is_never_prompted`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import

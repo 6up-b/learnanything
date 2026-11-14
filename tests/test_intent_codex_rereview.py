@@ -21,7 +21,7 @@ from learnloop.daily_plan.engine import PlanEnv, build_plan
 from learnloop.intent.checks import PRACTICE_BANNER, served_check, settle_answered_checks
 from learnloop.scheduling import serving_exclusions
 from learnloop.scheduling.intent.serving import intent_enabled, intent_serving
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.daily_plan_fakes import MovableClock, iso
 from tests.intent_fakes import ITEM_LO, NOW, OURS, make_intent_vault
@@ -83,7 +83,7 @@ def test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on(tmp_path
     def ranked(iv):
         return [
             (entry.practice_item_id, round(entry.priority, 12), tuple(sorted(entry.components.items())))
-            for entry in build_due_queue(iv.vault, iv.repository, clock=FrozenClock(at), persist_explanations=False)
+            for entry in read_due_queue(iv.vault, iv.repository, clock=FrozenClock(at))
             if entry.practice_item_id in OURS
         ]
 

@@ -687,9 +687,9 @@ def _comparator(
     comparison only (design §B4). Never authority for the staged choice."""
 
     try:
-        from learnloop.scheduling.scheduler import build_due_queue
+        from learnloop.scheduling.scheduler import read_due_queue
 
-        slate = build_due_queue(vault, repository, session=session, persist_explanations=False)
+        slate = read_due_queue(vault, repository, session=session)
     except Exception as exc:  # legacy comparator is advisory; its failure is inert
         return {"available": False, "error": type(exc).__name__}
     scores = {

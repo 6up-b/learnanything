@@ -5,7 +5,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.scheduling.selection_rewards import SchedulerIntent, score_selection_reward
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_concept, upsert_learning_object, upsert_practice_item
@@ -53,7 +53,7 @@ def _upsert_uncertainty(repository, *, status: str, top_label: str, opened_by_at
 def test_unexamined_facet_on_goal_frontier_scales_by_goal_priority(tmp_path):
     vault, _paths, repository = _loaded(tmp_path)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
 
     item = queue[0]
     # Facet "recall" has no evidence -> unexamined -> on the frontier; the
@@ -89,7 +89,7 @@ def test_known_gap_and_uncertain_facets_are_both_on_frontier(tmp_path):
     _upsert_uncertainty(
         repository, status="resolved", top_label="facet_absent:recall", opened_by_attempt_id=result.attempt_id
     )
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
     # The raw frontier weight (goal priority 0.8) is multiplied by the same-item
     # exposure discount because the item was just attempted above.
     exposure = queue[0].components["goal_frontier_exposure_discount"]
@@ -99,7 +99,7 @@ def test_known_gap_and_uncertain_facets_are_both_on_frontier(tmp_path):
     _upsert_uncertainty(
         repository, status="open", top_label="facet_absent:recall", opened_by_attempt_id=result.attempt_id
     )
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
     # Uncertain now counts as not-on-track (previously excluded).
     assert queue[0].components["goal_frontier"] == pytest.approx(0.8 * exposure)
 
@@ -111,7 +111,7 @@ def test_no_active_goals_means_no_goal_frontier(tmp_path):
     repository = seed_due_item(paths)
     vault = load_vault(vault_root)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
 
     assert queue[0].components["goal_frontier"] == 0.0
     assert "active_goal" not in queue[0].components
@@ -221,7 +221,7 @@ def test_goal_quota_guarantees_floor_share_at_top_of_queue(tmp_path):
     _add_offgoal_lo_and_items(vault_root, repository, count=4)
     vault = load_vault(vault_root)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
 
     def is_goal(item) -> bool:
         return item.components.get("goal_frontier", 0.0) > 0
@@ -255,7 +255,7 @@ def test_cold_start_lo_on_frontier_is_schedulable(tmp_path):
     repository = Repository(paths.sqlite_path)
     vault = load_vault(vault_root)
 
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
 
     frontier_ids = [
         item.practice_item_id

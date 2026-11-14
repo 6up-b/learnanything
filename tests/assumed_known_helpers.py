@@ -9,7 +9,7 @@ import sqlite3
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -60,12 +60,11 @@ def _answer(vault, repository, item_id, points=4.0, *, minutes, hints=0, session
 
 
 def _queue(vault, repository, minutes, *, persist=True, session_id=None):
-    return build_due_queue(
+    return (build_due_queue if persist else read_due_queue)(
         vault,
         repository,
         clock=_at(minutes),
         session=SchedulerSession(session_id=session_id),
-        persist_explanations=persist,
     )
 
 

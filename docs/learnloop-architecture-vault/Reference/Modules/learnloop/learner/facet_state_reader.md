@@ -165,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
   - `test_with_the_belief_fixes_off_a_success_keeps_the_facet_streak`

@@ -12,7 +12,7 @@ from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback
 from learnloop.content.proposals.proposals import accept_items, generate_authoring_proposal
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import add_note, load_vault
 
@@ -101,7 +101,7 @@ def test_codex_mocked_end_to_end(tmp_path):
     assert repository.latest_attempt_surprise(result.attempt_id) is not None
 
     # The graded item participates in scheduling.
-    queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(load_vault(vault_root), repository, clock=clock)
     assert "pi_svd_imported_001" in [item.practice_item_id for item in queue]
 
 

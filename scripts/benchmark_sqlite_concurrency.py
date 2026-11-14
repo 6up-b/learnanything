@@ -224,7 +224,7 @@ def queue_build_wal_growth(fixture: Path, directory: Path) -> dict:
         seconds = []
         for _ in range(QUEUE_BUILDS):
             started = time.perf_counter()
-            build_due_queue(vault, repository, persist_explanations=True)
+            build_due_queue(vault, repository)
             seconds.append(round(time.perf_counter() - started, 3))
             sizes.append(_wal_bytes(sqlite_path))
         result = checkpoint_wal(sqlite_path, reason="benchmark")

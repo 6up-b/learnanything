@@ -7,7 +7,7 @@ from learnloop.goals.exam_pool import (
     reserve_exam_pool,
     reserved_item_ids,
 )
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO
@@ -87,14 +87,14 @@ def test_scheduler_skips_reserved_items(tmp_path):
             item_id, difficulty=5.0, stability=2.0, due_at="2026-05-18T12:00:00Z",
             last_attempt_at="2026-05-16T12:00:00Z", active=True,
         )
-    before = {item.practice_item_id for item in build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)}
+    before = {item.practice_item_id for item in read_due_queue(vault, repository, clock=FrozenClock(NOW))}
     assert "pi_pool_recall_easy" in before
 
     reserve_exam_pool(vault, repository, goal, item_count=3, clock=FrozenClock(NOW))
     reserved = reserved_item_ids(repository)
     assert reserved
 
-    after = {item.practice_item_id for item in build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)}
+    after = {item.practice_item_id for item in read_due_queue(vault, repository, clock=FrozenClock(NOW))}
     assert reserved.isdisjoint(after)
 
 

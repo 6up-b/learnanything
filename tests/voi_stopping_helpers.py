@@ -18,7 +18,7 @@ from learnloop.daily_plan.lanes import (
 from learnloop.diagnosis.followups import evaluate_intervention_followup
 from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.diagnosis import voi_stopping as voi
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
@@ -135,9 +135,8 @@ def _fingerprint(queue):
 
 
 def _build(vault, repository, *, session_id="sess", trace=None):
-    return build_due_queue(
-        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id),
-        persist_explanations=False, offer_trace=trace,
+    return read_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=session_id), offer_trace=trace,
     )
 
 

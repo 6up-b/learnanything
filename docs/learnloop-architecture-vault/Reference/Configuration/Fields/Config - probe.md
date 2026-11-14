@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/probe_dialogue.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/identity_pins_helpers.py"
@@ -39,7 +40,6 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/reader_source_identity_guard_helpers.py"
-  - "tests/router_model_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -116,7 +116,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `probe.lifecycle.retire_minimum_sample` | `10` | integer | modeled default or validator seed | Sets the minimum retire sample required by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:342`; `src/learnloop/diagnosis/probe_lifecycle.py:130` |
 | `probe.lifecycle.retire_negative_information_rate` | `0.5` | number | modeled default or validator seed | Sets the rate of retire negative information used by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:343`; `src/learnloop/diagnosis/probe_lifecycle.py:132` |
 | `probe.lifecycle.retire_regrade_agreement_floor` | `0.5` | number | modeled default or validator seed | Controls retire regrade agreement floor in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:344`; `src/learnloop/diagnosis/probe_lifecycle.py:141` |
-| `probe.shadow.enabled` | `true` | boolean | modeled default or validator seed | Turns shadow behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:355`; `src/learnloop/diagnosis/probe_episodes.py:1451`; `src/learnloop/scheduling/scheduler.py:709` |
+| `probe.shadow.enabled` | `true` | boolean | modeled default or validator seed | Turns shadow behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:355`; `src/learnloop/diagnosis/probe_episodes.py:1451`; `src/learnloop/scheduling/scheduler.py:758` |
 | `probe.shadow.top_k` | `3` | integer | modeled default or validator seed | Controls top k in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:356`; `src/learnloop/diagnosis/probe_episodes.py:1453` |
 | `probe.block.family_redundancy_penalty` | `0.6` | number | modeled default or validator seed | Controls family redundancy penalty in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:369`; `src/learnloop/diagnosis/probe_episodes.py:1002`; `src/learnloop/diagnosis/voi_forecasting.py:153` |
 | `probe.block.max_block_size` | `4` | integer | modeled default or validator seed | Caps block size allowed by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:370`; `src/learnloop/diagnosis/probe_episodes.py:1688` |
@@ -141,6 +141,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/identity_pins_helpers.py`
@@ -151,7 +152,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/reader_source_identity_guard_helpers.py`
-- `tests/router_model_fakes.py`
 
 ## Extension and modification guidance
 

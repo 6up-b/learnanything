@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/session_learning_diff.py](../../../../../../src/learnloop/learner/session_learning_diff.py) |
-| Source lines | 159 |
+| Source lines | 161 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_empty_diff() -> dict[str, object]` ([source](../../../../../../src/learnloop/learner/session_learning_diff.py), line 151)
+- `_empty_diff() -> dict[str, object]` ([source](../../../../../../src/learnloop/learner/session_learning_diff.py), line 153)
 
 ## Who imports or calls it
 

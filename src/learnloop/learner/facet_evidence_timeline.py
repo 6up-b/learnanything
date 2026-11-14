@@ -191,7 +191,8 @@ class FacetTimelineSnapshot:
     # credit, per attempt. The timeline is a SECOND fold over the same ledger the
     # canonical projection banks, and the receipt-exactness invariant
     # (`test_receipt_exactness`) is that the two agree to the float — so any input
-    # the projection reads, this one must read too.
+    # the projection reads, this one must read too. The facet ids are as stored;
+    # the walk resolves them as the projection does (aliases, then merges).
     exercised_by_attempt: dict[str, frozenset[str]] = field(default_factory=dict)
     # The same bulk-resolved causal eligibility facts consumed by canonical
     # projection. Assistance and certification eligibility are intentionally
@@ -211,8 +212,17 @@ class FacetTimelineSnapshot:
     contract_unrecorded: frozenset[str] = frozenset()
 
 
-def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot:
-    """Load the complete timeline ledger with a bounded number of DB reads."""
+def load_facet_timeline_snapshot(
+    repository: Repository, *, projection_version: str
+) -> FacetTimelineSnapshot:
+    """Load the complete timeline ledger with a bounded number of DB reads.
+
+    ``projection_version`` is the vault's algorithm version: each cited
+    contract is read as the projection at that version reads it, through a
+    measurement correction that reinterprets historical evidence for it. The
+    stored contract alone would keep crediting facets the correction took the
+    attempt's evidence off, which the projection no longer banks.
+    """
 
     grading_by_attempt: dict[str, list[GradingEvidenceRecord]] = defaultdict(list)
     contract_ids: set[str] = set()
@@ -227,11 +237,14 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
             attempt_id: tuple(records)
             for attempt_id, records in grading_by_attempt.items()
         },
-        contracts_by_id=repository.fetch_assessment_contract_versions(contract_ids),
-        merge_map=merge_map,
-        exercised_by_attempt=_resolved_exercised_facets(
-            repository.all_trace_exercised_facets(), merge_map
+        contracts_by_id=repository.effective_assessment_contract_versions(
+            contract_ids, projection_version=projection_version
         ),
+        merge_map=merge_map,
+        exercised_by_attempt={
+            attempt_id: frozenset(str(row["facet_id"]) for row in rows)
+            for attempt_id, rows in repository.all_trace_exercised_facets().items()
+        },
         activity_by_attempt=repository.all_causal_activity_classifications(),
         contract_unrecorded=_contract_unrecorded(repository),
     )
@@ -343,35 +356,6 @@ def _contract_unrecorded(repository: Repository) -> frozenset[str]:
         return contract_unrecorded_attempts(connection)
 
 
-def _resolved_exercised_facets(
-    observations: dict[str, list[dict[str, Any]]], merge_map: dict[str, str]
-) -> dict[str, frozenset[str]]:
-    """A6 observations with their facet ids merge-resolved (Meas §3.A1 guard 1).
-
-    The projection resolves these ids through the same transitive merge map
-    before comparing them against a target's facet; reading them RAW here would
-    make the two folds disagree the moment a facet is merged — an observation
-    recorded under a retired id would read as exercised in the projection and
-    unexercised in the timeline, so the guard would confer credit in one fold and
-    withhold it in the other, and `test_receipt_exactness`'s float-exact
-    invariant would break with the learner-facing curve understating the ledger.
-    Sharing the predicate is not enough; the two folds have to share its INPUT.
-    """
-
-    def resolve(facet_id: str) -> str:
-        current = str(facet_id)
-        seen: set[str] = set()
-        while current in merge_map and current not in seen:
-            seen.add(current)
-            current = merge_map[current]
-        return current
-
-    return {
-        attempt_id: frozenset(resolve(str(row["facet_id"])) for row in rows)
-        for attempt_id, rows in observations.items()
-    }
-
-
 def p0_evidence_mass_by_attempt(
     vault: LoadedVault, repository: Repository
 ) -> dict[str, float]:
@@ -428,7 +412,13 @@ def vault_timeline_snapshot(vault: LoadedVault, repository: Repository) -> Facet
     masses attached, so a caller replaying it several times (as of several
     moments) loads it once."""
 
-    return _with_p0_masses(vault, repository, load_facet_timeline_snapshot(repository))
+    return _with_p0_masses(vault, repository, _vault_snapshot(vault, repository))
+
+
+def _vault_snapshot(vault: LoadedVault, repository: Repository) -> FacetTimelineSnapshot:
+    return load_facet_timeline_snapshot(
+        repository, projection_version=vault.config.algorithms.algorithm_version
+    )
 
 
 def fold_demonstrated_timeline(
@@ -806,6 +796,43 @@ def _decoded_attribution(raw: str | None) -> object:
         return None
 
 
+def _epoch_rubric_and_group(
+    vault: LoadedVault,
+    snapshot: FacetTimelineSnapshot,
+    item,
+    practice_item_id: str,
+    records: Iterable[GradingEvidenceRecord],
+):
+    """The rubric and surface group one grading epoch is read under: the
+    contract its rows cite (one, as the projection requires), else the live
+    item, as the projection falls back for rows written before contracts."""
+
+    version_ids = {
+        record.assessment_contract_version_id
+        for record in records
+        if record.assessment_contract_version_id
+    }
+    contract = None
+    if len(version_ids) == 1:
+        stored = snapshot.contracts_by_id.get(next(iter(version_ids)))
+        contract = stored.get("contract") if stored is not None else None
+    if contract is None:
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        return rubric, surface_group_id(item) if item is not None else f"item:{practice_item_id}"
+    from learnloop.learner.assessment_contracts import rubric_from_contract
+
+    fingerprint = contract.get("evidence_fingerprint") or {}
+    group = next(
+        (
+            str(fingerprint[key])
+            for key in ("shared_stimulus_id", "source_family", "solution_recipe_family")
+            if fingerprint.get(key)
+        ),
+        str(contract.get("surface_family") or f"item:{practice_item_id}"),
+    )
+    return rubric_from_contract(contract), group
+
+
 def _observation_events_by_facet(
     vault: LoadedVault,
     snapshot: FacetTimelineSnapshot,
@@ -871,37 +898,22 @@ def _observation_events_by_facet(
             ((epoch.last_written[0], epoch.key), list(epoch.rows)) for epoch in ordered_epochs(rows)
         ]
         unrecorded = str(attempt["id"]) in snapshot.contract_unrecorded
+        # The facets an earlier epoch of this attempt put an event on. A later
+        # epoch replaces the attempt's contribution only in the facets it has an
+        # event in, so it needs one in each of these even when it no longer
+        # names the facet (a held epoch read against today's rubric, whose
+        # criteria may carry no targets; a regrade under a retargeted item):
+        # without it the facet keeps credit the projection no longer banks.
+        reached_facets: set[str] = set()
         # An attempt with no grading evidence marks nothing under projection v6:
         # absent evidence produces no criterion outcomes, so it can neither bank
         # mass nor advance surface-group novelty in either fold. (Pre-v6 this
         # branch ran a marking-only pass because the projection treated every
         # ungraded criterion as a failure.)
         for index, ((epoch_at, _revision_key), records) in enumerate(epoch_items):
-            version_ids = {
-                record.assessment_contract_version_id
-                for record in records
-                if record.assessment_contract_version_id
-            }
-            contract = None
-            if len(version_ids) == 1:
-                stored = snapshot.contracts_by_id.get(next(iter(version_ids)))
-                contract = stored.get("contract") if stored is not None else None
-            if contract is not None:
-                from learnloop.learner.assessment_contracts import rubric_from_contract
-
-                rubric = rubric_from_contract(contract)
-                fingerprint = contract.get("evidence_fingerprint") or {}
-                group = next(
-                    (
-                        str(fingerprint[key])
-                        for key in ("shared_stimulus_id", "source_family", "solution_recipe_family")
-                        if fingerprint.get(key)
-                    ),
-                    str(contract.get("surface_family") or f"item:{attempt['practice_item_id']}"),
-                )
-            else:
-                rubric = vault.rubric_for_item(item) if item is not None else None
-                group = surface_group_id(item) if item is not None else f"item:{attempt['practice_item_id']}"
+            rubric, group = _epoch_rubric_and_group(
+                vault, snapshot, item, str(attempt["practice_item_id"]), records
+            )
             if rubric is None or not rubric.criteria:
                 continue
             epoch_rows = {
@@ -933,8 +945,13 @@ def _observation_events_by_facet(
                 certification_eligible=activity.eligible_for_certification,
                 seen_groups_by_cell=prior_seen,
                 resolve=resolve,
-                exercised_facets=snapshot.exercised_by_attempt.get(
-                    str(attempt["id"]), frozenset()
+                # The stored ids resolved as the projection resolves them: an
+                # observation recorded under a facet since renamed (an alias
+                # now) or merged must license the same supporting target in
+                # both folds, or the curve and the banked credit disagree.
+                exercised_facets=frozenset(
+                    resolve(facet_id)
+                    for facet_id in snapshot.exercised_by_attempt.get(str(attempt["id"]), ())
                 ),
                 evidence_mass_override=evidence_mass_override,
             )
@@ -946,7 +963,8 @@ def _observation_events_by_facet(
                 for target in criterion.targets
             }
             credited_facets = {facet for facet, _capability in credits}
-            for canonical_facet in requested & (historical_facets | credited_facets):
+            for canonical_facet in requested & (historical_facets | credited_facets | reached_facets):
+                reached_facets.add(canonical_facet)
                 per_capability = {
                     capability: credit
                     for (facet, capability), credit in credits.items()
@@ -1007,9 +1025,7 @@ def _observation_events(
     canonical_facet: str,
 ) -> list[ObservationEvent]:
     """Compatibility wrapper for callers that inspect one facet's events."""
-    snapshot = _with_p0_masses(
-        vault, repository, load_facet_timeline_snapshot(repository)
-    )
+    snapshot = _with_p0_masses(vault, repository, _vault_snapshot(vault, repository))
     return _observation_events_by_facet(
         vault,
         snapshot,
@@ -1038,7 +1054,7 @@ def facet_evidence_timelines(
     if not canonical:
         return {}
     loaded = _with_p0_masses(
-        vault, repository, snapshot or load_facet_timeline_snapshot(repository)
+        vault, repository, snapshot or _vault_snapshot(vault, repository)
     )
     if as_of is not None:
         loaded = snapshot_as_of(loaded, as_of, vault=vault)

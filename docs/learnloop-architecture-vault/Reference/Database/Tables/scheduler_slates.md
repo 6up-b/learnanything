@@ -136,16 +136,16 @@ Indexes and uniqueness:
 - `tests/test_probability_prep.py`
 - `tests/test_router_offer_log.py`
 - `tests/test_slate_record.py`
+- `tests/due_queue_helpers.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempts.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_diagnostic_probe_freshness.py`
+- `tests/test_due_queue_read_builds.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_evsi_router_composition.py`
-- `tests/test_intent_planner.py`
-- `tests/test_km5_sim_gates.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

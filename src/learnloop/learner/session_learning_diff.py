@@ -74,7 +74,9 @@ def session_learning_diffs(
     raised_by_session: dict[str, dict[str, set[str]]] = {
         session_id: {} for session_id, _start, _end, _start_raw, _end_raw in windows
     }
-    snapshot = load_facet_timeline_snapshot(repository)
+    snapshot = load_facet_timeline_snapshot(
+        repository, projection_version=vault.config.algorithms.algorithm_version
+    )
     for facet_id, timeline in facet_evidence_timelines(
         vault, repository, facet_ids, snapshot=snapshot
     ).items():

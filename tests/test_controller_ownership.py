@@ -14,7 +14,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.curriculum import commitments as C
 from learnloop.scheduling import controller_ownership as own
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -88,13 +88,13 @@ def test_legacy_scheduler_excludes_staged_owned_items(wired):
     cid, item_id = _p2_commitment(repo, vault)
     session = SchedulerSession(session_id="s1", available_minutes=30)
 
-    before = build_due_queue(vault, repo, session=session, clock=CLOCK, persist_explanations=False)
+    before = read_due_queue(vault, repo, session=session, clock=CLOCK)
     assert any(i.practice_item_id == item_id for i in before), "item should be in the legacy queue pre-ownership"
 
     own.assign_p2_run(repo, commitment_id=cid, clock=CLOCK)
     assert item_id in own.staged_owned_practice_item_ids(vault, repo)
 
-    after = build_due_queue(vault, repo, session=session, clock=CLOCK, persist_explanations=False)
+    after = read_due_queue(vault, repo, session=session, clock=CLOCK)
     assert not any(i.practice_item_id == item_id for i in after), "staged-owned item must be excluded from the legacy queue"
 
 
@@ -110,7 +110,7 @@ def test_rollback_returns_to_legacy_and_restores_queue(wired):
     assert receipt["transitioned"][0]["to_owner"] == own.LEGACY
     assert own.resolve_owner(repo, cid) == own.LEGACY
     # The legacy queue is restored exactly: the item is schedulable again.
-    after = build_due_queue(vault, repo, session=session, clock=CLOCK, persist_explanations=False)
+    after = read_due_queue(vault, repo, session=session, clock=CLOCK)
     assert any(i.practice_item_id == item_id for i in after)
     # History is preserved (append-only): assign + rollback are both durable.
     assert len(own.ownership_events(repo, cid)) == 2
@@ -146,8 +146,8 @@ def test_rollback_is_all_or_nothing_on_mid_failure(wired, monkeypatch):
     own.assign_p2_run(repo, commitment_id=cid2, clock=CLOCK)
     session = SchedulerSession(session_id="s1", available_minutes=30)
 
-    before_queue = [i.practice_item_id for i in build_due_queue(
-        vault, repo, session=session, clock=CLOCK, persist_explanations=False)]
+    before_queue = [i.practice_item_id for i in read_due_queue(
+        vault, repo, session=session, clock=CLOCK)]
     assert item_id not in before_queue  # staged-owned -> excluded pre-rollback.
 
     # Inject a fault on the SECOND append inside the rollback transaction.
@@ -171,8 +171,8 @@ def test_rollback_is_all_or_nothing_on_mid_failure(wired, monkeypatch):
     assert len(own.ownership_events(repo, cid2)) == 1
 
     # Queue-equality restore: the failed rollback left the legacy queue exactly as it was.
-    after_queue = [i.practice_item_id for i in build_due_queue(
-        vault, repo, session=session, clock=CLOCK, persist_explanations=False)]
+    after_queue = [i.practice_item_id for i in read_due_queue(
+        vault, repo, session=session, clock=CLOCK)]
     assert after_queue == before_queue
 
 

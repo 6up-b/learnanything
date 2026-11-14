@@ -366,7 +366,7 @@ def test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy(tmp_path
         idle_reader.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
         sizes = []
         for _ in range(20):
-            build_due_queue(vault, repository, persist_explanations=True)
+            build_due_queue(vault, repository)
             sizes.append(wal_size_bytes(sqlite_path))
         # Measured 2026-09-23: about 12 KB per persisted build, 288 KB after
         # twenty. SQLite's automatic checkpoint engages at 1000 pages (4 MiB).

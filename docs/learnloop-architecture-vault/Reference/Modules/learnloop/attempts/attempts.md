@@ -632,6 +632,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_active_seconds_is_a_nullable_attempt_column_filled_after_the_row_and_never_blended_with_latency`
 - [tests/test_reader_activity.py](../../../../../../tests/test_reader_activity.py) — direct import

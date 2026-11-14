@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
-  - "src/learnloop/learner/facet_evidence_timeline.py"
+  - "src/learnloop/substrate/compat/activity_backfill.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -118,7 +118,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/assessment_contracts.py`
-- `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 - `src/learnloop_sidecar/handlers/workbench.py`

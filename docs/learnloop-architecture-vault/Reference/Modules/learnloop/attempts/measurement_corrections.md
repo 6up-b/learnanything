@@ -106,6 +106,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
   - `test_historical_reinterpretation_rejects_a_changed_task`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
 - [tests/test_state_sync_scheduling_race.py](../../../../../../tests/test_state_sync_scheduling_race.py) — direct import
   - `test_a_measurement_correction_after_the_lifecycle_reads_keeps_the_original_retired`
 

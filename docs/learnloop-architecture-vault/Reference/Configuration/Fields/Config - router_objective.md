@@ -27,13 +27,13 @@ source_paths:
   - "tests/ad_guard_offer_receipts_helpers.py"
   - "tests/approach_map_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/identity_pins_helpers.py"
   - "tests/ih2_lessons_compete_helpers.py"
   - "tests/ih_numeric_seed_helpers.py"
-  - "tests/instruct_handoff_ih0_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router-objective"
@@ -119,13 +119,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_guard_offer_receipts_helpers.py`
 - `tests/approach_map_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
 - `tests/ih2_lessons_compete_helpers.py`
 - `tests/ih_numeric_seed_helpers.py`
-- `tests/instruct_handoff_ih0_helpers.py`
 
 ## Extension and modification guidance
 

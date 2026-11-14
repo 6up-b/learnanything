@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.scheduling.scheduler import ScheduledItem, build_due_queue, _apply_requested_floor
+from learnloop.scheduling.scheduler import ScheduledItem, read_due_queue, _apply_requested_floor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 from tests.helpers import create_basic_vault
@@ -174,7 +174,7 @@ def test_requested_item_surfaces_and_respects_gates(tmp_path):
 
     # Floor off: the quality-penalized requested item does NOT lead.
     loaded.config.tutor_promotion.requested_items_per_session = 0
-    baseline = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
+    baseline = read_due_queue(loaded, repository, clock=clock)
     baseline_ids = [item.practice_item_id for item in baseline]
     assert baseline_ids[0] != "pi_requested"
     assert "pi_requested" in baseline_ids
@@ -183,7 +183,7 @@ def test_requested_item_surfaces_and_respects_gates(tmp_path):
 
     # Floor on (cap 1): the requested item is pulled to the front.
     loaded.config.tutor_promotion.requested_items_per_session = 1
-    queue = build_due_queue(loaded, repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=clock)
     ids = [item.practice_item_id for item in queue]
     assert ids[0] == "pi_requested"
     assert "pi_inactive_requested" not in ids
@@ -193,7 +193,7 @@ def test_requested_floor_honored_before_limit_slice(tmp_path):
     loaded, repository, clock = _setup_floor_vault(tmp_path)
     loaded.config.tutor_promotion.requested_items_per_session = 1
     # Even a single-item session surfaces the requested item (prefix floor before slice).
-    queue = build_due_queue(loaded, repository, clock=clock, limit=1, persist_explanations=False)
+    queue = read_due_queue(loaded, repository, clock=clock, limit=1)
     assert [item.practice_item_id for item in queue] == ["pi_requested"]
 
 
@@ -210,7 +210,7 @@ def test_stateless_requested_item_survives_eligibility(tmp_path):
     # learner-request row is its only signal.
     _promote_item(repository, event_suffix="fresh", created_practice_item_id="pi_fresh_variant")
     vault = load_vault(paths.root)
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
     ids = [item.practice_item_id for item in queue]
     assert "pi_fresh_variant" in ids
     assert ids[0] == "pi_fresh_variant"

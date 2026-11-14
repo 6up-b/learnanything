@@ -23,7 +23,7 @@ from learnloop.diagnosis.text_gaps.sources import (
 )
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.state import load_placement_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
@@ -50,8 +50,7 @@ def _gap(root, repository, *, minutes, item="pi_spec_easy", gap=EIGEN_GAP, llm=N
 
 
 def _queue(root, repository, minutes):
-    return build_due_queue(load_vault(root), repository, clock=_at(minutes), session=SchedulerSession(),
-                           persist_explanations=False)
+    return read_due_queue(load_vault(root), repository, clock=_at(minutes), session=SchedulerSession())
 
 
 def _answer(root, repository, item_id, points, *, minutes):
