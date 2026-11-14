@@ -45,12 +45,8 @@ from learnloop.content.synthesis.ai_contracts import (
     SynthSpanRef,
 )
 from learnloop.content.synthesis.source_append import append_source
-from learnloop.content.synthesis.source_set_synthesis import (
-    StudyMapError,
-    _collect_inputs,
-    _normalize,
-    _span_refs,
-)
+from learnloop.content.synthesis.normalize import _span_refs, normalize
+from learnloop.content.synthesis.source_set_synthesis import StudyMapError, _collect_inputs
 from learnloop.content.synthesis.synthesis_gates import (
     GateContext,
     GateItem,
@@ -176,7 +172,7 @@ def test_a_bootstrap_candidate_carrying_a_registered_id_rewords_it_uncited_only_
         client_item_id="f_again", id=SYMMETRY, kind="definition", claim=EXAM_CLAIM, provenance=[],
     )])
 
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
     # Kept as a checked update (never a create over the facet), which the
     # apply holds for the owner's confirm (owner, 2026-10-13).
@@ -196,7 +192,7 @@ def test_a_cited_bootstrap_candidate_carrying_a_registered_id_rewords_it_as_a_ch
         provenance=[SynthSpanRef(**TEXT_SPAN, relation="primary")],
     )])
 
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
     (row,) = [row for row in normalized.rows if row["item_type"] == "facet"]
     # A create of a registered id is an update: the target hash guards it and it is reviewed.

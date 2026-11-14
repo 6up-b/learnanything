@@ -151,6 +151,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_practice_block_is_not_dispersed`
   - `test_same_facet_fresh_evidence_not_back_to_back`
   - `test_unstaged_block_leaves_interleaving_inert`
+- [tests/test_due_queue_read_builds.py](../../../../../../tests/test_due_queue_read_builds.py) — direct import
+  - `test_the_staged_comparator_records_no_serving`
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_the_staged_controller_admits_both_instruments`

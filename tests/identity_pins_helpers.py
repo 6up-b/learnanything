@@ -1167,7 +1167,7 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
     IdentitySite(
         "B6", "proposal target hashes (exclude_none=False dumps of six entity types)",
         ("src/learnloop/content/proposals/patches.py::compute_target_hash",
-         "src/learnloop/content/synthesis/source_set_synthesis.py::_normalize"),
+         "src/learnloop/content/synthesis/normalize.py::_mint_gate"),
         "expected_target_hash on update/deactivate proposal items, checked at accept",
         "every pending update or deactivate proposal is refused at accept",
         {kind: _target_hash(kind, entity) for kind, entity in (

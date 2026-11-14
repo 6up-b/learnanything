@@ -13,7 +13,7 @@ from pydantic import Field
 from learnloop.learner.mastery import display_mastery, sigmoid
 from learnloop.diagnosis.probes import resolve_item_irt
 from learnloop.learner.recall_coverage import predicted_correctness
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -81,7 +81,7 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
 
     # Probe/queued flags from one read-only scheduler pass (no persisted
     # explanations), same convention as get_facet_mastery.
-    queue = build_due_queue(vault, repository, persist_explanations=False)
+    queue = read_due_queue(vault, repository)
     queued_ids = {scheduled.practice_item_id for scheduled in queue}
     probe_ids = {
         scheduled.practice_item_id

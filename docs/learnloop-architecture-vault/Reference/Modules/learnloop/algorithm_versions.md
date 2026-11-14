@@ -344,6 +344,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_te1b_and_the_latest`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_every_tag_defaults_the_switch_off`
+- [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
 - [tests/test_effective_defaults_golden.py](../../../../../tests/test_effective_defaults_golden.py) — direct import
   - `test_every_tag_has_the_latest_defaults_apart_from_its_label`
   - `test_the_golden_file_reads_back_as_the_effective_config`

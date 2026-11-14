@@ -26,7 +26,7 @@ from learnloop.daily_plan.headline import classify_learning_objects, today_headl
 from learnloop.db.repositories import Repository
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.state import load_placement_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 from tests.daily_plan_fakes import MovableClock, make_env, record_attempt, scheduled, seed_due
@@ -71,7 +71,7 @@ def test_a_check_miss_awaiting_its_diagnosis_stays_assumed_and_is_not_rechecked(
     state = load_placement_state(vault, repository, now_iso=pending_at.strftime("%Y-%m-%dT%H:%M:%SZ"))
     assert state.awaiting_diagnosis_learning_object_ids == {LO}
     # The scheduler serves no second check meanwhile, so neither does the plan.
-    queue = build_due_queue(vault, repository, clock=FrozenClock(pending_at), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(pending_at))
     assert not [s for s in queue if s.learning_object_id == LO and s.components.get("assumed_check")]
     # The headline, read at its own time, keeps the LO assumed while it waits
     # (and its counts agree with its classes).

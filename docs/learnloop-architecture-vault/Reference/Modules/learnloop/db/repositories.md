@@ -2293,6 +2293,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_warns_on_unaligned_error_event_type`
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
+- [tests/test_due_queue_read_builds.py](../../../../../../tests/test_due_queue_read_builds.py) — direct import
+  - `test_the_plan_prefetch_builds_its_pool_on_the_read_only_attach`
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
 - [tests/test_duration_estimates.py](../../../../../../tests/test_duration_estimates.py) — direct import
   - `test_loaded_evidence_reads_own_and_mode_latencies`

@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "tests/causal_factor_deferral_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/http_provider_double.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
-  - "tests/p2_acceptance_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/voi-stopping"
@@ -67,6 +67,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/http_provider_double.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
-- `tests/p2_acceptance_helpers.py`
 
 ## Extension and modification guidance
 

@@ -44,7 +44,7 @@ from learnloop.content.synthesis.source_unit_selection import save_unit_selectio
 from learnloop.db.connection import connect
 from learnloop.ids import new_ulid
 from learnloop.ingest.locators import format_block_span
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceRef
@@ -106,8 +106,7 @@ def _due_pool(tmp_path):
 def _queue(root, repository) -> set[str]:
     from tests.exam_pool_helpers import NOW
 
-    return {entry.practice_item_id for entry in build_due_queue(load_vault(root), repository, clock=FrozenClock(NOW),
-                                                                persist_explanations=False)}
+    return {entry.practice_item_id for entry in read_due_queue(load_vault(root), repository, clock=FrozenClock(NOW))}
 
 
 def test_an_item_marked_held_out_after_its_import_leaves_routine_practice(tmp_path):

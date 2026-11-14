@@ -225,6 +225,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_inventory_choice.py](../../../../../../../tests/test_inventory_choice.py) — direct import
   - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
+- [tests/test_normalize_cases.py](../../../../../../../tests/test_normalize_cases.py) — direct import
+  - `test_a_failing_nominator_is_recorded_beside_the_mint_verdicts_and_never_fails_the_build`
+  - `test_a_reword_of_a_registered_facet_that_only_exam_material_supports_is_kept_as_it_is`
+  - `test_an_append_drops_an_exam_link_to_a_facet_and_carries_a_restructure_of_another_kind`
+  - `test_blueprints_default_flag_and_drop_capabilities_and_depend_on_each_facet_once`
+  - `test_concept_references_resolve_by_title_by_entity_id_or_mint_a_concept`
+  - `test_edges_drop_what_cannot_stand_and_keep_the_floor_from_prerequisites`
+  - `test_practice_items_flag_defaults_drop_dependencies_and_hold_a_method_to_its_target`
+  - `test_retirements_that_name_no_candidate_no_survivor_or_a_retired_survivor_are_skipped`
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_extended_method_repairs_invalid_json_once`
 - [tests/test_outer_cache_keys.py](../../../../../../../tests/test_outer_cache_keys.py) — direct import

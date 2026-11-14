@@ -166,7 +166,7 @@ def test_f2_a_certification_probe_whose_answer_was_shown_expires_unmeasured(tmp_
 
 
 def test_f2_a_non_persisting_read_withdraws_nothing(tmp_path):
-    from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_decision
+    from learnloop.scheduling.scheduler import read_due_queue, cold_check_serve_decision
 
     vault, repository, _misconception = _repair(tmp_path)
     task = _cold_task(repository, not_before=T0 - timedelta(hours=1), created=T0 - timedelta(days=1))
@@ -176,7 +176,7 @@ def test_f2_a_non_persisting_read_withdraws_nothing(tmp_path):
     )
 
     read = cold_check_serve_decision(vault, repository, ITEM, clock=FrozenClock(T0), persist=False)
-    queue = build_due_queue(vault, repository, clock=FrozenClock(T0), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(T0))
 
     assert read.verdict == se.SERVE_AS_ORDINARY and read.withdrawals
     assert ITEM not in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]

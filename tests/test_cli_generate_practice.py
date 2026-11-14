@@ -10,7 +10,7 @@ from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import (
@@ -240,7 +240,7 @@ def test_accepting_diagnostic_proposal_queues_today_followup(tmp_path):
     )
     assert queue_accepted_diagnostic_followups(repository) == 1
     assert queue_accepted_diagnostic_followups(repository) == 0
-    queue = build_due_queue(load_vault(vault_root), repository, clock=FrozenClock(NOW), persist_explanations=False)
+    queue = read_due_queue(load_vault(vault_root), repository, clock=FrozenClock(NOW))
     assert queue[0].practice_item_id == "pi_svd_recall_diagnostic_001"
     assert queue[0].components["intervention_followup"] == 1.0
 

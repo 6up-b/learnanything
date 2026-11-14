@@ -1,0 +1,1260 @@
+{
+ "auto_apply_ids": null,
+ "conflict_candidates": [],
+ "criterion_targets": [
+  {
+   "capability": "retrieval",
+   "correlation_group": "",
+   "criterion_id": "k1",
+   "facet": "facet_f_one",
+   "role": "primary"
+  },
+  {
+   "capability": "retrieval",
+   "correlation_group": "",
+   "criterion_id": "k1",
+   "facet": "facet_f_two",
+   "role": "supporting"
+  },
+  {
+   "capability": "retrieval",
+   "correlation_group": "",
+   "criterion_id": "m",
+   "facet": "facet_f_one",
+   "role": "primary"
+  },
+  {
+   "capability": "procedure_execution",
+   "correlation_group": "",
+   "criterion_id": "p",
+   "facet": "facet_proc",
+   "role": "primary"
+  }
+ ],
+ "edge_diagnostics": [
+  {
+   "entity_refs": [
+    "pi_state_it",
+    "facet_f_one"
+   ],
+   "gate": "criterion_target_capability",
+   "message": "criterion target for facet_f_one on item pi_state_it declared no capability; defaulted to `retrieval`",
+   "severity": "review",
+   "suggested_action": "state the capability the criterion actually observes"
+  },
+  {
+   "entity_refs": [
+    "pi_state_it",
+    "elsewhere",
+    "k2"
+   ],
+   "gate": "criterion_dependency",
+   "message": "item pi_state_it dropped 2 criterion depends_on entries that name no sibling criterion (k2: elsewhere; k2: k2)",
+   "severity": "review",
+   "suggested_action": "a criterion's depends_on names only sibling criterion ids of the same item; re-author the dependency if a step really gates this one"
+  },
+  {
+   "entity_refs": [
+    "pi_compute_det_a"
+   ],
+   "gate": "required_method",
+   "message": "item pi_compute_det_a: required_method:dropped_not_a_method_target",
+   "severity": "review",
+   "suggested_action": "criteria name facts; a method is required only when the item's target is that method"
+  },
+  {
+   "entity_refs": [
+    "pi_compute_det_a_without_c"
+   ],
+   "gate": "required_method",
+   "message": "item pi_compute_det_a_without_c: required_method:statement_may_disagree (negated; advisory, grading reads the field)",
+   "severity": "review",
+   "suggested_action": "make the prompt agree with 'Use {method} in your answer.', or drop the requirement"
+  }
+ ],
+ "facet_identity_actions": [],
+ "facet_ids": [
+  "facet_f_one",
+  "facet_f_two",
+  "facet_proc"
+ ],
+ "facet_payloads": [
+  {
+   "aliases": [],
+   "applicability": [],
+   "claim": "One holds.",
+   "concept_id": "concept_symmetry",
+   "error_signatures": [],
+   "id": "facet_f_one",
+   "instructional_repairs": [],
+   "kind": "definition",
+   "negative_examples": [],
+   "non_goals": [],
+   "positive_examples": [],
+   "postconditions": [],
+   "preconditions": [],
+   "provenance": {
+    "origin": "sourceset_synthesis",
+    "source_refs": [
+     {
+      "extraction_id": "ext_text",
+      "locator": "span:ext_text/s1",
+      "locator_scheme": "block_span_v1",
+      "ref_id": "src_text",
+      "ref_type": "canonical_source",
+      "relation": "primary",
+      "revision_id": "rev_text",
+      "role": "primary_textbook",
+      "source_id": "src_text",
+      "span_hash": null
+     }
+    ]
+   },
+   "status": "reviewed"
+  },
+  {
+   "aliases": [],
+   "applicability": [],
+   "claim": "Two holds.",
+   "concept_id": "concept_symmetry",
+   "error_signatures": [],
+   "id": "facet_f_two",
+   "instructional_repairs": [],
+   "kind": "definition",
+   "negative_examples": [],
+   "non_goals": [],
+   "positive_examples": [],
+   "postconditions": [],
+   "preconditions": [],
+   "provenance": {
+    "origin": "sourceset_synthesis",
+    "source_refs": [
+     {
+      "extraction_id": "ext_text",
+      "locator": "span:ext_text/s1",
+      "locator_scheme": "block_span_v1",
+      "ref_id": "src_text",
+      "ref_type": "canonical_source",
+      "relation": "primary",
+      "revision_id": "rev_text",
+      "role": "primary_textbook",
+      "source_id": "src_text",
+      "span_hash": null
+     }
+    ]
+   },
+   "status": "reviewed"
+  },
+  {
+   "aliases": [],
+   "applicability": [],
+   "claim": "Expand along a row.",
+   "concept_id": "concept_cofactor_expansion",
+   "error_signatures": [],
+   "id": "facet_proc",
+   "instructional_repairs": [],
+   "kind": "procedure_contract",
+   "negative_examples": [],
+   "non_goals": [],
+   "positive_examples": [],
+   "postconditions": [],
+   "preconditions": [],
+   "provenance": {
+    "origin": "sourceset_synthesis",
+    "source_refs": [
+     {
+      "extraction_id": "ext_text",
+      "locator": "span:ext_text/s1",
+      "locator_scheme": "block_span_v1",
+      "ref_id": "src_text",
+      "ref_type": "canonical_source",
+      "relation": "primary",
+      "revision_id": "rev_text",
+      "role": "primary_textbook",
+      "source_id": "src_text",
+      "span_hash": null
+     }
+    ]
+   },
+   "status": "reviewed"
+  }
+ ],
+ "gate_items": [
+  {
+   "client_item_id": "c_sym",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_symmetry",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_proc",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_cofactor_expansion",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_cofactor_expansion",
+    "title": "Cofactor expansion",
+    "type": "procedure"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "f_one",
+   "depends_on": [
+    "c_sym"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "facet_f_one",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "facet",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "One holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_one",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "f_two",
+   "depends_on": [
+    "c_sym"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "facet_f_two",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "facet",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Two holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_two",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "f_proc",
+   "depends_on": [
+    "c_proc"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "facet_proc",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "facet",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Expand along a row.",
+    "concept_id": "concept_cofactor_expansion",
+    "error_signatures": [],
+    "id": "facet_proc",
+    "instructional_repairs": [],
+    "kind": "procedure_contract",
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_one",
+   "depends_on": [
+    "c_sym"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_learn_lo_one",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_symmetry",
+    "confusables": [],
+    "id": "lo_learn_lo_one",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_one"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_proc",
+   "depends_on": [
+    "c_proc"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_learn_lo_proc",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_cofactor_expansion",
+    "confusables": [],
+    "id": "lo_learn_lo_proc",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_proc"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "pi_plain",
+   "depends_on": [
+    "lo_one",
+    "f_one"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [
+    "ext_text:s1"
+   ],
+   "entity_id": "pi_state_it",
+   "establishes_semantic": null,
+   "is_teaching_or_practice": true,
+   "item_type": "practice_item",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "criteria": [
+     {
+      "correlation_group": null,
+      "depends_on": [],
+      "description": "k1",
+      "id": "k1",
+      "points": 1.0,
+      "recipe_ids": [],
+      "targets": [
+       {
+        "capability": "retrieval",
+        "facet": "facet_f_one",
+        "role": "primary"
+       },
+       {
+        "capability": "retrieval",
+        "facet": "facet_f_two",
+        "role": "supporting"
+       }
+      ],
+      "tier": "core"
+     },
+     {
+      "correlation_group": "g",
+      "depends_on": [
+       "k1"
+      ],
+      "description": "k2",
+      "id": "k2",
+      "points": 1.0,
+      "recipe_ids": [],
+      "targets": [],
+      "tier": "core"
+     }
+    ],
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "k1",
+       "id": "k1",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_one",
+         "role": "primary"
+        },
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_two",
+         "role": "supporting"
+        }
+       ],
+       "tier": "core"
+      },
+      {
+       "correlation_group": "g",
+       "depends_on": [
+        "k1"
+       ],
+       "description": "k2",
+       "id": "k2",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    }
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "exercise",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "pi_method_dropped",
+   "depends_on": [
+    "lo_one",
+    "f_one"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "pi_compute_det_a",
+   "establishes_semantic": null,
+   "is_teaching_or_practice": true,
+   "item_type": "practice_item",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "criteria": [
+     {
+      "correlation_group": null,
+      "depends_on": [],
+      "description": "m",
+      "id": "m",
+      "points": 1.0,
+      "recipe_ids": [],
+      "targets": [
+       {
+        "capability": "retrieval",
+        "facet": "facet_f_one",
+        "role": "primary"
+       }
+      ],
+      "tier": "core"
+     }
+    ],
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "m",
+       "id": "m",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_one",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    }
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "pi_method_kept",
+   "depends_on": [
+    "lo_proc",
+    "f_proc"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "pi_compute_det_a_without_c",
+   "establishes_semantic": null,
+   "is_teaching_or_practice": true,
+   "item_type": "practice_item",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "criteria": [
+     {
+      "correlation_group": null,
+      "depends_on": [],
+      "description": "p",
+      "id": "p",
+      "points": 1.0,
+      "recipe_ids": [],
+      "targets": [
+       {
+        "capability": "procedure_execution",
+        "facet": "facet_proc",
+        "role": "primary"
+       }
+      ],
+      "tier": "core"
+     }
+    ],
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "p",
+       "id": "p",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "procedure_execution",
+         "facet": "facet_proc",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    }
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  }
+ ],
+ "graph_nomination": null,
+ "non_conflict_dispositions": [],
+ "recipe_components": [],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "c_sym",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_proc",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75J",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_cofactor_expansion",
+    "title": "Cofactor expansion",
+    "type": "procedure"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "f_one",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_sym"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75K",
+   "item_type": "facet",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "One holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_one",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "meaning_support": [
+     {
+      "citations": [
+       {
+        "extraction_id": "ext_text",
+        "relation": "primary",
+        "span_id": "s1",
+        "unit_id": "chapter_symmetry"
+       }
+      ],
+      "from": "f_one"
+     }
+    ],
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "f_two",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_sym"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75M",
+   "item_type": "facet",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Two holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_two",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "meaning_support": [
+     {
+      "citations": [
+       {
+        "extraction_id": "ext_text",
+        "relation": "primary",
+        "span_id": "s1",
+        "unit_id": "chapter_symmetry"
+       }
+      ],
+      "from": "f_two"
+     }
+    ],
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "f_proc",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_proc"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75N",
+   "item_type": "facet",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "Expand along a row.",
+    "concept_id": "concept_cofactor_expansion",
+    "error_signatures": [],
+    "id": "facet_proc",
+    "instructional_repairs": [],
+    "kind": "procedure_contract",
+    "meaning_support": [
+     {
+      "citations": [
+       {
+        "extraction_id": "ext_text",
+        "relation": "primary",
+        "span_id": "s1",
+        "unit_id": "chapter_symmetry"
+       }
+      ],
+      "from": "f_proc"
+     }
+    ],
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_one",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_sym"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75Q",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_symmetry",
+    "confusables": [],
+    "id": "lo_learn_lo_one",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_one"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_proc",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_proc"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75S",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_cofactor_expansion",
+    "confusables": [],
+    "id": "lo_learn_lo_proc",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_proc"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "pi_plain",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "lo_one",
+    "f_one"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75V",
+   "item_type": "practice_item",
+   "operation": "create",
+   "payload": {
+    "evidence_facets": [
+     "facet_f_one",
+     "f_one",
+     "facet_spectral_applicability"
+    ],
+    "evidence_fingerprint": {},
+    "expected_answer": "It.",
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "k1",
+       "id": "k1",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_one",
+         "role": "primary"
+        },
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_two",
+         "role": "supporting"
+        }
+       ],
+       "tier": "core"
+      },
+      {
+       "correlation_group": "g",
+       "depends_on": [
+        "k1"
+       ],
+       "description": "k2",
+       "id": "k2",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    },
+    "id": "pi_state_it",
+    "learning_object_id": "lo_learn_lo_one",
+    "practice_mode": "retrieval",
+    "prompt": "State it.",
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "exercise",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "repair_targets": [
+     "facet_f_one",
+     "f_one",
+     "facet_spectral_applicability"
+    ],
+    "retrieval_demand": 0.5,
+    "scaffold_level": 0.0,
+    "surface_family": "source_form",
+    "transfer_distance": 0.0
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "pi_method_dropped",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "lo_one",
+    "f_one"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75X",
+   "item_type": "practice_item",
+   "operation": "create",
+   "payload": {
+    "evidence_facets": [
+     "facet_f_one"
+    ],
+    "evidence_fingerprint": {},
+    "expected_answer": "",
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "m",
+       "id": "m",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "retrieval",
+         "facet": "facet_f_one",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    },
+    "id": "pi_compute_det_a",
+    "learning_object_id": "lo_learn_lo_one",
+    "practice_mode": "retrieval",
+    "prompt": "Compute det(A).",
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "repair_targets": [
+     "facet_f_one"
+    ],
+    "retrieval_demand": 0.5,
+    "scaffold_level": 0.0,
+    "surface_family": "source_form",
+    "transfer_distance": 0.0
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "pi_method_kept",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "lo_proc",
+    "f_proc"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75Z",
+   "item_type": "practice_item",
+   "operation": "create",
+   "payload": {
+    "evidence_facets": [
+     "facet_proc"
+    ],
+    "evidence_fingerprint": {},
+    "expected_answer": "",
+    "grading_rubric": {
+     "criteria": [
+      {
+       "correlation_group": null,
+       "depends_on": [],
+       "description": "p",
+       "id": "p",
+       "points": 1.0,
+       "recipe_ids": [],
+       "targets": [
+        {
+         "capability": "procedure_execution",
+         "facet": "facet_proc",
+         "role": "primary"
+        }
+       ],
+       "tier": "core"
+      }
+     ],
+     "fatal_errors": [],
+     "max_points": 4
+    },
+    "id": "pi_compute_det_a_without_c",
+    "learning_object_id": "lo_learn_lo_proc",
+    "practice_mode": "retrieval",
+    "prompt": "Compute det(A) without cofactor expansion.",
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "repair_targets": [
+     "facet_proc"
+    ],
+    "required_method": {
+     "concept_id": "concept_cofactor_expansion",
+     "criterion_ids": [
+      "p"
+     ],
+     "learning_object_id": "lo_learn_lo_proc",
+     "name": "cofactor expansion"
+    },
+    "retrieval_demand": 0.5,
+    "scaffold_level": 0.0,
+    "surface_family": "source_form",
+    "transfer_distance": 0.0
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}

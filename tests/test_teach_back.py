@@ -20,7 +20,7 @@ from learnloop.attempts.grading import (
 from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.learner.recall_coverage import derive_facet_outcomes
 from learnloop.substrate.replay import rebuild_derived_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.tutor.teach_back import (
     TeachBackState,
     TeachBackTurn,
@@ -1358,12 +1358,11 @@ def test_scheduler_caps_teach_back_items_per_queue(tmp_path):
     vault.config.voi_stopping.enabled = False
     _seed_lo_evidence(repository)
 
-    queue = build_due_queue(
+    queue = read_due_queue(
         vault,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="sess_1"),
-        persist_explanations=False,
     )
 
     teach_back_items = [entry for entry in queue if entry.selected_mode == "teach_back"]
@@ -1375,12 +1374,11 @@ def test_scheduler_caps_teach_back_items_per_queue(tmp_path):
 
     # Raising the cap admits both teach_back items.
     vault.config.teach_back.session_cap = 2
-    queue = build_due_queue(
+    queue = read_due_queue(
         vault,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="sess_1"),
-        persist_explanations=False,
     )
     assert len([entry for entry in queue if entry.selected_mode == "teach_back"]) == 2
 
@@ -1397,12 +1395,11 @@ def test_teach_back_stays_weakly_schedulable_on_solid_knowledge(tmp_path):
     for item_id in ("pi_helper_def", "pi_helper_geo", "pi_helper_uni"):
         _make_facet_solid(vault, repository, item_id)
 
-    queue = build_due_queue(
+    queue = read_due_queue(
         vault,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="sess_1"),
-        persist_explanations=False,
     )
 
     teach_back_items = [entry for entry in queue if entry.selected_mode == "teach_back"]

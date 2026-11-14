@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 285
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 78
-comment_lines_naming_a_stage_artifact = 2393
+functions_over_200_lines = 76
+comment_lines_naming_a_stage_artifact = 2392
 test_files_named_for_a_stage = 184
 
 [members]
@@ -260,8 +260,6 @@ functions_over_200_lines = [
     "src/learnloop/content/authoring/source_exercise_import.py _import_source_exercise",
     "src/learnloop/content/pipeline/jobs.py handle_inventory",
     "src/learnloop/content/pipeline/source_ingestion.py ingest_canonical_source",
-    "src/learnloop/content/synthesis/source_append.py _normalize_append",
-    "src/learnloop/content/synthesis/source_set_synthesis.py _normalize",
     "src/learnloop/daily_plan/engine.py _boundary",
     "src/learnloop/daily_plan/engine.py advance_with_context",
     "src/learnloop/daily_plan/objective_chooser.py run_numeric",
@@ -307,7 +305,7 @@ functions_over_200_lines = [
     "src/learnloop/router/decisions.py build_today_offer_decision",
     "src/learnloop/router/outcomes.py derive_router_outcomes",
     "src/learnloop/router/plan_log.py build_plan_block_decision",
-    "src/learnloop/scheduling/scheduler.py build_due_queue",
+    "src/learnloop/scheduling/scheduler.py _due_queue",
     "src/learnloop/scheduling/staged_policy.py decide",
     "src/learnloop/source_retrieval/compare.py _compare_sources",
     "src/learnloop/source_retrieval/evaluation.py run",
@@ -607,7 +605,8 @@ stage_test_files = [
 "src/learnloop/content/sources/role_authority.py" = 1
 "src/learnloop/content/sources/span_aliases.py" = 1
 "src/learnloop/content/synthesis/ai_contracts.py" = 2
-"src/learnloop/content/synthesis/source_set_synthesis.py" = 7
+"src/learnloop/content/synthesis/normalize.py" = 6
+"src/learnloop/content/synthesis/source_set_synthesis.py" = 1
 "src/learnloop/content/synthesis/source_unit_inventory.py" = 1
 "src/learnloop/content/synthesis/synthesis_gates.py" = 3
 "src/learnloop/curriculum/commitment_arcs.py" = 1
@@ -867,7 +866,7 @@ stage_test_files = [
 "src/learnloop/scheduling/intent/followup_gate.py" = 3
 "src/learnloop/scheduling/intent/serving.py" = 22
 "src/learnloop/scheduling/review_log.py" = 1
-"src/learnloop/scheduling/scheduler.py" = 24
+"src/learnloop/scheduling/scheduler.py" = 23
 "src/learnloop/scheduling/staged_policy.py" = 1
 "src/learnloop/scheduling/voi_forecasts.py" = 6
 "src/learnloop/section_map.py" = 1

@@ -19,7 +19,7 @@ from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -52,7 +52,7 @@ def _fingerprint(vault, repository):
         (lo, episode.trigger, episode.status)
         for lo, episode in repository.open_probe_episodes().items()
     )
-    queue = build_due_queue(vault, repository, clock=MOMENT, persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=MOMENT)
     return episodes, [
         (s.practice_item_id, round(s.priority, 12), sorted((k, round(v, 9)) for k, v in s.components.items()))
         for s in queue
@@ -93,7 +93,7 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
     from learnloop.placement.state import ignored_opening_episode_ids
 
     baseline_vault, baseline_repository = _copy(tmp_path, fixture, "baseline", version="mvp-0.10")
-    baseline_queue = build_due_queue(baseline_vault, baseline_repository, clock=MOMENT, persist_explanations=False)
+    baseline_queue = read_due_queue(baseline_vault, baseline_repository, clock=MOMENT)
     on_vault, on_repository = _copy(tmp_path, fixture, "on", version="mvp-0.11", sync=False)
     before = {lo: (episode.id, episode.status) for lo, episode in on_repository.open_probe_episodes().items()}
     sync_vault_state(on_vault, on_repository, clock=MOMENT)
@@ -104,7 +104,7 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
         e.id for e in on_repository.open_probe_episodes().values() if e.trigger == "initial"
     }
 
-    queue = build_due_queue(on_vault, on_repository, clock=MOMENT, persist_explanations=False)
+    queue = read_due_queue(on_vault, on_repository, clock=MOMENT)
     mastery = on_repository.mastery_states()
     never_practised = {
         lo for lo, learning_object in on_vault.learning_objects.items()
@@ -161,7 +161,7 @@ def test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag(tm
         pytest.skip(f"{fixture} fixture absent")
     vault, repository = _copy(tmp_path, fixture, "latest", version=LATEST_ALGORITHM_VERSION)
     answered = _answered_without_a_due_time(vault, repository)
-    queue = build_due_queue(vault, repository, clock=MOMENT, persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=MOMENT)
     assert STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset()) <= answered, "the copy no longer holds the case"
     assert not answered - {s.learning_object_id for s in queue}, "stranded at the latest tag"
     returned = {s.learning_object_id for s in queue if s.components.get("unevidenced_return")}
@@ -182,10 +182,10 @@ def test_the_hole_stays_at_the_old_tag_and_with_the_switch_off(tmp_path, fixture
     )
     assert _fingerprint(*off) == _fingerprint(*old)
     answered = _answered_without_a_due_time(*old)
-    served = {s.learning_object_id for s in build_due_queue(*old, clock=MOMENT, persist_explanations=False)}
+    served = {s.learning_object_id for s in read_due_queue(*old, clock=MOMENT)}
     assert answered - served == STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset())
     # And the switch back on takes in those LOs and nothing else.
     on = _copy(tmp_path, fixture, "on", version=LATEST_ALGORITHM_VERSION)
-    on_served = {s.learning_object_id for s in build_due_queue(*on, clock=MOMENT, persist_explanations=False)}
+    on_served = {s.learning_object_id for s in read_due_queue(*on, clock=MOMENT)}
     assert on_served - served == STRANDED_BELOW_THE_SUCCESSOR.get(fixture, frozenset())
     assert served <= on_served
