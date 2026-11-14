@@ -138,7 +138,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `existing_followup_decision`, `log_followup_decision`; calls `existing_followup_decision`, `log_followup_decision`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `prepare`, `record`
 - [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] — imports `module`; calls `record`
-- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability`
 
 ### Platform and third-party dependencies
 

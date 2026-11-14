@@ -38,7 +38,6 @@ source_paths:
   - "tests/test_misconception_routing.py"
   - "tests/test_plan_determinism.py"
   - "tests/test_predictive_eig.py"
-  - "tests/test_recall_coverage_interventions.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/scheduler"
@@ -119,7 +118,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_misconception_routing.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_predictive_eig.py`
-- `tests/test_recall_coverage_interventions.py`
 
 ## Extension and modification guidance
 
