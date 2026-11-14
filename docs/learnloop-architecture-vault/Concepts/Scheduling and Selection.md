@@ -70,6 +70,8 @@ The **live** reward path classifies each eligible item as `probe`, `practice`, `
 
 FSRS maintains item/card memory and produces forgetting risk/intervals from review ratings. Ratings derive from validated rubric score and assistance caps. FSRS is one selection input; it does not own goal readiness or canonical mastery.
 
+The forgetting curve (FSRS-6's power curve: recall after `elapsed` days at stability `S`, 0.9 when `elapsed = S`, decay from weight 20) is written once, in `scheduling/fsrs.py`. Every read of a learner's recall calls `fsrs.retrievability` (scalar: the queue's forgetting risk, the goal projection, the decision receipt, the knowledge map, re-entry, the chat context) or `fsrs.retrievability_array` (arrays: the router objective's rollouts and its combiner inputs). FSRS's own update, the weight fit and its evaluation call `fsrs.forgetting_curve`, the same curve at plain stability. `tests/test_one_retrievability.py` fails on any other copy or caller. The two read forms agree to one ulp, not bit for bit (numpy's `power` against the C library's `pow`), so a caller keeps the form it has.
+
 ## Probe EIG
 
 During an in-progress diagnostic episode, only admitted instruments bound to the locked hypothesis set receive probe EIG. Predictive EIG is primary when the target set is adequate; normalized hypothesis EIG is fallback. The score is familiarity-discounted and logged separately from coverage value.
