@@ -1,0 +1,1205 @@
+{
+ "auto_apply_ids": null,
+ "conflict_candidates": [],
+ "criterion_targets": [],
+ "edge_diagnostics": [
+  {
+   "entity_refs": [
+    "concept_c",
+    "concept_a"
+   ],
+   "gate": "concept_graph",
+   "message": "prerequisite relation concept_c -> concept_a would close a cycle; dropped",
+   "severity": "review",
+   "suggested_action": "resolve the prerequisite direction"
+  },
+  {
+   "entity_refs": [
+    "a",
+    "ghost"
+   ],
+   "gate": "concept_graph",
+   "message": "concept relation 'a' -> 'ghost' (related) has an unresolvable endpoint",
+   "severity": "review",
+   "suggested_action": "create the concept or drop the relation"
+  },
+  {
+   "entity_refs": [
+    "b"
+   ],
+   "gate": "concept_graph",
+   "message": "concept relation '' -> 'b' (related) has an unresolvable endpoint",
+   "severity": "review",
+   "suggested_action": "create the concept or drop the relation"
+  },
+  {
+   "entity_refs": [
+    "concept_a",
+    "concept_c"
+   ],
+   "gate": "concept_graph",
+   "message": "concept concept_a already has part_of parent concept_b; dropped extra parent concept_c",
+   "severity": "review",
+   "suggested_action": "keep exactly one part_of parent per concept"
+  },
+  {
+   "entity_refs": [
+    "concept_b",
+    "concept_a"
+   ],
+   "gate": "concept_graph",
+   "message": "part_of relation concept_b -> concept_a would close a hierarchy cycle; dropped",
+   "severity": "review",
+   "suggested_action": "restructure the part_of hierarchy"
+  },
+  {
+   "entity_refs": [
+    "concept_symmetric_matrix",
+    "concept_e"
+   ],
+   "gate": "concept_graph",
+   "message": "concept concept_symmetric_matrix already has part_of parent c_registry_parent; dropped extra parent concept_e",
+   "severity": "review",
+   "suggested_action": "keep exactly one part_of parent per concept"
+  },
+  {
+   "entity_refs": [
+    "c_registry_root",
+    "a"
+   ],
+   "gate": "concept_graph",
+   "message": "concept relation 'c_registry_root' -> 'a' (prerequisite) has an unresolvable endpoint",
+   "severity": "review",
+   "suggested_action": "create the concept or drop the relation"
+  },
+  {
+   "entity_refs": [
+    "a",
+    "c_registry_parent"
+   ],
+   "gate": "concept_graph",
+   "message": "concept relation 'a' -> 'c_registry_parent' (related) has an unresolvable endpoint",
+   "severity": "review",
+   "suggested_action": "create the concept or drop the relation"
+  },
+  {
+   "entity_refs": [
+    "concept_b",
+    "concept_a"
+   ],
+   "gate": "concept_graph",
+   "message": "prerequisite relation concept_b -> concept_a would close a cycle; dropped",
+   "severity": "review",
+   "suggested_action": "resolve the prerequisite direction"
+  }
+ ],
+ "facet_identity_actions": [],
+ "facet_ids": [],
+ "facet_payloads": [],
+ "gate_items": [
+  {
+   "client_item_id": "a",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_a",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_a",
+    "title": "A",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "b",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_b",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_b",
+    "title": "B",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_c",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_c",
+    "title": "C",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "d",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_d",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_d",
+    "title": "D",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "e",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_e",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_e",
+    "title": "E",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "p1",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_p1",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p1",
+    "title": "P1",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "p2",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_p2",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p2",
+    "title": "P2",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "p3",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_p3",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p3",
+    "title": "P3",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "p4",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_p4",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p4",
+    "title": "P4",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "px",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_px",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_px",
+    "title": "PX",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_a",
+   "depends_on": [
+    "a",
+    "b",
+    "d"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_learn_lo_a",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_a",
+    "confusables": [
+     "concept_d"
+    ],
+    "id": "lo_learn_lo_a",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_b"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_a"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_a__concept_b",
+   "depends_on": [
+    "a",
+    "b"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_a__concept_b",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_a",
+    "target": "concept_b"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_b__concept_c",
+   "depends_on": [
+    "b",
+    "c"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_b__concept_c",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_b",
+    "target": "concept_c"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_confusable_with__concept_d__concept_e",
+   "depends_on": [
+    "d",
+    "e"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_confusable_with__concept_d__concept_e",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "confusable_with",
+    "source": "concept_d",
+    "target": "concept_e"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_part_of__concept_a__concept_b",
+   "depends_on": [
+    "a",
+    "b"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_part_of__concept_a__concept_b",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "part_of",
+    "source": "concept_a",
+    "target": "concept_b"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_related__concept_c__concept_symmetric_matrix",
+   "depends_on": [
+    "c"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_related__concept_c__concept_symmetric_matrix",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "related",
+    "source": "concept_c",
+    "target": "concept_symmetric_matrix"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_p1__concept_p2",
+   "depends_on": [
+    "p1",
+    "p2"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_p1__concept_p2",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_p1",
+    "target": "concept_p2"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_p1__concept_p3",
+   "depends_on": [
+    "p1",
+    "p3"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_p1__concept_p3",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_p1",
+    "target": "concept_p3"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_p2__concept_p4",
+   "depends_on": [
+    "p2",
+    "p4"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_p2__concept_p4",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_p2",
+    "target": "concept_p4"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_p3__concept_p4",
+   "depends_on": [
+    "p3",
+    "p4"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_p3__concept_p4",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_p3",
+    "target": "concept_p4"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_px__concept_p1",
+   "depends_on": [
+    "px",
+    "p1"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_px__concept_p1",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_px",
+    "target": "concept_p1"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_confusable_with__concept_a__concept_d",
+   "depends_on": [
+    "a",
+    "d"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_confusable_with__concept_a__concept_d",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "confusable_with",
+    "source": "concept_a",
+    "target": "concept_d"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  }
+ ],
+ "graph_nomination": null,
+ "non_conflict_dispositions": [],
+ "recipe_components": [],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "a",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_a",
+    "title": "A",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "b",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75J",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_b",
+    "title": "B",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75M",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_c",
+    "title": "C",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "d",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75P",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_d",
+    "title": "D",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "e",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75R",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_e",
+    "title": "E",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "p1",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75T",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p1",
+    "title": "P1",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "p2",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75W",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p2",
+    "title": "P2",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "p3",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75Y",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p3",
+    "title": "P3",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "p4",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR760",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_p4",
+    "title": "P4",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "px",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR762",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_px",
+    "title": "PX",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_a",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "a",
+    "b",
+    "d"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR764",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_a",
+    "confusables": [
+     "concept_d"
+    ],
+    "id": "lo_learn_lo_a",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_b"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Learn lo_a"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_a__concept_b",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "a",
+    "b"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR765",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_a__concept_b",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_a",
+    "strength": 1.0,
+    "target_concept_id": "concept_b"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_b__concept_c",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "b",
+    "c"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR766",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_b__concept_c",
+    "rationale": "b first",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_b",
+    "strength": 0.5,
+    "target_concept_id": "concept_c"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_confusable_with__concept_d__concept_e",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "d",
+    "e"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR767",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_confusable_with__concept_d__concept_e",
+    "rationale": "authored during synthesis",
+    "relation_type": "confusable_with",
+    "source_concept_id": "concept_d",
+    "strength": 1.0,
+    "target_concept_id": "concept_e"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_part_of__concept_a__concept_b",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "a",
+    "b"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR768",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_part_of__concept_a__concept_b",
+    "rationale": "authored during synthesis",
+    "relation_type": "part_of",
+    "source_concept_id": "concept_a",
+    "strength": 1.0,
+    "target_concept_id": "concept_b"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_related__concept_c__concept_symmetric_matrix",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR769",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_related__concept_c__concept_symmetric_matrix",
+    "rationale": "authored during synthesis",
+    "relation_type": "related",
+    "source_concept_id": "concept_c",
+    "strength": 1.0,
+    "target_concept_id": "concept_symmetric_matrix"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_p1__concept_p2",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "p1",
+    "p2"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76A",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_p1__concept_p2",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_p1",
+    "strength": 1.0,
+    "target_concept_id": "concept_p2"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_p1__concept_p3",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "p1",
+    "p3"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76B",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_p1__concept_p3",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_p1",
+    "strength": 1.0,
+    "target_concept_id": "concept_p3"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_p2__concept_p4",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "p2",
+    "p4"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76C",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_p2__concept_p4",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_p2",
+    "strength": 1.0,
+    "target_concept_id": "concept_p4"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_p3__concept_p4",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "p3",
+    "p4"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76D",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_p3__concept_p4",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_p3",
+    "strength": 1.0,
+    "target_concept_id": "concept_p4"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_px__concept_p1",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "px",
+    "p1"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76E",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_px__concept_p1",
+    "rationale": "authored during synthesis",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_px",
+    "strength": 1.0,
+    "target_concept_id": "concept_p1"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_confusable_with__concept_a__concept_d",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "a",
+    "d"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR76F",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_confusable_with__concept_a__concept_d",
+    "rationale": "derived from learning object lo_learn_lo_a confusables",
+    "relation_type": "confusable_with",
+    "source_concept_id": "concept_a",
+    "strength": 1.0,
+    "target_concept_id": "concept_d"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}
