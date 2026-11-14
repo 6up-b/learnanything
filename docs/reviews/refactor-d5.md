@@ -215,3 +215,11 @@ All under the empty-home wrapper in 5 GB scopes.
 - P-shadow covers the owner copies' histories, which are small (70, 3, 3 attempts) and hold no regrade written before contracts; those rows were checked on the `mvp-0.17` fixture and on rows built by D4's helpers (the new agreement test), not on a real owner history.
 - Doctor's output on the owner copies before and after (doctor was not run on them; its changed checks are covered by `test_doctor`, `test_km1_doctor` and the doctor tests in the sweep).
 - D-36's growth on a vault whose attempts were written at the head.
+
+## Added at landing (orchestrator)
+
+- This step's ledger rows are D-34, D-35 and D-36 (main had taken D-33).
+- Merged with main after the second old-tag test pass and K2.4a/K2.4b: the shared-facet builder's new name in two test imports; the structure golden rewritten from the merged tree.
+- The owner lane, which the step could not run, failed three receipt cases on the linear_algebra copy: `test_receipt_exactness::test_timeline_final_credit_equals_banked_ledger_credit` at the floor and the head, and `test_receipt_derivation::test_per_observation_itemization_sums_to_banked_credit`. One facet's timeline is 0.200 against 0.113 banked. That is ledger row R1-6, found in phase 1's fix round at `mvp-0.58` and `mvp-0.59` alike; these tests used to retag the copy to `mvp-0.7`, where the legacy projection agreed with the timeline, and that path is gone. The three cases are strict xfails naming R1-6 until its fix lands; every other owner-lane case passes (90 passed, 3 xfailed).
+- `test_sidecar_reader_p3_slice2::test_reading_usable_with_synthesis_worker_down` failed once more under the full run (ledger D-30); it now shows the drain's error.
+

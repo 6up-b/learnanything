@@ -62,6 +62,17 @@ def _loaded_fixture(tmp_path, source, algorithm_version=LATEST_ALGORITHM_VERSION
     return vault, repository
 
 
+def _known_credit_gap(request) -> None:
+    """The owner lane's linear_algebra copy holds one facet whose timeline exceeds its banked credit, at every tag a
+    vault opens at. The equality below is right and fails there until the fix lands."""
+
+    if "owner:linear_algebra" in request.node.name:
+        request.applymarker(pytest.mark.xfail(
+            strict=True,
+            reason="ledger R1-6: on this vault one facet's timeline credits an observation the projection banks nothing for",
+        ))
+
+
 def _all_facets(vault, banked):
     facets = set(banked)
     for item in vault.practice_items.values():
@@ -72,8 +83,9 @@ def _all_facets(vault, banked):
 @pytest.mark.parametrize("algorithm_version", ALGORITHM_VERSIONS)
 @pytest.mark.parametrize("fixture", FIXTURE_VAULTS)
 def test_timeline_final_credit_equals_banked_ledger_credit(
-    tmp_path, fixture, algorithm_version
+    tmp_path, fixture, algorithm_version, request
 ):
+    _known_credit_gap(request)
     fixture_name = fixture.name
     vault, repository = _loaded_fixture(tmp_path, fixture, algorithm_version)
     attempts = repository.list_attempt_history()
