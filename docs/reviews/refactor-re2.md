@@ -110,3 +110,41 @@ That is a finding (ledger RE2-1), not something this step unifies: the two forms
 - An AST check over every file under `src/` (all four packages) and `scripts/`. It fails on an import, name or attribute reference to `forgetting_curve`, or on a definition of `forgetting_curve` or `retrievability_array`, outside `scheduling/fsrs.py`, `fsrs_fitting.py` and `evaluation.py`. It also fails on the curve's arithmetic (weight 20 read, a power whose exponent negates the decay, or `0.9 ** ...`) outside `fsrs.py` and `scheduling/intent/recall_targets.py`. Each allowance carries its reason, and the failure message says where a read goes instead. A second test fails when an allowance is no longer needed.
 - **Fail-first:** run over the base's tree (`git show c85993a087:<file>` for every tracked `.py` under `src/` and `scripts/`, `failfirst.py` in scratch), the check names 33 places: all 30 references to `forgetting_curve` at the call sites above, and the memory model's copy three times (weight 20, `0.9 **`, the negated decay). Synthetic snippets (that copy, a direct import, `fsrs.forgetting_curve`, `** -weights[20]`) are flagged. A read through `retrievability` and two other powers (`2.0 ** (-elapsed / halflife)`, `d ** (-w[12])`) are not.
 - **Plain values:** known values pinned at the base (four at the default decay, one at 0.5), the scalar exactly, the array form to one ulp; the curve at 0.9 when elapsed equals stability; the edges (elapsed 0 and negative gives 1, stability `None`, 0, negative or NaN gives 0, the power law's long tail stays positive, float32 in gives float64 out); the read equal to `forgetting_curve` bit for bit (2,000 pairs); the array form equal to the scalar within one ulp element by element (4,000 pairs at four decays, RE2-1) and byte-equal to itself one value at a time; broadcasting as the rollouts call it ((64, 22) stability against (64, 1) times).
+
+## 5. Proof
+
+**No value moved.**
+- The base's two definitions (copied verbatim) and the tip's entry points agree byte for byte on 2,014,396 inputs (§3).
+- The numeric policy's rollouts (`value.evaluate` on `test_rofu_speed`'s copy-shaped decision: 22 topics, 64 draws, seed `s`, per-block and merged) give the same digest of every candidate's `q_draws` and terms at the base and the tip, in the same process and across processes.
+- One queue build per copy (`build_due_queue`, a read: no session, `persist_explanations=False`, frozen clock) gives the same digest of every item's id, priority and components at the base and the tip, on the linear_algebra (43 items) and arxiv_v2 (32 items) copies.
+- `decision_state.prepare` on each queue's first 20 candidates gives the same receipt content at the base and the tip, with `LEARNLOOP_CODE_REVISION` fixed (the receipt names the commit).
+
+**P-draw.** The draw-for-draw harness of `docs/reviews/router-speed2.md` is not in the repository (as an earlier step found), and `tests/goldens/due_queue` is not on this base. Instead: the pinned-draw router tests (every `test_ro*`, `test_rofu*`, `test_rospeed*`, daily-plan, objective and scheduler test, §6) pass unchanged, and the rollouts' digest above is equal at fixed draws.
+
+**Replay on the head fixture.** A backup-API copy of `fixtures/migration_head` was rebuilt live at its own tag (`rebuild_all_derived_state` under the tests' below-floor allowance, frozen clock), twice with the base's code (`git archive c85993a087 src` on `PYTHONPATH`) and once with the tip's. Of 402 tables (941 rows, 11 non-empty derived tables), 381 are byte-equal between the two base runs, and the tip equals the base on all 381. The other 21 differ between two base runs as well (fresh ids: activity cards and observations, grade interpretations, measurement events, `derived_state_rebuilds`, ...). On those 21 the tip's row counts equal the base's.
+
+**P-shadow.** The three copies in `learnanything-ad1/fixtures-local/owner-copies-mvp058` (at `mvp-0.58`) were copied twice with `copy_tree_with_databases` under `fixtures-local/re2/{before,after}/`. Each set was upgraded to `mvp-0.59` and run through `learnloop rebuild --shadow --json`: `before` with the base's code, `after` with the tip's. Counts only; the copies are deleted.
+- `learner_state_diff`: identical before and after on all three (facet 80/3/7 unchanged, mastery 21/18/34, schedule 99/77/32; nothing added, changed or removed).
+- `schedule_effects`: no due date moved, live database unchanged. The whole report is equal apart from run stamps.
+- A row-by-row comparison of the two upgraded databases differs only in ids and timestamps. One other difference was the timing harness's own: the `before` copies had queue builds run on them, and `due_followup_tasks` lazily marks an expired follow-up task, as its docstring says.
+
+**Identity pins** unmoved: `test_identity_pins` and `test_retired_config_identities` pass with no `--write`. **Structure ratchet:** `test_structure_ratchets` passes with no number risen.
+
+**Latency.** All measured on this machine. The timing script (`timing.py`, scratch) ran once with the base's code and once with the tip's, both with `LEARNLOOP_CODE_REVISION` fixed. Times in microseconds per call are the best of 9 repeats. Times in seconds are min and median of 7 runs (evaluations) or 5 runs (queue builds and receipts).
+
+| measure | base | tip |
+|---|---|---|
+| array read, 1 value (µs) | 3.885 | 3.882 |
+| array read, 64 values | 4.112 | 4.113 |
+| array read, 256 values | 5.092 | 5.078 |
+| array read, 64 × 22 | 9.091 | 9.070 |
+| scalar read (µs) | 0.230 | 0.253 |
+| array reads per evaluation | 10,815 | 10,815 |
+| rollouts, per-block, 64 draws (s, min / median) | 0.5900 / 0.5991 | 0.5897 / 0.5942 |
+| rollouts, merged sessions | 0.3654 / 0.3696 | 0.3671 / 0.3698 |
+| queue build, linear_algebra | 0.0140 / 0.0147 | 0.0141 / 0.0149 |
+| queue build, arxiv_v2 | 0.0195 / 0.0198 | 0.0188 / 0.0190 |
+| decision receipt, linear_algebra | 0.0079 / 0.0087 | 0.0080 / 0.0080 |
+| decision receipt, arxiv_v2 | 0.0084 / 0.0092 | 0.0080 / 0.0081 |
+
+Alternating whole processes, base then tip with the order swapped each round, 12 rounds of 8 evaluations: base median 0.5988 s (min 0.5860), tip median 0.6003 s (min 0.5900). That is +0.25% median and +0.7% min, with the same digest. The base's own runs spread over about 4%. Expected from the one added frame: about 0.1 µs times 10,815 calls, about 1 ms, or 0.15%. The scalar read adds two frames (`retrievability`, then `forgetting_curve`, then `_curve`), about 0.02 µs. Its callers make at most one call per queue item or per candidate, so a queue build doesn't show it. The first version (a delegating `Fsrs.retrievability` method) measured +0.2% median in-process over 80 alternations and was replaced (§3).
