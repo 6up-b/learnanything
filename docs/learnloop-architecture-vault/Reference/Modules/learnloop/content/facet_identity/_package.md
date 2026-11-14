@@ -53,11 +53,11 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/facet_identity/__init__|learnloop.content.facet_identity]] | [[Reference/Modules/learnloop/content/facet_identity/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] | [[Reference/Modules/learnloop/content/facet_identity/actions#^module-purpose|purpose]] | `ACTIVE` | 12 | 17 |
-| [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] | [[Reference/Modules/learnloop/content/facet_identity/authority#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
+| [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] | [[Reference/Modules/learnloop/content/facet_identity/authority#^module-purpose|purpose]] | `ACTIVE` | 6 | 11 |
 | [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] | [[Reference/Modules/learnloop/content/facet_identity/dedupe#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/content/facet_identity/grouping|learnloop.content.facet_identity.grouping]] | [[Reference/Modules/learnloop/content/facet_identity/grouping#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] | [[Reference/Modules/learnloop/content/facet_identity/judge#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
-| [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] | [[Reference/Modules/learnloop/content/facet_identity/plan#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
+| [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] | [[Reference/Modules/learnloop/content/facet_identity/plan#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] | [[Reference/Modules/learnloop/content/facet_identity/span_support#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/facet_identity/views|learnloop.content.facet_identity.views]] | [[Reference/Modules/learnloop/content/facet_identity/views#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 
@@ -80,7 +80,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 3 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
@@ -95,8 +95,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.content.facet_identity"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop["learnloop"]
     n_learnloop_content_proposals["learnloop.content.proposals"]
@@ -105,9 +105,9 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_config["learnloop.config"]
-    center -->|14| n_learnloop_ai
-    n_learnloop_content_synthesis -->|8| center
+    n_learnloop_content_synthesis -->|9| center
     center -->|6| n_learnloop_content_synthesis
+    center -->|14| n_learnloop_ai
     center -->|12| n_learnloop_vault
     center -->|7| n_learnloop
     n_learnloop_content_proposals -->|3| center

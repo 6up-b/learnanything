@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import versioned
 from learnloop_sidecar.registry import method
@@ -43,9 +43,9 @@ def get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]:
     mastery polygon: a fat band means the diagnostic posterior still hesitates
     between "solid" and gap/misconception hypotheses on this axis.
 
-    Per practice item, ``is_probe``/``queued`` come from one read-only
-    ``build_due_queue`` pass (``persist_explanations=False`` so a chart refresh
-    never writes scheduler explanations): ``queued`` means the item is in
+    Per practice item, ``is_probe``/``queued`` come from one
+    ``read_due_queue`` pass (a chart refresh never writes scheduler
+    explanations): ``queued`` means the item is in
     today's due queue; ``is_probe`` mirrors the queue serializer's probe test
     (``components["probe_eig"] > 0``, i.e. the scheduler selected it for
     diagnostic information gain rather than plain review).
@@ -58,7 +58,7 @@ def get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]:
     # desirable-difficulty band the selector should be sampling from, and probe
     # markers should cluster on axes with fat uncertainty bands. This view
     # exists to make selection-policy behavior visible at a glance.
-    queue = build_due_queue(vault, repository, persist_explanations=False)
+    queue = read_due_queue(vault, repository)
     queued_ids = {scheduled.practice_item_id for scheduled in queue}
     probe_ids = {
         scheduled.practice_item_id

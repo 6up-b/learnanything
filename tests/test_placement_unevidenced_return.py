@@ -29,7 +29,7 @@ from learnloop.daily_plan.engine import build_plan, new_material_candidates
 from learnloop.daily_plan.lanes import classify_item
 from learnloop.db.repositories import Repository
 from learnloop.placement.state import unevidenced_return_active
-from learnloop.scheduling.scheduler import build_due_queue, pool_admission
+from learnloop.scheduling.scheduler import read_due_queue, pool_admission
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -121,7 +121,7 @@ def _queue(vault, repository, minutes=2):
     from learnloop.scheduling import selection_rewards
 
     selection_rewards._SHAPE_CACHE.clear()
-    return build_due_queue(vault, repository, clock=_at(minutes), persist_explanations=False)
+    return read_due_queue(vault, repository, clock=_at(minutes))
 
 
 def _reload(paths, version=None, toml=None):

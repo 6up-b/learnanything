@@ -19,7 +19,7 @@ from learnloop.db.repositories import MasteryState, Repository
 from learnloop.intent.control import Scope, apply_choice
 from learnloop.scheduling.intent.serving import intent_serving
 
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
@@ -53,7 +53,7 @@ class IntentVault:
     def queue(self, at: datetime, **kwargs: Any) -> list[str]:
         return [
             entry.practice_item_id
-            for entry in build_due_queue(self.vault, self.repository, clock=FrozenClock(at), persist_explanations=False, **kwargs)
+            for entry in read_due_queue(self.vault, self.repository, clock=FrozenClock(at), **kwargs)
             if entry.practice_item_id in OURS
         ]
 

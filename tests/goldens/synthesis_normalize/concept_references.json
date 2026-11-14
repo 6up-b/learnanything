@@ -1,0 +1,922 @@
+{
+ "auto_apply_ids": null,
+ "conflict_candidates": [],
+ "criterion_targets": [],
+ "edge_diagnostics": [
+  {
+   "entity_refs": [
+    "lo_by_title",
+    "Kernel",
+    "ghost"
+   ],
+   "gate": "learning_object_concept",
+   "message": "learning object 'lo_by_title' dropped 2 unresolved prerequisites: Kernel, ghost",
+   "severity": "review",
+   "suggested_action": "declare the referenced concept(s) or remove them from prerequisites"
+  },
+  {
+   "entity_refs": [
+    "lo_by_title",
+    "c_nope"
+   ],
+   "gate": "learning_object_concept",
+   "message": "learning object 'lo_by_title' dropped 1 unresolved confusables: c_nope",
+   "severity": "review",
+   "suggested_action": "declare the referenced concept(s) or remove them from confusables"
+  },
+  {
+   "entity_refs": [
+    "lo_ambiguous",
+    "concept_ambiguous"
+   ],
+   "gate": "learning_object_concept",
+   "message": "learning object 'lo_ambiguous' had an unresolvable concept reference 'Kernel'; synthesized concept 'concept_ambiguous' from its title",
+   "severity": "review",
+   "suggested_action": "review the synthesized concept or merge it into an existing concept"
+  },
+  {
+   "entity_refs": [
+    "lo_ambiguous_2",
+    "concept_ambiguous_2"
+   ],
+   "gate": "learning_object_concept",
+   "message": "learning object 'lo_ambiguous_2' had no concept anchor; synthesized concept 'concept_ambiguous_2' from its title",
+   "severity": "review",
+   "suggested_action": "review the synthesized concept or merge it into an existing concept"
+  }
+ ],
+ "facet_identity_actions": [],
+ "facet_ids": [],
+ "facet_payloads": [],
+ "gate_items": [
+  {
+   "client_item_id": "c_gram",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_gram_matrix",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_gram_matrix",
+    "title": "Gram matrix",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_k1",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_kernel",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_kernel",
+    "title": "Kernel",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_k2",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_kernel_2",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_kernel_2",
+    "title": "Kernel",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_x",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_rank_entity",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_rank_entity",
+    "title": "Rank",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_untitled",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_01M3250V",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_01M3250V",
+    "title": "concept_01M3250V",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_dup_a",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_dup",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_dup",
+    "title": "Dup A",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "c_dup_b",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_dup_2",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_dup_2",
+    "title": "Dup B",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_by_title",
+   "depends_on": [
+    "c_gram",
+    "c_x"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_by_title",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_gram_matrix",
+    "confusables": [
+     "concept_gram_matrix"
+    ],
+    "id": "lo_by_title",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_rank_entity"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "By title"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_by_entity",
+   "depends_on": [
+    "c_x"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_by_entity",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_rank_entity",
+    "confusables": [],
+    "id": "lo_by_entity",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_symmetric_matrix"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "By entity"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "concept_ambiguous",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_ambiguous",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_ambiguous",
+    "title": "Ambiguous",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_ambiguous",
+   "depends_on": [
+    "concept_ambiguous"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_ambiguous",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_ambiguous",
+    "confusables": [],
+    "id": "lo_ambiguous",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Ambiguous"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "concept_ambiguous_2",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_ambiguous_2",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "no anchor",
+    "id": "concept_ambiguous_2",
+    "title": "Ambiguous",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_anchorless",
+   "depends_on": [
+    "concept_ambiguous_2"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_ambiguous_2",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_ambiguous_2",
+    "confusables": [],
+    "id": "lo_ambiguous_2",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "no anchor",
+    "title": "Ambiguous"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "lo_registry",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_registry",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_symmetric_matrix",
+    "confusables": [],
+    "id": "lo_registry",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Registry"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_rank_entity__concept_gram_matrix",
+   "depends_on": [
+    "c_x",
+    "c_gram"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_rank_entity__concept_gram_matrix",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_rank_entity",
+    "target": "concept_gram_matrix"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "edge_prerequisite__concept_symmetric_matrix__concept_rank_entity",
+   "depends_on": [
+    "c_x"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "edge_prerequisite__concept_symmetric_matrix__concept_rank_entity",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept_edge",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "relation_type": "prerequisite",
+    "source": "concept_symmetric_matrix",
+    "target": "concept_rank_entity"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  }
+ ],
+ "graph_nomination": null,
+ "non_conflict_dispositions": [],
+ "recipe_components": [],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "c_gram",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_gram_matrix",
+    "title": "Gram matrix",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_k1",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75J",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_kernel",
+    "title": "Kernel",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_k2",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75M",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_kernel_2",
+    "title": "Kernel",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_x",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75N",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_rank_entity",
+    "title": "Rank",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_untitled",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75Q",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_01M3250V",
+    "title": "concept_01M3250V",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_dup_a",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75R",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_dup",
+    "title": "Dup A",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "c_dup_b",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75S",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_dup_2",
+    "title": "Dup B",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_by_title",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_gram",
+    "c_x"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75V",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_gram_matrix",
+    "confusables": [
+     "concept_gram_matrix"
+    ],
+    "id": "lo_by_title",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_rank_entity"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "By title"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_by_entity",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_x"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75X",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_rank_entity",
+    "confusables": [],
+    "id": "lo_by_entity",
+    "knowledge_type": "concept",
+    "prerequisites": [
+     "concept_symmetric_matrix"
+    ],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "By entity"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "concept_ambiguous",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR760",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_ambiguous",
+    "title": "Ambiguous",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_ambiguous",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "concept_ambiguous"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR761",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_ambiguous",
+    "confusables": [],
+    "id": "lo_ambiguous",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Ambiguous"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "concept_ambiguous_2",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR764",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "no anchor",
+    "id": "concept_ambiguous_2",
+    "title": "Ambiguous",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_anchorless",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "concept_ambiguous_2"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR765",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_ambiguous_2",
+    "confusables": [],
+    "id": "lo_ambiguous_2",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "no anchor",
+    "title": "Ambiguous"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "lo_registry",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR767",
+   "item_type": "learning_object",
+   "operation": "create",
+   "payload": {
+    "concept_id": "concept_symmetric_matrix",
+    "confusables": [],
+    "id": "lo_registry",
+    "knowledge_type": "concept",
+    "prerequisites": [],
+    "provenance": {
+     "origin": "codex_proposal",
+     "source_refs": []
+    },
+    "subjects": [
+     "linear-algebra"
+    ],
+    "summary": "",
+    "title": "Registry"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_rank_entity__concept_gram_matrix",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_x",
+    "c_gram"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR768",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_rank_entity__concept_gram_matrix",
+    "rationale": "derived from learning object lo_by_title prerequisites",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_rank_entity",
+    "strength": 1.0,
+    "target_concept_id": "concept_gram_matrix"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "edge_prerequisite__concept_symmetric_matrix__concept_rank_entity",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_x"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR769",
+   "item_type": "concept_edge",
+   "operation": "create",
+   "payload": {
+    "id": "edge_prerequisite__concept_symmetric_matrix__concept_rank_entity",
+    "rationale": "derived from learning object lo_by_entity prerequisites",
+    "relation_type": "prerequisite",
+    "source_concept_id": "concept_symmetric_matrix",
+    "strength": 1.0,
+    "target_concept_id": "concept_rank_entity"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}

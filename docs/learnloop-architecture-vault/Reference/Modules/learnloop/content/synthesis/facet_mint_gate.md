@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `MintDisposition`, `judge_facet_mints`; statically calls `judge_facet_mints`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `distinct_repair`; statically calls `distinct_repair`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `MintDisposition`, `judge_facet_mints`, `mint_diagnostic`; statically calls `judge_facet_mints`, `mint_diagnostic`
+- [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] — imports `MintDisposition`, `judge_facet_mints`, `mint_diagnostic`; statically calls `judge_facet_mints`, `mint_diagnostic`
 - [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] — imports `MintDisposition`, `judge_facet_mints`; statically calls `judge_facet_mints`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `judge_facet_mints`; statically calls `judge_facet_mints`
 
@@ -122,7 +122,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]], [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]], [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]], [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -54,7 +54,7 @@ from learnloop.scheduling.fsrs import forgetting_curve
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.learner.mastery import display_mastery
 from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.tutor.teach_back import (
     TEACH_BACK_ATTEMPT_TYPE,
     TEACH_BACK_PRACTICE_MODE,
@@ -348,12 +348,11 @@ def run_simulation(
         day_base = start + timedelta(days=day)
         session_id = f"sim-s{seed}-d{day:03d}"
         day_clock = FrozenClock(day_base)
-        queue = build_due_queue(
+        queue = read_due_queue(
             vault,
             repository,
             clock=day_clock,
             session=SchedulerSession(session_id=session_id),
-            persist_explanations=False,
         )
         queue_ids = [entry.practice_item_id for entry in queue]
         selected: list[str] = []

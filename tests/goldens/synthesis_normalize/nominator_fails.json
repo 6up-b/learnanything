@@ -1,0 +1,227 @@
+{
+ "auto_apply_ids": null,
+ "conflict_candidates": [],
+ "criterion_targets": [],
+ "edge_diagnostics": [],
+ "facet_identity_actions": [],
+ "facet_ids": [
+  "facet_f_one"
+ ],
+ "facet_payloads": [
+  {
+   "aliases": [],
+   "applicability": [],
+   "claim": "One holds.",
+   "concept_id": "concept_symmetry",
+   "error_signatures": [],
+   "id": "facet_f_one",
+   "instructional_repairs": [],
+   "kind": "definition",
+   "negative_examples": [],
+   "non_goals": [],
+   "positive_examples": [],
+   "postconditions": [],
+   "preconditions": [],
+   "provenance": {
+    "origin": "sourceset_synthesis",
+    "source_refs": [
+     {
+      "extraction_id": "ext_text",
+      "locator": "span:ext_text/s1",
+      "locator_scheme": "block_span_v1",
+      "ref_id": "src_text",
+      "ref_type": "canonical_source",
+      "relation": "primary",
+      "revision_id": "rev_text",
+      "role": "primary_textbook",
+      "source_id": "src_text",
+      "span_hash": null
+     }
+    ]
+   },
+   "status": "reviewed"
+  }
+ ],
+ "gate_items": [
+  {
+   "client_item_id": "c_sym",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "concept_symmetry",
+   "establishes_semantic": false,
+   "is_teaching_or_practice": false,
+   "item_type": "concept",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "provenance": [],
+   "reconciliation_intent": null
+  },
+  {
+   "client_item_id": "f_one",
+   "depends_on": [
+    "c_sym"
+   ],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "facet_f_one",
+   "establishes_semantic": true,
+   "is_teaching_or_practice": false,
+   "item_type": "facet",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "One holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_one",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "primary",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": null
+  }
+ ],
+ "graph_nomination": {
+  "error": "RuntimeError"
+ },
+ "non_conflict_dispositions": [],
+ "recipe_components": [],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "c_sym",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "concept",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "description": "",
+    "id": "concept_symmetry",
+    "title": "Symmetry",
+    "type": "concept"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "f_one",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [
+    "c_sym"
+   ],
+   "id": "01M3250V00TP209AYDNCPVR75H",
+   "item_type": "facet",
+   "operation": "create",
+   "payload": {
+    "aliases": [],
+    "applicability": [],
+    "claim": "One holds.",
+    "concept_id": "concept_symmetry",
+    "error_signatures": [],
+    "id": "facet_f_one",
+    "instructional_repairs": [],
+    "kind": "definition",
+    "meaning_support": [
+     {
+      "citations": [
+       {
+        "extraction_id": "ext_text",
+        "relation": "primary",
+        "span_id": "s1",
+        "unit_id": "chapter_symmetry"
+       }
+      ],
+      "from": "f_one"
+     }
+    ],
+    "negative_examples": [],
+    "non_goals": [],
+    "positive_examples": [],
+    "postconditions": [],
+    "preconditions": [],
+    "provenance": {
+     "origin": "sourceset_synthesis",
+     "source_refs": [
+      {
+       "extraction_id": "ext_text",
+       "locator": "span:ext_text/s1",
+       "locator_scheme": "block_span_v1",
+       "ref_id": "src_text",
+       "ref_type": "canonical_source",
+       "relation": "primary",
+       "revision_id": "rev_text",
+       "role": "primary_textbook",
+       "source_id": "src_text",
+       "span_hash": null
+      }
+     ]
+    },
+    "status": "reviewed"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}

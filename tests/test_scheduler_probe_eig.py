@@ -4,7 +4,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.probe_episodes import enter_episode
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -66,19 +66,17 @@ def test_short_session_suppresses_probe_eig(tmp_path):
     vault_root, repository = _setup_probe_vault(tmp_path)
     loaded = load_vault(vault_root)
 
-    short_queue = build_due_queue(
+    short_queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="short", available_minutes=10),
-        persist_explanations=False,
     )
-    normal_queue = build_due_queue(
+    normal_queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="normal"),
-        persist_explanations=False,
     )
 
     short_item = next(i for i in short_queue if i.practice_item_id == "pi_svd_define_001")
@@ -98,12 +96,11 @@ def test_short_session_keeps_probe_eig_when_probe_is_only_reason(tmp_path):
     admit_probe_instrument_card(repository)
     enter_episode(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))
 
-    queue = build_due_queue(
+    queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="short", available_minutes=10),
-        persist_explanations=False,
     )
 
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]
@@ -182,12 +179,11 @@ def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
     )
     loaded = load_vault(vault_root)
 
-    baseline_queue = build_due_queue(
+    baseline_queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="baseline"),
-        persist_explanations=False,
     )
     baseline_item = next(
         i for i in baseline_queue if i.practice_item_id == "pi_svd_define_001"
@@ -204,12 +200,11 @@ def test_probe_eig_uses_prospective_familiarity_discount(tmp_path):
         clock=FrozenClock(NOW),
     )
 
-    discounted_queue = build_due_queue(
+    discounted_queue = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="discounted"),
-        persist_explanations=False,
     )
     discounted_item = next(
         i for i in discounted_queue if i.practice_item_id == "pi_svd_define_001"
@@ -228,12 +223,11 @@ def test_readiness_factor_is_persisted_without_changing_priority(tmp_path):
     vault_root, repository = _setup_probe_vault(tmp_path)
     loaded = load_vault(vault_root)
 
-    baseline = build_due_queue(
+    baseline = read_due_queue(
         loaded,
         repository,
         clock=FrozenClock(NOW),
         session=SchedulerSession(session_id="baseline"),
-        persist_explanations=False,
     )
     with_readiness = build_due_queue(
         loaded,

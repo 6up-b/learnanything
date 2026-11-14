@@ -255,7 +255,7 @@ def test_a_slow_llm_within_the_wait_is_served_and_does_not_fall_back(make_world,
 
 
 def test_a_read_only_attach_reads_the_due_followup_tasks_and_leaves_them(tmp_path):
-    """The one write ``build_due_queue`` makes even with ``persist_explanations`` off: two lazy status marks."""
+    """The one write a read build (``read_due_queue``) still makes: two lazy status marks."""
 
     from tests.ad23_fakes import cold_followup
 

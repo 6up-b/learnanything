@@ -1,0 +1,153 @@
+{
+ "auto_apply_ids": [
+  "pl_ok"
+ ],
+ "conflict_candidates": [],
+ "criterion_targets": [],
+ "edge_diagnostics": [
+  {
+   "entity_refs": [
+    "pl_exam",
+    "facet_symmetry_definition"
+   ],
+   "gate": "provenance_link_span",
+   "message": "dropped provenance_link 'pl_exam' for facet 'facet_symmetry_definition': its span is exam material, which aligns assessment and never supports a facet's meaning",
+   "severity": "review",
+   "suggested_action": "attach exam material to a task blueprint, learning object or practice item"
+  },
+  {
+   "entity_refs": [
+    "pl_blank",
+    "facet_symmetry_definition"
+   ],
+   "gate": "provenance_link_span",
+   "message": "dropped provenance_link 'pl_blank' for facet 'facet_symmetry_definition': no span cited",
+   "severity": "review",
+   "suggested_action": "cite a span id from the new inventories, or rerun the append"
+  }
+ ],
+ "facet_identity_actions": [],
+ "facet_ids": [],
+ "facet_payloads": [],
+ "gate_items": [
+  {
+   "client_item_id": "pl_ok",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": null,
+   "establishes_semantic": null,
+   "is_teaching_or_practice": false,
+   "item_type": "provenance_link",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "create",
+   "payload": {
+    "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+    "extraction_id": "ext_text",
+    "locator": "span:ext_text/s1",
+    "locator_scheme": "block_span_v1",
+    "reconciliation_intent": "span_attach",
+    "relation": "support",
+    "revision_id": "rev_text",
+    "source_id": "src_text",
+    "span_hash": null,
+    "subject_id": "linear-algebra",
+    "target_entity_id": "facet_symmetry_definition",
+    "target_entity_type": "facet"
+   },
+   "provenance": [
+    {
+     "extraction_id": "ext_text",
+     "held_out": false,
+     "manual_authority": false,
+     "problem": null,
+     "relation": "support",
+     "revision_id": "rev_text",
+     "role": "primary_textbook",
+     "span_id": "s1",
+     "unit_id": "chapter_symmetry"
+    }
+   ],
+   "reconciliation_intent": "span_attach"
+  },
+  {
+   "client_item_id": "rs_lo",
+   "depends_on": [],
+   "destructive": null,
+   "embedded_span_ids": [],
+   "entity_id": "lo_diagonalize_symmetric",
+   "establishes_semantic": null,
+   "is_teaching_or_practice": false,
+   "item_type": "learning_object",
+   "lock_reason": null,
+   "manual_authority": false,
+   "operation": "update",
+   "payload": {
+    "expected_target_hash": "h",
+    "id": "lo_diagonalize_symmetric",
+    "title": "Diagonalize symmetric matrices"
+   },
+   "provenance": [],
+   "reconciliation_intent": "restructure_unlocked"
+  }
+ ],
+ "graph_nomination": null,
+ "non_conflict_dispositions": [],
+ "recipe_components": [],
+ "rows": [
+  {
+   "audit": null,
+   "client_item_id": "pl_ok",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75G",
+   "item_type": "provenance_link",
+   "operation": "create",
+   "payload": {
+    "expected_target_hash": "sha256:32e772181e597864bccdcc6983c2e99dc4680500a5f16d42b638485a8bb2e9c1",
+    "extraction_id": "ext_text",
+    "locator": "span:ext_text/s1",
+    "locator_scheme": "block_span_v1",
+    "reconciliation_intent": "span_attach",
+    "relation": "support",
+    "revision_id": "rev_text",
+    "source_id": "src_text",
+    "span_hash": null,
+    "subject_id": "linear-algebra",
+    "target_entity_id": "facet_symmetry_definition",
+    "target_entity_type": "facet"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": "facet_symmetry_definition",
+   "target_entity_type": "facet",
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  },
+  {
+   "audit": null,
+   "client_item_id": "rs_lo",
+   "created_at": "2026-10-13T12:00:00Z",
+   "decision": "pending",
+   "dependency_status": "pending",
+   "depends_on_client_item_ids": [],
+   "id": "01M3250V00TP209AYDNCPVR75H",
+   "item_type": "learning_object",
+   "operation": "update",
+   "payload": {
+    "expected_target_hash": "h",
+    "id": "lo_diagonalize_symmetric",
+    "title": "Diagonalize symmetric matrices"
+   },
+   "source_ref_ids": [],
+   "target_entity_id": null,
+   "target_entity_type": null,
+   "updated_at": "2026-10-13T12:00:00Z",
+   "validation_errors": [],
+   "validation_status": "valid"
+  }
+ ]
+}

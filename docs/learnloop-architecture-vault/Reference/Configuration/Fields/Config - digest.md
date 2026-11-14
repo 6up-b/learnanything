@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/daily_plan/router_reader.py"
   - "tests/contamination_report_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/followups_batch6_prefetch_plan_wait_helpers.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
-  - "tests/pf_generation_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/digest"
@@ -65,6 +65,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/contamination_report_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/followups_batch6_prefetch_plan_wait_helpers.py`
@@ -74,7 +75,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
-- `tests/pf_generation_helpers.py`
 
 ## Extension and modification guidance
 

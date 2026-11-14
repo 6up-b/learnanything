@@ -27,7 +27,7 @@ from learnloop.placement.state import (
     ignored_opening_episode_ids,
     servable_open_episodes,
 )
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
@@ -81,7 +81,7 @@ def _episodes(repository):
 
 
 def _fingerprint(vault, repository, minutes=2):
-    queue = build_due_queue(vault, repository, clock=_at(minutes), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=_at(minutes))
     return sorted((lo, trigger, status) for lo, (_id, trigger, status) in _episodes(repository).items()), [
         (s.practice_item_id, round(s.priority, 12), sorted((k, round(v, 12)) for k, v in s.components.items()))
         for s in queue
@@ -95,7 +95,7 @@ def test_unanswered_opening_episodes_are_ignored_and_their_los_start_as_learning
     assert ignored_opening_episode_ids(vault, repository) == {e[0] for e in episodes.values()}
     assert servable_open_episodes(vault, repository) == {}
 
-    queue = build_due_queue(vault, repository, clock=_at(2), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=_at(2))
     new = {s.learning_object_id for s in queue if s.components.get("new_material")}
     assert new >= PLACEMENT_LOS
     # Nothing was rewritten or closed by serving.
@@ -134,7 +134,7 @@ def test_an_answered_opening_episode_is_not_ignored(tmp_path):
         connection.commit()
     assert not episode_ignored(vault, repository, episode)
     assert "lo_diag" in servable_open_episodes(vault, repository)
-    queue = build_due_queue(vault, repository, clock=_at(2), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=_at(2))
     assert not any(s.components.get("new_material") for s in queue if s.learning_object_id == "lo_diag")
 
 
@@ -152,7 +152,7 @@ def test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked(tmp_pa
     repository.update_probe_episode_status(episode.id, status="in_progress", clock=_at(1))
     vault = load_vault(paths.root)
     assert episode_ignored(vault, repository, repository.open_probe_episode("lo_diag"))
-    queue = build_due_queue(vault, repository, clock=_at(2), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=_at(2))
     lo_diag = [s for s in queue if s.learning_object_id == "lo_diag"]
     assert lo_diag and all(s.components.get("new_material") for s in lo_diag)
     assert all(s.components.get("probe_eig", 0.0) == 0.0 for s in lo_diag)
@@ -297,7 +297,7 @@ def test_the_overconfidence_list_adopts_an_ignored_episode(tmp_path):
     assert not episode_ignored(vault, repository, adopted)
     assert "lo_diag" in servable_open_episodes(vault, repository)
     # Served behind its episode again (not as new material), as the predecessor served it.
-    queue = build_due_queue(vault, repository, clock=_at(2), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=_at(2))
     assert not any(s.components.get("new_material") for s in queue if s.learning_object_id == "lo_diag")
     # Every episode no door touched is still ignored.
     assert {e.learning_object_id for e in repository.open_probe_episodes().values()

@@ -244,7 +244,7 @@ def test_ingest_aliases_a_collapsing_candidate_into_a_registered_facet(tmp_path)
     would have minted, so no facet row is emitted for it. Instead the registry
     facet earns an ``update`` row appending the candidate id as an alias, and every
     downstream reference (recipe component, criterion target) resolves to the
-    survivor. Fails if the mint gate is unwired from ``_normalize``.
+    survivor. Fails if the mint gate is unwired from ``normalize``.
     """
 
     from learnloop.content.synthesis.source_set_synthesis import create_study_map

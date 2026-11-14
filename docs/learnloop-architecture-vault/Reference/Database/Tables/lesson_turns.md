@@ -116,6 +116,7 @@ None found by exact static reference scan.
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_lesson_opportunity.py`
 - `tests/test_teacher_exam_question_guard.py`
+- `tests/test_teacher_from_check.py`
 - `tests/test_teacher_te1_lesson.py`
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te2_lessons.py`

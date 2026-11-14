@@ -139,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_ledger_records_merged_pairs_and_shortlisted_different_pairs_only`
 - [tests/test_facet_identity_ingest.py](../../../../../../../tests/test_facet_identity_ingest.py) — direct import
   - `test_two_sets_on_one_in_run_survivor_are_one_action_that_undoes_both`
+- [tests/test_normalize_cases.py](../../../../../../../tests/test_normalize_cases.py) — direct import
+  - `test_retirements_that_name_no_candidate_no_survivor_or_a_retired_survivor_are_skipped`
 
 ## Modification guidance
 

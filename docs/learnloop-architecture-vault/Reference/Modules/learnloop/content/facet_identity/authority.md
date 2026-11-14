@@ -200,8 +200,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `module`; statically calls `Cited`, `OwnerEdit`, `RegisteredMerge`, `Restore`, `added_provenance`, `authority_changes`, `authority_meaning`, `check_meaning_write`, `check_registry_text`, `contributions_from_support`, `merged_survivor`, `registry_entries`, `visible_sources`, `write_contributions`, `write_registry_text`, `written_provenance`
 - [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]] — imports `authority_meaning`; statically calls `authority_meaning`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `module`; statically calls `added_provenance`, `authority_changes`, `check_meaning_write`, `meaning_policy`, `overlay`, `source_views`, `support_entries`, `verify_registry_transition`, `write_contributions`, `written_provenance`
+- [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] — imports `module`; statically calls `CitationProblem`, `Contribution`, `check_meaning_write`, `join_candidate`, `meaning_policy`, `overlay`, `support_entries`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `module`; statically calls `authority_changes`, `check_meaning_write`, `contributions`, `meaning_policy`, `overlay`, `support_entries`
-- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `module`; statically calls `CitationProblem`, `Contribution`, `check_meaning_write`, `join_candidate`, `meaning_policy`, `overlay`, `support_entries`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `module`
 
 ## Dependencies
 
@@ -234,7 +235,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/content/facet_identity/span_support|learnloop.content.facet_identity.span_support]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

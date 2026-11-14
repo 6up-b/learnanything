@@ -6,7 +6,7 @@ What each group pins:
   after it with their reward and propensity, and every candidate the build kept off the slate, counted by rule with
   up to ten ids each, including the composition's and the cold lane's; a placement check's unusable candidates
   by rule (the map's S15); ids, numbers and codes only;
-* reads write none: a build with ``persist_explanations=False`` (``why``, the knowledge map, the facet chart, the
+* reads write none: a read build (``read_due_queue``: ``why``, the knowledge map, the facet chart, the
   staged comparator, the simulator) leaves no record, and nor does a sessionless one, which records no slate;
 * a record never changes what is served: with the write failing the queue is the same, and a warning names the
   trace;
@@ -30,7 +30,7 @@ from learnloop.content.authoring.item_authoring import retire_item
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import slate_record
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, explain_practice_item
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue, explain_practice_item
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_placement_vault
@@ -112,8 +112,8 @@ def test_a_persisting_build_writes_one_slate_record_with_its_exclusions(tmp_path
 def test_reads_write_no_slate_record(tmp_path):
     paths, vault, repository = _setup(tmp_path)
     session = SchedulerSession(session_id="s_read")
-    assert build_due_queue(vault, repository, clock=_at(5), session=session, persist_explanations=False)
-    build_due_queue(vault, repository, clock=_at(5), persist_explanations=False)
+    assert read_due_queue(vault, repository, clock=_at(5), session=session)
+    read_due_queue(vault, repository, clock=_at(5))
     explain_practice_item(vault, repository, "pi_eig_easy")
     # A sessionless build records no slate row, so no record either: a plan read that changes nothing commits
     # nothing (``test_curriculum_c1_fix_round3``'s memo depends on it).

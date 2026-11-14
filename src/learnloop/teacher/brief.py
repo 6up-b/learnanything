@@ -822,7 +822,8 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
                 notes_provider: Any = None, notes_check: NotesCheck | None = None,
                 te2: bool = False, origin: str | None = None, origin_ref: str | None = None,
                 follow_record: dict[str, Any] | None = None, preference_ref: str | None = None,
-                opens_at: str | None = None) -> tuple[dict[str, Any], SourceBook]:
+                opens_at: str | None = None,
+                from_check: Mapping[str, Any] | None = None) -> tuple[dict[str, Any], SourceBook]:
     """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
     minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
@@ -838,7 +839,10 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
 
     ``preference_ref`` and ``opens_at`` (the owner's decision 2, Nov 9, under the same switch): a ``learner_pick`` lesson
     the learner asked for through IH3's "learn this" names its preference, and reads the latest diagnosed miss on its
-    topics before ``opens_at``. A Reader selection or a typed topic names none."""
+    topics before ``opens_at``. A Reader selection or a typed topic names none.
+
+    ``from_check``: what a diagnostic check found, for a lesson opened from it (:mod:`learnloop.teacher.from_check`),
+    kept as the brief's ``from_check``; absent for every other lesson, whose brief is unchanged."""
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
@@ -936,6 +940,8 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
         "constraints": {"driver": driver, **dict(constraints)},
         "doctrine": doctrine_identity(),
     }
+    if from_check is not None:
+        brief["from_check"] = dict(from_check)
     if te2:
         from learnloop.teacher import te2 as T2
 

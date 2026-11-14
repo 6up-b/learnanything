@@ -2290,6 +2290,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_warns_on_unaligned_error_event_type`
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`
 - [tests/test_dual_authority_administration.py](../../../../../../tests/test_dual_authority_administration.py) — direct import
+- [tests/test_due_queue_read_builds.py](../../../../../../tests/test_due_queue_read_builds.py) — direct import
+  - `test_the_plan_prefetch_builds_its_pool_on_the_read_only_attach`
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
 - [tests/test_duration_estimates.py](../../../../../../tests/test_duration_estimates.py) — direct import
   - `test_loaded_evidence_reads_own_and_mode_latencies`
@@ -3415,6 +3417,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_item_with_unmapped_criterion_is_invalid`
   - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
   - `test_well_formed_teach_back_item_is_valid`
+- [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_cancellation_is_never_a_fallback`
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`

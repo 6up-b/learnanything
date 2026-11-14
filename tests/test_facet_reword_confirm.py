@@ -40,7 +40,8 @@ from learnloop.content.facet_identity.actions import (
 from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
 from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis, SynthFacet, SynthSpanRef
 from learnloop.content.synthesis.source_append import append_source
-from learnloop.content.synthesis.source_set_synthesis import StudyMapError, _collect_inputs, _normalize
+from learnloop.content.synthesis.normalize import normalize
+from learnloop.content.synthesis.source_set_synthesis import StudyMapError, _collect_inputs
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_source_set
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
@@ -313,7 +314,7 @@ def test_a_bootstrap_candidate_carrying_a_registered_id_uncited_is_kept_for_conf
         client_item_id="f_again", id=SYMMETRY, kind="definition", claim=NEW_CLAIM, provenance=[],
     )])
 
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
     (row,) = [row for row in normalized.rows if row["item_type"] == "facet"]
     assert row["operation"] == "update" and row["payload"]["expected_target_hash"]
@@ -469,7 +470,7 @@ def test_an_exam_only_bootstrap_candidate_carrying_a_registered_id_is_dropped_no
         provenance=[SynthSpanRef(**NEW_SPAN, relation="primary")],
     )])
 
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
     assert not [row for row in normalized.rows if row["item_type"] == "facet"]
     assert any(diag["gate"] == "exam_authority" and SYMMETRY in diag["entity_refs"]
@@ -577,7 +578,7 @@ def test_a_bootstrap_reword_citing_exam_material_under_the_wrong_unit_is_dropped
         provenance=[SynthSpanRef(**{**NEW_SPAN, "unit_id": "chapter_symmetry"}, relation="primary")],
     )])
 
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT)
 
     assert not [row for row in normalized.rows if row["item_type"] == "facet"]
     assert any(diag["gate"] == "exam_authority" and SYMMETRY in diag["entity_refs"]

@@ -24,6 +24,7 @@ from learnloop.scheduling.scheduler import (
     _apply_seeded_exploration,
     _selection_propensities,
     build_due_queue,
+    read_due_queue,
     probe_ties_admitted,
 )
 from learnloop.scheduling.selection_rewards import SchedulerIntent
@@ -158,10 +159,10 @@ def test_kill_switch_serves_the_predecessors_probe_offer_exactly(tmp_path):
         tmp_path, "mvp-0.15", toml="[router]\nprobe_tie_admission = false\n"
     )
     for session_id in ("s1", "s2", "s3", "s4", "s5", "s6"):
-        base = build_due_queue(base_vault, base_repo, clock=FrozenClock(NOW),
-                               session=SchedulerSession(session_id=session_id), persist_explanations=False)
-        off = build_due_queue(off_vault, off_repo, clock=FrozenClock(NOW),
-                              session=SchedulerSession(session_id=session_id), persist_explanations=False)
+        base = read_due_queue(base_vault, base_repo, clock=FrozenClock(NOW),
+                               session=SchedulerSession(session_id=session_id))
+        off = read_due_queue(off_vault, off_repo, clock=FrozenClock(NOW),
+                              session=SchedulerSession(session_id=session_id))
         assert [(i.practice_item_id, round(i.priority, 12), sorted(i.components.items())) for i in base] == [
             (i.practice_item_id, round(i.priority, 12), sorted(i.components.items())) for i in off
         ]
@@ -171,8 +172,8 @@ def test_kill_switch_serves_the_predecessors_probe_offer_exactly(tmp_path):
 
 
 def _serving_fingerprint(vault, repository, session_id: str):
-    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW),
-                            session=SchedulerSession(session_id=session_id), persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW),
+                            session=SchedulerSession(session_id=session_id))
     return [
         (s.practice_item_id, s.learning_object_id, round(s.priority, 12),
          sorted((k, round(v, 12)) for k, v in s.components.items()))
@@ -201,8 +202,8 @@ def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice
     paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
-    greedy = build_due_queue(vault, repository, clock=FrozenClock(NOW),
-                             session=SchedulerSession(session_id=session_id), persist_explanations=False)
+    greedy = read_due_queue(vault, repository, clock=FrozenClock(NOW),
+                             session=SchedulerSession(session_id=session_id))
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
 
     queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
@@ -283,9 +284,8 @@ def test_teach_back_items_are_probe_near_ties_at_the_successor(tmp_path, version
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     trace = OfferTrace()
-    queue = build_due_queue(
-        vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s"),
-        persist_explanations=False, offer_trace=trace,
+    queue = read_due_queue(
+        vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id="s"), offer_trace=trace,
     )
     teach_back = next(item for item in trace.considered if item.practice_item_id == "pi_svd_teach_back")
     assert (teach_back.reward_debug or {}).get("intent") == PROBE

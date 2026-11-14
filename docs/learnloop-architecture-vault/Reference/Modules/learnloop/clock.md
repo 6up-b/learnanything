@@ -512,6 +512,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/device_eligibility_helpers.py](../../../../../tests/device_eligibility_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/due_queue_helpers.py](../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/durable_promotion_arms_helpers.py](../../../../../tests/durable_promotion_arms_helpers.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../tests/exam_pool_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../tests/exam_protection_review_helpers.py) — direct import
@@ -2060,6 +2061,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
   - `test_well_formed_teach_back_item_is_valid`
 - [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
+- [tests/test_teacher_from_check.py](../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te1_lesson.py](../../../../../tests/test_teacher_te1_lesson.py) — direct import
   - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../tests/test_teacher_te1_review_fixes.py) — direct import

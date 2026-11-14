@@ -23,14 +23,14 @@ Doors pinned here:
 from __future__ import annotations
 
 from learnloop.substrate.replay import replay_learning_object
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 
 from tests.diagnostic_probe_single_use_helpers import CLOCK, DIAG_ITEM, LO_ID, _diagnostic_attempt, _vault
 
 def _queue_ids(vault, repository) -> set[str]:
-    queue = build_due_queue(
-        vault, repository, clock=CLOCK, persist_explanations=False
+    queue = read_due_queue(
+        vault, repository, clock=CLOCK
     )
     return {item.practice_item_id for item in queue}
 

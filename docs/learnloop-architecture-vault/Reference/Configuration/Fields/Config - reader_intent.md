@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/reader_intent.py"
   - "tests/ad_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/hint_fakes.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/mobile_host_auth_helpers.py"
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
-  - "tests/pf_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -65,6 +65,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/hint_fakes.py`
@@ -74,7 +75,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mobile_host_auth_helpers.py`
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
-- `tests/pf_fakes.py`
 
 ## Extension and modification guidance
 

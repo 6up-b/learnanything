@@ -65,6 +65,7 @@ import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn 
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
 import type { LessonEntry } from "../screens/LessonScreen";
+import { useCheckHandoff } from "./checkHandoff";
 import type { ReaderWorkbenchCheck, ReaderWorkbenchProps, ReaderWorkbenchResume } from "../screens/reader/useReaderWorkbench";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
 import { setAlgoConfig } from "./algoConfig";
@@ -427,6 +428,8 @@ export function App() {
     },
     [pushNotice]
   );
+  // A diagnostic check's hand-offs open a lesson on its topic, or the caller's tutor opening (checkHandoff.ts).
+  const { teachFromCheck, openFailed: lessonFromCheckFailed } = useCheckHandoff(setLessonEntry, notify, lessonEntry);
   // An error from an action the shell can run again: Try again when the
   // sidecar says it is retryable (simple shell). Classic shows the message.
   const reportError = useCallback(
@@ -1992,6 +1995,8 @@ export function App() {
           }}
           onOpenRepair={openRepair}
           onGuidedRedo={openGuidedRedo}
+          onTeachFromCheck={teachFromCheck}
+          onAsk={setAskTarget}
           onExit={exitCalibration}
           onError={onError}
         />
@@ -2086,6 +2091,7 @@ export function App() {
             onAskAvailabilityChange={onPracticeAskAllowed}
             onInspect={setInspectorId}
             onAsk={setAskTarget}
+            onTeachFromCheck={teachFromCheck}
             onAskState={onPracticeAskState}
             onAskOpener={onPracticeAskOpener}
             onError={onError}
@@ -2101,6 +2107,7 @@ export function App() {
             sessionId={session.sessionId}
             onContinueDiagnostic={openPractice}
             onAsk={setAskTarget}
+            onTeachFromCheck={teachFromCheck}
             onOpenRepair={openRepair}
             onGuidedRedo={openGuidedRedo}
             onBack={() => {
@@ -2442,6 +2449,7 @@ export function App() {
             onClose={() => setLessonEntry(null)}
             onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
             onLookInLibrary={lookInLibrary}
+            {...(lessonFromCheckFailed ? { onOpenFailed: lessonFromCheckFailed } : {})}
             onError={onError}
           />
         </Suspense>

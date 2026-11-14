@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx) |
-| Source lines | 236 |
+| Source lines | 251 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,22 +54,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function DiagnosticReviewScreen(` — function, line 31
+- `export function DiagnosticReviewScreen(` — function, line 32
 
 ## Internal implementation anchors
 
-- `const CONTINUE_LABEL: Record<string, string> =` — const, line 18
-- `const PLAIN_CONTINUE_LABEL: Record<string, string> =` — const, line 25
-- `const simple = simplePracticeFeedback()` — const, line 68
-- `const sharedFix = onOpenRepair ? blockEnd.releasedFeedback.find((entry)` — const, line 71
-- `const handleContinue = useCallback(async ()` — const, line 75
-- `const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined` — const, line 80
-- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 92
-- `const runNextStep = useCallback(()` — const, line 105
-- `const onKey = (event: KeyboardEvent)` — const, line 114
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 117
-- `const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : PLAIN_CONTINUE_LABEL[blockEnd.route ?? ""] ?? "Continue"` — const, line 143
-- `const verdict = verdictOf(` — const, line 153
+- `const CONTINUE_LABEL: Record<string, string> =` — const, line 21
+- `const PLAIN_CONTINUE_LABEL: Record<string, string> =` — const, line 27
+- `const simple = simplePracticeFeedback()` — const, line 73
+- `const sharedFix = onOpenRepair ? blockEnd.releasedFeedback.find((entry)` — const, line 76
+- `const handleContinue = useCallback(async ()` — const, line 80
+- `const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined` — const, line 85
+- `const askTutor = ()` — const, line 86
+- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 103
+- `const tutoringLabel = handoffOpensLesson(onTeachFromCheck) ? TEACH_AFTER_CHECK_LABEL : TUTOR_AFTER_CHECK_LABEL` — const, line 116
+- `const routeLabel = (labels: Record<string, string>)` — const, line 117
+- `const runNextStep = useCallback(()` — const, line 120
+- `const onKey = (event: KeyboardEvent)` — const, line 129
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 132
+- `const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : routeLabel(PLAIN_CONTINUE_LABEL)` — const, line 158
+- `const verdict = verdictOf(` — const, line 168
 
 ## Who imports or calls it
 
@@ -84,6 +87,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `GuidedRedoDto`, `ProbeBlockEndDto`
+- [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `CheckHandoff`, `TEACH_AFTER_CHECK_LABEL`, `TUTOR_AFTER_CHECK_LABEL`, `handoffOpensLesson`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `DetailsToggle`, `PrimaryAction`, `quietLine`
@@ -110,6 +114,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/app/checkHandoff.test.tsx](../../../../../../apps/learnloop-tauri/src/app/checkHandoff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
