@@ -56,16 +56,13 @@ def test_nothing_in_tier1_reads_the_deleted_route_check():
 # -- version gates: main's mvp-0.20 is the route rules, never the Decider ------------------------
 
 
-@pytest.mark.parametrize("version, moved", [
-    ("mvp-0.19", False), ("mvp-0.20", False), ("mvp-0.21", False), ("mvp-0.22", True),
-])
-def test_tier1_judgments_move_only_at_mvp022(version, moved):
+def test_tier1_judgments_move_at_mvp022_with_their_switches():
     from learnloop.config.schema import LearnLoopConfig
     from learnloop.decider_judgments import SERVING_TASKS, enabled
 
     config = LearnLoopConfig()
-    config.algorithms.algorithm_version = version
-    assert all(enabled(config, task) is moved for task in SERVING_TASKS)
+    config.algorithms.algorithm_version = "mvp-0.22"
+    assert all(enabled(config, task) for task in SERVING_TASKS)
     assert enabled(config, "facet_span_support")
 
 
@@ -296,15 +293,16 @@ def test_with_every_decider_route_off_the_one_ok_is_unchanged(tmp_path, monkeypa
     )
 
 
-def test_below_mvp022_the_one_ok_names_only_the_routes_still_on(tmp_path, monkeypatch, isolated_config):
-    """Below the successor no Tier-1 judgment sends learner text, but the
-    learner-text gaps' Decider (any version) and the span check (content) do."""
+def test_with_the_tier1_switches_off_the_one_ok_names_only_the_routes_still_on(
+        tmp_path, monkeypatch, isolated_config):
+    """With every Tier-1 serving switch off (mvp-0.21's state) no Tier-1 judgment
+    sends learner text, but the span check (content) does."""
 
-    from tests.helpers import _set_algorithm_version_at
+    from learnloop.decider_judgments import SERVING_TASKS
     from tests.ux_phase1_support import fresh_library, set_config
 
     root = fresh_library(tmp_path)
-    _set_algorithm_version_at(root, "mvp-0.21")
+    set_config(root, {("decider_routes", task): False for task in SERVING_TASKS})
     # Adaptive difficulty AD1 acts at every version; this pins the routes before it.
     set_config(root, {("learner_text_gaps", "decider_enabled"): False, ("adaptive_difficulty", "enabled"): False})
     note = _connection(root, monkeypatch)["deciderNote"]

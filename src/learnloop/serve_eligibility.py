@@ -954,39 +954,26 @@ def check_once_at_attempt(
 
 
 def help_converts_active(vault: Any) -> bool:
-    """Reader CA2's one help rule (``ONE_ASK_ALGORITHM_VERSION``, ``mvp-0.34``):
-    at that tag or later with ``ask.cold_help_converts`` on. A question during
+    """Reader CA2's one help rule (``ONE_ASK_ALGORITHM_VERSION``): with
+    ``ask.cold_help_converts`` on. A question during
     a cold administration counts as help only when it is substantive (every
     cold path), and help taken on a cold follow-up makes the attempt practice
     with help (submit admits it; it never answers the cold measurement).
-    Below the tag, switched off, or no vault: the predecessor's rules."""
+    Switched off, or no vault: the predecessor's rules."""
 
-    from learnloop.algorithm_versions import ONE_ASK_VERSIONS
-
-    config = getattr(vault, "config", None)
-    if config is None:
-        return False
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    switch = getattr(config, "ask", None)
-    return version in ONE_ASK_VERSIONS and bool(getattr(switch, "cold_help_converts", False))
+    switch = getattr(getattr(vault, "config", None), "ask", None)
+    return bool(getattr(switch, "cold_help_converts", False))
 
 
 def decision_active(vault: Any) -> bool:
     """Is the one eligibility decision live for ``vault`` (a ``LoadedVault``,
-    duck-typed)? At the successor (``mvp-0.27``) or later with
-    ``eligibility.enabled`` (the kill switch, Codex review F4). Below the tag,
-    or switched off, every serve path and submit decide exactly as ``mvp-0.26``
-    did (their callers keep that code). No vault (a path that cannot see the
-    vault's config) reads as off."""
+    duck-typed)? With ``eligibility.enabled`` (the successor ``mvp-0.27``'s kill
+    switch). Switched off, every serve path and submit decide exactly as
+    ``mvp-0.26`` did (their callers keep that code). No vault (a path that
+    cannot see the vault's config) reads as off."""
 
-    from learnloop.algorithm_versions import ELIGIBILITY_DECISION_VERSIONS
-
-    config = getattr(vault, "config", None)
-    if config is None:
-        return False
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    switch = getattr(config, "eligibility", None)
-    return version in ELIGIBILITY_DECISION_VERSIONS and bool(getattr(switch, "enabled", False))
+    switch = getattr(getattr(vault, "config", None), "eligibility", None)
+    return bool(getattr(switch, "enabled", False))
 
 
 def pending_writes(decision: EligibilityDecision) -> dict[str, str | None]:

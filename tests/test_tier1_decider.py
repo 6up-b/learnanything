@@ -75,12 +75,10 @@ def test_route_decision_fallback_and_switch(tmp_path, task, mode):
     assert all(row["input_hash"] == result.input_hash for row in rows)
 
 
-def test_serving_judgments_wait_for_the_successor_and_the_router_is_never_tier1():
+def test_serving_judgments_follow_their_switches_and_the_router_is_never_tier1():
     from learnloop.decider_judgments import enabled
 
     config = LearnLoopConfig()
-    config.algorithms.algorithm_version = "mvp-0.21"
-    assert not any(enabled(config, task) for task in SERVING)
     # The span-support check is a content path: its switch acts at every version.
     assert enabled(config, "facet_span_support")
     config.algorithms.algorithm_version = "mvp-0.22"
@@ -541,6 +539,8 @@ def test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict(tmp_p
 
     config = _config()
     config.algorithms.algorithm_version = "mvp-0.21"
+    # mvp-0.21's pair judging: the Tier-1 switch off (its off-branch is the predecessor's path).
+    config.decider_routes.learner_gap_judge = False
     vault, repo, pairs, budget = _gap_pair(tmp_path, config)
     decider = Decider()  # choice field "same", argmax "unsure"
     clients = PipelineClients(judge=lambda: GapLLMFake(decide=always("different")), decider=lambda: decider)
@@ -548,6 +548,7 @@ def test_a_predecessor_second_opinion_is_never_reused_as_the_tier1_verdict(tmp_p
                         decider_on=True)
     assert before["decider"]["b"] == "same"  # the predecessor's logged second opinion
     config.algorithms.algorithm_version = "mvp-0.22"
+    config.decider_routes.learner_gap_judge = True
     after = _judge_all(repo, SAME_PREREQUISITE, pairs, vault=vault, budget=budget, clients=clients,
                        decider_on=True)
     assert after["selected"]["b"] == "unsure" and after["selected_judges"]["b"] == "decider"
@@ -601,6 +602,9 @@ def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_che
 
     _paths, loaded, repository, _event = tutor_vault.__wrapped__(tmp_path)
     loaded.config.algorithms.algorithm_version = "mvp-0.21"
+    # mvp-0.21's contamination judging: both Tier-1 switches off (their off-branches are the predecessor's path).
+    loaded.config.decider_routes.contamination_leak_judgment = False
+    loaded.config.decider_routes.contamination_reveal_judgment = False
     first = Judge("clean")
     assert run(loaded, first)["judge"]["completed"] == 1 and len(first.calls) == 1
     (row,) = [row for row in _rows(repository) if row["task"] == "reveal"]
@@ -609,6 +613,7 @@ def test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_che
     assert "ctj_" + content_key({"input_hash": row["input_hash"], "question": question, "pass": 1}) == row["id"]
 
     loaded.config.algorithms.algorithm_version = "mvp-0.22"
+    loaded.config.decider_routes.contamination_leak_judgment = True
     loaded.config.decider_routes.contamination_reveal_judgment = False
     assert loaded.config.decider_routes.contamination_leak_judgment
     monkeypatch.setattr(tier1, "client_for", lambda *a: pytest.fail("the reveal judgment is switched off"))
