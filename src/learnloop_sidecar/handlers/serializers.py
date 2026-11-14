@@ -347,18 +347,11 @@ def practice_item_detail(
     scheduler = explain_practice_item(vault, repository, practice_item_id)
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
-    assessment_contract_version_id = None
-    from learnloop.learner.assessment_contracts import (
-        CANONICAL_STATE_VERSIONS,
-        snapshot_for_presentation,
-    )
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
-    # Every canonical-state version stamps grading evidence with the contract
-    # the learner was shown, so the snapshot is taken when the item is served.
-    if vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS:
-        assessment_contract_version_id = snapshot_for_presentation(
-            repository, vault, item, rubric=rubric
-        )
+    # Grading evidence is stamped with the contract the learner was shown, so
+    # the snapshot is taken when the item is served.
+    assessment_contract_version_id = snapshot_for_presentation(repository, vault, item, rubric=rubric)
     active_cold_retry = repository.active_followup_task_for_item(
         item.id, kind="cold_retry"
     )

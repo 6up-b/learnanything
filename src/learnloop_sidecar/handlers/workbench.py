@@ -151,10 +151,8 @@ def _ensure_contract(vault, repository, session_id: str) -> None:
     item = vault.practice_items.get(item_id)
     if item is None:
         return
-    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     try:
         version_id = snapshot_for_presentation(repository, vault, item)
     except Exception:  # noqa: BLE001 - without a snapshot the submit takes the current one, as before
