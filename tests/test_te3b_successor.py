@@ -19,7 +19,7 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.config.schema import RouterLessonSuggestionsConfig
 from learnloop.params.parameter_registry import classify_config_path
-from learnloop.router_objective_switches import lesson_offers_on, lesson_offers_tag
+from learnloop.router_objective_switches import lesson_offers_on
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
@@ -46,8 +46,8 @@ def test_the_switch_defaults_on_and_is_classified():
 
 def test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
+    # The predecessor's tag, served through the switch (tests/successor_switches.py).
     set_algorithm_version(paths, OLD)
-    assert not lesson_offers_tag(load_vault(paths.root).config)
     assert not lesson_offers_on(load_vault(paths.root).config)
     set_algorithm_version(paths, TAG)
     assert lesson_offers_on(load_vault(paths.root).config)
@@ -59,5 +59,4 @@ def test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_t
         other = create_basic_vault(tmp_path / f"off{n}")
         set_algorithm_version(other, TAG)
         append_config_toml(other.root, toml)
-        assert lesson_offers_tag(load_vault(other.root).config)
         assert not lesson_offers_on(load_vault(other.root).config), toml

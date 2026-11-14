@@ -373,7 +373,8 @@ def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains
 
 def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
     """``[router_objective] pooled_connections`` and ``held_reading_map``: on at the follow-up batch's tag by default,
-    off when switched off or below the tag; both in RO6's generator payload and the prefetch boundary key."""
+    off when switched off or at the predecessor's tag (served through the switches, tests/successor_switches.py);
+    both in RO6's generator payload and the prefetch boundary key."""
 
     from contextlib import nullcontext
 
@@ -400,7 +401,9 @@ def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
     assert (pooled, held) == (True, True)
     assert switches["pooled_connections"] is True and switches["held_reading_map"] is True
     set_algorithm_version(paths, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
-    assert state() == (False, False, None)
+    pooled, held, switches = state()
+    assert (pooled, held) == (False, False)
+    assert switches["pooled_connections"] is False and switches["held_reading_map"] is False
     set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
     append_config_toml(paths.root, "[router_objective]\npooled_connections = false\nheld_reading_map = false\n")
     pooled, held, switches = state()
@@ -559,11 +562,22 @@ def test_r2_the_numeric_seed_is_mains_whatever_the_speed_switches(tmp_path, monk
             identities.append(value)
         return real_hash(value)
 
+    from learnloop.router_objective_switches import (
+        COMMON_DRAW_IDENTITY_KEYS,
+        COMMON_DRAW_OBJECTIVE_KEYS,
+        SEED_NEUTRAL_IDENTITY_KEYS,
+        SEED_NEUTRAL_OBJECTIVE_KEYS,
+    )
+
     def mains(identity: dict[str, Any]) -> dict[str, Any]:
-        objective = dict(identity["objective"])
+        # Main's identity: the speed switches out of the snapshot, and the later successors' keys the seed never
+        # names (instruct hand-off's preference, slip or gap's sensor), which the key now carries at every tag.
+        objective = {key: value for key, value in identity["objective"].items()
+                     if key not in (*SEED_NEUTRAL_OBJECTIVE_KEYS, *COMMON_DRAW_OBJECTIVE_KEYS)}
         objective["followup_switches"] = {key: value for key, value in objective["followup_switches"].items()
                                           if key in _MAIN_SWITCHES}
-        return {**identity, "objective": objective}
+        return {key: value for key, value in {**identity, "objective": objective}.items()
+                if key not in (*SEED_NEUTRAL_IDENTITY_KEYS, *COMMON_DRAW_IDENTITY_KEYS)}
 
     real = OC.run_numeric
     seen: list[dict[str, Any]] = []

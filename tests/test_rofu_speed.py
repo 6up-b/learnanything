@@ -126,8 +126,8 @@ def test_a_deadline_admits_more_draws_merged_so_the_default_is_the_per_block_loo
 
 
 @pytest.mark.parametrize("version,switch,expected", [
-    ("tag", True, True), ("tag", False, False), ("below", True, False)])
-def test_the_numeric_policy_merges_only_at_the_tag_with_its_switch(tmp_path, monkeypatch, version, switch, expected):
+    ("tag", True, True), ("tag", False, False)])
+def test_the_numeric_policy_merges_only_with_its_switch(tmp_path, monkeypatch, version, switch, expected):
     """Codex review F2: every rollout a decision runs (the evaluation and its refinement, the correction, the carried
     valuation, the baselines and the day's gain curve) is merged at the batch's tag with ``merged_sessions``, and
     none below it or with the switch off (mvp-0.49's per-block loop, so its deadline admits mvp-0.49's draws)."""

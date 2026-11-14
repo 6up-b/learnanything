@@ -871,15 +871,12 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         # SG1: the sensor as the decision read it (the trace freezes it per topic); SG2: how the value used it.
         sources[MISS_CAUSE_SOURCE] = {"version": "miss_cause_v1", "topics": miss_records,
                                       **({"in_value": split_record} if split_record is not None else {})}
-    from learnloop.router_objective_switches import followups_tag
-
-    if followups_tag(config):
-        # The follow-up batch (RO4's landing ruling R3, closed): the numbers the rollouts drew γ and the reading
-        # curve from, beside their source, so a trace shows which posterior (or prior) valued its candidates.
-        learning = inputs.learning
-        sources["learning"] = {"gamma": list(learning.gamma), "gbar": [list(part) for part in learning.gbar],
-                               "dose_scales": list(learning.dose_scales), "source": learning.source,
-                               "ad_parameters_read": sorted((ad.get("learning") or {}) if fitted else ())}
+    # The follow-up batch (RO4's landing ruling R3, closed): the numbers the rollouts drew γ and the reading
+    # curve from, beside their source, so a trace shows which posterior (or prior) valued its candidates.
+    learning = inputs.learning
+    sources["learning"] = {"gamma": list(learning.gamma), "gbar": [list(part) for part in learning.gbar],
+                           "dose_scales": list(learning.dose_scales), "source": learning.source,
+                           "ad_parameters_read": sorted((ad.get("learning") or {}) if fitted else ())}
     return inputs, actions, sources
 
 

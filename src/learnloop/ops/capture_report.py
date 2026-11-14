@@ -510,15 +510,13 @@ def hypothesis_marks_section(connection: sqlite3.Connection, vault: Any, reposit
 
 def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *, as_of: str,
                  success_correctness: float) -> dict[str, Any]:
-    from learnloop.router_objective_switches import calibration_tag, preferences_inform_router_on
+    from learnloop.router_objective_switches import preferences_inform_router_on
 
-    extra: dict[str, Any] = {}
-    if calibration_tag(vault.config):
-        # Router objective RO5 (spec §9 item 6): the open picks' assignment, eligibility, gate reasons,
-        # administration, completion and intervening instruction, each apart; agreement labelled.
-        from learnloop.router_objective import picks as ro5_picks
+    from learnloop.router_objective import picks as ro5_picks
 
-        extra["open_picks"] = ro5_picks.section(connection)
+    # Router objective RO5 (spec §9 item 6): the open picks' assignment, eligibility, gate reasons,
+    # administration, completion and intervening instruction, each apart; agreement labelled.
+    extra: dict[str, Any] = {"open_picks": ro5_picks.section(connection)}
     if preferences_inform_router_on(vault.config):
         # Instruct hand-off IH4 (spec §7 items 4-5): agreement, overrides, follow-through and later cold results, each
         # labelled self-selected; where w_pref stands and what would move it.

@@ -16,12 +16,11 @@ from typing import Any, Callable
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.router_runtime import RouterRuntime
 from learnloop.router_objective import tail_data as TD
-from learnloop.router_objective_switches import FOLLOWUP_GENERATOR_SWITCHES
+from learnloop.router_objective_switches import FOLLOWUP_GENERATOR_SWITCHES, FOLLOWUP_SWITCHES
 
 TAG = LATEST_ALGORITHM_VERSION
 def _flipped(config, switch: str):
@@ -95,15 +94,14 @@ def test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job(tmp_path,
         assert trace["residual"]["generator"] == TD.generator(trace, TAG, scope_extension=switch != "scope_extension")
 
 
-def test_below_the_tag_the_key_names_no_switch():
+def test_the_key_names_the_switches_at_every_tag_a_vault_can_hold():
+    from learnloop.algorithm_versions import OLDEST_SUPPORTED
     from learnloop.config.schema import LearnLoopConfig
 
     config = LearnLoopConfig()
-    below = config.model_copy(update={"algorithms": config.algorithms.model_copy(
-        update={"algorithm_version": ROUTER_LEARNED_TAIL_ALGORITHM_VERSION})})
-    assert "followup_switches" not in OC.objective_settings(below)
-    at_tag = config.model_copy(update={"algorithms": config.algorithms.model_copy(update={"algorithm_version": ROUTER_FOLLOWUPS_ALGORITHM_VERSION})})
-    assert set(OC.objective_settings(at_tag)) == set(OC.objective_settings(below)) | {"followup_switches"}
+    for version in (OLDEST_SUPPORTED, LATEST_ALGORITHM_VERSION):
+        at = config.model_copy(update={"algorithms": config.algorithms.model_copy(update={"algorithm_version": version})})
+        assert set(OC.objective_settings(at)["followup_switches"]) == set(FOLLOWUP_SWITCHES)
 
 
 @pytest.mark.parametrize("switch", ["consistent_review_draw", "monotone_combiner"])

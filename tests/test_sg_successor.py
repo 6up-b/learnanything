@@ -24,7 +24,6 @@ from learnloop.router_objective_switches import (
     COMMON_DRAW_OBJECTIVE_KEYS,
     SEED_NEUTRAL_SWITCHES,
     followup_generator_switches,
-    slip_gap_tag,
 )
 from learnloop.vault.loader import load_vault
 
@@ -51,23 +50,15 @@ def test_the_switches_default_on_and_are_classified():
         assert rule is not None and "kill switch" in rule.rationale and stage in rule.rationale
 
 
-def test_the_gates_read_off_below_the_tag(tmp_path):
+def test_the_prefetch_key_names_both_switches_as_they_serve(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    assert not slip_gap_tag(load_vault(paths.root).config)
-    set_algorithm_version(paths, TAG)
-    assert slip_gap_tag(load_vault(paths.root).config)
-
-
-def test_the_prefetch_key_names_both_switches_at_the_tag_and_keeps_its_bytes_below(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
+    set_algorithm_version(paths, OLD)  # the predecessor, through the switches (tests/successor_switches.py)
     below = objective_settings(load_vault(paths.root).config)
-    assert not set(SG_KEYS) & set(below)
+    assert {key: below[key] for key in SG_KEYS} == {key: False for key in SG_KEYS}
     set_algorithm_version(paths, TAG)
     on = objective_settings(load_vault(paths.root).config)
     assert {key: on[key] for key in SG_KEYS} == SG_KEYS
-    assert {k: v for k, v in on.items() if k not in SG_KEYS} == below
+    assert {k: v for k, v in on.items() if k not in SG_KEYS} == {k: v for k, v in below.items() if k not in SG_KEYS}
     off = create_basic_vault(tmp_path / "off")
     set_algorithm_version(off, TAG)
     append_config_toml(off.root, "[router_objective]\nmiss_cause_in_value = false\n")
@@ -77,11 +68,11 @@ def test_the_prefetch_key_names_both_switches_at_the_tag_and_keeps_its_bytes_bel
     assert set(COMMON_DRAW_OBJECTIVE_KEYS) == set(SG_KEYS) and not set(SG_KEYS) & set(SEED_NEUTRAL_SWITCHES)
 
 
-def test_sg2_is_in_ro6s_generator_payload_at_the_tag_and_sg1_is_not(tmp_path):
+def test_sg2_is_in_ro6s_generator_payload_and_sg1_is_not(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
+    set_algorithm_version(paths, OLD)  # the predecessor, through the switches (tests/successor_switches.py)
     below = followup_generator_switches(load_vault(paths.root).config)
-    assert below is not None and "miss_cause_in_value" not in below and "miss_cause_sensor" not in below
+    assert below["miss_cause_in_value"] is False and "miss_cause_sensor" not in below
     set_algorithm_version(paths, TAG)
     on = followup_generator_switches(load_vault(paths.root).config)
     assert on == {**below, "miss_cause_in_value": True}

@@ -71,5 +71,4 @@ def test_a_probes_observation_still_counts_and_only_reports_are_dropped(tmp_path
     ids = ["learner_report:01J", "cdo:abc", "learner_report:01K"]
     assert validated_resolution_ids(ids, config(TAG)) == ["cdo:abc"]
     assert validated_resolution_ids(ids, config(TAG, False)) == ids
-    assert validated_resolution_ids(ids, config(PREDECESSOR)) == ids
     assert validated_resolution_ids(None, config(TAG)) == []

@@ -19,7 +19,6 @@ import sqlite3
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_inputs as OI
 from learnloop.router import outcomes as RO
 from learnloop.router_objective import calibration_report as CR
@@ -188,10 +187,3 @@ def test_the_first_week_on_a_copy_shaped_synthetic_vault(tmp_path):
 def lines_ok(report) -> bool:
     return all(isinstance(line, str) and line for line in CR.lines(report))
 
-
-def test_below_the_tag_the_cli_report_has_no_calibration_section(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(), version=ROUTER_OBJECTIVE_ALGORITHM_VERSION)
-    run(env)
-    from learnloop.router_objective_switches import calibration_tag
-
-    assert not calibration_tag(env.vault.config)

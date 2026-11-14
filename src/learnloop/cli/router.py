@@ -367,33 +367,21 @@ def router_objective_report(
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
         now = utc_now_iso()
-        from learnloop.router_objective_switches import calibration_tag
-
         with closing(connect(path, read_only=True)) as connection:
             forecasts = _objective_forecasts(connection, loaded, path, now)
             report = objective_report.build(connection, now=now, forecasts=forecasts,
                                             weight=_objective_weight(loaded, path, now))
-            if calibration_tag(loaded.config) and report.get("status") != "no_traces_table":
+            if report.get("status") != "no_traces_table":
+                from learnloop.router_objective import calibration_report, offer_report, tail_report
+
                 # Router objective RO5 (spec §9): each arm per day and its minutes, the price, the return model, the
                 # weight's scores, the goal-date read and the no_intervention floor.
-                from learnloop.router_objective import calibration_report
-
                 report["calibration"] = calibration_report.build(connection, loaded, now=now)
-            from learnloop.router_objective_switches import learned_tail_tag
-
-            if learned_tail_tag(loaded.config) and report.get("status") != "no_traces_table":
                 # Router objective RO6 (spec §10): the narrow claim, the fits by version and their change points,
                 # w^'s history, the residual's share and the partial-history cross-check.
-                from learnloop.router_objective import tail_report
-
                 report["learned_tail"] = tail_report.build(connection, loaded, now=now)
-            from learnloop.router_objective_switches import lesson_offers_tag
-
-            if lesson_offers_tag(loaded.config) and report.get("status") != "no_traces_table":
                 # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): offers shown, mu and P(accept), the responses, the
                 # lessons they opened and the lesson curve's posterior.
-                from learnloop.router_objective import offer_report
-
                 report["lesson_offers"] = offer_report.build(connection)
         if json_output:
             _emit({"algorithm_version": loaded.config.algorithms.algorithm_version, "router_objective": report}, True)

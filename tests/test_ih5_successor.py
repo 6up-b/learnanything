@@ -24,7 +24,7 @@ from learnloop.daily_plan.objective_chooser import _failure_rule_field, objectiv
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router import mixture as mx
 from learnloop.router_objective import mix
-from learnloop.router_objective_switches import failure_share_tag, failure_share_to_other_policy_on
+from learnloop.router_objective_switches import failure_share_to_other_policy_on
 from learnloop.vault.loader import load_vault
 
 from learnloop.daily_plan.engine import advance
@@ -58,10 +58,9 @@ def test_the_switch_defaults_on_and_is_classified():
     assert rule is not None and "kill switch" in rule.rationale and "IH5" in rule.rationale
 
 
-def test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off(tmp_path):
+def test_the_gate_reads_off_switched_off_and_with_the_objective_off(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
-    assert not failure_share_tag(load_vault(paths.root).config)
+    set_algorithm_version(paths, OLD)  # the predecessor, through the switch (tests/successor_switches.py)
     assert not failure_share_to_other_policy_on(load_vault(paths.root).config)
     set_algorithm_version(paths, TAG)
     assert failure_share_to_other_policy_on(load_vault(paths.root).config)
@@ -70,15 +69,14 @@ def test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_of
         other = create_basic_vault(tmp_path / f"off{n}")
         set_algorithm_version(other, TAG)
         append_config_toml(other.root, toml)
-        assert failure_share_tag(load_vault(other.root).config)
         assert not failure_share_to_other_policy_on(load_vault(other.root).config), toml
 
 
-def test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below(tmp_path):
+def test_the_prefetch_key_names_the_switch_as_it_serves(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, OLD)
+    set_algorithm_version(paths, OLD)  # the predecessor, through the switches (tests/successor_switches.py)
     below = objective_settings(load_vault(paths.root).config)
-    assert "failure_share_to_other_policy" not in below
+    assert below["failure_share_to_other_policy"] is False
     set_algorithm_version(paths, TAG)
     on = objective_settings(load_vault(paths.root).config)
     assert on["failure_share_to_other_policy"] is True
@@ -87,7 +85,7 @@ def test_the_prefetch_key_names_the_switch_at_the_tag_and_keeps_its_bytes_below(
     append_config_toml(off.root, "[router_objective]\nfailure_share_to_other_policy = false\n")
     flipped = objective_settings(load_vault(off.root).config)
     assert flipped["failure_share_to_other_policy"] is False and flipped != on
-    assert {k: v for k, v in on.items() if k not in IH5_KEYS} == below
+    assert {k: v for k, v in on.items() if k not in IH5_KEYS} == {k: v for k, v in below.items() if k not in IH5_KEYS}
 
 
 # -- the mix's failure rule (spec §7a) -----------------------------------------------------------------------

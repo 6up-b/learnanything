@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import tail_data as TD
 
@@ -72,12 +72,12 @@ def test_a_topic_entering_the_retention_scope_at_its_density_keeps_the_backup(mo
         reference.reward, reference.next_v_tail, reference.next_phi, reference.phi, reference.q_taken)
 
 
-def test_switched_off_or_below_the_tag_the_growth_is_a_change_point(monkeypatch, utc):
+def test_switched_off_the_growth_is_a_change_point(monkeypatch, utc):
     _quiet(monkeypatch, {"d1": "d2"})
-    for config in (_config(on=False), _config(ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)):
-        first, second = _pair(config, {"lo_a": C}, {"lo_a": C, "lo_new": C})
-        steps = TD.transitions(None, config, [first, second], at=FAR)
-        assert steps.transitions == () and steps.censored == {TD.OBJECTIVE_CHANGED: 1, TD.NO_LATER_DECISION: 1}
+    config = _config(on=False)
+    first, second = _pair(config, {"lo_a": C}, {"lo_a": C, "lo_new": C})
+    steps = TD.transitions(None, config, [first, second], at=FAR)
+    assert steps.transitions == () and steps.censored == {TD.OBJECTIVE_CHANGED: 1, TD.NO_LATER_DECISION: 1}
 
 
 def test_codex_density_change_stays_censored_at_the_tag(monkeypatch, utc):

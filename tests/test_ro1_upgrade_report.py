@@ -30,6 +30,7 @@ from tests.daily_plan_fakes import MovableClock, iso, record_attempt, seed_due
 from tests.helpers import NOW, PLACEMENT_LOS, create_placement_vault
 from tests.intent_fakes import NOW as INTENT_NOW
 from tests.intent_fakes import OURS, make_intent_vault
+from tests.successor_switches import SWITCHES_BY_TAG
 
 TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
@@ -69,7 +70,9 @@ def _effects(result, *, as_of, horizon_days: int) -> dict:
 
 def upgrade_report(paths) -> dict:
     vault = load_vault(paths.root)
-    result = shadow_rebuild(vault, assignments=(f"algorithms.algorithm_version={TAG}",),
+    # The upgrade to the tag turns on its switches (the vault at the predecessor holds them off: successor_switches).
+    switches = tuple(f"{key}=true" for key in SWITCHES_BY_TAG[TAG])
+    result = shadow_rebuild(vault, assignments=(f"algorithms.algorithm_version={TAG}", *switches),
                             observe=partial(serving_schedule, as_of=AS_OF))
     effects = _effects(result, as_of=AS_OF, horizon_days=int(vault.config.plan.load_horizon_days))
     return {"shadow": result.as_dict(), "effects": effects, "live_unchanged": result.live_database_unchanged}

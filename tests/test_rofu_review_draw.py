@@ -205,11 +205,9 @@ def test_a_review_right_after_a_review_is_almost_never_a_lapse_with_the_switch_o
 # -- the numeric policy ----------------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("version,switch,expected", [
-    ("tag", True, True), ("tag", False, False), ("below", True, False)])
-def test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch(tmp_path, monkeypatch, version, switch,
-                                                                               expected):
-    from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+@pytest.mark.parametrize("switch,expected", [(True, True), (False, False)])
+def test_the_numeric_policy_draws_consistently_only_with_its_switch(tmp_path, monkeypatch, switch, expected):
+    from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.db.stores import router_objective as store
 
@@ -225,8 +223,7 @@ def test_the_numeric_policy_draws_consistently_only_at_the_tag_with_its_switch(t
             return _real(*args, **kwargs)
 
         monkeypatch.setattr(OC.V, name, spy)
-    tag = ROUTER_FOLLOWUPS_ALGORITHM_VERSION if version == "tag" else ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=tag,
+    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
                       toml=f"[router_objective]\nconsistent_review_draw = {'true' if switch else 'false'}\n")
     run(env, steps=4)
     assert seen["evaluate"] and seen["baselines"] and seen["gain"], {k: len(v) for k, v in seen.items()}

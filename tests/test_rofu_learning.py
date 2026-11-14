@@ -54,13 +54,6 @@ def test_the_rollouts_read_ads_posterior_and_the_trace_holds_the_numbers_at_the_
         assert [len(part) for part in learning["gbar"]] == [2, 2]
 
 
-def test_below_the_tag_the_trace_has_no_learning_numbers(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=OLD)
-    run(env)
-    traces = [entry for entry in _traces(env) if entry["decision_kind"] == "plan_block"]
-    assert traces and all("learning" not in entry["trace"]["inputs_sources"] for entry in traces)
-
-
 def test_the_report_says_what_the_rollouts_read(tmp_path):
     env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
     run(env)
