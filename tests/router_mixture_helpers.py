@@ -48,7 +48,9 @@ def _with_horizon(toml: str | None) -> str | None:
 def mixture_env(tmp_path, runtime: Any, *, toml: str | None = None, serve: bool = True, version: str = B,
                 items: Any = None, session_id: str | None = "s1"):
     """A routed plan env on the wide vault. Its objective rolls out ``HORIZON_DAYS`` (see there); a test that appends
-    its own ``[router_objective]`` table later uses ``served_horizon``, since the table already exists."""
+    its own ``[router_objective]`` table later uses ``served_horizon``, since the table already exists. A vault at an
+    older ``version`` is served as that tag was: every later successor's switch off (``successor_switches``, through
+    ``set_algorithm_version``) unless ``toml`` sets it."""
 
     paths = _wide_vault(tmp_path, version=version)
     toml = _with_horizon(toml)

@@ -232,9 +232,28 @@ def append_config_toml(vault_root: Path, fragment: str) -> None:
     normalized = textwrap.dedent(fragment).strip()
     if not normalized:
         raise AssertionError("config fragment must not be empty")
-    for table in re.findall(r"(?m)^\[([^]]+)\]\s*$", normalized):
-        if re.search(rf"(?m)^\[{re.escape(table)}\]\s*$", current):
+    from tests.successor_switches import forget, owns_table
+
+    duplicates = [table for table in re.findall(r"(?m)^\[([^]]+)\]\s*$", normalized)
+                  if re.search(rf"(?m)^\[{re.escape(table)}\]\s*$", current)]
+    for table in duplicates:
+        if not owns_table(vault_root, table):
             raise AssertionError(f"learnloop.toml already has [{table}]")
+    if duplicates:
+        # A table only ``successor_switches`` wrote (an older tag's switches): the fragment's keys merge into it.
+        from learnloop.ops.settings_store import apply_config_updates
+
+        def leaves(node, prefix=()):
+            for key, value in node.items():
+                if isinstance(value, dict):
+                    yield from leaves(value, (*prefix, key))
+                else:
+                    yield (*prefix, key), value
+
+        updates = dict(leaves(tomllib.loads(normalized)))
+        apply_config_updates(config_path, updates)
+        forget(vault_root, [".".join(key) for key in updates])
+        return
     updated = f"{current.rstrip()}\n\n{normalized}\n"
     tomllib.loads(updated)
     config_path.write_text(updated, encoding="utf-8")
@@ -460,6 +479,10 @@ def _set_algorithm_version_at(root: Path, version: str) -> None:
     toml_path.write_text(updated, encoding="utf-8")
     if is_below_floor(version):
         allow_below_floor(root)
+    # The successors after ``version`` whose tag halves are gone: their switches serve that tag (D6 part 2).
+    from tests.successor_switches import serve_as_at
+
+    serve_as_at(root, version)
 
 
 def allow_below_floor(root: Path) -> None:

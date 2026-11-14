@@ -69,10 +69,11 @@ def _cold_retry(iv, item_id, *, ref):
 # -- F2: intent is the successor; below the tag the predecessor's code runs ---------------------------
 
 
-def test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on(tmp_path):
+def test_f2_at_the_predecessor_commitments_change_nothing(tmp_path):
+    # The predecessor's tag is served through the switch (tests/successor_switches.py).
     bare = make_intent_vault(tmp_path / "bare", version=PREDECESSOR)
     chosen = make_intent_vault(tmp_path / "chosen", version=PREDECESSOR)
-    assert chosen.vault.config.intent.enabled, "sanity: the switch is on (its default)"
+    assert not chosen.vault.config.intent.enabled
     chosen.choose("learning_object", "lo_a", "pause", NOW)
     chosen.choose("learning_object", "lo_b", "check_once", NOW)
     chosen.choose("learning_object", "lo_c", "light_touch", NOW)

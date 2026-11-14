@@ -46,17 +46,11 @@ def test_the_successor_is_the_next_link():
     assert ADAPTIVE_DIFFICULTY_VERSIONS == frozenset({"mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
-def test_below_the_tag_every_switch_reads_off_whatever_the_config_says(tmp_path):
-    paths = ad23_vault(tmp_path, version="mvp-0.29", ad=COUPLED)
-    vault = load_vault(paths.root)
-    assert all(getattr(vault.config.adaptive_difficulty, name) for name in SC.SWITCHES)
-    assert not SC.successor_active(vault.config)
-    assert not any(SC.switch_on(vault.config, name) for name in SC.SWITCHES)
-    # The dose arm is outside the successor: it acts at every version.
-    assert SC.dose_offers_on(vault.config)
-    set_algorithm_version(paths, "mvp-0.30")
+def test_every_switch_reads_on_and_the_master_turns_them_and_the_dose_arm_off(tmp_path):
+    paths = ad23_vault(tmp_path, version="mvp-0.30", ad=COUPLED)
     vault = load_vault(paths.root)
     assert all(SC.switch_on(vault.config, name) for name in SC.SWITCHES)
+    assert SC.dose_offers_on(vault.config)
     vault.config.adaptive_difficulty.enabled = False
     assert not SC.successor_active(vault.config) and not SC.dose_offers_on(vault.config)
 
