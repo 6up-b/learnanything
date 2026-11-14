@@ -255,6 +255,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followup_serve_helpers.py](../../../../../tests/followup_serve_helpers.py) — direct import
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../tests/forecast_receipts_helpers.py) — direct import
+- [tests/grade_application_golden_helpers.py](../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/helpers.py](../../../../../tests/helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
@@ -391,6 +392,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade`
 - [tests/test_forecast_receipts_landing.py](../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one`
+- [tests/test_grade_application_core.py](../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_held_grade_composition.py](../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_a_diagnosis_of_a_held_attempt_is_never_read_as_a_wrong_answer`
   - `test_a_held_attempt_queues_no_gap_reading_as_a_failure`
