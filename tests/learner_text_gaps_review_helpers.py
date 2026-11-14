@@ -19,6 +19,7 @@ from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, append_config_toml, create_placement_vault
+from tests.learner_text_gaps_helpers import serve_pre_tier1
 from tests.text_gap_fakes import GapLLMFake
 
 
@@ -37,6 +38,7 @@ def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = "", sync: bool = 
     paths = create_placement_vault(tmp_path / "vault", version=version)
     if toml:
         append_config_toml(paths.root, toml)
+    serve_pre_tier1(paths.root, version)
     repository = Repository(paths.sqlite_path)
     if sync:
         sync_vault_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))

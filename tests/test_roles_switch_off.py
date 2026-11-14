@@ -107,6 +107,9 @@ def _record(tmp_path: Path) -> dict[str, Any]:
     # The golden's fixed input is the base tree's vault, whose basic vault was mvp-0.6 (refactor D2a moved the
     # tip's to the head): keep the input at that tag, so the pin compares code, not vaults.
     set_algorithm_version(paths, OLD_BASIC_VAULT_TAG)
+    # At that tag state sync opened an opening probe episode per LO (no placement), whose hypotheses the cue
+    # discovery reads; placement's switch serves that now (its off-branch is the predecessor's sync).
+    set_config(paths, "placement", enabled=False)
     if not WRITE:
         set_config(paths, "roles", on_demand_enabled=False, positive_filter_enabled=False)
         _seed(loaded(paths), repository)

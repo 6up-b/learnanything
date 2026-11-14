@@ -95,7 +95,8 @@ def test_a_seen_probe_is_served_by_dl1_and_refused_by_the_staged_frame(tmp_path)
     from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
     from learnloop.daily_plan.policy import policy_for
 
-    env = _world(tmp_path / "r2a", version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    # R2a's staged frame: the mixture's ``router.mode`` switch (below R2b's tag the mixture was dormant by the tag).
+    env = _world(tmp_path / "r2a", version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION, toml='[router]\nmode = "staged"\n')
     env.policy = policy_for(env.vault, env.repository, session_id=env.session_id, clock=env.clock)
     record = build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
     assert PROBE not in _planned(record)

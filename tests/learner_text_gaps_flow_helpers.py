@@ -13,6 +13,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, create_placement_vault
+from tests.learner_text_gaps_helpers import serve_pre_tier1
 from tests.text_gap_fakes import GapLLMFake
 
 
@@ -28,6 +29,7 @@ def _setup(tmp_path, *, version="mvp-0.16", toml="", name="vault"):
     paths = create_placement_vault(tmp_path / name, version=version)
     if toml:
         append_config_toml(paths.root, toml)
+    serve_pre_tier1(paths.root, version)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))
     return paths.root, repository

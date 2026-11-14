@@ -94,7 +94,8 @@ def test_exam_or_reserved_work_is_never_summarized(tmp_path, monkeypatch):
 def test_summaries_run_only_where_the_mixture_serves(tmp_path):
     calls: list = []
     runtime = fake_runtime(llm=_summary_llm(calls))
-    staged = mixture_env(tmp_path / "a", runtime, items=_wide_items(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    staged = mixture_env(tmp_path / "a", runtime, items=_wide_items(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
+                         toml='[router]\nmode = "staged"\n')
     assert tb.schedule(staged.vault, staged.repository.sqlite_path, _teach_back(staged), runtime=runtime) is None
     off = mixture_env(tmp_path / "b", runtime, items=_wide_items(), toml="[router]\nteach_back_summary = false\n")
     tb.schedule(off.vault, off.repository.sqlite_path, _teach_back(off), runtime=runtime)

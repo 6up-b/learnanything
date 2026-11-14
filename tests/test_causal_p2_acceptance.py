@@ -114,7 +114,9 @@ from tests.causal_p2_acceptance_helpers import (
 
 
 def test_causal_disambiguation_end_to_end_acceptance(tmp_path):
-    vault, repository, _paths = _acceptance_vault(tmp_path)
+    # Step 6a reads the opening episode state sync opens per LO without placement (mvp-0.7's sync): placement's
+    # switch off serves it (its off-branch is the predecessor's code; below mvp-0.11 it was off by the tag).
+    vault, repository, _paths = _acceptance_vault(tmp_path, toml="[placement]\nenabled = false\n")
     admit_probe_instrument_card(
         repository, learning_object_id=LO_ID, items=(PROBE_ITEM,)
     )

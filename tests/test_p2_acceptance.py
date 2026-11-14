@@ -32,7 +32,7 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from tests.p2_acceptance_helpers import CLOCK, _admit_probe_card, _drive_probe_item, _reviewed_pack
-from tests.helpers import allow_below_floor
+from tests.helpers import allow_below_floor, set_config_switch
 
 # ---------------------------------------------------------------------------
 # Fixtures + helpers
@@ -51,6 +51,9 @@ def _open_repo(fx) -> Repository:
 def test_starting_instruction_closes_measurement_segment_and_reentry_is_fresh(tmp_path):
     allow_below_floor(tmp_path / "vault")
     fx = build_golden_path_fixture(tmp_path / "vault")
+    # The fixture's tag (mvp-0.8) ran episodes on their count; value of information's switch serves that now
+    # (below mvp-0.21 it was off by the tag), so one failing observation leaves the episode open.
+    set_config_switch(fx.root, "voi_stopping.enabled", False)
     vault = load_vault(fx.root)
     repo = _open_repo(fx)
     rid = fx.receipt.run_id

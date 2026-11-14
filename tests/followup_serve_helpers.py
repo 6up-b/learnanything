@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PLACEMENT_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.db.repositories import Repository
 from learnloop.followup_serve.gates import SERVING_SURFACE
@@ -15,7 +15,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.diagnosis_fakes import ReviewFakeClient
-from tests.helpers import append_config_toml, set_algorithm_version
+from tests.helpers import append_config_toml, set_algorithm_version, set_config_switch
 from tests.causal_p2_acceptance_helpers import CLOCK, _acceptance_vault, _divergent_failure
 
 TAG = LATEST_ALGORITHM_VERSION
@@ -25,7 +25,14 @@ OFF = "\n[followup]\ngenerate_and_serve = false\n"
 def rival_causes_vault(tmp_path, *, version: str = TAG, config: str = "", built_at: str = LATEST_ALGORITHM_VERSION):
     """(vault, repository, paths) at ``version``: a joint vault, whose hypotheses normalization writes."""
 
-    _vault, _repository, paths = _acceptance_vault(tmp_path, version=built_at)
+    # A vault built below placement's tag synced without placement (its opening episodes): no vault opens there now,
+    # so placement's switch (its off-branch is that predecessor's sync) builds it, and is on again after.
+    before_placement = built_at not in SUCCESSOR_CHAIN or (
+        SUCCESSOR_CHAIN.index(built_at) < SUCCESSOR_CHAIN.index(PLACEMENT_ALGORITHM_VERSION))
+    _vault, _repository, paths = _acceptance_vault(
+        tmp_path, version=built_at, toml="[placement]\nenabled = false\n" if before_placement else None)
+    if before_placement:
+        set_config_switch(paths.root, "placement.enabled", True)
     set_algorithm_version(paths, version)
     if config:
         append_config_toml(paths.root, config)

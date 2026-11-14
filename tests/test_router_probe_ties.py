@@ -154,9 +154,12 @@ def test_a_probe_near_tie_carries_a_true_propensity_only_at_the_successor(tmp_pa
 
 
 def test_kill_switch_serves_the_predecessors_probe_offer_exactly(tmp_path):
-    base_paths, base_vault, base_repo = _probe_vault(tmp_path, "mvp-0.14")
+    # Both as at these tags: value of information (mvp-0.21) off by its switch, as it was by the tag (its valuation
+    # is not this comparison's subject).
+    voi_off = "[voi_stopping]\nenabled = false\n"
+    base_paths, base_vault, base_repo = _probe_vault(tmp_path, "mvp-0.14", toml=voi_off)
     off_paths, off_vault, off_repo = _probe_vault(
-        tmp_path, "mvp-0.15", toml="[router]\nprobe_tie_admission = false\n"
+        tmp_path, "mvp-0.15", toml="[router]\nprobe_tie_admission = false\n" + voi_off
     )
     for session_id in ("s1", "s2", "s3", "s4", "s5", "s6"):
         base = read_due_queue(base_vault, base_repo, clock=FrozenClock(NOW),
