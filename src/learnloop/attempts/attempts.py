@@ -5,13 +5,14 @@ import logging
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
@@ -57,10 +58,14 @@ from learnloop.diagnosis.error_taxonomy_map import (
     map_legacy_error_type,
 )
 from learnloop.learner.facet_diagnostics import (
+    BreadthReads,
+    LoCoverageReads,
     apply_mastery_variance_floor,
     build_facet_uncertainty_updates,
-    covered_required_fraction,
-    lo_relative_coverage,
+    covered_required_fraction_from,
+    lo_relative_coverage_from,
+    read_breadth,
+    read_lo_coverage,
 )
 from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
@@ -109,6 +114,7 @@ from learnloop.learner.facet_state_reader import (
 )
 from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
+    CoverageResult,
     build_facet_recall_updates_from_prior,
     build_quality_state_update_from_prior,
     derive_facet_outcomes,
@@ -123,7 +129,7 @@ from learnloop.learner.recall_coverage import (
 )
 from learnloop.attempts.surprise import compute_surprise
 from learnloop.vault.hashes import practice_item_hash
-from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
+from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric
 
 # Per spec §"Attempt-type handling": a `dont_know` attempt is deterministically
 # attributed to a recall failure (score 0, no grading role invoked).
@@ -4315,6 +4321,73 @@ def _attempt_reference_status(repository: Repository, item: PracticeItem,
         return reference_status_for_item(connection, item)
 
 
+@dataclass(frozen=True)
+class GradeInputs:
+    """What a resolved grade's arithmetic reads before the learner's state: the resolved attempt, the clock's two
+    readings, and the loaded vault values it consults (its config, facet alias map and error taxonomy, which are
+    in memory, so passing them reads nothing).
+
+    ``facet_uncertainty_on`` is ``canonical_facet_uncertainty_on`` for the vault."""
+
+    attempt_id: str
+    draft: AttemptDraft
+    item: PracticeItem
+    learning_object: LearningObject
+    rubric: Rubric
+    grade: ResolvedGrade
+    subject: str | None
+    observed_at: datetime
+    now_iso: str
+    config: LearnLoopConfig
+    facet_aliases: Mapping[str, str]
+    error_types: Mapping[str, Any]
+    facet_uncertainty_on: bool
+    grading_source: str = "self"
+    agent_run_id: str | None = None
+    fallback_reason: str | None = None
+    grader_identity: tuple[str, str] | None = None
+    unassessed_criterion_ids: tuple[str, ...] = ()
+    grade_held_for_review: bool = False
+    grade_contract_unrecorded: bool = False
+    unrecorded_correctness: float | None = None
+
+    def canonical_facet_id(self, facet_id: str) -> str:
+        """``LoadedVault.canonical_facet_id`` over the same alias map."""
+
+        return self.facet_aliases.get(facet_id, facet_id)
+
+
+@dataclass(frozen=True)
+class GradeScope:
+    """What the grade assessed and the evidence's coverage (:func:`grade_scope`)."""
+
+    correctness: float
+    unassessed: frozenset[str]
+    criterion_points: dict[str, float]
+    nothing_assessed: bool
+    held: bool
+    pfc_facet_weights: dict[str, dict[str, float]] | None
+    coverage: CoverageResult
+
+
+@dataclass(frozen=True)
+class GradeReads:
+    """What the shell reads between the two stages, every one keyed by the attempt's inputs and the scope's
+    covered facets: the learner's prior state, the grade channel's interpretation variance, a lesson check's
+    recorded mass, the learning object's coverage and breadth reads, the FSRS weights, the answer key's status,
+    the error events' ids, and the attempt's stored evidence rows when the grade carries none."""
+
+    prior_state: AttemptPriorState
+    interpretation_variance: float
+    recorded_mass: float | None
+    lo_coverage: LoCoverageReads
+    breadth: BreadthReads
+    fsrs_weights: tuple[float, ...]
+    reference_status: str
+    error_event_ids: list[str]
+    grading_evidence: Any = None
+
+
 def _compute_resolved_grade_application(
     vault: LoadedVault,
     repository: Repository,
@@ -4337,11 +4410,130 @@ def _compute_resolved_grade_application(
     reveal_window_bounded: bool = False,
     ledger_position: tuple[str, str] | None = None,
 ) -> AttemptApplication:
+    """What a resolved grade does to the learner's state, computed and not written.
+
+    This is the shell; the arithmetic is two pure stages. It resolves the attempt's target and reads the clock into
+    :class:`GradeInputs`; :func:`grade_scope` decides what the grade assessed and the evidence's coverage; the
+    learner's prior state is then read for the facets that coverage names (the one read that waits on the
+    arithmetic), with every other read the arithmetic needs, in the order the attempt has always made them; and
+    :func:`grade_application` computes every row. Moving a read across the stages changes what an attempt reads,
+    and reordering the reads can change which ids a seeded id stream gives.
+    """
+
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock, window_bounded=reveal_window_bounded,
     )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
     now_iso = utc_now_iso(clock)
+    subjects = vault.subjects_for_item(item)
+    inputs = GradeInputs(
+        attempt_id=attempt_id,
+        draft=draft,
+        item=item,
+        learning_object=learning_object,
+        rubric=rubric,
+        grade=grade,
+        subject=subjects[0] if subjects else None,
+        observed_at=observed_at,
+        now_iso=now_iso,
+        config=vault.config,
+        facet_aliases=vault.facet_aliases,
+        error_types=vault.error_types,
+        facet_uncertainty_on=canonical_facet_uncertainty_on(vault),
+        grading_source=grading_source,
+        agent_run_id=agent_run_id,
+        fallback_reason=fallback_reason,
+        grader_identity=grader_identity,
+        unassessed_criterion_ids=tuple(unassessed_criterion_ids),
+        grade_held_for_review=grade_held_for_review,
+        grade_contract_unrecorded=grade_contract_unrecorded,
+        unrecorded_correctness=unrecorded_correctness,
+    )
+    scope = grade_scope(inputs)
+    if prior_state is None:
+        prior_state = load_attempt_prior_state(
+            vault,
+            repository,
+            learning_object_id=learning_object.id,
+            practice_item_id=item.id,
+            facets=[*item.evidence_facets, *scope.coverage.covered_facets],
+            now_iso=now_iso,
+            ledger_before=ledger_position if replay else None,
+        )
+    interpretation_variance = _interpretation_variance(vault, repository, inputs, clock=clock)
+    recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
+    lo_coverage = read_lo_coverage(vault, repository, learning_object.id)
+    breadth = read_breadth(vault, repository, learning_object.id)
+    fsrs_weights = resolve_fsrs_weights(repository)
+    reference_status = _attempt_reference_status(repository, item, draft, replay=replay)
+    # One error event per attribution the grade keeps: canonicalization and the firewall map each attribution to
+    # one, and a held grade keeps none. The ids are drawn here, after the reads above, as they always were, so a
+    # seeded id stream gives the same ids; the core's strict zip fails if the count ever drifts.
+    error_event_ids = [
+        error_event_ids_override[index]
+        if error_event_ids_override is not None and index < len(error_event_ids_override)
+        else new_ulid()
+        for index in range(0 if scope.held else len(grade.error_attributions))
+    ]
+    grading_evidence = None if grade.evidence_rows else repository.fetch_grading_evidence(attempt_id)
+    reads = GradeReads(
+        prior_state=prior_state,
+        interpretation_variance=interpretation_variance,
+        recorded_mass=recorded_mass,
+        lo_coverage=lo_coverage,
+        breadth=breadth,
+        fsrs_weights=fsrs_weights,
+        reference_status=reference_status,
+        error_event_ids=error_event_ids,
+        grading_evidence=grading_evidence,
+    )
+    return grade_application(inputs, scope, reads)
+
+
+def _interpretation_variance(
+    vault: LoadedVault, repository: Repository, inputs: GradeInputs, *, clock: Clock | None
+) -> float:
+    """Var[s(Z)|emission] of a model grade's calibrated channel, for the mastery observation's noise; 0.0 for a
+    grade that is not a model's, and whenever the channel cannot be read."""
+
+    item, learning_object, rubric, draft, grade = (
+        inputs.item, inputs.learning_object, inputs.rubric, inputs.draft, inputs.grade,
+    )
+    grading_source, grader_identity = inputs.grading_source, inputs.grader_identity
+    if draft.attempt_type == "dont_know" or grading_source not in ("ai", "codex"):
+        return 0.0
+    try:
+        from learnloop.attempts.grade_resolution import response_soft_score
+
+        _channel_mean, interpretation_variance = response_soft_score(
+            vault,
+            repository,
+            item=item,
+            grading_source="ai",
+            rubric_score=grade.rubric_score,
+            max_points=rubric.max_points,
+            grader_confidence=grade.grader_confidence,
+            has_fatal=bool(grade.error_attributions),
+            response_text=draft.learner_answer_md,
+            domain=learning_object.id,
+            grading_prompt_version=grader_identity[0] if grader_identity else None,
+            grader_output_schema_version=grader_identity[1] if grader_identity else None,
+            clock=clock,
+        )
+    except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)
+        return 0.0
+    return interpretation_variance
+
+
+def grade_scope(inputs: GradeInputs) -> GradeScope:
+    """Stage one of the core: what the grade assessed, whether it is held, and the evidence's coverage of the
+    item's facets. The learner's prior state is read for the facets this coverage names, so it runs first."""
+
+    item, rubric, draft, grade, attempt_id = inputs.item, inputs.rubric, inputs.draft, inputs.grade, inputs.attempt_id
+    grade_contract_unrecorded = inputs.grade_contract_unrecorded
+    unrecorded_correctness = inputs.unrecorded_correctness
+    unassessed_criterion_ids = inputs.unassessed_criterion_ids
+    grade_held_for_review = inputs.grade_held_for_review
     if grade_contract_unrecorded:
         # Regrade contracts (mvp-0.26, replay only): the grade's maximum is
         # not on record, so it is never divided by today's item. It is held
@@ -4353,8 +4545,6 @@ def _compute_resolved_grade_application(
         correctness = float(unrecorded_correctness)
     else:
         correctness = grade.rubric_score / max(rubric.max_points, 1)
-    subjects = vault.subjects_for_item(item)
-    subject = subjects[0] if subjects else None
     # PF-c (owner decision 2026-10-12): a criterion the valid-alternative gate
     # recorded unverified is UNASSESSED - neither credit nor failure. The grade
     # already excludes it (``assessed_rubric_score``); here it leaves the
@@ -4396,7 +4586,7 @@ def _compute_resolved_grade_application(
     # lexical inference: on most items that maps nothing and the attempt's
     # outcome would reach every facet, the unassessed one included (review F1).
     pfc_facet_weights = (
-        target_criterion_facet_weights(item, rubric, resolve=vault.canonical_facet_id)
+        target_criterion_facet_weights(item, rubric, resolve=inputs.canonical_facet_id)
         if unassessed
         else None
     )
@@ -4406,7 +4596,7 @@ def _compute_resolved_grade_application(
         attempt_type=draft.attempt_type,
         hints_used=draft.hints_used,
         learner_answer_md=draft.learner_answer_md,
-        evidence=vault.config.evidence,
+        evidence=inputs.config.evidence,
         declared_stuck=draft.declared_stuck,
     )
     # Asked-criteria evidence scaling: ungraded criteria certify no facet mass
@@ -4420,7 +4610,7 @@ def _compute_resolved_grade_application(
             item,
             rubric,
             criterion_points=criterion_points,
-            transfer_evidence_multiplier=vault.config.teach_back.transfer_evidence_multiplier,
+            transfer_evidence_multiplier=inputs.config.teach_back.transfer_evidence_multiplier,
             criterion_facet_weights=pfc_facet_weights,
         )
     if nothing_assessed:
@@ -4432,18 +4622,33 @@ def _compute_resolved_grade_application(
             covered_facets={},
             trace={**coverage.trace, "covered_facets": {}, "effective_coverage": 0.0},
         )
-    if prior_state is None:
-        prior_state = load_attempt_prior_state(
-            vault,
-            repository,
-            learning_object_id=learning_object.id,
-            practice_item_id=item.id,
-            facets=[*item.evidence_facets, *coverage.covered_facets],
-            now_iso=now_iso,
-            ledger_before=ledger_position if replay else None,
-        )
+    return GradeScope(
+        correctness=correctness,
+        unassessed=unassessed,
+        criterion_points=criterion_points,
+        nothing_assessed=nothing_assessed,
+        held=held,
+        pfc_facet_weights=pfc_facet_weights,
+        coverage=coverage,
+    )
+
+
+def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -> AttemptApplication:
+    """Stage two of the core: every row the grade writes and the result it returns, from plain values (no
+    repository, clock or vault)."""
+
+    item, learning_object, rubric = inputs.item, inputs.learning_object, inputs.rubric
+    draft, grade, attempt_id = inputs.draft, inputs.grade, inputs.attempt_id
+    config, now_iso, observed_at, subject = inputs.config, inputs.now_iso, inputs.observed_at, inputs.subject
+    grading_source, grader_identity = inputs.grading_source, inputs.grader_identity
+    agent_run_id, fallback_reason = inputs.agent_run_id, inputs.fallback_reason
+    grade_contract_unrecorded = inputs.grade_contract_unrecorded
+    correctness, unassessed, criterion_points = scope.correctness, scope.unassessed, scope.criterion_points
+    nothing_assessed, held, coverage = scope.nothing_assessed, scope.held, scope.coverage
+    pfc_facet_weights = scope.pfc_facet_weights
+    prior_state = reads.prior_state
     prior_mastery = prior_state.mastery
-    grade_attributions = _canonicalized_grade_attributions(vault.canonical_facet_id, grade.error_attributions)
+    grade_attributions = _canonicalized_grade_attributions(inputs.canonical_facet_id, grade.error_attributions)
     (
         grade_attributions,
         repair_suggestions,
@@ -4454,7 +4659,7 @@ def _compute_resolved_grade_application(
         criterion_points=criterion_points,
         error_attributions=grade_attributions,
         repair_suggestions=grade.repair_suggestions,
-        canonical_facet_id=vault.canonical_facet_id,
+        canonical_facet_id=inputs.canonical_facet_id,
     )
     attribution_audit_events = [
         *grade.attribution_audit_events,
@@ -4469,21 +4674,21 @@ def _compute_resolved_grade_application(
         grade_attributions = []
     primary_error_type = _primary_error_type(grade_attributions)
     item_a, item_b = resolve_item_irt_params(
-        item, learning_object, vault.config.mastery, prior_state.item_parameter_state
+        item, learning_object, config.mastery, prior_state.item_parameter_state
     )
     if draft.primed:
         # Source just re-read: the item is effectively easier. Shifting b (rather
         # than dampening the observation weight) keeps the evidence asymmetric —
         # a primed success barely moves mu, a primed failure moves it strongly.
         # Prediction and surprise read the same shifted b, staying consistent.
-        item_b -= vault.config.mastery.irt.priming_b_offset
+        item_b -= config.mastery.irt.priming_b_offset
     expected_correctness, prediction_trace = predicted_correctness_from_prior(
         prior_state.aggregate_facet_recall,
         item,
         prior_mastery=prior_mastery,
         item_a=item_a,
         item_b=item_b,
-        config=vault.config,
+        config=config,
     )
     facet_outcomes = derive_facet_outcomes(
         item,
@@ -4501,8 +4706,8 @@ def _compute_resolved_grade_application(
     # targets only) the lexical guess would map nothing and smear the grade over every facet.
     uncertainty_facet_weights: dict[str, dict[str, float]] | None = None
     uncertainty_facet_outcomes = facet_outcomes
-    if canonical_facet_uncertainty_on(vault) and facet_belief_corrections_on(vault.config):
-        uncertainty_facet_weights = target_criterion_facet_weights(item, rubric, resolve=vault.canonical_facet_id)
+    if inputs.facet_uncertainty_on and facet_belief_corrections_on(config):
+        uncertainty_facet_weights = target_criterion_facet_weights(item, rubric, resolve=inputs.canonical_facet_id)
         uncertainty_facet_outcomes = derive_facet_outcomes(
             item,
             rubric,
@@ -4525,51 +4730,29 @@ def _compute_resolved_grade_application(
     # Deterministic and self grades are not channel-interpreted, so they keep
     # the raw score and confidence with no extra noise.
     grader_confidence_source = grade.grader_confidence
-    interpretation_variance = 0.0
-    if draft.attempt_type != "dont_know" and grading_source in ("ai", "codex"):
-        try:
-            from learnloop.attempts.grade_resolution import response_soft_score
-
-            _channel_mean, interpretation_variance = response_soft_score(
-                vault,
-                repository,
-                item=item,
-                grading_source="ai",
-                rubric_score=grade.rubric_score,
-                max_points=rubric.max_points,
-                grader_confidence=grade.grader_confidence,
-                has_fatal=bool(grade.error_attributions),
-                response_text=draft.learner_answer_md,
-                domain=learning_object.id,
-                grading_prompt_version=grader_identity[0] if grader_identity else None,
-                grader_output_schema_version=grader_identity[1] if grader_identity else None,
-                clock=clock,
-            )
-        except Exception:  # noqa: BLE001 - fail-safe reliability source (§7.3)
-            interpretation_variance = 0.0
+    interpretation_variance = reads.interpretation_variance
     # Teacher TE1 (spec_teacher_v1 §12.1): a lesson check enters at the mass recorded for it when it
     # was graded (the learned lesson-check weight, filtered as of the check); live and replay read the
     # same receipt row, and every other attempt (no row) keeps its type's configured mass.
-    recorded_mass = lesson_check_mass(repository, attempt_id, draft.attempt_type)
+    recorded_mass = reads.recorded_mass
     reliability = resolve_reliability(
         item,
         attempt_type=draft.attempt_type,
         hints_used=draft.hints_used,
         grader_confidence=grader_confidence_source,
-        evidence=vault.config.evidence,
+        evidence=config.evidence,
         attempt_type_mass=recorded_mass,
     )
     familiarity = familiarity_discount_from_attempts(
         prior_state.recent_learning_object_attempts,
         item,
         covered_facets=coverage.covered_facets,
-        config=vault.config,
+        config=config,
         exclude_attempt_id=attempt_id,
     )
-    lo_coverage, lo_coverage_trace = lo_relative_coverage(
-        vault,
-        repository,
-        learning_object_id=learning_object.id,
+    lo_coverage, lo_coverage_trace = lo_relative_coverage_from(
+        reads.lo_coverage,
+        config.recall_coverage,
         normalized_facet_weights=coverage.normalized_facet_weights,
         effective_item_coverage=coverage.effective_coverage,
     )
@@ -4581,8 +4764,8 @@ def _compute_resolved_grade_application(
         severity, trace = event_local_severity_from_attempts(
             prior_state.recent_learning_object_attempts,
             item,
-            error_types=vault.error_types,
-            config=vault.config,
+            error_types=inputs.error_types,
+            config=config,
             error_type=attribution.error_type,
             attempt_type=draft.attempt_type,
             hints_used=draft.hints_used,
@@ -4608,7 +4791,7 @@ def _compute_resolved_grade_application(
         independent_evidence_discount=familiarity.independent_evidence_discount,
         attempt_type=draft.attempt_type,
         error_event_written=bool(resolved_attributions),
-        algorithm_version=vault.config.algorithms.algorithm_version,
+        algorithm_version=config.algorithms.algorithm_version,
         now_iso=now_iso,
     )
     post_aggregate_facet_recall: dict[str, FacetRecallState | dict[str, Any] | None] = dict(
@@ -4617,14 +4800,13 @@ def _compute_resolved_grade_application(
     for state in facet_recall_updates:
         if state.get("practice_item_id") is None:
             post_aggregate_facet_recall[str(state["facet_id"])] = state
-    breadth_fraction, breadth_trace = covered_required_fraction(
-        vault,
-        repository,
-        learning_object_id=learning_object.id,
+    breadth_fraction, breadth_trace = covered_required_fraction_from(
+        reads.breadth,
+        config.recall_coverage,
         aggregate_facet_recall=post_aggregate_facet_recall,
     )
     error_impact = resolve_error_impact(
-        vault.config,
+        config,
         error_type=primary_error_type,
         max_event_severity=max_event_severity,
         effective_coverage=lo_coverage,
@@ -4653,7 +4835,7 @@ def _compute_resolved_grade_application(
         observation_weight_override=error_impact.observation_weight,
         attempt_evidence_mass=(
             recorded_mass if recorded_mass is not None
-            else attempt_evidence_mass(draft.attempt_type, vault.config.evidence)
+            else attempt_evidence_mass(draft.attempt_type, config.evidence)
         ),
         primed=draft.primed,
         soft_score_override=None,
@@ -4672,15 +4854,15 @@ def _compute_resolved_grade_application(
         posterior_mastery, mastery_trace = update_mastery_traced(
             prior_mastery,
             mastery_observation,
-            vault.config.mastery,
-            vault.config.algorithms.algorithm_version,
+            config.mastery,
+            config.algorithms.algorithm_version,
             item_a=item_a,
             item_b=item_b,
             item_id=item.id,
         )
         posterior_mastery, mastery_variance_floor = apply_mastery_variance_floor(
             posterior_mastery,
-            vault.config,
+            config,
             covered_fraction=breadth_fraction,
         )
     # Empirical-Bayes per-item difficulty: alternating conditional update on b
@@ -4689,8 +4871,8 @@ def _compute_resolved_grade_application(
     # Primed outcomes are conditioned on the source being fresh in working
     # memory — they must not move the fitted *cold* difficulty. An attempt
     # with nothing assessed (PF-c) observed nothing about it either.
-    if vault.config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
-        _authored_a, authored_b = item_irt_params(item, learning_object, vault.config.mastery)
+    if config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
+        _authored_a, authored_b = item_irt_params(item, learning_object, config.mastery)
         next_item_parameters = update_item_difficulty(
             prior_state.item_parameter_state,
             practice_item_id=item.id,
@@ -4698,8 +4880,8 @@ def _compute_resolved_grade_application(
             item_a=item_a,
             learner_mu_posterior=posterior_mastery.logit_mean,
             observation=mastery_observation,
-            config=vault.config.mastery,
-            algorithm_version=vault.config.algorithms.algorithm_version,
+            config=config.mastery,
+            algorithm_version=config.algorithms.algorithm_version,
             updated_at=now_iso,
         )
     surprise = compute_surprise(
@@ -4708,7 +4890,7 @@ def _compute_resolved_grade_application(
         observation=mastery_observation,
         observed_error_type=primary_error_type,
         prior_active_errors=prior_state.active_errors,
-        config=vault.config,
+        config=config,
         item_a=item_a,
         item_b=item_b,
     )
@@ -4719,7 +4901,7 @@ def _compute_resolved_grade_application(
         surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
     from learnloop.router_objective_switches import interval_factor_removed
 
-    if interval_factor_removed(vault.config):
+    if interval_factor_removed(config):
         # Router objective RO1 (mvp-0.46, spec §5.1): FSRS already rewards an
         # unlikely success through 1 - R, so the second correction from the
         # label's b is not applied. Its own gate (not the review's): the row
@@ -4730,7 +4912,7 @@ def _compute_resolved_grade_application(
 
     previous_state = prior_state.practice_item_state
     fsrs_rating = fsrs_rating_for_attempt(item, grade.rubric_score, rubric.max_points, draft.hints_used)
-    fsrs_weights = resolve_fsrs_weights(repository)
+    fsrs_weights = reads.fsrs_weights
     fsrs_weights_fitted = fsrs_weights is not FSRS6_DEFAULT_WEIGHTS
     elapsed_days = _elapsed_days(previous_state, observed_at)
     previous_memory = _memory_state(previous_state)
@@ -4824,16 +5006,11 @@ def _compute_resolved_grade_application(
         "evidence_origin": draft.evidence_origin,
         "declared_dont_know": draft.declared_dont_know,
         "declared_stuck": draft.declared_stuck,
-        "reference_status": _attempt_reference_status(repository, item, draft, replay=replay),
-        **_ad_logged_fields(vault.config, draft),
+        "reference_status": reads.reference_status,
+        **_ad_logged_fields(config, draft),
         "received_at": draft.received_at,
     }
-    error_event_ids = [
-        error_event_ids_override[index]
-        if error_event_ids_override is not None and index < len(error_event_ids_override)
-        else new_ulid()
-        for index, _attribution in enumerate(resolved_attributions)
-    ]
+    error_event_ids = list(reads.error_event_ids)
     error_events = []
     for event_id, base_attribution, attribution in zip(error_event_ids, grade_attributions, resolved_attributions, strict=True):
         error_events.append(
@@ -4847,7 +5024,7 @@ def _compute_resolved_grade_application(
                 "misconception_statement": attribution.misconception_statement,
                 "misconception_consistent_answer": attribution.misconception_consistent_answer,
                 "misconception_id": attribution.misconception_id,
-                "repair_plan": _error_event_repair_plan(vault.error_types, base_attribution),
+                "repair_plan": _error_event_repair_plan(inputs.error_types, base_attribution),
                 "status": "active",
                 "created_at": now_iso,
                 "updated_at": now_iso,
@@ -4855,7 +5032,7 @@ def _compute_resolved_grade_application(
         )
     facet_evidence_rows: Iterable[Any] = grade.evidence_rows
     if not grade.evidence_rows:
-        facet_evidence_rows = repository.fetch_grading_evidence(attempt_id)
+        facet_evidence_rows = reads.grading_evidence
     if unassessed:
         facet_evidence_rows = [
             row
@@ -4864,9 +5041,9 @@ def _compute_resolved_grade_application(
             not in unassessed
         ]
     facet_uncertainty_updates, facet_uncertainty_trace = build_facet_uncertainty_updates(
-        vault.config,
-        error_types=vault.error_types,
-        learning_object=vault.learning_objects.get(learning_object.id),
+        config,
+        error_types=inputs.error_types,
+        learning_object=learning_object,
         item=item,
         rubric=rubric,
         learning_object_id=learning_object.id,
@@ -4879,7 +5056,7 @@ def _compute_resolved_grade_application(
         prior_uncertainties=prior_state.facet_uncertainty,
         prior_facet_recall=prior_state.aggregate_facet_recall,
         observed_error_type=primary_error_type,
-        algorithm_version=vault.config.algorithms.algorithm_version,
+        algorithm_version=config.algorithms.algorithm_version,
         now_iso=now_iso,
     )
     from learnloop.outcome_contract import HELD_ROW_KEY
@@ -4904,7 +5081,7 @@ def _compute_resolved_grade_application(
             correctness=correctness,
             grader_confidence=grade.grader_confidence,
             now_iso=now_iso,
-            algorithm_version=vault.config.algorithms.algorithm_version,
+            algorithm_version=config.algorithms.algorithm_version,
             assessment_side_error=any(
                 (map_legacy_error_type(attribution.error_type) or attribution.error_type)
                 in ASSESSMENT_SIDE_ERROR_TYPES
@@ -4930,7 +5107,7 @@ def _compute_resolved_grade_application(
         "applied_to_mastery": ability_transition["applied_to_mastery"],
         "applied_to_facet_recall": ability_transition["applied_to_facet_recall"],
         "process_noise": None,
-        "algorithm_version": vault.config.algorithms.algorithm_version,
+        "algorithm_version": config.algorithms.algorithm_version,
         "created_at": now_iso,
     }
     debug_payload = {
@@ -5042,11 +5219,11 @@ def _compute_resolved_grade_application(
         # this item since its last attempt. This is the audit trail for "why is
         # an attempt the learner submitted as unassisted recorded as primed?".
         "auto_primed_reveal_total": draft.auto_primed_reveal_total,
-        "priming_b_offset": vault.config.mastery.irt.priming_b_offset if draft.primed else None,
+        "priming_b_offset": config.mastery.irt.priming_b_offset if draft.primed else None,
         "fsrs_weights_fitted": fsrs_weights_fitted,
         # What this attempt was derived under, for doctor: off, the payload is the predecessor's.
-        **({DERIVED_WITH_BELIEF_FIXES_KEY: True} if facet_belief_corrections_on(vault.config) else {}),
-        "algorithm_version": vault.config.algorithms.algorithm_version,
+        **({DERIVED_WITH_BELIEF_FIXES_KEY: True} if facet_belief_corrections_on(config) else {}),
+        "algorithm_version": config.algorithms.algorithm_version,
         "created_at": now_iso,
     }
     practice_state = PracticeItemState(
@@ -5066,7 +5243,7 @@ def _compute_resolved_grade_application(
         last_attempt_at=now_iso,
         updated_at=now_iso,
     )
-    surprise_record = surprise.as_record(attempt_id, vault.config.algorithms.algorithm_version, now_iso)
+    surprise_record = surprise.as_record(attempt_id, config.algorithms.algorithm_version, now_iso)
     mastery_display = display_mastery(posterior_mastery)
     result = AttemptResult(
         attempt_id=attempt_id,
