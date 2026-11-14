@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/data_check.py](../../../../../../src/learnloop/adaptive_difficulty/data_check.py) |
-| Source lines | 206 |
+| Source lines | 197 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `spearman(xs: list[float], ys: list[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 48) — Spearman's rho with an approximate 95% Fisher-z interval; n < 4 reports no interval.
-- `data_check(vault: Any, sqlite_path: Any, *, repository: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 78)
+- `data_check(vault: Any, sqlite_path: Any, *, repository: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 73)
 
 ### Explicit exports
 
@@ -67,9 +67,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_ranks(values: list[float]) -> list[float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 33)
-- `_has(connection: Any, table: str, column: str | None=None) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 69)
-- `_share(rows: list[dict[str, Any]], key: str) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 171)
-- `_exam_units(vault: Any, connection: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 177)
+- `_has(connection: Any, table: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 69)
+- `_share(rows: list[dict[str, Any]], key: str) -> float | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 162)
+- `_exam_units(vault: Any, connection: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/data_check.py), line 168)
 
 ## Who imports or calls it
 

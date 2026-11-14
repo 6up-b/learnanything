@@ -177,7 +177,7 @@ it("a short check looks like any other question, with one line on when feedback 
   const text = bodyText();
   expect(text).not.toMatch(/diagnostic|observation|probe/i);
   expect(screen.queryByRole("button", { name: /^Hint/ })).toBeNull();
-  expect(screen.getByRole("button", { name: /Teach me instead/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Stop diagnosing and teach me/ })).toBeTruthy();
 });
 
 it("classic restores the card exactly: the item id, the mode pill and the grader", async () => {
@@ -343,4 +343,38 @@ it("F1: a short check never freezes or shows a full answer", async () => {
   expect(await screen.findByRole("button", { name: "Got it" })).toBeTruthy();
   expect(api.recordSelfGradeDisclosure).not.toHaveBeenCalled();
   expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
+});
+
+const ACTIVE_CHECK = {
+  version: 1, active: true, presentationId: "pres_1", episodeId: "ep_1", observationNumber: 1, maximumObservations: 3,
+  forcedAttemptType: "diagnostic_probe",
+  restrictions: { hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true, answerRevealDisabled: true, feedbackDeferred: true }
+};
+
+it.each(["simple", "classic"])("the %s card's \"Stop diagnosing and teach me\" opens a lesson on the topic with the check's episode", async (mode) => {
+  setAlgoConfig({ ui: { practiceFeedback: mode }, teacher: { lessons: true } });
+  api.getProbeContract.mockResolvedValue(ACTIVE_CHECK);
+  api.stopProbeDiagnosing.mockResolvedValue({ version: 1, stopped: true, decision: {}, episodeId: "ep_1", learningObjectId: "lo_det" });
+  const callbacks = props({ onTeachFromCheck: vi.fn() });
+  render(<PracticeScreen {...callbacks} />);
+  const stop = await screen.findByRole("button", { name: /Stop diagnosing and teach me/ });
+  await act(async () => { fireEvent.click(stop); });
+  expect(api.stopProbeDiagnosing).toHaveBeenCalledWith(ITEM_ID);
+  expect(callbacks.onTeachFromCheck).toHaveBeenCalledWith(expect.objectContaining({
+    learningObjectId: "lo_det", title: "Determinants", probeEpisodeId: "ep_1" }));
+  expect(callbacks.onAsk).not.toHaveBeenCalled();
+  // The fallback is the tutor's proactive opening, as the stop opened it before lessons.
+  const handoff = (callbacks.onTeachFromCheck as ReturnType<typeof vi.fn>).mock.calls[0][0];
+  act(() => handoff.fallback());
+  expect(callbacks.onAsk).toHaveBeenCalledWith(expect.objectContaining({
+    context: "practice", practiceItemId: ITEM_ID, sessionId: "s1", proactiveOpen: true }));
+});
+
+it("during a check, Ask's refusal names the control the card shows", async () => {
+  api.getProbeContract.mockResolvedValue(ACTIVE_CHECK);
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  await screen.findByRole("button", { name: /Stop diagnosing and teach me/ });
+  fireEvent.keyDown(window, { key: "?" });
+  expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining("“Stop diagnosing and teach me”"));
 });

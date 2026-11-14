@@ -182,7 +182,7 @@ def pending_delayed_checks(connection: sqlite3.Connection, *, at: str, config: A
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_receipts'"
                           ).fetchone() is None:
         return []
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     out: list[dict[str, Any]] = []
     for lesson_id, raw, written, closed in connection.execute(
             "SELECT r.lesson_id, r.receipt_json, r.created_at, l.closed_at FROM lesson_receipts r "

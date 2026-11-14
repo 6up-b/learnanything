@@ -196,10 +196,8 @@ def _exam_result(connection: Any, lo: str, on: str, closure: C.Closure | None = 
     admitted by the window's closure on its occurrence and its received time (landing ruling R1: an import after
     the window closed is not seen, and the use is censored ``no_result``, as one never imported)."""
 
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")} if closure else set()
-    received = "received_at" if "received_at" in columns else "NULL"
     rows = [float(row[0]) for row in connection.execute(
-        f"SELECT correctness, created_at, {received} FROM practice_attempts WHERE attempt_type = 'exam_evidence' "
+        "SELECT correctness, created_at, received_at FROM practice_attempts WHERE attempt_type = 'exam_evidence' "
         "AND learning_object_id = ? AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL", (lo, on))
         if closure is None or closure.admits(row[1], row[2])]
     return sum(rows) / len(rows) if rows else None
@@ -215,11 +213,9 @@ def exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str,
 
     from learnloop.router_objective_switches import attempt_time_sql
 
-    known = attempt_time_sql(config, connection)
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")} if closure else set()
-    received = "received_at" if "received_at" in columns else "NULL"
+    known = attempt_time_sql(config)
     rows = [float(row[0]) for row in connection.execute(
-        f"SELECT correctness, created_at, {received} FROM practice_attempts WHERE attempt_type = 'exam_evidence' "
+        "SELECT correctness, created_at, received_at FROM practice_attempts WHERE attempt_type = 'exam_evidence' "
         f"AND learning_object_id = ? AND substr(created_at, 1, 10) = ? AND correctness IS NOT NULL AND {known} <= ?",
         (lo, on, at)) if closure is None or closure.admits(row[1], row[2])]
     return sum(rows) / len(rows) if rows else None

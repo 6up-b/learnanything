@@ -82,7 +82,6 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository._has_projection_switches_column()`
 - `Repository.derived_state_rebuild_version_changes()`
 - `Repository.has_whole_vault_rebuild()`
 - `Repository.latest_canonical_projection_rebuild()`
@@ -105,7 +104,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/curriculum/integration_backfill.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/ops/upgrades.py`

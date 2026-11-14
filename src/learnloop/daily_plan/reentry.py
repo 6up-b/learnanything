@@ -24,7 +24,7 @@ from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.params.fitted_params import resolve_fsrs_weights
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling import fsrs
 
 UNCOMMITTED_RECALL_TARGET = 0.90
 
@@ -68,7 +68,7 @@ def retrievability(stability: float | None, last_review: str | None, at: datetim
     if last is None:
         return None
     elapsed = max((at - last).total_seconds() / 86400.0, 0.0)
-    return float(forgetting_curve(float(stability), elapsed, weights))
+    return float(fsrs.retrievability(float(stability), elapsed, weights))
 
 
 @dataclass(frozen=True)

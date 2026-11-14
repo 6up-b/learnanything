@@ -1325,18 +1325,13 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
     if not los:
         return []
     scope = sorted(los)
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
     # RO1 (landing ruling R1): the traces known at ``now_iso``, newest by when they happened.
-    known = attempt_time_sql(config, connection)
-
-    def column(name: str, default: str = "NULL") -> str:
-        return name if name in columns else f"{default} AS {name}"
+    known = attempt_time_sql(config)
 
     rows = [dict(row) for row in connection.execute(
         f"SELECT id, practice_item_id, learning_object_id, practice_mode, attempt_type, correctness, hints_used, "
-        f"primed, learner_answer_md, created_at, probe_presentation_id, {column('reference_status')}, "
-        f"{column('entry_surface')}, {column('evidence_origin')}, {column('declared_stuck', '0')}, "
-        f"{column('declared_dont_know', '0')} FROM practice_attempts "
+        f"primed, learner_answer_md, created_at, probe_presentation_id, reference_status, "
+        f"entry_surface, evidence_origin, declared_stuck, declared_dont_know FROM practice_attempts "
         f"WHERE learning_object_id IN ({_marks(scope)}) AND {known} <= ? ORDER BY created_at DESC, id DESC LIMIT ?",
         (*scope, now_iso, int(limits.traces)),
     )]
@@ -1546,7 +1541,7 @@ def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: dat
     vault's title and id."""
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
-    from learnloop.scheduling.fsrs import forgetting_curve
+    from learnloop.scheduling.fsrs import retrievability
 
     los = set(los)
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
@@ -1569,7 +1564,7 @@ def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: dat
         if not stability or last is None:
             continue
         elapsed = max((now - last).total_seconds() / 86400.0, 0.0)
-        recall = float(forgetting_curve(float(stability), elapsed, weights))
+        recall = float(retrievability(float(stability), elapsed, weights))
         entry = by_lo.setdefault(item.learning_object_id, {"recalls": [], "due_now": 0, "next_due_at": None})
         entry["recalls"].append(recall)
         due = getattr(state, "due_at", None)

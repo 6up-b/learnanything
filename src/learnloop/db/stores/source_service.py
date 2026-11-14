@@ -24,12 +24,6 @@ def table_exists(connection: sqlite3.Connection, name: str) -> bool:
     ).fetchone() is not None
 
 
-def column_exists(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    if not table_exists(connection, table):
-        return False
-    return any(row[1] == column for row in connection.execute(f'PRAGMA table_info("{table}")'))
-
-
 def _plain(value: Any) -> Any:
     dump = getattr(value, "model_dump", None)
     if callable(dump):
@@ -678,8 +672,6 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     under that identity still bind it.
     """
 
-    if not column_exists(connection, "practice_attempts", "reference_status"):
-        return None
     if graded_contents is None:
         contents, method_revision = [reference_content_hash(item)], has_required_method(item)
     else:
@@ -720,8 +712,7 @@ def need_source_import(connection: sqlite3.Connection, practice_item_id: str) ->
     """The source-first import that fulfilled an intervention need with this item
     (its retrieval provenance: need, proposal, book solution), or None."""
 
-    if not table_exists(connection, "source_exercise_imports") \
-            or not column_exists(connection, "source_exercise_imports", "need_id"):
+    if not table_exists(connection, "source_exercise_imports"):
         return None
     row = connection.execute(
         "SELECT * FROM source_exercise_imports WHERE practice_item_id=? AND need_id IS NOT NULL "
@@ -1325,16 +1316,12 @@ def _estimated_tokens(tokens: int, usage_json: Any) -> int:
     return int(estimate.get("estimated_total_tokens") or 0) if isinstance(estimate, dict) else 0
 
 
-def _ledger_rows(connection: sqlite3.Connection, envelope: str, day: str) -> tuple[list[dict[str, Any]], bool]:
-    """The envelope's reservations on ``day``, and whether the table has
-    migration 195's columns (a database read without migrating has not)."""
+def _ledger_rows(connection: sqlite3.Connection, envelope: str, day: str) -> list[dict[str, Any]]:
+    """The envelope's reservations on ``day``."""
 
-    present = {row[1] for row in connection.execute(f'PRAGMA table_info("{SERVICE_SPEND_TABLE}")')}
-    select = ", ".join(column if column in present else f"NULL AS {column}" for column in _LEDGER_COLUMNS)
-    rows = [dict(zip(_LEDGER_COLUMNS, tuple(row), strict=True)) for row in connection.execute(
-        f"SELECT {select} FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND day=? ORDER BY created_at, id",
+    return [dict(zip(_LEDGER_COLUMNS, tuple(row), strict=True)) for row in connection.execute(
+        f"SELECT {', '.join(_LEDGER_COLUMNS)} FROM {SERVICE_SPEND_TABLE} WHERE envelope=? AND day=? ORDER BY created_at, id",
         (envelope, day))]
-    return rows, "legacy" in present
 
 
 def _named_reservations(connection: sqlite3.Connection, envelope: str, refs: Collection[str]) -> set[str]:
@@ -1420,8 +1407,8 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
         "recovery": [],
     }
     ledger = table_exists(connection, SERVICE_SPEND_TABLE)
-    rows, upgraded = _ledger_rows(connection, envelope, day) if ledger else ([], True)
-    legacy = _legacy_rows(connection, envelope, floor_at) if ledger and upgraded else []
+    rows = _ledger_rows(connection, envelope, day) if ledger else []
+    legacy = _legacy_rows(connection, envelope, floor_at) if ledger else []
     leaves: list[tuple[Any, ...]] = []
     if table_exists(connection, "model_call_receipts"):
         # A receipt starts after its reservation was made: reading from the
@@ -1429,12 +1416,9 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
         # from the earliest legacy lifetime every receipt that could be its own.
         scan_from = min([floor] + [receipt_time_floor(row["created_at"]) for row in rows if row["created_at"]]
                         + [_second_floor(row["window"][0]) for row in legacy])
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
-        usage = "r.usage_json" if "usage_json" in columns else "NULL"
-        budget = "r.budget_json" if "budget_json" in columns else "NULL"
         leaves = connection.execute(
-            f"SELECT r.parent_call_id, r.owner_kind, r.provider, r.started_at, r.cost, r.input_tokens, "
-            f"r.output_tokens, {usage}, {budget} FROM model_call_receipts r WHERE r.started_at >= ? AND NOT EXISTS "
+            "SELECT r.parent_call_id, r.owner_kind, r.provider, r.started_at, r.cost, r.input_tokens, "
+            "r.output_tokens, r.usage_json, r.budget_json FROM model_call_receipts r WHERE r.started_at >= ? AND NOT EXISTS "
             "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)", (scan_from,)).fetchall()
     cache: dict[str, str | None] = {}
     receipts: list[dict[str, Any]] = []
@@ -1453,12 +1437,6 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
     named = _named_reservations(connection, envelope, refs_seen) if ledger and refs_seen else set()
     linked: dict[str, dict[str, float]] = {row["id"]: {"priced": 0.0, "unknown": 0, "unreported": 0, "receipts": 0}
                                            for row in rows}
-    if not upgraded:  # migration 195's rule, read without migrating: a row no receipt names is legacy
-        for row in rows:
-            row["legacy"] = 0 if row["id"] in named else 1
-            window = _lifetime(row["created_at"], row["updated_at"]) if row["legacy"] else None
-            if window is not None:
-                legacy.append({"id": row["id"], "charged": float(row["charged_usd"] or 0.0), "window": window})
     # A legacy row covers no unlinked receipt: nothing durable ties one to it
     # (a receipt naming it would have made it not legacy), and an amount or a
     # second-resolution stamp is no identity. Every legacy lifetime is a
@@ -1679,7 +1657,7 @@ def released_reservations(connection: sqlite3.Connection, budget_json: Any) -> l
         return []
     refs = [str(ref) for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)] \
         if isinstance(declared, dict) else []
-    if not refs or not column_exists(connection, SERVICE_SPEND_TABLE, "resolved_by"):
+    if not refs:
         return []
     return [row[0] for row in connection.execute(
         f"SELECT id FROM {SERVICE_SPEND_TABLE} WHERE state='released' AND id IN ({','.join('?' for _ in refs)})",
@@ -1730,14 +1708,11 @@ def service_spend_report(connection: sqlite3.Connection, *, envelope: str, days:
     end_floor = (datetime.fromisoformat(end) + timedelta(days=1)).strftime("%Y-%m-%d")
     operations: dict[tuple[str, str], dict[str, Any]] = {}
     if table_exists(connection, "model_call_receipts"):
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
-        usage = "r.usage_json" if "usage_json" in columns else "NULL"
-        budget = "r.budget_json" if "budget_json" in columns else "NULL"
         cache: dict[str, str | None] = {}
         for parent_id, owner_kind, owner_id, provider, started_at, cost, input_tokens, output_tokens, usage_json, \
                 budget_json in connection.execute(
-                    f"SELECT r.parent_call_id, r.owner_kind, r.owner_id, r.provider, r.started_at, r.cost, "
-                    f"r.input_tokens, r.output_tokens, {usage}, {budget} FROM model_call_receipts r "
+                    "SELECT r.parent_call_id, r.owner_kind, r.owner_id, r.provider, r.started_at, r.cost, "
+                    "r.input_tokens, r.output_tokens, r.usage_json, r.budget_json FROM model_call_receipts r "
                     "WHERE r.started_at >= ? AND r.started_at < ? AND NOT EXISTS "
                     "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)",
                     (start, end_floor)).fetchall():
@@ -1772,9 +1747,8 @@ def service_spend_report(connection: sqlite3.Connection, *, envelope: str, days:
             operation["requests"] += 1
             operation["first_started_at"] = min(str(operation["first_started_at"]), str(started_at))
     if table_exists(connection, SERVICE_SPEND_TABLE):
-        legacy_column = "legacy" if column_exists(connection, SERVICE_SPEND_TABLE, "legacy") else "0"
         for day, state, legacy, reserved, charged in connection.execute(
-                f"SELECT day, state, {legacy_column}, reserved_usd, charged_usd FROM {SERVICE_SPEND_TABLE} "
+                f"SELECT day, state, legacy, reserved_usd, charged_usd FROM {SERVICE_SPEND_TABLE} "
                 "WHERE envelope=? AND day >= ? AND day <= ?", (envelope, start, end)):
             if day not in by_day:
                 continue
@@ -1813,10 +1787,7 @@ def spend_since(connection: sqlite3.Connection, since: str, *,
     if not table_exists(connection, "model_call_receipts"):
         return empty
     since = receipt_time_floor(since)
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(model_call_receipts)")}
-    usage = "r.usage_json" if "usage_json" in columns else "NULL"
-    budget = "r.budget_json" if "budget_json" in columns else "NULL"
-    sql = (f"SELECT r.id, r.parent_call_id, r.provider, r.cost, r.input_tokens, r.output_tokens, {usage}, {budget} "
+    sql = ("SELECT r.id, r.parent_call_id, r.provider, r.cost, r.input_tokens, r.output_tokens, r.usage_json, r.budget_json "
            "FROM model_call_receipts r WHERE r.started_at >= ? AND NOT EXISTS "
            "(SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id = r.id)")
     params: list[Any] = [since]
@@ -1907,7 +1878,6 @@ __all__ = [
     "bind_replacement_grade",
     "update_import",
     "IMPRESSION_SURFACES",
-    "column_exists",
     "impressions_for_proposal",
     "impressions_of_item",
     "impressions_of_spans",

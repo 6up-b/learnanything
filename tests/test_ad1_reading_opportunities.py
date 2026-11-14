@@ -23,6 +23,8 @@ exact, and one test drives the vault's own map end to end.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from learnloop.reader import reader_dialogue as RD
@@ -129,7 +131,8 @@ def test_reading_opportunities_frozen_and_ordered_by_source_time(tmp_path):
     columns = set(opportunities[0])
     assert not columns & {"dwell_ms", "active_seconds", "payload_json", "response_md", "answer_md", "scroll",
                           "visibility"}
-    text = json.dumps(opportunities)
+    # Row ids are random ULIDs, whose digits can spell a magnitude by chance: they are blanked before the search.
+    text = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", json.dumps(opportunities))
     assert "99999" not in text and "777" not in text and "ANSWER-TEXT" not in text and "my words" not in text
 
     # A changed verdict writes nothing; a second sweep writes nothing new.

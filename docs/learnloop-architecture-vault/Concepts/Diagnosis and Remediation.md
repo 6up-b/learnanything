@@ -58,6 +58,17 @@ For each eligible response model, the system computes expected posterior uncerta
 
 Validated errors can mint intervention needs, guided redo, repair splices, disguised retests, contrast pairs, cold follow-ups, or taxonomy review. Reveals and corrections remain visible. Post-attempt hooks normalize errors and schedule work without changing the original evidence.
 
+## Hand-off to teaching
+
+An episode reaches teaching two ways, and both persist everything before any screen opens:
+
+- **The block ends with a gap** (`probe_blocks.end_diagnostic_block`): the episode completed with a diagnosed gap other than a sound grasp, so the route is `tutoring`; the typed transition decision is written to `probe_episodes.target_decision_json` and a `tutoring_transition` state segment opens.
+- **The learner stops the check** ("Stop diagnosing and teach me", `probe_episodes.stop_diagnosing_and_teach`): the active presentation is invalidated, the decision is built and written, the episode becomes `converted_to_tutoring`, and a `tutoring_transition` segment opens. From the practice screen (and the terminal app's ^t) the block is not ended, so its committed answers are neither normalized nor diagnosed (`docs/reviews/refactor-bug-ledger.md` TH-3); the calibration dialogue ends its block after the stop.
+
+Nothing downstream waits for a conversation after either: the segment bounds the pre-intervention posterior, and the status marks the episode terminal.
+
+The desktop then opens a **Teacher lesson** on the episode's topic, naming the episode (`lesson.turn` `open` with `probe_episode_id`). The lesson's brief carries `from_check` (`teacher/from_check.py`): the gap in the topic's own words (a registered mix-up's statement, a confused topic's title, or a fixed phrase for a template hypothesis), its confidence rounded to tens, and repair or teach. Nothing of the check's questions, the answers, the first error step, the posterior or the tutor's numbers reaches the teacher, because probe items re-serve; `learner_protection.WITHHELD_PROBE` still withholds the attempts and everything written about them. An episode on another topic, still measuring or with no typed decision is ignored, with the reason in the open turn's record. The tutor reads the same decision for any later question on the topic's items (`tutor_qa._diagnostic_decision_for`), and opens proactively with it only as the fallback: lessons off, or a lesson that can't open. The phone has neither hand-off; the terminal app has no lesson and says so. See [[Tutor and Teach-Back Workflow#Teacher lessons and where they open]].
+
 ## Causal safety
 
 Attribution has abstention and missing-vocabulary paths. A label that the vocabulary cannot honestly express becomes a note/proposal rather than a forced category. Firewalls prevent salience/instructional signals from entering ability updates. Human adjudication can promote, withdraw, or correct causal artifacts through receipts.

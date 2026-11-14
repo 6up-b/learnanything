@@ -668,13 +668,9 @@ def read_hedges(connection: Any) -> dict[str, str]:
     """Each attempt's hedge read from its current grading evidence (``confidence_events.read_hedges``'s
     rule, read here so the evidence side imports no context module; a test pins the two equal)."""
 
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(grading_evidence)")}
-    if not {"learner_confidence", "superseded_at"} <= columns:
-        return {}
-    grader = "local_grader_id" if "local_grader_id" in columns else "NULL"
     reads: dict[str, list[str]] = {}
     for attempt_id, value, local in connection.execute(
-            f"SELECT attempt_id, learner_confidence, {grader} FROM grading_evidence WHERE superseded_at IS NULL "
+            "SELECT attempt_id, learner_confidence, local_grader_id FROM grading_evidence WHERE superseded_at IS NULL "
             "AND learner_confidence IN ('hedged', 'confident') ORDER BY attempt_id, id"):
         if local is not None and str(local) in ("self", "exam_import", "sim"):
             continue

@@ -628,23 +628,18 @@ def predicted_correctness(
     config: LearnLoopConfig,
     vault: LoadedVault | None = None,
 ) -> tuple[float, dict[str, float]]:
-    # With a vault, facet priors come through the facet-state adapter: canonical
-    # rows on mvp-0.7 vaults, the per-LO table on mvp-0.6. Without one they come
-    # straight from the per-LO table.
+    # With a vault, facet priors come through the facet-state adapter (the
+    # canonical rows). Without one they come straight from the per-LO table,
+    # which nothing writes any more: no caller omits the vault.
     if vault is not None:
         from learnloop.learner.facet_state_reader import (
             CanonicalFacetStateReader,
             facet_recall_state_for_lo,
-            is_canonical_state_vault,
         )
 
         # One reader serves every facet of the item; building it loads the
         # whole canonical cache and merge map.
-        reader = (
-            CanonicalFacetStateReader(vault, repository)
-            if item.evidence_facets and is_canonical_state_vault(vault)
-            else None
-        )
+        reader = CanonicalFacetStateReader(vault, repository) if item.evidence_facets else None
         facet_states = {
             facet: facet_recall_state_for_lo(vault, repository, learning_object_id, facet, reader=reader)
             for facet in item.evidence_facets

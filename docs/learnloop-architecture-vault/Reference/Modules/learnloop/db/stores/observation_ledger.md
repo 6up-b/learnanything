@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py) |
-| Source lines | 299 |
+| Source lines | 291 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,12 +56,12 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `load_canonical_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 29) — Load attempts plus live grading evidence in two queries.
-- `load_authoritative_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 124) — Load the P0 authoritative ledger with a fixed six-query budget.
-- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 259) — Resolve immutable contract snapshots for a replay in one bulk query.
+- `load_authoritative_observation_ledger(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 116) — Load the P0 authoritative ledger with a fixed six-query budget.
+- `load_effective_assessment_contracts(connection: sqlite3.Connection, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 251) — Resolve immutable contract snapshots for a replay in one bulk query.
 
 ### Module constants
 
-- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 111)
+- `_LATEST_OBSERVATIONS` ([src/learnloop/db/stores/observation_ledger.py](../../../../../../../src/learnloop/db/stores/observation_ledger.py), line 103)
 
 ## Internal implementation anchors
 

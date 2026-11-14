@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/interventions.py](../../../../../../src/learnloop/instructional/interventions.py) |
-| Source lines | 515 |
+| Source lines | 513 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |

@@ -10,7 +10,7 @@ import pytest
 
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import value as V
-from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, forgetting_curve
+from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, forgetting_curve, retrievability_array
 from tests.ro4_value_helpers import W, _inputs, _logit
 
 def test_the_eve_of_exam_regression():
@@ -161,7 +161,7 @@ def test_the_vectorized_fsrs_is_the_scalar_one():
         got_d, got_s = fsrs.review(np.array([d]), np.array([s]), np.array([practiced]), np.array([elapsed]),
                                    np.array([good]))
         assert got_d[0] == pytest.approx(expected.difficulty) and got_s[0] == pytest.approx(expected.stability)
-        assert fsrs.retrievability(np.array([s]), np.array([elapsed]))[0] == pytest.approx(forgetting_curve(s, elapsed, W))
+        assert retrievability_array(np.array([s]), np.array([elapsed]), W)[0] == pytest.approx(forgetting_curve(s, elapsed, W))
 
 
 def test_the_combiner_is_its_prior_without_outcomes_and_learns_with_them():

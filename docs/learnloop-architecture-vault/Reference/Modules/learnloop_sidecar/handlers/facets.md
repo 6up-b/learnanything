@@ -50,24 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py) |
-| Source lines | 171 |
+| Source lines | 165 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 17) — Evidence-facet mastery rollup powering the radar chart.
+- `get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 16) — Evidence-facet mastery rollup powering the radar chart.
 
 ### Module constants
 
-- `_STATES` ([src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 12)
-- `_TITLE_MAX` ([src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 13)
+- `_STATES` ([src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 11)
+- `_TITLE_MAX` ([src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 12)
 
 ## Internal implementation anchors
 
-- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 160)
-- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 167)
+- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 154)
+- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 161)
 
 ## Who imports or calls it
 
@@ -81,7 +81,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `mastery_diagnostic_view`; calls `mastery_diagnostic_view`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `is_canonical_state_vault`; calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `read_due_queue`; calls `read_due_queue`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `versioned`; calls `versioned`

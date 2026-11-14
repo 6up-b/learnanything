@@ -28,10 +28,7 @@ from learnloop.db.scopes import pinned_repository_call
 from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.learner.blueprint_projection import LoReadiness
 from learnloop.learner.facet_diagnostics import required_facets
-from learnloop.learner.facet_state_reader import (
-    facet_recall_states_for_lo,
-    is_canonical_state_vault,
-)
+from learnloop.learner.facet_state_reader import facet_recall_states_for_lo
 from learnloop.goals.goal_certification import required_capabilities_for_facet
 from learnloop.learner.mastery import covering_learner_claim
 from learnloop.learner.measurement_state import (
@@ -84,7 +81,7 @@ class CapabilityGrid:
     facets: list[str]
     capabilities: list[str]
     cells: list[GridCell]
-    supported: bool                # False on mvp-0.6 (no capability ledger)
+    supported: bool                # False only for an LO the vault does not hold
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -119,7 +116,6 @@ def capability_grid(
             cells=[],
             supported=False,
         )
-    supported = is_canonical_state_vault(vault)
     facets = _lo_required_facets(vault, repository, learning_object)
 
     # Shared facet recall means (pooled prediction input), keyed by canonical id.
@@ -169,10 +165,9 @@ def capability_grid(
     cells: list[GridCell] = []
     for facet in facets:
         required_caps, _legacy = required_capabilities_for_facet(vault, learning_object, facet)
-        evidence_by_cap = {}
-        if supported:
-            for cell in repository.facet_capability_evidence_for_facet(facet):
-                evidence_by_cap[cell.capability] = cell
+        evidence_by_cap = {
+            cell.capability: cell for cell in repository.facet_capability_evidence_for_facet(facet)
+        }
         cell_caps = sorted(set(required_caps) | set(evidence_by_cap))
         ready = ready_for(facet)
         ready_state = ready_state_for(facet)
@@ -201,7 +196,7 @@ def capability_grid(
         facets=facets,
         capabilities=sorted(capabilities_seen),
         cells=cells,
-        supported=supported,
+        supported=True,
     )
 
 
@@ -212,14 +207,12 @@ def lo_blueprint_readiness(
     """Per-LO blueprint recipe readiness (§9.2) for the recipe-tree surface.
 
     Delegates to the same projection the goal report uses, so the LO-detail
-    "why not ready" tree and the goal banner agree. None when the vault has no
-    canonical state or the LO has no authored blueprints.
+    "why not ready" tree and the goal banner agree. None when the LO has no
+    authored blueprints.
     """
 
     from learnloop.goals.goal_projection import project_lo_blueprint_readiness
 
-    if not is_canonical_state_vault(vault):
-        return None
     mastery = repository.mastery_state(learning_object_id)
     states = facet_recall_states_for_lo(vault, repository, learning_object_id)
     return project_lo_blueprint_readiness(

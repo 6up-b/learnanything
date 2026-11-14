@@ -22,7 +22,8 @@ Only parameter uncertainty is drawn (θ): a known success probability of .7 stil
 noise is the rollouts' common random numbers, not uncertainty about the value.
 
 The FSRS update here is :mod:`learnloop.scheduling.fsrs`'s, vectorized over draws (``tests/test_ro4_memory.py``
-checks it against the scalar one). A leaf: numpy and the standard library; the FSRS weights are handed in.
+checks it against the scalar one). A leaf: numpy, the standard library and :mod:`learnloop.scheduling.fsrs`'s
+retrievability (itself a leaf); the FSRS weights are handed in.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ import math
 from typing import Any
 
 import numpy as np
+
+from learnloop.scheduling.fsrs import retrievability_array
 
 MEMORY_MODEL_VERSION = "fsrs_ad_logistic_v1"
 #: The follow-up batch's fit (item 2): the randomized checks' rows and the traces' sensors joined to resolved cold
@@ -264,21 +267,14 @@ D_MIN, D_MAX, S_MIN = 1.0, 10.0, 0.001
 
 @dataclass(frozen=True)
 class Fsrs:
-    """:mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good)."""
+    """:mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good). Retrievability is
+    ``fsrs.retrievability_array(stability, elapsed, self.weights)``, called directly: a method around it would add a
+    Python frame to a call the rollouts make hundreds of thousands of times a decision."""
 
     weights: tuple[float, ...]
 
     # ``np.minimum(np.maximum(x, lo), hi)`` is ``np.clip(x, lo, hi)`` exactly, without its per-call overhead (the
     # follow-up batch, item 3: the tail calls these on small arrays hundreds of thousands of times a decision).
-
-    def retrievability(self, stability: np.ndarray, elapsed: np.ndarray) -> np.ndarray:
-        w = self.weights
-        decay = w[20]
-        factor = 0.9 ** (1 / -decay) - 1
-        raw = np.asarray(stability, dtype=np.float64)
-        s = np.maximum(raw, 1e-12)
-        value = (1 + factor * np.maximum(np.asarray(elapsed, dtype=np.float64), 0.0) / s) ** (-decay)
-        return np.minimum(np.maximum(np.where(raw > 0, value, 0.0), 0.0), 1.0)
 
     def _initial_difficulty(self, rating: np.ndarray) -> np.ndarray:
         w = self.weights
@@ -292,7 +288,7 @@ class Fsrs:
         rating = np.where(good, 3.0, 1.0)
         first_s = np.maximum(np.where(good, w[2], w[0]), S_MIN)
         first_d = self._initial_difficulty(rating)
-        r = self.retrievability(stability, elapsed)
+        r = retrievability_array(stability, elapsed, w)
         delta = w[6] * (rating - 3)
         next_d = difficulty - delta
         easy = float(np.clip(w[4] - math.exp(w[5] * 3) + 1, D_MIN, D_MAX))

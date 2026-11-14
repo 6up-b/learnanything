@@ -47,29 +47,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py) |
-| Source lines | 413 |
+| Source lines | 408 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `question_record(connection: Any, event_id: str, *, topics: Iterable[Any]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 96) — What a learner question's words carry (see the module doc).
-- `reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[tuple[Mapping[str, Any], ...], bool]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 206) — The passages a learner text was written on, for a reading-derived source (:data:`READING_SOURCE_KINDS`), and whether they could all be read: a Reader question's passage (``question_events.source_context``; a question asked outside the Reader names none), an active-reading answer…
-- `text_record(connection: Any, text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 241) — What a learner text and its context show any reader of it.
-- `note_record(text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 265) — Curriculum C5 (C2b): what a linked note shows its reader -- the learner's own words (no attempt, so no answer contract), the topics it is linked to, the passages it is linked to, and every book span its text and context carry text from, frozen when the reading was prepared (Code…
-- `formative_record(connection: Any, question_id: str, *, topics: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 284) — RW1b: what a missed active-reading answer shows its reader -- the learner's answer (not an attempt, so no answer contract), the book's passage and the cited spans of the expected answer, and the topics.
-- `figure_prediction_record(connection: Any, prediction_id: str, *, topics: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 308) — RW5a: what a missed figure prediction shows its reader -- the learner's answer (not an attempt), every span the figure was built from (the selection, a region's block and the paragraphs the author was sent around it: the figure's prediction and readouts derive from all of them;…
-- `hint_feedback_record(connection: Any, text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 348) — Adaptive hints H2b: what a reply to a hint shows its reader -- the learner's words (no attempt's answer contract while the attempt is open), the item's question, and the hint or question it answered.
-- `reading_record(connection: Any, text: Any, reading: Any=None) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 363) — What wrote a reading's named gap (a belief statement, a prerequisite name and line): its reader's inputs (see the module doc).
-- `drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subject_id: str | None, shown_concept_titles: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 376) — What the prerequisite drafter read: the reading, the learner text and its context, the asking topic, and the topics whose concept titles it was shown (``shown_concept_titles``).
+- `question_record(connection: Any, event_id: str, *, topics: Iterable[Any]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 91) — What a learner question's words carry (see the module doc).
+- `reading_sources(connection: Any, source_kind: str, source_id: str) -> tuple[tuple[Mapping[str, Any], ...], bool]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 201) — The passages a learner text was written on, for a reading-derived source (:data:`READING_SOURCE_KINDS`), and whether they could all be read: a Reader question's passage (``question_events.source_context``; a question asked outside the Reader names none), an active-reading answer…
+- `text_record(connection: Any, text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 236) — What a learner text and its context show any reader of it.
+- `note_record(text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 260) — Curriculum C5 (C2b): what a linked note shows its reader -- the learner's own words (no attempt, so no answer contract), the topics it is linked to, the passages it is linked to, and every book span its text and context carry text from, frozen when the reading was prepared (Code…
+- `formative_record(connection: Any, question_id: str, *, topics: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 279) — RW1b: what a missed active-reading answer shows its reader -- the learner's answer (not an attempt, so no answer contract), the book's passage and the cited spans of the expected answer, and the topics.
+- `figure_prediction_record(connection: Any, prediction_id: str, *, topics: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 303) — RW5a: what a missed figure prediction shows its reader -- the learner's answer (not an attempt), every span the figure was built from (the selection, a region's block and the paragraphs the author was sent around it: the figure's prediction and readouts derive from all of them;…
+- `hint_feedback_record(connection: Any, text: Any) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 343) — Adaptive hints H2b: what a reply to a hint shows its reader -- the learner's words (no attempt's answer contract while the attempt is open), the item's question, and the hint or question it answered.
+- `reading_record(connection: Any, text: Any, reading: Any=None) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 358) — What wrote a reading's named gap (a belief statement, a prerequisite name and line): its reader's inputs (see the module doc).
+- `drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subject_id: str | None, shown_concept_titles: Iterable[str]=()) -> WriteRecord` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 371) — What the prerequisite drafter read: the reading, the learner text and its context, the asking topic, and the topics whose concept titles it was shown (``shown_concept_titles``).
 
 ### Module constants
 
 - `TUTOR_UNRECORDED` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 44)
-- `READING_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 122)
-- `READER_QUESTION_CONTEXT` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 127)
-- `_NOTE_FIELDS` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 173)
+- `READING_SOURCE_KINDS` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 117)
+- `READER_QUESTION_CONTEXT` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 122)
+- `_NOTE_FIELDS` ([src/learnloop/diagnosis/text_gaps/provenance.py](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 168)
 
 ### Explicit exports
 
@@ -87,12 +87,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_question_row(connection: Any, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 47)
-- `_revealed_before(connection: Any, item_id: str, at: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 74)
-- `_reader_sources(source_context: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 85)
-- `_question_passages(source_context: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 130) — The passages a question's source context names, and whether every one could be placed (Codex review F1).
-- `_identified_note(value: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 176)
-- `_located_without_extraction(value: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 180) — A delivered span with no ``extraction_id`` that still places a book passage: a block the shared parser places (``exam_material.source_ref_keys``: a namespaced span id ``ext:span`` or ``ext/span``, a block locator), or a source or revision id (checked against every extraction of…
-- `_reader_span_key(note_id: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 196) — The passage a Reader question's ``note_id`` names (``span:<extraction>/<span>``, ``tutor_qa.reader_span_key``), else None (no key, a note id, no block).
+- `_revealed_before(connection: Any, item_id: str, at: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 69)
+- `_reader_sources(source_context: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 80)
+- `_question_passages(source_context: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 125) — The passages a question's source context names, and whether every one could be placed (Codex review F1).
+- `_identified_note(value: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 171)
+- `_located_without_extraction(value: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 175) — A delivered span with no ``extraction_id`` that still places a book passage: a block the shared parser places (``exam_material.source_ref_keys``: a namespaced span id ``ext:span`` or ``ext/span``, a block locator), or a source or revision id (checked against every extraction of…
+- `_reader_span_key(note_id: Any) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/provenance.py), line 191) — The passage a Reader question's ``note_id`` names (``span:<extraction>/<span>``, ``tutor_qa.reader_span_key``), else None (no key, a note id, no block).
 
 ## Who imports or calls it
 

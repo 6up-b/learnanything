@@ -14,7 +14,6 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop import hint_window
 from learnloop.activation_journal import refuse_if_interrupted
-from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS, FACET_BELIEF_FIX_VERSIONS
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 from learnloop.causal_activity_policy import (
@@ -1802,15 +1801,12 @@ class Repository(
                        a.hints_used AS hints_used,
                        a.primed AS primed,
                        a.created_at AS created_at,
-                       s.posterior_delta_json AS posterior_delta_json
-                       {reference}
+                       s.posterior_delta_json AS posterior_delta_json,
+                       a.reference_status AS reference_status
                 FROM practice_attempts a
                 LEFT JOIN attempt_surprise s ON s.attempt_id = a.id
                 ORDER BY a.created_at ASC, a.id ASC
-                """.format(reference=(
-                    ", a.reference_status AS reference_status"
-                    if _has_column(connection, "practice_attempts", "reference_status") else ""
-                ))
+                """
             ).fetchall()
         history: list[dict[str, Any]] = []
         for row in rows:
@@ -6009,7 +6005,6 @@ class Repository(
         surprise: Mapping[str, Any],
         practice_item_state: PracticeItemState,
         mastery_state: MasteryState,
-        facet_recall_states: Iterable[Mapping[str, Any]] = (),
         facet_uncertainty_states: Iterable[Mapping[str, Any]] = (),
         quality_state: Mapping[str, Any] | None = None,
         ability_transition: Mapping[str, Any] | None = None,
@@ -6035,8 +6030,6 @@ class Repository(
             else:
                 self._upsert_practice_item_state_record(connection, practice_item_state)
             self._upsert_mastery_state_record(connection, mastery_state)
-            for state in facet_recall_states:
-                self._upsert_facet_recall_state(connection, state)
             for state in facet_uncertainty_states:
                 self._upsert_facet_uncertainty_state(connection, state)
             if quality_state is not None:
@@ -6192,7 +6185,6 @@ class Repository(
         surprise: Mapping[str, Any],
         practice_item_state: PracticeItemState,
         mastery_state: MasteryState,
-        facet_recall_states: Iterable[Mapping[str, Any]] = (),
         facet_uncertainty_states: Iterable[Mapping[str, Any]] = (),
         quality_state: Mapping[str, Any] | None = None,
         ability_transition: Mapping[str, Any] | None = None,
@@ -6279,8 +6271,6 @@ class Repository(
             self._insert_attempt_surprise(connection, surprise)
             self._upsert_practice_item_state_record(connection, practice_item_state)
             self._upsert_mastery_state_record(connection, mastery_state)
-            for state in facet_recall_states:
-                self._upsert_facet_recall_state(connection, state)
             for state in facet_uncertainty_states:
                 self._upsert_facet_uncertainty_state(connection, state)
             if quality_state is not None:
@@ -6903,13 +6893,6 @@ class Repository(
             ).fetchall()
         return [_decode_learning_outcome_label(row) for row in rows]
 
-    def _has_projection_switches_column(self) -> bool:
-        """Whether ``derived_state_rebuilds`` has migration 244's column (an older test database may not)."""
-
-        with self.connection() as connection:
-            return any(row[1] == "projection_switches_json"
-                       for row in connection.execute("PRAGMA table_info(derived_state_rebuilds)"))
-
     def latest_whole_vault_rebuild(self) -> dict[str, Any] | None:
         """The latest rebuild that replayed every learning object (scope ``all``), or None."""
 
@@ -6950,11 +6933,10 @@ class Repository(
             coverage_denominator_version,
             created_at,
         ]
-        if projection_switches is not None and self._has_projection_switches_column():
+        if projection_switches is not None:
             # Router objective RO1 (migration 244): the switches a replay derived
             # persisted state under, the projection's defaults snapshot. Written
-            # only by a rebuild that replays attempts, and only when given, so a
-            # database below 242 still records every rebuild.
+            # only by a rebuild that replays attempts, and only when given.
             columns.append("projection_switches_json")
             values.append(_json(dict(sorted(projection_switches.items()))))
         with self.connection() as connection:
@@ -18839,85 +18821,7 @@ class Repository(
             ),
         )
 
-    def _upsert_facet_recall_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None:
-        _guard_legacy_facet_write(state)
-        existing = connection.execute(
-            """
-            SELECT id FROM evidence_facet_recall_state
-            WHERE learning_object_id = ?
-              AND facet_id = ?
-              AND (
-                (practice_item_id IS NULL AND ? IS NULL)
-                OR practice_item_id = ?
-              )
-            """,
-            (
-                state["learning_object_id"],
-                state["facet_id"],
-                state.get("practice_item_id"),
-                state.get("practice_item_id"),
-            ),
-        ).fetchone()
-        state_id = str(state.get("id") or (existing["id"] if existing is not None else new_ulid()))
-        if existing is not None:
-            connection.execute(
-                """
-                UPDATE evidence_facet_recall_state
-                SET recall_alpha = ?, recall_beta = ?, recall_mean = ?,
-                    recall_variance = ?, independent_evidence_mass = ?,
-                    raw_coverage_mass = ?, last_attempt_at = ?,
-                    last_error_at = ?, consecutive_failures = ?,
-                    algorithm_version = ?, updated_at = ?
-                WHERE id = ?
-                """,
-                (
-                    state["recall_alpha"],
-                    state["recall_beta"],
-                    state["recall_mean"],
-                    state["recall_variance"],
-                    state["independent_evidence_mass"],
-                    state["raw_coverage_mass"],
-                    state.get("last_attempt_at"),
-                    state.get("last_error_at"),
-                    state.get("consecutive_failures", 0),
-                    state["algorithm_version"],
-                    state["updated_at"],
-                    state_id,
-                ),
-            )
-            return
-        connection.execute(
-            """
-            INSERT INTO evidence_facet_recall_state(
-              id, learning_object_id, facet_id, practice_item_id, recall_alpha,
-              recall_beta, recall_mean, recall_variance, independent_evidence_mass,
-              raw_coverage_mass, last_attempt_at, last_error_at,
-              consecutive_failures, algorithm_version, created_at, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                state_id,
-                state["learning_object_id"],
-                state["facet_id"],
-                state.get("practice_item_id"),
-                state["recall_alpha"],
-                state["recall_beta"],
-                state["recall_mean"],
-                state["recall_variance"],
-                state["independent_evidence_mass"],
-                state["raw_coverage_mass"],
-                state.get("last_attempt_at"),
-                state.get("last_error_at"),
-                state.get("consecutive_failures", 0),
-                state["algorithm_version"],
-                state.get("created_at", state["updated_at"]),
-                state["updated_at"],
-            ),
-        )
-
     def _upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None:
-        _guard_legacy_facet_write(state, uncertainty=True)
         marginal = {
             str(label): float(probability)
             for label, probability in dict(state.get("hypothesis_marginal") or {}).items()
@@ -19542,13 +19446,9 @@ class Repository(
         """Books that still carry the retired "Keep this book on this
         computer" (``source_artifacts.keep_local``, migration 198; retired by
         the owner 2026-10-13): nothing consults the column now (generic
-        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them.
-        Empty on a database without the column."""
+        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them."""
 
         with self.connection() as connection:
-            columns = {row[1] for row in connection.execute("PRAGMA table_info(source_artifacts)").fetchall()}
-            if "keep_local" not in columns:
-                return []
             rows = connection.execute(
                 "SELECT id FROM source_artifacts WHERE keep_local != 0 ORDER BY id"
             ).fetchall()
@@ -26618,29 +26518,6 @@ def _mastery_state(row: sqlite3.Row) -> MasteryState:
     )
 
 
-def _guard_legacy_facet_write(state: Mapping[str, Any], *, uncertainty: bool = False) -> None:
-    """KM2b hard stop (item 9): an mvp-0.7 vault must never write legacy per-LO
-    facet state. The canonical projection is the single mvp-0.7 write mechanism;
-    reaching this legacy upsert with an mvp-0.7 row is a re-key regression.
-
-    The facet-belief successor (mvp-0.59) writes per-LO facet uncertainty again
-    (``uncertainty``): its rows carry its tag. The per-LO recall rows stay refused.
-
-    The version vocabulary lives below both persistence and services so this
-    guard does not import the domain layer.
-    """
-
-    version = state.get("algorithm_version")
-    if uncertainty and version in FACET_BELIEF_FIX_VERSIONS:
-        return
-    if version in CANONICAL_STATE_VERSIONS:
-        raise AssertionError(
-            "legacy facet state (evidence_facet_recall_state / facet_uncertainty) "
-            "must not be written under mvp-0.7/mvp-0.8; the canonical projection "
-            "owns facet belief state (KM2b; P0.5 mvp-0.8 cutover)"
-        )
-
-
 def _facet_recall_state(row: sqlite3.Row) -> FacetRecallState:
     return FacetRecallState(
         id=row["id"],
@@ -27135,10 +27012,6 @@ def _grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord:
         attribution_json=row["attribution_json"] if "attribution_json" in row.keys() else None,
         correlation_group=row["correlation_group"] if "correlation_group" in row.keys() else None,
     )
-
-
-def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    return any(row[1] == column for row in connection.execute(f'PRAGMA table_info("{table}")'))
 
 
 def _decode_attempt(row: sqlite3.Row) -> dict[str, Any]:

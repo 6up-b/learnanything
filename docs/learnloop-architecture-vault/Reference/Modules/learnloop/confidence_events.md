@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/confidence_events.py](../../../../../src/learnloop/confidence_events.py) |
-| Source lines | 368 |
+| Source lines | 354 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,11 +64,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `event_text(reading: Reading | None, result: str) -> str | None` ([source](../../../../../src/learnloop/confidence_events.py), line 156) — The event in words ("marked 5/5 sure; wrong"), or None with no reading.
 - `current_block(reading: Reading | None, result: str, taps: Sequence[Any]=()) -> dict[str, Any] | None` ([source](../../../../../src/learnloop/confidence_events.py), line 168) — The diagnosed attempt's block (version, note, event and the stated limit over ``taps``, which include its own); None with no reading.
 - `taps_limit(taps: Sequence[Any]) -> str | None` ([source](../../../../../src/learnloop/confidence_events.py), line 183) — The stated limit when the taps so far do not span the tap's scale, or None.
-- `read_hedges(connection: Any, attempt_ids: Iterable[Any] | None=None) -> dict[str, str]` ([source](../../../../../src/learnloop/confidence_events.py), line 212) — Each attempt's hedge read from its current grading evidence (all attempts when ``attempt_ids`` is None); attempts with none are absent.
-- `taps_before(connection: Any, before_iso: str, config: Any) -> list[int]` ([source](../../../../../src/learnloop/confidence_events.py), line 240) — Every tap on an attempt created strictly before ``before_iso`` (for :func:`taps_limit`), and, at RO1's tag with ``available_at_reads`` on, known before it (``attempt_time_sql``; ``config`` None or the gate off: the predecessor's SQL).
-- `readings(connection: Any, attempts: Sequence[Mapping[str, Any]]) -> dict[str, Reading]` ([source](../../../../../src/learnloop/confidence_events.py), line 257) — The readings of ``attempts`` (rows carrying ``id`` and, when read, ``answer_confidence``); attempts with neither reading are absent.
-- `learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], before_iso: str, titles: Mapping[str, str] | None=None, limit: int=CONTEXT_EVENT_LIMIT) -> dict[str, Any] | None` ([source](../../../../../src/learnloop/confidence_events.py), line 270) — The block a hint-writer or tutor context carries: per topic in ``learning_object_ids``, the learner's confidence events before ``before_iso``, newest first, each "YYYY-MM-DD: <event>", with the stated limit.
-- `safe_learner_events(vault: Any, repository: Any, **kwargs: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop/confidence_events.py), line 339) — :func:`learner_events`, or None when it cannot be read (never fails a hint or an answer).
+- `read_hedges(connection: Any, attempt_ids: Iterable[Any] | None=None) -> dict[str, str]` ([source](../../../../../src/learnloop/confidence_events.py), line 208) — Each attempt's hedge read from its current grading evidence (all attempts when ``attempt_ids`` is None); attempts with none are absent.
+- `taps_before(connection: Any, before_iso: str, config: Any) -> list[int]` ([source](../../../../../src/learnloop/confidence_events.py), line 232) — Every tap on an attempt created strictly before ``before_iso`` (for :func:`taps_limit`), and, at RO1's tag with ``available_at_reads`` on, known before it (``attempt_time_sql``; ``config`` None or the gate off: the predecessor's SQL).
+- `readings(connection: Any, attempts: Sequence[Mapping[str, Any]]) -> dict[str, Reading]` ([source](../../../../../src/learnloop/confidence_events.py), line 247) — The readings of ``attempts`` (rows carrying ``id`` and, when read, ``answer_confidence``); attempts with neither reading are absent.
+- `learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence[str], before_iso: str, titles: Mapping[str, str] | None=None, limit: int=CONTEXT_EVENT_LIMIT) -> dict[str, Any] | None` ([source](../../../../../src/learnloop/confidence_events.py), line 260) — The block a hint-writer or tutor context carries: per topic in ``learning_object_ids``, the learner's confidence events before ``before_iso``, newest first, each "YYYY-MM-DD: <event>", with the stated limit.
+- `safe_learner_events(vault: Any, repository: Any, **kwargs: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop/confidence_events.py), line 325) — :func:`learner_events`, or None when it cannot be read (never fails a hint or an answer).
 
 ### Module constants
 
@@ -109,8 +109,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_columns(connection: Any, table: str) -> set[str]` ([source](../../../../../src/learnloop/confidence_events.py), line 203)
-- `_chunks(values: Sequence[str]) -> Iterable[Sequence[str]]` ([source](../../../../../src/learnloop/confidence_events.py), line 207)
+- `_chunks(values: Sequence[str]) -> Iterable[Sequence[str]]` ([source](../../../../../src/learnloop/confidence_events.py), line 203)
 
 ## Who imports or calls it
 

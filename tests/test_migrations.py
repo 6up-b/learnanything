@@ -973,14 +973,18 @@ def test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications(tmp_p
 
     # An adjudication recorded under the 163 schema, where attempt_id still
     # references practice_attempts.
+    # The attempt is a row written under the 163 schema: the application's attempt path reads the head's columns and
+    # no longer runs on a database below it.
+    from types import SimpleNamespace
+
+    earlier = SimpleNamespace(attempt_id="att_163_earlier")
+    with connect(paths.sqlite_path) as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts (id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "created_at) VALUES (?, 'pi_svd_define_001', 'lo_svd_definition', 'recall', 'independent_attempt', ?)",
+            (earlier.attempt_id, NOW.isoformat().replace("+00:00", "Z")),
+        )
     at_163 = Repository.attach(paths.sqlite_path)
-    earlier = complete_self_graded_attempt(
-        vault,
-        at_163,
-        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="U Sigma V^T"),
-        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
-        clock=clock,
-    )
     at_163.record_false_remediation(
         attempt_id=earlier.attempt_id,
         value=False,

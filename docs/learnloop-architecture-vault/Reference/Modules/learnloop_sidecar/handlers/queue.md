@@ -121,7 +121,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `current_trace`, `read`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`; calls `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `candidate_ids`, `prepare`, `record`
-- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability`
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `reentry_session_cap`; calls `reentry_session_cap`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `OfferTrace`, `SELECTION_POLICY`, `ScheduledItem`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`, `followup_head_item`; calls `OfferTrace`, `SchedulerSession`, `build_due_queue`, `cold_check_serve_decision`, `deferred_cold_followups`, `explain_practice_item`, `followup_head_item`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`; calls `decision_active`

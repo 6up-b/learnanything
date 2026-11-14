@@ -150,9 +150,7 @@ def rows(connection: Any, resolved: Sequence[Mapping[str, Any]], *, now: str, kn
     for start in range(0, len(ids), 500):
         part = ids[start:start + 500]
         marks = ",".join("?" for _ in part)
-        has_received = any(info[1] == "received_at" for info in connection.execute("PRAGMA table_info(practice_attempts)"))
-        columns = "id, created_at" + (", received_at" if has_received else "")
-        for found in connection.execute(f"SELECT {columns} FROM practice_attempts WHERE id IN ({marks})", part):
+        for found in connection.execute(f"SELECT id, created_at, received_at FROM practice_attempts WHERE id IN ({marks})", part):
             times[str(found["id"])] = dict(found)
     moment = parse_utc(now)
     latest: dict[str, Mapping[str, Any]] = {}

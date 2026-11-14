@@ -187,11 +187,9 @@ _DELAY_REASONS = frozenset({"insufficient_delay", "same_session", "intervening_p
 _ATTEMPT_COLUMNS = (
     "id, practice_item_id, learning_object_id, session_id, created_at, "
     "scheduler_candidate_id, attempt_type, hints_used, primed, correctness, "
-    "manual_review, manual_review_reason, evidence_origin, evidence_facets_json, latency_seconds"
+    "manual_review, manual_review_reason, evidence_origin, evidence_facets_json, latency_seconds, "
+    "plan_presentation_id, reference_status, probe_presentation_id"
 )
-#: Columns later migrations added, read when present (202: the presentation
-#: an attempt answers; 188: its answer-key status).
-_OPTIONAL_ATTEMPT_COLUMNS = ("plan_presentation_id", "reference_status", "probe_presentation_id")
 
 #: The provisional R_cold rule's name (D12: a label until R3 fits coldness).
 R_COLD_RULE = "provisional_one_day"
@@ -327,14 +325,10 @@ class _Ledger:
             raise ValueError("router_outcomes_v3 needs the Reader's exposures (data_capture.reading_exposures.read)")
         self.version = version
         self._reader_exposures = reader_exposures
-        present = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
-        optional = "".join(
-            f", {column}" if column in present else f", NULL AS {column}" for column in _OPTIONAL_ATTEMPT_COLUMNS
-        )
         attempts = [
             dict(row)
             for row in connection.execute(
-                f"SELECT {_ATTEMPT_COLUMNS}{optional} FROM practice_attempts ORDER BY created_at, id"
+                f"SELECT {_ATTEMPT_COLUMNS} FROM practice_attempts ORDER BY created_at, id"
             )
         ]
         for row in attempts:
