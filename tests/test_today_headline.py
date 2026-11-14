@@ -61,7 +61,6 @@ def capability_world(monkeypatch):
     required = {"f1": ("retrieval", "procedure_execution"), "f2": ("retrieval",), "f3": ("retrieval",), "f4": ("retrieval",), "f5": ("procedure_execution",), "f6": ("retrieval",)}
     monkeypatch.setattr(headline_module, "scope_facets", lambda _v, lo_id, _r: set(facets[lo_id]))
     monkeypatch.setattr(headline_module, "required_capabilities_for_facet", lambda _v, _lo, facet: (required[facet], False))
-    monkeypatch.setattr(headline_module, "is_canonical_state_vault", lambda _v: True)
     monkeypatch.setattr(headline_module, "placement_active", lambda _v: False)
     cells = [
         _cell("f1", "retrieval", credit=DEMONSTRATED_CREDIT, direct=2.0),  # one of two capabilities
