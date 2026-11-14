@@ -209,6 +209,12 @@ calls. No assertion changed.
 
 **Golden:** as in §5.
 
+**Targeted gate.** `scripts/affected_tests.py --base 68c61b9f1a` names 1,311 files (the two new ones among them); run in
+14 chunks of 100 at `-n 4`: 28,303 passed, 0 failed. `test_identity_pins`, `test_retired_config_identities`,
+`test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`,
+`test_structure_ratchets`, `test_public_tip_guards` and the two new files: 313 passed. `lint-imports` 42 kept,
+`ruff check` clean, the four vault validators pass, the gate partition holds (30,843 = 30,783 + 60).
+
 **P-shadow.** The three copies in `learnanything-ad1/fixtures-local/owner-copies-mvp058` (at `mvp-0.58`), copied twice
 with `copy_tree_with_databases` under `fixtures-local/i1/{base,branch}/`. `base` ran the base's code (a `git archive` of
 `68c61b9f1a`'s `src/` and `migrations/` on `PYTHONPATH`), `branch` this branch's. Counts only; the copies are deleted.
