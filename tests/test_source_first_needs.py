@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.stores.source_service import imports_for_item
 from learnloop.instructional.needs import fulfil_need_from_sources, need_intent, source_first_active
@@ -107,15 +107,13 @@ def test_an_unpriced_decision_goes_to_generation(active):
     assert outcome["outcome"] == "generate" and outcome["verdict"] == "abstain"
 
 
-def test_below_the_tag_and_with_the_switch_off_nothing_runs(tmp_path):
+def test_with_the_switch_off_nothing_runs(tmp_path):
     paths, repository, _spans = build_textbook_vault(tmp_path / "vault")
-    set_algorithm_version(paths, SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
+    set_algorithm_version(paths, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
+    set_config(paths, "source_service", source_first_needs=False)
     llm = FakeServiceLLM()
     assert not source_first_active(loaded(paths))
     assert _fulfil(paths, repository, _need(repository), llm)["outcome"] == "generate" and llm.calls == []
-    set_algorithm_version(paths, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
-    set_config(paths, "source_service", source_first_needs=False)
-    assert not source_first_active(loaded(paths))
 
 
 def test_the_primed_retry_adapter_tries_sources_before_generating(active, monkeypatch):

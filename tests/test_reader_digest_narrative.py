@@ -408,16 +408,6 @@ def test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated(tmp_pat
     assert RN.NOT_PLANNED_KEY not in planned["valuation"] and planned["narrative_md"] == fake.text
 
 
-def test_below_the_follow_ups_successor_the_summary_row_says_so(tmp_path):
-    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
-
-    predecessor = "mvp-0.38"
-    assert predecessor not in READER_FOLLOWUPS_VERSIONS
-    vault, repo, _session = _ended_session_without_digest(tmp_path, "", version=predecessor)
-    [row] = RN.summarize_ended_sessions(vault, repo, now=_now(), clock=at(300))
-    assert row["valuation"][RN.NOT_PLANNED_KEY] == "below_followups_successor"
-
-
 @pytest.mark.parametrize("config", ["[digest]\nnarrative_enabled = false\n[followups]\nenabled = false\n", ""])
 def test_no_summary_row_with_narration_off_or_follow_ups_live(tmp_path, config):
     vault, repo, _session = _ended_session_without_digest(tmp_path, config) if config else (

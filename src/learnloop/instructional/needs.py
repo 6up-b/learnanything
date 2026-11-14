@@ -36,7 +36,6 @@ from collections.abc import Mapping
 from contextlib import closing
 from typing import Any
 
-from learnloop.algorithm_versions import SOURCE_FIRST_NEEDS_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.source_exercise_import import import_source_exercise
 from learnloop.db.connection import connect
@@ -59,8 +58,7 @@ PATHS = ("primed_retry", "cli", "background")
 
 def source_first_active(vault: LoadedVault) -> bool:
     config = vault.config.source_service
-    return (config.enabled and config.source_first_needs
-            and vault.config.algorithms.algorithm_version in SOURCE_FIRST_NEEDS_VERSIONS)
+    return bool(config.enabled and config.source_first_needs)
 
 
 def need_intent(need: Mapping[str, Any], path: str) -> str:

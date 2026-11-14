@@ -48,9 +48,8 @@ def test_mvp039_is_one_constant_after_mvp038_and_the_latest():
     assert rule is not None and rule.kind == "structural" and "mvp-0.39" in rule.rationale
 
 
-@pytest.mark.parametrize(("version", "switch", "live"), [
-    (TAG, None, True), (TAG, False, False), (PREDECESSOR, None, False), (PREDECESSOR, True, False)])
-def test_planning_and_revaluation_are_gated_by_the_tag_and_the_switch(tmp_path, version, switch, live):
+@pytest.mark.parametrize(("version", "switch", "live"), [(TAG, None, True), (TAG, False, False)])
+def test_planning_and_revaluation_are_gated_by_the_switch(tmp_path, version, switch, live):
     config = None if switch is None else f"[followups]\nenabled = {'true' if switch else 'false'}\n"
     vault, repo, session = _seeded(tmp_path, config=config, version=version)
     assert RF.followups_enabled(vault) is live
@@ -91,7 +90,7 @@ def test_switched_off_the_today_queue_is_the_predecessors(tmp_path):
     with ``followups.enabled = false`` serves exactly what mvp-0.38 serves and
     writes no digest or commitment."""
 
-    before, written_before = _served(tmp_path, "pred", version=PREDECESSOR)
+    before, written_before = _served(tmp_path, "pred", version=PREDECESSOR, config="[followups]\nenabled = false\n")
     after, written_after = _served(tmp_path, "off", version=TAG, config="[followups]\nenabled = false\n")
     assert after == before and written_before == written_after == (0, 0)
 
