@@ -214,9 +214,18 @@ the slip. Both openers (Quick Add, the collections' "edit brief") use the wizard
 
 ## Gates
 
-See the report for the run: typecheck, vitest, the frontend build, the targeted Python gate
-(`scripts/affected_tests.py` against the base plus the rules' fixed list), `lint-imports`, `ruff`, the four vault
-validators, `check_gate_partition.py`, and one regeneration of the vault references.
+- Frontend: `npm run typecheck` clean; vitest 2857 of 2858 (the one failure is SJ-11, a figures test that passes
+  alone); `npm run frontend:build` built.
+- Python: `scripts/affected_tests.py --base f623e525ac` chose 717 files; with the rules' fixed list (identity pins,
+  retired config identities, architecture, test layout, effective defaults golden, CLI help snapshot, structure
+  ratchets, the synthesis tail goldens and the four test files edited here) 723 files, run in 8 chunks of 100 at
+  `-n 4 -m "not arc_close"`: 13,321 passed, 1 failed (SJ-10, which passed 3 of 3 runs alone); no pin, ratchet or
+  golden moved.
+- `lint-imports --no-cache`: 42 kept, 0 broken. `ruff check`: clean. `check_gate_partition.py`: 30,863 collected,
+  landing 30,803 + arc_close 60. The four vault validators pass after the one regeneration (the desktop validator
+  reported its reference stale before it, as expected).
+- Two of the test edits went in by shell (an exact-string replace in `QuickAddDialog.tsx` for SJ-1, an append to
+  `tests/test_sidecar_quick_add.py` for SJ-2) rather than the Edit tool; the diff is the same.
 
 ## Found on the way (for the UX journey audit; not fixed)
 
