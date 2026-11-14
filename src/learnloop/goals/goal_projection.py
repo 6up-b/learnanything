@@ -65,10 +65,7 @@ from learnloop.learner.facet_diagnostics import facet_state_label, scope_facets
 from learnloop.learner.facet_state_reader import (
     facet_states_by_lo as read_facet_states_by_lo,
 )
-from learnloop.learner.facet_state_reader import (
-    facet_uncertainty_states_for_lo,
-    is_canonical_state_vault,
-)
+from learnloop.learner.facet_state_reader import facet_uncertainty_states_for_lo
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.scheduling.fsrs import forgetting_curve
 from learnloop.goals.goal_certification import facet_demonstration
@@ -706,8 +703,6 @@ def _blueprint_readiness_by_lo(
     facet_states_by_lo: dict[str, list[FacetRecallState]],
     mastery_states: dict[str, MasteryState],
 ) -> dict[str, LoReadiness]:
-    if not is_canonical_state_vault(vault):
-        return {}
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
     readiness: dict[str, LoReadiness] = {}
     for learning_object_id in sorted(resolve_goal_scope(vault, goal, repository)):
