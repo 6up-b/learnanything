@@ -265,3 +265,132 @@ Notes:
 |---|---|---|---|---|---|---|---|---|---|---|
 | `figures.prefetch.pressed_waits` | true | mvp-0.58, the floor tag itself | prefetch decisions use `prefetch_decision_v1`: the wait W and the blocked minutes count every call alike | ≈ 13 in 2 (`figures/prefetch_ledger.py:367-375`, `:287-292`, `figures/prefetch_model.py:81`); v1 is also the default of `waits`, `blocked_basis`, `blocked_minutes` and `Model.version` | `figures/prefetch_ledger.py:72` (`pressed_waits_on`, tag half kept by D6 as G38; 2 callers) | none pinned; the decision row's `posterior_digest` hashes the model version (audit only) | decision rows only | ≈ 5 | **no** | **A**, after G38's tag half (the figures lane). Its golden `tests/fixtures/rw5c_switch_off_golden.json` holds `prefetch_decision_v1` only because its vault is retagged to mvp-0.6 (`tests/rw5c_golden_source.py:50`), so it moves when G38 goes, whatever happens to the switch |
 | `facet_diagnostic.canonical_belief_fixes` | true | **mvp-0.59, above the floor** | mvp-0.58's facet belief and empty uncertainty reads | not counted (kept) | `learner/facet_state_reader.py:58` and two more predicates; the 7 gates that vary at the floor (D6 §1(a)) | recorded by `projection_switches` (`RS:483-487`) and per attempt (`learner/facet_state_reader.py:68`), both compared by doctor (`ops/doctor.py:1603-1677`); in `ADDED_SINCE_BASE` | **yes: replay reads it** (`substrate/canonical_projection.py:660`) | ≈ 20 | **no** | **D** |
+
+## 2. The classes
+
+The classes:
+- **(A)** At or below the floor, the off branch is a predecessor nothing needs, and no identity moves (or `RETIRED_FIELDS` holds it): removable under the proposed rule.
+- **(B)** As A, but removing it moves an identity that `RETIRED_FIELDS` cannot hold, because the identity reads the value by name. It needs the code to keep emitting the served value as a constant (no bump), or a deliberate bump under the playbook.
+- **(C)** A real operational switch the owner might use: keep.
+- **(D)** Above the floor: keep.
+- **(E)** Cannot tell.
+
+**Counts** (§1's 99 rows; counted from the tables):
+
+| class | switches | ≈ source lines in their off code (the tables' estimates, summed) | off-only test functions (estimate) |
+|---|---:|---:|---:|
+| A | 52 | 1,670 | 240 |
+| B | 19 | 765, of which ≈ 505 is `router_objective.enabled` | 70 |
+| C | 27 | 200 | 55 |
+| D | 1 | not counted | 20 |
+| E | 0 | | |
+
+- **A (52):** `diagnosis.split_enabled`, `diagnosis.shadow`, `placement.enabled`, `placement.initial_probes`, `placement.unevidenced_return`, `recurrence.enabled`, `stuck_prompt.enabled`, `plan.enabled`, `router.probe_tie_admission`, `learner_text_gaps.sooner_check_enabled`, `proof_check.enabled`, `source_service.source_first_needs`, `voi_stopping.enabled`, `.probe_episodes`, `.followups`, `.teach_back`, `.project_probes`, `.robust_gate_with_value`, `diagnosis.probe_lane_reads_diagnosis`, `router.enabled`, `router.restraint`, `required_method.enabled`, `eligibility.enabled`, `intent.enabled`, `intent.recall_targets_enabled`, `adaptive_difficulty.generation_contract`, `workbench.field_signals_enabled`, `reading_paths.plan_uses_path`, `mastery.claim_fixes_enabled`, `replay.ledger_bounded`, `ask.cold_help_converts`, `practice.attempt_keeps_content_state`, `practice.reschedule_cold_after_assist`, `followups.enabled`, `curriculum.plan_uses_path`, `teacher.weight.learned`, `teacher.weight.source`, `teacher.probes`, `hints.fold_follows_attach`, `router.lesson_suggestions.enabled`, `router.lesson_suggestions.in_objective`, `data_capture.serving`, `followup.generate_and_serve`, `router_objective.available_at_reads`, `.self_report_not_validated`, `.fitted_models`, `.learned_tail`, `.learner_preferences`, `.workbench_is_open_item`, `.lesson_sources_follow_diagnosis`, `.lesson_candidate_after_cold_miss`, `figures.prefetch.pressed_waits`.
+- **B (19):** `router.mode` (C6), `scheduler.surprise.remove_interval_factor` (the stored rebuild receipt that doctor compares), `router_objective.enabled` and `.sensors_in_value` (C3, C3b, C4), the ten mvp-0.50 switches (C3, C3b, C4; nine of them C5), `.failure_share_to_other_policy`, `.lessons_compete_with_followups`, `.preferences_inform_router`, `.miss_cause_sensor`, `.miss_cause_in_value`. **Each keeps every byte if its dict keeps emitting `True` (or `"mixture"`)**, so none needs a bump.
+- **C (27):**
+  - the plan's two sub-switches (`plan.new_admission_enabled`, `plan.reading_blocks`: preferences, not predecessors);
+  - `diagnosis.probe_lane_pending` (a tuning choice);
+  - `learner_text_gaps.decider_enabled` and the ten `decider_routes.*` (privacy, quality and quiet valves; three are not tag switches at all);
+  - `adaptive_difficulty.enabled` and five sub-switches with monitoring flags;
+  - `adaptive_difficulty.lesson_opportunities` (monitoring flag);
+  - `curriculum.enabled` and `teacher.enabled` (features);
+  - `router_objective.receipts` (logging);
+  - the three RO5 rates.
+- **D (1):** `facet_diagnostic.canonical_belief_fixes`.
+
+### 2.1 The switches replay reads, and `replay.ledger_bounded` in depth
+
+Eleven of §1's fields are read by replay or a rebuild's replayer. For a vault that never set one, removing it changes no stored result. For a vault that ran with one off, the next rebuild after removal moves its stored state to the default's derivation:
+- `recurrence.enabled`;
+- `mastery.claim_fixes_enabled`;
+- `replay.ledger_bounded`;
+- `data_capture.serving`;
+- `scheduler.surprise.remove_interval_factor`;
+- the five AD fields `enabled`, `learned_coupling`, `reading_opportunities`, `reading_self_check`, `lesson_opportunities`;
+- `facet_diagnostic.canonical_belief_fixes`.
+
+`projection_switches` (`RS:475-488`) records only two of these, the interval factor and the head's facet-belief key, so **doctor can see a flip of only those two**. The playbook's rule of 2026-11-04 ("a config switch that changes how a projection is derived is a projection change … the rebuild's receipt records the switches it derived under", `docs/algorithm-change-playbook.md:136-144`) is met for those two and not for the other nine. For the AD five, the derived tables are AD's own and nothing decides from `ad_state` (`adaptive_difficulty/protected_tables.py:580`).
+
+**`replay.ledger_bounded`, read at its source.** The strategy says it affects rebuild results (`attempts/attempts.py:1378`).
+- **What turning it off changes.** `replay_existing_attempt` passes `replay_ledger_position=None` instead of the attempt's `(created_at, id)` (`attempts/attempts.py:1521-1525`). Three things follow in a replay:
+  1. no bounded canonical projection is folded before each recomputed attempt, so the facet cache it reads (prediction, the variance floor, facet updates) was folded over the whole ledger, later attempts included;
+  2. the projection after each write folds the whole ledger;
+  3. `load_attempt_prior_state` gets no `ledger_before`, so the recent-attempt windows (familiarity, error-event severity, item quality) include attempts recorded after the one being replayed (`attempts/attempts.py:4274-4280`, `:4465`).
+
+  Every replay ends with a whole-ledger projection (`substrate/replay.py:412`), so the final facet cache is the same either way. What differs are the per-attempt derived rows of LOs with more than one attempt: `attempt_surprise`, `learning_object_mastery`, `practice_item_quality_state`, and the schedules computed from them. Single-attempt LOs do not move.
+- **Does a vault's stored state depend on how it was set when its attempts were written? No.** The live write never reads it: `replay_ledger_position` defaults to None (`attempts/attempts.py:519`), and its only setter is `replay_existing_attempt`. A rebuild done with it off leaves unbounded values in the derived tables, and live writes after that rebuild start from those values until the next bounded replay.
+- **It is read at every replay, not only at whole-vault rebuilds.** That includes the shadow rebuild, a live regrade's per-LO replay (`attempts/regrade.py:663`), exam seeding, goal series and content recalibration.
+- **It is not recorded anywhere** (not in `projection_switches` or the rebuild receipt), and doctor does not compare it. So if a vault rebuilt with it off and the field is then removed, its next replay of any kind silently moves those rows to the live-equivalent values. That is what the successor intended, but nothing says why the values moved.
+- **Conclusion:** removable (class A) once the owner's report shows no vault sets it. The owner should look at this key in particular, because a past rebuild with it off is invisible in the vault.
+
+## 3. The strategy's "also goes" list
+
+**The pre-eligibility cold lane and hold.** The strategy cites `scheduling/scheduler.py:1831` and `:2018`. Those lines are stale: at this tip, 1831 is inside `_cold_task_reveals` and 2018 inside the successor lane. The predecessor code is:
+- `_predecessor_defer_revealed_cold_followups` (`scheduling/scheduler.py:2045-2179`), the mvp-0.26 cold lane, whose sole caller is the off arm at `:1930-1933`;
+- `_predecessor_cold_check_hold_until` (`:2232-2287`), the mvp-0.26 routine-display hold, called by the off arms of `cold_check_hold_until`, `cold_check_serve_hold` and `cold_check_serve_decision` (`:2224`, `:2309`, `:2333`);
+- `reveal_coverage.routine_displays_covering` (`scheduling/reveal_coverage.py:124-146`), whose only callers are that hold and the off arm of `diagnosis/probe_episodes.py:1254-1257`.
+
+It is **reachable today by one config, `[eligibility] enabled = false`**, and by a caller that passes no vault (`decision_active(None)`; none found in production). It goes with `eligibility.enabled`, about 255 lines in 8 files. What stays is the one eligibility decision in `serve_eligibility.py` and the successor bodies of the scheduler's callers. `_cold_task_reveals` stays too, because `deferred_cold_followups` (`:2395`) reads it with no switch.
+
+**`RouterChooser`'s mixture path.** It is **not reachable with the defaults**: `ObjectiveChooser` (`daily_plan/objective_chooser.py:1372`) subclasses `RouterChooser`, overrides `choose`, and never calls `super()`. The mixture path is reached by exactly one configuration: `plan.enabled` and `router.enabled` on, `router.mode = "mixture"`, and **`router_objective.enabled = false`** (`daily_plan/policy.py:129-143`, where `RouterChooser` is the only instantiation). These do not reach it:
+- a failed objective policy, handled inside the objective's mix;
+- a not-ready objective, which uses `run_numeric` with no models;
+- a chooser exception, which falls back to `LaneQuotaChooser` (`daily_plan/engine.py:2755`);
+- the lesson card's `_target`;
+- the plan without the router.
+
+So `router.mode` and the floor do not leave it unreachable. **`router_objective.enabled` does**: removing that switch makes `RouterChooser.choose`, `_start`, `_decide`, `RestraintGate.decide`, `_start`, `FollowupGate.decide_followup`, `_start_followup` and four helpers unreachable, about 480 physical lines in `daily_plan/router_chooser.py`. The base classes' shared parts stay: fields, `_freeze_objective`, `_noting`, `_refusals`, and the module helpers `objective_chooser.py` imports (`:47-65`).
+
+**`StagedChooser`.** It is **reachable on every routed decision with the defaults**. `ObjectiveChooser.choose` calls `StagedChooser(card_builder=None).choose(...)` (`daily_plan/objective_chooser.py:1389`), and that pick is `staged_ref`: the staged component that takes a failed policy's share. It stays. **It is the failure fallback the strategy keeps**, and it wraps `LaneQuotaChooser` over the staged-feasible set (`daily_plan/staged_frame.py:428-429`); there is no separate staged-rule function. Removing `router.mode` removes only `StagedChooser`'s card-builder branch (`daily_plan/staged_frame.py:450-458`) and the staged pair in `policy_for`.
+
+**The "predecessor exactly" goldens and tests.**
+- Most predecessor tests are counted per switch in §1 as off-only (deleted with the switch) or port (rerouted).
+- `tests/fixtures/rw5c_switch_off_golden.json` holds `prefetch_decision_v1` only through a vault retagged to mvp-0.6; it moves with G38.
+- The owner-lane fixture-copy tests (`test_daily_plan_kill_switch::test_plan_off_is_dl0_on_fixture_copies`, `test_placement_fixture_copies`, `test_lp_claim_fixes::test_owner_copies_off_…`, `test_field_workbench_signals`' fixture parity) are among the off-only counts. They run only with `LEARNLOOP_OWNER_VAULTS`.
+- **The D-39 sim is waiting on three switches.** `tests/sim_probe_validation_helpers.py` turns placement, FG1 and value of information off for the planted-type sim (D6 record §4). That sim is a strict xfail due at arc D's close, so those three switches cannot go before D-39 is settled or the sim is moved off them.
+- D2b's remaining old-tag tests: D6's census counts 441 cases in its 47 edited files still opening a vault below the floor (D6 §4). Each is a switch's predecessor test or a re-tagging candidate. They are not recounted here.
+
+## 4. Totals and a proposed batching
+
+**Totals, class A** (estimates, summed from §1's "off code" and "tests" columns; source lines are hand counts of off bodies plus the AST spans of off-only functions):
+- **Source:** about **1,670 lines**, plus each switch's field, predicate and registry rule (about 5-10 lines each).
+- **Tests deleted:** about **240 off-only test functions**. The mean test function in twelve of the files involved is 17 lines (AST, 242 functions), so about **4,000 lines**. Several of the 240 are one arm of a parametrized test, so this is an upper estimate.
+- **Tests to port, not delete:** about **270**. Most are `router.enabled` (≈ 117), `plan.enabled` (≈ 44), `placement.initial_probes` (29) and `diagnosis.split_enabled` (18).
+- **If class B also goes with constants:** add about 765 source lines, of which ≈ 505 is `router_objective.enabled`, and about 70 tests. The ≈ 84 R2b/R2c mixture test calls that reach `RouterChooser` only through `router_objective.enabled` would then go or move.
+
+**Batches.** Each batch is one landing. Each removes its fields into `RETIRED_FIELDS` (and makes their sections `KeepsRetiredFields`) in the same commit. Every batch's proof includes `tests/test_identity_pins.py`, `test_retired_config_identities`, `test_effective_defaults_golden` (regenerated) and `test_cli_help_snapshot`.
+
+| batch | switches | ≈ source | proof |
+|---|---|---:|---|
+| **1. Grading, attempts, replay** | `diagnosis.split_enabled` and `.shadow`, `stuck_prompt.enabled`, `proof_check.enabled`, `required_method.enabled`, `hints.fold_follows_attach`, `mastery.claim_fixes_enabled`, `replay.ledger_bounded`, `practice.attempt_keeps_content_state`, `ask.cold_help_converts`, `practice.reschedule_cold_after_assist`, `eligibility.enabled` with the cold lane and hold, `teacher.weight.learned`, `.source` | 1,020 | P-shadow identical on fresh copies (`mastery`, facet and schedule deltas all zero); the rebuild-equivalence and replay tests; `fixtures/mvp017_route_check_replay` unchanged; C1 unchanged through `RETIRED_FIELDS` |
+| **2. Placement, diagnosis, value of information** | `placement.enabled`, `.initial_probes`, `.unevidenced_return`, `recurrence.enabled`, `learner_text_gaps.sooner_check_enabled`, `source_service.source_first_needs`, the six `voi_stopping` rows, `diagnosis.probe_lane_reads_diagnosis`, `followup.generate_and_serve`, `workbench.field_signals_enabled` | 225 | P-shadow (recurrence and family memory are replayed); P-draw; the due-queue goldens (their helper uses `voi_stopping` off once); **after D-39** |
+| **3. Today: plan, router frame, reading, intent, capture** | `plan.enabled`, `router.probe_tie_admission`, `router.enabled`, `router.restraint`, `router.lesson_suggestions.enabled`, `.in_objective`, `reading_paths.plan_uses_path`, `curriculum.plan_uses_path`, `followups.enabled`, `intent.enabled`, `.recall_targets_enabled`, `data_capture.serving`, `teacher.probes`, `adaptive_difficulty.generation_contract`; `figures.prefetch.pressed_waits` in the figures lane with G38 | 360 | P-draw at default switches (the pinned-draw router tests and the due-queue goldens unchanged); P-shadow (the `router_outcomes` replayer reads `data_capture.serving`); C6 unchanged |
+| **4. The router objective** (with E1, which splits `router_objective_switches.py` after D7 shrinks it) | A: `available_at_reads`, `self_report_not_validated`, `fitted_models`, `learned_tail`, the four IH rows in class A. B, with constants: `scheduler.surprise.remove_interval_factor`, `sensors_in_value`, the ten mvp-0.50 switches, `failure_share_to_other_policy`, `lessons_compete_with_followups`, `preferences_inform_router`, the two slip-or-gap switches, `router.mode`. `router_objective.enabled` only if the owner says so (§5) | 55 (A) + 260 (B, without `enabled`) | identity pins C3, C3b, C4, C5, C6 byte-identical (the constants are the proof); P-draw; doctor's `projection_switches` test with the interval key kept |
+
+Batch 1 is the largest removal and the one whose switches replay reads most. Batch 4 changes no served value at the defaults if its constants are right, and it touches the same module as E1.
+
+## 5. The decision for the owner
+
+**The rule as proposed:** "a switch goes when every vault is past its tag and no vault sets it" (strategy §2.6 D7). ADR-019's standing rule (L7, owner-approved) already says that when the floor rises the gates and kill switches at or below it go, with a short kept-because list, and that a test lists the switches at or below the floor: empty, or each on the kept-because list. **The decision is therefore mostly the kept-because list.**
+
+**What the rule would remove:**
+- the 52 class A switches, about 1,670 source lines and about 240 off-only test functions (about 270 more tests ported);
+- if the owner accepts constants that keep every identity's bytes, the 19 class B switches too.
+
+**What class C keeps (27):**
+- AD's master switch and its five monitored sub-switches (the monitoring report tells the owner to flip them);
+- the lessons and curriculum features (`teacher.enabled`, `curriculum.enabled`);
+- the Decider's per-judgment switches and `learner_text_gaps.decider_enabled` (which text reaches the Decider);
+- the RO5 rates (calibration knobs, not kill switches);
+- the plan's "no new material" and "no reading block" preferences;
+- RO0's receipts and `diagnosis.probe_lane_pending`.
+
+**Where I would not follow the rule as written:**
+1. **`router_objective.enabled`.** It is the only way back from the objective, the newest and most complex decider, to the R2b mixture, and nothing falls back to it automatically. Removing it deletes about 480 lines and the R2b/R2c mixture test body. I would keep it until arc E reworks `objective_chooser.py` (E2-E6), then decide it with E rather than by tag.
+2. **The AD sub-switches.** Their tag mvp-0.30 is far below the floor, so the rule removes them, but AD's monitoring (`adaptive_difficulty/monitoring.py:165-175`) is built to recommend them. They are tuning valves, not predecessors.
+3. **Feature switches that are named as a tag's kill switch.** `teacher.enabled`, `curriculum.enabled`, `adaptive_difficulty.enabled` and `learner_text_gaps.decider_enabled` turn a whole feature or a data flow off. A rule by tag removes them by accident.
+
+**What the owner should run before any removal.**
+- **Run `scripts/vault_report.py` on the live and retired vaults** (agents do not open them). Its list names only 50 of §1's 99 fields, and it was written for a floor of mvp-0.55. Before the run, either the script's `D7_SWITCHES` gets the 49 missing keys (the "no" rows in §1), or the owner checks those keys by hand in each `learnloop.toml`.
+- **Look hardest at the switches replay reads** (§2.1), because a past off setting would change stored state at the next rebuild without a warning: `recurrence.enabled`, `mastery.claim_fixes_enabled`, `replay.ledger_bounded`, `data_capture.serving` and `scheduler.surprise.remove_interval_factor`.
+- **Check `router.lesson_suggestions.*` in particular:** a vault that sets either key would fail to load after its removal (`extra="forbid"`).
