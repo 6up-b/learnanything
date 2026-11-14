@@ -220,13 +220,8 @@ def formative_answers(repository: Any, *, extraction_id: str, session: ReaderSes
     styles = tuple(FORMATIVE_STYLE_KINDS)
     marks = ", ".join("?" for _ in styles)
     with repository.connection() as connection:
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}
-        if not {"scope_kind", "question_style", "self_check"} <= columns:
-            return []
-        # RW1b's migration 208 says whose words the expected answer was.
-        basis = ", answer_basis" if "answer_basis" in columns else ", NULL AS answer_basis"
         rows = connection.execute(
-            "SELECT id, question_style, self_check, anchor_span_ids_json, span_ids_json, answered_at" + basis + " "
+            "SELECT id, question_style, self_check, anchor_span_ids_json, span_ids_json, answered_at, answer_basis "
             "FROM reader_authored_questions WHERE extraction_id = ? AND scope_kind = 'selection' "
             f"AND question_style IN ({marks}) AND answered_at IS NOT NULL ORDER BY answered_at, id",
             (extraction_id, *styles),
@@ -270,9 +265,6 @@ def prediction_observations(repository: Any, *, extraction_id: str, session: Rea
     if not _has_table(repository, "figure_predictions"):
         return []
     with repository.connection() as connection:
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(figure_predictions)")}
-        if not {"id", "extraction_id", "matched", "created_at"} <= columns:
-            return []
         rows = connection.execute(
             "SELECT id, created_at FROM figure_predictions WHERE extraction_id = ? AND matched = 0 "
             "ORDER BY created_at, id",

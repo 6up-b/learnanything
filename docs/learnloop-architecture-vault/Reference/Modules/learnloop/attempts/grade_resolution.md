@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/certain_grade_helpers.py](../../../../../../tests/certain_grade_helpers.py) — direct import
+- [tests/grade_application_golden_helpers.py](../../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/test_effective_observation.py](../../../../../../tests/test_effective_observation.py) — direct import
   - `test_adjudicated_grade_has_higher_certainty_than_heuristic`
   - `test_quarantined_interpretation_contributes_zero`

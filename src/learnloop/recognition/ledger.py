@@ -32,19 +32,13 @@ def _present(connection: sqlite3.Connection, table: str) -> bool:
     return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
 
 
-def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
-    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
-
-
 def attempt_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Every attempt with what the label and the report read; ``active_seconds`` is None on a database below 252."""
+    """Every attempt with what the label and the report read; ``active_seconds`` is None on an attempt that has none."""
 
-    columns = _columns(connection, "practice_attempts")
-    wanted = ["id", "session_id", "practice_item_id", "learning_object_id", "concept", "created_at", "latency_seconds",
-              "attempt_type", "practice_mode", "correctness", "entry_surface", "plan_presentation_id",
-              "probe_presentation_id", "active_seconds"]
-    select = ", ".join(name if name in columns else f"NULL AS {name}" for name in wanted)
-    return [dict(row) for row in connection.execute(f"SELECT {select} FROM practice_attempts ORDER BY created_at, id")]
+    return [dict(row) for row in connection.execute(
+        "SELECT id, session_id, practice_item_id, learning_object_id, concept, created_at, latency_seconds, "
+        "attempt_type, practice_mode, correctness, entry_surface, plan_presentation_id, probe_presentation_id, "
+        "active_seconds FROM practice_attempts ORDER BY created_at, id")]
 
 
 def _reveals(connection: sqlite3.Connection) -> list[Exposure]:

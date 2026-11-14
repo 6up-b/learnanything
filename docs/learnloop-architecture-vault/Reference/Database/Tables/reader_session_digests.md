@@ -112,6 +112,7 @@ None found by exact static reference scan.
 
 - `tests/reader_session_digests_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_f1_schema_facts.py`
 - `tests/test_reader_digest_narrative.py`
 - `tests/test_reader_followups.py`
 - `tests/test_reader_followups_review.py`

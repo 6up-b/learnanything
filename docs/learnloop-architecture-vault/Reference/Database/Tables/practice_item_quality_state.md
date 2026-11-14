@@ -103,6 +103,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_doctor.py`
+- `tests/test_grade_application_core.py`
 - `tests/test_held_grade_evidence.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_equivalence_review.py`

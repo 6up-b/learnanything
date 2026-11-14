@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `write_decision`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `write_decision`; statically calls `write_decision`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `continue_job_trace`, `record_job_enqueued`, `write_decision`; statically calls `continue_job_trace`, `record_job_enqueued`, `write_decision`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `write_decision_without_waiting`; statically calls `write_decision_without_waiting`
 - [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]] — imports `module`; statically calls `record_job_enqueued`

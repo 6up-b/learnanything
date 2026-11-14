@@ -87,7 +87,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
-- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; calls `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `MemoryState`, `Rating`, `apply_review`, `retrievability`; calls `MemoryState`, `Rating`, `apply_review`, `retrievability`
 
 ### Platform and third-party dependencies
 

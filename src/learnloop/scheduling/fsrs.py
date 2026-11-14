@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 from math import exp
+from typing import Any
+
+import numpy as np
 
 from learnloop.numeric import clamp
 
@@ -52,12 +55,48 @@ class MemoryState:
     retrievability: float
 
 
+def _curve(stability, elapsed_days, decay):
+    """FSRS-6's forgetting curve, the one expression of it: Python floats or float64 arrays, ``elapsed_days`` at
+    least 0 and ``stability`` above 0, both already clamped by the caller. It passes 0.9 at ``elapsed_days ==
+    stability``."""
+
+    factor = 0.9 ** (1 / -decay) - 1
+    return (1 + factor * elapsed_days / stability) ** (-decay)
+
+
 def forgetting_curve(stability: float | None, elapsed_days: float, weights: tuple[float, ...] = FSRS6_DEFAULT_WEIGHTS) -> float:
+    """The curve at plain FSRS stability, for FSRS itself: :func:`apply_review`, the weight fit
+    (``fsrs_fitting``) and its evaluation (``evaluation``). Every other read of a learner's recall goes through
+    :func:`retrievability` (``tests/test_one_retrievability.py`` holds the line)."""
+
     if stability is None or stability <= 0:
         return 0.0
-    decay = weights[20]
-    factor = 0.9 ** (1 / -decay) - 1
-    return clamp((1 + factor * max(elapsed_days, 0.0) / stability) ** (-decay), 0.0, 1.0)
+    return clamp(_curve(stability, max(elapsed_days, 0.0), weights[20]), 0.0, 1.0)
+
+
+def retrievability(stability: float | None, elapsed_days: float, weights: tuple[float, ...] = FSRS6_DEFAULT_WEIGHTS) -> float:
+    """The probability of recall ``elapsed_days`` after the last review at ``stability``: the one read every
+    scalar caller makes, so a change to what a read returns (RE8's effective stability) is made here and in
+    :func:`retrievability_array`, and FSRS's own update keeps :func:`forgetting_curve`. ``0.0`` without a
+    positive stability; a negative elapsed reads as 0."""
+
+    return forgetting_curve(stability, elapsed_days, weights)
+
+
+def retrievability_array(stability: Any, elapsed_days: Any, weights: tuple[float, ...]) -> np.ndarray:
+    """:func:`retrievability` over float64 arrays (anything else is converted first): 0 where stability is not
+    positive or NaN.
+
+    Not interchangeable with the scalar form bit for bit: numpy's ``power`` takes its own SIMD kernel on a CPU with
+    AVX-512 and differs from the C library's ``pow`` in the last bit on about one input in twenty, so a site moved
+    from one form to the other changes its values (ledger RE2-1). The stability floor keeps the division finite
+    before ``np.where`` discards the non-positive entries; ``np.minimum(np.maximum(x, lo), hi)`` is ``np.clip(x, lo,
+    hi)`` exactly, without its per-call overhead (the rollouts call this hundreds of thousands of times a
+    decision)."""
+
+    raw = np.asarray(stability, dtype=np.float64)
+    value = _curve(np.maximum(raw, 1e-12), np.maximum(np.asarray(elapsed_days, dtype=np.float64), 0.0), weights[20])
+    return np.minimum(np.maximum(np.where(raw > 0, value, 0.0), 0.0), 1.0)
 
 
 def initial_stability(rating: Rating, weights: tuple[float, ...] = FSRS6_DEFAULT_WEIGHTS) -> float:

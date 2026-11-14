@@ -44,12 +44,6 @@ def table_present(connection: sqlite3.Connection, table: str) -> bool:
     ).fetchone() is not None
 
 
-def column_present(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    """Whether the database has the column (a vault below migration 243 has not)."""
-
-    return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
-
-
 def _append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...], row: Mapping[str, Any]) -> bool:
     connection.execute(f"SAVEPOINT {table}_append")
     try:
@@ -104,12 +98,9 @@ def split_receipt(table: str, row: Mapping[str, Any]) -> tuple[dict[str, Any], d
 
 
 def fill_receipt(connection: sqlite3.Connection, table: str, key: Any, values: Mapping[str, Any]) -> bool:
-    """RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write (a vault
-    below migration 243 has no such column), or refused, with a warning, and the row stands with them null."""
+    """RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write, or refused, with a warning, and the row stands with them null."""
 
-    present = {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
-    filled = {name: value for name, value in values.items()
-              if name in RECEIPT_FIELDS[table] and value is not None and name in present}
+    filled = {name: value for name, value in values.items() if name in RECEIPT_FIELDS[table] and value is not None}
     if not filled:
         return False
     savepoint = f"{table}_receipt_fill"
@@ -256,7 +247,6 @@ __all__ = [
     "SESSION_COLUMNS",
     "SESSION_RECEIPTS",
     "STATE_COLUMNS",
-    "column_present",
     "decision_state",
     "insert_decision_state",
     "insert_goal_event",

@@ -284,3 +284,39 @@ def test_the_report_shows_the_rich_tier_rows(tmp_path, monkeypatch):
     assert {"fuller_opened", "quick_opened", "cancelled"} <= set(rich)
     off = build_reader_report(rig.repository.sqlite_path, figures_enabled=True)
     assert "tiers" not in off["figures"]
+
+
+def test_the_rich_job_continues_the_press_trace(tmp_path, monkeypatch):
+    """Ledger K10-3: the press's enqueue writes a ``job_enqueued`` record, and the job continues its trace, with
+    that record as the cause of what the job records; the trace ends with the job."""
+
+    from learnloop import provenance
+    from learnloop.ai.execution import model_call
+    from tests.figure_fixtures import build
+    from tests.figure_rich_rpc_helpers import _ctx
+
+    paths, repository, ctx, _author, rich_author = _ctx(
+        tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)], foreground=False)
+    with provenance.trace_scope() as press:  # the press's RPC scope, as the sidecar's dispatch opens one
+        result = build(ctx)
+    job_id = result["rich"]["richJobId"]
+    answer = rich_author.complete
+
+    def withdrawn_then_asked(request):
+        # The opt-in is withdrawn just before the job's first request, which its gate then refuses (and records).
+        RF.configure(paths, manim_opt_in="declined")
+        with model_call(rich_author, purpose=request.purpose, prompt=request.prompt):
+            return answer(request)
+
+    rich_author.complete = withdrawn_then_asked
+    ctx.ingest_jobs.drain_foreground()
+
+    job = repository.get_ingest_job(job_id)
+    assert job["status"] == "failed" and job["error"]["code"] == "figures_changed" and rich_author.calls == 0
+    records = rows(repository, "decision_records")
+    (enqueued,) = [row for row in records if row["kind"] == "job_enqueued" and row["subject_id"] == job_id]
+    assert enqueued["trace_id"] == press and enqueued["decided_by"] == "ingest_jobs"
+    (refused,) = [row for row in records if row["kind"] == "figure_admission"]
+    assert refused["trace_id"] == press and refused["parent_id"] == enqueued["id"]
+    # The job's trace ended with it: the thread that ran it carries none on.
+    assert provenance.current_trace() is None

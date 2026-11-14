@@ -271,7 +271,7 @@ def figure_gate_record(*, rule: str, purpose: Any) -> DecisionRecord:
 
     return DecisionRecord(
         kind=FIGURE_ADMISSION, status="refused", decided_by="figures_gate", rule=_code(rule) or "refused",
-        facts=_compact({"purpose": _code(purpose)}),
+        facts=_compact({"purpose": _code(purpose)}), parent_id=provenance.current_cause(),
     )
 
 

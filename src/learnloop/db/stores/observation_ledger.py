@@ -35,18 +35,10 @@ def load_canonical_observation_ledger(
     complete replay is now a pair of ordered scans regardless of history size.
     """
 
-    # Canonical sources S1 (migration 188): the attempt-time answer-key signal.
-    # Read only where the column exists, and carried only when it says
-    # something, so every row without it keeps the byte-identical v1 shape.
-    has_reference = any(
-        row[1] == "reference_status" for row in connection.execute("PRAGMA table_info(practice_attempts)")
-    )
     attempt_rows = connection.execute(
         """
         SELECT id, practice_item_id, learning_object_id, attempt_type,
-               practice_mode, hints_used, primed, created_at"""
-        + (", reference_status" if has_reference else "")
-        + """
+               practice_mode, hints_used, primed, created_at, reference_status
           FROM practice_attempts
          ORDER BY created_at ASC, id ASC
         """
@@ -102,7 +94,7 @@ def load_canonical_observation_ledger(
             "created_at": row["created_at"],
             "evidence": evidence_by_attempt.get(str(row["id"]), []),
         }
-        if has_reference and row["reference_status"] not in (None, "not_applicable"):
+        if row["reference_status"] not in (None, "not_applicable"):
             entry["reference_status"] = row["reference_status"]
         ledger.append(entry)
     return ledger

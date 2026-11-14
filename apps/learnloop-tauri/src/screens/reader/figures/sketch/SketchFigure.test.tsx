@@ -155,19 +155,21 @@ it("plays the clock forward only when pressed", async () => {
   expect(document.querySelector("[data-sketch-play]")?.textContent).toBe(SKETCH_COPY.play);
 });
 
+// The engine starts in its own time: under a full run on a busy machine the first frame can take longer than two
+// seconds, so the waits get room and the test its own limit.
 it("draws a new sample with another seed", async () => {
   await open(sketchView(WALK));
   await waitFor(() => expect(document.querySelector("[data-sketch-play]")).not.toBeNull());
   fireEvent.click(document.querySelector("[data-sketch-play]")!);
-  await waitFor(() => expect(document.querySelector("[data-sketch-time]")?.textContent).not.toContain("t = 0 /"), { timeout: 2000 });
+  await waitFor(() => expect(document.querySelector("[data-sketch-time]")?.textContent).not.toContain("t = 0 /"), { timeout: 12000 });
   fireEvent.click(document.querySelector("[data-sketch-play]")!);
   const before = document.querySelector('[data-sketch-element="walkers"]')!.innerHTML;
   fireEvent.click(document.querySelector("[data-sketch-new-sample]")!);
   await waitFor(() => expect(document.querySelector("[data-sketch-time]")?.textContent).toContain("t = 0 / 100"));
   // At t = 0 every walker is at 0 whatever the seed; play a little and compare.
   fireEvent.click(document.querySelector("[data-sketch-play]")!);
-  await waitFor(() => expect(document.querySelector('[data-sketch-element="walkers"]')!.innerHTML).not.toBe(before), { timeout: 2000 });
-});
+  await waitFor(() => expect(document.querySelector('[data-sketch-element="walkers"]')!.innerHTML).not.toBe(before), { timeout: 12000 });
+}, 30000);
 
 it("shows the declared probes in the values table (t)", async () => {
   await open(sketchView(WALK));

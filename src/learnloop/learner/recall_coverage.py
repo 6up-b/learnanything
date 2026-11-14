@@ -433,10 +433,11 @@ def resolve_error_impact(
 
 
 def event_local_severity_from_attempts(
-    vault: LoadedVault,
     recent: list[dict[str, Any]],
     item: PracticeItem,
     *,
+    error_types: Mapping[str, Any],
+    config: LearnLoopConfig,
     error_type: str,
     attempt_type: str,
     hints_used: int,
@@ -449,7 +450,9 @@ def event_local_severity_from_attempts(
     base_severity: float | None = None,
     exclude_attempt_id: str | None = None,
 ) -> tuple[float, dict[str, Any]]:
-    taxonomy = vault.error_types.get(error_type)
+    """``error_types`` is the vault's error taxonomy."""
+
+    taxonomy = error_types.get(error_type)
     taxonomy_default = base_severity if base_severity is not None else (taxonomy.severity_default if taxonomy is not None else 0.5)
     recent_same_item_failures = 0
     recent_same_facet_failures = 0
@@ -486,7 +489,7 @@ def event_local_severity_from_attempts(
         "hint_mitigation": 0.04 * hints_used,
         "bad_item_suspicion_mitigation": min(
             0.20 * prior_bad_item_suspicion,
-            vault.config.recall_coverage.bad_item_suspicion_damage_mitigation_cap,
+            config.recall_coverage.bad_item_suspicion_damage_mitigation_cap,
         ),
         "recent_same_item_failures": recent_same_item_failures,
         "recent_same_facet_failures": recent_same_facet_failures,

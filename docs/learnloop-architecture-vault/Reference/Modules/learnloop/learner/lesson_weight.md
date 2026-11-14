@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py) |
-| Source lines | 1097 |
+| Source lines | 1093 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -77,15 +77,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_config: Any, *, a: float | None=None, b: float | None=None, days: float=0.0) -> float` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 499) — The mass at which the mastery update makes the predicted success equal ``target`` (§12.2): the success on the committed cold item (``a``, ``b``; the check's own item when not given) at the forecast's horizon (``days`` of drift), the same item and horizon ``target``'s ``p_A`` was…
 - `forecast_p_a(forecast: Mapping[str, Any], outcome: Mapping[str, Any], mastery_config: Any) -> float` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 603) — ``p_A`` for the outcome that resolves a forecast: the mastery prediction from the state the forecast was made at, for the resolving item at the outcome's horizon (both predictors of the same cold outcome, §12.2; review F5).
 - `read_hedges(connection: Any) -> dict[str, str]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 667) — Each attempt's hedge read from its current grading evidence (``confidence_events.read_hedges``'s rule, read here so the evidence side imports no context module; a test pins the two equal).
-- `qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], after: str | None, *, until: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 728) — Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first attempt, with no reveal row on the item before it, and not a lesson probe answered after i…
-- `replay_state(vault: Any, repository: Any, *, as_of: str | None=None, through: str | None=None, prior_shift: Mapping[str, float] | None=None) -> WeightState` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 803) — The three posteriors from the ledgers, in order, with every event strictly before ``as_of`` (all of them when None): the prequential filter both the live check and the replayer run.
-- `lesson_check_mass(repository: Any, attempt_id: str, attempt_type: str) -> float | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 900) — The mass a lesson check's attempt enters mastery at, as recorded when it was graded; None for every other attempt (the type's configured mass applies).
-- `write_state(repository: Any, state: WeightState) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 956) — Replace the three DERIVED tables with ``state`` (in the caller's transaction).
-- `any_lessons(repository: Any) -> bool` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 976)
-- `tables_through(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 983) — The instant the DERIVED tables describe: the latest answered lesson check (the live path writes them right after each check, so the replayer bounds its replay at the same instant and the two agree row for row whatever happened since; review claim on rebuild equivalence).
-- `rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 995) — The replayer (``substrate.rebuild_orchestrator``): clear the three DERIVED tables and recompute them through the latest answered lesson check (:func:`tables_through`), exactly as the live path wrote them then.
-- `mass_mismatches(state: WeightState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1013) — Checks whose recorded mass a replay would not reproduce (the equivalence guard): the mass applied under its rule must equal the learned mass recomputed as of the check.
-- `pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1036) — The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_f…
+- `qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], after: str | None, *, until: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 724) — Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first attempt, with no reveal row on the item before it, and not a lesson probe answered after i…
+- `replay_state(vault: Any, repository: Any, *, as_of: str | None=None, through: str | None=None, prior_shift: Mapping[str, float] | None=None) -> WeightState` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 799) — The three posteriors from the ledgers, in order, with every event strictly before ``as_of`` (all of them when None): the prequential filter both the live check and the replayer run.
+- `lesson_check_mass(repository: Any, attempt_id: str, attempt_type: str) -> float | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 896) — The mass a lesson check's attempt enters mastery at, as recorded when it was graded; None for every other attempt (the type's configured mass applies).
+- `write_state(repository: Any, state: WeightState) -> dict[str, int]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 952) — Replace the three DERIVED tables with ``state`` (in the caller's transaction).
+- `any_lessons(repository: Any) -> bool` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 972)
+- `tables_through(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 979) — The instant the DERIVED tables describe: the latest answered lesson check (the live path writes them right after each check, so the replayer bounds its replay at the same instant and the two agree row for row whatever happened since; review claim on rebuild equivalence).
+- `rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 991) — The replayer (``substrate.rebuild_orchestrator``): clear the three DERIVED tables and recompute them through the latest answered lesson check (:func:`tables_through`), exactly as the live path wrote them then.
+- `mass_mismatches(state: WeightState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1009) — Checks whose recorded mass a replay would not reproduce (the equivalence guard): the mass applied under its rule must equal the learned mass recomputed as of the check.
+- `pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1032) — The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_f…
 
 ### Module constants
 
@@ -111,8 +111,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `RULE_FIXED` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 135)
 - `RULE_LEARNED` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 136)
 - `RULE_POOL` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 137)
-- `PRIOR_TERMS` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 800)
-- `DERIVED_TABLES` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 953)
+- `PRIOR_TERMS` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 796)
+- `DERIVED_TABLES` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 949)
 
 ### Explicit exports
 
@@ -170,13 +170,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_resolve_forecast(state: WeightState, forecast: Mapping[str, Any], outcome: Mapping[str, Any], share: float, mastery_config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 618)
 - `_calibrate(state: WeightState, attempt: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 637)
 - `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 662)
-- `_checks(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 692)
-- `_forecasts(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 712)
-- `_calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 768)
-- `_outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 788)
-- `_mass_detail(state: WeightState, check: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 881) — The check's recorded mass beside what the posterior as of the check gives (the equivalence guard: :func:`mass_mismatches`), with the recalibrated confidence term recomputed too.
-- `_state_rows(state: WeightState) -> tuple[list[tuple[Any, ...]], list[tuple[Any, ...]], list[tuple[Any, ...]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 918)
-- `_pool_moments(log_w: np.ndarray) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1029)
+- `_checks(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 688)
+- `_forecasts(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 708)
+- `_calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 764)
+- `_outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 784)
+- `_mass_detail(state: WeightState, check: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 877) — The check's recorded mass beside what the posterior as of the check gives (the equivalence guard: :func:`mass_mismatches`), with the recalibrated confidence term recomputed too.
+- `_state_rows(state: WeightState) -> tuple[list[tuple[Any, ...]], list[tuple[Any, ...]], list[tuple[Any, ...]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 914)
+- `_pool_moments(log_w: np.ndarray) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1025)
 
 ## Who imports or calls it
 

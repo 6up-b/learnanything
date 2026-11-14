@@ -17,7 +17,6 @@ import logging
 from typing import Any
 
 from learnloop.data_capture.gates import objective_receipts_on
-from learnloop.db.stores import router_objective as store
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +91,9 @@ def plan_block_at(repository: Any, extraction_id: str | None, at: str) -> str | 
 
 def fields(config: Any, repository: Any, *, context: str | None, initiator: str | None = None, block_id: str | None = None,
            session_id: str | None = None, visit_id: str | None = None) -> dict[str, Any]:
-    """The event's RO0 fields, ``{}`` off or below the migration (the writer then writes what it always did)."""
+    """The event's RO0 fields, ``{}`` when the receipts are off (the writer then writes what it always did)."""
 
     if not objective_receipts_on(config):
-        return {}
-    try:
-        with repository.connection() as connection:
-            if not store.column_present(connection, "source_exposure_events", "initiator"):
-                return {}
-    except Exception:  # noqa: BLE001 - a receipt never blocks an opening
-        logger.warning("router objective: the exposure's columns were not read", exc_info=True)
         return {}
     return {
         "initiator": initiator_for(context, initiator),

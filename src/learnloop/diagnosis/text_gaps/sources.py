@@ -696,8 +696,6 @@ def missed_formative_ids(repository: Repository, *, figures: bool = True) -> lis
 
 def _missed_answer_ids(repository: Repository) -> list[str]:
     with repository.connection() as connection:
-        if "scope_kind" not in {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}:
-            return []
         styles, checks = tuple(FORMATIVE_STYLES), tuple(MISSED_SELF_CHECKS)
         rows = connection.execute(
             f"SELECT id FROM reader_authored_questions WHERE scope_kind = 'selection' "

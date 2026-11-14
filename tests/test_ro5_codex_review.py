@@ -178,11 +178,12 @@ def test_f3_a_planted_causal_slope_is_recovered_through_the_coin():
 def _activity_db(attempts, reader=()):
     connection = sqlite3.connect(":memory:")
     connection.execute("CREATE TABLE practice_attempts (id TEXT, created_at TEXT, latency_seconds REAL, "
-                       "attempt_type TEXT, learning_object_id TEXT, correctness REAL)")
+                       "attempt_type TEXT, learning_object_id TEXT, correctness REAL, received_at TEXT)")
     connection.execute("CREATE TABLE interaction_events (kind TEXT, occurred_at TEXT, created_at TEXT, "
                        "payload_json TEXT)")
     for i, (at, seconds) in enumerate(attempts):
-        connection.execute("INSERT INTO practice_attempts VALUES (?, ?, ?, 'independent_attempt', 'L', 1.0)",
+        connection.execute("INSERT INTO practice_attempts (id, created_at, latency_seconds, attempt_type, learning_object_id, "
+                           "correctness) VALUES (?, ?, ?, 'independent_attempt', 'L', 1.0)",
                            (f"a{i}", at, seconds))
     for at, active in reader:
         connection.execute("INSERT INTO interaction_events VALUES ('reader_view_closed', ?, ?, ?)",
@@ -243,8 +244,8 @@ def test_f5_the_check_arm_off_restores_ro4s_weight_after_scores_accumulated(tmp_
 
 def test_f6_a_fractional_delay_is_scored_on_the_goals_own_date():
     connection = _activity_db([])
-    connection.execute("INSERT INTO practice_attempts VALUES ('exam1', '2026-01-02T12:00:00Z', 0, 'exam_evidence', "
-                       "'L', 1.0)")
+    connection.execute("INSERT INTO practice_attempts (id, created_at, latency_seconds, attempt_type, learning_object_id, "
+                       "correctness) VALUES ('exam1', '2026-01-02T12:00:00Z', 0, 'exam_evidence', 'L', 1.0)")
     row = {**_row(), "created_at": "2026-01-01T18:00:00Z"}
     trace = _trace()
     trace["evaluation"]["uses"]["dated"] = [{"goal_id": "g1", "lo": "L", "at_days": 0.75, "omega": 1.0, "m0": 0.5}]

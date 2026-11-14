@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts](../../../../../../../../apps/learnloop-tauri/src/screens/reader/figures/useFigures.ts) |
-| Source lines | 576 |
+| Source lines | 582 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/figures/_area|TypeScript/screens/reader/figures]] |
 | Refactor status | `ACTIVE` |
@@ -102,47 +102,47 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const cancel = ()` — const, line 307
 - `let job = await start()` — let, line 315
 - `const rich = job.state === "done" ? job.result?.rich ?? null : null` — const, line 324
-- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 330
-- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 331
-- `const command = getCommandError(error)` — const, line 343
-- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 354
-- `const spanIds = [...new Set(input.spanIds)]` — const, line 357
-- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 358
-- `const region = input.region && contract?.region ? input.region : null` — const, line 361
-- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 362
-- `const key = `req:$` — const, line 363
-- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 364
-- `const anchored = spanIds.length > 0 || region !== null` — const, line 371
-- `const readingAt = input.readingAt?.spanId ?` — const, line 372
-- `const refresh = useCallback(()` — const, line 392
-- `const mine = generation.current` — const, line 394
-- `const cancelRich = useCallback((richJobId: string)` — const, line 405
-- `const retryRich = useCallback((richJobId: string)` — const, line 410
-- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 416
-- `const revise = useCallback( (figure: FigureViewDto, note: string, differentKind?: boolean)` — const, line 424
-- `const rebuild = useCallback( (figure: FigureViewDto)` — const, line 434
-- `const rechecking = useRef(new Set<string>())` — const, line 444
-- `const recheck = useCallback( (figure: FigureViewDto)` — const, line 445
-- `const started = await Promise.resolve(api.readerFigureRecheck(` — const, line 450
-- `let state = started?.state` — let, line 451
-- `const jobId = started?.jobId` — const, line 452
-- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 463
-- `const patch = (figure: FigureViewDto): FigureViewDto` — const, line 464
-- `const follow = useCallback( async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean>` — const, line 473
-- `const mine = generation.current` — const, line 476
-- `const mineFollow = followGeneration.current` — const, line 477
-- `const current = ()` — const, line 478
-- `const refuse = ()` — const, line 481
-- `const keys = new Set(followedRef.current.filter((entry)` — const, line 483
-- `let found: FigureViewDto | undefined` — let, line 490
-- `const listed = await api.readerFigures(` — const, line 493
-- `const figure: FigureViewDto =` — const, line 503
-- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 512
-- `const found = await api.readerFigurePredict(` — const, line 515
-- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 522
-- `const found = await api.readerFigureExplain(` — const, line 525
-- `const shownFollowed = useMemo(()` — const, line 533
-- `const under = useCallback( (spanId: string | null | undefined)` — const, line 535
+- `const figure = job.state === "done" ? job.result?.figure ?? null : null` — const, line 336
+- `const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative")` — const, line 337
+- `const command = getCommandError(error)` — const, line 349
+- `const request = useCallback( (input: FigureRequestInput): Promise<FigureRequestOutcome>` — const, line 360
+- `const spanIds = [...new Set(input.spanIds)]` — const, line 363
+- `const anchor = spanIds[spanIds.length - 1] ?? input.region?.spanId ?? input.readingAt?.spanId ?? ""` — const, line 364
+- `const region = input.region && contract?.region ? input.region : null` — const, line 367
+- `const goal = input.goalText?.trim() ? input.goalText.trim() : null` — const, line 368
+- `const key = `req:$` — const, line 369
+- `const origin = input.origin ?? (goal ? "show_me" : "selection")` — const, line 370
+- `const anchored = spanIds.length > 0 || region !== null` — const, line 377
+- `const readingAt = input.readingAt?.spanId ?` — const, line 378
+- `const refresh = useCallback(()` — const, line 398
+- `const mine = generation.current` — const, line 400
+- `const cancelRich = useCallback((richJobId: string)` — const, line 411
+- `const retryRich = useCallback((richJobId: string)` — const, line 416
+- `const answerManimOptIn = useCallback((choice: "allow" | "decline")` — const, line 422
+- `const revise = useCallback( (figure: FigureViewDto, note: string, differentKind?: boolean)` — const, line 430
+- `const rebuild = useCallback( (figure: FigureViewDto)` — const, line 440
+- `const rechecking = useRef(new Set<string>())` — const, line 450
+- `const recheck = useCallback( (figure: FigureViewDto)` — const, line 451
+- `const started = await Promise.resolve(api.readerFigureRecheck(` — const, line 456
+- `let state = started?.state` — let, line 457
+- `const jobId = started?.jobId` — const, line 458
+- `const patchPrediction = useCallback((found: FigurePredictionResultDto)` — const, line 469
+- `const patch = (figure: FigureViewDto): FigureViewDto` — const, line 470
+- `const follow = useCallback( async (ref: CorrespondentFigureDto, home: FigureHome, at: string): Promise<boolean>` — const, line 479
+- `const mine = generation.current` — const, line 482
+- `const mineFollow = followGeneration.current` — const, line 483
+- `const current = ()` — const, line 484
+- `const refuse = ()` — const, line 487
+- `const keys = new Set(followedRef.current.filter((entry)` — const, line 489
+- `let found: FigureViewDto | undefined` — let, line 496
+- `const listed = await api.readerFigures(` — const, line 499
+- `const figure: FigureViewDto =` — const, line 509
+- `const predict = useCallback( async (figure: FigureViewDto, index: number, answer: string)` — const, line 518
+- `const found = await api.readerFigurePredict(` — const, line 521
+- `const explain = useCallback( async (_figure: FigureViewDto, predictionId: string, text: string)` — const, line 528
+- `const found = await api.readerFigureExplain(` — const, line 531
+- `const shownFollowed = useMemo(()` — const, line 539
+- `const under = useCallback( (spanId: string | null | undefined)` — const, line 541
 
 ## Who imports or calls it
 
@@ -166,7 +166,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CorrespondentFigureDto`, `FigureBuildResultDto`, `FigurePredictionResultDto`, `FigureRichPendingDto`, `FigureViewDto`, `LibraryJobDto`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`, `getCommandError`
-- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export; imports `frameBadge`
+- [[Reference/Desktop/TypeScript/screens/reader/figures/FigureInline|src/screens/reader/figures/FigureInline.tsx]] — import-or-re-export; imports `SOURCE_CHECK_COPY`, `frameBadge`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 
 ### Assets, platform, and third-party dependencies

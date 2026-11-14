@@ -250,6 +250,12 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
     # rich spawner, so no rich tier on the author's menu, no rich job and no
     # fuller version); rich (Manim) figures stay Reader-side.
     spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
+    # The job exists only once ``start`` makes it, and ``on_job`` hands it over
+    # before the work runs (inline or on its thread).
+    started: list[Any] = []
+
+    def cancelled() -> bool:
+        return bool(started) and started[0].cancelled
 
     def work(worker_repo: Any) -> dict[str, Any]:
         from learnloop.figures.foreground import foreground
@@ -260,7 +266,8 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
             # pressed build is foreground work (background prebuilds yield).
             with foreground("figure"):
                 outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
-                                          live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn)
+                                          live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn,
+                                          cancelled=cancelled)
         except FS.FigureRefused as exc:
             raise _refused(exc) from exc
         result: dict[str, Any] = {"figure": outcome.view, "reused": outcome.reused}
@@ -272,7 +279,8 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
             result["_attempt"] = dict(attempt)
         return result
 
-    job = _jobs(ctx).start(ctx, "figure_build", None, work, deliver=lambda result: deliver_figure(ctx, result))
+    job = _jobs(ctx).start(ctx, "figure_build", None, work, deliver=lambda result: deliver_figure(ctx, result),
+                           on_job=started.append)
     return _job_payload(job)
 
 

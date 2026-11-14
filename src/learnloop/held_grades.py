@@ -27,7 +27,7 @@ clears it, so no earlier vault holds anything by it.
 
 This module is the ledger's evaluation of that predicate, for every reader of
 a persisted attempt; the attempt step evaluates the same predicate in flight
-(``attempts._compute_resolved_grade_application``), because the live door
+(``attempts.grade_scope``), because the live door
 writes the blind record after the step. It is a leaf (it reads the database
 through the caller's connection or repository and imports only
 ``outcome_contract``), so learner, placement and scheduling code read it

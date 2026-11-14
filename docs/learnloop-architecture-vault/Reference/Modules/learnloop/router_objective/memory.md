@@ -47,43 +47,42 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py) |
-| Source lines | 323 |
+| Source lines | 319 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `sigmoid(x: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 75)
-- `logit(p: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 79)
-- `class Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 85) — The combination's coefficients: a posterior mean and variance each (diagonal), on ``form``'s parameters: ``(a0, aA, aR)`` for :data:`FORM_LINEAR`, ``(a0, log aA, log(aA − aR))`` for :data:`FORM_MONOTONE`.
-  - `as_dict(self) -> dict[str, object]` (line 98; public)
-  - `coefficients(self, z: np.ndarray) -> np.ndarray` (line 113; public) — ``(a0, aA, aR)`` per row of standard normal draws ``z`` shaped ``(K, 3)``: the posterior's draws.
-  - `at_mean(self) -> 'Combiner'` (line 125; public) — No parameter uncertainty, each coefficient at its posterior mean (the belief's own world): a log-normal slope's mean is ``exp(μ + σ²/2)``, not its median.
-- `monotone_prior(**fields: Any) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 135) — Landing ruling R6's labelled prior (:data:`FORM_MONOTONE`).
-- `features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 141) — The combiner's design columns ``(1, η, (logit R − η)·[practiced])``, stacked on the last axis.
-- `perform(coefficients: np.ndarray, eta: np.ndarray, retrievability: np.ndarray, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 151) — ``P(perform)``: ``coefficients`` shaped ``(K, 3)`` against ``(K, N)`` sensors.
-- `fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combiner | None=None) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 161) — The posterior of the combiner on ``(η, R or None, outcome 0/1)`` rows: a Laplace approximation by damped Newton on the log posterior (diagonal Gaussian prior).
-- `class Fsrs` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 266) — :mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good).
-  - `retrievability(self, stability: np.ndarray, elapsed: np.ndarray) -> np.ndarray` (line 274; public)
-  - `_initial_difficulty(self, rating: np.ndarray) -> np.ndarray` (line 283; internal)
-  - `review(self, difficulty: np.ndarray, stability: np.ndarray, practiced: np.ndarray, elapsed: np.ndarray, good: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 287; public) — ``apply_review`` for each element: a first review where ``practiced`` is False.
+- `sigmoid(x: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 78)
+- `logit(p: np.ndarray | float) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 82)
+- `class Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 88) — The combination's coefficients: a posterior mean and variance each (diagonal), on ``form``'s parameters: ``(a0, aA, aR)`` for :data:`FORM_LINEAR`, ``(a0, log aA, log(aA − aR))`` for :data:`FORM_MONOTONE`.
+  - `as_dict(self) -> dict[str, object]` (line 101; public)
+  - `coefficients(self, z: np.ndarray) -> np.ndarray` (line 116; public) — ``(a0, aA, aR)`` per row of standard normal draws ``z`` shaped ``(K, 3)``: the posterior's draws.
+  - `at_mean(self) -> 'Combiner'` (line 128; public) — No parameter uncertainty, each coefficient at its posterior mean (the belief's own world): a log-normal slope's mean is ``exp(μ + σ²/2)``, not its median.
+- `monotone_prior(**fields: Any) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 138) — Landing ruling R6's labelled prior (:data:`FORM_MONOTONE`).
+- `features(eta: np.ndarray, retrievability: np.ndarray | None, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 144) — The combiner's design columns ``(1, η, (logit R − η)·[practiced])``, stacked on the last axis.
+- `perform(coefficients: np.ndarray, eta: np.ndarray, retrievability: np.ndarray, practiced: np.ndarray) -> np.ndarray` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 154) — ``P(perform)``: ``coefficients`` shaped ``(K, 3)`` against ``(K, N)`` sensors.
+- `fit_combiner(rows: Sequence[tuple[float, float | None, int]], prior: Combiner | None=None) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 164) — The posterior of the combiner on ``(η, R or None, outcome 0/1)`` rows: a Laplace approximation by damped Newton on the log posterior (diagonal Gaussian prior).
+- `class Fsrs` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 269) — :mod:`learnloop.scheduling.fsrs`'s formulas over arrays (ratings: 1 again, 3 good).
+  - `_initial_difficulty(self, rating: np.ndarray) -> np.ndarray` (line 279; internal)
+  - `review(self, difficulty: np.ndarray, stability: np.ndarray, practiced: np.ndarray, elapsed: np.ndarray, good: np.ndarray) -> tuple[np.ndarray, np.ndarray]` (line 283; public) — ``apply_review`` for each element: a first review where ``practiced`` is False.
 
 ### Module constants
 
-- `MEMORY_MODEL_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 37)
-- `COMBINER_FIT_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 40)
-- `COMBINER_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 42)
-- `COMBINER_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 43)
-- `FORM_LINEAR` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 50)
-- `FORM_MONOTONE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 51)
-- `_AA` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 64)
-- `_B` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 65)
-- `MONOTONE_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 66)
-- `MONOTONE_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 67)
-- `_R_CLIP` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 69)
-- `_FIT_ITERATIONS` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 71)
-- `_FIT_TOLERANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 72)
+- `MEMORY_MODEL_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 40)
+- `COMBINER_FIT_VERSION` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 43)
+- `COMBINER_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 45)
+- `COMBINER_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 46)
+- `FORM_LINEAR` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 53)
+- `FORM_MONOTONE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 54)
+- `_AA` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 67)
+- `_B` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 68)
+- `MONOTONE_PRIOR_MEAN` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 69)
+- `MONOTONE_PRIOR_VARIANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 70)
+- `_R_CLIP` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 72)
+- `_FIT_ITERATIONS` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 74)
+- `_FIT_TOLERANCE` ([src/learnloop/router_objective/memory.py](../../../../../../src/learnloop/router_objective/memory.py), line 75)
 
 ### Explicit exports
 
@@ -107,15 +106,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_log_normal(mean: float, variance: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 54) — The ``(μ, σ²)`` of the log-normal with this mean and variance (moment matching).
-- `_fit_monotone(eta: np.ndarray, r: np.ndarray, practiced: np.ndarray, y: np.ndarray, prior: Combiner) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 207) — Landing ruling R6: the Laplace fit on :data:`FORM_MONOTONE`'s parameters ``θ = (a0, log aA, log b)``.
+- `_log_normal(mean: float, variance: float) -> tuple[float, float]` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 57) — The ``(μ, σ²)`` of the log-normal with this mean and variance (moment matching).
+- `_fit_monotone(eta: np.ndarray, r: np.ndarray, practiced: np.ndarray, y: np.ndarray, prior: Combiner) -> Combiner` ([source](../../../../../../src/learnloop/router_objective/memory.py), line 210) — Landing ruling R6: the Laplace fit on :data:`FORM_MONOTONE`'s parameters ``θ = (a0, log aA, log b)``.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`, `Fsrs`, `fit_combiner`, `monotone_prior`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Combiner`, `fit_combiner`, `monotone_prior`
 - [[Reference/Modules/learnloop/router_objective/goal_read|learnloop.router_objective.goal_read]] — imports `module`; statically calls `Combiner`, `fit_combiner`
 - [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `Combiner`, `Fsrs`, `logit`, `perform`, `sigmoid`; statically calls `Fsrs`, `logit`, `perform`, `sigmoid`
 
@@ -123,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability_array`; calls `retrievability_array`
 
 ### Platform and third-party dependencies
 

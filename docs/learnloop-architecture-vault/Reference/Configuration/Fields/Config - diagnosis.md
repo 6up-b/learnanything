@@ -33,12 +33,12 @@ source_paths:
   - "tests/diagnosis_input_provenance_helpers.py"
   - "tests/followup_fg1d_probe_shadow_helpers.py"
   - "tests/forecast_receipts_helpers.py"
+  - "tests/grade_application_golden_helpers.py"
   - "tests/held_grade_evidence_helpers.py"
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/http_provider_double.py"
   - "tests/identity_pins_helpers.py"
-  - "tests/mcp_world.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -75,7 +75,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `diagnosis.card_enabled` | `true` | boolean | modeled default or validator seed | Turns card behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1998`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/split/card.py:232` |
 | `diagnosis.forward_card_taps` | `true` | boolean | modeled default or validator seed | Turns forward card taps behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1999`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/split/card.py:346` |
 | `diagnosis.chat_shows_recorded_text` | `false` | boolean | modeled default or validator seed | Turns chat shows recorded text behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2009`; `src/learnloop/ai/plan_fallback.py:138` |
-| `diagnosis.grading_support` | `true` | boolean | modeled default or validator seed | Turns grading support behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2012`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:2170` |
+| `diagnosis.grading_support` | `true` | boolean | modeled default or validator seed | Turns grading support behavior on or off within Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2012`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/attempts/attempts.py:2180` |
 | `diagnosis.knn_limit` | `8` | integer | modeled default or validator seed | Caps knn allowed by Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2014`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/split/live.py:81` |
 | `diagnosis.hybrid_keep` | `6` | integer | modeled default or validator seed | Controls hybrid keep in Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2015`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/split/live.py:82` |
 | `diagnosis.rrf_k` | `60` | integer | modeled default or validator seed | Controls rrf k in Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2016`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/diagnosis/split/live.py:83` |
@@ -97,12 +97,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_input_provenance_helpers.py`
 - `tests/followup_fg1d_probe_shadow_helpers.py`
 - `tests/forecast_receipts_helpers.py`
+- `tests/grade_application_golden_helpers.py`
 - `tests/held_grade_evidence_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/http_provider_double.py`
 - `tests/identity_pins_helpers.py`
-- `tests/mcp_world.py`
 
 ## Extension and modification guidance
 

@@ -66,6 +66,8 @@ Validation checks rubric totals, criterion IDs and maxima, quote anchors against
 
 `compute_attempt_application` produces a complete in-memory application before the persistence phase: attempt record, evidence rows, error events, surprise, item memory, LO mastery calibration, canonical updates, quality state, ability transition, debug payload, and item parameters. This makes replay use the same semantics as live application.
 
+The computation is a shell around a pure core (`attempts/attempts.py`). The shell, `_compute_resolved_grade_application`, resolves the attempt's target and reads the clock into a frozen `GradeInputs`, which also carries the loaded config, facet alias map and error taxonomy. `grade_scope` (pure) decides what the grade assessed, whether it is held, and the evidence's coverage. The shell then makes every read the arithmetic needs into `GradeReads`, in a fixed order: the learner's prior state for the facets that coverage names (the one read that waits on the arithmetic), the grade channel's interpretation variance, a lesson check's recorded mass, the learning object's coverage and breadth reads, the FSRS weights, the answer key's status, the error events' ids and, on replay, the stored evidence rows. `grade_application` (pure) turns the three into the application, in parts: the kept attributions and their severities, the evidence and its mastery observation, the belief update and surprise, the FSRS review, then the rows. Neither stage reads storage, the clock or the vault, so the arithmetic is tested with plain values (`tests/test_grade_application_core.py`), and one graded history pins every field and row, live and after a rebuild (`tests/test_grade_application_golden.py`). The map and the reasons for the order are in `docs/reviews/refactor-i1.md`.
+
 ## Assistance and reveal
 
 Hints, source-visible work, priming, answer reveals, and tutor exposure are recorded separately and dampen or disqualify specific evidence uses. A revealed cold follow-up is deferred instead of burning a single-use measurement. See [[Evidence and Measurement#Assistance, familiarity, and independence]].
@@ -93,6 +95,7 @@ Exam sittings run all evidence-side steps but cap queue/need insertions per sitt
 ## Tests
 
 - `tests/test_attempts.py`
+- `tests/test_grade_application_core.py`, `tests/test_grade_application_golden.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_post_attempt_pipeline.py`
 - `tests/test_attempt_completion.py`

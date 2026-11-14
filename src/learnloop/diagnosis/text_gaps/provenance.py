@@ -45,14 +45,9 @@ TUTOR_UNRECORDED = "the tutor's reading of a question does not record what the t
 
 
 def _question_row(connection: Any, event_id: str) -> dict[str, Any] | None:
-    columns = {column[1] for column in connection.execute("PRAGMA table_info(question_events)")}
-    if not columns:
-        return None
-    contract = "assessment_contract_version_id" if "assessment_contract_version_id" in columns else "NULL"
-    source = "source_context_json" if "source_context_json" in columns else "NULL"
-    note = "note_id" if "note_id" in columns else "NULL"
     row = connection.execute(
-        f"SELECT practice_item_id, attempt_id, context, created_at, {contract}, {source}, {note} "
+        "SELECT practice_item_id, attempt_id, context, created_at, assessment_contract_version_id, "
+        "source_context_json, note_id "
         "FROM question_events WHERE id = ?", (str(event_id),),
     ).fetchone()
     if row is None:

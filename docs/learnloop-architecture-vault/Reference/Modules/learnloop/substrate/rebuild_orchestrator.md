@@ -237,6 +237,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_replayer_reads_the_figure_tables`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_replay_neither_reads_nor_writes_forecast_receipts`
+- [tests/test_grade_application_golden.py](../../../../../../tests/test_grade_application_golden.py) — direct import
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import

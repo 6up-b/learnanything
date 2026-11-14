@@ -203,7 +203,7 @@ def _build(vault: Any, repository: Any, los: list[str], now_iso: str) -> ReaderL
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         past = protection.PastWork(connection, vault, repository, withheld=withheld)
         # RO1 (landing ruling R1): the attempts known at ``now_iso``, newest by when they happened.
-        known = attempt_time_sql(vault.config, connection)
+        known = attempt_time_sql(vault.config)
         attempts = [dict(row) for row in connection.execute(
             "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, hints_used, primed, "
             f"created_at FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "

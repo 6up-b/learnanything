@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../api/client";
 import type { CorrespondentFigureDto, FigureBuildResultDto, FigurePredictionResultDto, FigureRichPendingDto, FigureViewDto, LibraryJobDto } from "../../../api/dto";
 import { errorMessage, getCommandError } from "../../../errors";
-import { frameBadge } from "./FigureInline";
+import { frameBadge, SOURCE_CHECK_COPY } from "./FigureInline";
 import { passageKeys } from "../readerShared";
 
 /** How often a running build is read (a background job: no hurry). */
@@ -326,6 +326,12 @@ export function useFigures({
             // RW5d P2b: only a rich figure is being built: its pending line under the passage.
             setRichPending((list) => [...list.filter((line) => line.richJobId !== rich.richJobId), rich]);
             return "shown";
+          }
+          if (job.state === "done" && !job.result?.figure && job.result?.withheld === true) {
+            // Held out between the build and its delivery: without this line the press
+            // would end with nothing under the passage and no word why.
+            setPending((list) => [...list, { key, anchorSpanId, state: "failed", message: SOURCE_CHECK_COPY.block_withheld, code: "withheld", retry, cancel }]);
+            return "not_shown";
           }
           const figure = job.state === "done" ? job.result?.figure ?? null : null;
           const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");

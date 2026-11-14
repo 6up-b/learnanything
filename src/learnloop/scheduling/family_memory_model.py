@@ -15,7 +15,7 @@ import json
 import math
 
 from learnloop.clock import parse_utc
-from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, forgetting_curve
+from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, retrievability
 
 MEMORY_KEYS = ("item", "family", "lo")
 
@@ -74,7 +74,7 @@ class FamilyMemory:
             # An explicit cold-start constant, not a fabricated FSRS history.
             return 0.5
         elapsed = (_instant(features.observed_at) - prior.last_review_at).total_seconds() / 86400
-        return min(1 - 1e-9, max(1e-9, forgetting_curve(prior.state.stability, elapsed, self.weights)))
+        return min(1 - 1e-9, max(1e-9, retrievability(prior.state.stability, elapsed, self.weights)))
 
     def scores(self, row) -> bool:
         """Memory arms are scored on graded cold retrievals only, never warm rows."""

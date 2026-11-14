@@ -132,8 +132,6 @@ def fields_at_ask(repository: Any, *, context: str, practice_item_id: str | None
 
     try:
         with repository.connection() as connection:
-            if not store.column_present(connection, "question_events", "reveal_state_json"):
-                return {}
             assists = _assists(connection, practice_item_id) if practice_item_id else []
             reveals = _reveals(connection, practice_item_id) if practice_item_id else {}
             hints_before = _hints_before(assists, session_id)

@@ -27,6 +27,7 @@ source_paths:
   - "tests/test_hypothesis_marks_context.py"
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
+  - "tests/test_kill_switches.py"
   - "tests/test_mobile_v2_feedback.py"
   - "tests/test_probe_instance_generation.py"
 tags:
@@ -69,6 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_context.py`
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_kill_switches.py`
 - `tests/test_mobile_v2_feedback.py`
 - `tests/test_probe_instance_generation.py`
 

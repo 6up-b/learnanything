@@ -522,6 +522,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exercise_arm.py](../../../../../../tests/test_exercise_arm.py) — direct import
   - `test_an_exercise_keeps_its_setup_and_its_unnumbered_lines`
   - `test_page_furniture_and_empty_blocks_never_form_an_exercise`
+- [tests/test_f1_schema_facts.py](../../../../../../tests/test_f1_schema_facts.py) — direct import
+  - `test_a_prefetch_job_asks_the_schema_nothing_and_opens_few_connections`
+  - `test_the_history_cards_received_at_tables_are_the_migrated_schemas`
 - [tests/test_facet_rewords_migration.py](../../../../../../tests/test_facet_rewords_migration.py) — direct import
   - `test_migration_196_upgrades_a_195_vault_keeping_actions_and_the_forecast_log`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import

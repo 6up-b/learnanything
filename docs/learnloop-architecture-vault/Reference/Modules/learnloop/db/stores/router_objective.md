@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py) |
-| Source lines | 270 |
+| Source lines | 260 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,19 +56,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `table_present(connection: sqlite3.Connection, table: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 41)
-- `column_present(connection: sqlite3.Connection, table: str, column: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 47) — Whether the database has the column (a vault below migration 243 has not).
-- `split_receipt(table: str, row: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 98) — ``row`` as its predecessor wrote it (RO0's fields out), and RO0's fields on it that hold a value.
-- `fill_receipt(connection: sqlite3.Connection, table: str, key: Any, values: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 106) — RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write (a vault below migration 243 has no such column), or refused, with a warning, and the row stands with them null.
-- `insert_session_receipt(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 131) — One session receipt, or False: refused (a warning), or that session already has one of this kind.
-- `session_receipt(connection: sqlite3.Connection, session_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 137)
-- `insert_decision_state(connection: sqlite3.Connection, row: Mapping[str, Any], content: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 145) — One decision's state, compressed, or False (a warning) when refused.
-- `decision_state(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 154) — One decision's receipt with its state decompressed (read-only), or None.
-- `insert_trace(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 174) — RO4 §8.8: one decision's trace (migration 246), in its own savepoint; False (a warning) when refused.
-- `trace(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 182) — One decision's trace with its JSON decoded (read-only), or None.
-- `traces(connection: sqlite3.Connection, *, since: str | None=None, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 196) — The traces' columns (not their JSON), oldest first.
-- `insert_goal_event(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 214)
-- `insert_assignment(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 227) — One RO5 assignment, in its own savepoint; False (a warning) when refused.
-- `latest_goal_events(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 235) — Each goal's newest lifecycle row, what the next load compares its YAML against.
+- `split_receipt(table: str, row: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 92) — ``row`` as its predecessor wrote it (RO0's fields out), and RO0's fields on it that hold a value.
+- `fill_receipt(connection: sqlite3.Connection, table: str, key: Any, values: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 100) — RO0's fields on a row just inserted without them, in their own savepoint, or False: nothing to write, or refused, with a warning, and the row stands with them null.
+- `insert_session_receipt(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 122) — One session receipt, or False: refused (a warning), or that session already has one of this kind.
+- `session_receipt(connection: sqlite3.Connection, session_id: str, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 128)
+- `insert_decision_state(connection: sqlite3.Connection, row: Mapping[str, Any], content: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 136) — One decision's state, compressed, or False (a warning) when refused.
+- `decision_state(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 145) — One decision's receipt with its state decompressed (read-only), or None.
+- `insert_trace(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 165) — RO4 §8.8: one decision's trace (migration 246), in its own savepoint; False (a warning) when refused.
+- `trace(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 173) — One decision's trace with its JSON decoded (read-only), or None.
+- `traces(connection: sqlite3.Connection, *, since: str | None=None, limit: int | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 187) — The traces' columns (not their JSON), oldest first.
+- `insert_goal_event(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 205)
+- `insert_assignment(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 218) — One RO5 assignment, in its own savepoint; False (a warning) when refused.
+- `latest_goal_events(connection: sqlite3.Connection) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 226) — Each goal's newest lifecycle row, what the next load compares its YAML against.
 
 ### Module constants
 
@@ -78,13 +77,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `SESSION_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 25)
 - `STATE_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 30)
 - `GOAL_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 35)
-- `RECEIPT_FIELDS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 73)
-- `_RECEIPT_KEYS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 84)
-- `_RECEIPT_WHAT` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 88)
-- `TRACES` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 165)
-- `TRACE_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 166)
-- `ASSIGNMENTS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 220)
-- `ASSIGNMENT_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 221)
+- `RECEIPT_FIELDS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 67)
+- `_RECEIPT_KEYS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 78)
+- `_RECEIPT_WHAT` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 82)
+- `TRACES` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 156)
+- `TRACE_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 157)
+- `ASSIGNMENTS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 211)
+- `ASSIGNMENT_COLUMNS` ([src/learnloop/db/stores/router_objective.py](../../../../../../../src/learnloop/db/stores/router_objective.py), line 212)
 
 ### Explicit exports
 
@@ -104,7 +103,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `SESSION_COLUMNS`
 - `SESSION_RECEIPTS`
 - `STATE_COLUMNS`
-- `column_present`
 - `decision_state`
 - `insert_decision_state`
 - `insert_goal_event`
@@ -118,7 +116,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...], row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 53)
+- `_append(connection: sqlite3.Connection, table: str, columns: tuple[str, ...], row: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_objective.py), line 47)
 
 ## Who imports or calls it
 
@@ -129,15 +127,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`; statically calls `append`, `fill_receipt`, `split_receipt`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; statically calls `fill_receipt`, `split_receipt`
 - [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] — imports `module`; statically calls `fill_receipt`, `split_receipt`
-- [[Reference/Modules/learnloop/router_objective/ask_availability|learnloop.router_objective.ask_availability]] — imports `module`; statically calls `column_present`
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; statically calls `insert_assignment`
 - [[Reference/Modules/learnloop/router_objective/combiner_data|learnloop.router_objective.combiner_data]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; statically calls `insert_decision_state`, `table_present`
-- [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; statically calls `column_present`
 - [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/goal_lifecycle|learnloop.router_objective.goal_lifecycle]] — imports `module`; statically calls `insert_goal_event`, `latest_goal_events`, `table_present`
 - [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] — imports `module`; statically calls `table_present`
-- [[Reference/Modules/learnloop/router_objective/question_state|learnloop.router_objective.question_state]] — imports `module`; statically calls `column_present`, `table_present`
+- [[Reference/Modules/learnloop/router_objective/question_state|learnloop.router_objective.question_state]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] — imports `module`; statically calls `table_present`
 - [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `module`; statically calls `insert_session_receipt`, `table_present`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; statically calls `table_present`
@@ -163,7 +159,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]], [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]], [[Reference/Modules/learnloop/router_objective/ask_availability|learnloop.router_objective.ask_availability]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]], [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]], [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

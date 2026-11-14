@@ -246,12 +246,10 @@ def current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapp
     with repository.connection() as connection, read_snapshot(connection):
         tap = attempt.get("answer_confidence")
         if "answer_confidence" not in attempt:
-            columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
-            if "answer_confidence" in columns:
-                found = connection.execute(
-                    "SELECT answer_confidence FROM practice_attempts WHERE id = ?", (attempt_id,)
-                ).fetchone()
-                tap = found[0] if found is not None else None
+            found = connection.execute(
+                "SELECT answer_confidence FROM practice_attempts WHERE id = ?", (attempt_id,)
+            ).fetchone()
+            tap = found[0] if found is not None else None
         hedge = ce.hedge_from_record(record)
         if hedge is None and vault_grade:
             hedge = ce.read_hedges(connection, [attempt_id]).get(attempt_id)

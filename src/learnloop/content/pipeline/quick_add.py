@@ -435,10 +435,12 @@ def enqueue_quick_add(
     role_override: str | None = None,
     output_budget_tokens: int | None = None,
     unlimited_token_budget: bool = False,
+    create_goal: bool = False,
     batch_id: str | None = None,
 ) -> dict[str, Any]:
     """Post-confirmation step: create the source set from the plan and enqueue the
-    priority [inventory(selected) -> bootstrap_synthesis] build batch (§1)."""
+    priority [inventory(selected) -> bootstrap_synthesis] build batch (§1).
+    ``create_goal``: an exam-prep brief's Goal is made with the map (§5.1)."""
 
     from learnloop.vault.writer import upsert_source_set
 
@@ -479,6 +481,7 @@ def enqueue_quick_add(
         mode="auto",
         output_budget_tokens=output_budget_tokens,
         unlimited_token_budget=unlimited_token_budget,
+        create_goal=create_goal,
         **({"batch_id": batch_id} if batch_id is not None else {}),
     )
     return {

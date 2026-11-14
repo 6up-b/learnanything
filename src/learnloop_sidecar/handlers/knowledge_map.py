@@ -551,7 +551,7 @@ def _facet_current_retentions(vault, repository) -> dict[str, float]:
 
     from learnloop.clock import parse_utc
     from learnloop.params.fitted_params import resolve_fsrs_weights
-    from learnloop.scheduling.fsrs import forgetting_curve
+    from learnloop.scheduling.fsrs import retrievability
 
     now = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     states = repository.practice_item_states()
@@ -563,7 +563,7 @@ def _facet_current_retentions(vault, repository) -> dict[str, float]:
         if state is None or state.stability is None or last_attempt is None:
             continue
         elapsed = max(0.0, (now - last_attempt).total_seconds() / 86400.0)
-        retention = forgetting_curve(state.stability, elapsed, weights)
+        retention = retrievability(state.stability, elapsed, weights)
         for raw_facet in item.evidence_facets:
             facet = vault.canonical_facet_id(str(raw_facet))
             weight = max(float(item.evidence_weights.get(str(raw_facet), 1.0)), 0.01)

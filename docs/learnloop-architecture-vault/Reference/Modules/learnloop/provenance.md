@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `trace_scope`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `trace_scope`
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
@@ -111,7 +111,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`, `where`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `current_trace`, `trace_scope`, `write`
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; statically calls `DecisionRecord`, `check_no_prose`, `current_trace`, `new_trace_id`, `where`
-- [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`, `write`, `write_through`
+- [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`, `where`, `write`, `write_through`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `DecisionRecord`, `is_code`, `where`; statically calls `DecisionRecord`, `is_code`, `where`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`
@@ -176,6 +176,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecar_records_a_rejected_probe_value`
 - [tests/test_figure_decision_records.py](../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
+- [tests/test_figure_rich_job.py](../../../../../tests/test_figure_rich_job.py) — direct import
+  - `test_the_rich_job_continues_the_press_trace`
 - [tests/test_figure_wait_estimate.py](../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_at_the_tag_the_rows_say_v2_and_the_records_carry_ws_basis`
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import

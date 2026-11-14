@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/checks.py](../../../../../../src/learnloop/router_objective/checks.py) |
-| Source lines | 751 |
+| Source lines | 749 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -74,16 +74,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `admits(self, occurred: Any, received: Any=None) -> bool` (line 498; public) — Whether an event that happened at ``occurred`` (and, for an answer, became known at ``received``, None where the two are one) is in the read: both at or before the closure.
 - `class Ledger` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 529) — Every event a check's resolution counts, read once with its times, so many closures (one per scored window) read one snapshot; each read filters it through :meth:`Closure.admits` alone.
   - `__init__(self, connection: Any) -> None` (line 534; internal)
-  - `_graded(self, attempt: Mapping[str, Any], assisted: bool) -> tuple[str | None, float | None]` (line 581; internal) — The answer's exclusion and label, as its grade stands NOW (Codex review F1; :class:`Closure`).
-  - `sessions_by_day(self, closure: Closure) -> dict[str, list[str]]` (line 593; public)
-  - `drawn_days(self, closure: Closure) -> list[dict[str, Any]]` (line 602; public)
-  - `resolve(self, closure: Closure) -> list[Resolved]` (line 606; public) — Every slot assigned as of ``closure``, with its status (module docstring) as it stood then.
-  - `completion(self, closure: Closure) -> dict[str, Any]` (line 655; public)
-  - `r_for(self, local_date: str, closure: Closure) -> tuple[dict[str, float], str]` (line 685; public)
-- `resolve(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 695) — Every assigned slot as of its closure (``through`` a local date, its end; or ``closure``), with its status (module docstring), every event read through :meth:`Closure.admits` (landing ruling R1): an assignment, administration, skip, displacement or answer after the closure is no…
-- `completion(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 705) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
-- `r_for(connection: Any, *, local_date: str, closure: Closure | None=None, ledger: Ledger | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 715) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session), every draw as of ``closure`` (by default the end of ``local_date``).
-- `support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 724) — RO6's landing ruling R7: each topic's check support for the days after ``at``, as known at ``at`` (a stop coin's draw): ``r_L`` of the latest day drawn as of ``Closure.at(at)``, every draw admitted through :meth:`Closure.admits` (RO1's availability predicate on its assignment ro…
+  - `_graded(self, attempt: Mapping[str, Any], assisted: bool) -> tuple[str | None, float | None]` (line 579; internal) — The answer's exclusion and label, as its grade stands NOW (Codex review F1; :class:`Closure`).
+  - `sessions_by_day(self, closure: Closure) -> dict[str, list[str]]` (line 591; public)
+  - `drawn_days(self, closure: Closure) -> list[dict[str, Any]]` (line 600; public)
+  - `resolve(self, closure: Closure) -> list[Resolved]` (line 604; public) — Every slot assigned as of ``closure``, with its status (module docstring) as it stood then.
+  - `completion(self, closure: Closure) -> dict[str, Any]` (line 653; public)
+  - `r_for(self, local_date: str, closure: Closure) -> tuple[dict[str, float], str]` (line 683; public)
+- `resolve(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> list[Resolved]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 693) — Every assigned slot as of its closure (``through`` a local date, its end; or ``closure``), with its status (module docstring), every event read through :meth:`Closure.admits` (landing ruling R1): an assignment, administration, skip, displacement or answer after the closure is no…
+- `completion(connection: Any, *, through: str | None=None, closure: Closure | None=None, ledger: Ledger | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 703) — The running completion rate, pooled and never conditioned on an action: completed checks over the assigned ones plus the expected checks of every day with no session since the first draw (§8.7's completion gap).
+- `r_for(connection: Any, *, local_date: str, closure: Closure | None=None, ledger: Ledger | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 713) — ``r_L`` on ``local_date`` (the assignment probability alone): the day's record, or with no draw that day the last earlier one's (labelled: its eligible set stands for a day with no session), every draw as of ``closure`` (by default the end of ``local_date``).
+- `support_at(connection: Any, at: str, *, days: Sequence[Mapping[str, Any]] | None=None) -> tuple[dict[str, float], str]` ([source](../../../../../../src/learnloop/router_objective/checks.py), line 722) — RO6's landing ruling R7: each topic's check support for the days after ``at``, as known at ``at`` (a stop coin's draw): ``r_L`` of the latest day drawn as of ``Closure.at(at)``, every draw admitted through :meth:`Closure.admits` (RO1's availability predicate on its assignment ro…
 
 ### Module constants
 

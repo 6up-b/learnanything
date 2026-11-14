@@ -19,7 +19,7 @@ from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import fsrs_rating_for_attempt
 from learnloop.attempts.evidence import attempt_evidence_mass
-from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, forgetting_curve
+from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review, retrievability
 from learnloop.vault.models import LoadedVault
 
 
@@ -151,7 +151,7 @@ def predicted_retrievability_by_attempt(
         state: MemoryState | None = None
         for observation in sequence:
             if state is not None:
-                predictions[observation.attempt_id] = forgetting_curve(
+                predictions[observation.attempt_id] = retrievability(
                     state.stability, observation.elapsed_days, weights
                 )
             if observation.applies_review:

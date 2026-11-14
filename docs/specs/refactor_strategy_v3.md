@@ -765,6 +765,26 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 - **Why:** the largest package (110 files, 73,609 lines) holds 65 of the cycle's 189 modules, and arc G changes what it decides without anyone having mapped its layout.
 - **Scope:** `diagnosis/`, with `causal_orchestrator.py` and `probe_episodes.py` first; `params/parameter_registry.py`'s cost per change (in 11% of commits, about 380 registered constants). The orchestrator checks the map's claims before the strategy uses them.
 - **Output:** K9.1... after arc D. K6 widens from side effects to `source_retrieval`'s structure the same way, if the method pays a second time.
+- **Strategy** (Nov 14): `docs/reviews/k9-diagnosis-strategy-2026-11-14.md`, built on the map (`docs/reviews/k9-diagnosis-map-2026-11-12.md`) re-checked at `ace5d5f9b4` (its §0 lists where the map was stale; §4 has each step's problem, files, deletions, proof and size). The steps (K9.1-K9.3 first and alone; the moves after D6, and best after D7; K9.6-K9.8 before G1, K9.9-K9.11 before G4):
+  - **K9.0 The planted-type simulation on the robust probe path** (behaviour; investigation first): ledger D-39, found by D6 after the strategy was written; before any K9 step that moves the posterior or the instruments.
+  - **K9.1 A mid-check stop settles the block's answers** (S, behaviour; TH-3, due at arc D's close): the block end's release, normalization and diagnosis queueing become one function the stop also calls.
+  - **K9.2 The screen says why the check was withheld** (S, behaviour, desktop; K9-1): "You asked me not to check" only for the learner's own "Not now".
+  - **K9.3 The primed-sibling ranking takes a clock** (S; K9-2): the copy-or-call question goes to K8.
+  - **K9.4 An untaken repair episode ends** (S, behaviour; R1-2): after the owner's Q1.
+  - **K9.5 Pin diagnosis's identities and golden its journeys** (M, tests): the content ids, the prior-analysis draw, the text-gap and recurrence keys; a journey golden on fake model outputs; seven patch sites ported first (T4).
+  - **K9.6 The reads and the hard stops out of `causal_orchestrator.py`; one `_content_id`** (M): `causal_reads.py`, `probe_hard_stops.py`; `hard_refusal` calls the conflict check instead of copying it.
+  - **K9.7 Machine checks and the cold check out** (M): `machine_checks.py`, `causal_cold_verification.py`.
+  - **K9.8 The discriminating observation and the learner actions out** (M): `causal_discrimination.py`, `probe_offer.py`; `causal_orchestrator.py` keeps the decision (about 1,020 lines); K9-4's docstrings corrected in K9.6-K9.8.
+  - **K9.9 The completion policy out of `probe_episodes.py`** (M): `probe_completion.py`; `probe_blocks` imports public names only.
+  - **K9.10 Presentations out; the dead `plan_precommitted_block` goes** (M): `probe_presentations.py`.
+  - **K9.11 Evidence and controls out** (M): `probe_evidence.py`, `probe_controls.py`; the `probe_episodes` → `probe_blocks` edge cut. By simulation, with K9.6-K9.10 the 21-module diagnosis cycle falls to 11.
+  - **K9.12 Why a probe answer wasn't read, and which hook failed** (M, records): the classifier's declines and the four grade-keyed hooks' failures recorded. The verdict's own record is G1's, under L6.
+  - **K9.13 The episode posterior as a gather and a pure fold** (M): only if G3 says G4 runs, or the owner's Q2 chooses K9.17; with L4.
+  - **K9.14 The Diagnosis note true at this tip** (S): after K9.11; the full rewrite stays with §5's last stage.
+  - **K9.15 Delete `failure_triage`** (S): only if the owner's Q3 is yes; its registry entries in the same commit.
+  - **K9.16 Retire the EVSI-2 shadow selection** (M): only if the owner's Q4 is yes; with or after G2.
+  - **K9.17 A released hold or a regrade enters the episode posterior** (M, behaviour, successor; K9-3): only if the owner's Q2 chooses it over G4.
+- **Owner's calls open** (the strategy's §9): Q1 an untaken repair episode's lifetime (recommended: until the item's next ordinary review); Q2 whether released holds and regrades move the beliefs, and in G4 or their own successor (recommended: yes, in G4 if it runs); Q3 delete `failure_triage` (recommended: yes); Q4 retire the EVSI-2 shadow (recommended: yes, with G2); Q5 no diagnosis-only change to the parameter registry.
 
 **K10. Show me figures and explanation videos: deep map and structure strategy** (L; review, two jobs, K2's method). Owner, Nov 12: "show me figure creation and explanation videos should also be properly refactored with the same philosophy I stated in my first message", possibly also for the UX journey audit.
 - **Why:** `figures/` is 25 modules and about 20,800 lines that the Nov 8 map read by size. `figures/service.py` (3,956 lines, 76 public names) is one of its five god modules, arc B added records (B4) and nothing restructures it. The Manim tier (`figures/manim_figure.py`, `figures/rich.py`) and `teacher/visuals.py` run model-written code in a sandbox, and `figures/prefetch.py` holds 26 SQL calls beside the pre-build model's arithmetic.

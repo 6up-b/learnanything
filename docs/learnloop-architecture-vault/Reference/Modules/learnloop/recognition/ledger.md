@@ -47,15 +47,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/recognition/ledger.py](../../../../../../src/learnloop/recognition/ledger.py) |
-| Source lines | 148 |
+| Source lines | 142 |
 | Owning package | [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `attempt_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 39) — Every attempt with what the label and the report read; ``active_seconds`` is None on a database below 252.
-- `build(connection: sqlite3.Connection, vault: Any, repository: Any, *, window_hours: float, session_gap_minutes: float, attempts: list[dict[str, Any]] | None=None) -> CueLedger` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 135) — The ledger of ``connection``'s records.
+- `attempt_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 35) — Every attempt with what the label and the report read; ``active_seconds`` is None on an attempt that has none.
+- `build(connection: sqlite3.Connection, vault: Any, repository: Any, *, window_hours: float, session_gap_minutes: float, attempts: list[dict[str, Any]] | None=None) -> CueLedger` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 129) — The ledger of ``connection``'s records.
 
 ### Module constants
 
@@ -64,12 +64,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_present(connection: sqlite3.Connection, table: str) -> bool` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 31)
-- `_columns(connection: sqlite3.Connection, table: str) -> set[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 35)
-- `_reveals(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 50)
-- `_lessons(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 59)
-- `_methods(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> dict[str, bool | None]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 74) — Whether each attempt's pinned contract froze a required method; None where it has no pinned contract.
-- `_followups(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 99) — The attempts bound to a follow-up of an earlier miss.
-- `_checks(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 124) — The attempts RO5's randomized daily checks resolved to (whatever the grade later did with them).
+- `_reveals(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 44)
+- `_lessons(connection: sqlite3.Connection) -> list[Exposure]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 53)
+- `_methods(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> dict[str, bool | None]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 68) — Whether each attempt's pinned contract froze a required method; None where it has no pinned contract.
+- `_followups(connection: sqlite3.Connection, attempts: list[dict[str, Any]]) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 93) — The attempts bound to a follow-up of an earlier miss.
+- `_checks(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/recognition/ledger.py), line 118) — The attempts RO5's randomized daily checks resolved to (whatever the grade later did with them).
 
 ## Who imports or calls it
 

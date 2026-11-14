@@ -152,7 +152,7 @@ def features_at(connection: Any, config: Any, *, at: str, minutes_left: float | 
 
     from learnloop.router_objective_switches import attempt_time_sql
 
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     row = connection.execute(
         f"SELECT correctness FROM practice_attempts WHERE attempt_type != 'self_report' AND correctness IS NOT NULL "
         f"AND {known} <= ? "

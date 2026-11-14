@@ -7,6 +7,7 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/config/__init__.py"
   - "src/learnloop/config/compat.py"
+  - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/loader.py"
   - "src/learnloop/config/retired.py"
   - "src/learnloop/config/schema.py"
@@ -47,11 +48,12 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 69 | 80 |
+| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 70 | 81 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
+| [[Reference/Modules/learnloop/config/kill_switches|learnloop.config.kill_switches]] | [[Reference/Modules/learnloop/config/kill_switches#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 111 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 112 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies
@@ -69,12 +71,12 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 3 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 3 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 3 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 3 static module edges
@@ -115,9 +117,9 @@ flowchart LR
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_projects["learnloop.projects"]
-    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai -->|11| center
     n_learnloop_ai_providers -->|10| center
     n_learnloop_cli -->|10| center
@@ -125,9 +127,9 @@ flowchart LR
     n_learnloop_content_pipeline -->|8| center
     n_learnloop_sidecar_handlers -->|7| center
     n_learnloop_diagnosis -->|6| center
+    n_learnloop_attempts -->|4| center
     n_learnloop_learner -->|4| center
     n_learnloop_projects -->|4| center
-    n_learnloop_source_retrieval -->|4| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

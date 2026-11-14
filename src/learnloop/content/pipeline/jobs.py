@@ -3863,21 +3863,28 @@ def handle_figure_rich(ctx: JobContext) -> dict[str, Any]:
     material, the plan down) fails with its code, ``waiting_for_plan``
     retryable on a later read. Cancelled at the next ``report()``."""
 
+    from learnloop import provenance
+    from learnloop.db.stores.provenance import continue_job_trace
     from learnloop.figures.rich import RichJobStopped, run_rich_job
     from learnloop.vault.loader import load_vault
 
-    vault = load_vault(ctx.vault_root)
-    factory = ctx.services.figure_rich_client_factory
-    client = factory(ctx) if factory is not None else None
-    ctx.report("writing", message="writing an animation for this passage")
-    try:
-        return run_rich_job(
-            vault, ctx.repo, ctx.payload, client=client,
-            report=lambda phase, message: ctx.report(phase, message=message),
-            renderer=ctx.services.figure_rich_renderer, function_runner=ctx.services.figure_function_runner,
-            cancellation=(JobCancelled,), clock=ctx.clock)
-    except RichJobStopped as exc:
-        raise IngestRunnerError(exc.message, code=exc.code, retryable=exc.retryable) from exc
+    # The ingest drain opens no trace scope per job, so this one is the job's
+    # own and ends with it: continuing the press's trace on the drain thread
+    # without it would leave that trace on every later job the thread runs.
+    with provenance.trace_scope():
+        continue_job_trace(ctx.repo, ctx.job_id)
+        vault = load_vault(ctx.vault_root)
+        factory = ctx.services.figure_rich_client_factory
+        client = factory(ctx) if factory is not None else None
+        ctx.report("writing", message="writing an animation for this passage")
+        try:
+            return run_rich_job(
+                vault, ctx.repo, ctx.payload, client=client,
+                report=lambda phase, message: ctx.report(phase, message=message),
+                renderer=ctx.services.figure_rich_renderer, function_runner=ctx.services.figure_function_runner,
+                cancellation=(JobCancelled,), clock=ctx.clock)
+        except RichJobStopped as exc:
+            raise IngestRunnerError(exc.message, code=exc.code, retryable=exc.retryable) from exc
 
 
 def handle_auto_study_map(ctx: JobContext) -> dict[str, Any]:
@@ -5056,17 +5063,25 @@ class DurableIngestJobs:
         granted (else the job belongs to no action: no offer, no grant).
         Returns the job's id (the figure line reads it back by payload)."""
 
+        from learnloop.db.stores.provenance import record_job_enqueued
+
         runner = self._require_runner()
-        # RW5d P5 (Codex review F7): a prebuild's rich job is background work,
-        # so it takes the default band, after every pressed figure's.
-        batch_id = runner.enqueue_batch(
-            "figure_rich",
-            [JobSpec("figure_rich", dict(payload))],
-            priority=0 if payload.get("build_mode") == "prefetch" else QUICK_ADD_PRIORITY,
-            grant=grant,
-            origin=origin if grant is not None else None,
-        )
-        job_id = runner.repo.ingest_jobs_for_batch(batch_id)[0]["id"]
+        # The record commits with the job: a worker already draining could
+        # lease the job before a later write, and would then run it under no
+        # trace of the press that asked for it.
+        with runner.repo.atomic():
+            # RW5d P5 (Codex review F7): a prebuild's rich job is background work,
+            # so it takes the default band, after every pressed figure's.
+            batch_id = runner.enqueue_batch(
+                "figure_rich",
+                [JobSpec("figure_rich", dict(payload))],
+                priority=0 if payload.get("build_mode") == "prefetch" else QUICK_ADD_PRIORITY,
+                grant=grant,
+                origin=origin if grant is not None else None,
+            )
+            job_id = runner.repo.ingest_jobs_for_batch(batch_id)[0]["id"]
+            record_job_enqueued(runner.repo.connection(), queue="ingest_jobs", job_id=job_id,
+                                job_kind="figure_rich", facts={"build_mode": payload.get("build_mode")})
         self._ensure_worker()
         return job_id
 
@@ -5128,13 +5143,17 @@ class DurableIngestJobs:
         input_budget_tokens: int | None = None,
         output_budget_tokens: int | None = None,
         unlimited_token_budget: bool = False,
+        create_goal: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
         batch_id: str | None = None,
     ) -> str:
         """Enqueue the Quick-add build batch (§1): inventory(selected units) then
         bootstrap_synthesis over the freshly-created source set, as one batch that
         drains ahead of bulk work. The synthesis job depends on the inventory job,
-        so gates only run once the selected units carry inventories."""
+        so gates only run once the selected units carry inventories.
+
+        ``create_goal``: the learner's exam-prep brief asked for its Goal (§5.1);
+        the synthesis makes it after applying the map."""
 
         runner = self._require_runner()
         inventory_payload: dict[str, Any] = {"extraction_id": extraction_id, "units": units}
@@ -5154,6 +5173,8 @@ class DurableIngestJobs:
         }
         if unlimited_token_budget:
             synthesis_payload["unlimited_token_budget"] = True
+        if create_goal:
+            synthesis_payload["create_goal"] = True
         batch_id = runner.enqueue_batch(
             "bootstrap_synthesis",
             [
@@ -5180,6 +5201,7 @@ class DurableIngestJobs:
         output_budget_tokens: int | None = None,
         synthesis_budgets: dict[str, int] | None = None,
         unlimited_token_budget: bool = False,
+        create_goal: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
         """Enqueue a study-map build batch for an EXISTING source set (§1/§8): one
@@ -5191,7 +5213,8 @@ class DurableIngestJobs:
         CLI, surfacing as one durable Activity batch.
 
         Each ``members`` entry is ``{"extraction_id": str, "units": [...]}`` where
-        units are ``[{unit_id, role, profile?}]`` (the inventory job's shape)."""
+        units are ``[{unit_id, role, profile?}]`` (the inventory job's shape).
+        ``create_goal`` as for :meth:`enqueue_quick_add_build`."""
 
         runner = self._require_runner()
         if not members:
@@ -5222,6 +5245,8 @@ class DurableIngestJobs:
             synthesis_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:
             synthesis_payload["unlimited_token_budget"] = True
+        if create_goal:
+            synthesis_payload["create_goal"] = True
         specs.append(
             JobSpec("bootstrap_synthesis", synthesis_payload, depends_on=tuple(range(len(members))))
         )
