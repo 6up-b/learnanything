@@ -107,14 +107,13 @@ def available_at(row: Mapping[str, Any]) -> str | None:
     return str(created) if created else None
 
 
-def attempt_time_sql(config: Any, connection: Any = None, *, alias: str | None = None) -> str:
+def attempt_time_sql(config: Any, *, alias: str | None = None) -> str:
     """THE availability predicate's SQL form: the expression a decision-time read of
     ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
 
     At the tag with ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
     an attempt counts at a cutoff only once it was known (an exam sat May 1 and imported May 19 is not
-    there on May 5). Otherwise, and when ``connection``'s ``practice_attempts`` has no ``received_at``
-    (a database below migration 244), ``created_at``: the predecessor's column, so the read's SQL is
+    there on May 5). Otherwise ``created_at``: the predecessor's column, so the read's SQL is
     the predecessor's text byte for byte. ``alias`` prefixes the columns (``a.created_at``).
 
     A window's lower bound (``created_at >= since``) and the order rows are shown in stay by when the
@@ -123,8 +122,6 @@ def attempt_time_sql(config: Any, connection: Any = None, *, alias: str | None =
     prefix = f"{alias}." if alias else ""
     occurrence = f"{prefix}created_at"
     if not available_at_reads_on(config):
-        return occurrence
-    if connection is not None and not _has_received_at(connection):
         return occurrence
     return f"COALESCE({prefix}received_at, {occurrence})"
 
@@ -138,10 +135,6 @@ def known_at(row: Mapping[str, Any], config: Any) -> str | None:
         return available_at(row)
     created = row.get("created_at")
     return str(created) if created else None
-
-
-def _has_received_at(connection: Any) -> bool:
-    return any(row[1] == "received_at" for row in connection.execute("PRAGMA table_info(practice_attempts)"))
 
 
 def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:

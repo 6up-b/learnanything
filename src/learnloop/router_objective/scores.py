@@ -215,7 +215,7 @@ def exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str,
 
     from learnloop.router_objective_switches import attempt_time_sql
 
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")} if closure else set()
     received = "received_at" if "received_at" in columns else "NULL"
     rows = [float(row[0]) for row in connection.execute(

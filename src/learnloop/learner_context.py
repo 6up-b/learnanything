@@ -1327,7 +1327,7 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
     scope = sorted(los)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
     # RO1 (landing ruling R1): the traces known at ``now_iso``, newest by when they happened.
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
 
     def column(name: str, default: str = "NULL") -> str:
         return name if name in columns else f"{default} AS {name}"

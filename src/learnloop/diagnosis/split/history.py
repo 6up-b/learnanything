@@ -782,7 +782,7 @@ class VaultHistoryStore:
                           else "NULL AS answer_confidence")
             # RO1 (landing ruling R1): the loader feeding the as-of cutoff selects received_at at the
             # tag with available_at_reads on; otherwise the predecessor's SQL, byte for byte.
-            received_column = (", received_at" if attempt_time_sql(vault.config, connection) != "created_at"
+            received_column = (", received_at" if attempt_time_sql(vault.config) != "created_at"
                                else "")
             attempts = [dict(row) for row in connection.execute(
                 "SELECT id, practice_item_id, learning_object_id, attempt_type, "

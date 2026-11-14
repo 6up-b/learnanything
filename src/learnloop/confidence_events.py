@@ -246,7 +246,7 @@ def taps_before(connection: Any, before_iso: str, config: Any) -> list[int]:
 
     if "answer_confidence" not in _columns(connection, "practice_attempts"):
         return []
-    known = attempt_time_sql(config, connection)
+    known = attempt_time_sql(config)
     rows = connection.execute(
         f"SELECT answer_confidence FROM practice_attempts WHERE answer_confidence IS NOT NULL AND {known} < ?",
         (before_iso,),
@@ -294,7 +294,7 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
             return None
         probe = "probe_presentation_id" if "probe_presentation_id" in columns else "NULL AS probe_presentation_id"
         # RO1 (landing ruling R1): what was known before the cutoff; shown by when it happened.
-        known = attempt_time_sql(getattr(vault, "config", None), connection)
+        known = attempt_time_sql(getattr(vault, "config", None))
         rows = [dict(row) for row in connection.execute(
             "SELECT id, learning_object_id, practice_item_id, attempt_type, correctness, answer_confidence, "
             f"created_at, {probe} FROM practice_attempts WHERE learning_object_id IN ({marks}) AND {known} < ? "

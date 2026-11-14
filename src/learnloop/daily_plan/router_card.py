@@ -208,7 +208,7 @@ class CardGatherer:
             # decision is read by availability time, coalesce(received_at,
             # created_at), at the tag with the switch on; otherwise, and on a
             # database below migration 244, the predecessor's SQL byte for byte.
-            known = attempt_time_sql(vault.config, connection)
+            known = attempt_time_sql(vault.config)
             as_of = connection.execute(
                 f"SELECT id FROM practice_attempts WHERE {known} < ? ORDER BY {known} DESC, id DESC LIMIT 1",
                 (now_iso,),
@@ -443,7 +443,7 @@ class CardGatherer:
     def _attempts(self, connection: Any, los: Sequence[str], now_iso: str) -> list[dict[str, Any]]:
         if not los:
             return []
-        known = attempt_time_sql(self.vault.config, connection)
+        known = attempt_time_sql(self.vault.config)
         columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         status = "reference_status" if "reference_status" in columns else "NULL AS reference_status"
         tap = "answer_confidence" if "answer_confidence" in columns else "NULL AS answer_confidence"
@@ -587,7 +587,7 @@ class CardGatherer:
             "FROM practice_attempts WHERE created_at >= ? AND created_at < ?"
         )
         params: tuple[str, ...] = (since, now_iso)
-        known = attempt_time_sql(self.vault.config, connection)
+        known = attempt_time_sql(self.vault.config)
         if known != "created_at":
             # RO1 §5.3 (codex review F1): the week's activity is still the work done in it
             # (created_at), counting only what the router could know at the decision; the

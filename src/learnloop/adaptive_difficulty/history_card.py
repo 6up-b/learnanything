@@ -198,7 +198,7 @@ class _Reads:
         config = getattr(self.vault, "config", None)
         # RO1's predicate, and the availability time at every version (a backdated import is out until
         # it arrived): both bound the read, and the work happened before the serve.
-        known = attempt_time_sql(config, self.connection)
+        known = attempt_time_sql(config)
         available = available_sql(self.connection, "practice_attempts")
         membership = "IN" if scope else "NOT IN"
         return self._bounded(
