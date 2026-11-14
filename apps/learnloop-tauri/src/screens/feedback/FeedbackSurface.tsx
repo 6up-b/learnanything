@@ -15,9 +15,8 @@
 // The question is the one the learner was given. The full answer and the
 // criteria are the ones the grade stands on, as the bundle sends them
 // (`answeredSource`): the assessment contract its grading epoch cites (Codex
-// review F5), or the item as it is now when that is what the grade read; never
-// today's key beside an older grade, nor the original key beside a regrade
-// that read the corrected item (re-review F9). When the question has changed
+// review F5); never today's key beside an older grade, nor the original key
+// beside a regrade that read the corrected item (re-review F9). When the question has changed
 // since it was graded and nothing recorded gives back what it was graded
 // against, the surface says so and shows no full answer and no maximum of the
 // later question (final verification F9). Showing the full answer is an

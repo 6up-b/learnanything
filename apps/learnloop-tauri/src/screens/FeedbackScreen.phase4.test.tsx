@@ -680,8 +680,8 @@ it("F10: cancelling an unconfirmed contest and opening a new one gets a new key"
 //
 // F1: the full answer is on screen only while a committed display row covers
 // it (`feedback/answerExposure.ts`; its property test drives random timelines).
-// F9: the grade's key and maximum come from its contract, from the regrade that
-// just ran ("live"), or nowhere ("unrecorded", labelled).
+// F9: the grade's key and maximum come from its contract, or nowhere
+// ("unrecorded", labelled).
 
 const KEY = "Five equally likely outcomes; one has first = 3: 1/5.";
 const SECOND = 1000;
@@ -914,7 +914,7 @@ it("F9 (round 3): an unrecorded version's grade is scored out of the maximum rec
   expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 / 8.");
 });
 
-it.each(["contract", "live"] as const)("F9 (round 3): a %s grade shows its own key with no label", async (source) => {
+it.each(["contract"] as const)("F9 (round 3): a %s grade shows its own key with no label", async (source) => {
   api.getFeedback.mockResolvedValue({
     ...BUNDLE,
     answeredSource: source,
@@ -939,7 +939,7 @@ it("F9 (round 3): a regrade in place shows what it read, from its own response",
     rubricScore: 6,
     maxPoints: 8,
     correctness: 0.75,
-    answeredSource: "live",
+    answeredSource: "contract",
     answeredExpectedAnswer: "The corrected key: 1/5, from five outcomes.",
     answeredCriteria: [{ criterionId: "setup", description: "Set up and restricted", pointsPossible: 8 }],
     answeredMaxPoints: 8,
