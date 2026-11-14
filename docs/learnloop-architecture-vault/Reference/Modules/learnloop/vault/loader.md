@@ -703,7 +703,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_records_the_current_projection_version`
 - [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — direct import
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
-  - `test_event_facet_ids_never_fall_back_to_attempt_facets`
   - `test_learner_confirmation_resolves_factor_to_provisional_belief`
   - `test_machine_review_scope_blocks_negative_observation_attribution`
   - `test_missing_step_divergence_must_reference_authored_checkpoint`
@@ -1915,6 +1914,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
 - [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
+  - `test_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_promotion_on_independent_surface`
   - `test_taxonomy_regrade_check_no_attribution_regressions`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
@@ -2624,7 +2624,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
   - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
@@ -2639,7 +2639,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
   - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
-  - `test_ready_derivation_none_on_legacy_vault`
 - [tests/test_receipt_exactness.py](../../../../../../tests/test_receipt_exactness.py) — direct import
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b3_replays_the_vaults_labelled_pairs`

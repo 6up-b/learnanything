@@ -120,7 +120,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
@@ -180,7 +180,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_evsi_calibration["learnloop.evsi_calibration"]
-    n_learnloop_learner["learnloop.learner"]
+    n_learnloop_cli["learnloop.cli"]
     n_learnloop -->|2| center
     center -->|37| n_learnloop
     center -->|22| n_learnloop_db
@@ -193,8 +193,7 @@ flowchart LR
     center -->|12| n_learnloop_vault
     n_learnloop_adaptive_difficulty -->|11| center
     n_learnloop_evsi_calibration -->|10| center
-    n_learnloop_learner -->|1| center
-    center -->|9| n_learnloop_learner
+    n_learnloop_cli -->|9| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

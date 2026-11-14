@@ -1347,9 +1347,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_los_share_one_facet_parent`
   - `test_wrong_answer_no_work_creates_unresolved_cause_set`
 - [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
+  - `test_attempts_write_no_legacy_facet_state`
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_goal_projection_reads_canonical_state`
-  - `test_mvp07_vault_refuses_legacy_facet_state_write`
   - `test_replay_identity_after_bridge_removal`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`
 - [tests/test_km3_projections.py](../../../../../tests/test_km3_projections.py) — direct import
@@ -1681,7 +1681,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
   - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`

@@ -130,11 +130,11 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 9 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 6 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 5 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 5 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges

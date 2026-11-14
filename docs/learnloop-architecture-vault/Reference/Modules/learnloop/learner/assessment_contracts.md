@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `compile_assessment_contract`, `rubric_from_contract`; statically calls `compile_assessment_contract`, `rubric_from_contract`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `rubric_from_contract`; statically calls `rubric_from_contract`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `rubric_from_contract`; statically calls `rubric_from_contract`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `KM_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/recognition/ledger|learnloop.recognition.ledger]] — imports `contract_required_method`; statically calls `contract_required_method`
 - [[Reference/Modules/learnloop/scheduling/frame_constraints|learnloop.scheduling.frame_constraints]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`

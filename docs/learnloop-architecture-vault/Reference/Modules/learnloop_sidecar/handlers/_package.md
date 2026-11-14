@@ -204,8 +204,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 37 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 30 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 30 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 29 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 26 static module edges
@@ -267,8 +267,8 @@ flowchart LR
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_learner["learnloop.learner"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|6| center
     center -->|323| n_learnloop_sidecar
@@ -278,8 +278,8 @@ flowchart LR
     center -->|39| n_learnloop_instructional
     center -->|37| n_learnloop_ai
     center -->|30| n_learnloop_attempts
-    center -->|30| n_learnloop_learner
     center -->|29| n_learnloop_diagnosis
+    center -->|28| n_learnloop_learner
     center -->|26| n_learnloop_content_sources
 ```
 

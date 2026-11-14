@@ -70,7 +70,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
 

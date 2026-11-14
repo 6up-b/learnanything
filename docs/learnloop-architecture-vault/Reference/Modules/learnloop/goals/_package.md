@@ -87,7 +87,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 24 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
-- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 15 static module edges
+- [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 14 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
@@ -129,8 +129,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.goals"]
     n_learnloop["learnloop"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_learner["learnloop.learner"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_substrate["learnloop.substrate"]
@@ -139,9 +139,9 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     center -->|24| n_learnloop
-    n_learnloop_learner -->|6| center
-    center -->|15| n_learnloop_learner
     n_learnloop_sidecar_handlers -->|21| center
+    n_learnloop_learner -->|6| center
+    center -->|14| n_learnloop_learner
     center -->|17| n_learnloop_vault
     center -->|16| n_learnloop_db
     n_learnloop_substrate -->|2| center

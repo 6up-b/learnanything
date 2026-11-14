@@ -381,7 +381,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
-  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_dont_know_keeps_full_coverage`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
   - `test_high_unfamiliar_probe_posterior_records_intervention_need`
   - `test_intervention_need_targets_failed_facet_not_whole_item`

@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/learner/recall_coverage.py"
+  - "src/learnloop/substrate/replay.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/compat"
@@ -85,8 +86,6 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository._guard_legacy_facet_write()`
-- `Repository._upsert_facet_recall_state()`
 - `Repository.facet_ids_with_recall_evidence()`
 - `Repository.facet_recall_state()`
 - `Repository.facet_recall_states()`
@@ -104,8 +103,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/content/facet_identity/actions.py`
-- `src/learnloop/db/repositories.py`
-- `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/learner/recall_coverage.py`
 - `src/learnloop/substrate/replay.py`
 
@@ -117,9 +114,7 @@ Indexes and uniqueness:
 - `tests/test_km2b_consumer_rekey.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_exam_seeding.py`
-- `tests/test_facet_belief_successor.py`
 - `tests/test_item_parameters.py`
-- `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
