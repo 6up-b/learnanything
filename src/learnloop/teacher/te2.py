@@ -1,7 +1,6 @@
 """Teacher TE2's switch, prompt and turn shape (spec_teacher_v1 rev 5 §9, §11.3, §11.5, §11.7, §11.8, §18.3).
 
-One successor (``TEACHER_PROBES_VERSIONS``, mvp-0.51; built as mvp-0.50, one constant renumbered at landing) behind
-``teacher.probes`` with the existing ``teacher.enabled``:
+One successor (mvp-0.51) behind ``teacher.probes`` with the existing ``teacher.enabled``:
 
 * **The turn grows** (§9): ``serve_probe {node, readings, p}`` (:mod:`.probes`) and ``propose_gap {ref, gap_kind,
   gap}`` (:mod:`.topics`), with the doctrine's versioned TE2 paragraph (``doctrine/te2/v1.md``) and the prompt
@@ -26,7 +25,6 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from learnloop.algorithm_versions import TEACHER_PROBES_VERSIONS
 from learnloop.teacher.contracts import (
     TeacherTurnEpisodesV1,
     TeacherTurnTE2EpisodesV1,
@@ -52,13 +50,10 @@ _PARAGRAPH = Path(__file__).resolve().parent / "doctrine" / "te2" / "v1.md"
 
 
 def on(vault: Any) -> bool:
-    """TE2 serves: the vault at its successor or later, lessons on and ``teacher.probes`` on."""
+    """TE2 serves: lessons on and ``teacher.probes`` on."""
 
-    config = getattr(vault, "config", None)
-    teacher = getattr(config, "teacher", None)
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    return (version in TEACHER_PROBES_VERSIONS and teacher is not None and bool(getattr(teacher, "enabled", False))
-            and bool(getattr(teacher, "probes", False)))
+    teacher = getattr(getattr(vault, "config", None), "teacher", None)
+    return teacher is not None and bool(getattr(teacher, "enabled", False)) and bool(getattr(teacher, "probes", False))
 
 
 def lesson_te2(state: Any) -> bool:

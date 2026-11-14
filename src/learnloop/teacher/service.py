@@ -61,7 +61,6 @@ from typing import Any
 from pydantic import ValidationError
 
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
-from learnloop.algorithm_versions import TEACHER_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
@@ -103,15 +102,12 @@ class LessonError(ValueError):
 
 
 def lessons_active(vault: Any) -> bool:
-    """A lesson may open: the vault is at the teacher's successor and ``teacher.enabled`` is on."""
+    """A lesson may open: ``teacher.enabled`` is on."""
 
-    return (vault.config.algorithms.algorithm_version in TEACHER_VERSIONS
-            and bool(vault.config.teacher.enabled))
+    return bool(vault.config.teacher.enabled)
 
 
 def require_active(vault: Any) -> None:
-    if vault.config.algorithms.algorithm_version not in TEACHER_VERSIONS:
-        raise LessonError("teacher_unavailable", "Lessons need this vault upgraded (learnloop upgrade).")
     if not vault.config.teacher.enabled:
         raise LessonError("teacher_disabled", "Lessons are switched off (teacher.enabled = false).")
 
@@ -686,7 +682,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     typed = None
     if entry == "typed_goal":
         if not te2:
-            raise LessonError("teacher_unavailable", "Typing a goal needs this vault upgraded (learnloop upgrade).")
+            raise LessonError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         from learnloop.teacher import topics as TP
         from learnloop.vault.loader import load_vault
 

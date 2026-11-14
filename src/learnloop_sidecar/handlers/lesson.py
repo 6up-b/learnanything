@@ -298,7 +298,7 @@ def lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]:
     try:
         S.require_active(vault)
         if not T2.on(vault):
-            raise SidecarError("teacher_unavailable", "Typing a goal needs this vault upgraded (learnloop upgrade).")
+            raise SidecarError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         return versioned(TP.resolve(vault, repository, params.text))
     except S.LessonError as exc:
         raise _error(exc) from exc
