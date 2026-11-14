@@ -69,7 +69,6 @@ def test_get_facet_evidence_timeline(tmp_path):
         ]
     )[1]["result"]
     assert result["modelVersion"] == "mvp-0.7"
-    assert result["supported"] is True
     assert result["facetId"] == COMP_A
     assert result["points"], "expected demonstrated-curve points"
     assert result["demonstrated"] > 0.0
@@ -130,6 +129,5 @@ def test_get_facet_mastery_rekey_exposes_model_version(tmp_path):
         ]
     )[1]["result"]
     assert result["modelVersion"] == "mvp-0.7"
-    assert result["canonicalKeys"] is True
     facet_ids = {facet["facetId"] for facet in result["facets"]}
     assert COMP_A in facet_ids

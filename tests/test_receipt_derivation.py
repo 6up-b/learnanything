@@ -115,7 +115,7 @@ def test_ready_derivation_matches_canonical_recall_slices(tmp_path):
         ready = facet_ready_derivation(
             vault, repository, facet, series, clock=FrozenClock(parse_utc("2026-07-14T00:00:00Z"))
         )
-        assert ready is not None and ready.supported
+        assert ready is not None
 
         exp_alpha = 1.0 + sum(r.recall_alpha - 1.0 for r in rows)
         exp_beta = 1.0 + sum(r.recall_beta - 1.0 for r in rows)

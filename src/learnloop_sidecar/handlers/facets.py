@@ -140,7 +140,6 @@ def get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]:
     return versioned(
         {
             "model_version": vault.config.algorithms.algorithm_version,
-            "canonical_keys": True,
             "facets": payload,
             "counts": {
                 "facets": len(payload),
