@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop_sidecar/serving.py"
   - "tests/cold_retry_reschedule_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/identity_pins_helpers.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
-  - "tests/reader_source_identity_guard_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/practice"
@@ -67,6 +67,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/cold_retry_reschedule_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/identity_pins_helpers.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
-- `tests/reader_source_identity_guard_helpers.py`
 
 ## Extension and modification guidance
 

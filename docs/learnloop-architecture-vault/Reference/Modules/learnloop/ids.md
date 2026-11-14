@@ -316,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_loop_reentry_break.py](../../../../../tests/test_daily_loop_reentry_break.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../tests/test_discriminating_search.py) — direct import
   - `test_an_unverified_import_is_excluded_from_value_intents_but_not_practice`
+- [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection.py](../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_revealed_item_is_never_the_cold_retry`

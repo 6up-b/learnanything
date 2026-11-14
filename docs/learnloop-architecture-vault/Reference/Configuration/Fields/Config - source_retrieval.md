@@ -33,13 +33,13 @@ source_paths:
   - "tests/conftest.py"
   - "tests/connection_reuse.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/exam_pool_helpers.py"
   - "tests/exam_protection_review_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
   - "tests/identity_pins_helpers.py"
   - "tests/learner_pick_proposal_helpers.py"
-  - "tests/local_embeddings_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -92,13 +92,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/connection_reuse.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/exam_pool_helpers.py`
 - `tests/exam_protection_review_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/learner_pick_proposal_helpers.py`
-- `tests/local_embeddings_fakes.py`
 
 ## Extension and modification guidance
 

@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "tests/ad23_contract_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/due_queue_helpers.py"
   - "tests/facet_identity_ingest_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
   - "tests/mobile_host_auth_helpers.py"
-  - "tests/mobile_host_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -85,6 +85,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/ad23_contract_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/due_queue_helpers.py`
 - `tests/facet_identity_ingest_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -94,7 +95,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
 - `tests/mobile_host_auth_helpers.py`
-- `tests/mobile_host_helpers.py`
 
 ## Extension and modification guidance
 

@@ -233,6 +233,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/probe_block_end_helpers.py](../../../../../../tests/probe_block_end_helpers.py) — direct import
 - [tests/probe_episodes_helpers.py](../../../../../../tests/probe_episodes_helpers.py) — direct import

@@ -122,7 +122,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `module`; calls `append_block_event`, `create_attention_block`, `decision_by_receipt_key`, `persist_decision`, `persist_shadow_prediction`
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `module`; calls `DiagnosticCandidate`, `rank_feasible`
 - [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `module`; calls `epsilon_tiebreak`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `build_due_queue`; calls `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `read_due_queue`; calls `read_due_queue`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `module`; calls `forecast_enabled`, `record_rank_feasible_forecast`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`; calls `canonical_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
@@ -151,6 +151,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cross_seam_exposure.py](../../../../../../tests/test_cross_seam_exposure.py) — direct import
   - `test_assessment_reserve_not_poached_by_practice_at_plan_time`
 - [tests/test_dispersion.py](../../../../../../tests/test_dispersion.py) — direct import
+- [tests/test_due_queue_read_builds.py](../../../../../../tests/test_due_queue_read_builds.py) — direct import
+  - `test_the_staged_comparator_records_no_serving`
 - [tests/test_evsi_staged_binding.py](../../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_router_ladder_parity.py](../../../../../../tests/test_router_ladder_parity.py) — direct import
   - `test_a_short_circuited_block_fires_no_rung`
