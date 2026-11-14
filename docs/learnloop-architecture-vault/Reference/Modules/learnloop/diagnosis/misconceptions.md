@@ -156,7 +156,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_parts_of_one_stem_do_not_promote_a_durable_belief`
   - `test_unverifiable_provenance_fails_closed`
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
-  - `test_legacy_vault_still_mints_immediately`
   - `test_probe_cannot_preregister_its_signature_after_seeing_response`
   - `test_promotion_on_independent_surface`
   - `test_promotion_requires_independent_surface_or_probe_reproduction`
@@ -166,11 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_clean_discriminating_attempts_resolve`
   - `test_clean_non_discriminating_attempts_do_not_resolve`
   - `test_fired_keyed_fatal_raises_posterior`
-  - `test_llm_match_new_inserts_over_text_match`
   - `test_llm_match_same_merges`
-  - `test_normalization_creates_row_with_provenance`
-  - `test_normalization_dedupes_by_normalized_statement`
-  - `test_normalization_is_idempotent`
   - `test_normalization_reactivates_resolved_row`
   - `test_primed_attempts_do_not_resolve_a_misconception`
   - `test_resolution_reactivates_when_posterior_climbs`
