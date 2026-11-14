@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py) |
-| Source lines | 502 |
+| Source lines | 489 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,9 +61,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class StuckReading(WireModel)` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 119) — How the grader read an answer written under the stuck prompt.
 - `verified_stuck_reading(reading: StuckReading, learner_answer_md: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 165) — The persisted marker: the reading plus whether its quote is verbatim.
 - `record_stuck_reading_judgment(connection: Any, *, attempt_id: str, marker: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 205) — Append the grader's reading of a stuck answer to ``judgment_ledger``.
-- `stuck_answers(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 334) — Every stuck answer, its text and its CURRENT grader reading (read-only).
-- `stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 379) — One stuck answer by its id: the row :func:`stuck_answers` gives it.
-- `stuck_answer_summary(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 429) — Aggregate-only owner view: what to watch after mvp-0.13 goes live.
+- `stuck_answers(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 325) — Every stuck answer, its text and its CURRENT grader reading (read-only).
+- `stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 368) — One stuck answer by its id: the row :func:`stuck_answers` gives it.
+- `stuck_answer_summary(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 416) — Aggregate-only owner view: what to watch after mvp-0.13 goes live.
 
 ### Module constants
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `EMPTY_STUCK_EVIDENCE` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 62)
 - `EMPTY_STUCK_FEEDBACK` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 63)
 - `STUCK_PROMPT_RULES` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 148)
-- `_STUCK_ATTEMPT_COLUMNS` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 269)
+- `_STUCK_ATTEMPT_COLUMNS` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 260)
 
 ### Explicit exports
 
@@ -113,11 +113,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 161)
 - `_current_stuck_judgment(connection: Any, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 186) — The attempt's current stuck-reading judgment row (None when there is none).
 - `_has_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 250)
-- `_has_stuck_column(connection: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 259)
-- `_judged_reading(row: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 277) — (judgment id, graded at, reading) from a current stuck-reading judgment.
-- `_blind_reading(record_id: Any, created_at: Any, record_json: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 287) — (blind record id, graded at, reading) from a blind grade record.
-- `_stuck_row(attempt: Any, blind: _Reading | None, judged: _Reading | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 298)
-- `_seconds_between(start: str | None, end: str | None) -> float | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 416)
+- `_judged_reading(row: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 268) — (judgment id, graded at, reading) from a current stuck-reading judgment.
+- `_blind_reading(record_id: Any, created_at: Any, record_json: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 278) — (blind record id, graded at, reading) from a blind grade record.
+- `_stuck_row(attempt: Any, blind: _Reading | None, judged: _Reading | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 289)
+- `_seconds_between(start: str | None, end: str | None) -> float | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 403)
 
 ## Who imports or calls it
 

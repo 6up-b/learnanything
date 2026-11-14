@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/help_assists.py](../../../../../../../src/learnloop/db/stores/help_assists.py) |
-| Source lines | 758 |
+| Source lines | 752 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Internal implementation anchors
 
 - `_fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | None, since: str | None, any_session: bool=False) -> tuple[str, tuple[Any, ...]]` ([source](../../../../../../../src/learnloop/db/stores/help_assists.py), line 282) — The rows a fold counts (:func:`server_fold`) and its attempt attaches (:func:`attach_keyless_fold`, :func:`attach_keyed_fold`): one definition, so the rows attached are exactly the rows counted, whatever help kinds it counts.
-- `_latency(value: float | None) -> float | None` ([source](../../../../../../../src/learnloop/db/stores/help_assists.py), line 733) — A latency the client sent, or None (a negative one is not believed).
+- `_latency(value: float | None) -> float | None` ([source](../../../../../../../src/learnloop/db/stores/help_assists.py), line 727) — A latency the client sent, or None (a negative one is not believed).
 
 ## Who imports or calls it
 

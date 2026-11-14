@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_report.py](../../../../../../src/learnloop/reader/reader_report.py) |
-| Source lines | 969 |
+| Source lines | 965 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_reading_paths(connection: Any, in_window: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_report.py), line 231) — RW7a (spec §15's reading-path row): judged section labels by kind, the learner's overrides by the label they overrode ("enrichment:read_anyway", "core:skip"), and the Guide's depth choices.
 - `_skipped_core(connection: Any, in_window: Any, section_los: Mapping[str, Mapping[str, Sequence[str]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_report.py), line 260) — RW7b (spec §15's reading-path row, Codex review F4): misses on LOs whose core section was skipped.
 - `_role_counts(versions: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_report.py), line 320) — RW4e's proposals: one per object (its head's status), by role and confidence; every version by judge; agreement between judges.
-- `_rich_tier_rows(rich_rows: Sequence[Mapping[str, Any]], tier_verdicts: Sequence[Mapping[str, Any]], actions: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_report.py), line 933) — RW5d P2b's report rows (spec §8.4: the tier mix, failures, build latency and ``why_this_tier`` by kind, so a tier doing worse is visible).
+- `_rich_tier_rows(rich_rows: Sequence[Mapping[str, Any]], tier_verdicts: Sequence[Mapping[str, Any]], actions: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_report.py), line 929) — RW5d P2b's report rows (spec §8.4: the tier mix, failures, build latency and ``why_this_tier`` by kind, so a tier doing worse is visible).
 
 ## Who imports or calls it
 
