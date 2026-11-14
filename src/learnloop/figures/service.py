@@ -2064,7 +2064,8 @@ def _author_context(request: FigureRequest, context: SourceContext, image_digest
 
 def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, author_client: Any | None = None,
                  clock: Clock | None = None, live_vault: Callable[[], Any] | None = None,
-                 find: FindSources | None = None, spawn_rich: SpawnRich | None = None) -> BuildOutcome:
+                 find: FindSources | None = None, spawn_rich: SpawnRich | None = None,
+                 cancelled: Callable[[], bool] | None = None) -> BuildOutcome:
     """Build one figure (module docstring). Raises :class:`FigureRefused`.
 
     ``live_vault`` gives the vault as configured now (the sidecar's loaded
@@ -2073,7 +2074,15 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     start before every physical request and before the row is stored.
     ``find`` (RW5d) is the grounding retrieval (the sources service's, unset).
     ``spawn_rich`` (RW5d P2b) starts a rich job on the durable queue; unset,
-    no rich tier is on the author's menu."""
+    no rich tier is on the author's menu.
+
+    ``cancelled`` (the press's cancel) is asked by the gate at the same
+    moments, as a hold: once it answers True the build sends no further
+    request and stores nothing. A paid answer already received stays
+    checkpointed under the request identity, so the next press of the same
+    input recovers it with no call. A build that passed its last check
+    before the cancel landed still commits: that figure was paid for and
+    finished, and listing it is honest."""
 
     request = check_request(vault, repository, request)
     if lesson_hosted(request):
@@ -2089,6 +2098,8 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     # foreground work, and (Codex review F2) on the figure author's route
     # being the plan as configured NOW: a prebuild is never metered.
     hold = _prefetch_build_hold(author_client) if request.origin == "prefetch" else None
+    if cancelled is not None:
+        hold = _cancel_hold(cancelled, hold)
     gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold, repository=repository)
     try:
         with gate_model_requests(gate):
@@ -2112,6 +2123,20 @@ def _prefetch_build_hold(author_client: Any | None) -> Callable[[Any], str | Non
         if reason is None and plan_route(current, R.AUTHOR_TASK, author_client).billing != "subscription":
             return PREFETCH_AUTHOR_NOT_PLAN
         return reason
+
+    return hold
+
+
+#: The hold's reason for a build whose press was cancelled (prose: the gate's record keeps only "held").
+_BUILD_CANCELLED = "the figure request was cancelled"
+
+
+def _cancel_hold(cancelled: Callable[[], bool],
+                 other: Callable[[Any], str | None] | None) -> Callable[[Any], str | None]:
+    def hold(current: Any) -> str | None:
+        if cancelled():
+            return _BUILD_CANCELLED
+        return other(current) if other is not None else None
 
     return hold
 
