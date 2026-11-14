@@ -1,15 +1,14 @@
 """The switches of follow-up generate and serve (FG1). A leaf: no store, no domain.
 
-``generate_and_serve_on`` is the successor's gate (``FOLLOWUP_SERVE_VERSIONS``, the
-kill switch ``followup.generate_and_serve``): off, or below the tag, behaviour is
-mvp-0.44's and the stored ``probe.generation.auto_generate_on_entry`` applies.
+``generate_and_serve_on`` is the successor mvp-0.45's kill switch
+``followup.generate_and_serve``: off, behaviour is mvp-0.44's and the stored
+``probe.generation.auto_generate_on_entry`` applies.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS
 
 #: The one surface with the pending and skip UI (spec §3.1, §10): the desktop.
 #: The phone and the TUI stay on the predecessor's behaviour.
@@ -28,11 +27,7 @@ RIVAL_CAUSES_FACTOR_VERSION = "followup_rival_causes_v1"
 
 def generate_and_serve_on(config: Any) -> bool:
     section = getattr(config, "followup", None)
-    algorithms = getattr(config, "algorithms", None)
-    return (
-        bool(getattr(section, "generate_and_serve", False))
-        and getattr(algorithms, "algorithm_version", None) in FOLLOWUP_SERVE_VERSIONS
-    )
+    return bool(getattr(section, "generate_and_serve", False))
 
 
 def hypothesis_marks_on(config: Any) -> bool:
