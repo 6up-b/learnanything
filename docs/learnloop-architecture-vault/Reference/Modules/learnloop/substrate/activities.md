@@ -270,7 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
   - `test_first_ever_ineligible_observation_creates_no_memory_state`
-  - `test_ineligible_observation_leaves_mvp08_scheduling_untouched_but_legacy_writes`
+  - `test_ineligible_observation_leaves_mvp08_scheduling_untouched`
 - [tests/test_intent_fix_round5.py](../../../../../../tests/test_intent_fix_round5.py) — direct import
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
   - `test_f19_a_check_on_a_seen_probe_surface_is_refused_under_every_policy`

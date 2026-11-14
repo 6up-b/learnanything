@@ -22,7 +22,6 @@ from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import atomic_repository_call
 from learnloop.db.table_roles import TableRole, tables_for_role
-from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
 from learnloop.learner.identifiability import graph_identifiability_report
 from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
@@ -415,9 +414,8 @@ def _run_learning_state(
 def _run_canonical_projection(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    # The projector replaces these tables for canonical algorithm versions.
-    # Clear here as the owner boundary as well, so stale canonical rows are
-    # removed when replaying a pre-canonical compatibility version.
+    # The projector replaces these tables; they are cleared here as well, at
+    # their owner boundary, like every replayer's.
     cleared = _clear_tables(context.repository, tuple(spec.owned_tables))
     from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
@@ -437,16 +435,6 @@ def _run_identifiability(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
     cleared = _clear_tables(context.repository, tuple(spec.owned_tables))
-    if (
-        context.vault.config.algorithms.algorithm_version
-        not in CANONICAL_STATE_VERSIONS
-    ):
-        return ReplayerResult(
-            spec.name,
-            tuple(sorted(spec.owned_tables)),
-            details={"cleared_rows_by_table": cleared},
-        )
-
     report = graph_identifiability_report(
         context.vault,
         context.repository,

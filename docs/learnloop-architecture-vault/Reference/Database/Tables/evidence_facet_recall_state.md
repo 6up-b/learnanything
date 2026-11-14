@@ -18,7 +18,6 @@ source_paths:
   - "migrations/007_recall_coverage_interventions.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/learner/facet_state_reader.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/facet_identity/actions.py"
@@ -91,7 +90,6 @@ Indexes and uniqueness:
 - `Repository.facet_ids_with_recall_evidence()`
 - `Repository.facet_recall_state()`
 - `Repository.facet_recall_states()`
-- `Repository.merge_facet_recall_aliases()`
 - `Repository.reset_learning_object_derived_state()`
 
 ### Direct SQL readers
@@ -109,7 +107,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/learner/recall_coverage.py`
-- `src/learnloop/ops/doctor.py`
 - `src/learnloop/substrate/replay.py`
 
 > [!note] Static-reference boundary
@@ -117,13 +114,12 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_doctor.py`
 - `tests/test_km2b_consumer_rekey.py`
-- `tests/test_recall_coverage_interventions.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_exam_seeding.py`
 - `tests/test_facet_belief_successor.py`
 - `tests/test_item_parameters.py`
+- `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

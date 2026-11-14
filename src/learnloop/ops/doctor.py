@@ -44,9 +44,6 @@ from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.storage import DatabaseStorage, inspect_database_storage
 from learnloop.migration_coordinator import migrate_vault
-from learnloop.learner.assessment_contracts import (
-    CANONICAL_STATE_VERSIONS,
-)
 from learnloop.learner.calibration import difficulty_miscalibration_flags
 from learnloop.learner.facet_state_reader import (
     DERIVED_WITH_BELIEF_FIXES_KEY,
@@ -237,7 +234,6 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         else None
     )
     if repository is not None:
-        _merge_mvp06_facet_recall_aliases(vault, repository, database_tables, fix_state=fix_state)
         _check_database_state(vault, repository, database_tables, issues)
         if _has_tables(database_tables, "source_artifacts", "source_revisions", "source_extraction_runs"):
             _check_reread_state(vault, repository, database_tables, issues, fix_state=fix_state)
@@ -429,32 +425,6 @@ def _attach_state_database(
             )
         )
         return None, set()
-
-
-def _merge_mvp06_facet_recall_aliases(
-    vault: LoadedVault,
-    repository: Repository,
-    database_tables: set[str],
-    *,
-    fix_state: bool,
-) -> None:
-    """Under ``--fix``, fold aliased per-LO facet recall rows on mvp-0.6 vaults.
-
-    KM2b: this fold rewrites ``evidence_facet_recall_state`` rows in place, an
-    mvp-0.6-only table. Under mvp-0.7 aliases and merges are resolved at
-    read/projection time, so the fold must not run there.
-    """
-
-    if (
-        fix_state
-        and "evidence_facet_recall_state" in database_tables
-        and vault.facet_aliases
-        and vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS
-    ):
-        repository.merge_facet_recall_aliases(
-            vault.facet_aliases,
-            algorithm_version=vault.config.algorithms.algorithm_version,
-        )
 
 
 def _check_database_state(
@@ -1874,12 +1844,9 @@ def _check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, iss
     """Guard against mixed/inconsistent keying on an mvp-0.7 vault (KM §15).
 
     Canonical belief rows keyed on a facet that (after alias + merge resolution)
-    is not registered signal a mixed or corrupted state; on an mvp-0.7 vault this
-    is an error. Legacy vaults never write these rows, so the check is a no-op.
+    is not registered signal a mixed or corrupted state: an error.
     """
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     known = set(vault.evidence_facets)
     if not known:
         return
@@ -1905,43 +1872,26 @@ def _check_mvp07_canonical_state(vault: LoadedVault, repository: Repository, iss
             )
 
 
-def _mvp07_facet_severity(vault: LoadedVault) -> Severity:
-    """Facet-registry issues are errors on mvp-0.7 vaults, warnings on legacy.
-
-    The upgraded doctor must not break frozen legacy vaults (§3.2), so severity
-    is gated by the vault-global algorithm version.
-    """
-
-    if vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS:
-        return "error"
-    return "warning"
-
-
 def _check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None:
     known = set(vault.evidence_facets)
-    severity = _mvp07_facet_severity(vault)
 
-    # Once any item declares evidence_facets, an empty registry is a real gap.
-    # On mvp-0.7 vaults this is a doctor error (fixes the doctor.py:588 skip,
-    # knowledge-model §3.2). Legacy vaults keep today's warning-only behavior:
-    # an empty registry is skipped so the upgraded doctor does not add new noise
-    # to (or break) frozen vaults.
+    # Once any item declares evidence_facets, an empty registry is a real gap
+    # (knowledge-model §3.2).
     if not known:
-        if severity == "error":
-            facet_bearing = [item for item in vault.practice_items.values() if item.evidence_facets]
-            if facet_bearing:
-                issues.append(
-                    _issue(
-                        "error",
-                        "evidence_facet:empty_registry",
-                        (
-                            f"{len(facet_bearing)} practice item(s) declare evidence facets but "
-                            "facets.yaml has no registry entries"
-                        ),
-                        entity_id=facet_bearing[0].id,
-                        details={"facet_bearing_item_ids": sorted(item.id for item in facet_bearing)},
-                    )
+        facet_bearing = [item for item in vault.practice_items.values() if item.evidence_facets]
+        if facet_bearing:
+            issues.append(
+                _issue(
+                    "error",
+                    "evidence_facet:empty_registry",
+                    (
+                        f"{len(facet_bearing)} practice item(s) declare evidence facets but "
+                        "facets.yaml has no registry entries"
+                    ),
+                    entity_id=facet_bearing[0].id,
+                    details={"facet_bearing_item_ids": sorted(item.id for item in facet_bearing)},
                 )
+            )
         return
 
     for item in vault.practice_items.values():
@@ -1949,7 +1899,7 @@ def _check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> N
             if facet not in known:
                 issues.append(
                     _issue(
-                        severity,
+                        "error",
                         "evidence_facet:unregistered",
                         f"{item.id} uses evidence facet {facet!r} that is not registered in facets.yaml",
                         entity_id=item.id,
@@ -1971,36 +1921,17 @@ def _check_registered_facets(vault: LoadedVault, issues: list[HealthIssue]) -> N
 def _check_facet_contract_completeness(vault: LoadedVault, issues: list[HealthIssue]) -> None:
     """Facet semantic-contract completeness (knowledge-model §3.2).
 
-    A registry entry that declares any part of its v2 semantic contract but omits
-    ``claim`` or ``kind`` is incomplete. On mvp-0.7 vaults every registered facet
-    must carry both; on legacy vaults this stays a warning.
+    Every registered facet must carry ``claim`` and ``kind``.
     """
 
     if not vault.evidence_facets:
         return
-    is_mvp07 = vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS
     for facet in vault.evidence_facets.values():
-        declares_contract = any(
-            [
-                facet.kind,
-                facet.claim,
-                facet.preconditions,
-                facet.postconditions,
-                facet.applicability,
-                facet.positive_examples,
-                facet.negative_examples,
-                facet.non_goals,
-                facet.error_signatures,
-                facet.instructional_repairs,
-            ]
-        )
-        if not (is_mvp07 or declares_contract):
-            continue
         missing = [field for field in ("claim", "kind") if not getattr(facet, field)]
         if missing:
             issues.append(
                 _issue(
-                    "error" if is_mvp07 else "warning",
+                    "error",
                     "evidence_facet:incomplete_contract",
                     f"facet {facet.id!r} is missing required contract field(s): {', '.join(missing)}",
                     entity_id=facet.id,
@@ -2013,7 +1944,7 @@ def _check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]
     """Validate LO blueprints and rubric criterion targets (§5.1/§7.2).
 
     - blueprint recipe ids are unique within an LO;
-    - blueprint/recipe facets are registered (severity gated by version);
+    - blueprint/recipe facets are registered;
     - recipe/criterion capabilities are in the closed vocabulary;
     - criterion depends_on forms a DAG (a cycle is rejected).
     """
@@ -2022,7 +1953,6 @@ def _check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]
     from learnloop.vault.models import learning_object_facet_union, recipe_components
 
     known = set(vault.evidence_facets)
-    severity = _mvp07_facet_severity(vault)
 
     for lo in vault.learning_objects.values():
         if not lo.blueprints:
@@ -2058,7 +1988,7 @@ def _check_blueprints_and_criteria(vault: LoadedVault, issues: list[HealthIssue]
                 if facet not in known:
                     issues.append(
                         _issue(
-                            severity,
+                            "error",
                             "blueprint:unregistered_facet",
                             f"{lo.id} blueprint references unregistered facet {facet!r}",
                             entity_id=lo.id,
@@ -2087,7 +2017,6 @@ def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -
     from learnloop.content.authoring.persona_gate import declares_error_count
 
     known = set(vault.evidence_facets)
-    severity = _mvp07_facet_severity(vault)
     normalize = _instrument_normalizer()
 
     for item in vault.practice_items.values():
@@ -2141,7 +2070,7 @@ def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -
             ):
                 issues.append(
                     _issue(
-                        severity,
+                        "error",
                         "contrast_pair:unregistered_facet",
                         f"{item.id} differing_component names unregistered facet "
                         f"{item.differing_component.facet!r}",
@@ -2215,7 +2144,7 @@ def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -
                 if known and plant.facet_id is not None and plant.facet_id not in known:
                     issues.append(
                         _issue(
-                            severity,
+                            "error",
                             "error_hunt:unregistered_facet",
                             f"{item.id} plant {plant.id!r} names unregistered facet {plant.facet_id!r}",
                             entity_id=item.id,
@@ -2250,7 +2179,7 @@ def _check_instrument_contracts(vault: LoadedVault, issues: list[HealthIssue]) -
             if known and profile.facet_id is not None and profile.facet_id not in known:
                 issues.append(
                     _issue(
-                        severity,
+                        "error",
                         "discrimination_profile:unregistered_facet",
                         f"{item.id} profile {profile.id!r} names unregistered facet {profile.facet_id!r}",
                         entity_id=item.id,
@@ -2404,7 +2333,6 @@ def _check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) 
     from learnloop.learner.capability_mapping import is_valid_capability
 
     known = set(vault.evidence_facets)
-    severity = _mvp07_facet_severity(vault)
     rubrics: list[tuple[str, Any]] = [
         (f"rubric:{mode}", rubric) for mode, rubric in vault.default_rubrics.items()
     ]
@@ -2443,7 +2371,7 @@ def _check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) 
                 if known and target.facet not in known:
                     issues.append(
                         _issue(
-                            severity,
+                            "error",
                             "criterion:unregistered_target_facet",
                             f"{owner_id} criterion {criterion.id!r} targets unregistered facet {target.facet!r}",
                             entity_id=owner_id,
@@ -2834,9 +2762,6 @@ def _check_pre_first_practice_identifiability(
     error that blocks a legacy vault); with ``fix_state`` a discriminating probe /
     coarsen need is scheduled per finding and the watermark advances.
     """
-
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
 
     from learnloop.learner.identifiability import (
         analyze_identifiability,

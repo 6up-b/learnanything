@@ -263,7 +263,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_does_not_merge_opposite_registered_facet_contracts`
   - `test_doctor_does_not_merge_unrelated_equal_length_facet_ids`
-  - `test_doctor_fix_state_merges_registered_facet_alias_state`
   - `test_doctor_report_is_the_same_with_and_without_the_parse_cache`
   - `test_doctor_reports_reference_issues_and_json_cli`
   - `test_doctor_resolves_legacy_error_event_through_causal_taxonomy`
@@ -406,6 +405,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_proposal_persistence.py](../../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_registry_backed_vault_rejects_unknown_evidence_facet`
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import

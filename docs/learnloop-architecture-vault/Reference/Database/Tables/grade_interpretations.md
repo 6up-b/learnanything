@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_teacher_te2_review_fixes.py`
+- `tests/certain_grade_helpers.py`
 - `tests/test_effective_observation.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`

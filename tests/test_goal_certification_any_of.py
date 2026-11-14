@@ -21,6 +21,7 @@ from learnloop.goals.goal_certification import lo_certification, recipe_gaps
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import (
     NOW,
 )
@@ -44,10 +45,11 @@ def _vault(tmp_path, recipe: dict):
 
 
 def _demonstrate(vault, repository, facet):
-    """One full-marks unassisted attempt on the instrument for ``facet``."""
+    """One full-marks unassisted attempt on the instrument for ``facet``, its grade certain
+    (``tests/certain_grade_helpers.py``: one uncertain self-grade certifies nothing)."""
 
     _capability, item_id = CELLS[facet]
-    complete_self_graded_attempt(
+    result = complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(
@@ -59,6 +61,7 @@ def _demonstrate(vault, repository, facet):
         SelfGradeInput(criterion_points={"c1": 4}, fatal_errors=[], confidence=4),
         clock=FrozenClock(NOW),
     )
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
 
 
 def _lo(vault):

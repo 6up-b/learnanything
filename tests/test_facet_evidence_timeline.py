@@ -132,7 +132,7 @@ def test_bulk_timelines_read_grading_history_once(blueprint_vault, monkeypatch):
     calls = {"attempts": 0, "grading": 0, "contracts": 0, "activity": 0}
     original_attempts = repository.list_attempt_history
     original_grading = repository.list_grading_evidence_history
-    original_contracts = repository.fetch_assessment_contract_versions
+    original_contracts = repository.effective_assessment_contract_versions
     original_activity = repository.all_causal_activity_classifications
 
     def attempts_once():
@@ -143,9 +143,9 @@ def test_bulk_timelines_read_grading_history_once(blueprint_vault, monkeypatch):
         calls["grading"] += 1
         return original_grading(include_superseded=include_superseded)
 
-    def contracts_once(version_ids):
+    def contracts_once(version_ids, *, projection_version):
         calls["contracts"] += 1
-        return original_contracts(version_ids)
+        return original_contracts(version_ids, projection_version=projection_version)
 
     def activity_once():
         calls["activity"] += 1
@@ -153,7 +153,7 @@ def test_bulk_timelines_read_grading_history_once(blueprint_vault, monkeypatch):
 
     monkeypatch.setattr(repository, "list_attempt_history", attempts_once)
     monkeypatch.setattr(repository, "list_grading_evidence_history", grading_once)
-    monkeypatch.setattr(repository, "fetch_assessment_contract_versions", contracts_once)
+    monkeypatch.setattr(repository, "effective_assessment_contract_versions", contracts_once)
     monkeypatch.setattr(repository, "all_causal_activity_classifications", activity_once)
     monkeypatch.setattr(
         repository,

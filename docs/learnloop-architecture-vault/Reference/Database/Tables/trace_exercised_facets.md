@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `tests/test_conjunctive_instruments.py`
 - `tests/test_why_reader.py`
 - `tests/test_projection_evidence_polarity.py`
+- `tests/test_projection_timeline_agreement.py`
 - `tests/test_reader_recap_review_r2.py`
 - `tests/test_reader_recap_review_r3.py`
 - `tests/test_sidecar_trace_and_clarification.py`

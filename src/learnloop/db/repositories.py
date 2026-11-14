@@ -6781,59 +6781,6 @@ class Repository(
             self._upsert_facet_uncertainty_state(connection, state)
             connection.commit()
 
-    def merge_facet_recall_aliases(
-        self,
-        alias_to_canonical: Mapping[str, str],
-        *,
-        algorithm_version: str,
-        clock: Clock | None = None,
-    ) -> int:
-        merge_map = {
-            str(alias): str(canonical)
-            for alias, canonical in alias_to_canonical.items()
-            if alias and canonical and alias != canonical
-        }
-        if not merge_map:
-            return 0
-        now = utc_now_iso(clock)
-        merged_groups = 0
-        with self.connection() as connection:
-            for canonical in sorted(set(merge_map.values())):
-                aliases = sorted(alias for alias, target in merge_map.items() if target == canonical)
-                source_facets = [canonical, *aliases]
-                placeholders = ",".join("?" for _ in source_facets)
-                rows = connection.execute(
-                    f"""
-                    SELECT * FROM evidence_facet_recall_state
-                    WHERE facet_id IN ({placeholders})
-                    ORDER BY learning_object_id, practice_item_id, facet_id
-                    """,
-                    source_facets,
-                ).fetchall()
-                groups: dict[tuple[str, str | None], list[sqlite3.Row]] = {}
-                for row in rows:
-                    groups.setdefault((row["learning_object_id"], row["practice_item_id"]), []).append(row)
-                for (learning_object_id, practice_item_id), group in groups.items():
-                    if not any(row["facet_id"] != canonical for row in group):
-                        continue
-                    state = _merged_facet_recall_state(
-                        group,
-                        canonical_facet_id=canonical,
-                        learning_object_id=learning_object_id,
-                        practice_item_id=practice_item_id,
-                        algorithm_version=algorithm_version,
-                        updated_at=now,
-                    )
-                    ids = [row["id"] for row in group]
-                    connection.execute(
-                        f"DELETE FROM evidence_facet_recall_state WHERE id IN ({','.join('?' for _ in ids)})",
-                        ids,
-                    )
-                    self._upsert_facet_recall_state(connection, state)
-                    merged_groups += 1
-            connection.commit()
-        return merged_groups
-
     def practice_item_quality_state(self, practice_item_id: str) -> PracticeItemQualityState | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -26832,44 +26779,6 @@ def _facet_uncertainty_state(row: sqlite3.Row) -> FacetUncertaintyState:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
-
-
-def _merged_facet_recall_state(
-    rows: list[sqlite3.Row],
-    *,
-    canonical_facet_id: str,
-    learning_object_id: str,
-    practice_item_id: str | None,
-    algorithm_version: str,
-    updated_at: str,
-) -> dict[str, Any]:
-    alpha = sum(float(row["recall_alpha"]) for row in rows)
-    beta = sum(float(row["recall_beta"]) for row in rows)
-    total = alpha + beta
-    mean = alpha / total if total > 0 else 0.5
-    variance = alpha * beta / (total**2 * (total + 1.0)) if total > 0 else 0.0
-    canonical = next((row for row in rows if row["facet_id"] == canonical_facet_id), rows[0])
-    last_attempts = [row["last_attempt_at"] for row in rows if row["last_attempt_at"]]
-    last_errors = [row["last_error_at"] for row in rows if row["last_error_at"]]
-    created_values = [row["created_at"] for row in rows if row["created_at"]]
-    return {
-        "id": canonical["id"],
-        "learning_object_id": learning_object_id,
-        "facet_id": canonical_facet_id,
-        "practice_item_id": practice_item_id,
-        "recall_alpha": alpha,
-        "recall_beta": beta,
-        "recall_mean": mean,
-        "recall_variance": variance,
-        "independent_evidence_mass": sum(float(row["independent_evidence_mass"]) for row in rows),
-        "raw_coverage_mass": sum(float(row["raw_coverage_mass"]) for row in rows),
-        "last_attempt_at": max(last_attempts) if last_attempts else None,
-        "last_error_at": max(last_errors) if last_errors else None,
-        "consecutive_failures": max(int(row["consecutive_failures"]) for row in rows),
-        "algorithm_version": algorithm_version,
-        "created_at": min(created_values) if created_values else updated_at,
-        "updated_at": updated_at,
-    }
 
 
 def _practice_item_quality_state(row: sqlite3.Row) -> PracticeItemQualityState:

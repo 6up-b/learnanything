@@ -15,6 +15,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
 
 
@@ -172,7 +173,10 @@ def blueprint_vault_old_tag(tmp_path):
 
 
 def _attempt(vault, repository, item_id, criterion, *, hints_used=0):
-    complete_self_graded_attempt(
+    """A self-graded attempt whose grade is then certain (``tests/certain_grade_helpers.py``): the KM3 readers
+    are tested over banked credit, and one uncertain self-grade banks too little to certify a cell."""
+
+    result = complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(
@@ -184,3 +188,5 @@ def _attempt(vault, repository, item_id, criterion, *, hints_used=0):
         SelfGradeInput(criterion_points={"c1": criterion}, fatal_errors=[], confidence=4),
         clock=FrozenClock(NOW),
     )
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
+    return result

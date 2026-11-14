@@ -101,6 +101,7 @@ def test_reading_usable_with_synthesis_worker_down(tmp_path: Path) -> None:
         ("reader.source_requests", {"sourceId": "src1"}),
     ])
     assert len(out[1]["result"]["blocks"]) == 1
+    assert "result" in out[2], out[2]  # the outbox drain once failed under load: show its error
     assert out[2]["result"]["receipt"] == "acknowledged"
     # Worker never ran -> request is durably queued, reading still fully worked.
     assert out[4]["result"]["requests"][0]["status"] == "queued"

@@ -22,7 +22,7 @@ from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault
 from tests.owner_vaults import owner_vaults, require_owner_vault
 
 
@@ -559,68 +559,6 @@ def test_doctor_warns_on_duplicate_learning_objects(tmp_path):
     assert issue.details["canonical_learning_object_id"] == "lo_svd_definition"
     assert issue.details["duplicate_learning_object_id"] == "lo_svd_definition_copy"
     assert issue.details["shared_concept"] == "singular_value_decomposition"
-
-
-def test_doctor_fix_state_merges_registered_facet_alias_state(tmp_path):
-    vault_root = tmp_path / "vault"
-    # Old path only: the legacy per-LO facet state (doctor's mvp-0.6 alias merge); canonical vaults keep none.
-    paths = pin_old_basic_vault(create_basic_vault(vault_root))
-    write_yaml(
-        paths.facets_path,
-        {
-            "schema_version": 1,
-            "facets": [
-                {
-                    "id": "recall",
-                    "title": "Recall",
-                    "aliases": ["svd-recall"],
-                    "description": None,
-                    "tags": [],
-                }
-            ],
-        },
-    )
-    repository = Repository(paths.sqlite_path)
-    with repository.connection() as connection:
-        for facet_id, alpha, beta in [("recall", 2.0, 3.0), ("svd-recall", 4.0, 5.0)]:
-            connection.execute(
-                """
-                INSERT INTO evidence_facet_recall_state(
-                  id, learning_object_id, facet_id, practice_item_id,
-                  recall_alpha, recall_beta, recall_mean, recall_variance,
-                  independent_evidence_mass, raw_coverage_mass, last_attempt_at,
-                  last_error_at, consecutive_failures, algorithm_version,
-                  created_at, updated_at
-                )
-                VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    f"state_{facet_id}",
-                    "lo_svd_definition",
-                    facet_id,
-                    alpha,
-                    beta,
-                    alpha / (alpha + beta),
-                    alpha * beta / ((alpha + beta) ** 2 * (alpha + beta + 1.0)),
-                    1.0,
-                    1.0,
-                    NOW_ISO,
-                    NOW_ISO,
-                    1,
-                    "mvp-0.1",
-                    NOW_ISO,
-                    NOW_ISO,
-                ),
-            )
-        connection.commit()
-
-    run_doctor(vault_root, fix_state=True)
-
-    merged = repository.facet_recall_state("lo_svd_definition", "recall")
-    assert merged is not None
-    assert merged.recall_alpha == 6.0
-    assert merged.recall_beta == 8.0
-    assert repository.facet_recall_state("lo_svd_definition", "svd-recall") is None
 
 
 def _diagnostic_item_payload(client_item_id: str, proposed_entity_id: str) -> dict:

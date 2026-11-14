@@ -169,7 +169,7 @@ def build_shared_facet_vault(root: Path, *, version: str = LATEST_ALGORITHM_VERS
 
 
 def _attempt(vault, repository, item_id, points, clock, *, hints_used=0):
-    complete_self_graded_attempt(
+    return complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(

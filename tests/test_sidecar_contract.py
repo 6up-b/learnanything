@@ -14,6 +14,7 @@ from learnloop.vault.loader import add_note, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_concept, upsert_concept_edge, upsert_learning_object
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import (
     ALGORITHM_VERSION,
     NOW_ISO,
@@ -2683,13 +2684,15 @@ def test_knowledge_field_is_recipe_topological_and_uses_pooled_ready(tmp_path):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
-    complete_self_graded_attempt(
+    result = complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft("pi_comp_a", "answer"),
         SelfGradeInput(criterion_points={"c1": 4}, confidence=5),
         clock=FrozenClock(NOW),
     )
+    # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW))
 
     field = _rpc(
         [

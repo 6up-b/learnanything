@@ -1222,7 +1222,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unbound_problem_open_in_the_window_is_workbench_state_unknown`
   - `test_rebinding_an_imported_problem_to_another_item_never_flips_the_attempt`
 - [tests/test_hot_path_eligibility_cutover.py](../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
-  - `test_ineligible_observation_leaves_mvp08_scheduling_untouched_but_legacy_writes`
+  - `test_ineligible_observation_leaves_mvp08_scheduling_untouched`
 - [tests/test_hypothesis_claim_dispatcher.py](../../../../../tests/test_hypothesis_claim_dispatcher.py) — direct import
   - `test_at_most_one_cold_reask_per_log_visit`
   - `test_cold_claims_never_take_the_reserved_hot_slot`
@@ -1566,6 +1566,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incomplete_mapping_surfaces_as_a_machine_check_never_as_a_probe`
   - `test_integration_condition_probes_coordination_not_components`
 - [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
+- [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
+  - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_proposal_persistence.py](../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_accept_learning_object_create_adds_missing_concept_for_graph`
   - `test_ai_proposal_acceptance_records_ai_origin`
@@ -1681,7 +1686,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
   - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
   - `test_facet_aliases_are_canonicalized_before_recall_updates`
-  - `test_facet_recall_alias_merge_sums_beta_state`
   - `test_high_unfamiliar_probe_posterior_records_intervention_need`
   - `test_hinted_dont_know_is_scaffold_failure_and_dampens_coverage_only_from_surface_policy`
   - `test_intervention_need_targets_failed_facet_not_whole_item`

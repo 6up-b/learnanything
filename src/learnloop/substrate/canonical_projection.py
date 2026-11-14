@@ -9,8 +9,7 @@ global chronological order the ledger already provides. This makes replay
 byte-identical by construction, and sidesteps the shared-facet reset hazard of
 incremental per-LO updates (a facet lives under many LOs).
 
-Runs only under mvp-0.7 (`KM_ALGORITHM_VERSION`); the caller guards. The result
-is derived state — not a new evidence source — consistent with "evidence, not
+The result is derived state — not a new evidence source — consistent with "evidence, not
 mastery": it is a fold over attempts + grading, exactly like every other
 `rebuild_derived_state` output.
 """
@@ -22,15 +21,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
 
-from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.grading_epochs import current_epoch
-from learnloop.learner.assessment_contracts import (
-    CANONICAL_STATE_VERSIONS,
-    KM_ALGORITHM_VERSION,
-    P0_PROJECTION_VERSIONS,
-)
+from learnloop.learner.assessment_contracts import KM_ALGORITHM_VERSION
 from learnloop.diagnosis.causal_activity_policy import (
     ASSISTED_ATTEMPT_TYPES as _ASSISTED_ATTEMPT_TYPES,
     resolve_attempt_activity_policy,
@@ -296,9 +290,9 @@ class CanonicalProjectionSnapshot:
     error_events_by_attempt: dict[str, list[dict[str, Any]]]
     activity_by_attempt: dict[str, dict[str, Any]]
     p0_references: EffectiveObservationReferences | None
-    #: Regrade contracts (mvp-0.26): the attempts replay held because their
-    #: current grading epoch's contract is unrecorded (the projection, like
-    #: replay, reads them as no evidence). Empty below the tag.
+    #: The attempts replay holds because their current grading epoch's
+    #: contract is unrecorded (the projection, like replay, reads them as no
+    #: evidence).
     contract_unrecorded: frozenset[str] = frozenset()
 
 
@@ -314,27 +308,21 @@ def load_canonical_projection_snapshot(
     fold prevents a projection over N attempts from doing O(N) contract reads.
     """
 
-    ledger_rows = tuple(
-        repository.canonical_observation_ledger_v2()
-        if algorithm_version in P0_PROJECTION_VERSIONS
-        else repository.canonical_observation_ledger()
+    from learnloop.attempts.effective_observation import (
+        load_effective_observation_references,
     )
+
+    ledger_rows = tuple(repository.canonical_observation_ledger_v2())
     contract_ids = {
         str(row["assessment_contract_version_id"])
         for attempt in ledger_rows
         for row in attempt["evidence"]
         if row.get("assessment_contract_version_id")
     }
-    p0_references = None
-    if algorithm_version in P0_PROJECTION_VERSIONS:
-        from learnloop.attempts.effective_observation import (
-            load_effective_observation_references,
-        )
-
-        p0_references = load_effective_observation_references(
-            repository,
-            (row.get("active_interpretation") for row in ledger_rows),
-        )
+    p0_references = load_effective_observation_references(
+        repository,
+        (row.get("active_interpretation") for row in ledger_rows),
+    )
     return CanonicalProjectionSnapshot(
         ledger_rows=ledger_rows,
         contracts_by_source_version=repository.effective_assessment_contract_versions(
@@ -346,11 +334,7 @@ def load_canonical_projection_snapshot(
         error_events_by_attempt=repository.all_error_events_by_attempt(),
         activity_by_attempt=repository.all_causal_activity_classifications(),
         p0_references=p0_references,
-        contract_unrecorded=(
-            _contract_unrecorded(repository)
-            if algorithm_version in REGRADE_CONTRACT_VERSIONS
-            else frozenset()
-        ),
+        contract_unrecorded=_contract_unrecorded(repository),
     )
 
 
@@ -651,13 +635,13 @@ def project_canonical_facet_state(
     whole-ledger projection every replay ends with (nothing an attempt
     computes reads them).
 
-    mvp-0.7 (``KM_ALGORITHM_VERSION``) is the byte-identical legacy compatibility
-    projection: raw ``points_awarded/points`` score fractions, attempt-type mass
-    only. mvp-0.8 (``P0_ALGORITHM_VERSION``, P0.3 §4.3) reads the authoritative
-    events ledger and feeds a reliability-discounted EffectiveObservation: the
-    calibrated ``E[true_score_fraction]`` replaces the raw fraction and the
-    certainty LCB multiplies the evidence mass BEFORE the existing caps /
-    localization / assistance discounts bind. Reliability never creates mass.
+    The fold reads the authoritative events ledger (P0.3 §4.3) and feeds a
+    reliability-discounted EffectiveObservation: the certainty LCB multiplies
+    the evidence mass BEFORE the existing caps / localization / assistance
+    discounts bind. Reliability never creates mass. Each attempt contributes
+    its current grading epoch under the contract that epoch cites; an attempt
+    whose current contract is unrecorded contributes nothing, as replay holds
+    it.
 
     The facet-belief successor (mvp-0.59, ``facet_belief_fixes_on``) changes three
     bookings and nothing else: a success at or above ``FAILURE_THRESHOLD`` resets
@@ -667,25 +651,19 @@ def project_canonical_facet_state(
     lands, the attributed targets at their share (D-6). Off, or below the tag,
     the fold is mvp-0.58's exactly."""
 
+    from learnloop.attempts.outcome_schemas import (
+        COARSE_RESPONSE_SLUG,
+        ensure_builtin_schemas,
+    )
+
     algorithm_version = vault.config.algorithms.algorithm_version
-    if algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     belief_fixes = facet_belief_fixes_on(vault.config)
     belief_corrections = facet_belief_corrections_on(vault.config)
-    use_p0 = algorithm_version in P0_PROJECTION_VERSIONS
     p0_score_fraction: dict[str, float] = {}
-    if use_p0:
-        from learnloop.attempts.outcome_schemas import (
-            COARSE_RESPONSE_SLUG,
-            ensure_builtin_schemas,
-        )
-
-        ensure_builtin_schemas(repository, clock=clock)
-        schema_row = repository.fetch_outcome_schema_version(slug=COARSE_RESPONSE_SLUG)
-        if schema_row is not None:
-            import json as _json_mod
-
-            p0_score_fraction = _json_mod.loads(schema_row["score_fraction_json"])
+    ensure_builtin_schemas(repository, clock=clock)
+    schema_row = repository.fetch_outcome_schema_version(slug=COARSE_RESPONSE_SLUG)
+    if schema_row is not None:
+        p0_score_fraction = json.loads(schema_row["score_fraction_json"])
 
     if before is not None and through is not None:
         raise ValueError("project_canonical_facet_state takes before or through, not both")
@@ -731,21 +709,17 @@ def project_canonical_facet_state(
     # every observation).
     exercised_by_attempt = snapshot.exercised_by_attempt
     max_embedded_share = float(getattr(cert_cfg, "max_embedded_credit_share", 1.0))
-    regrade_contracts = algorithm_version in REGRADE_CONTRACT_VERSIONS
     contract_unrecorded = snapshot.contract_unrecorded
     for attempt in snapshot.ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
-        attempt_evidence = attempt["evidence"]
-        if regrade_contracts:
-            # Regrade contracts (mvp-0.26): the current grading epoch's rows
-            # under the contract they cite, as replay reads them. An epoch
-            # citing no contract is held by replay (its maximum is not on
-            # record) unless it is the attempt's only, pre-contract grade,
-            # which keeps the compatibility reading below.
-            epoch = current_epoch(attempt_evidence)
-            attempt_evidence = list(epoch.rows) if epoch is not None else []
-            if str(attempt["attempt_id"]) in contract_unrecorded:
-                continue
+        # The current grading epoch's rows under the contract they cite, as
+        # replay reads them. An epoch citing no contract is held by replay (its
+        # maximum is not on record) unless it is the attempt's only,
+        # pre-contract grade, which keeps the compatibility reading below.
+        epoch = current_epoch(attempt["evidence"])
+        attempt_evidence = list(epoch.rows) if epoch is not None else []
+        if str(attempt["attempt_id"]) in contract_unrecorded:
+            continue
         contract = _historical_contract(
             attempt_evidence,
             contracts_by_source_version=snapshot.contracts_by_source_version,
@@ -789,24 +763,19 @@ def project_canonical_facet_state(
         # the ledger is the directional authority (ruling A; rationale in the
         # shared helper's docstring). Corrections arrive as superseding
         # revisions, so the fraction below is always the corrected direction.
-        if use_p0:
-            emass = p0_effective_evidence_mass(
-                repository,
-                interpretation=attempt.get("active_interpretation"),
-                attempt_type_mass=emass,
-                references=snapshot.p0_references,
-            )
+        emass = p0_effective_evidence_mass(
+            repository,
+            interpretation=attempt.get("active_interpretation"),
+            attempt_type_mass=emass,
+            references=snapshot.p0_references,
+        )
         # Observed-outcome override for the unresolved-cause gate: adjudication
         # is observation-scoped (one activity observation per attempt), so it
         # applies to every criterion of this attempt.
-        adjudicated_fraction = (
-            _adjudicated_score_fraction(
-                attempt.get("active_adjudication"),
-                attempt.get("active_interpretation"),
-                p0_score_fraction,
-            )
-            if use_p0
-            else None
+        adjudicated_fraction = _adjudicated_score_fraction(
+            attempt.get("active_adjudication"),
+            attempt.get("active_interpretation"),
+            p0_score_fraction,
         )
         activity = resolve_attempt_activity_policy(
             attempt_type=attempt["attempt_type"],
@@ -1216,8 +1185,6 @@ def project_capability_residuals(
     never touched, so rebuild determinism is identical with the feature on OR off.
     """
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     cfg = vault.config.capabilities
     if not getattr(cfg, "residual_activation_enabled", False):
         return

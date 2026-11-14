@@ -142,14 +142,6 @@ def test_project_administration_is_fail_safe_on_missing_administration(repo):
 
 # --- version-gate: OFF keeps the hot path byte-identical (characterization) ----
 
-def test_hot_path_gate_default_off_is_unconditional():
-    assert AA.P1_PURPOSE_ADAPTERS_ENABLED is False
-    # OFF -> always apply the review (byte-identical legacy behavior).
-    assert AA.hot_path_applies_practice_review(attempt_type="independent_attempt") is True
-    assert AA.hot_path_applies_practice_review(attempt_type="independent_attempt", eligible=False) is True
-
-
-def test_hot_path_gate_on_defers_to_practice_eligibility(monkeypatch):
-    monkeypatch.setattr(AA, "P1_PURPOSE_ADAPTERS_ENABLED", True)
+def test_hot_path_defers_to_practice_eligibility():
     assert AA.hot_path_applies_practice_review(attempt_type="independent_attempt", eligible=True) is True
     assert AA.hot_path_applies_practice_review(attempt_type="independent_attempt", eligible=False) is False

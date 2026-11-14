@@ -155,12 +155,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_generated_escalated_repair_is_validated_shown_like_any_repair_and_debited_once`
   - `test_a_not_the_same_mistake_tap_records_and_refreshes_without_blocking_a_citation`
   - `test_an_invalid_generated_repair_is_never_shown_as_a_different_approach`
-  - `test_below_the_successor_there_is_no_judge_and_no_escalation`
   - `test_escalation_ratings_need_an_escalation`
   - `test_identical_repairs_three_times_obtain_a_different_one_at_escalation`
   - `test_the_escalation_card_switch_hides_the_block`
   - `test_the_judge_merges_reworded_recurrences_and_the_third_escalates`
   - `test_the_same_repair_again_is_labelled_honestly`
+  - `test_with_the_switch_off_there_is_no_judge_and_no_escalation`
 
 ## Modification guidance
 

@@ -97,9 +97,14 @@ def test_cold_calibration_still_discounts_certification_credit(tmp_path):
     _attempt(p0_vault, p0_repository, 4)
     p0_credit = _total_certification_credit(p0_repository)
 
-    v1_vault, v1_repository = _vault(tmp_path / "v1", algorithm_version="mvp-0.7")
-    _attempt(v1_vault, v1_repository, 4)
-    raw_credit = _total_certification_credit(v1_repository)
+    # The raw-grade baseline: the same answer with its grade made certain by the
+    # owner's point adjudication of its own class, which weighs it by its
+    # attempt type alone.
+    raw_vault, raw_repository = _vault(tmp_path / "raw")
+    raw = _attempt(raw_vault, raw_repository, 4)
+    _adjudicate(raw_repository, raw.attempt_id, "success")
+    project_canonical_facet_state(raw_vault, raw_repository, clock=CLOCK)
+    raw_credit = _total_certification_credit(raw_repository)
 
     # Shrinkage still binds: credit accrues but stays below the raw-grade
     # baseline, without an unresolved-cause factor being minted (above).

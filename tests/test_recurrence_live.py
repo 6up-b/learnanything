@@ -194,8 +194,8 @@ def test_escalation_ratings_need_an_escalation(tmp_path):
                         response="escalation:helped")
 
 
-def test_below_the_successor_there_is_no_judge_and_no_escalation(tmp_path):
-    _paths, vault, repository = _vault(tmp_path, version="mvp-0.10")
+def test_with_the_switch_off_there_is_no_judge_and_no_escalation(tmp_path):
+    _paths, vault, repository = _vault(tmp_path, config="[recurrence]\nenabled = false")
     client = StatementFake(STATEMENTS, decide=shares_word("transpos"))
     results = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
     assert client.judged == []

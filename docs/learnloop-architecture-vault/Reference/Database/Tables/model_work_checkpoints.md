@@ -112,6 +112,7 @@ None found by exact static reference scan.
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_synthesis_answer_reuse.py`
+- `tests/test_synthesis_tail_golden.py`
 - `tests/test_t6_followup_review.py`
 - `tests/test_workbench_text_gaps.py`
 
