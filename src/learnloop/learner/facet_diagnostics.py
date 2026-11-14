@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from math import log
 from typing import Any, Iterable, Mapping
@@ -224,6 +224,28 @@ def contract_frontier(
     return cells, (authored_any and not legacy_any)
 
 
+@dataclass(frozen=True)
+class LoCoverageReads:
+    """What :func:`lo_relative_coverage` reads, keyed by the learning object alone.
+
+    ``required`` stays the set the read built: the coverage sums iterate it, and a set rebuilt from the same members
+    may iterate in another order, which moves a float sum's last bit."""
+
+    required: set[str]
+    open_uncertainties: dict[str, FacetUncertaintyState]
+
+
+def read_lo_coverage(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoCoverageReads:
+    required = required_facets(vault, learning_object_id, repository)
+    open_uncertainties = {
+        state.facet_id: state
+        for state in facet_uncertainty_states_for_lo(
+            vault, repository, learning_object_id, statuses=("open", "resolving")
+        )
+    }
+    return LoCoverageReads(required=required, open_uncertainties=open_uncertainties)
+
+
 def lo_relative_coverage(
     vault: LoadedVault,
     repository: Repository,
@@ -232,13 +254,24 @@ def lo_relative_coverage(
     normalized_facet_weights: Mapping[str, float],
     effective_item_coverage: float,
 ) -> tuple[float, dict[str, Any]]:
-    required = required_facets(vault, learning_object_id, repository)
-    open_uncertainties = {
-        state.facet_id: state
-        for state in facet_uncertainty_states_for_lo(
-            vault, repository, learning_object_id, statuses=("open", "resolving")
-        )
-    }
+    return lo_relative_coverage_from(
+        read_lo_coverage(vault, repository, learning_object_id),
+        vault.config.recall_coverage,
+        normalized_facet_weights=normalized_facet_weights,
+        effective_item_coverage=effective_item_coverage,
+    )
+
+
+def lo_relative_coverage_from(
+    reads: LoCoverageReads,
+    config: Any,
+    *,
+    normalized_facet_weights: Mapping[str, float],
+    effective_item_coverage: float,
+) -> tuple[float, dict[str, Any]]:
+    """The item's coverage of the learning object's measured facets; ``config`` is ``recall_coverage``."""
+
+    required, open_uncertainties = reads.required, reads.open_uncertainties
     measured_required = set(open_uncertainties) if open_uncertainties else required
     if not measured_required:
         return 1.0, {
@@ -249,7 +282,6 @@ def lo_relative_coverage(
             "per_facet_coverage": {},
             "lo_relative_coverage": 1.0,
         }
-    config = vault.config.recall_coverage
     importance = {
         facet: 1.0 + config.kappa_uncertain * max(open_uncertainties.get(facet).uncertainty, 0.0)
         if facet in open_uncertainties
@@ -307,32 +339,83 @@ def covered_required_fraction(
     one place rather than by whichever inference rule ships first.
     """
 
+    return covered_required_fraction_from(
+        read_breadth(vault, repository, learning_object_id),
+        vault.config.recall_coverage,
+        aggregate_facet_recall=aggregate_facet_recall,
+        inferred_cells=inferred_cells,
+    )
+
+
+@dataclass(frozen=True)
+class BreadthReads:
+    """What :func:`covered_required_fraction` reads, keyed by the learning object alone: the contract frontier, then
+    either each frontier facet's capability evidence (an authored frontier) or the item-derived facets and the LO's
+    facet recall states (``None`` where the branch read nothing)."""
+
+    frontier: set[tuple[str, str]]
+    authored: bool
+    cell_evidence: dict[str, list[Any]] | None = None
+    required: set[str] | None = None
+    recall_states: list[Any] | None = None
+
+
+def read_breadth(vault: LoadedVault, repository: Repository, learning_object_id: str) -> BreadthReads:
     frontier, authored = contract_frontier(vault, learning_object_id, repository)
     if frontier and authored:
-        return _covered_frontier_fraction(
-            vault,
-            repository,
+        return BreadthReads(
             frontier=frontier,
-            inferred_cells=inferred_cells,
+            authored=authored,
+            cell_evidence={
+                facet: list(repository.facet_capability_evidence_for_facet(facet))
+                for facet in sorted({facet for facet, _capability in frontier})
+            },
         )
     required = required_facets(vault, learning_object_id, repository)
+    if not required:
+        return BreadthReads(frontier=frontier, authored=authored, required=required)
+    return BreadthReads(
+        frontier=frontier,
+        authored=authored,
+        required=required,
+        recall_states=list(facet_recall_states_for_lo(vault, repository, learning_object_id)),
+    )
+
+
+def covered_required_fraction_from(
+    reads: BreadthReads,
+    config: Any,
+    *,
+    aggregate_facet_recall: Mapping[str, FacetRecallState | Mapping[str, Any] | None] | None = None,
+    inferred_cells: Mapping[tuple[str, str], float] | None = None,
+) -> tuple[float, dict[str, Any]]:
+    """:func:`covered_required_fraction` over what it read; ``config`` is ``recall_coverage``."""
+
+    if reads.frontier and reads.authored:
+        return _covered_frontier_fraction(
+            reads.cell_evidence or {},
+            config,
+            frontier=reads.frontier,
+            inferred_cells=inferred_cells,
+        )
+    required = reads.required
     if not required:
         return 1.0, {
             "required_facets": [],
             "covered_required_facets": [],
-            "min_facet_evidence_mass": vault.config.recall_coverage.min_facet_evidence_mass,
+            "min_facet_evidence_mass": config.min_facet_evidence_mass,
             "covered_required_fraction": 1.0,
             "denominator_basis": "legacy_item_facets",
         }
     state_by_facet: dict[str, Any] = {
         state.facet_id: state
-        for state in facet_recall_states_for_lo(vault, repository, learning_object_id)
+        for state in reads.recall_states or ()
         if state.practice_item_id is None
     }
     for facet, state in dict(aggregate_facet_recall or {}).items():
         if state is not None:
             state_by_facet[str(facet)] = state
-    threshold = vault.config.recall_coverage.min_facet_evidence_mass
+    threshold = config.min_facet_evidence_mass
 
     def mass(state: Any) -> float:
         if isinstance(state, Mapping):
@@ -355,15 +438,15 @@ def covered_required_fraction(
 
 
 def _covered_frontier_fraction(
-    vault: LoadedVault,
-    repository: Repository,
+    cell_evidence: Mapping[str, list[Any]],
+    config: Any,
     *,
     frontier: set[tuple[str, str]],
     inferred_cells: Mapping[tuple[str, str], float] | None,
 ) -> tuple[float, dict[str, Any]]:
-    """Per-cell coverage over the contract frontier."""
+    """Per-cell coverage over the contract frontier; ``cell_evidence`` holds each frontier facet's capability rows."""
 
-    threshold = vault.config.recall_coverage.min_facet_evidence_mass
+    threshold = config.min_facet_evidence_mass
     facets = sorted({facet for facet, _capability in frontier})
 
     # Per-cell direct evidence, from the capability ledger. A facet whose only
@@ -372,7 +455,7 @@ def _covered_frontier_fraction(
     # to the facet-level `independent_evidence_mass`.
     cell_mass: dict[tuple[str, str], float] = {}
     for facet in facets:
-        for cell in repository.facet_capability_evidence_for_facet(facet):
+        for cell in cell_evidence.get(facet, ()):
             key = (facet, str(cell.capability))
             cell_mass[key] = max(0.0, float(cell.direct_positive_mass)) + max(
                 0.0, float(cell.direct_negative_mass)
