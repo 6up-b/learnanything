@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx](../../../../../../apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx) |
-| Source lines | 770 |
+| Source lines | 779 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -84,20 +84,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function CollectionsSection(` — function, line 513
 - `const setsQuery = useCachedQuery(["list_source_sets"], ()` — const, line 522
 - `const sets: SourceSetSummaryDto[] = setsQuery.data?.sourceSets ?? []` — const, line 523
-- `const titleFor = useCallback( (sourceId: string): string` — const, line 535
-- `const card = sources.find((c)` — const, line 537
-- `const refetchSets = setsQuery.refetch` — const, line 543
-- `const refresh = useCallback(async ()` — const, line 544
-- `async function toggle(id: string)` — function, line 553
-- `const next =` — const, line 556
-- `const next =` — const, line 569
-- `async function synthesize(id: string)` — function, line 576
-- `const inventoryOutputTokens = inventoryBudgets[id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS` — const, line 577
-- `const unlimitedTokenBudget = Boolean(unlimitedBudgets[id])` — const, line 578
-- `const batch = await api.buildStudyMap(` — const, line 587
-- `const detail = expanded[set.id]` — const, line 632
-- `const open = detail !== undefined` — const, line 633
-- `const isBusy = busy === set.id` — const, line 634
+- `const titleFor = useCallback( (sourceId: string): string` — const, line 537
+- `const card = sources.find((c)` — const, line 539
+- `const refetchSets = setsQuery.refetch` — const, line 545
+- `const refresh = useCallback(async ()` — const, line 546
+- `async function toggle(id: string)` — function, line 555
+- `const next =` — const, line 558
+- `const next =` — const, line 571
+- `async function synthesize(id: string)` — function, line 578
+- `const inventoryOutputTokens = inventoryBudgets[id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS` — const, line 579
+- `const unlimitedTokenBudget = Boolean(unlimitedBudgets[id])` — const, line 580
+- `const batch = await api.buildStudyMap(` — const, line 589
+- `const detail = expanded[set.id]` — const, line 640
+- `const open = detail !== undefined` — const, line 641
+- `const isBusy = busy === set.id` — const, line 642
 
 ## Who imports or calls it
 
@@ -134,6 +134,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/SourceLibrarySidebar.test.tsx](../../../../../../apps/learnloop-tauri/src/components/SourceLibrarySidebar.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

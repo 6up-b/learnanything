@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py) |
-| Source lines | 357 |
+| Source lines | 352 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_snapshot_has_work(raw: Any, step_rows: Mapping[str, Mapping[str, Any]] | None=None) -> bool | None` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 139) — Whether a logged step snapshot holds an ordinary step with text.
 - `_table_present(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 256)
 - `_rows(connection: Any, sql: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 262)
-- `_contract_targets(connection: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 313) — The LO per contract version an unsubmitted session froze (review F3).
+- `_contract_targets(connection: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 308) — The LO per contract version an unsubmitted session froze (review F3).
 
 ## Who imports or calls it
 

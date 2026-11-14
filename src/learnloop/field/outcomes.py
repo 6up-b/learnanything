@@ -317,11 +317,8 @@ def _hedging_readings(connection) -> dict[str, tuple[int, int]]:
     ``grading_evidence.learner_confidence`` on each attempt's current
     (unsuperseded) criterion rows; ``read`` counts the criteria read as
     ``confident`` or ``hedged`` (``absent`` and unknown say nothing). Offline
-    answer-signal arms only; a vault without the column has none.
+    answer-signal arms only.
     """
-    columns = {row[1] for row in connection.execute("PRAGMA table_info(grading_evidence)")}
-    if not {"learner_confidence", "superseded_at"} <= columns:
-        return {}
     counts: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     for attempt_id, reading in connection.execute(
         "SELECT attempt_id, learner_confidence FROM grading_evidence "

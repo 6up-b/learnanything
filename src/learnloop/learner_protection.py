@@ -571,11 +571,9 @@ class PastWork:
         if key not in self._questions:
             row = None
             if key and _table(self.connection, "question_events"):
-                columns = {column[1] for column in self.connection.execute("PRAGMA table_info(question_events)")}
-                contract = ("assessment_contract_version_id" if "assessment_contract_version_id" in columns
-                            else "NULL")
                 row = self.connection.execute(
-                    f"SELECT practice_item_id, attempt_id, context, {contract} FROM question_events WHERE id = ?",
+                    "SELECT practice_item_id, attempt_id, context, assessment_contract_version_id "
+                    "FROM question_events WHERE id = ?",
                     (key,),
                 ).fetchone()
             self._questions[key] = None if row is None else {

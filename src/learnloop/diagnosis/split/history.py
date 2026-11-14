@@ -777,17 +777,14 @@ class VaultHistoryStore:
         with self.repository.connection() as connection, read_snapshot(connection):
             marks = self._captured_marks if self._captured_marks is not None else grading_marks(connection)
             self._grading_marks = {**marks, **{attempt: UNIDENTIFIED_GRADING for attempt in self._unidentified}}
-            tap_column = ("answer_confidence" if "answer_confidence" in
-                          {info[1] for info in connection.execute("PRAGMA table_info(practice_attempts)")}
-                          else "NULL AS answer_confidence")
             # RO1 (landing ruling R1): the loader feeding the as-of cutoff selects received_at at the
             # tag with available_at_reads on; otherwise the predecessor's SQL, byte for byte.
-            received_column = (", received_at" if attempt_time_sql(vault.config, connection) != "created_at"
+            received_column = (", received_at" if attempt_time_sql(vault.config) != "created_at"
                                else "")
             attempts = [dict(row) for row in connection.execute(
                 "SELECT id, practice_item_id, learning_object_id, attempt_type, "
                 "learner_answer_md, rubric_score, correctness, hints_used, primed, "
-                f"created_at, {tap_column}{received_column} FROM practice_attempts ORDER BY created_at, id"
+                f"created_at, answer_confidence{received_column} FROM practice_attempts ORDER BY created_at, id"
             )]
             # TE0: the grader's hedge read of each attempt's current grading
             # (none read with the kill switch off: the history is its predecessor's).

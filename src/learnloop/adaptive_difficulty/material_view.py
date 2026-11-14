@@ -1641,10 +1641,8 @@ class MaterialView:
             return True
         if not _has_table(connection, "question_events"):
             return False
-        columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(question_events)")}
-        context_column = "source_context_json" if "source_context_json" in columns else "NULL"
         found = connection.execute(
-            f"/* ad-rules */ SELECT note_id, practice_item_id, {context_column}, context FROM question_events "
+            "/* ad-rules */ SELECT note_id, practice_item_id, source_context_json, context FROM question_events "
             "WHERE id = ?", (str(question_id),)).fetchone()
         if found is None:
             return False

@@ -194,21 +194,14 @@ def test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off(
 
     vault, repository = _seeded(tmp_path, version, toml)
     row = {"created_at": "2026-05-01T12:00:00Z", "received_at": "2026-05-19T15:30:07Z"}
-    with repository.connection() as connection:
-        bare = attempt_time_sql(vault.config, connection)
-        aliased = attempt_time_sql(vault.config, connection, alias="a")
+    bare = attempt_time_sql(vault.config)
+    aliased = attempt_time_sql(vault.config, alias="a")
     if sees_exam:
         assert (bare, aliased) == ("created_at", "a.created_at")
         assert known_at(row, vault.config) == "2026-05-01T12:00:00Z"
     else:
         assert (bare, aliased) == (AVAILABLE_AT_SQL, "COALESCE(a.received_at, a.created_at)")
         assert known_at(row, vault.config) == "2026-05-19T15:30:07Z"
-    # A database without the column (below migration 244) reads by the predecessor's column at any gate.
-    import sqlite3
-
-    bare_db = sqlite3.connect(":memory:")
-    bare_db.execute("CREATE TABLE practice_attempts (id TEXT, created_at TEXT)")
-    assert attempt_time_sql(vault.config, bare_db) == "created_at"
     assert known_at({"created_at": "2026-05-01T12:00:00Z"}, vault.config) == "2026-05-01T12:00:00Z"
 
 

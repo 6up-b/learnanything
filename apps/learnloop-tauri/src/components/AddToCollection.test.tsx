@@ -10,7 +10,8 @@ const api = vi.hoisted(() => ({
   listSourceSets: vi.fn(),
   loadVault: vi.fn(),
   getSourceSet: vi.fn(),
-  upsertSourceSet: vi.fn()
+  upsertSourceSet: vi.fn(),
+  runCliCommand: vi.fn()
 }));
 vi.mock("../api/client", () => ({ api }));
 
@@ -92,4 +93,32 @@ it("a whole-source member names no reading", async () => {
   const added = api.upsertSourceSet.mock.calls[0][0].members[1];
   expect(added.scopeExtractionId).toBeUndefined();
   expect(added.scope).toEqual([]);
+});
+
+it("a vault with no subject can still start a collection: the panel makes one", async () => {
+  api.listSourceSets.mockResolvedValue({ version: 1, sourceSets: [] });
+  api.loadVault.mockResolvedValue({ vault: { subjects: [] } });
+  api.runCliCommand.mockResolvedValue({ argv: [], exitCode: 0, stdout: "", stderr: "" });
+  render(
+    <AddToCollectionPanel
+      sourceId="src_text"
+      revisionId="rev_text"
+      scopeUnitIds={[]}
+      seedRole="primary_textbook"
+      onClose={vi.fn()}
+      onAdded={vi.fn()}
+    />
+  );
+  fireEvent.change(screen.getByPlaceholderText("collection name"), { target: { value: "Midterm" } });
+  fireEvent.change(await screen.findByPlaceholderText("new subject title"), { target: { value: "Probability" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "create subject" }));
+  });
+  expect(api.runCliCommand).toHaveBeenCalledWith(["add-subject", "probability", "Probability"]);
+
+  await act(async () => {
+    fireEvent.click(screen.getByText("create & pin →"));
+  });
+  await waitFor(() => expect(api.upsertSourceSet).toHaveBeenCalledTimes(1));
+  expect(api.upsertSourceSet.mock.calls[0][0].subjectId).toBe("probability");
 });

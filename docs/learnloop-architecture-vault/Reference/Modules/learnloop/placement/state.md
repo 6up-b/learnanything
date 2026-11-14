@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py) |
-| Source lines | 1571 |
+| Source lines | 1568 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -85,16 +85,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `due_learning_object_ids(self, now_iso: str) -> frozenset[str]` (line 456; public)
   - `awaiting_diagnosis_learning_object_ids(self) -> frozenset[str]` (line 460; public) — LOs whose assumption or maintenance waits on a miss's diagnosis: they stay as they are, and no further check item is served meanwhile.
 - `pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]` ([source](../../../../../../src/learnloop/placement/state.py), line 558) — Attempts whose current grade placement reads as PF-c *unassessed*.
-- `load_answers(connection: Any, learning_object_ids: Iterable[str] | None=None) -> dict[str, tuple[AnswerFacts, ...]]` ([source](../../../../../../src/learnloop/placement/state.py), line 669) — Every recorded answer per LO, in (created_at, id) order.
-- `diagnosis_waits_run_out(connection: Any, now_iso: str) -> int` ([source](../../../../../../src/learnloop/placement/state.py), line 755) — How many misses' diagnosis waits have run out at ``now_iso``, by the rule :func:`load_miss_verdicts` applies (live diagnose jobs only, a payload naming no mode being live; the deadline ``DIAGNOSIS_WAIT_DAYS`` after the first; run out strictly after it).
-- `load_miss_verdicts(connection: Any, answers: Iterable[AnswerFacts], *, diagnosis_live: bool, now_iso: str) -> dict[str, MissVerdict]` ([source](../../../../../../src/learnloop/placement/state.py), line 773) — How the diagnosis decides each graded miss (owner decision 2026-10-12).
-- `evaluate_independence(connection: Any, answers: Iterable[AnswerFacts], *, since_floor: str | None=None) -> tuple[AnswerFacts, ...]` ([source](../../../../../../src/learnloop/placement/state.py), line 1032) — Each answer with its independence facts from the existing rules.
-- `load_placement_state_from_connection(connection: Any, *, active: bool, diagnosis_live: bool, now_iso: str, gap_commitments: bool=False, gap_checks: bool=False) -> PlacementState` ([source](../../../../../../src/learnloop/placement/state.py), line 1385) — Placement state over one connection.
-- `load_placement_state(vault: LoadedVault, repository: Repository, *, now_iso: str | None=None) -> PlacementState` ([source](../../../../../../src/learnloop/placement/state.py), line 1460) — Placement state for a vault; ``now_iso`` defaults to the wall clock.
-- `prerequisite_learning_objects(vault: LoadedVault, learning_object_id: str) -> set[str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1476) — LOs on the concepts this LO declares as prerequisites (field §5.2 order).
-- `order_new_material(vault: LoadedVault, predictor: LearnerPredictor, items: Sequence[tuple[str, str]], *, taught_first: Iterable[str]=()) -> list[tuple[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1497) — Order (practice_item_id, learning_object_id) pairs of new material.
-- `choose_check_items(predictor: LearnerPredictor, candidates: Mapping[str, Sequence[str]], *, attempted_item_ids: Iterable[str]=()) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1537) — One first-review item per due assumed LO: a normal cold item.
-- `assumption_summary(state: PlacementState) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/state.py), line 1563)
+- `load_answers(connection: Any, learning_object_ids: Iterable[str] | None=None) -> dict[str, tuple[AnswerFacts, ...]]` ([source](../../../../../../src/learnloop/placement/state.py), line 666) — Every recorded answer per LO, in (created_at, id) order.
+- `diagnosis_waits_run_out(connection: Any, now_iso: str) -> int` ([source](../../../../../../src/learnloop/placement/state.py), line 752) — How many misses' diagnosis waits have run out at ``now_iso``, by the rule :func:`load_miss_verdicts` applies (live diagnose jobs only, a payload naming no mode being live; the deadline ``DIAGNOSIS_WAIT_DAYS`` after the first; run out strictly after it).
+- `load_miss_verdicts(connection: Any, answers: Iterable[AnswerFacts], *, diagnosis_live: bool, now_iso: str) -> dict[str, MissVerdict]` ([source](../../../../../../src/learnloop/placement/state.py), line 770) — How the diagnosis decides each graded miss (owner decision 2026-10-12).
+- `evaluate_independence(connection: Any, answers: Iterable[AnswerFacts], *, since_floor: str | None=None) -> tuple[AnswerFacts, ...]` ([source](../../../../../../src/learnloop/placement/state.py), line 1029) — Each answer with its independence facts from the existing rules.
+- `load_placement_state_from_connection(connection: Any, *, active: bool, diagnosis_live: bool, now_iso: str, gap_commitments: bool=False, gap_checks: bool=False) -> PlacementState` ([source](../../../../../../src/learnloop/placement/state.py), line 1382) — Placement state over one connection.
+- `load_placement_state(vault: LoadedVault, repository: Repository, *, now_iso: str | None=None) -> PlacementState` ([source](../../../../../../src/learnloop/placement/state.py), line 1457) — Placement state for a vault; ``now_iso`` defaults to the wall clock.
+- `prerequisite_learning_objects(vault: LoadedVault, learning_object_id: str) -> set[str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1473) — LOs on the concepts this LO declares as prerequisites (field §5.2 order).
+- `order_new_material(vault: LoadedVault, predictor: LearnerPredictor, items: Sequence[tuple[str, str]], *, taught_first: Iterable[str]=()) -> list[tuple[str, dict[str, float]]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1494) — Order (practice_item_id, learning_object_id) pairs of new material.
+- `choose_check_items(predictor: LearnerPredictor, candidates: Mapping[str, Sequence[str]], *, attempted_item_ids: Iterable[str]=()) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1534) — One first-review item per due assumed LO: a normal cold item.
+- `assumption_summary(state: PlacementState) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/state.py), line 1560)
 
 ### Module constants
 
@@ -104,7 +104,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PLACEMENT_TABLES` ([src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py), line 132)
 - `LEARNER_TEXT_GAP_SOURCE` ([src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py), line 172)
 - `OPENING_EPISODE_TRIGGER` ([src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py), line 199)
-- `_COLD_DIMENSIONS` ([src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py), line 1004)
+- `_COLD_DIMENSIONS` ([src/learnloop/placement/state.py](../../../../../../src/learnloop/placement/state.py), line 1001)
 
 ## Internal implementation anchors
 
@@ -112,22 +112,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_contamination_classes(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/state.py), line 475) — Latest recorded contamination class per attempt (most contaminated wins).
 - `_criterion_maxima(connection: Any, contract_ids: Iterable[str]) -> dict[tuple[str, str], float]` ([source](../../../../../../src/learnloop/placement/state.py), line 508) — ``(contract id, criterion id) -> max_points`` from the content-addressed assessment contracts the evidence rows were graded against.
 - `_latest_grading_supports(connection: Any, attempt_ids: Iterable[str]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/placement/state.py), line 528) — Each attempt's latest blind grade record's ``grading_support``.
-- `_table_present(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 713)
-- `_json(value: Any, default: Any) -> Any` ([source](../../../../../../src/learnloop/placement/state.py), line 719)
-- `_wait_deadline(first_job_at: str | None) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 728) — The instant a miss stops waiting on its diagnosis (rules.DIAGNOSIS_WAIT_DAYS).
-- `_live_diagnose_job(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 737) — A diagnose job of the live diagnosis (a payload naming no mode is live).
-- `_diagnosis_wait_deadline(live_jobs: Iterable[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 743) — A miss's wait deadline: ``DIAGNOSIS_WAIT_DAYS`` after its first live diagnose job.
-- `_wait_over(deadline: str | None, now_iso: str) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 749) — Whether a miss's diagnosis wait has run out at ``now_iso`` (strictly after it).
-- `class _BorrowedRepository(Repository)` ([source](../../../../../../src/learnloop/placement/state.py), line 994) — Repository reads inside the caller's connection and snapshot; never commits.
-- `_final_receipt_veto(connection: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1007) — Why a final coldness receipt makes the attempt non-independent, if it does.
-- `_order(created_at: Any, row_id: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1082) — The durable order of a decision, return or answer (module docstring).
-- `_landed(verdict: MissVerdict, answer: AnswerFacts) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1088) — When a miss's decision became known, in the durable order: None while it is pending; the answer itself when it was known at once (learner-side help, an unassessed or joint grade, no diagnosis queued).
-- `_learner_side_before(answers: Sequence[AnswerFacts], *, after: int, landed: tuple[str, str] | None, stop: tuple[str, str] | None=None) -> AnswerFacts | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1100) — The first answer after ``answers[after]`` with learner-side help that was recorded before the earlier miss's decision ``landed`` (and before ``stop``, a return).
-- `_resolve(decision: Mapping[str, Any], returns: Sequence[Mapping[str, Any]], answers: Sequence[AnswerFacts], independence: IndependenceCheck, graded: Mapping[str, MissVerdict]) -> Assumption` ([source](../../../../../../src/learnloop/placement/state.py), line 1122)
-- `_intent(learning_object_id: str, decision: Assumption | None, latest_return: Mapping[str, Any] | None, answers: Sequence[AnswerFacts], graded: Mapping[str, MissVerdict]) -> LearningObjectIntent | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1239) — The LO's current routing from its latest decision and latest return.
-- `_commitment_decisions(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1317) — Created prerequisites' light commitments as decision rows (source ``learner_text_gap``): one delayed check, no predictor.
-- `_advance_decisions(connection: Any, decisions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1335) — mvp-0.16: bring each assumption's first review forward to its earliest learner-text-gap advance; returns (decisions, maintenance advances).
-- `_pending_maintenance_checks(advances: Sequence[Mapping[str, Any]], intents: Mapping[str, LearningObjectIntent], answers: Mapping[str, Sequence[AnswerFacts]]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1362) — Per maintenance LO, its earliest advance written in this maintenance spell that no answer has taken since it fell due.
+- `_table_present(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 710)
+- `_json(value: Any, default: Any) -> Any` ([source](../../../../../../src/learnloop/placement/state.py), line 716)
+- `_wait_deadline(first_job_at: str | None) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 725) — The instant a miss stops waiting on its diagnosis (rules.DIAGNOSIS_WAIT_DAYS).
+- `_live_diagnose_job(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 734) — A diagnose job of the live diagnosis (a payload naming no mode is live).
+- `_diagnosis_wait_deadline(live_jobs: Iterable[Mapping[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 740) — A miss's wait deadline: ``DIAGNOSIS_WAIT_DAYS`` after its first live diagnose job.
+- `_wait_over(deadline: str | None, now_iso: str) -> bool` ([source](../../../../../../src/learnloop/placement/state.py), line 746) — Whether a miss's diagnosis wait has run out at ``now_iso`` (strictly after it).
+- `class _BorrowedRepository(Repository)` ([source](../../../../../../src/learnloop/placement/state.py), line 991) — Repository reads inside the caller's connection and snapshot; never commits.
+- `_final_receipt_veto(connection: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1004) — Why a final coldness receipt makes the attempt non-independent, if it does.
+- `_order(created_at: Any, row_id: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/placement/state.py), line 1079) — The durable order of a decision, return or answer (module docstring).
+- `_landed(verdict: MissVerdict, answer: AnswerFacts) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1085) — When a miss's decision became known, in the durable order: None while it is pending; the answer itself when it was known at once (learner-side help, an unassessed or joint grade, no diagnosis queued).
+- `_learner_side_before(answers: Sequence[AnswerFacts], *, after: int, landed: tuple[str, str] | None, stop: tuple[str, str] | None=None) -> AnswerFacts | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1097) — The first answer after ``answers[after]`` with learner-side help that was recorded before the earlier miss's decision ``landed`` (and before ``stop``, a return).
+- `_resolve(decision: Mapping[str, Any], returns: Sequence[Mapping[str, Any]], answers: Sequence[AnswerFacts], independence: IndependenceCheck, graded: Mapping[str, MissVerdict]) -> Assumption` ([source](../../../../../../src/learnloop/placement/state.py), line 1119)
+- `_intent(learning_object_id: str, decision: Assumption | None, latest_return: Mapping[str, Any] | None, answers: Sequence[AnswerFacts], graded: Mapping[str, MissVerdict]) -> LearningObjectIntent | None` ([source](../../../../../../src/learnloop/placement/state.py), line 1236) — The LO's current routing from its latest decision and latest return.
+- `_commitment_decisions(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1314) — Created prerequisites' light commitments as decision rows (source ``learner_text_gap``): one delayed check, no predictor.
+- `_advance_decisions(connection: Any, decisions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1332) — mvp-0.16: bring each assumption's first review forward to its earliest learner-text-gap advance; returns (decisions, maintenance advances).
+- `_pending_maintenance_checks(advances: Sequence[Mapping[str, Any]], intents: Mapping[str, LearningObjectIntent], answers: Mapping[str, Sequence[AnswerFacts]]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/placement/state.py), line 1359) — Per maintenance LO, its earliest advance written in this maintenance spell that no answer has taken since it fell due.
 
 ## Who imports or calls it
 

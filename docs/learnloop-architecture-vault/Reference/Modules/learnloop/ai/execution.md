@@ -351,7 +351,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
   - `test_codex_estimate_falls_back_to_input_plus_output_tokens`
   - `test_explicit_revision_invalidates_alias_cache_but_reports_resolved_model`
+- [tests/test_figure_cancel.py](../../../../../../tests/test_figure_cancel.py) — direct import
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
+- [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
+  - `test_the_rich_job_continues_the_press_trace`
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
   - `test_a_different_kind_hashes_apart_from_the_ordinary_correction`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import

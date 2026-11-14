@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/live.py](../../../../../../../src/learnloop/diagnosis/split/live.py) |
-| Source lines | 499 |
+| Source lines | 497 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,12 +59,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `joint_grade_record(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 107) — A stored JOINT grade in the blind-record shape, causal fields stripped.
 - `current_attempt_for(vault: LoadedVault, attempt: Mapping[str, Any], record: Mapping[str, Any], repository: Any=None) -> CurrentAttempt | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 163) — The attempt to diagnose; with ``repository``, its question is the one its graded contract froze (method-explicit-3 review F3).
 - `current_confidence(repository: Any, attempt: Mapping[str, Any], record: Mapping[str, Any], *, vault: Any=None, vault_grade: bool=True) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 218) — Teacher TE0 (spec_teacher_v1 §15.2): the diagnosed attempt's confidence event (its tap, and the hedge read of the grade the diagnoser is shown: the blind record's own, else, with ``vault_grade``, the current grading evidence's) with the stated limit on the taps up to and includi…
-- `confidence_for_offline_target(vault: Any, repository: Any, *, attempt_id: str, completed_at: str, record: Mapping[str, Any], planted: bool) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 268) — Review F4: the confidence block an offline diagnosis arm is given, the same assembly as live (:func:`current_confidence`) over the arm's own blind record.
-- `needs_diagnosis(record: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 293) — §5.1: a non-pass criterion, a fatal error, or an error attribution.
-- `sampled_correct_answer(attempt_id: str, rate: float) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 324) — Deterministic shadow sample of correct answers (§5.1, O5).
-- `build_causal_view(*, diagnosis_id: str, proposal: Mapping[str, Any], record: Mapping[str, Any], error_events: Sequence[Mapping[str, Any]], agent_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 369) — The §4.2 reverse mapping of one validated diagnosis (computed once).
-- `diagnosis_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 456) — The diagnosis every reader uses: live, else a joint legacy view, else None.
-- `grader_mode_for(repository: Repository, attempt_id: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 484)
+- `confidence_for_offline_target(vault: Any, repository: Any, *, attempt_id: str, completed_at: str, record: Mapping[str, Any], planted: bool) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 266) — Review F4: the confidence block an offline diagnosis arm is given, the same assembly as live (:func:`current_confidence`) over the arm's own blind record.
+- `needs_diagnosis(record: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 291) — §5.1: a non-pass criterion, a fatal error, or an error attribution.
+- `sampled_correct_answer(attempt_id: str, rate: float) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 322) — Deterministic shadow sample of correct answers (§5.1, O5).
+- `build_causal_view(*, diagnosis_id: str, proposal: Mapping[str, Any], record: Mapping[str, Any], error_events: Sequence[Mapping[str, Any]], agent_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 367) — The §4.2 reverse mapping of one validated diagnosis (computed once).
+- `diagnosis_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 454) — The diagnosis every reader uses: live, else a joint legacy view, else None.
+- `grader_mode_for(repository: Repository, attempt_id: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 482)
 
 ### Module constants
 
@@ -90,8 +90,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_present(value: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 335)
-- `_event_ids_by_index(record: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[int, str]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 339) — Blind attribution index -> raw error-event id.
+- `_present(value: Any) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 333)
+- `_event_ids_by_index(record: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[int, str]` ([source](../../../../../../../src/learnloop/diagnosis/split/live.py), line 337) — Blind attribution index -> raw error-event id.
 
 ## Who imports or calls it
 

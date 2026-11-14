@@ -14,7 +14,6 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.stores import daily_plans as plans
-from learnloop.db.stores import router_objective as store
 from learnloop.ids import new_ulid
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,7 @@ def serve_fields(vault: Any, connection: Any, practice_item_id: str) -> dict[str
     propagates its own failures, and a receipt's must not be one (landing ruling R1)."""
 
     try:
-        if not objective_receipts_on(vault.config) or not store.column_present(connection, "plan_presentations",
-                                                                                "ask_available"):
+        if not objective_receipts_on(vault.config):
             return {}
         return {"ask_available": at_serve(vault, practice_item_id)}
     except Exception:  # noqa: BLE001 - a receipt never blocks a serve
@@ -67,8 +65,6 @@ def record_change(vault: Any, repository: Any, *, session_id: str | None, practi
         return False
     try:
         with repository.atomic(), repository.connection() as connection:
-            if not store.column_present(connection, "plan_presentations", "ask_available"):
-                return False
             row = connection.execute(
                 "SELECT * FROM plan_presentations WHERE session_id = ? AND practice_item_id = ? "
                 "ORDER BY served_at DESC, id DESC LIMIT 1", (session_id, practice_item_id)).fetchone()

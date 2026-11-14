@@ -272,15 +272,10 @@ def load_workbench_signals(
 
     if not workbench_field_signals_live(vault) or not _table_present(connection, "workbench_sessions"):
         return ()
-    # The successor runs on a migrated vault; a database without 219's column
-    # (never written by the app) reads every subject as unrecorded.
-    subject_column = "contract_subject_id" if any(
-        row[1] == "contract_subject_id" for row in connection.execute("PRAGMA table_info(workbench_sessions)")
-    ) else "NULL AS contract_subject_id"
     sessions = _rows(
         connection,
         "SELECT id, practice_item_id, attempt_id, assessment_contract_version_id, "
-        f"{subject_column} FROM workbench_sessions",
+        "contract_subject_id FROM workbench_sessions",
     )
     if not sessions:
         if diagnostics is not None:

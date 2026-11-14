@@ -110,6 +110,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ingest_latency_journey.py](../../../../../../tests/test_ingest_latency_journey.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
+- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]]
 
 ## Modification guidance
 

@@ -119,7 +119,9 @@ None found by exact static reference scan.
 - `tests/test_attempt_chain_records.py`
 - `tests/test_decision_records_migration.py`
 - `tests/test_decision_records_retention.py`
+- `tests/test_figure_cancel.py`
 - `tests/test_figure_decision_records.py`
+- `tests/test_figure_rich_job.py`
 - `tests/test_forced_withdrawal_records.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_notes_as_learner_text.py`
