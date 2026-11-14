@@ -577,10 +577,6 @@ def grading_mark(identity: Mapping[str, Iterable[Any]] | None = None) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def _columns(connection: Any, table: str) -> set[str]:
-    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
-
-
 def grading_marks(connection: Any, attempt_ids: Iterable[Any] | None = None) -> dict[str, str]:
     """``{attempt: grading_mark}`` as they stand now: for ``attempt_ids``
     (every one, the ungraded mark when it has no grading), or with None for
@@ -590,11 +586,7 @@ def grading_marks(connection: Any, attempt_ids: Iterable[Any] | None = None) -> 
     ids = None if attempt_ids is None else sorted({str(value) for value in attempt_ids if value})
     found: dict[str, dict[str, list[str]]] = {}
     for part, table, key, wanted, where in _IDENTITY:
-        present = _columns(connection, table)
-        columns = [column for column in wanted if column in present]
-        if key not in present or not columns:
-            continue
-        select = f"SELECT {key}, {', '.join(columns)} FROM {table}"
+        select = f"SELECT {key}, {', '.join(wanted)} FROM {table}"
         batches: list[tuple[str, list[str]]] = (
             [(select + (f" WHERE {where}" if where else ""), [])] if ids is None else [
                 (select + f" WHERE {(where + ' AND ') if where else ''}{key} IN ({_marks(chunk)})", chunk)
