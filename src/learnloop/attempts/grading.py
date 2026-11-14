@@ -1938,7 +1938,6 @@ def causal_attribution_audit_report(repository: Any) -> dict[str, Any]:
 
 
 def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
-    canonical_vault = is_canonical_state_vault(vault)
     builtin_defaults = builtin_error_type_defaults(vault)
     custom = [
         {
@@ -1951,32 +1950,22 @@ def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
             "related_concepts": error.related_concepts,
         }
         for error in sorted(vault.error_types.values(), key=lambda entry: entry.id)
-        # Exclude the version's builtins. Under mvp-0.7 also exclude any legacy
-        # seed name that already resolves to a canonical mechanism, so a mvp-0.7
-        # grader is not offered the retired recall_failure/scaffold_failure/
-        # arithmetic_slip seeds. mvp-0.6 keeps the exact legacy filter.
+        # Exclude the builtins, and any legacy seed name that already resolves to
+        # a mechanism: a vault's error_types.yaml may still hold the retired
+        # recall_failure/scaffold_failure/arithmetic_slip seeds, and offering
+        # them beside the mechanisms gives the grader two names for one cause.
         if error.id not in builtin_defaults
-        and (not canonical_vault or map_legacy_error_type(error.id) == error.id)
+        and map_legacy_error_type(error.id) == error.id
     ]
-    if is_canonical_state_vault(vault):
-        canonical = [dict(error) for error in MECHANISM_TAXONOMY_CARD_JSON]
-        selection_policy = (
+    return {
+        "canonical_error_types": [dict(error) for error in MECHANISM_TAXONOMY_CARD_JSON],
+        "vault_error_types": custom,
+        "selection_policy": (
             "Pick the mechanism error_type id (§10.1 stable taxonomy) whose use_when fits and whose "
             "avoid_when does not. Use rubric fatal error ids when they exactly match the observed failure. "
             "Only propose a new error_type when the failure is a durable, specific misconception that none "
             "of the mechanism ids or rubric fatal ids cover."
-        )
-    else:
-        canonical = [dict(error) for error in CANONICAL_ERROR_TYPES]
-        selection_policy = (
-            "Prefer the five canonical error_type ids for ordinary grading. Use rubric fatal error ids "
-            "when they exactly match the observed failure. Only propose a new error_type when the failure "
-            "is a durable, specific misconception that none of the canonical ids or rubric fatal ids cover."
-        )
-    return {
-        "canonical_error_types": canonical,
-        "vault_error_types": custom,
-        "selection_policy": selection_policy,
+        ),
         "targeting_policy": (
             "Name a facet only when the failed step exercises that facet's claim. "
             "Prefer a failed criterion, item step, answer span, unresolved attribution, "

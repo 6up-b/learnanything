@@ -157,15 +157,14 @@ def test_grader_prompt_version_bumped():
     assert GRADING_PROMPT_VERSION != "mvp-0.9-causal-structural-repair"
 
 
-def test_mvp07_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
+def test_grader_taxonomy_emits_mechanism_vocabulary(tmp_path):
     from learnloop.attempts.grading import _grading_error_taxonomy
 
-    vault06, _ = _mvp06(tmp_path / "a")
-    vault07, _ = _mvp07(tmp_path / "b")
-    ids06 = {e["id"] for e in _grading_error_taxonomy(vault06)["canonical_error_types"]}
-    ids07 = {e["id"] for e in _grading_error_taxonomy(vault07)["canonical_error_types"]}
-    assert ids07 == set(MECHANISM_TAXONOMY)
-    assert "recall_failure" in ids06 and "recall_failure" not in ids07
+    create_basic_vault(tmp_path / "vault")
+    vault = load_vault(tmp_path / "vault")
+    ids = {e["id"] for e in _grading_error_taxonomy(vault)["canonical_error_types"]}
+    assert ids == set(MECHANISM_TAXONOMY)
+    assert "recall_failure" not in ids
 
 
 def test_config_error_impacts_resolve_through_map(tmp_path):
