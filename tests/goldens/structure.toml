@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 283
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 75
-comment_lines_naming_a_stage_artifact = 2387
+functions_over_200_lines = 74
+comment_lines_naming_a_stage_artifact = 2385
 test_files_named_for_a_stage = 184
 
 [members]
