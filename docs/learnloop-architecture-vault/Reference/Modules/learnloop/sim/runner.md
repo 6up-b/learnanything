@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py) |
-| Source lines | 1081 |
+| Source lines | 1080 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
@@ -75,29 +75,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_ATTEMPT_SPACING_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 74)
 - `_PRIMED_RETRY_DELAY_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 76)
 - `_PREFERRED_ATTEMPT_TYPES` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 79)
-- `_ULID_RE` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 935)
+- `_ULID_RE` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 934)
 
 ## Internal implementation anchors
 
 - `_configured_database_name(vault_root: Path) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 268) — File name of the vault's ``storage.sqlite_path``, read without side effects.
-- `_goal_snapshot_days(vault: LoadedVault, *, start: datetime, days: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 478) — Sim day (end of day) at which each active goal's attainment is measured.
-- `_track_goals_end_of_day(vault: LoadedVault, repository: Repository, student: SyntheticStudent, *, day: int, day_base: datetime, snapshot_days: dict[str, int], tracking: dict[str, dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 498) — Belief-side at-risk counts per goal; truth snapshot on each goal's due day.
-- `_simulate_one_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str, primed: bool=False, grader_confusion: 'Any | None'=None, confusion_rng: 'random.Random | None'=None) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 557)
-- `_primed_retry_sibling(vault: LoadedVault, item: PracticeItem) -> PracticeItem | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 716) — First (deterministic) other non-teach-back item on the same LO.
-- `class _SimTeachBackClient` ([source](../../../../../../src/learnloop/sim/runner.py), line 733) — No-op question generator + synthesized grader for simulated teach-backs.
-- `_simulate_teach_back_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 825) — Run one simulated teach-back conversation as ONE recorded attempt.
-- `_strip_ulids(text: str) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 938) — Replace random ULIDs in free text so reports are seed-deterministic.
-- `_attempt_type_for_item(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 944)
-- `_item_facet_weights(item: PracticeItem) -> dict[str, float]` ([source](../../../../../../src/learnloop/sim/runner.py), line 954)
-- `_lo_facet_weights(vault: LoadedVault) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 960)
-- `_los_for_facets(vault: LoadedVault, facets: list[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 969)
-- `_resolve_auto_misconceptions(vault: LoadedVault, profile: StudentProfile) -> StudentProfile` ([source](../../../../../../src/learnloop/sim/runner.py), line 979)
-- `_retrievability_prior(repository: Repository, item_id: str, clock: FrozenClock) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1001)
-- `_belief_mae(vault: LoadedVault, repository: Repository, student: SyntheticStudent, lo_facet_weights: dict[str, dict[str, float]], *, day_f: float) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1012)
-- `_update_detection_days(vault: LoadedVault, repository: Repository, profile: StudentProfile, planted_facet_los: dict[str, list[str]], detection_days: dict[str, dict[str, Any]], day: int) -> None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1036)
-- `_error_event_types(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/sim/runner.py), line 1068)
-- `_taxonomy_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/sim/runner.py), line 1074)
-- `_taxonomy_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/sim/runner.py), line 1079)
+- `_goal_snapshot_days(vault: LoadedVault, *, start: datetime, days: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 477) — Sim day (end of day) at which each active goal's attainment is measured.
+- `_track_goals_end_of_day(vault: LoadedVault, repository: Repository, student: SyntheticStudent, *, day: int, day_base: datetime, snapshot_days: dict[str, int], tracking: dict[str, dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 497) — Belief-side at-risk counts per goal; truth snapshot on each goal's due day.
+- `_simulate_one_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str, primed: bool=False, grader_confusion: 'Any | None'=None, confusion_rng: 'random.Random | None'=None) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 556)
+- `_primed_retry_sibling(vault: LoadedVault, item: PracticeItem) -> PracticeItem | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 715) — First (deterministic) other non-teach-back item on the same LO.
+- `class _SimTeachBackClient` ([source](../../../../../../src/learnloop/sim/runner.py), line 732) — No-op question generator + synthesized grader for simulated teach-backs.
+- `_simulate_teach_back_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 824) — Run one simulated teach-back conversation as ONE recorded attempt.
+- `_strip_ulids(text: str) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 937) — Replace random ULIDs in free text so reports are seed-deterministic.
+- `_attempt_type_for_item(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 943)
+- `_item_facet_weights(item: PracticeItem) -> dict[str, float]` ([source](../../../../../../src/learnloop/sim/runner.py), line 953)
+- `_lo_facet_weights(vault: LoadedVault) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 959)
+- `_los_for_facets(vault: LoadedVault, facets: list[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 968)
+- `_resolve_auto_misconceptions(vault: LoadedVault, profile: StudentProfile) -> StudentProfile` ([source](../../../../../../src/learnloop/sim/runner.py), line 978)
+- `_retrievability_prior(repository: Repository, item_id: str, clock: FrozenClock) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1000)
+- `_belief_mae(vault: LoadedVault, repository: Repository, student: SyntheticStudent, lo_facet_weights: dict[str, dict[str, float]], *, day_f: float) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1011)
+- `_update_detection_days(vault: LoadedVault, repository: Repository, profile: StudentProfile, planted_facet_los: dict[str, list[str]], detection_days: dict[str, dict[str, Any]], day: int) -> None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1035)
+- `_error_event_types(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/sim/runner.py), line 1067)
+- `_taxonomy_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/sim/runner.py), line 1073)
+- `_taxonomy_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/sim/runner.py), line 1078)
 
 ## Who imports or calls it
 
@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`; calls `display_mastery`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `criterion_facet_weights_for_item`; calls `criterion_facet_weights_for_item`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability`; calls `retrievability`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `build_due_queue`; calls `SchedulerSession`, `build_due_queue`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerSession`, `read_due_queue`; calls `SchedulerSession`, `read_due_queue`
 - [[Reference/Modules/learnloop/sim/grader_confusion|learnloop.sim.grader_confusion]] — imports `apply_confusion`; calls `apply_confusion`
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `module`; calls `build_metrics`
 - [[Reference/Modules/learnloop/sim/profiles|learnloop.sim.profiles]] — imports `AUTO_FACET`
