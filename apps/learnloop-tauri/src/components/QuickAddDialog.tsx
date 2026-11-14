@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import type { QuickAddPlanDto, StudyMapBriefDto } from "../api/dto";
 import { errorMessage, getCommandError } from "../errors";
 import { StudyMapBriefWizard } from "./StudyMapBriefWizard";
+import { NewSubjectControl } from "./NewSubjectControl";
 import { COLOR, Faint, FONT_MONO, Pill, TermCheckbox, TermSelect } from "./term";
 import { PageRangeSelector, pageSelectionError } from "./PageRangeSelector";
 import { pickSourceFile, useSourceFileDrop } from "./useSourceFileDrop";
@@ -48,6 +49,9 @@ export function QuickAddDialog({
   const [phase, setPhase] = useState<"compose" | "confirm">("compose");
   const [source, setSource] = useState(defaultSource ?? "");
   const [subjectId, setSubjectId] = useState(defaultSubjectId ?? subjects[0]?.id ?? "");
+  // A subject made here is not in the caller's list until its snapshot reloads.
+  const [createdSubjects, setCreatedSubjects] = useState<{ id: string; title: string }[]>([]);
+  const subjectChoices = [...subjects, ...createdSubjects.filter((c) => !subjects.some((s) => s.id === c.id))];
   const [brief, setBrief] = useState<StudyMapBriefDto | undefined>(defaultBrief ?? undefined);
   const [briefOpen, setBriefOpen] = useState(false);
   const [plan, setPlan] = useState<QuickAddPlanDto | null>(null);
@@ -326,13 +330,29 @@ export function QuickAddDialog({
               </div>
 
               <Label style={{ marginTop: 18 }}>subject</Label>
-              <TermSelect
-                value={subjectId}
-                options={subjects.map((s) => ({ value: s.id, label: s.title }))}
-                onChange={setSubjectId}
-                placeholder="pick a subject"
-                width={280}
-              />
+              {subjectChoices.length > 0 ? (
+                <TermSelect
+                  value={subjectId}
+                  options={subjectChoices.map((s) => ({ value: s.id, label: s.title }))}
+                  onChange={setSubjectId}
+                  placeholder="pick a subject"
+                  width={280}
+                />
+              ) : (
+                <div>
+                  <Faint style={{ display: "block", fontSize: 11, marginBottom: 6 }}>
+                    no subjects yet — name one for this source's study map
+                  </Faint>
+                  <NewSubjectControl
+                    disabled={busy}
+                    onError={setError}
+                    onCreated={(created) => {
+                      setCreatedSubjects((prev) => [...prev, created]);
+                      setSubjectId(created.id);
+                    }}
+                  />
+                </div>
+              )}
 
               <Label style={{ marginTop: 18 }}>source use</Label>
               <button

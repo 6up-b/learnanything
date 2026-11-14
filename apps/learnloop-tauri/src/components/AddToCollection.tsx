@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { CommandError, SourceSetDto, SourceSetSummaryDto } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, TermSelect } from "./term";
+import { NewSubjectControl } from "./NewSubjectControl";
 
 // Shared "add to collection…" panel (§4.3). A source joins a source set here; the
 // membership — not the source — carries role, scope, and priority, and pins the
@@ -193,13 +194,24 @@ export function AddToCollectionPanel({
               />
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Faint style={{ fontSize: 11 }}>subject</Faint>
-                <TermSelect
-                  value={newSubjectId}
-                  options={subjects}
-                  onChange={setNewSubjectId}
-                  placeholder="pick a subject…"
-                  width={200}
-                />
+                {subjects.length > 0 ? (
+                  <TermSelect
+                    value={newSubjectId}
+                    options={subjects}
+                    onChange={setNewSubjectId}
+                    placeholder="pick a subject…"
+                    width={200}
+                  />
+                ) : (
+                  <NewSubjectControl
+                    disabled={busy}
+                    onError={setError}
+                    onCreated={(created) => {
+                      setSubjects((prev) => [...prev, created.id]);
+                      setNewSubjectId(created.id);
+                    }}
+                  />
+                )}
               </div>
             </div>
           )}
