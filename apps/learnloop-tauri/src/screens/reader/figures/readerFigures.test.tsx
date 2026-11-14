@@ -139,3 +139,26 @@ it("switched off, the Reader has no figure action, calls no figure RPC and draws
   }
   expect(document.querySelector("[data-figures-under]")).toBeNull();
 });
+
+it("a figure withheld when it is delivered leaves a failed line that says so (ledger K10-2)", async () => {
+  contract.value = { readerEnabled: true, inquiryEnabled: true, intent, figures: { predictions: true, region: true, revisions: true } };
+  api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_3", kind: "figure_build", askId: null, state: "done",
+    result: { reused: false, figure: null, withheld: true } });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  await waitFor(() => expect(api.readerFigures).toHaveBeenCalledWith({ extractionId: view.extractionId }));
+  select(block);
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.keyDown(window, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.click(within(palette).getByRole("button", { name: "show me…" }));
+  await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalled());
+  // The press's line stays under its passage, failed with the code and the Reader's words for it.
+  const line = await waitFor(() => {
+    const found = document.querySelector(`[data-figures-under="${anchor}"] [data-figure-failed]`);
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
+  expect(line.getAttribute("data-figure-failed")).toBe("withheld");
+  expect(line.textContent).toContain("that passage is held out");
+});

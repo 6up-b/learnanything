@@ -254,7 +254,7 @@ export function FigurePendingLine({ pending }: { pending: FigurePending }) {
     );
   }
   return (
-    <div data-figure-failed="" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
+    <div data-figure-failed={pending.code ?? ""} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 10, margin: "4px 0 4px 15px", flexWrap: "wrap" }}>
       <MeaningLabel style={{ fontSize: 11 }}>{pending.message ?? "couldn't build an interactive version"}</MeaningLabel>
       <button type="button" style={linkStyle} onClick={pending.retry}>{FIGURE_COPY.tryAgain}</button>
       <button type="button" style={linkStyle} onClick={pending.cancel}>✕</button>
