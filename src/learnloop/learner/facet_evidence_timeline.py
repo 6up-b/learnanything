@@ -211,8 +211,17 @@ class FacetTimelineSnapshot:
     contract_unrecorded: frozenset[str] = frozenset()
 
 
-def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot:
-    """Load the complete timeline ledger with a bounded number of DB reads."""
+def load_facet_timeline_snapshot(
+    repository: Repository, *, projection_version: str
+) -> FacetTimelineSnapshot:
+    """Load the complete timeline ledger with a bounded number of DB reads.
+
+    ``projection_version`` is the vault's algorithm version: each cited
+    contract is read as the projection at that version reads it, through a
+    measurement correction that reinterprets historical evidence for it. The
+    stored contract alone would keep crediting facets the correction took the
+    attempt's evidence off, which the projection no longer banks.
+    """
 
     grading_by_attempt: dict[str, list[GradingEvidenceRecord]] = defaultdict(list)
     contract_ids: set[str] = set()
@@ -227,7 +236,9 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
             attempt_id: tuple(records)
             for attempt_id, records in grading_by_attempt.items()
         },
-        contracts_by_id=repository.fetch_assessment_contract_versions(contract_ids),
+        contracts_by_id=repository.effective_assessment_contract_versions(
+            contract_ids, projection_version=projection_version
+        ),
         merge_map=merge_map,
         exercised_by_attempt=_resolved_exercised_facets(
             repository.all_trace_exercised_facets(), merge_map
@@ -428,7 +439,13 @@ def vault_timeline_snapshot(vault: LoadedVault, repository: Repository) -> Facet
     masses attached, so a caller replaying it several times (as of several
     moments) loads it once."""
 
-    return _with_p0_masses(vault, repository, load_facet_timeline_snapshot(repository))
+    return _with_p0_masses(vault, repository, _vault_snapshot(vault, repository))
+
+
+def _vault_snapshot(vault: LoadedVault, repository: Repository) -> FacetTimelineSnapshot:
+    return load_facet_timeline_snapshot(
+        repository, projection_version=vault.config.algorithms.algorithm_version
+    )
 
 
 def fold_demonstrated_timeline(
@@ -1015,9 +1032,7 @@ def _observation_events(
     canonical_facet: str,
 ) -> list[ObservationEvent]:
     """Compatibility wrapper for callers that inspect one facet's events."""
-    snapshot = _with_p0_masses(
-        vault, repository, load_facet_timeline_snapshot(repository)
-    )
+    snapshot = _with_p0_masses(vault, repository, _vault_snapshot(vault, repository))
     return _observation_events_by_facet(
         vault,
         snapshot,
@@ -1046,7 +1061,7 @@ def facet_evidence_timelines(
     if not canonical:
         return {}
     loaded = _with_p0_masses(
-        vault, repository, snapshot or load_facet_timeline_snapshot(repository)
+        vault, repository, snapshot or _vault_snapshot(vault, repository)
     )
     if as_of is not None:
         loaded = snapshot_as_of(loaded, as_of, vault=vault)

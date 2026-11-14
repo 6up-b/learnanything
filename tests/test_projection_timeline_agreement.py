@@ -19,6 +19,7 @@ from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.grade_resolution import append_adjudication
+from learnloop.attempts.measurement_corrections import create_measurement_correction
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.held_grades import contract_unrecorded_attempts
@@ -31,6 +32,7 @@ from learnloop.vault.writer import upsert_practice_item
 
 from tests.held_grade_evidence_helpers import T
 from tests.helpers import NOW, add_followup_item, create_basic_vault
+from tests.km2_write_path_helpers import _attempt as km2_attempt, build_shared_facet_vault
 from tests.regrade_contract_replay_helpers import _regrade, _self_graded_apply
 from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
 from tests.route_rules_in_grader_helpers import ITEM
@@ -227,3 +229,42 @@ def test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_c
     assert [point.kind for point in points] == ["observation", "correction"]
     assert points[0].attempt_credit > 0.0
     assert points[-1].attempt_credit == 0.0
+
+
+def test_a_measurement_correction_that_reinterprets_history_reaches_the_curve(tmp_path):
+    """An attempted item is corrected for this vault's projection version with historical reinterpretation: its
+    one criterion stops measuring the shared facet. The projection reads the attempt's evidence under the corrected
+    contract and banks nothing on the facet; the curve has to read the same contract."""
+
+    paths = build_shared_facet_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    km2_attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, FrozenClock(NOW))
+    km2_attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, FrozenClock(NOW + timedelta(minutes=5)))
+    create_measurement_correction(
+        paths.root,
+        repository,
+        source_practice_item_id="pi_svd_define_001",
+        corrected_practice_item_id="pi_svd_define_001_measurement_v2",
+        corrected_fields={
+            "grading_rubric": {
+                "max_points": 4,
+                "criteria": [{
+                    "id": "correctness", "points": 4, "description": "Correct response, an item-local measure.",
+                    "measurement_status": "no_canonical_facet", "targets": [],
+                }],
+                "fatal_errors": [],
+            },
+            "criterion_facet_weights": {},
+        },
+        reason="The criterion measured an item-local response.",
+        consuming_projection_version=vault.config.algorithms.algorithm_version,
+        reinterpret_historical_evidence=True,
+        clock=FrozenClock(NOW + timedelta(minutes=10)),
+    )
+    vault = load_vault(paths.root)
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=1)))
+
+    _assert_the_timeline_ends_at_the_banked_credit(vault, repository)
+    _assert_the_itemization_sums_to_the_banked_credit(vault, repository)
