@@ -95,11 +95,9 @@ def data_check(vault: Any, sqlite_path: Any, *, repository: Any = None) -> dict[
             "answer_confidence": round(sum(1 for row in rows if row["answer_confidence"] is not None) / total, 3),
             "hints": round(sum(1 for row in rows if int(row["hints_used"] or 0) > 0) / total, 3),
             "primed": round(sum(1 for row in rows if row["primed"]) / total, 3),
-            "difficulty_rating": (round(sum(1 for row in rows if row.get("difficulty_rating")) / total, 3)
-                                  if "difficulty_rating" in columns else None),
+            "difficulty_rating": round(sum(1 for row in rows if row.get("difficulty_rating")) / total, 3),
             "first_hint_progress_among_hinted": _share(
-                [row for row in rows if int(row["hints_used"] or 0) > 0], "first_hint_progress")
-            if "first_hint_progress" in columns else None,
+                [row for row in rows if int(row["hints_used"] or 0) > 0], "first_hint_progress"),
         }
         # §3.3: first unassisted, unprimed attempt per item vs its label.
         first: dict[str, dict[str, Any]] = {}
