@@ -3,10 +3,10 @@
 Read by scripts/vault_report.py (the owner's "does any vault set one?" before a removal step) and by the tests
 that keep this table complete. Nothing that serves a vault reads it, so a row costs no behaviour.
 
-It lives beside the version floor (ADR-019), not in the config schema: the schema describes what a vault can set,
-this answers a question about the tags (which switch a tag ships with, and which of those the floor has passed), and
-the standing rule's test, "the switches at or below the floor are gone or on a kept-because list", reads both.
-A removal step deletes a row in the commit that deletes the field.
+It lives in the config package, beside the schema it is checked against, not in the schema: the schema says what a
+vault can set; this answers a question about tags and the version floor (ADR-019's rule reads both). A removal step
+deletes a row in the commit that deletes the field. The module imports nothing of LearnLoop; importing it runs the
+package's ``__init__``, which loads the schema.
 
 Two tables, because the standing rule needs a tag:
 

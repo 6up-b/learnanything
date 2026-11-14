@@ -8,14 +8,13 @@ The owner decides which kill switches may go from `scripts/vault_report.py`'s an
 
 ## 2. What changed
 
-- `src/learnloop/kill_switches.py` (new; imports nothing of LearnLoop): `KillSwitch(path, tag, default)` and two tuples.
+- `src/learnloop/config/kill_switches.py` (new; imports nothing of LearnLoop, though importing it loads the config package and so the schema): `KillSwitch(path, tag, default)` and two tuples.
   - `TAGGED_SWITCHES`: 95 rows, the switches of an algorithm successor, each with the tag it ships with.
   - `UNTAGGED_SWITCHES`: 59 rows, kill switches with no successor tag. They are §6's 54, the four §1 rows that name no tag (three `decider_routes.*` content tasks and `router_objective.receipts`), and `practice.device_eligibility_enabled` (section 3).
   - `OUTSIDE_LEARNLOOP_TOML`: the phone host's `phone_probes` (mvp-0.54), set in `mobile.toml`, which no table of `learnloop.toml` paths can name. The report ends by saying it was not read.
-  - It sits beside the version floor, not in the schema: the schema says what a vault can set; this answers a question about tags and the floor, and ADR-019's rule reads both. A removal step deletes a row in the commit that deletes the field.
+  - It sits in the config package beside the schema it is checked against, not in the schema (the schema says what a vault can set; this answers a question about tags and the floor), and not as a new root module: `tests/test_structure_ratchets.py` counts root modules of `src/learnloop` (a 36th would raise the golden). A removal step deletes a row in the commit that deletes the field.
 - `scripts/vault_report.py` reads it. Per vault, after the tag, migration head, journal, C3 and C4 keys, it prints "tagged switches set" and "other kill switches set": each line gives the path, the tag, the value, and whether the value equals or differs from the default. A switch is "set" when its key is present, even at its default. `--json` gains `tagged_switches` and `untagged_switches` lists (path, tag, value, default, differs) in place of `d7_switches`. A switch set to a table or list prints `<table>` or `<list>`, never its contents. A TOML integer where the schema has a boolean counts as differing. Reading is unchanged (`tomllib` on `learnloop.toml` and the read-only migration probe), so a vault below the floor reads as before. The script imports only the table module (on a bare interpreter it adds `src/` to the path).
 - The script's docstring says how the owner runs it and what to send back.
-- `pyproject.toml`: the module is listed in the import contract's module list.
 
 ## 3. Where the inventory disagreed with the code
 

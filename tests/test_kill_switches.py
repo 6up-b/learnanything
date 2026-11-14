@@ -1,4 +1,4 @@
-"""The kill-switch table (``learnloop.kill_switches``) against the code: it matches the schema, a switch the code
+"""The kill-switch table (``learnloop.config.kill_switches``) against the code: it matches the schema, a switch the code
 names is in it, and ADR-019's rule about the version floor has its ratchet.
 """
 
@@ -14,7 +14,7 @@ from pydantic import BaseModel
 import learnloop.config.schema as schema_module
 from learnloop.algorithm_versions import OLDEST_SUPPORTED, SUCCESSOR_CHAIN
 from learnloop.config.schema import LearnLoopConfig
-from learnloop.kill_switches import TAGGED_SWITCHES, UNTAGGED_SWITCHES
+from learnloop.config.kill_switches import TAGGED_SWITCHES, UNTAGGED_SWITCHES
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "learnloop"
 TABLED = {switch.path for switch in TAGGED_SWITCHES + UNTAGGED_SWITCHES}
@@ -240,7 +240,7 @@ def test_every_switch_the_schema_or_a_tags_comment_names_is_in_the_table() -> No
         named |= _config_paths_named_in((SRC / module).read_text(encoding="utf-8"))
     missing = sorted(named - TABLED - set(NOT_A_TABLED_SWITCH))
     assert not missing, (
-        f"{missing} named as kill switches (or in a tag's comment) but not in learnloop.kill_switches: add each to "
+        f"{missing} named as kill switches (or in a tag's comment) but not in learnloop.config.kill_switches: add each to "
         "TAGGED_SWITCHES (it has a successor tag) or UNTAGGED_SWITCHES, or to NOT_A_TABLED_SWITCH with the reason")
 
 

@@ -656,7 +656,6 @@ source_modules = [
     "learnloop.ingest",
     "learnloop.instructional",
     "learnloop.intent",
-    "learnloop.kill_switches",
     "learnloop.learner",
     "learnloop.learner_context",
     "learnloop.learner_protection",

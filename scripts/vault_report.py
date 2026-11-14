@@ -8,7 +8,7 @@ Read-only. For each vault directory named on the command line it prints:
 - which config keys the TOML sets that a removal step drops: C3's keys nothing reads, C4's Codex transport (a
   Codex provider named by a profile, a route or the active/fallback provider, ``ai.agent_harness_opt_in``, the
   retired routes, the legacy ``[codex]`` table);
-- D7's kill switches, from the one table ``learnloop.kill_switches``: every tagged switch the TOML sets, then
+- D7's kill switches, from the one table ``learnloop.config.kill_switches``: every tagged switch the TOML sets, then
   every untagged one, each with the value it sets, the default and whether they differ. A switch is "set" when its
   key is present, even at its default: a vault that still carries the key keeps loading after the field goes only
   because the field is ignored, and ``router.lesson_suggestions.*`` refuses an unknown key.
@@ -45,10 +45,10 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from learnloop.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
+    from learnloop.config.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
 except ModuleNotFoundError:  # run with a bare interpreter from a checkout: the package is under src/
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-    from learnloop.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
+    from learnloop.config.kill_switches import OUTSIDE_LEARNLOOP_TOML, TAGGED_SWITCHES, UNTAGGED_SWITCHES
 
 TAG = re.compile(r"^mvp-\d+\.\d+$")
 JOURNAL_SUFFIX = ".claim-fixes-activation"
