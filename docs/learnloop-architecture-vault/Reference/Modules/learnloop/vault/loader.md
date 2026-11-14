@@ -2423,6 +2423,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
+  - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
 - [tests/test_proposal_persistence.py](../../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_accept_learning_object_create_adds_missing_concept_for_graph`
   - `test_auto_apply_batches_dependency_order_for_new_lo_and_practice_item`

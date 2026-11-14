@@ -1566,6 +1566,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_condition_probes_coordination_not_components`
 - [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
+  - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_proposal_persistence.py](../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_accept_learning_object_create_adds_missing_concept_for_graph`
   - `test_ai_proposal_acceptance_records_ai_origin`

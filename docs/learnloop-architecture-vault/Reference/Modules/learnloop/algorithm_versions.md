@@ -469,6 +469,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
 - [tests/test_probe_robust_cutover.py](../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_evaluate_completion_abstains_on_planted_indistinguishable_case`
+- [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_successor_is_one_constant_after_rebuild_equivalence`
 - [tests/test_reader_cues.py](../../../../../tests/test_reader_cues.py) — direct import

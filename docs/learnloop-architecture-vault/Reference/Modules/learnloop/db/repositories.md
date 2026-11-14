@@ -2840,6 +2840,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+  - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
+  - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`
+  - `test_a_trace_observation_recorded_under_a_facet_alias_licenses_the_supporting_credit_in_both`
 - [tests/test_proposal_dependencies.py](../../../../../../tests/test_proposal_dependencies.py) — direct import
   - `test_dependency_status_can_be_blocked`
   - `test_depends_on_normalized_into_dependency_table`
