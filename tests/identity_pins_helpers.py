@@ -155,6 +155,9 @@ def legacy_config() -> Any:
 
 
 CONFIGS: dict[str, Callable[[], Any]] = {"init": init_config, "legacy": legacy_config}
+#: The configs the router objective's boundary and generator identities (C3-C5) are pinned for: a new vault's. The
+#: tagless ``legacy`` config is refused at every door, so an arm for it would pin an identity no vault computes.
+OBJECTIVE_CONFIGS: tuple[str, ...] = ("init",)
 
 
 # -- fixed vault content ----------------------------------------------------------------------------------------
@@ -1219,8 +1222,8 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
          "src/learnloop/daily_plan/objective_chooser.py::numeric_seed"),
         "the prefetch boundary key and the numeric policy's rollout RNG (router_objective/value.py)",
         "different draws at a fixed input (P-draw fails) and prefetched decisions miss",
-        {**{f"router_settings.{name}": _router_settings(name) for name in CONFIGS},
-         **{f"boundary.{name}": _numeric_seed(name) for name in CONFIGS}}),
+        {**{f"router_settings.{name}": _router_settings(name) for name in OBJECTIVE_CONFIGS},
+         **{f"boundary.{name}": _numeric_seed(name) for name in OBJECTIVE_CONFIGS}}),
     IdentitySite(
         "C3b", "the objective block's boundary identity as ObjectiveChooser.choose assembles it",
         ("src/learnloop/daily_plan/objective_chooser.py::ObjectiveChooser.choose",
@@ -1235,15 +1238,15 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "the prefetch boundary key and numeric_seed (less SEED_NEUTRAL_SWITCHES)",
         "different numeric draws at a fixed input; D7 decides per switch whether to keep its served value or fold "
         "the change into E8",
-        {**{f"objective_settings.{name}": _objective_settings(name) for name in CONFIGS},
-         **{f"switches.{name}": _followup_switches(name) for name in CONFIGS}}),
+        {**{f"objective_settings.{name}": _objective_settings(name) for name in OBJECTIVE_CONFIGS},
+         **{f"switches.{name}": _followup_switches(name) for name in OBJECTIVE_CONFIGS}}),
     IdentitySite(
         "C5", "RO6 generator key (FOLLOWUP_GENERATOR_SWITCHES)",
         ("src/learnloop/daily_plan/objective_chooser.py::generator_now",
          "src/learnloop/router_objective/tail_data.py::generator_key"),
         "the learned tail's generator grouping and change points (router_objective/tail_data.py)",
         "an RO6 generator change point against all logged history: the learned tail starts over",
-        _per_config(_generator_now)),
+        {name: _generator_now(name) for name in OBJECTIVE_CONFIGS}),
     IdentitySite(
         "C6", "lesson suggestion draw snapshot and seed (whole RouterWeights)",
         ("src/learnloop/daily_plan/lesson_suggestion.py::draw_inputs",
