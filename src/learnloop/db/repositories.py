@@ -1802,15 +1802,12 @@ class Repository(
                        a.hints_used AS hints_used,
                        a.primed AS primed,
                        a.created_at AS created_at,
-                       s.posterior_delta_json AS posterior_delta_json
-                       {reference}
+                       s.posterior_delta_json AS posterior_delta_json,
+                       a.reference_status AS reference_status
                 FROM practice_attempts a
                 LEFT JOIN attempt_surprise s ON s.attempt_id = a.id
                 ORDER BY a.created_at ASC, a.id ASC
-                """.format(reference=(
-                    ", a.reference_status AS reference_status"
-                    if _has_column(connection, "practice_attempts", "reference_status") else ""
-                ))
+                """
             ).fetchall()
         history: list[dict[str, Any]] = []
         for row in rows:
@@ -6903,13 +6900,6 @@ class Repository(
             ).fetchall()
         return [_decode_learning_outcome_label(row) for row in rows]
 
-    def _has_projection_switches_column(self) -> bool:
-        """Whether ``derived_state_rebuilds`` has migration 244's column (an older test database may not)."""
-
-        with self.connection() as connection:
-            return any(row[1] == "projection_switches_json"
-                       for row in connection.execute("PRAGMA table_info(derived_state_rebuilds)"))
-
     def latest_whole_vault_rebuild(self) -> dict[str, Any] | None:
         """The latest rebuild that replayed every learning object (scope ``all``), or None."""
 
@@ -6950,11 +6940,10 @@ class Repository(
             coverage_denominator_version,
             created_at,
         ]
-        if projection_switches is not None and self._has_projection_switches_column():
+        if projection_switches is not None:
             # Router objective RO1 (migration 244): the switches a replay derived
             # persisted state under, the projection's defaults snapshot. Written
-            # only by a rebuild that replays attempts, and only when given, so a
-            # database below 242 still records every rebuild.
+            # only by a rebuild that replays attempts, and only when given.
             columns.append("projection_switches_json")
             values.append(_json(dict(sorted(projection_switches.items()))))
         with self.connection() as connection:
@@ -19542,13 +19531,9 @@ class Repository(
         """Books that still carry the retired "Keep this book on this
         computer" (``source_artifacts.keep_local``, migration 198; retired by
         the owner 2026-10-13): nothing consults the column now (generic
-        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them.
-        Empty on a database without the column."""
+        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them."""
 
         with self.connection() as connection:
-            columns = {row[1] for row in connection.execute("PRAGMA table_info(source_artifacts)").fetchall()}
-            if "keep_local" not in columns:
-                return []
             rows = connection.execute(
                 "SELECT id FROM source_artifacts WHERE keep_local != 0 ORDER BY id"
             ).fetchall()
@@ -27135,10 +27120,6 @@ def _grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord:
         attribution_json=row["attribution_json"] if "attribution_json" in row.keys() else None,
         correlation_group=row["correlation_group"] if "correlation_group" in row.keys() else None,
     )
-
-
-def _has_column(connection: sqlite3.Connection, table: str, column: str) -> bool:
-    return any(row[1] == column for row in connection.execute(f'PRAGMA table_info("{table}")'))
 
 
 def _decode_attempt(row: sqlite3.Row) -> dict[str, Any]:

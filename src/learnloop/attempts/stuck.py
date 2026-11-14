@@ -256,15 +256,6 @@ def _has_table(connection: Any, name: str) -> bool:
     )
 
 
-def _has_stuck_column(connection: Any) -> bool:
-    if not _has_table(connection, "practice_attempts"):
-        return False
-    return any(
-        row[1] == "declared_stuck"
-        for row in connection.execute("PRAGMA table_info(practice_attempts)")
-    )
-
-
 #: The attempt columns a stuck-answer row is built from (in this order).
 _STUCK_ATTEMPT_COLUMNS = (
     "id, practice_item_id, learning_object_id, subject, session_id, "
@@ -340,12 +331,10 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
     before the judgment existed, its latest blind record's reading; None for
     an empty answer (deterministic), a self-graded fallback, or a grade from
     before the reading existed. ``judgment_id`` names the verdict read. A
-    vault without the column (before migration 178) has none. Never migrates.
+    Never migrates.
     One attempt's row, without reading the others: :func:`stuck_answer`.
     """
 
-    if not _has_stuck_column(connection):
-        return []
     readings: dict[str, _Reading] = {}
     judgments: dict[str, _Reading] = {}
     if _has_table(connection, "judgment_ledger"):
@@ -388,8 +377,6 @@ def stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None:
     learner text. Never migrates.
     """
 
-    if not _has_stuck_column(connection):
-        return None
     attempt = connection.execute(
         f"SELECT {_STUCK_ATTEMPT_COLUMNS} FROM practice_attempts WHERE id = ? AND declared_stuck = 1",
         (attempt_id,),

@@ -580,9 +580,6 @@ def pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]:
       assessment contract on the attempt) is not counted as a located error.
     """
 
-    evidence_columns = {row[1] for row in connection.execute("PRAGMA table_info(grading_evidence)").fetchall()}
-    if not {"attribution_json", "assessment_contract_version_id", "superseded_at"} <= evidence_columns:
-        return frozenset()
     candidates = [
         str(row[0])
         for row in connection.execute(

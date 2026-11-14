@@ -66,13 +66,8 @@ def spearman(xs: list[float], ys: list[float]) -> dict[str, Any]:
     return {"n": n, "rho": round(rho, 3), "interval": interval}
 
 
-def _has(connection: Any, table: str, column: str | None = None) -> bool:
-    row = connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()
-    if row is None:
-        return False
-    if column is None:
-        return True
-    return any(info[1] == column for info in connection.execute(f"PRAGMA table_info({table})"))
+def _has(connection: Any, table: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is not None
 
 
 def data_check(vault: Any, sqlite_path: Any, *, repository: Any = None) -> dict[str, Any]:
@@ -83,10 +78,8 @@ def data_check(vault: Any, sqlite_path: Any, *, repository: Any = None) -> dict[
     report["difficulty_source"] = dict(sorted(Counter(str(item.difficulty_source or "none") for item in items).items()))
     report["items_with_task_features"] = sum(1 for item in items if item.task_features)
     with closing(connect(sqlite_path, read_only=True)) as connection:
-        columns = {info[1] for info in connection.execute("PRAGMA table_info(practice_attempts)")}
         select = ["id", "practice_item_id", "attempt_type", "correctness", "hints_used", "primed", "latency_seconds",
-                  "answer_confidence", "created_at"]
-        select += [name for name in ("difficulty_rating", "first_hint_progress") if name in columns]
+                  "answer_confidence", "created_at", "difficulty_rating", "first_hint_progress"]
         rows = [dict(zip(select, values, strict=True)) for values in connection.execute(
             f"SELECT {', '.join(select)} FROM practice_attempts WHERE attempt_type NOT IN ('self_report', 'skip') "
             "AND correctness IS NOT NULL ORDER BY created_at, id")]
