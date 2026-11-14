@@ -15,6 +15,11 @@ floor and the commands that bring the vault there. The doors that check:
 * ``substrate.shadow_rebuild.build_candidate_config``: a shadow rebuild cannot
   be forced below the floor.
 
+A tag this code does not know (outside ``SUCCESSOR_CHAIN`` and not below the floor: a newer checkout's, or another
+shape) is refused at the same doors with :class:`UnknownAlgorithmVersion`, a :class:`BelowOldestSupported` with no
+route, so each door's handling of the floor's refusal covers it: no code here knows what such a vault means, and
+serving it the head's rules would rewrite it under rules it was not written by.
+
 This code has no upgrade below the floor (``learnloop.ops.upgrades`` starts at
 it), so nothing here opens such a vault, ``learnloop upgrade`` included: the
 code tagged ``pre-floor`` still has the whole chain, and the refusal names that
@@ -37,7 +42,12 @@ import re
 import shlex
 from pathlib import Path
 
-from learnloop.algorithm_versions import OLDEST_SUPPORTED, RECURRENCE_GROUP_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
+    OLDEST_SUPPORTED,
+    RECURRENCE_GROUP_ALGORITHM_VERSION,
+    SUCCESSOR_CHAIN,
+)
 
 _TAG = re.compile(r"^mvp-0\.(\d+)$")
 
@@ -76,6 +86,18 @@ def is_below_floor(tag: str | None) -> bool:
     floor = _number(OLDEST_SUPPORTED)
     assert floor is not None
     return number is not None and number < floor
+
+
+def is_unknown(tag: str | None) -> bool:
+    """Whether ``tag`` is one this code does not know: named, not below the floor, and not in the chain."""
+
+    return tag is not None and not is_below_floor(tag) and tag not in SUCCESSOR_CHAIN
+
+
+def refused_tag(tag: str | None) -> bool:
+    """Whether a vault at ``tag`` is refused: below the floor (or no tag), or a tag this code does not know."""
+
+    return is_below_floor(tag) or is_unknown(tag)
 
 
 def upgrade_commands(vault_root: Path, tag: str | None) -> tuple[str, ...]:
@@ -148,6 +170,30 @@ class BelowOldestSupported(RuntimeError):
         )
 
 
+class UnknownAlgorithmVersion(BelowOldestSupported):
+    """A vault (or an unfinished upgrade's journal) at a tag this code does not know: it is not opened. A
+    :class:`BelowOldestSupported` so every door that refuses one refuses this too; it has no upgrade route."""
+
+    def __init__(self, vault_root: Path, tag: str | None, *, journal: tuple[str, str] | None = None) -> None:
+        self.vault_root = Path(vault_root)
+        self.tag = tag
+        self.floor = OLDEST_SUPPORTED
+        self.journal = journal
+        self.commands = ()
+        self.guard_gates_route = False
+        RuntimeError.__init__(self, self._message())
+
+    def _message(self) -> str:
+        known = (f"This LearnLoop knows {OLDEST_SUPPORTED} to {LATEST_ALGORITHM_VERSION}: a newer LearnLoop wrote "
+                 "this vault, or its learnloop.toml names a tag of another shape. Open it with the LearnLoop that "
+                 "wrote it, or update this checkout first.")
+        if self.journal is not None:
+            predecessor, target = self.journal
+            return (f"{self.vault_root} has an unfinished upgrade from {predecessor} to {target}, a tag this "
+                    f"LearnLoop does not know. {known}")
+        return f"{self.vault_root} is at {self.tag}, a tag this LearnLoop does not know. {known}"
+
+
 def may_open_below_floor(vault_root: Path) -> bool:
     """Whether this vault opens below the floor here: only a test that built it on purpose (or its copies)."""
 
@@ -161,6 +207,8 @@ def refuse_below_floor(vault_root: Path, config) -> None:
     algorithms = config.algorithms
     # The field has a default for configs built in code; a vault's file must say which tag it is at.
     tag = algorithms.algorithm_version if "algorithm_version" in algorithms.model_fields_set else None
+    if is_unknown(tag):
+        raise UnknownAlgorithmVersion(Path(vault_root).resolve(), tag)
     if is_below_floor(tag) and not may_open_below_floor(vault_root):
         recurrence = getattr(config, "recurrence", None)
         raise BelowOldestSupported(Path(vault_root).resolve(), tag,
@@ -170,6 +218,8 @@ def refuse_below_floor(vault_root: Path, config) -> None:
 def refuse_journal_below_floor(vault_root: Path, predecessor: str, target: str) -> None:
     """Raise :class:`BelowOldestSupported` for a journalled upgrade from below the floor, unless allowed."""
 
+    if is_unknown(predecessor) or is_unknown(target):
+        raise UnknownAlgorithmVersion(Path(vault_root).resolve(), target, journal=(predecessor, target))
     if is_below_floor(predecessor) and not may_open_below_floor(vault_root):
         raise BelowOldestSupported(Path(vault_root).resolve(), target, journal=(predecessor, target))
 
@@ -191,11 +241,14 @@ def end_test_allowance() -> None:
 __all__ = [
     "PRE_FLOOR_TAG",
     "BelowOldestSupported",
+    "UnknownAlgorithmVersion",
     "allow_below_floor_in_tests",
     "end_test_allowance",
     "is_below_floor",
+    "is_unknown",
     "may_open_below_floor",
     "refuse_below_floor",
     "refuse_journal_below_floor",
+    "refused_tag",
     "upgrade_commands",
 ]
