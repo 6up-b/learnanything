@@ -118,6 +118,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] — imports `snake_case`; statically calls `snake_case`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] — imports `new_ulid`, `snake_case`; statically calls `new_ulid`, `snake_case`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `new_ulid`, `snake_case`; statically calls `new_ulid`, `snake_case`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `new_ulid`; statically calls `new_ulid`
@@ -269,7 +270,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 163 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 164 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -279,6 +280,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/capture_desktop_helpers.py](../../../../../tests/capture_desktop_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
+- [tests/normalize_helpers.py](../../../../../tests/normalize_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../tests/notes_fixtures.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/probe_block_end_helpers.py](../../../../../tests/probe_block_end_helpers.py) — direct import
