@@ -19,7 +19,7 @@ def _vault_with_confusable(tmp_path):
     # none) and serves parametric instances (FG1, mvp-0.45, generates none), each episode ended on its
     # count (value of information, mvp-0.21, ends it on value): those three switches serve the path it
     # was written for. Every episode now runs the robust probe path (mvp-0.8), whatever the tag: there
-    # the surface_only type is diagnosed 2 times in 5 (refactor bug ledger D-38).
+    # the surface_only type is diagnosed 2 times in 5 (refactor bug ledger D-39).
     pin_old_basic_vault(create_basic_vault(vault_root))
     for key in ("placement.enabled", "followup.generate_and_serve", "voi_stopping.enabled"):
         set_config_switch(vault_root, key, False)

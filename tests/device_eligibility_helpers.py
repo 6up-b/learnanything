@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+import learnloop_sidecar.handlers  # noqa: F401  (fills METHOD_REGISTRY: run alone, a file using _call found it empty)
 from learnloop.clock import FrozenClock
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
