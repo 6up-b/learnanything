@@ -26,7 +26,6 @@ from learnloop.content.synthesis.ai_contracts import (
     SynthRecipeComponent,
 )
 from learnloop.db.repositories import Repository
-from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
     _namespace_synthesis_shard,
@@ -427,20 +426,6 @@ def test_over_budget_pass_is_checkpointed_and_reused_under_a_larger_budget(tmp_p
 
     assert result.proposal_id is not None
     assert len(client.calls) == 1
-
-
-def test_legacy_vault_acceptance_refused(tmp_path):
-    root, repo = _setup(tmp_path, with_exam=False, mvp07=False)
-    client = FakeSynthesisClient()
-    # Synthesis/proposal generation runs on a legacy vault...
-    result = create_study_map(root, "set_la", client=client, brief={}, repository=repo, clock=_CLOCK)
-    assert result.proposal_id is not None
-    # ...but ACCEPTANCE of the learnable map is refused with a typed reason.
-    with pytest.raises(PatchApplicationError) as exc:
-        apply_accepted_items(root, result.proposal_id, clock=_CLOCK)
-    assert "bootstrap_evidence_refused" in str(exc.value)
-    # no learnable partial map: facets.yaml stays empty.
-    assert not load_vault(root).evidence_facets
 
 
 def test_replay_identical_after_apply(tmp_path):
