@@ -121,12 +121,15 @@ def _own_reads(*topics: str, shown: tuple[Any, ...] = ()) -> Any:
 
 def _misconception_from(world, misconception_id: str, statement: str, *, attempt_id: str,
                         diagnosis_id: str | None = None) -> None:
-    """A belief normalized from the attempt's event (the normalizer's own
-    provenance: the attempt's grading and the diagnosis over the event)."""
+    """A belief normalized from the attempt's event, as the statement-matching
+    normalizer wrote it (its writer is gone; rows it wrote remain): the
+    attempt's grading and the diagnosis over the event."""
 
-    from learnloop.diagnosis.misconceptions import _event_statement_provenance
+    from learnloop.db.stores.write_provenance import attempt_statement_refs, closure, fold_topic_records
 
-    record = _event_statement_provenance(world.repository, attempt_id, {"diagnosis_id": diagnosis_id})
+    with world.repository.connection() as connection:
+        record = fold_topic_records(connection, closure(connection, attempt_statement_refs(
+            connection, attempt_id, diagnosis_id=diagnosis_id or None)))
     world.repository.insert_misconception(id=misconception_id, learning_object_id=LO, statement=statement,
                                           severity=0.8, provenance=record, provenance_writer="normalizer")
 

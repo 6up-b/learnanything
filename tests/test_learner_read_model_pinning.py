@@ -24,7 +24,7 @@ from learnloop.clock import FrozenClock
 from learnloop.learner.capability_grid import capability_grid, lo_blueprint_readiness
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
-from learnloop.learner.facet_state_reader import facet_recall_state_for_lo, is_canonical_state_vault
+from learnloop.learner.facet_state_reader import facet_recall_state_for_lo
 from learnloop.learner.learner_review_feed import build_learner_review_feed
 from learnloop.learner.recall_coverage import predicted_correctness, predicted_correctness_from_prior
 from learnloop.vault.loader import load_vault
@@ -60,7 +60,6 @@ def fixture_vault(tmp_path_factory):
     shutil.copytree(FIXTURE_VAULT, root)
     vault = load_vault(root)
     repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
-    assert is_canonical_state_vault(vault)
     return vault, repository
 
 

@@ -65,12 +65,9 @@ from learnloop.learner.facet_diagnostics import facet_state_label, scope_facets
 from learnloop.learner.facet_state_reader import (
     facet_states_by_lo as read_facet_states_by_lo,
 )
-from learnloop.learner.facet_state_reader import (
-    facet_uncertainty_states_for_lo,
-    is_canonical_state_vault,
-)
+from learnloop.learner.facet_state_reader import facet_uncertainty_states_for_lo
 from learnloop.params.fitted_params import resolve_fsrs_weights
-from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.scheduling.fsrs import retrievability
 from learnloop.goals.goal_certification import facet_demonstration
 from learnloop.learner.mastery import covering_learner_claim
 from learnloop.learner.measurement_state import UNKNOWN as MEASUREMENT_UNKNOWN
@@ -401,8 +398,8 @@ def _retention_ratio(
             continue
         horizon_days = (horizon - last_attempt).total_seconds() / 86400
         now_days = (now - last_attempt).total_seconds() / 86400
-        baseline = max(forgetting_curve(state.stability, now_days, fsrs_weights), 1e-6)
-        retention_ratio = clamp(forgetting_curve(state.stability, horizon_days, fsrs_weights) / baseline)
+        baseline = max(retrievability(state.stability, now_days, fsrs_weights), 1e-6)
+        retention_ratio = clamp(retrievability(state.stability, horizon_days, fsrs_weights) / baseline)
         numerator += weight * retention_ratio
         weight_total += weight
     if weight_total <= 0.0:
@@ -706,8 +703,6 @@ def _blueprint_readiness_by_lo(
     facet_states_by_lo: dict[str, list[FacetRecallState]],
     mastery_states: dict[str, MasteryState],
 ) -> dict[str, LoReadiness]:
-    if not is_canonical_state_vault(vault):
-        return {}
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
     readiness: dict[str, LoReadiness] = {}
     for learning_object_id in sorted(resolve_goal_scope(vault, goal, repository)):

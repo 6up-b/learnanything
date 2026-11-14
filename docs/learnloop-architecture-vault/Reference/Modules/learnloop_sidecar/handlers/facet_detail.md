@@ -50,27 +50,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/facet_detail.py](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py) |
-| Source lines | 333 |
+| Source lines | 328 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 45)
-- `get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 50) — Facet contract + history + blueprint membership + evidence (§9.6).
-- `list_facets(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 140) — Lightweight facet list for autocomplete pickers, sorted by id.
-- `class PreviewBlueprintReadinessParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 156)
-- `preview_blueprint_readiness(ctx: SidecarContext, params: PreviewBlueprintReadinessParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 164) — Current-vs-proposed LO readiness for an edited blueprint payload (§9.2).
+- `class FacetIdInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 44)
+- `get_facet_detail(ctx: SidecarContext, params: FacetIdInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 49) — Facet contract + history + blueprint membership + evidence (§9.6).
+- `list_facets(ctx: SidecarContext, _params) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 139) — Lightweight facet list for autocomplete pickers, sorted by id.
+- `class PreviewBlueprintReadinessParams(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 155)
+- `preview_blueprint_readiness(ctx: SidecarContext, params: PreviewBlueprintReadinessParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 163) — Current-vs-proposed LO readiness for an edited blueprint payload (§9.2).
 
 ## Internal implementation anchors
 
-- `_components_with_role(recipe)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 214) — (role, component) for every component of a recipe, integration included.
-- `_facet_evidence(vault, repository, facet_id: str, item_los: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 225) — Capability ledger + facet-global readiness/evidence-mass for a facet.
-- `_facet_readiness(vault, repository, facet_id: str, item_los: list[str]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 250) — Facet-global predicted recall, averaged over LOs exercising the facet.
-- `_readiness_summary(readiness) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 295) — The ``{readiness, bottleneck}`` pair the blast-radius panel renders.
-- `_identifiability_warnings(vault, learning_object) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 306) — Identifiability findings that touch this LO's facet neighborhood (§11.3).
-- `_affected_goals(vault, repository, learning_object_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 324) — Active goals whose resolved scope includes this LO (or its facets).
+- `_components_with_role(recipe)` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 213) — (role, component) for every component of a recipe, integration included.
+- `_facet_evidence(vault, repository, facet_id: str, item_los: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 224) — Capability ledger + facet-global readiness/evidence-mass for a facet.
+- `_facet_readiness(vault, repository, facet_id: str, item_los: list[str]) -> tuple[float | None, float | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 249) — Facet-global predicted recall, averaged over LOs exercising the facet.
+- `_readiness_summary(readiness) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 290) — The ``{readiness, bottleneck}`` pair the blast-radius panel renders.
+- `_identifiability_warnings(vault, learning_object) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 301) — Identifiability findings that touch this LO's facet neighborhood (§11.3).
+- `_affected_goals(vault, repository, learning_object_id: str) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/facet_detail.py), line 319) — Active goals whose resolved scope includes this LO (or its facets).
 
 ## Who imports or calls it
 
@@ -87,7 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `lo_blueprint_readiness`; calls `lo_blueprint_readiness`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `is_canonical_state_vault`, `resolve_canonical_facet`; calls `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `is_canonical_state_vault`, `resolve_canonical_facet`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `resolve_canonical_facet`; calls `CanonicalFacetStateReader`, `facet_recall_states_for_lo`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `analyze_identifiability`, `build_registry_view`; calls `analyze_identifiability`, `build_registry_view`
 - [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `predicted_facet_recall`; calls `predicted_facet_recall`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `recipe_components`; calls `recipe_components`

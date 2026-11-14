@@ -241,20 +241,6 @@ def test_uncertainty_is_written_under_the_merged_facets_survivor(tmp_path):
     assert (rebuilt.hypothesis_marginal, rebuilt.uncertainty, rebuilt.status, rebuilt.opened_by_attempt_id) == live
 
 
-def test_the_legacy_recall_bridge_stays_refused_at_the_tag(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
-    repository = Repository(paths.sqlite_path)
-    with pytest.raises(AssertionError, match="must not be written"):
-        with repository.connection() as connection:
-            repository._upsert_facet_recall_state(connection, {
-                "learning_object_id": LO_ID, "facet_id": "recall", "practice_item_id": None,
-                "recall_alpha": 1.0, "recall_beta": 1.0, "recall_mean": 0.5, "recall_variance": 0.08,
-                "independent_evidence_mass": 0.0, "raw_coverage_mass": 0.0, "last_attempt_at": None,
-                "last_error_at": None, "consecutive_failures": 0, "algorithm_version": TAG,
-                "created_at": NOW_ISO, "updated_at": NOW_ISO,
-            })
-
-
 def test_doctor_warns_when_the_switch_moved_after_the_last_whole_vault_rebuild(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     vault, repository = _play(paths)

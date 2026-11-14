@@ -57,6 +57,16 @@ Promotion is idempotent and reviewable. `question_promotion_requests` and `quest
 > [!warning] Diagnostic firewall
 > Active qualifying probes can prohibit tutor, hints, and answer reveal. Do not work around that restriction by opening another surface: contamination would change what the attempt measures. See [[Evidence and Measurement#Assistance, familiarity, and independence]].
 
+## Teacher lessons and where they open
+
+A control that asks to be taught, or to learn a topic, opens a Teacher lesson (`screens/LessonScreen.tsx`, `lesson.turn`, `learnloop.teacher`); a control that asks a question about the item, note or passage on screen opens Ask. Lessons are desktop only and gated by `teacher.lessons` (the desktop's `algoConfig().lessons`).
+
+Entry points (all `lesson.turn` `open`):
+
+- **"Teach me this"** on a topic (the inspector) and on a Reader selection (`entry` `learning_object` or `reader_selection`);
+- **Today**: the suggestion card's and a plan block's "Learn *X* now?" Start (`origin` `router_suggestion`), "Continue your lesson on *X*" (resume), "Learn something new" (a typed goal), and "learn this" under "Something else would help" (IH7's `preference_id`);
+- **a diagnostic check**: "Teach me this" when a check ends with a gap to teach (classic and simple review, Esc included in classic), and "Stop diagnosing and teach me" during one (the practice card, simple and classic, and the calibration dialogue). These name the check's episode (`probe_episode_id`), so the brief carries what the check found (`from_check`; see [[Diagnosis and Remediation#Hand-off to teaching]]), and the open turn's `refs` name the episode. When lessons are off, or the lesson can't open (the screen's `onOpenFailed`: the teacher's route down, lessons switched off, a refusal), the tutor opens instead with its proactive opening from the check's decision, and a notice says so. The calibration dialogue's lesson opens over the calibration progress it returns to.
+
 ## Teach-back conversation
 
 ### Readiness

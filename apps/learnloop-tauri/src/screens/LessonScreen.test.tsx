@@ -290,3 +290,31 @@ it("a lesson figure that isn't drawn says why in one quiet line", async () => {
                                                          LESSON_FIGURE_COPY.unavailable]);
   expect(document.querySelector("[data-figure]")).toBeNull();
 });
+
+it("a lesson opened from a diagnostic check names its episode when it opens", async () => {
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"], probeEpisodeId: "ep_7" }}
+                         onClose={vi.fn()} onQuickCheck={vi.fn()} onError={vi.fn()} />);
+  });
+  expect(api.lessonTurn).toHaveBeenCalledWith({ action: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"],
+                                               probeEpisodeId: "ep_7" });
+});
+
+it.each([
+  ["plan_unavailable", "The teacher isn't available right now."],
+  ["teacher_disabled", "Lessons are switched off (teacher.enabled = false)."],
+  ["unknown_topic", "That topic isn't in this vault."],
+])("an opening that fails (%s) goes back to the caller, never to a retry", async (code, message) => {
+  api.lessonTurn.mockRejectedValueOnce({ code, message, retryable: code === "plan_unavailable" });
+  const onOpenFailed = vi.fn();
+  const onError = vi.fn();
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_eigen"], probeEpisodeId: "ep_7" }}
+                         onClose={vi.fn()} onOpenFailed={onOpenFailed} onError={onError} />);
+  });
+  expect(onOpenFailed).toHaveBeenCalledWith(message);
+  expect(onError).not.toHaveBeenCalled();
+  expect(screen.queryByTestId("lesson-unavailable")).toBeNull();
+  expect(screen.queryByTestId("lesson-retry")).toBeNull();
+});

@@ -21,7 +21,6 @@ from learnloop.diagnosis.ai_contracts import (
 )
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import MisconceptionRecord, Repository
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.recurrence import key_for_statement
 from learnloop.substrate.recurrence_groups import active_group_map, refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
@@ -240,21 +239,6 @@ def _durable_match(
     )
 
 
-def _event_facet_ids(vault: LoadedVault, event: dict, attempt: dict | None) -> list[str]:
-    """Coarse facets a new registry row targets (spec §1.1 / §2.2.4).
-
-    Only the event's explicitly asserted repair targets are eligible. An empty
-    target list is an attribution abstention, never permission to smear the
-    attempt's whole evidence-facet list onto the event.
-    """
-
-    repair_plan = event.get("repair_plan")
-    families = repair_plan.get("target_evidence_families") if isinstance(repair_plan, dict) else None
-    if isinstance(families, list) and families:
-        return list(dict.fromkeys(vault.canonical_facet_id(str(f)) for f in families))
-    return []
-
-
 def normalize_attempt_misconceptions(
     vault: LoadedVault,
     repository: Repository,
@@ -264,87 +248,21 @@ def normalize_attempt_misconceptions(
     ai_client: object | None = None,
     clock: Clock | None = None,
 ) -> list[str]:
-    """Normalize an attempt's misconception error events into the registry (spec §2.2).
-
-    For each error event that is a misconception AND carries a non-empty
-    ``misconception_statement`` (statementless self-grade/legacy events keep the
-    legacy behavior and never create registry rows), match against candidate
-    registry rows and either merge (``same``) or insert (``new``), then write the
-    ``misconception_id`` back onto the event. Idempotent: events already linked
-    are skipped, so replay/re-normalization is a no-op. Returns the touched ids.
+    """Normalize an attempt's misconception error events into the registry (spec §2.2),
+    with the promotion discipline (§10.3) and compositional records (§10.2) of
+    :func:`_normalize_compositional`. Returns the touched ids.
     """
 
-    learning_object = vault.learning_objects.get(learning_object_id)
-    if learning_object is None:
+    if vault.learning_objects.get(learning_object_id) is None:
         return []
-    if is_canonical_state_vault(vault):
-        return _normalize_compositional(
-            vault,
-            repository,
-            attempt_id=attempt_id,
-            learning_object_id=learning_object_id,
-            ai_client=ai_client,
-            clock=clock,
-        )
-    events = repository.error_events_for_attempt(attempt_id)
-    attempt = repository.fetch_practice_attempt(attempt_id)
-    candidates = _candidate_misconceptions(vault, repository, learning_object_id)
-    touched: list[str] = []
-    for event in events:
-        if not event.get("is_misconception"):
-            continue
-        statement = (event.get("misconception_statement") or "").strip()
-        if not statement:
-            continue
-        if event.get("misconception_id"):
-            continue  # already normalized (idempotent / replay-safe)
-        severity = float(event.get("severity") or 0.0)
-        match_id = _durable_match(
-            event, statement, candidates, ai_client, learning_object_id=learning_object_id, vault=vault, repository=repository
-        )
-        if match_id is not None:
-            existing = repository.misconception(match_id)
-            if existing is not None:
-                new_status = "active" if existing.status in ("resolving", "resolved") else existing.status
-                repository.update_misconception(
-                    match_id,
-                    severity=max(existing.severity, severity),
-                    status=new_status,
-                    append_source_error_event_ids=[event["id"]],
-                    clock=clock,
-                )
-                misconception_id = match_id
-            else:
-                misconception_id = None
-        else:
-            misconception_id = None
-        if misconception_id is None:
-            misconception_id = repository.insert_misconception(
-                learning_object_id=learning_object_id,
-                statement=statement,
-                concept_id=learning_object.concept,
-                signature=event.get("misconception_consistent_answer"),
-                facet_ids=_event_facet_ids(vault, event, attempt),
-                severity=severity,
-                source_error_event_ids=[event["id"]],
-                provenance=_event_statement_provenance(repository, attempt_id, event),
-                provenance_writer="normalizer",
-                clock=clock,
-            )
-            inserted = repository.misconception(misconception_id)
-            if inserted is not None:
-                candidates.append(inserted)  # dedupe repeats within the same attempt
-            # Probe redesign §6.5: a newly registered high-severity misconception
-            # is a re-probe trigger — a NEW episode with a fresh locked set that
-            # includes the belief, replacing the stale diagnosis.
-            from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_misconception
-
-            maybe_reprobe_for_misconception(
-                vault, repository, learning_object_id, severity=severity, clock=clock
-            )
-        repository.set_error_event_misconception(event["id"], misconception_id, clock=clock)
-        touched.append(misconception_id)
-    return touched
+    return _normalize_compositional(
+        vault,
+        repository,
+        attempt_id=attempt_id,
+        learning_object_id=learning_object_id,
+        ai_client=ai_client,
+        clock=clock,
+    )
 
 
 # -- §10.2/§10.3 compositional records + promotion discipline (mvp-0.7) ------
@@ -580,18 +498,6 @@ def promote_candidate(
         clock=clock,
     )
     return misconception_id
-
-
-def _event_statement_provenance(repository: Repository, attempt_id: str, event: dict) -> Any:
-    """What an error event's misconception statement was written from: the
-    attempt's grading and the diagnosis whose causal view lies over the event
-    (diagnosis input provenance)."""
-
-    from learnloop.db.stores.write_provenance import attempt_statement_refs, closure, fold_topic_records
-
-    with repository.connection() as connection:
-        return fold_topic_records(connection, closure(connection, attempt_statement_refs(
-            connection, attempt_id, diagnosis_id=str(event.get("diagnosis_id") or "") or None)))
 
 
 def _promotion_provenance(vault: LoadedVault, repository: Repository, candidate: dict) -> tuple[Any, Any]:

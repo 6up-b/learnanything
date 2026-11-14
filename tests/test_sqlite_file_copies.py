@@ -71,7 +71,7 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
         1,
         "copies a Python helper script (rw2c_state_parity.py) into an archived code tree, not a database",
     ),
-    "tests/test_receipt_derivation.py": (2, _TRACKED_FIXTURE + "; or " + _OWNER_LANE),
+    "tests/test_receipt_derivation.py": (1, _TRACKED_FIXTURE + "; or " + _OWNER_LANE),
     "tests/test_receipt_exactness.py": (1, _TRACKED_FIXTURE + "; or " + _OWNER_LANE),
     "tests/test_shadow_rebuild.py": (1, _TRACKED_FIXTURE),
     "tests/test_sidecar_contract.py": (5, _OWNER_LANE),

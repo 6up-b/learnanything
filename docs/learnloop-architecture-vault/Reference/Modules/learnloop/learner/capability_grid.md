@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/capability_grid.py](../../../../../../src/learnloop/learner/capability_grid.py) |
-| Source lines | 231 |
+| Source lines | 224 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class GridCell` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 46)
-  - `as_dict(self) -> dict[str, object]` (line 62; public)
-- `class CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 82)
-  - `as_dict(self) -> dict[str, object]` (line 89; public)
-- `capability_grid(vault: LoadedVault, repository: Repository, learning_object_id: str) -> CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 108) — Facet × capability grid for one LO (canonical facet keys).
-- `lo_blueprint_readiness(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoReadiness | None` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 209) — Per-LO blueprint recipe readiness (§9.2) for the recipe-tree surface.
+- `class GridCell` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 43)
+  - `as_dict(self) -> dict[str, object]` (line 59; public)
+- `class CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 79)
+  - `as_dict(self) -> dict[str, object]` (line 86; public)
+- `capability_grid(vault: LoadedVault, repository: Repository, learning_object_id: str) -> CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 105) — Facet × capability grid for one LO (canonical facet keys).
+- `lo_blueprint_readiness(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoReadiness | None` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 204) — Per-LO blueprint recipe readiness (§9.2) for the recipe-tree surface.
 
 ## Internal implementation anchors
 
-- `_lo_required_facets(vault: LoadedVault, repository: Repository, learning_object) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 99)
+- `_lo_required_facets(vault: LoadedVault, repository: Repository, learning_object) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 96)
 
 ## Who imports or calls it
 
@@ -85,7 +85,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `project_lo_blueprint_readiness`; calls `project_lo_blueprint_readiness`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `LoReadiness`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `required_facets`; calls `required_facets`
-- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_recall_states_for_lo`, `is_canonical_state_vault`; calls `facet_recall_states_for_lo`, `is_canonical_state_vault`
+- [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_recall_states_for_lo`; calls `facet_recall_states_for_lo`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `covering_learner_claim`; calls `covering_learner_claim`
 - [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] — imports `classify_measurement_state`, `require_measurement_state`; calls `classify_measurement_state`, `require_measurement_state`
 - [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `predicted_facet_recall`; calls `predicted_facet_recall`

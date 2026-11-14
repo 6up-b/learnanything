@@ -9,7 +9,6 @@ from learnloop.attempts.ability_transition import estimate_ability_transition
 from learnloop.numeric import clamp
 from learnloop.learner.blueprint_projection import predict_item_success
 from learnloop.content.authoring.conjunctive_items import ItemShape, classify_item_shape, conjunctive_fit
-from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.learner.mastery import item_irt_params
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem
 
@@ -424,18 +423,18 @@ def _predicted_correctness(
     demand: ItemDemandVector,
     mastery: MasteryState | None,
 ) -> float:
-    """Item predicted correctness — blueprint likelihood under mvp-0.7, else legacy.
+    """Item predicted correctness — blueprint likelihood, else the flat blend.
 
-    For a blueprint-bearing LO on an mvp-0.7 vault, the noisy-AND / guess-floor /
+    For a blueprint-bearing LO, the noisy-AND / guess-floor /
     max-over-recipes projection (§9.2) is the expected-performance source. The
     per-component recall is the mastery-blended ``predicted_facet_recall`` (the
-    LO EKF as a prediction-only calibration residual, §9.2). Every other case —
-    legacy vaults, and blueprint-less LOs (their flat ``evidence_facets`` union
-    is a non-certifying compatibility blueprint, §15) — keeps the existing blend.
+    LO EKF as a prediction-only calibration residual, §9.2). A blueprint-less LO
+    (its flat ``evidence_facets`` union is a non-certifying compatibility
+    blueprint, §15) keeps the flat blend.
     """
 
     blend_count = vault.config.recall_coverage.facet_blend_evidence_count
-    if is_canonical_state_vault(vault) and learning_object.blueprints:
+    if learning_object.blueprints:
         mastery_logit = mastery.logit_mean if mastery is not None else None
         mastery_evidence = mastery.evidence_count if mastery is not None else 0
 

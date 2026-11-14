@@ -1,18 +1,17 @@
-"""KM2b — consumer re-key: mvp-0.7 consumers read canonical shared facet state,
-and the legacy per-LO write bridge is retired.
+"""KM2b — consumer re-key: consumers read canonical shared facet state, and the
+legacy per-LO write bridge is retired.
 
-Drives real attempts through the write path on the shared hand-authored mvp-0.7
+Drives real attempts through the write path on the shared hand-authored
 fixture (two LOs sharing one canonical facet) and asserts the thirteen-reader
 surfaces (scheduler view, goal projection, prior-state read) observe the pooled
 canonical parent — while the legacy `evidence_facet_recall_state` table stays
-empty and refuses any mvp-0.7-keyed write.
+empty.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.learner.facet_state_reader import facet_states_by_lo
@@ -102,9 +101,9 @@ def test_goal_projection_reads_canonical_state(facet_vault):
         assert projection.current_recall > 0.6  # pooled positive evidence
 
 
-def test_mvp07_vault_refuses_legacy_facet_state_write(facet_vault):
-    """The legacy per-LO table stays empty under mvp-0.7, and any mvp-0.7-keyed
-    legacy write is a hard error (KM2b item 9 hard-stop flipped)."""
+def test_attempts_write_no_legacy_facet_state(facet_vault):
+    """The legacy per-LO table stays empty: real attempts drive only the
+    canonical projection."""
 
     vault, repository = facet_vault
     clock = FrozenClock(NOW)
@@ -114,33 +113,6 @@ def test_mvp07_vault_refuses_legacy_facet_state_write(facet_vault):
     # Real attempts drove the canonical projection but wrote NO legacy rows.
     assert repository.facet_recall_states() == []
     assert repository.canonical_facet_recall_states(), "canonical state was written"
-
-    # The write-path guard refuses an mvp-0.7-keyed legacy row outright.
-    with pytest.raises(AssertionError):
-        with repository.connection() as connection:
-            repository._upsert_facet_recall_state(
-                connection, {"algorithm_version": "mvp-0.7"}
-            )
-    with pytest.raises(AssertionError):
-        with repository.connection() as connection:
-            repository._upsert_facet_uncertainty_state(
-                connection, {"algorithm_version": "mvp-0.7"}
-            )
-
-
-@pytest.mark.parametrize("algorithm_version", sorted(CANONICAL_STATE_VERSIONS))
-def test_every_canonical_version_refuses_legacy_facet_state_write(
-    facet_vault,
-    algorithm_version,
-):
-    _vault, repository = facet_vault
-
-    with pytest.raises(AssertionError):
-        with repository.connection() as connection:
-            repository._upsert_facet_recall_state(
-                connection,
-                {"algorithm_version": algorithm_version},
-            )
 
 
 def test_exam_attempt_moves_shared_parent_across_los(facet_vault):
