@@ -246,6 +246,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/km2_write_path_helpers.py](../../../../../tests/km2_write_path_helpers.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../tests/km3_projections_helpers.py) — direct import
 - [tests/learner_report_superseded_helpers.py](../../../../../tests/learner_report_superseded_helpers.py) — direct import
+- [tests/learner_text_gaps_helpers.py](../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/pfc_unverified_unassessed_helpers.py](../../../../../tests/pfc_unverified_unassessed_helpers.py) — direct import

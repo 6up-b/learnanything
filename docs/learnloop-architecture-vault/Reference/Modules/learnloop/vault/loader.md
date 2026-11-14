@@ -1655,7 +1655,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_reads_a_vault_without_receipts_as_empty`
 - [tests/test_gate_score.py](../../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_generated_item_gate.py](../../../../../../tests/test_generated_item_gate.py) — direct import
-  - `test_legacy_vault_allows_unregistered_facet`
   - `test_registered_facet_accepted`
   - `test_unregistered_facet_rejected`
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import

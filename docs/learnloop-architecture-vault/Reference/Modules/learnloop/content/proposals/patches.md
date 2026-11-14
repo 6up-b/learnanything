@@ -258,7 +258,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_span_support.py](../../../../../../../tests/test_facet_span_support.py) — direct import
   - `test_keeping_a_card_that_went_stale_is_no_label`
 - [tests/test_generated_item_gate.py](../../../../../../../tests/test_generated_item_gate.py) — direct import
-  - `test_legacy_vault_allows_unregistered_facet`
   - `test_registered_facet_accepted`
   - `test_unregistered_facet_rejected`
 - [tests/test_graph_edit_proposals.py](../../../../../../../tests/test_graph_edit_proposals.py) — direct import

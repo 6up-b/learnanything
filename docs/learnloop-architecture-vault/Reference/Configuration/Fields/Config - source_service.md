@@ -30,12 +30,12 @@ source_paths:
   - "tests/facet_identity_ingest_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
+  - "tests/followup_serve_helpers.py"
   - "tests/helpers.py"
   - "tests/identity_pins_helpers.py"
   - "tests/learner_pick_proposal_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mcp_world.py"
-  - "tests/mobile_host_auth_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -89,12 +89,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/facet_identity_ingest_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
+- `tests/followup_serve_helpers.py`
 - `tests/helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/learner_pick_proposal_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mcp_world.py`
-- `tests/mobile_host_auth_helpers.py`
 
 ## Extension and modification guidance
 

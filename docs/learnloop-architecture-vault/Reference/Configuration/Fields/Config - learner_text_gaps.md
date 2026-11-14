@@ -28,12 +28,12 @@ source_paths:
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
+  - "tests/followup_serve_helpers.py"
   - "tests/followups_batch6_verify_fixes_helpers.py"
   - "tests/forecast_receipts_helpers.py"
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_service_helpers.py"
   - "tests/identity_pins_helpers.py"
-  - "tests/local_embeddings_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -85,12 +85,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
+- `tests/followup_serve_helpers.py`
 - `tests/followups_batch6_verify_fixes_helpers.py`
 - `tests/forecast_receipts_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_service_helpers.py`
 - `tests/identity_pins_helpers.py`
-- `tests/local_embeddings_fakes.py`
 
 ## Extension and modification guidance
 
