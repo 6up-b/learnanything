@@ -23,7 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS
+from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_ALGORITHM_VERSION, successors_from
 from learnloop.attempts.attempts import fsrs_rating_for_attempt
 from learnloop.attempts.grading_support import (
     UNASSESSED_CRITERION_LABEL,
@@ -63,7 +63,7 @@ LO = "lo_svd_compute"
 HEAD_FIXTURE = MIGRATION_HEAD_FIXTURE
 #: Every split version grades blind, so the rule holds at each of them, never
 #: at mvp-0.10 alone (mvp-0.11 = the mvp-0.10 split plus placement).
-SPLIT_VERSIONS = sorted(DIAGNOSIS_SPLIT_VERSIONS)
+SPLIT_VERSIONS = sorted(successors_from(DIAGNOSIS_SPLIT_ALGORITHM_VERSION))
 at_every_split_version = pytest.mark.parametrize("version", SPLIT_VERSIONS)
 
 

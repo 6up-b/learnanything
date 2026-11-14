@@ -7,7 +7,6 @@ grade does not. It holds on the version ``learnloop init`` writes.
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
@@ -22,7 +21,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -33,7 +32,6 @@ CONTROL_ITEM_ID = "pi_svd_unique_001"
 def _init_version_vault(tmp_path, name: str):
     # The basic vault is at the tag a new vault is given.
     paths = create_basic_vault(tmp_path / name / "vault")
-    assert ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     return paths
 
 

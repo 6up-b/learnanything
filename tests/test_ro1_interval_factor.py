@@ -13,7 +13,7 @@ from datetime import timedelta
 import pytest
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_VERSIONS, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.router_objective_switches import interval_factor_removed
@@ -29,7 +29,7 @@ PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[scheduler.surprise]\nremove_interval_factor = false\n"
 
 def test_the_gate_is_the_tag_and_the_switch(tmp_path):
-    assert INTERVAL_FACTOR_ALGORITHM_VERSION == "mvp-0.46" and INTERVAL_FACTOR_ALGORITHM_VERSION in INTERVAL_FACTOR_VERSIONS and PREDECESSOR not in INTERVAL_FACTOR_VERSIONS
+    assert INTERVAL_FACTOR_ALGORITHM_VERSION == "mvp-0.46"
     on, _ = _vault(tmp_path / "on", INTERVAL_FACTOR_ALGORITHM_VERSION)
     off, _ = _vault(tmp_path / "off", INTERVAL_FACTOR_ALGORITHM_VERSION, OFF)
     below, _ = _vault(tmp_path / "below", PREDECESSOR)

@@ -13,7 +13,6 @@ from __future__ import annotations
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
-    LESSON_OFFERS_VERSIONS,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -33,7 +32,6 @@ def test_the_successor_is_one_constant_after_te3a_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.52"
     # Phone V3's successor (mvp-0.54) follows it and keeps it.
     assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-7] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert LESSON_OFFERS_VERSIONS == frozenset({TAG, "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switch_defaults_on_and_is_classified():

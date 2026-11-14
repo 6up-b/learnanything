@@ -941,15 +941,9 @@ def test_failed_teach_back_grading_closes_its_run_as_failed(tmp_path):
 def _init_version_teach_back_mastery(tmp_path, grading_source: str):
     """Mastery after one partially-correct teach-back graded under ``grading_source``."""
 
-    from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
-    from tests.helpers import ALGORITHM_VERSION
 
     vault_root = tmp_path / grading_source / "vault"
     paths = create_basic_vault(vault_root)
-    # The model-grade soft-score lane of the mastery update is keyed on the P0
-    # projection versions, which include the version a new vault (and the basic
-    # vault) is given.
-    assert ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     clock = FrozenClock(NOW)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=clock)
     vault = load_vault(vault_root)

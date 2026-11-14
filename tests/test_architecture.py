@@ -558,9 +558,6 @@ def test_assessment_service_reexports_neutral_algorithm_versions() -> None:
         "KM_ALGORITHM_VERSION",
         "P0_ALGORITHM_VERSION",
         "REVEAL_LEDGER_ALGORITHM_VERSION",
-        "P0_SUCCESSOR_VERSIONS",
-        "P0_PROJECTION_VERSIONS",
-        "CANONICAL_STATE_VERSIONS",
     ):
         assert getattr(assessment_contracts, name) is getattr(
             algorithm_versions,

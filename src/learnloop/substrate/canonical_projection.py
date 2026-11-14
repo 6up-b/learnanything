@@ -805,7 +805,7 @@ def project_canonical_facet_state(
                 # PF-c: a criterion written under the unassessed rule (owner
                 # decision 2026-10-12) is unassessed in exactly this sense: its
                 # kept points earn no credit and its shortfall is no failure.
-                # Only blind grades (DIAGNOSIS_SPLIT_VERSIONS) write the block,
+                # Only blind grades (the diagnosis split, mvp-0.10) write the block,
                 # so joint vaults fold as before; a row written before the rule
                 # falls through to its M2 reading below.
                 continue

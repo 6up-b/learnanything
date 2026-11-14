@@ -6008,7 +6008,7 @@ class Repository(
         keep_content_state: bool = False,
     ) -> None:
         """The live attempt's write. ``keep_content_state`` (the successor
-        ``ATTEMPT_CONTENT_STATE_VERSIONS`` with its kill switch on, decided by
+        mvp-0.37 with its kill switch on, decided by
         the caller): the item row takes only its scheduling columns
         (:meth:`_record_attempt_practice_item_state`); False writes the whole
         row, as the predecessor."""

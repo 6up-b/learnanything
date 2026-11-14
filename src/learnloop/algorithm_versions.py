@@ -32,8 +32,7 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # causal fields; its hypotheses are sourced from the diagnosis ledger), the
 # projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
 # Owner decision 2026-10-12: a PF-c unverified criterion, which only the
-# blind grader records (at every DIAGNOSIS_SPLIT_VERSIONS member: this version
-# and its successors), is unassessed - out of the grade, and no facet evidence
+# blind grader records (at this version and its successors), is unassessed - out of the grade, and no facet evidence
 # either way. It is gated by the record, never by an exact version. mvp-0.10
 # history from before the rule exists
 # (Slice 1 M2 live runs), so the boundary is per record, not per tag: each new
@@ -1006,270 +1005,20 @@ def successors_from(version: str) -> frozenset[str]:
 OLDEST_SUPPORTED: str = FIGURE_WAIT_ALGORITHM_VERSION
 
 
-# Versions at which practice grading is split (kill switch
-# ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
-# attempt's grader mode is recorded per attempt and replay never reads the
-# switch). Every later successor keeps the split, so gates must use this set,
-# never equality against DIAGNOSIS_SPLIT_ALGORITHM_VERSION.
-DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = successors_from(DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
-
-# Versions whose grouping sites read the recurrence-group map (behind
-# ``recurrence.enabled``). Every later successor keeps recurrence groups;
-# gates must use this set, never equality.
-RECURRENCE_GROUP_VERSIONS: frozenset[str] = successors_from(RECURRENCE_GROUP_ALGORITHM_VERSION)
-
-# Versions whose learner surfaces offer "I'm stuck" instead of "I don't know"
-# (the kill switch restores the old control and scoring for NEW answers;
-# replay reads the persisted flag, never the switch). Every later successor
-# keeps the stuck prompt; gates must use this set, never equality.
-STUCK_PROMPT_VERSIONS: frozenset[str] = successors_from(STUCK_PROMPT_ALGORITHM_VERSION)
-
-# Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
-# this the P0 projection?" must use this set rather than equality against
-# P0_ALGORITHM_VERSION, or each version bump silently demotes fresh vaults.
-P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(SUCCESSOR_CHAIN)
-P0_PROJECTION_VERSIONS: frozenset[str] = (
-    frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS
-)
-
-# mvp-0.7 and every P0-projection version read/write canonical shared-facet
-# state. These guards prevent fallback to the retired per-learning-object
-# compatibility tables.
-CANONICAL_STATE_VERSIONS: frozenset[str] = (
-    frozenset({KM_ALGORITHM_VERSION}) | P0_PROJECTION_VERSIONS
-)
-
 # Versions whose serving includes F2 placement (behind ``placement.enabled``).
 # Every later successor keeps placement; gates must use this set, never
 # equality against PLACEMENT_ALGORITHM_VERSION.
 PLACEMENT_VERSIONS: frozenset[str] = successors_from(PLACEMENT_ALGORITHM_VERSION)
 
-# Versions whose Today serves the finite daily plan (behind ``plan.enabled``).
-# Every later successor keeps the plan; gates must use this set, never
-# equality against DAILY_PLAN_ALGORITHM_VERSION.
-DAILY_PLAN_VERSIONS: frozenset[str] = successors_from(DAILY_PLAN_ALGORITHM_VERSION)
-
-# Versions whose Today queue admits probe near-ties to the seeded exploration
-# (behind ``router.probe_tie_admission``). Every later successor keeps it;
-# gates must use this set, never equality against PROBE_TIE_ALGORITHM_VERSION.
-PROBE_TIE_VERSIONS: frozenset[str] = successors_from(PROBE_TIE_ALGORITHM_VERSION)
-
-# Versions whose placement reads the learner-text gap's sooner checks (behind
-# ``learner_text_gaps.sooner_check_enabled``). Every later successor keeps it;
-# gates must use this set, never equality against
-# LEARNER_TEXT_GAP_ALGORITHM_VERSION.
-LEARNER_TEXT_GAP_VERSIONS: frozenset[str] = successors_from(LEARNER_TEXT_GAP_ALGORITHM_VERSION)
-
-# Versions whose attempts record the answer-key gate (canonical sources S1).
-# Every later successor keeps it; gates must use this set, never equality.
-SOURCE_REFERENCE_GATE_VERSIONS: frozenset[str] = successors_from(SOURCE_REFERENCE_GATE_ALGORITHM_VERSION)
-
-# Versions whose intervention needs try the learner's sources before
-# generating (canonical sources S2b, behind source_service.source_first_needs).
-SOURCE_FIRST_NEEDS_VERSIONS: frozenset[str] = successors_from(SOURCE_FIRST_NEEDS_ALGORITHM_VERSION)
-
-# Versions whose blind grader gets the route rules and the server-side
-# unlocated rule (behind ``proof_check.enabled``). Every later successor keeps
-# them; gates must use this set, never equality against
-# ROUTE_RULES_ALGORITHM_VERSION. (mvp-0.17's separate check has no gate any
-# more: no version runs it.)
-ROUTE_RULES_VERSIONS: frozenset[str] = successors_from(ROUTE_RULES_ALGORITHM_VERSION)
-
-# Versions whose serving values the four former count caps (behind
-# ``voi_stopping.enabled``) and whose probe hypothesis lane reads the diagnosis
-# overlay (behind ``diagnosis.probe_lane_reads_diagnosis``). Every later
-# successor keeps both; gates must use this set, never equality against
-# VOI_STOPPING_ALGORITHM_VERSION.
-VOI_STOPPING_VERSIONS: frozenset[str] = successors_from(VOI_STOPPING_ALGORITHM_VERSION)
-
 # Versions whose small judgments the Decider decides (Tier 1, behind one
 # ``decider_routes`` switch per judgment).
 DECIDER_TIER1_VERSIONS: frozenset[str] = successors_from(DECIDER_TIER1_ALGORITHM_VERSION)
-
-# Versions whose Today plan the staged frame composes and whose P2 RPC goes
-# through the bridge (router R2a, behind ``router.enabled``). Every later
-# successor keeps them; gates must use this set, never equality.
-ROUTER_STAGED_FRAME_VERSIONS: frozenset[str] = successors_from(ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
-
-# Versions whose Today blocks the model mixture chooses (behind
-# ``router.mode = "mixture"``) and whose mid-block follow-ups are restraint
-# decisions (behind ``router.restraint``), router R2b + R2c. Every later
-# successor keeps them; gates must use this set, never equality.
-ROUTER_MIXTURE_VERSIONS: frozenset[str] = successors_from(ROUTER_MIXTURE_ALGORITHM_VERSION)
-
-# Versions whose own-route rules grade a required method's criteria on use of
-# the method (``own-route-v2``, behind ``required_method.enabled`` and the
-# route rules' own switch). Every later successor keeps them; gates must use
-# this set, never equality against METHOD_EXPLICIT_ALGORITHM_VERSION.
-METHOD_EXPLICIT_VERSIONS: frozenset[str] = successors_from(METHOD_EXPLICIT_ALGORITHM_VERSION)
-
-# Versions whose regrades and adjudications cite the contract they graded
-# against and supersede every live row, and whose replay reads the current
-# grading epoch's own contract (holding an epoch that cites none). Every
-# later successor keeps them; gates must use this set, never equality.
-REGRADE_CONTRACT_VERSIONS: frozenset[str] = successors_from(REGRADE_CONTRACT_ALGORITHM_VERSION)
-
-# Versions whose serve paths and submit ask the one eligibility decision
-# (behind ``eligibility.enabled``), and whose historical writers bound their
-# auto-prime window at their own instant. Every later successor keeps them;
-# gates must use this set, never equality.
-ELIGIBILITY_DECISION_VERSIONS: frozenset[str] = successors_from(ELIGIBILITY_DECISION_ALGORITHM_VERSION)
-
-# Versions whose serving and Today plan read the learner's intent (behind
-# ``intent.enabled``; daily-loop DL2). Every later successor keeps it; gates
-# must use this set, never equality.
-INTENT_VERSIONS: frozenset[str] = successors_from(INTENT_ALGORITHM_VERSION)
-
-# Versions whose new-material slots AD's draw serves, whose generation names a
-# feature point, and whose readiness numbers read AD's subject view (behind the
-# six [adaptive_difficulty] switches). Every later successor keeps them; gates
-# must use this set, never equality.
-ADAPTIVE_DIFFICULTY_VERSIONS: frozenset[str] = successors_from(ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION)
-
-# Versions whose field derivation reads the workbench's stuck steps and help
-# before the first step (behind ``workbench.field_signals_enabled``; reader
-# workbench RW2d). Every later successor keeps it; gates must use this set,
-# never equality.
-WORKBENCH_FIELD_SIGNALS_VERSIONS: frozenset[str] = successors_from(WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION)
-
-# Versions whose plan's reading block follows the reading path (behind
-# ``reading_paths.plan_uses_path``; reader workbench RW7b). Every later
-# successor keeps it; gates must use this set, never equality.
-READING_PATH_PLAN_VERSIONS: frozenset[str] = successors_from(READING_PATH_PLAN_ALGORITHM_VERSION)
-# Versions whose learner claims seed and re-anchor mastery at their own time,
-# with gap declarations re-anchoring, a mean-only warm merge and recency
-# before pseudo-count in ties (behind ``mastery.claim_fixes_enabled``; LP-min
-# (a)). Every later successor keeps them; gates must use this set, never
-# equality.
-CLAIM_FIXES_VERSIONS: frozenset[str] = successors_from(CLAIM_FIXES_ALGORITHM_VERSION)
-# Versions whose replay reads the ledger bounded at the replayed attempt's
-# position, as the live write saw it (behind ``replay.ledger_bounded``;
-# rebuild equivalence). Every later successor keeps it; gates must use this
-# set, never equality.
-REPLAY_LEDGER_VERSIONS: frozenset[str] = successors_from(REPLAY_LEDGER_ALGORITHM_VERSION)
-
-# Versions whose cold paths count only substantive questions as help and
-# admit help taken on a cold follow-up as practice with help (behind
-# ``ask.cold_help_converts``; Reader CA2). Every later successor keeps it;
-# gates must use this set, never equality.
-ONE_ASK_VERSIONS: frozenset[str] = successors_from(ONE_ASK_ALGORITHM_VERSION)
-
-# Versions whose replace seam keeps the replaced learner claim as a
-# superseded row (``learner_claims.superseded_by``) instead of deleting it.
-# Every later successor keeps it; gates must use this set, never equality.
-SUPERSEDED_CLAIMS_VERSIONS: frozenset[str] = successors_from(SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
-
-# Versions whose live attempts write only their item row's scheduling columns
-# (``active`` only closes, ``content_hash`` untouched; behind
-# ``practice.attempt_keeps_content_state``; mobile PR-4). Every later successor
-# keeps it; gates must use this set, never equality.
-ATTEMPT_CONTENT_STATE_VERSIONS: frozenset[str] = successors_from(ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION)
-
-# Versions whose live attempt step schedules one fresh repair cold retry after
-# help was taken on a due one (behind ``practice.reschedule_cold_after_assist``).
-# Every later successor keeps it; gates must use this set, never equality.
-COLD_RETRY_RESCHEDULE_VERSIONS: frozenset[str] = successors_from(COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION)
-
-# Versions whose ended reader sessions plan automatic cold follow-ups (behind
-# ``followups.enabled``). Every later successor keeps them; gates must use
-# this set, never equality.
-READER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(READER_FOLLOWUPS_ALGORITHM_VERSION)
-# Versions whose plan reading block follows the nearest deliverable's path
-# (curriculum C1, behind ``curriculum.plan_uses_path`` and ``curriculum.enabled``).
-# Every later successor keeps it; gates must use this set, never equality.
-DELIVERABLE_PLAN_VERSIONS: frozenset[str] = successors_from(DELIVERABLE_PLAN_ALGORITHM_VERSION)
-# Versions at which a lesson may open (teacher TE1, behind ``teacher.enabled``).
-# Every later successor keeps it; gates must use this set, never equality.
-TEACHER_VERSIONS: frozenset[str] = successors_from(TEACHER_ALGORITHM_VERSION)
-# Versions whose keyed help fold counts the key's rows in any practice session
-# and whose attempt takes them in its own transaction (behind
-# ``hints.fold_follows_attach``; follow-ups Nov 2). Every later successor keeps
-# it; gates must use this set, never equality.
-HELP_FOLD_ATTACH_VERSIONS: frozenset[str] = successors_from(HELP_FOLD_ATTACH_ALGORITHM_VERSION)
-
-# Versions whose Today may suggest a lesson (teacher TE1b, behind
-# ``router.lesson_suggestions.enabled``). Every later successor keeps it; gates
-# must use this set, never equality.
-LESSON_SUGGESTIONS_VERSIONS: frozenset[str] = successors_from(LESSON_SUGGESTIONS_ALGORITHM_VERSION)
-
-# Versions whose serving arranges measurements, keeps the not_ready floor and
-# picks delayed checks by item, and whose outcomes are ``router_outcomes_v3``
-# (behind ``data_capture.serving``). Every later successor keeps them; gates
-# must use this set, never equality.
-DATA_CAPTURE_VERSIONS: frozenset[str] = successors_from(DATA_CAPTURE_ALGORITHM_VERSION)
-
-# Versions whose misses are owned by one durable follow-up workflow and whose
-# generated probes are single use (behind ``followup.generate_and_serve``; FG1).
-# Every later successor keeps them; gates must use this set, never equality.
-FOLLOWUP_SERVE_VERSIONS: frozenset[str] = successors_from(FOLLOWUP_SERVE_ALGORITHM_VERSION)
-
-# Versions whose FSRS interval carries no surprise factor, whose decision-time
-# attempt reads use availability time and whose diagnoser does not count a
-# misconception pick as validated evidence (router objective RO1, each behind
-# its own switch). Every later successor keeps them; gates must use this set,
-# never equality.
-INTERVAL_FACTOR_VERSIONS: frozenset[str] = successors_from(INTERVAL_FACTOR_ALGORITHM_VERSION)
-
-# Versions whose plan serves the router objective (router objective RO4: the
-# soft-budget frame, the two policies and their learned mix, the trace), behind
-# ``router_objective.enabled``. Every later successor keeps them; gates must use
-# this set, never equality.
-ROUTER_OBJECTIVE_VERSIONS: frozenset[str] = successors_from(ROUTER_OBJECTIVE_ALGORITHM_VERSION)
-
-# Versions whose objective runs RO5's arms (the stop coin, the randomized
-# checks, the open picks) and reads their calibration (the return model, kappa0's
-# posterior, the weight's scores), each arm behind its own rate. Every later
-# successor keeps them; gates must use this set, never equality.
-ROUTER_CALIBRATION_VERSIONS: frozenset[str] = successors_from(ROUTER_CALIBRATION_ALGORITHM_VERSION)
-
-# Versions whose numeric policy values its candidates with RO6's learned tail
-# (the fitted Q evaluation's residual, phased in by its learned weight), behind
-# ``router_objective.learned_tail``. Every later successor keeps them; gates
-# must use this set, never equality.
-ROUTER_LEARNED_TAIL_VERSIONS: frozenset[str] = successors_from(ROUTER_LEARNED_TAIL_ALGORITHM_VERSION)
-
-# Versions that serve the router objective's follow-up batch (mvp-0.50), each
-# part behind its own ``router_objective`` switch. Every later successor keeps
-# them; gates must use this set, never equality.
-ROUTER_FOLLOWUPS_VERSIONS: frozenset[str] = successors_from(ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
-
-# Versions whose lessons may ask for generated single-use probes, file gaps from the learner's words, open on a
-# typed goal and offer "Continue your lesson" (teacher TE2), behind ``teacher.probes``. Every later successor keeps
-# them; gates must use this set, never equality.
-TEACHER_PROBES_VERSIONS: frozenset[str] = successors_from(TEACHER_PROBES_ALGORITHM_VERSION)
-
-# Versions whose adaptive difficulty reads a closed lesson's nodes as learning
-# opportunities with their own dose curve, and whose objective values a lesson
-# with that curve (teacher TE3a), behind
-# ``adaptive_difficulty.lesson_opportunities``. Every later successor keeps
-# them; gates must use this set, never equality.
-LESSON_OPPORTUNITY_VERSIONS: frozenset[str] = successors_from(LESSON_OPPORTUNITY_ALGORITHM_VERSION)
-
-# Versions whose router objective offers lessons as plan blocks, counts lesson
-# minutes on its clock and holds LOs with a pending lesson check in its
-# population (teacher TE3b), behind ``router.lesson_suggestions.in_objective``.
-# Every later successor keeps them; gates must use this set, never equality.
-LESSON_OFFERS_VERSIONS: frozenset[str] = successors_from(LESSON_OFFERS_ALGORITHM_VERSION)
-# Versions whose phone origin serves and answers phone-eligible probes (mobile
-# v2 V3, owner decision D3), behind the phone host's ``phone_probes``. Every
-# later successor keeps them; gates must use this set, never equality.
-PHONE_PROBES_VERSIONS: frozenset[str] = successors_from(PHONE_PROBES_ALGORITHM_VERSION)
 
 # Versions whose router objective gives a failed policy's share to the other
 # policy instead of staged (instruct hand-off IH5), behind
 # ``[router_objective] failure_share_to_other_policy``. Every later successor
 # keeps it; gates must use this set, never equality.
 FAILURE_SHARE_VERSIONS: frozenset[str] = successors_from(FAILURE_SHARE_ALGORITHM_VERSION)
-
-# Versions where an answered item with no due time, on an LO with no evidence,
-# starts as learning under placement, behind ``placement.unevidenced_return``.
-# Every later successor keeps it; gates must use this set, never equality.
-UNEVIDENCED_RETURN_VERSIONS: frozenset[str] = successors_from(UNEVIDENCED_RETURN_ALGORITHM_VERSION)
-
-# Versions whose router objective reads the slip-or-gap sensor (SG1, behind ``[router_objective] miss_cause_sensor``)
-# and splits a lesson's and a repair's slope by the miss's cause (SG2, behind ``miss_cause_in_value``). Every later
-# successor keeps them; gates must use this set, never equality.
-SLIP_GAP_VERSIONS: frozenset[str] = successors_from(SLIP_GAP_ALGORITHM_VERSION)
 
 # Versions whose figure pre-builder reads W from pressed builds with a prior and the blocked minutes from foreground
 # calls (``prefetch_decision_v2``), behind ``figures.prefetch.pressed_waits``. Every later successor keeps it; gates

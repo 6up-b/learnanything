@@ -11,7 +11,6 @@ import pytest
 
 from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
-    DATA_CAPTURE_VERSIONS,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -34,7 +33,6 @@ OFF = "[data_capture]\nserving = false\n"
 def test_the_successor_is_one_constant_after_te1b_and_the_latest():
     position = SUCCESSOR_CHAIN.index(TAG)
     assert SUCCESSOR_CHAIN[position - 1:position + 1] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
-    assert TAG in DATA_CAPTURE_VERSIONS and OLD not in DATA_CAPTURE_VERSIONS
 
 
 def test_the_switches_are_on_by_default_and_the_gate_is_the_switch():

@@ -7,8 +7,6 @@ import tomllib
 from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    FOLLOWUP_SERVE_VERSIONS,
-    LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import LearnLoopConfig
@@ -24,8 +22,7 @@ OLD = DATA_CAPTURE_ALGORITHM_VERSION
 
 def test_the_successor_is_one_constant_after_data_capture():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.44"
-    assert TAG == "mvp-0.45" and TAG in FOLLOWUP_SERVE_VERSIONS and OLD not in FOLLOWUP_SERVE_VERSIONS
-    assert LATEST_ALGORITHM_VERSION in FOLLOWUP_SERVE_VERSIONS
+    assert TAG == "mvp-0.45"
 
 
 def test_new_vaults_get_true_effectively():

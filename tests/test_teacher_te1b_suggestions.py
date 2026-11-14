@@ -16,7 +16,6 @@ import pytest
 from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
-    LESSON_SUGGESTIONS_VERSIONS,
     SUCCESSOR_CHAIN,
     HELP_FOLD_ATTACH_ALGORITHM_VERSION,
     TEACHER_ALGORITHM_VERSION,
@@ -424,7 +423,6 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
 def test_the_successor_is_the_latest_link_after_followups_nov2():
     assert SUCCESSOR_CHAIN[-19:-16] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, LESSON_SUGGESTIONS_ALGORITHM_VERSION) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
     assert LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({LESSON_SUGGESTIONS_ALGORITHM_VERSION, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_ceiling_binds_and_is_logged(tmp_path, shown):
