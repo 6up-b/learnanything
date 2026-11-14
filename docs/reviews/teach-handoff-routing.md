@@ -1,8 +1,8 @@
-# Teach hand-offs to Teacher lessons: step 0 (Nov 14 2026)
+# Teach hand-offs to Teacher lessons (Nov 14 2026)
 
 Owner, Nov 14: "For anyting like 'Learn it with a tutor' or 'Stop diagnosing & teach me', these really should be routed to the proper teacher lesson screens". The rule read from it: a control that asks to be taught, or to learn a topic, opens a Teacher lesson; a control that asks a question about the item, note or passage on screen opens Ask tutor.
 
-Base: main `c85993a087`. Branch `feature/teach-handoffs-to-lessons`. This record is step 0 of the step: the map, what depends on the tutor conversation, and what a lesson would receive. **The step stops here** (section 4): a lesson opened on the check's topic today knows nothing specific about what the check found, and giving it that needs a new key in the persisted lesson brief and a ruling on a protection rule. No code was changed.
+Base: main `c85993a087`. Branch `feature/teach-handoffs-to-lessons`. Sections 1-5 are step 0 as it was written before any code: the map, what depends on the tutor conversation, and what a lesson would receive. Step 0 stopped (section 4): a lesson opened on the check's topic knew nothing specific about what the check found, and giving it that needed a new key in the persisted lesson brief and a ruling on a protection rule. The orchestrator chose Option B, shipped live, applying the owner's standing rules (Nov 1: learner history goes to a model whenever it helps, blindness is the grader's only; live changes over switches). Section 6 is what was built.
 
 ## 1. Every control that opens Ask tutor or a Teacher lesson
 
@@ -118,3 +118,80 @@ Whichever is chosen, the same step should fix TH-1 (the dialogue check's stop te
 - During a check, the practice screen's refusal of Ask names the classic control's words ("use “stop diagnosing & teach me” instead") while the simple screen's control says "Teach me instead".
 - A lesson's failure to open is invisible to whoever opened it (the screen keeps its unavailable state to itself), so no surface can fall back today.
 - The phone has neither a stop control nor a block-end route (it leaves a check for the desktop), so a check started on the desktop and answered there is the only path to either hand-off.
+
+## 6. What was built (Option B, live)
+
+### Backend
+
+- `lesson.turn` `open` takes `probe_episode_id` (plain input, at most 80 characters; `handlers/lesson.py`). A suggestion's Start never passes it, and `open_lesson` drops it, as it drops `preference_id`, for anything but a learner's own start on a topic (`entry` `learning_object`, no selection).
+- `teacher/from_check.py` reads the episode: on record, on the lesson's topics, ended (`complete` or `converted_to_tutoring`), with a typed decision (a mapping with no `kind`). Anything else is **ignored, never refused**: the lesson opens as "Teach me this" on the topic does, a warning is logged, and the open turn's payload records `{"version": "lesson_from_check_v1", "probe_episode_id", "status": "ignored", "why"}` with one of "the check is not on record", "the check was on another topic", "the check has not ended", "the check recorded no finding", "the check's finding could not be read".
+- An accepted episode: the brief gains `from_check`, the open turn's `refs` gain `probe_episode` (beside IH7's `preference`), and the payload records `status: "used"`.
+- `stop_probe_diagnosing` also returns `episode_id` (the episode it converted; null when nothing was open) and `learning_object_id`. Its stop semantics are unchanged: the episode id is read with `open_probe_episode` before the same `stop_diagnosing_and_teach` call.
+
+**What the teacher is told** (`brief["from_check"]`, exactly these keys; `confidence` only when the decision has one in [0, 1]):
+
+```json
+{"about": "What the short check on this topic found just before this lesson opened. Topic-level only: the check's questions and the learner's answers to them are not given and must not be asked about.",
+ "topic": "<the topic's title>", "learning_object_id": "<lo id>",
+ "ended": "the check finished" | "the learner stopped the check and asked to be taught",
+ "gap": {"kind": "<kind>", "words": "<words>"},
+ "next_step": "repair the belief" | "teach it",
+ "confidence": "about 70%"}
+```
+
+| Diagnosed gap label | `kind` | `words` |
+|---|---|---|
+| `misconception:<registered id>` | `mix_up` | the misconception's statement |
+| `misconception:<error type>` (legacy, no registry row) | `mix_up` | the error type with spaces |
+| `confuses_with:<concept or topic id>` | `confused_with` | "mixes this topic up with <its title>" ("a neighbouring topic" when unknown) |
+| `unfamiliar` | `not_learned_yet` | "has not learned this topic yet" |
+| `surface_only` | `surface_only` | "knows the surface of this topic but not why it works" |
+| `recall_without_mechanism` | `recall_without_mechanism` | "recalls the statement without the mechanism behind it" |
+| `procedure_without_selection` | `procedure_without_selection` | "can run the procedure but not choose when to use it" |
+| `schema_without_transfer` | `schema_without_transfer` | "has the idea but does not carry it to new situations" |
+| `robust_initial_grasp` | `no_gap` | "no gap: the check leaned towards a sound grasp" |
+| `other_or_unknown`, empty, anything else | `unnamed` | "a cause the check could not name" |
+
+`next_step` is "repair the belief" when the decision's `instructional_intent` is `repair`, else "teach it". `confidence` is the decision's `diagnostic_confidence` rounded to the nearest ten per cent (a display band, no threshold). Never passed: the first error step or claim, the posterior, the tutor move, the scaffold level, the reveal budget, the target facets, the source refs, the instructional action. The `about` line exists because the doctrine names no such key; changing the doctrine would move its identity, and the entry says what it is instead.
+
+**Brief version: not bumped (judgment call).** `lesson_brief_v1`/`lesson_brief_v2` name the brief's shape for the teacher and for `te2.lesson_te2`, which compares the version for equality, so a bump would make every new TE2 lesson read as a TE1 one. `from_check` is an optional key present only on lessons opened from a check, as IH7's `sources.from_diagnosis` is; an older lesson has none and reads exactly as before, since nothing reads the key but the teacher's prompt (the brief is sent whole). Nothing persisted changes meaning: the lesson row, its origin (`learner_pick`) and its entry are what "Teach me this" on the topic writes; the open turn gains an optional `refs.probe_episode` and `payload.from_check`. The playbook's successor is not needed: no score, schedule or projection reads either.
+
+### Desktop
+
+One module (`app/checkHandoff.ts`): the `CheckHandoff` request, the labels, and `useCheckHandoff`, App's side. `teachFromCheck` opens the lesson (`entry: "learning_object"`, the topic, its title, `probeEpisodeId`) when `algoConfig().lessons` is on, and otherwise runs the caller's fallback at once. While that lesson is open, LessonScreen gets `onOpenFailed`: an opening that fails for **any** reason except `lesson_exists` (the teacher's route down, `teacher_disabled`, a refusal such as `unknown_topic`) closes the lesson screen, shows "<the error's message> The tutor opens instead." and runs the fallback. Every other lesson keeps the screen's own unavailable state and Try again.
+
+| Control | Labels now | Opens |
+|---|---|---|
+| Review, route `tutoring`, simple (↵) and classic (button and Esc) | "Teach me this"; "Learn it with the tutor" when lessons are off | a lesson on the review's topic with the block's `episodeId`; fallback: the proactive tutor opening on the block's first question (the old behaviour) |
+| Practice card during a check, simple and classic | "Stop diagnosing and teach me" on both (was "Teach me instead" / "stop diagnosing & teach me"); classic's tooltip says lesson or tutor | the stop, then a lesson on the item's topic with the stop's `episodeId`; fallback: the screen's own proactive `openAsk` (the old behaviour) |
+| Practice card's refusal of Ask during a check | "use “Stop diagnosing and teach me” instead" | |
+| Calibration dialogue (TH-1) | "Stop diagnosing and teach me" | the stop, then `endProbeDialogue` (releases and normalizes the turns), then a lesson on the topic with the episode, then `onDone`, so calibration's progress is under the lesson and is what closing it shows; fallback: the proactive tutor opening on the turn's question (App's `setAskTarget` through `CalibrationScreen`). A stop that fails shows the block's results as before |
+
+The tutor wording remains only where the tutor is what opens: the review's label with lessons off, and the fallback notice.
+
+### Terminal app (TH-2)
+
+No lesson surface was built. ^t still stops the check; the notice is now "Check stopped. Lessons are in the desktop app; this question goes on as practice.", the check's hint refusal says "press ^t to stop the check (lessons are in the desktop app)", and the probe panel "^t stops the check". The gap stays: the terminal app can't teach.
+
+### Phone, MCP
+
+Nothing to route (sections 1, 4).
+
+### Step 7: the practice card's mid-check stop
+
+Read: `stop_diagnosing_and_teach` converts the episode but nothing ends the block, and `post_attempt._defers_to_block_end` had skipped each committed in-block answer's normalization, follow-up workflow and diagnosis job (`post_attempt.py:155-188`), leaving them to `end_diagnostic_block`. So after a stop from the practice card or the terminal app, those answers are never normalized (no misconception rows from them, which the brief's node would list), never diagnosed, and their withheld feedback is never shown. The lesson still gets `from_check` (the decision reads the observations' posterior, not the normalization), so it has less than the block-end path gives it only in the topic's misconception list. The calibration dialogue ends its block after the stop and is unaffected. Ledger TH-3; the diagnosis loop is not changed in this step.
+
+### Tests
+
+- Python, `tests/test_teacher_from_check.py`: the finding in topic words, with the first error step, the confidence and scaffold numbers, the posterior's other value, the tutor move and the source ref absent from every teacher prompt, and no item's prompt or answer in the entry; the open turn's refs and record; no `from_check` for a lesson opened any other way; an unknown, foreign, still open, opening-stamped or decision-less episode ignored with its reason while the lesson opens; each gap kind's words; the sidecar stop returning its episode and a real decision reading as topic words; the RPC passing the episode for a learner's own start and not for a suggestion's.
+- Vitest: `app/checkHandoff.test.tsx` (the hook's lesson, its fallback on a failed opening with the notice, lessons off; the review's route simple, classic with Esc, lessons off on both; calibration's return), `components/DialogueProbe.test.tsx` (the stop's lesson and fallback; a failed stop), `screens/LessonScreen.test.tsx` (the episode id on open; `onOpenFailed` for `plan_unavailable`, `teacher_disabled`, `unknown_topic`), `screens/PracticeScreen.phase4.test.tsx` (the stop on both cards with its fallback; the refusal line).
+- Assertions changed: one. `PracticeScreen.phase4.test.tsx` "a short check looks like any other question" looked for the button "Teach me instead"; it now looks for "Stop diagnosing and teach me" (the label changed by decision). No other existing test asserted the old routing.
+
+### For the UX journey audit (after this step)
+
+- The practice card's stop still leaves the block's answers un-normalized, undiagnosed and their feedback unseen (TH-3).
+- The terminal app has the stop and no lesson; it can only say where lessons are.
+- The phone has neither hand-off.
+- "Stop diagnosing" is the one place simple mode names diagnosing; the owner's words were kept on purpose.
+- A lesson from a check that fails after it was saved (its first teacher turn) falls back to the tutor; the saved lesson is then reachable only from Today's "Continue your lesson" (TE2).
+- The review's next step says "Teach me this" with lessons on, though the lesson may still fall back to the tutor; the notice says so when it does.
