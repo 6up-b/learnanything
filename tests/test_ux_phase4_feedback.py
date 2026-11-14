@@ -2697,7 +2697,9 @@ def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_cover
     from tests.assumed_known_helpers import _answer, _setup as placement_setup
     from tests.quick_check_helpers import _best_item, _progress, _start
 
-    _paths, vault, repository = placement_setup(tmp_path, version=version)
+    # The predecessor: its tag with the eligibility decision's switch off (the switch's off-branch is its code).
+    _paths, vault, repository = placement_setup(
+        tmp_path, version=version, placement_toml="[eligibility]\nenabled = false\n" if version == "mvp-0.11" else None)
     best = _best_item(vault, repository, ["lo_diag"])
     lo = vault.practice_items[best].learning_object_id
     stamp = FrozenClock(NOW - timedelta(hours=24, minutes=30))
