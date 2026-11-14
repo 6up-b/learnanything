@@ -8,10 +8,10 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
 
 
-TAG = LESSON_OFFERS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 
 # --- the population -------------------------------------------------------------------------------------------

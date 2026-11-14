@@ -32,8 +32,7 @@ attempt-level verdict without a citation behind it resolves only when each
 attempt has one class. Anything else is an ``unresolved_link`` review case and
 joins nothing.
 
-The projection is empty unless the vault is at a ``RECURRENCE_GROUP_VERSIONS``
-successor with ``recurrence.enabled`` on. :func:`refresh_recurrence_groups`
+The projection is empty unless ``recurrence.enabled`` is on. :func:`refresh_recurrence_groups`
 recomputes it when its input fingerprint (cheap ledger counters) changed; the
 ``recurrence_groups`` rebuild replayer forces it, and vault open
 (``sync_vault_state``) re-syncs it so the kill switch takes effect there.
@@ -54,7 +53,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.algorithm_versions import RECURRENCE_GROUP_VERSIONS
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import recurrence as store
 from learnloop.matching.union import UnionEdge, union_with_refusals
@@ -81,18 +79,15 @@ CAUSE_REF_PREFIX = "cause:"
 
 def recurrence_active(vault: LoadedVault) -> bool:
     config = getattr(vault.config, "recurrence", None)
-    return (
-        vault.config.algorithms.algorithm_version in RECURRENCE_GROUP_VERSIONS
-        and bool(getattr(config, "enabled", True))
-    )
+    return bool(getattr(config, "enabled", True))
 
 
 def active_group_map(vault: LoadedVault, repository: Repository) -> dict[str, str]:
     """The group map in force for this vault's EFFECTIVE config, else empty.
 
-    Gated twice: on the vault's algorithm version and kill switch (so a
-    switch turned off takes effect before any refresh), and on the stored
-    activation (so prepared groups of an unfinished upgrade are never read).
+    Gated twice: on the vault's kill switch (so a switch turned off takes
+    effect before any refresh), and on the stored activation (so prepared
+    groups of an unfinished upgrade are never read).
     """
 
     if not recurrence_active(vault):

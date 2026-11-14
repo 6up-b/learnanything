@@ -356,6 +356,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_condition_probes_coordination_not_components`
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
 - [tests/test_quick_check.py](../../../../../../tests/test_quick_check.py) — direct import
   - `test_quick_check_is_never_prompted`
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import

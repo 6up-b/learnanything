@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.daily_plan import learner_action as LA
 from learnloop.daily_plan import lesson_offer as LO
@@ -54,7 +54,7 @@ from tests.rospeed2_connections_helpers import _canon
 from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 from tests.ih4_preferences_inform_router_helpers import _numbers, _pin, _traces
 
-TAG = FAILURE_SHARE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = PHONE_PROBES_ALGORITHM_VERSION
 QUIET = "[router_objective]\nstop_coin = 0.0\n"
 OFF = QUIET + "preferences_inform_router = false\n"

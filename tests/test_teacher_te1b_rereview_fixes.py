@@ -17,6 +17,7 @@ import math
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router import lesson_suggestions as LS
 from learnloop.router import mixture as mx
@@ -35,7 +36,7 @@ def test_a_start_left_unopened_overnight_is_offered_the_next_day(tmp_path, shown
     """Start on day 0, the app stops before the lesson opens: the next day's Today offers that lesson under
     the recorded id (no new draw is logged while it holds the card), it opens, and the day then draws."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     started = SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="accepted",
                          clock=_clock(hours=1))
@@ -54,7 +55,7 @@ def test_a_start_left_unopened_overnight_is_offered_the_next_day(tmp_path, shown
 
 
 def test_an_overnight_alternative_start_keeps_the_alternative(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     alternative = card["alternatives"][0]
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="chose_alternative",
@@ -68,7 +69,7 @@ def test_a_reserved_lesson_is_dropped_once_teach_me_opened_one_on_it(tmp_path, s
     """The learner opened a lesson on the same LO themselves ("Teach me"): the reservation is not offered
     again, and the next day draws its own card."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="accepted",
                clock=_clock(hours=1))
@@ -89,7 +90,7 @@ def test_mixture_mode_draws_the_target_by_the_routers_model_mixture(tmp_path, sh
     configured weights, the models not asked (their weight on the staged rule, G7), the staged pick the top
     value, the ``epsilon_min`` floor, and ``mixture.recompute`` gives back the logged ``pi``."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     set_config(paths.root, {("router", "weights", "staged"): 0.5, ("router", "weights", "decider"): 0.25,
                             ("router", "weights", "llm"): 0.25})
     _suggestion(paths, repository, _clock())

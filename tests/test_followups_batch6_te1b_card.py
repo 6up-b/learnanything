@@ -9,6 +9,7 @@ Every model is a fake; no network.
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router.card import SUGGESTION_SECTION
 from learnloop.vault.loader import load_vault
@@ -21,7 +22,7 @@ from tests.teacher_te1b_suggestions_helpers import _clock, _rows, _vault, no_net
 
 
 def test_not_now_on_a_pending_card_is_its_own_line_after_the_start(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     title = card["suggestion"]["title"]
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="released",
@@ -36,7 +37,7 @@ def test_not_now_on_a_pending_card_is_its_own_line_after_the_start(tmp_path, sho
 
 
 def test_a_declined_suggestion_keeps_its_not_now_line(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _today(load_vault(paths.root), repository, _clock())
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="declined",
                clock=_clock(hours=1))
@@ -46,7 +47,7 @@ def test_a_declined_suggestion_keeps_its_not_now_line(tmp_path, shown, no_networ
 
 
 def test_a_reservation_the_app_set_aside_is_not_a_learner_answer(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card, lesson = _start(paths, repository)
     _today(_without(paths, lesson["learning_object_ids"]), repository, _clock(hours=2))  # set aside: expired
     responses = _rows(repository, "SELECT response FROM router_suggestion_responses ORDER BY responded_at, id")

@@ -7,7 +7,7 @@ import sqlite3
 from contextlib import closing
 from datetime import timedelta
 
-from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.vault.loader import load_vault
@@ -17,7 +17,7 @@ from tests.remediation_cold_retry_helpers import _drive_to_cold_scheduled, _setu
 from tests.ux_phase1_support import set_config
 
 
-TAG = COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 THIRD_ITEM = "pi_svd_define_003"
 LO_ITEMS = {"pi_svd_define_001", "pi_svd_define_002", THIRD_ITEM}
 

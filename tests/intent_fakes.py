@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from learnloop.algorithm_versions import INTENT_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.intent.control import Scope, apply_choice
@@ -79,7 +79,7 @@ def make_intent_vault(
     *,
     plan_toml: str | None = None,
     reviewed_days_ago: int = 10,
-    version: str = INTENT_ALGORITHM_VERSION,
+    version: str = LATEST_ALGORITHM_VERSION,
     unattempted: tuple[str, ...] = (),
 ) -> IntentVault:
     """``unattempted``: items left with no attempt and no state (never served)."""

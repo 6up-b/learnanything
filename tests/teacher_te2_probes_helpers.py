@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from learnloop.algorithm_versions import TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.followup_run.jobs import process_next_job
 from learnloop.teacher import probes as PR
@@ -17,7 +17,7 @@ from tests.structured_ai import StructuredClientFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, plan_turn
 
 
-TAG = TEACHER_PROBES_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 6, 15, 0, tzinfo=UTC)
 READING = "treats the eigenvector as if it were the eigenvalue"
 

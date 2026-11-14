@@ -25,7 +25,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.causal_factor_deferral import ESCALATION_RECURRENCE_K
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.helpers import NOW, append_config_toml, create_basic_vault, set_algorithm_version
 from tests.recurrence_fakes import record_verdict
 from tests.causal_factor_deferral_helpers import DIAG_REF, ITEM_A, ITEM_B, LO_ID, _write_diag_item
 
@@ -121,8 +121,10 @@ def test_reworded_recurrences_escalate_only_once_judged_the_same_cause(tmp_path,
         assert durable == []
 
 
-def test_below_the_successor_the_verdict_changes_nothing(tmp_path):
-    vault, repository = _vault(tmp_path, "mvp-0.10")
+def test_with_the_switch_off_the_verdict_changes_nothing(tmp_path):
+    vault, repository = _vault(tmp_path, "mvp-0.12")
+    append_config_toml(vault.root, "[recurrence]\nenabled = false")
+    vault = load_vault(vault.root)
     _failed(vault, repository, attempt_id="att_k1", item_id=ITEM_A, statement=FIRST, clock=_clock())
     first_factor = repository.unresolved_cause_factors_for_attempt("att_k1")[0]
     for index in range(1, ESCALATION_RECURRENCE_K + 1):

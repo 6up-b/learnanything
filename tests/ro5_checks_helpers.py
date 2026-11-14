@@ -3,14 +3,14 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.router_objective import checks as C
 
 from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import fake_runtime
 
 
-TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 CHECKS_ONLY = "[router_objective]\nstop_coin = 0.0\npick_open_share = 0.0\n"
 
 

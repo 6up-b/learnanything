@@ -144,9 +144,11 @@ Indexes and uniqueness:
 - `tests/test_teach_back.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_teacher_te2_review_fixes.py`
+- `tests/certain_grade_helpers.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
+- `tests/test_projection_timeline_agreement.py`
 - `tests/test_route_rules_in_grader.py`
 - `tests/test_unresolved_cause_gate.py`
 

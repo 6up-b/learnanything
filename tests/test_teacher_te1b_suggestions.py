@@ -13,6 +13,7 @@ from datetime import timedelta
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_VERSIONS,
@@ -53,7 +54,7 @@ PREDECESSOR_TAG = HELP_FOLD_ATTACH_ALGORITHM_VERSION
 
 
 def test_the_card_comes_at_most_once_a_day(tmp_path, shown, no_network):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     assert card is not None and card["minutes"] == LS.CARD_MINUTES
     assert card["suggestion"]["learning_object_ids"][0] in LOS
@@ -74,11 +75,11 @@ def test_the_card_comes_at_most_once_a_day(tmp_path, shown, no_network):
 
 
 def test_the_decision_logs_the_draw_with_its_exact_propensity(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     (row,) = _decisions(repository)
     assert row["design"] == LS.DESIGN and row["design"] in ROUTER_DESIGNS
-    assert row["policy"] == LS.POLICY and row["surface"] == "today_card" and row["algorithm_version"] == TAG
+    assert row["policy"] == LS.POLICY and row["surface"] == "today_card" and row["algorithm_version"] == LESSON_SUGGESTIONS_ALGORITHM_VERSION
     candidates = json.loads(row["candidates_json"])
     detail = json.loads(row["detail_json"])
     assert sum(c["pi"] for c in candidates) == pytest.approx(1.0)
@@ -99,7 +100,7 @@ def test_a_day_with_no_card_is_logged_too(tmp_path, monkeypatch):
     the exact probability of no card (intention-to-treat needs both arms)."""
 
     monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.999999))
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     assert _suggestion(paths, repository, _clock()) is None
     (row,) = _decisions(repository)
     detail = json.loads(row["detail_json"])
@@ -125,7 +126,7 @@ def test_no_candidate_writes_nothing(tmp_path, shown):
 def test_the_candidate_reasons(tmp_path):
     """Two cold checks not right: cold_failing; an open lesson or a lesson since the last attempt: left out."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     for offset, item in enumerate(("pi_det_1", "pi_det_2")):
         complete_self_graded_attempt(
@@ -149,7 +150,7 @@ def test_the_candidate_reasons(tmp_path):
 
 
 def test_every_response_is_logged_once(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     card = _suggestion(paths, repository, _clock())
     alternative = card["alternatives"][0]
@@ -172,7 +173,7 @@ def test_every_response_is_logged_once(tmp_path, shown):
 
 
 def test_a_card_left_unanswered_is_recorded_ignored_the_next_day(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     assert _rows(repository, "SELECT * FROM router_suggestion_responses") == []
     _suggestion(paths, repository, _clock(days=1))
@@ -182,7 +183,7 @@ def test_a_card_left_unanswered_is_recorded_ignored_the_next_day(tmp_path, shown
 
 
 def test_responses_move_the_acceptance_model(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     card = _suggestion(paths, repository, _clock())
     started = SG.respond(vault, repository, decision_id=card["decision_id"], response="accepted", clock=_clock(hours=1))
@@ -201,7 +202,7 @@ def test_responses_move_the_acceptance_model(tmp_path, shown):
 
 
 def test_not_now_mutes_the_goal_per_the_recovery_prior(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     card = _suggestion(paths, repository, _clock())
     declined_lo = card["suggestion"]["learning_object_ids"][0]
@@ -282,7 +283,7 @@ def test_start_opens_a_lesson_whose_origin_is_the_decision(tmp_path, shown, monk
     from learnloop_sidecar.errors import SidecarError
     from learnloop_sidecar.handlers import lesson as H
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     ctx = _Ctx(paths, repository)
     card = H.lesson_suggestion(ctx, H.LessonSuggestionInput())["suggestion"]
     started = H.lesson_suggestion_respond(ctx, H.LessonSuggestionRespondInput(
@@ -313,7 +314,7 @@ def test_start_opens_a_lesson_whose_origin_is_the_decision(tmp_path, shown, monk
 def test_a_closed_suggested_lessons_receipt_names_the_decision(tmp_path, shown):
     from tests.teacher_fakes import close_turn
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     card = _suggestion(paths, repository, _clock())
     started = SG.respond(vault, repository, decision_id=card["decision_id"], response="accepted", clock=_clock())
@@ -334,7 +335,7 @@ def test_a_closed_suggested_lessons_receipt_names_the_decision(tmp_path, shown):
 def test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not(tmp_path, shown):
     from learnloop.router.outcomes import R_COLD_ITT_RULE, derive_router_outcomes
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     lo = card["suggestion"]["learning_object_ids"][0]
     item = f"pi_itt_{lo}"
@@ -395,8 +396,8 @@ def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
     from learnloop_sidecar.context import config_dto
     from tests.ux_phase1_support import set_config
 
-    on_paths, _ = _vault(tmp_path, name="on")
-    off_paths, _ = _vault(tmp_path, name="off")
+    on_paths, _ = _vault(tmp_path, name="on", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
+    off_paths, _ = _vault(tmp_path, name="off", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     set_config(off_paths.root, {("router", "lesson_suggestions", "enabled"): False})
     below_paths, _ = _vault(tmp_path, version=PREDECESSOR_TAG, name="below")
     on, off, below = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths, below_paths))
@@ -414,23 +415,23 @@ def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):
     paths, repository = _vault(tmp_path, version=PREDECESSOR_TAG)
     clock = _clock()
     before = _current_view(PlanEnv(load_vault(paths.root), repository, clock=clock))
-    set_algorithm_version(paths, TAG)
+    set_algorithm_version(paths, LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     assert SG.today_suggestion(load_vault(paths.root), repository, clock=clock) is not None
     after = _current_view(PlanEnv(load_vault(paths.root), repository, clock=clock))
-    dumped = json.dumps(after, sort_keys=True).replace(TAG, PREDECESSOR_TAG)
+    dumped = json.dumps(after, sort_keys=True).replace(LESSON_SUGGESTIONS_ALGORITHM_VERSION, PREDECESSOR_TAG)
     assert dumped == json.dumps(before, sort_keys=True)
 
 
 def test_the_successor_is_the_latest_link_after_followups_nov2():
-    assert SUCCESSOR_CHAIN[-19:-16] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, TAG) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
+    assert SUCCESSOR_CHAIN[-19:-16] == (TEACHER_ALGORITHM_VERSION, PREDECESSOR_TAG, LESSON_SUGGESTIONS_ALGORITHM_VERSION) == ("mvp-0.41", "mvp-0.42", "mvp-0.43")
     assert LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({TAG, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
+    assert LESSON_SUGGESTIONS_VERSIONS == frozenset({LESSON_SUGGESTIONS_ALGORITHM_VERSION, "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_ceiling_binds_and_is_logged(tmp_path, shown):
     from tests.ux_phase1_support import set_config
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     set_config(paths.root, {("router", "lesson_suggestions", "ceiling_per_day"): 0})
     assert _suggestion(paths, repository, _clock()) is None
     (row,) = _decisions(repository)
@@ -451,7 +452,7 @@ def test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does(tmp_path)
     from learnloop.teacher.brief import lo_prediction
     from tests.ux_phase1_support import set_config
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     assert SG.suggestions_active(vault) and S.lessons_active(vault)
     for lo in ("lo_eigen", "lo_det"):

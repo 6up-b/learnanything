@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.vault.loader import load_vault
 
@@ -40,7 +41,7 @@ class _PartialWithoutAttribution(ReviewFakeClient):
         )
 
 
-def _mapped_split_vault(tmp_path, version: str = "mvp-0.10"):
+def _mapped_split_vault(tmp_path, version: str = LATEST_ALGORITHM_VERSION):
     """The split vault with its SVD items' criteria authored onto their facets
     (``setup`` -> compute, ``result`` -> recall), so the attempt step and the
     learner field use the same criterion -> facet map the projection compiles

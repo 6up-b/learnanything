@@ -48,16 +48,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/p0_projection.py](../../../../../../src/learnloop/substrate/p0_projection.py) |
-| Source lines | 128 |
+| Source lines | 123 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `activate_p0_projection(vault: LoadedVault, repository: Repository, *, from_version: str=KM_ALGORITHM_VERSION, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 33) — Rebuild + record activation of the mvp-0.8 projection (§7.2).
-- `leading_conclusion(interpretation: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 78) — The leading actionable conclusion of an interpretation: the top true class of its response posterior (§2.3).
-- `record_reinterpretation_if_changed(repository: Repository, *, administration_id: str, observation_id: str, from_interpretation: Mapping[str, Any] | None, to_interpretation: Mapping[str, Any] | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 90) — Append a ``measurement_reinterpretation`` event when the leading actionable conclusion changed between two interpretations (§2.3).
+- `activate_p0_projection(vault: LoadedVault, repository: Repository, *, from_version: str=KM_ALGORITHM_VERSION, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 32) — Rebuild + record activation of the mvp-0.8 projection (§7.2).
+- `leading_conclusion(interpretation: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 73) — The leading actionable conclusion of an interpretation: the top true class of its response posterior (§2.3).
+- `record_reinterpretation_if_changed(repository: Repository, *, administration_id: str, observation_id: str, from_interpretation: Mapping[str, Any] | None, to_interpretation: Mapping[str, Any] | None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/p0_projection.py), line 85) — Append a ``measurement_reinterpretation`` event when the leading actionable conclusion changed between two interpretations (§2.3).
 
 ## Internal implementation anchors
 
@@ -77,7 +77,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `project_canonical_facet_state`; calls `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

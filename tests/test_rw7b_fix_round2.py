@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import READING_PATH_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
@@ -35,7 +36,7 @@ EVERY_ENRICHMENT = {section: "enrichment" for section in ("sec_eigen", "sec_spec
 @pytest.mark.parametrize("switch", [OFF, GUIDE_OFF], ids=["plan_uses_path_off", "guide_off"])
 def test_an_auto_completed_plan_whose_path_left_no_reading_is_reopened_to_the_predecessors_reading(
         tmp_path, monkeypatch, switch):
-    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=EVERY_ENRICHMENT)
+    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=EVERY_ENRICHMENT, version=READING_PATH_PLAN_ALGORITHM_VERSION)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     assert _skip_to_done(ctx, session_id)["kind"] == "done"
@@ -101,7 +102,7 @@ def test_an_auto_completed_plan_with_a_reading_ended_stays_complete(tmp_path, mo
 def test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection(tmp_path, monkeypatch):
     from learnloop.daily_plan.view import project_blocks
 
-    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
+    paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS, version=READING_PATH_PLAN_ALGORITHM_VERSION)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     staged = _stage_reading(ctx, session_id)

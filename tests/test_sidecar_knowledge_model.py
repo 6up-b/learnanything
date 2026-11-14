@@ -7,14 +7,16 @@ from __future__ import annotations
 import io
 import json
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW
-from tests.km3_projections_helpers import COMP_A, INTEG, LO_ID, build_blueprint_vault
+from tests.km3_projections_helpers import BLUEPRINT_OLD_TAG, COMP_A, INTEG, LO_ID, build_blueprint_vault
 
 
 def _rpc(messages: list[dict]) -> list[dict]:
@@ -24,8 +26,8 @@ def _rpc(messages: list[dict]) -> list[dict]:
     return [json.loads(line) for line in stdout.getvalue().splitlines()]
 
 
-def _seed_blueprint_vault(root):
-    paths = build_blueprint_vault(root)
+def _seed_blueprint_vault(root, *, version=LATEST_ALGORITHM_VERSION):
+    paths = build_blueprint_vault(root, version=version)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     from learnloop.substrate.state_sync import sync_vault_state
@@ -47,6 +49,8 @@ def _seed_blueprint_vault(root):
             SelfGradeInput(criterion_points={"c1": points}, fatal_errors=[], confidence=4),
             clock=FrozenClock(NOW),
         )
+        # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+        make_grade_certain(vault, repository, attempt.attempt_id, clock=FrozenClock(NOW))
         first = first or attempt
     return paths, first.attempt_id
 
@@ -56,7 +60,7 @@ def _init(vault_root):
 
 
 def test_get_facet_evidence_timeline(tmp_path):
-    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault")
+    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     result = _rpc(
         [
             _init(paths.root),
@@ -93,7 +97,7 @@ def test_get_attempt_trace(tmp_path):
 
 
 def test_get_capability_grid(tmp_path):
-    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault")
+    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     result = _rpc(
         [
             _init(paths.root),
@@ -118,7 +122,7 @@ def test_get_capability_grid(tmp_path):
 
 
 def test_get_facet_mastery_rekey_exposes_model_version(tmp_path):
-    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault")
+    paths, _attempt_id = _seed_blueprint_vault(tmp_path / "vault", version=BLUEPRINT_OLD_TAG)
     result = _rpc(
         [
             _init(paths.root),

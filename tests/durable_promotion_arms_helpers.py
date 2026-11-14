@@ -28,7 +28,7 @@ REF = {"kind": "facet_capability", "facet_id": SHARED, "capability": "retrieval"
 def _verified_repair() -> dict:
     """A repair the deterministic verifier can PROVE.
 
-    `expected_answer` on every `build_mvp07_vault` item is the literal
+    `expected_answer` on every `build_shared_facet_vault` item is the literal
     ``"An answer."``, so an `exact_match` request against a repaired answer of
     the same string is a genuine `verified` — the CAS/exact-match adapter decides
     it, not this fixture.

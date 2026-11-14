@@ -32,6 +32,7 @@ from learnloop.reader import workbench as WB
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW, append_config_toml
 from tests.recap_fixtures import (
     EXT, T0, ask, at, call, context, interaction_rows, iso, problem, resolve, table_counts, visit,
@@ -69,6 +70,8 @@ def _solve(vault, repository, item_id: str, minutes: float, *, points: int = 4) 
         SelfGradeInput(criterion_points={"c1": points}, fatal_errors=[], confidence=4),
         clock=FrozenClock(NOW + timedelta(minutes=minutes)),
     )
+    # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+    make_grade_certain(vault, repository, result.attempt_id, clock=FrozenClock(NOW + timedelta(minutes=minutes)))
     return str(result.attempt_id)
 
 

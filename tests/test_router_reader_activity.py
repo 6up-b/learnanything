@@ -32,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.daily_plan import router_reader as RR
 from learnloop.instructional import reader_digest as RN
 from learnloop.reader import reader_sessions as RS
@@ -295,7 +296,7 @@ def test_the_plan_stores_the_card_with_its_reader_section(tmp_path, monkeypatch)
     from learnloop.daily_plan.engine import build_plan
     from tests.router_card_helpers import _card_world, _stored_card
 
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     monkeypatch.setattr(RR, "reader_activity_for_card", lambda *_a, **_k: dict(ACTIVITY))
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     row, payload = _stored_card(env)

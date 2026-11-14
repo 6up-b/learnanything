@@ -29,7 +29,8 @@ from tests.helpers import (
     NOW,
     NOW_ISO,
 )
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _rubric, build_mvp07_vault
+from tests.certain_grade_helpers import make_grade_certain
+from tests.km2_write_path_helpers import KM2_OLD_TAG, SELECT, SHARED, _attempt, _rubric, build_shared_facet_vault
 
 def _is_open_set_arm(cause: dict) -> bool:
     """The open-set arm, before or after P1 hypothesis materialization."""
@@ -37,17 +38,25 @@ def _is_open_set_arm(cause: dict) -> bool:
     return bool(cause.get("open_set")) or cause.get("hypothesis_id") == "H_OTHER"
 
 
-@pytest.fixture
-def mvp07(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+def _synced(paths):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     return vault, repository
 
 
-def test_two_los_share_one_facet_parent(mvp07):
-    vault, repository = mvp07
+@pytest.fixture
+def facet_vault(tmp_path):
+    return _synced(build_shared_facet_vault(tmp_path / "vault"))
+
+
+@pytest.fixture
+def old_tag_vault(tmp_path):
+    return _synced(build_shared_facet_vault(tmp_path / "vault", version=KM2_OLD_TAG))
+
+
+def test_two_los_share_one_facet_parent(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -66,8 +75,8 @@ def test_two_los_share_one_facet_parent(mvp07):
     assert parent.recall_mean > 0.6
 
 
-def test_retrieval_evidence_cannot_certify_method_selection(mvp07):
-    vault, repository = mvp07
+def test_retrieval_evidence_cannot_certify_method_selection(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
 
@@ -78,8 +87,8 @@ def test_retrieval_evidence_cannot_certify_method_selection(mvp07):
     assert repository.facet_capability_evidence(SHARED, "method_selection") is None
 
 
-def test_certification_credit_zero_when_assisted(mvp07):
-    vault, repository = mvp07
+def test_certification_credit_zero_when_assisted(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock, hints_used=1)
     retrieval = repository.facet_capability_evidence(SHARED, "retrieval")
@@ -89,12 +98,15 @@ def test_certification_credit_zero_when_assisted(mvp07):
     assert retrieval.certification_credit == pytest.approx(0.0)
 
 
-def test_near_clones_globally_discounted(mvp07):
-    vault, repository = mvp07
+def test_near_clones_globally_discounted(old_tag_vault):
+    vault, repository = old_tag_vault
     clock = FrozenClock(NOW)
     # Two attempts on items sharing one source-example family (define + clone).
-    _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
-    _attempt(vault, repository, "pi_svd_clone_001", {"uses_factorization": 4}, clock)
+    # Each grade certain, so each observation carries its attempt type's whole mass
+    # (``tests/certain_grade_helpers.py``).
+    for item_id, points in (("pi_svd_define_001", {"correctness": 4}), ("pi_svd_clone_001", {"uses_factorization": 4})):
+        result = _attempt(vault, repository, item_id, points, clock)
+        make_grade_certain(vault, repository, result.attempt_id, clock=clock)
 
     ledger = repository.facet_capability_evidence(SHARED, "retrieval")
     assert ledger is not None
@@ -111,8 +123,8 @@ def test_near_clones_globally_discounted(mvp07):
     assert 2.0 < parent.recall_alpha < 3.0
 
 
-def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
-    vault, repository = mvp07
+def test_wrong_answer_no_work_creates_unresolved_cause_set(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, clock)
 
@@ -138,14 +150,14 @@ def test_wrong_answer_no_work_creates_unresolved_cause_set(mvp07):
         assert hypothesis["status"] == "open_set"
 
 
-def test_open_set_arm_survives_apply_attempt_into_the_probe_path(mvp07):
+def test_open_set_arm_survives_apply_attempt_into_the_probe_path(facet_vault):
     """The P2 probe path must not fail closed on a real materialized factor.
 
     `build_causal_hypothesis_set` raises when a factor lost its open-set arm, so
     this drives the real write path (apply_attempt -> canonical projection ->
     P1 materialization) rather than a hand-built factor dict."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_ambiguous_001", {"whole_item": 0}, clock)
 
@@ -158,8 +170,8 @@ def test_open_set_arm_survives_apply_attempt_into_the_probe_path(mvp07):
     assert len(labels) >= 3  # two concrete causes plus the open-set arm
 
 
-def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):
-    vault, repository = mvp07
+def test_explicit_failure_attribution_penalizes_only_selected_target(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     apply_attempt(
         vault,
@@ -210,8 +222,8 @@ def test_explicit_failure_attribution_penalizes_only_selected_target(mvp07):
     assert not repository.open_unresolved_cause_observation_ids()
 
 
-def test_golden_replay_identity_mvp07(mvp07):
-    vault, repository = mvp07
+def test_golden_replay_identity_mvp07(facet_vault):
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 3}, clock)
@@ -248,7 +260,7 @@ def test_golden_replay_identity_mvp07(mvp07):
 
 
 def test_rebuild_uses_presented_contract_after_live_target_change(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)

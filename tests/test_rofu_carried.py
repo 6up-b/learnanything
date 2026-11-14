@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 import time
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import tail_data as TD
@@ -19,7 +19,7 @@ from learnloop.router_objective import tail_serve as TS
 from tests.router_model_fakes import block_drawing_seed
 from tests.ro6_codex_review_helpers import CFG, FAR, STOP, _quiet, _row, _trace, utc  # noqa: F401
 
-TAG = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 WIDTH = len(LT.NAMES)
 
 

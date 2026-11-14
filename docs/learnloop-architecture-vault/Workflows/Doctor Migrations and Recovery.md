@@ -106,7 +106,7 @@ uv run learnloop doctor --fix-state --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically (on a SQLite with the WAL-reset fix, the first migration after upgrading switches a rollback-journal database to WAL), runs a best-effort `TRUNCATE` checkpoint, attaches the database writable, performs supported state synchronization, merges eligible legacy aliases, and resumes recoverable apply intents idempotently (never over a file changed since the intent; see [[#Proposal apply recovery]]).
+`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically (on a SQLite with the WAL-reset fix, the first migration after upgrading switches a rollback-journal database to WAL), runs a best-effort `TRUNCATE` checkpoint, attaches the database writable, performs supported state synchronization, and resumes recoverable apply intents idempotently (never over a file changed since the intent; see [[#Proposal apply recovery]]).
 
 > [!warning] Back up a closed vault
 > Step 2 copies the vault folder. Do it only after step 1, when no LearnLoop process has the database open; otherwise the copy can miss commits that are still in `state.sqlite-wal`. See [[State and Persistence#Copying and backing up a vault]].

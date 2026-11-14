@@ -35,6 +35,7 @@ from learnloop.reader import recap as RC
 from learnloop.substrate.canonical_projection import project_canonical_facet_state, unassessed_evidence_row
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import NOW, set_algorithm_version
 from tests.recap_fixtures import at, iso
 from tests.goal_certification_any_of_helpers import COMP_A, LO_ID, _component, build_vault
@@ -115,12 +116,16 @@ def test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cut
     attempt_a = _unassessed(vault, repository, "pi_comp_a", 5)
     assert all(unassessed_evidence_row(row.attribution_json) for row in repository.fetch_grading_evidence(attempt_a))
     attempt_b = _self_graded(vault, repository, "pi_comp_a", 10, "c1", 4)
+    # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+    make_grade_certain(vault, repository, attempt_b, clock=FrozenClock(NOW + timedelta(minutes=10)))
     assert lo_certification(vault, repository, lo).demonstrated is True
     as_it_stood = facet_evidence_timelines(vault, repository, [COMP_A])[COMP_A]
     [b_then] = [point for point in as_it_stood if point.attempt_id == attempt_b]
     assert b_then.delta == pytest.approx(1.0)
 
     _regrade(vault, repository, attempt_a, 120, "c1", 4)
+    make_grade_certain(vault, repository, attempt_a, clock=FrozenClock(NOW + timedelta(minutes=120)),
+                       resolved_class="success")
     assert lo_certification(vault, repository, lo).demonstrated is True
     # The current curve (default path, unchanged): A's latest grading now holds
     # the surface's novelty, so B's credit is the repeat-discounted share.

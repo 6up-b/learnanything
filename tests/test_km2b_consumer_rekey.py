@@ -23,26 +23,26 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Goal, GoalFacetScope
 
 from tests.helpers import NOW, NOW_ISO
-from tests.km2_write_path_helpers import SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import SHARED, _attempt, build_shared_facet_vault
 
 DEFINE_LO = "lo_svd_definition"
 APPLY_LO = "lo_svd_application"
 
 
 @pytest.fixture
-def mvp07(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+def facet_vault(tmp_path):
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
     return vault, repository
 
 
-def test_two_los_share_one_facet_parent_in_scheduler_view(mvp07):
+def test_two_los_share_one_facet_parent_in_scheduler_view(facet_vault):
     """The scheduler's per-LO facet-state view (its `facet_states_by_lo` source)
     shows both LOs seeing ONE pooled canonical parent, moved by both attempts."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -72,11 +72,11 @@ def test_two_los_share_one_facet_parent_in_scheduler_view(mvp07):
     )
 
 
-def test_goal_projection_reads_canonical_state(mvp07):
+def test_goal_projection_reads_canonical_state(facet_vault):
     """A goal report's facet projection reads the canonical pooled recall mean,
     not a per-LO split value."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 4}, clock)
@@ -102,11 +102,11 @@ def test_goal_projection_reads_canonical_state(mvp07):
         assert projection.current_recall > 0.6  # pooled positive evidence
 
 
-def test_mvp07_vault_refuses_legacy_facet_state_write(mvp07):
+def test_mvp07_vault_refuses_legacy_facet_state_write(facet_vault):
     """The legacy per-LO table stays empty under mvp-0.7, and any mvp-0.7-keyed
     legacy write is a hard error (KM2b item 9 hard-stop flipped)."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 3}, clock)
@@ -130,10 +130,10 @@ def test_mvp07_vault_refuses_legacy_facet_state_write(mvp07):
 
 @pytest.mark.parametrize("algorithm_version", sorted(CANONICAL_STATE_VERSIONS))
 def test_every_canonical_version_refuses_legacy_facet_state_write(
-    mvp07,
+    facet_vault,
     algorithm_version,
 ):
-    _vault, repository = mvp07
+    _vault, repository = facet_vault
 
     with pytest.raises(AssertionError):
         with repository.connection() as connection:
@@ -143,11 +143,11 @@ def test_every_canonical_version_refuses_legacy_facet_state_write(
             )
 
 
-def test_exam_attempt_moves_shared_parent_across_los(mvp07):
+def test_exam_attempt_moves_shared_parent_across_los(facet_vault):
     """Evidence recorded against ONE LO's item moves the shared parent that the
     OTHER LO reads — the whole point of the vault-level re-key."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
 
     # Before any attempt, the apply LO sees no shared-facet evidence.
@@ -170,11 +170,11 @@ def test_exam_attempt_moves_shared_parent_across_los(mvp07):
     assert apply_view[0].recall_mean > 0.5
 
 
-def test_replay_identity_after_bridge_removal(mvp07):
+def test_replay_identity_after_bridge_removal(facet_vault):
     """Rebuilding twice is byte-identical for canonical state AND the legacy
     table stays empty across replay (no bridge to resurrect)."""
 
-    vault, repository = mvp07
+    vault, repository = facet_vault
     clock = FrozenClock(NOW)
     _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, clock)
     _attempt(vault, repository, "pi_svd_apply_001", {"uses_factorization": 3}, clock)

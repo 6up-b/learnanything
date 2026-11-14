@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.daily_plan.engine import advance
 from learnloop.router import lesson_suggestions as LS
@@ -16,7 +16,7 @@ from learnloop.router_objective import mix
 from tests.router_mixture_helpers import rows
 
 
-TAG = LESSON_OFFERS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OFFER = "lesson_offer:lo_diag"
 
 

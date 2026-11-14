@@ -14,6 +14,7 @@ import json
 
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.cli import app
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router import lesson_suggestions as LS
@@ -83,7 +84,7 @@ def _digest(path) -> str:
 
 
 def test_router_report_prints_the_split_from_the_ledgers_read_only(tmp_path, shown, no_network, monkeypatch):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     # Day 0: a card, a Start, the lesson opens and reaches its goal.
     card, lesson = _start(paths, repository)
     S.open_lesson(load_vault(paths.root), repository, entry="learning_object", clients=clients(TeacherFake([plan_turn])),

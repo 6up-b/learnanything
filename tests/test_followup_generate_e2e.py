@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.diagnosis.causal_orchestrator import pinned_causal_probe
 from learnloop.followup_serve import identity, workflow as wf
 
 from tests.followup_serve_helpers import AuthorFake, author_clients, CLOCK, miss_with_rivals, rival_causes_vault, run_jobs
+from tests.km2_write_path_helpers import KM2_OLD_TAG
 
 
 def test_a_miss_with_two_rivals_generates_one_pinned_probe(tmp_path):
@@ -174,7 +176,7 @@ def test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review(tmp_pa
     from tests.causal_p2_acceptance_helpers import LO_ID
     from tests.probe_surface_mint_helpers import FakeSurfacesClient
 
-    vault, repository, _paths = rival_causes_vault(tmp_path)
+    vault, repository, _paths = rival_causes_vault(tmp_path, version=FOLLOWUP_SERVE_ALGORITHM_VERSION, built_at=KM2_OLD_TAG)
     episode = repository.open_probe_episode(LO_ID) or _entered(vault, repository, LO_ID)
     repository.update_probe_episode_status(episode.id, status="pending_items", clock=CLOCK)
     assert queue.enqueue_entry(repository, episode.id, clock=CLOCK)

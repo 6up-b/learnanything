@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.db.repositories import Repository
 from learnloop.followup_serve.gates import SERVING_SURFACE
@@ -18,14 +18,14 @@ from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import append_config_toml, set_algorithm_version
 from tests.causal_p2_acceptance_helpers import CLOCK, _acceptance_vault, _divergent_failure
 
-TAG = FOLLOWUP_SERVE_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OFF = "\n[followup]\ngenerate_and_serve = false\n"
 
 
-def rival_causes_vault(tmp_path, *, version: str = TAG, config: str = ""):
+def rival_causes_vault(tmp_path, *, version: str = TAG, config: str = "", built_at: str = LATEST_ALGORITHM_VERSION):
     """(vault, repository, paths) at ``version``: a joint vault, whose hypotheses normalization writes."""
 
-    _vault, _repository, paths = _acceptance_vault(tmp_path)
+    _vault, _repository, paths = _acceptance_vault(tmp_path, version=built_at)
     set_algorithm_version(paths, version)
     if config:
         append_config_toml(paths.root, config)

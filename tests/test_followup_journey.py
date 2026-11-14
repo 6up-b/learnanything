@@ -264,7 +264,8 @@ def test_with_the_switch_off_the_replies_match_the_predecessor(tmp_path):
     import re
 
     replies = {}
-    for name, kwargs in {"old": {"version": "mvp-0.44"}, "off": {"config": OFF}}.items():
+    # The predecessor is the subject: both arms stay at the tag the switch arrived with.
+    for name, kwargs in {"old": {"version": "mvp-0.44"}, "off": {"version": "mvp-0.44", "config": OFF}}.items():
         _vault, _repository, paths = rival_causes_vault(tmp_path / name, **kwargs)
         ctx = SidecarContext()
         ctx.load(paths.root)

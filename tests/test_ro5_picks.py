@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -21,13 +21,11 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, append_config_toml, set_algorithm_version
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 
-TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
-
-
+TAG = LATEST_ALGORITHM_VERSION
 def _pick(tmp_path, *, version: str, share: float | None = None, u: float | None = None, monkeypatch=None):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     set_algorithm_version(paths, version)
     if share is not None:
         append_config_toml(paths.root, f"[router_objective]\npick_open_share = {share}\n")
@@ -87,7 +85,7 @@ def test_below_the_tag_and_at_zero_nothing_is_assigned_and_the_pick_resolves(tmp
 
 
 def test_a_retry_reuses_the_factors_assignment(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)
     with repository.atomic(), repository.connection() as connection:
         first = PK.assign(connection, factor_id="f1", share=0.5, report_id="r1", at="2026-11-05T10:00:00Z",

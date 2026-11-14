@@ -64,6 +64,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.errors import SidecarError
 
+from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import (
     NOW,
     NOW_ISO,
@@ -704,7 +705,7 @@ def test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=CLOCK)
-    complete_self_graded_attempt(
+    result = complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(
@@ -716,6 +717,8 @@ def test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item
         SelfGradeInput(criterion_points={"correctness": 4}, fatal_errors=[], confidence=4),
         clock=CLOCK,
     )
+    # One uncertain self-grade certifies nothing (``tests/certain_grade_helpers.py``).
+    make_grade_certain(vault, repository, result.attempt_id, clock=CLOCK)
     certificate = current_certificate(vault, repository, vault.learning_objects[LO_ID])
     assert certificate is not None, "fixture must actually certify"
 

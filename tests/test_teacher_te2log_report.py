@@ -13,6 +13,8 @@ from datetime import timedelta
 
 from typer.testing import CliRunner
 
+from tests.teacher_fakes import pin_default_tag
+from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.teacher import service as S
 from learnloop.teacher.report import COVERAGE_FIELDS, report
@@ -65,7 +67,8 @@ def test_the_report_on_a_synthetic_lesson(tmp_path, capsys):
     assert "coverage of item 5's fields over 2 episode(s): hypothesis 1/2, repair_class 2/2" in text
 
 
-def test_the_pool_weights_trajectory_per_forecaster(tmp_path):
+def test_the_pool_weights_trajectory_per_forecaster(tmp_path, monkeypatch):
+    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
     paths, repository = build_teacher_vault(tmp_path / "vault")
     fake = TeacherFake([plan_turn, landed_turn(p=0.3), check_turn()])
     view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],

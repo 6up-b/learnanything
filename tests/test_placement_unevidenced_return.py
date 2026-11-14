@@ -15,11 +15,11 @@ import json
 import pytest
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import UNEVIDENCED_RETURN_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
     FAILURE_SHARE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    UNEVIDENCED_RETURN_ALGORITHM_VERSION,
     UNEVIDENCED_RETURN_VERSIONS,
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -38,7 +38,7 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import NOW, append_config_toml, create_basic_vault, create_placement_vault, set_algorithm_version
 
-TAG = UNEVIDENCED_RETURN_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION
 ITEM, LO, SIBLING = "pi_spec_easy", "lo_spectral", "pi_spec_hard"
 OFF = "[placement]\nunevidenced_return = false\n"
@@ -52,10 +52,10 @@ def _at(minutes: float) -> FrozenClock:
 
 
 def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.55"
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(UNEVIDENCED_RETURN_ALGORITHM_VERSION) - 1] == OLD == "mvp-0.55"
     # Slip or gap's successor (mvp-0.57) follows it and keeps it.
-    assert TAG == "mvp-0.56" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert UNEVIDENCED_RETURN_VERSIONS == frozenset({TAG, "mvp-0.57", "mvp-0.58", "mvp-0.59"})
+    assert UNEVIDENCED_RETURN_ALGORITHM_VERSION == "mvp-0.56" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
+    assert UNEVIDENCED_RETURN_VERSIONS == frozenset({UNEVIDENCED_RETURN_ALGORITHM_VERSION, "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 @pytest.mark.parametrize(

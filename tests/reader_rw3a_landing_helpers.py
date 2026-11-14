@@ -6,7 +6,7 @@ from __future__ import annotations
 import sqlite3
 
 import learnloop.clock as clock_module
-from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -19,7 +19,7 @@ from tests.router_r2a_serving_helpers import FROZEN
 from tests.source_inventory_helpers import _persist, _register_revision
 
 
-A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+A = LATEST_ALGORITHM_VERSION
 
 
 def _call(ctx, name, params):

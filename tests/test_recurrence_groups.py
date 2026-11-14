@@ -231,7 +231,7 @@ def test_a_different_verdict_inside_one_exact_class_is_a_review_case_not_a_split
     assert recurrence_key(a, repository.recurrence_group_map()) == recurrence_key(c, repository.recurrence_group_map())
 
 
-def test_the_successor_and_its_kill_switch_gate_the_projection(seeded):
+def test_the_kill_switch_gates_the_projection(seeded):
     paths, vault, repository = seeded
     a, b = _episode(repository, "att_a"), _episode(repository, "att_b")
     record_verdict(repository, left=b["episode_key"], right=a["episode_key"], verdict="same")
@@ -240,13 +240,6 @@ def test_the_successor_and_its_kill_switch_gate_the_projection(seeded):
     append_config(paths.root, "[recurrence]\nenabled = false")
     refresh_recurrence_groups(load_vault(paths.root), repository)
     assert repository.recurrence_group_map() == {} and repository.recurrence_state() is None
-    set_algorithm_version(paths, "mvp-0.10")
-    paths.root.joinpath("learnloop.toml").write_text(
-        paths.root.joinpath("learnloop.toml").read_text(encoding="utf-8").replace("enabled = false", "enabled = true"),
-        encoding="utf-8",
-    )
-    refresh_recurrence_groups(load_vault(paths.root), repository)
-    assert repository.recurrence_group_map() == {}
 
 
 def test_an_unchanged_fingerprint_skips_the_rebuild(seeded):

@@ -2422,6 +2422,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_maintenance_runs_the_sweep_without_creating_anything`
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
   - `test_p0_timeline_matches_banked_ledger_including_a6_supporting_credit`
+- [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
 - [tests/test_proposal_persistence.py](../../../../../../tests/test_proposal_persistence.py) — direct import
   - `test_accept_learning_object_create_adds_missing_concept_for_graph`
   - `test_auto_apply_batches_dependency_order_for_new_lo_and_practice_item`
@@ -2648,8 +2649,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
   - `test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one`
 - [tests/test_recurrence_deferral.py](../../../../../../tests/test_recurrence_deferral.py) — direct import
+  - `test_with_the_switch_off_the_verdict_changes_nothing`
 - [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import
-  - `test_the_successor_and_its_kill_switch_gate_the_projection`
+  - `test_the_kill_switch_gates_the_projection`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_hidden_escalation_card_plans_no_escalated_repair`
   - `test_the_escalation_card_switch_hides_the_block`

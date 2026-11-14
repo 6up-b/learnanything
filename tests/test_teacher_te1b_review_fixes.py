@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_SUGGESTIONS_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.daily_plan import lesson_suggestion as SG
 from learnloop.router import lesson_suggestions as LS
@@ -58,7 +59,7 @@ def test_a_start_interrupted_before_its_lesson_opened_stays_on_the_card(tmp_path
     """The response is recorded, the app stops before ``lesson.turn``: reopening Today offers that lesson
     under the id the response recorded, and once it opens the card is gone."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     started = SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="accepted",
                          clock=_clock())
@@ -73,7 +74,7 @@ def test_a_start_interrupted_before_its_lesson_opened_stays_on_the_card(tmp_path
 
 
 def test_an_alternative_start_interrupted_keeps_the_alternative(tmp_path, shown):
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     alternative = card["alternatives"][1]
     SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="chose_alternative",
@@ -88,7 +89,7 @@ def test_a_provider_failure_before_the_lesson_is_saved_leaves_an_idempotent_open
     screen repeats the open, never a resume of an id that names no lesson), the card still offers the Start,
     and the repeated open succeeds under the recorded id."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     started = SG.respond(load_vault(paths.root), repository, decision_id=card["decision_id"], response="accepted",
                          clock=_clock())
@@ -171,7 +172,7 @@ def test_an_accepted_alternatives_delayed_check_reaches_its_decision(tmp_path, s
     decision's outcome records B's R_cold in its predeclared scope, marked taken. The ITT outcome stays A's
     (still pending): the acceptor's choice never replaces the target."""
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     card = _suggestion(paths, repository, _clock())
     target = card["suggestion"]["learning_object_ids"][0]
     alternative = card["alternatives"][0]
@@ -195,7 +196,7 @@ def test_an_accepted_alternatives_delayed_check_reaches_its_decision(tmp_path, s
 
 def test_an_unshown_decision_has_its_itt_outcome_over_the_same_scope(tmp_path, monkeypatch):
     monkeypatch.setattr(LS, "_uniforms", lambda seed: (0.5, 0.0, 0.999999))
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     assert _suggestion(paths, repository, _clock()) is None
     (row,) = _decisions(repository)
     detail = json.loads(row["detail_json"])
@@ -217,7 +218,7 @@ def test_the_learners_answers_are_preference_lines_on_the_router_card(tmp_path, 
     from learnloop.router.card import CARD_VERSION, SUGGESTION_CARD_SUFFIX, SUGGESTION_SECTION
     from tests.ux_phase1_support import set_config
 
-    paths, repository = _vault(tmp_path)
+    paths, repository = _vault(tmp_path, version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     before = _card(paths, repository, "2026-11-02T08:00:00Z")
     assert SUGGESTION_SECTION not in before.json["evidence_sections"] and before.card_version == CARD_VERSION
     card = _suggestion(paths, repository, _clock())

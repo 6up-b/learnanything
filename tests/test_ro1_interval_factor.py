@@ -12,11 +12,8 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import (
-    FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    INTERVAL_FACTOR_ALGORITHM_VERSION,
-    INTERVAL_FACTOR_VERSIONS,
-)
+from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, INTERVAL_FACTOR_VERSIONS, LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.router_objective_switches import interval_factor_removed
@@ -27,14 +24,14 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW
 from tests.ro1_interval_factor_helpers import _due, _play, _vault
 
-TAG = INTERVAL_FACTOR_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[scheduler.surprise]\nremove_interval_factor = false\n"
 
 def test_the_gate_is_the_tag_and_the_switch(tmp_path):
-    assert TAG == "mvp-0.46" and TAG in INTERVAL_FACTOR_VERSIONS and PREDECESSOR not in INTERVAL_FACTOR_VERSIONS
-    on, _ = _vault(tmp_path / "on", TAG)
-    off, _ = _vault(tmp_path / "off", TAG, OFF)
+    assert INTERVAL_FACTOR_ALGORITHM_VERSION == "mvp-0.46" and INTERVAL_FACTOR_ALGORITHM_VERSION in INTERVAL_FACTOR_VERSIONS and PREDECESSOR not in INTERVAL_FACTOR_VERSIONS
+    on, _ = _vault(tmp_path / "on", INTERVAL_FACTOR_ALGORITHM_VERSION)
+    off, _ = _vault(tmp_path / "off", INTERVAL_FACTOR_ALGORITHM_VERSION, OFF)
     below, _ = _vault(tmp_path / "below", PREDECESSOR)
     assert interval_factor_removed(load_vault(on.root).config) is True
     assert interval_factor_removed(load_vault(off.root).config) is False

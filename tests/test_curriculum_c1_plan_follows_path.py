@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
     DELIVERABLE_PLAN_VERSIONS,
     READER_FOLLOWUPS_ALGORITHM_VERSION,
@@ -82,10 +83,10 @@ def _spans(repository, extraction_id, section_id) -> list[str]:
 
 def test_the_successor_is_one_constant_after_rw6bs_followups():
 
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1:SUCCESSOR_CHAIN.index(TAG) + 1] == (PREDECESSOR, TAG) == ("mvp-0.39", "mvp-0.40")
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(DELIVERABLE_PLAN_ALGORITHM_VERSION) - 1:SUCCESSOR_CHAIN.index(DELIVERABLE_PLAN_ALGORITHM_VERSION) + 1] == (PREDECESSOR, DELIVERABLE_PLAN_ALGORITHM_VERSION) == ("mvp-0.39", "mvp-0.40")
     # Teacher TE1's mvp-0.41, follow-ups Nov 2's mvp-0.42 and teacher TE1b's mvp-0.43 follow it (and keep it).
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
-    assert DELIVERABLE_PLAN_VERSIONS == frozenset({TAG, "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(DELIVERABLE_PLAN_ALGORITHM_VERSION) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
+    assert DELIVERABLE_PLAN_VERSIONS == frozenset({DELIVERABLE_PLAN_ALGORITHM_VERSION, "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b(tmp_path):
@@ -378,14 +379,14 @@ _BOOK_PATH = {"ch_eigen": "core", "ch_det": "enrichment", "ch_orth": "core"}
 @pytest.mark.parametrize("variant", ["switch_off", "curriculum_off"])
 def test_gc4_off_every_plan_build_is_rw7bs(tmp_path, monkeypatch, variant):
     base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, book_path=_BOOK_PATH)
-    off = _c1(tmp_path, monkeypatch, "off", version=TAG, book_path=_BOOK_PATH,
+    off = _c1(tmp_path, monkeypatch, "off", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, book_path=_BOOK_PATH,
               config=C1_OFF if variant == "switch_off" else CURRICULUM_OFF)
     baseline = _plan_state(base.paths)
     stored = json.dumps(baseline["stored"]["daily_plans"])
     assert "reading_path_plan_v1" in stored and "reading_path_plan_v2" not in stored
     assert _plan_state(off.paths) == baseline
     # The same vault with the successor on is not (the test can see the change).
-    on = _c1(tmp_path, monkeypatch, "on", version=TAG, book_path=_BOOK_PATH)
+    on = _c1(tmp_path, monkeypatch, "on", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, book_path=_BOOK_PATH)
     assert _plan_state(on.paths) != baseline
 
 
@@ -403,7 +404,7 @@ def test_the_receipts_predecessor_is_rw7bs_choice_with_its_own_receipt_kept(tmp_
 
 def test_with_no_deliverable_in_play_the_plan_is_rw7bs_byte_for_byte(tmp_path, monkeypatch):
     base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, judge=False, book_path=_BOOK_PATH)
-    on = _c1(tmp_path, monkeypatch, "on", version=TAG, judge=False, book_path=_BOOK_PATH)
+    on = _c1(tmp_path, monkeypatch, "on", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, judge=False, book_path=_BOOK_PATH)
     assert _plan_state(on.paths) == _plan_state(base.paths)
 
 
@@ -461,7 +462,7 @@ def test_gc4_on_the_head_fixture_copy_on_and_off_are_rw7bs(tmp_path, monkeypatch
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: datetime(2026, 10, 31, 9, 30, tzinfo=UTC))
     baseline = _plan_state(_fixture_copy(tmp_path, HEAD, "base", version=PREDECESSOR))
     for name, toml in (("off", C1_OFF), ("curriculum_off", CURRICULUM_OFF), ("on", None)):
-        assert _plan_state(_fixture_copy(tmp_path, HEAD, name, version=TAG, toml=toml)) == baseline, name
+        assert _plan_state(_fixture_copy(tmp_path, HEAD, name, version=DELIVERABLE_PLAN_ALGORITHM_VERSION, toml=toml)) == baseline, name
 
 
 # -- persisted meaning: a serving change, no projection deltas ------------------------------------------

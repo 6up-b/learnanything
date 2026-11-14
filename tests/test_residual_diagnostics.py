@@ -10,11 +10,11 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
 from tests.capability_residual_helpers import _build_vault, _drive
-from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, build_mvp07_vault
+from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, build_shared_facet_vault
 
 
 def test_positive_residual_dependence_flags_missing_factor(tmp_path):
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))

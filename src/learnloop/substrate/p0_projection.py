@@ -21,7 +21,6 @@ from learnloop.db.repositories import Repository
 from learnloop.learner.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
-    P0_PROJECTION_VERSIONS,
 )
 from learnloop.substrate.canonical_projection import (
     CANONICAL_PROJECTION_VERSION,
@@ -44,10 +43,6 @@ def activate_p0_projection(
     never rewritten; on a projection failure the last-good named projection stays
     readable and the failed rebuild is surfaced to the caller (§7.3)."""
 
-    if vault.config.algorithms.algorithm_version not in P0_PROJECTION_VERSIONS:
-        raise ValueError(
-            "activate_p0_projection requires a vault on the mvp-0.8 projection namespace"
-        )
     algorithm_version = vault.config.algorithms.algorithm_version
     ledger = repository.canonical_observation_ledger_v2()
     replayed = len(ledger)

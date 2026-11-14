@@ -16,10 +16,12 @@ through the learner-blind contract with configurable points. Every request's pro
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.db.repositories import Repository
@@ -62,13 +64,21 @@ def _item(item_id: str, lo_id: str, prompt: str, answer: str) -> dict[str, Any]:
     }
 
 
+#: The tag ``build_teacher_vault`` builds at when a test names none: the head. A test of the teacher's first tag moves
+#: it for the test with ``pin_default_tag`` (the local helpers of a test file build their vault without a version).
+DEFAULT_TAG = LATEST_ALGORITHM_VERSION
+
+
+def pin_default_tag(monkeypatch, tag: str) -> None:
+    monkeypatch.setattr(sys.modules[__name__], "DEFAULT_TAG", tag)
+
+
 def build_teacher_vault(root: Path, *, config: str = "", reserved: bool = True,
                         version: str | None = None) -> tuple[VaultPaths, Repository]:
-    from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
     from tests.helpers import set_algorithm_version
 
     paths, repository = build_deliverable_vault(root, config=config, prerequisite=True)
-    set_algorithm_version(paths, version or TEACHER_ALGORITHM_VERSION)
+    set_algorithm_version(paths, version or DEFAULT_TAG)
     for item_id, (lo_id, prompt, answer) in ITEMS.items():
         write_yaml(paths.practice_item_path("linear-algebra", item_id), _item(item_id, lo_id, prompt, answer))
     if reserved:

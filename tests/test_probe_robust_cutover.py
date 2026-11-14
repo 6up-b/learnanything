@@ -6,6 +6,7 @@ mapping snapshotted on the administration, and byte-identical legacy replay.
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import P0_ALGORITHM_VERSION
 import json
 
 import pytest
@@ -154,7 +155,7 @@ def test_evaluate_completion_abstains_on_planted_indistinguishable_case(tmp_path
     """Integration: an mvp-0.8 episode with an unstable posterior and only
     non-discriminating instruments left completes with the abstention outcome."""
 
-    loaded, repository = _load(tmp_path)
+    loaded, repository = _load(tmp_path, version=P0_ALGORITHM_VERSION)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     posterior = episode_posterior(loaded, repository, repository.probe_episode(episode.id))
 

@@ -17,7 +17,8 @@ import math
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_CALIBRATION_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import assignments as A
 from learnloop.router_objective import mix
@@ -29,7 +30,7 @@ from tests.router_model_fakes import fake_runtime
 from tests.ro4_value_helpers import W
 from tests.ro5_stop_coin_helpers import ARMS_OFF
 
-TAG = ROUTER_CALIBRATION_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = ROUTER_OBJECTIVE_ALGORITHM_VERSION
 SUPPORT = ["a", "b", SC.STOP]
 MU = {"a": 0.5, "b": 0.3, SC.STOP: 0.2}
@@ -136,7 +137,7 @@ def test_every_arm_off_at_the_tag_is_mvp_047_exactly(tmp_path, monkeypatch):
     monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
     pinned = lambda _key, _decision: "pinned-seed"  # noqa: E731
     old = mixture_env(tmp_path / "old", fake_runtime(seed=pinned), version=OLD)
-    off = mixture_env(tmp_path / "off", fake_runtime(seed=pinned), version=TAG, toml=ARMS_OFF)
+    off = mixture_env(tmp_path / "off", fake_runtime(seed=pinned), version=ROUTER_CALIBRATION_ALGORITHM_VERSION, toml=ARMS_OFF)
     old_record, off_record = run(old), run(off)
     assert _blocks(old_record) == _blocks(off_record)
     assert _shape(old) == _shape(off)

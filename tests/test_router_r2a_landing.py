@@ -100,7 +100,7 @@ def test_the_cards_exam_protection_is_not_behind_the_serving_switch(tmp_path):
 
 
 def test_a_cause_diagnosed_from_exam_work_shows_no_statement(tmp_path, monkeypatch):
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="EXAM_WORDS_6610", correctness=0.0,
              attempt_type="exam_attempt")
     _hypothesis(env, "hyp_exam", status="candidate", statement="STATEMENT_FROM_THE_EXAM_4471", evidence={})
@@ -114,7 +114,7 @@ def test_a_cause_diagnosed_from_exam_work_shows_no_statement(tmp_path, monkeypat
 
 
 def test_a_cause_diagnosed_from_ordinary_practice_keeps_its_statement(tmp_path, monkeypatch):
-    env = _card_world(tmp_path, monkeypatch)
+    env = _card_world(tmp_path, monkeypatch, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=0.0)
     _hypothesis(env, "hyp_open", status="candidate", statement="Swaps rows and columns", evidence={})
     [cause] = [entry for entry in _card(env)["json"]["open_hypotheses"] if entry["kind"] == "diagnosed_cause"]

@@ -19,7 +19,7 @@ from datetime import timedelta
 import numpy as np
 import pytest
 
-from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, SLIP_GAP_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FAILURE_SHARE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_card as OCARD
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE, BlockCandidate
@@ -39,7 +39,7 @@ from tests.router_model_fakes import fake_runtime
 from tests.ih4_preferences_inform_router_helpers import _numbers, _pin, _traces
 from tests.te3b_offers_helpers import OFFER, offerable  # noqa: F401 - the fixture
 
-TAG = SLIP_GAP_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION
 QUIET = "[router_objective]\nstop_coin = 0.0\n"
 SENSOR_ONLY = QUIET + "miss_cause_in_value = false\n"

@@ -13,7 +13,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
-from tests.km2_write_path_helpers import build_mvp07_vault
+from tests.km2_write_path_helpers import build_shared_facet_vault
 
 
 @pytest.fixture(scope="module")
@@ -21,7 +21,7 @@ def picked(tmp_path_factory):
     """A miss with an unresolved factor, resolved by the learner's pick (written at mvp-0.7)."""
 
     root = tmp_path_factory.mktemp("picked") / "vault"
-    paths = build_mvp07_vault(root)
+    paths = build_shared_facet_vault(root)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)

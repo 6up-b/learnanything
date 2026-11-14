@@ -21,6 +21,7 @@ import json
 
 import pytest
 
+from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 from learnloop.algorithm_versions import LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_offer as LO
 from learnloop.daily_plan import lesson_suggestion as SG
@@ -161,7 +162,7 @@ def test_a_phone_step_holds_a_drawn_offer_for_the_desktop(tmp_path, offerable, o
     from learnloop.daily_plan import engine
     from learnloop.scheduling.device_eligibility import PlanStepFilter
 
-    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=TAG)
+    env = mixture_env(tmp_path, fake_runtime(seed=_policy_arm_seed()), version=LESSON_OFFERS_ALGORITHM_VERSION)
     env.device = PlanStepFilter(device_filter=None)
     record, step = _first_decision(env)
     row = _objective_rows(env)[0]

@@ -6,11 +6,11 @@ from __future__ import annotations
 
 
 
-from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from learnloop.router_objective import learned_tail as LT
 
 
-TAG = LESSON_OFFERS_ALGORITHM_VERSION
+TAG = LATEST_ALGORITHM_VERSION
 OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 
 # --- RO6's features ---------------------------------------------------------------------------------------------

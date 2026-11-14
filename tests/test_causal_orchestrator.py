@@ -77,9 +77,9 @@ def test_live_attempt_queues_a_repair_mapping_backfill_that_self_closes(tmp_path
     arm were inert.
     """
 
-    from tests.km2_write_path_helpers import build_mvp07_vault
+    from tests.km2_write_path_helpers import build_shared_facet_vault
 
-    paths = build_mvp07_vault(tmp_path / "vault")
+    paths = build_shared_facet_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=CLOCK)

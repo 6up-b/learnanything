@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.vault.yaml_io import write_yaml
 
@@ -73,8 +74,13 @@ def _lo(lo_id, title, summary):
     }
 
 
-def build_mvp07_vault(root: Path):
-    """A minimal mvp-0.7 fixture: one shared canonical facet across two LOs."""
+# The tag a few tests still pin: they read what the canonical-state path stamps (the consuming projection version,
+# the near-clone discount's surface groups) and the head's path differs.
+KM2_OLD_TAG = "mvp-0.7"
+
+
+def build_shared_facet_vault(root: Path, *, version: str = LATEST_ALGORITHM_VERSION):
+    """A minimal fixture at ``version`` (the head by default): one shared canonical facet across two LOs."""
 
     paths = create_basic_vault(root)
     # No goal, so certified scope does not lock the facet during grace-window work.
@@ -157,12 +163,13 @@ def build_mvp07_vault(root: Path):
             fingerprint={"source_family": "chapter7-ambiguous"},
         ),
     )
-    set_algorithm_version(paths, "mvp-0.7")
+    if version != LATEST_ALGORITHM_VERSION:
+        set_algorithm_version(paths, version)
     return paths
 
 
 def _attempt(vault, repository, item_id, points, clock, *, hints_used=0):
-    complete_self_graded_attempt(
+    return complete_self_graded_attempt(
         vault,
         repository,
         AttemptDraft(
