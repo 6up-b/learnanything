@@ -29,13 +29,11 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.error_taxonomy import persist_unknown_error_type_proposals
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, create_basic_vault
 
 
-def _setup(tmp_path, *, old_tag: bool = False):
+def _setup(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    if old_tag:
-        paths = pin_old_basic_vault(paths)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     clock = FrozenClock(NOW)
@@ -257,15 +255,6 @@ def test_a_head_grading_naming_a_mechanism_type_proposes_nothing(tmp_path):
     _paths, vault, repository, clock = _setup(tmp_path)
     for index, mechanism in enumerate(MECHANISM_TAXONOMY):
         assert _grade(vault, repository, clock, f"attempt_{index}", mechanism) is None
+    # A legacy name a grader may still emit is known too (it maps onto a mechanism).
+    assert _grade(vault, repository, clock, "attempt_legacy", "recall_failure") is None
     assert repository.proposal_batches() == []
-
-
-def test_an_old_tag_grading_keeps_its_own_vocabulary(tmp_path):
-    """An mvp-0.6 vault's builtins stay the mvp-0.6 names: a mechanism name is still new there, as before."""
-
-    _paths, vault, repository, clock = _setup(tmp_path, old_tag=True)
-    assert _grade(vault, repository, clock, "attempt_1", "recall_failure") is None
-    assert _grade(vault, repository, clock, "attempt_2", "retrieval_failure") is not None
-    assert [item["client_item_id"] for item in _pending_error_type_items(repository)] == [
-        "error_type:retrieval_failure"
-    ]

@@ -124,20 +124,14 @@ def test_arithmetic_slip_and_scaffold_failure_mapping_decision():
 
 
 def test_retrieval_boundary_is_mechanism_based_and_domain_neutral():
-    from learnloop.attempts.grading import CANONICAL_ERROR_TYPES
-
     mechanism_card = next(
         card for card in MECHANISM_TAXONOMY_CARD if card["id"] == "retrieval_failure"
     )
-    legacy_card = next(
-        card for card in CANONICAL_ERROR_TYPES if card["id"] == "recall_failure"
-    )
 
-    for card in (mechanism_card, legacy_card):
-        guidance = f"{card['use_when']} {card['avoid_when']}".casefold()
-        assert "previously learned" in guidance
-        assert "uncertainty" in guidance
-        assert "derivation" not in guidance
+    guidance = f"{mechanism_card['use_when']} {mechanism_card['avoid_when']}".casefold()
+    assert "previously learned" in guidance
+    assert "uncertainty" in guidance
+    assert "derivation" not in guidance
 
 
 def test_grader_prompt_version_bumped():

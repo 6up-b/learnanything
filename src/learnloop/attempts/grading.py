@@ -281,98 +281,11 @@ def resolve_quote_anchor(
     return QuoteAnchorResolution(None, None, "unanchored_quote")
 
 
-def is_canonical_state_vault(vault: LoadedVault) -> bool:
-    """Whether the vault reads/writes canonical (mvp-0.7) state.
-
-    Lazy indirection to ``facet_state_reader`` avoids a grading↔assessment_contracts
-    import cycle at module load (the reader pulls in assessment_contracts, which
-    imports ``resolved_rubric`` from this module).
-    """
-
-    from learnloop.learner.facet_state_reader import (
-        is_canonical_state_vault as _impl,
-    )
-
-    return _impl(vault)
-
-
-CANONICAL_ERROR_TYPES: tuple[dict[str, object], ...] = (
-    {
-        "id": "recall_failure",
-        "title": "Recall failure",
-        "severity_default": 0.4,
-        "is_misconception": False,
-        "use_when": (
-            "The localized trace supports a failure to access previously learned, "
-            "task-relevant knowledge for the affected facet."
-        ),
-        "avoid_when": (
-            "A more specific observed breakdown explains the failure, such as "
-            "misunderstanding, unsuitable selection or organization, incorrect "
-            "execution or application, or a local omission or slip. Uncertainty or "
-            "inability to continue alone is not evidence of failed recall."
-        ),
-    },
-    {
-        "id": "conceptual_slip",
-        "title": "Conceptual slip",
-        "severity_default": 0.7,
-        "is_misconception": True,
-        "use_when": "The learner's answer reveals a wrong definition, relationship, interpretation, or mental model.",
-        "avoid_when": "The concept is right but execution is wrong; use procedure_misapplication or arithmetic_slip.",
-    },
-    {
-        "id": "procedure_misapplication",
-        "title": "Procedure misapplication",
-        "severity_default": 0.65,
-        "is_misconception": True,
-        "use_when": "The learner chooses the wrong rule, formula, algorithm step, retained/discarded case, or condition.",
-        "avoid_when": "The rule is correct but a local numeric manipulation is wrong; use arithmetic_slip.",
-    },
-    {
-        "id": "arithmetic_slip",
-        "title": "Arithmetic slip",
-        "severity_default": 0.15,
-        "is_misconception": False,
-        "use_when": "The setup and concept are correct, but arithmetic, algebra, sign, indexing, or simplification is locally wrong.",
-        "avoid_when": "The calculation follows from choosing the wrong method; use procedure_misapplication.",
-    },
-    {
-        "id": "incomplete_answer",
-        "title": "Incomplete answer",
-        "severity_default": 0.25,
-        "is_misconception": False,
-        "use_when": "The answer is partially correct but omits a required value, justification, condition, unit, or explanation.",
-        "avoid_when": (
-            "Use incomplete_answer only when localized evidence supports that the "
-            "omitted facet is learned material the learner cannot access from memory."
-        ),
-    },
-)
-
-BUILTIN_ERROR_TYPE_DEFAULTS = {
-    str(error["id"]): float(error["severity_default"])
-    for error in CANONICAL_ERROR_TYPES
-} | {"scaffold_failure": 0.65}
-
-# mvp-0.7 grader contract (§10.1): the canonical builtins are the nine mechanism
-# taxonomy values, not the legacy five. The legacy names remain resolvable via
-# ``map_legacy_error_type`` so config/back-compat keep working, but a mvp-0.7
-# grader emits (and the validator accepts) the mechanism vocabulary directly.
+# The grader contract (§10.1): the builtins are the nine mechanism taxonomy
+# values. Legacy names a grader or a stored row may still carry resolve through
+# ``map_legacy_error_type``; the grader emits (and the validator accepts) the
+# mechanism vocabulary directly.
 MECHANISM_ERROR_TYPE_DEFAULTS = dict(MECHANISM_SEVERITY_DEFAULT)
-
-
-def builtin_error_type_defaults(vault: LoadedVault) -> dict[str, float]:
-    """Version-branched builtin error-type severity defaults.
-
-    mvp-0.6 vaults keep the legacy five (+scaffold_failure); mvp-0.7 vaults use
-    the nine-mechanism taxonomy. Legacy replay is byte-identical because a
-    mvp-0.6 vault never reaches the mechanism branch.
-    """
-
-    if is_canonical_state_vault(vault):
-        return MECHANISM_ERROR_TYPE_DEFAULTS
-    return BUILTIN_ERROR_TYPE_DEFAULTS
 
 
 def confidence_to_grader_confidence(confidence: int) -> float:
@@ -1580,13 +1493,12 @@ def validate_codex_grading_proposal(
         )
     if manual_review_reason is None and machine_review_scopes:
         manual_review_reason = "attribution_scope:" + ",".join(sorted(machine_review_scopes))
-    builtin_defaults = builtin_error_type_defaults(vault)
     unknown_error_types = sorted(
         {
             attribution.error_type
             for attribution in validated_errors
             if attribution.error_type not in vault.error_types
-            and attribution.error_type not in builtin_defaults
+            and attribution.error_type not in MECHANISM_ERROR_TYPE_DEFAULTS
         }
     )
     if unknown_error_types:
@@ -1845,7 +1757,7 @@ def _resolved_error_severity(vault: LoadedVault, error_type: str, severity: floa
     taxonomy = vault.error_types.get(error_type)
     if taxonomy is not None:
         return taxonomy.severity_default
-    return builtin_error_type_defaults(vault).get(error_type, 0.5)
+    return MECHANISM_ERROR_TYPE_DEFAULTS.get(error_type, 0.5)
 
 
 def _canonical_learner_confidence(value: str | None) -> str | None:
@@ -1938,7 +1850,6 @@ def causal_attribution_audit_report(repository: Any) -> dict[str, Any]:
 
 
 def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
-    builtin_defaults = builtin_error_type_defaults(vault)
     custom = [
         {
             "id": error.id,
@@ -1954,7 +1865,7 @@ def _grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]:
         # a mechanism: a vault's error_types.yaml may still hold the retired
         # recall_failure/scaffold_failure/arithmetic_slip seeds, and offering
         # them beside the mechanisms gives the grader two names for one cause.
-        if error.id not in builtin_defaults
+        if error.id not in MECHANISM_ERROR_TYPE_DEFAULTS
         and map_legacy_error_type(error.id) == error.id
     ]
     return {
@@ -1983,13 +1894,11 @@ def _normalized_recall_error_type(
     learner_answer_md: str | None,
     is_misconception: bool,
 ) -> str:
-    canonical_vault = is_canonical_state_vault(vault)
-
     def _finalize(value: str) -> str:
-        # Under mvp-0.7 the grader may still emit a legacy name (legacy provider
-        # or heuristic branch above): resolve it onto the canonical mechanism so
-        # a single vocabulary reaches the state model. mvp-0.6 is untouched.
-        return map_legacy_error_type(value) if canonical_vault else value
+        # The grader may still emit a legacy name (a legacy provider, or the
+        # heuristic names below): resolve it onto the mechanism so a single
+        # vocabulary reaches the state model.
+        return map_legacy_error_type(value)
 
     if is_misconception:
         return _finalize(error_type)
@@ -2001,7 +1910,7 @@ def _normalized_recall_error_type(
     text = f"{error_type} {evidence}".lower()
     if _RECALL_FAILURE_PATTERN.search(text):
         return _finalize("recall_failure")
-    if error_type in vault.error_types or error_type in builtin_error_type_defaults(vault):
+    if error_type in vault.error_types or error_type in MECHANISM_ERROR_TYPE_DEFAULTS:
         return _finalize(error_type)
     if re.search(r"\b(arithmetic|calculation|numeric)_?(error|slip|mistake)\b", error_type.lower()):
         return _finalize("arithmetic_slip")
