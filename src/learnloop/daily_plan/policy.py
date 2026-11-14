@@ -2,16 +2,13 @@
 
 ``spec_daily_loop_v1.md`` §6.8's switch table, from the router's side:
 
-* below ``mvp-0.23`` (``ROUTER_STAGED_FRAME_VERSIONS``), or with
-  ``router.enabled = false``: DL1's pair exactly (``legacy_lanes_v1`` +
+* with ``router.enabled = false``: DL1's pair exactly (``legacy_lanes_v1`` +
   ``lane_quota_v1``, :data:`learnloop.daily_plan.engine.DEFAULT_POLICY`; G8);
-* at ``mvp-0.23`` with the router on, or later with ``router.mode =
-  "staged"``: the staged frame (``staged_frame_v1``) with its chooser
+* with the router on and ``router.mode = "staged"``: the staged frame (``staged_frame_v1``) with its chooser
   (``staged_v1``), exactly R2a. The projection chooser stays
   ``lane_quota_v1`` (DL1 F3: projections never call a live or sampled
   chooser);
-* at the R2b + R2c successor (``ROUTER_MIXTURE_VERSIONS``) with ``router.mode =
-  "mixture"`` (its default): the staged frame with the logged model mixture
+* with ``router.mode = "mixture"`` (its default): the staged frame with the logged model mixture
   (``router_mixture_v1``, :mod:`learnloop.daily_plan.router_chooser`), and,
   with ``router.restraint`` on, the restraint gate on mid-block follow-ups
   (``plan_interrupt``). ``serve`` says whether the call serves a step (it
@@ -28,35 +25,22 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.algorithm_versions import ROUTER_MIXTURE_VERSIONS, ROUTER_STAGED_FRAME_VERSIONS
 from learnloop.daily_plan.chooser import LaneQuotaChooser
 from learnloop.daily_plan.engine import DEFAULT_POLICY, PlanPolicy, plan_active
 
 
 def router_active(vault: Any) -> bool:
-    """The router composes Today: the plan serves, the vault is at the R2a successor or later, and the router's
-    kill switch (``router.enabled``) is on."""
+    """The router composes Today: the plan serves and the router's kill switch (``router.enabled``) is on."""
 
     config = vault.config
-    return (
-        plan_active(vault)
-        and config.algorithms.algorithm_version in ROUTER_STAGED_FRAME_VERSIONS
-        and bool(getattr(config.router, "enabled", False))
-    )
+    return plan_active(vault) and bool(getattr(config.router, "enabled", False))
 
 
 def mixture_active(vault: Any) -> bool:
-    """The model mixture chooses Today's blocks: the router composes Today, the
-    vault is at the R2b + R2c successor or later, and ``router.mode`` is
-    ``mixture``. Below the successor the mixture is dormant (``mixture`` serves
-    as ``staged``)."""
+    """The model mixture chooses Today's blocks: the router composes Today and ``router.mode`` is ``mixture``."""
 
     config = vault.config
-    return (
-        router_active(vault)
-        and config.algorithms.algorithm_version in ROUTER_MIXTURE_VERSIONS
-        and getattr(config.router, "mode", "staged") == "mixture"
-    )
+    return router_active(vault) and getattr(config.router, "mode", "staged") == "mixture"
 
 
 def objective_active(vault: Any) -> bool:

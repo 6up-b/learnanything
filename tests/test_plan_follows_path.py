@@ -39,7 +39,7 @@ from learnloop.daily_plan.types import ReadingTarget
 from learnloop.db.connection import connect
 from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
-from tests.helpers import append_config_toml, set_algorithm_version
+from tests.helpers import append_config_toml
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.reading_path_fixtures import (
     EXT,
@@ -88,7 +88,7 @@ def test_the_successor_is_one_constant_after_rw2d():
     assert READING_PATH_PLAN_VERSIONS == frozenset({READING_PATH_PLAN_ALGORITHM_VERSION, "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
-def test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on(tmp_path):
+def test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on(tmp_path):
     from learnloop.config.schema import ReadingPathsConfig
     from learnloop.params import parameter_registry as registry
     from tests.helpers import create_daily_plan_vault
@@ -97,9 +97,6 @@ def test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_th
     assert registry.classify_config_path("reading_paths.plan_uses_path") is not None
     paths = create_daily_plan_vault(tmp_path / "v", version=READING_PATH_PLAN_ALGORITHM_VERSION)
     assert E.reading_path_plan_active(load_vault(paths.root))
-    set_algorithm_version(paths, PREDECESSOR)
-    assert not E.reading_path_plan_active(load_vault(paths.root))
-    set_algorithm_version(paths, READING_PATH_PLAN_ALGORITHM_VERSION)
     append_config_toml(paths.root, GUIDE_OFF)
     assert not E.reading_path_plan_active(load_vault(paths.root))
     other = create_daily_plan_vault(tmp_path / "w", version=READING_PATH_PLAN_ALGORITHM_VERSION, plan_toml=None)
@@ -288,7 +285,9 @@ _LABELS = {"sec_eigen": "enrichment", "sec_spectral": "prerequisite"}
 
 @pytest.mark.parametrize("variant", ["switch_off", "guide_off"])
 def test_g47_off_every_plan_build_is_the_predecessors(tmp_path, monkeypatch, variant):
+    # The predecessor's plans: its tag with RW7b's switch off (the switch's off-branch is the predecessor's code).
     base, _, _ = _vault(tmp_path, monkeypatch, "base", version=PREDECESSOR, labels=_LABELS)
+    append_config_toml(base.root, OFF)
     off, _, _ = _vault(tmp_path, monkeypatch, "off", version=READING_PATH_PLAN_ALGORITHM_VERSION, labels=_LABELS)
     append_config_toml(off.root, OFF if variant == "switch_off" else GUIDE_OFF)
     baseline = _plan_state(base)

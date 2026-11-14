@@ -154,14 +154,13 @@ def test_a_staged_plan_never_takes_the_schedulers_draw(tmp_path, frozen, monkeyp
 def test_the_plans_scheduler_session_is_greedy_only_where_the_router_composes_today(tmp_path):
     staged = load_vault(_template(tmp_path, "staged"))
     dl1 = load_vault(_template(tmp_path, "dl1", toml=ROUTER_OFF))
-    below = load_vault(create_daily_plan_vault(tmp_path / "below", version="mvp-0.22").root)
     switched_off = load_vault(_template(tmp_path, "off", toml=SWITCH_OFF))
     assert plan_scheduler_session(staged, "s", 25.4) == scheduler_module.SchedulerSession(
         session_id="s", available_minutes=25, seeded_exploration=False, contrast_order_seed="pair"
     )
     # Everywhere else the predecessor's session, field for field.
     predecessor = scheduler_module.SchedulerSession(session_id="s", available_minutes=25)
-    for vault in (dl1, below, switched_off):
+    for vault in (dl1, switched_off):
         assert plan_scheduler_session(vault, "s", 25.4) == predecessor
 
 
@@ -367,9 +366,9 @@ def test_the_per_session_draw_keeps_its_own_path(tmp_path, frozen):
 
 def test_the_switch_acts_only_where_the_router_composes_today(tmp_path):
     """``plan.deterministic_staged_plans`` (default on) acts where the router
-    composes Today. A vault whose config predates the key (every existing
-    ``mvp-0.23`` vault) reads it on; off keeps the version and the staged
-    frame, and so does the router's own switch, which returns DL1's pair."""
+    composes Today. A vault whose config predates the key reads it on; off
+    keeps the version and the staged frame, and so does the router's own
+    switch, which returns DL1's pair."""
 
     from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.daily_plan.engine import staged_plans_deterministic
@@ -377,9 +376,9 @@ def test_the_switch_acts_only_where_the_router_composes_today(tmp_path):
 
     from tests.helpers import set_algorithm_version
 
-    paths = create_daily_plan_vault(tmp_path / "vault", version="mvp-0.14")
+    paths = create_daily_plan_vault(tmp_path / "vault", version=A)
     assert "deterministic_staged_plans" not in (paths.root / "learnloop.toml").read_text(encoding="utf-8")
-    for version, flag in {"mvp-0.14": False, "mvp-0.22": False, A: True, LATEST_ALGORITHM_VERSION: True}.items():
+    for version, flag in {A: True, LATEST_ALGORITHM_VERSION: True}.items():
         set_algorithm_version(paths, version)
         vault = load_vault(paths.root)
         assert vault.config.plan.deterministic_staged_plans is True

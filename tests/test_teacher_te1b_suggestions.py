@@ -371,11 +371,11 @@ def _dump(repository) -> dict[str, list[tuple]]:
         return {t: [tuple(r) for r in connection.execute(f"SELECT * FROM {t}").fetchall()] for t in tables}
 
 
-@pytest.mark.parametrize("setting", ["switch_off", "below_tag", "router_off", "lessons_off"])
-def test_off_or_below_the_tag_nothing_is_drawn_or_written(tmp_path, shown, setting):
+@pytest.mark.parametrize("setting", ["switch_off", "router_off", "lessons_off"])
+def test_off_nothing_is_drawn_or_written(tmp_path, shown, setting):
     from tests.ux_phase1_support import set_config
 
-    paths, repository = _vault(tmp_path, version=PREDECESSOR_TAG if setting == "below_tag" else TAG)
+    paths, repository = _vault(tmp_path, version=TAG)
     if setting == "switch_off":
         set_config(paths.root, {("router", "lesson_suggestions", "enabled"): False})
     elif setting == "router_off":
@@ -399,10 +399,9 @@ def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
     on_paths, _ = _vault(tmp_path, name="on", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     off_paths, _ = _vault(tmp_path, name="off", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     set_config(off_paths.root, {("router", "lesson_suggestions", "enabled"): False})
-    below_paths, _ = _vault(tmp_path, version=PREDECESSOR_TAG, name="below")
-    on, off, below = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths, below_paths))
+    on, off = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths))
     assert on["teacher"] == {"lessons": True, "suggestions": True}
-    assert off["teacher"] == below["teacher"] == {"lessons": True}
+    assert off["teacher"] == {"lessons": True}
 
 
 def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):

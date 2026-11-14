@@ -39,7 +39,6 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, time
 from typing import TYPE_CHECKING, Any
 
-from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS, DELIVERABLE_PLAN_VERSIONS, READING_PATH_PLAN_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.admission import (
     NewCandidate,
@@ -151,12 +150,9 @@ class BoundaryTaken(Exception):
 
 
 def plan_active(vault: Any) -> bool:
-    """The plan serves only at a daily-plan version with the kill switch on."""
+    """The plan serves with its kill switch on."""
 
-    return (
-        vault.config.algorithms.algorithm_version in DAILY_PLAN_VERSIONS
-        and bool(vault.config.plan.enabled)
-    )
+    return bool(vault.config.plan.enabled)
 
 
 def reading_from_furthest_active(vault: Any) -> bool:
@@ -207,13 +203,11 @@ def reading_step_rule(vault: Any) -> str:
 
 def reading_path_plan_active(vault: Any) -> bool:
     """Reader workbench RW7b (spec_reader_workbench_v1 §10.2): the plan's
-    reading block follows the learner's reading path, at RW7b's tag
-    (``READING_PATH_PLAN_VERSIONS``) wherever the plan acts, with its kill
-    switch ``reading_paths.plan_uses_path`` on and the Guide's paths on
+    reading block follows the learner's reading path wherever the plan acts,
+    with its kill switch ``reading_paths.plan_uses_path`` on and the Guide's paths on
     (``reading_paths.enabled``: the plan never follows a path the learner
     cannot see). A successor, unlike U4's order: it changes what is served
-    through labels a model judged (F3). Off, below the tag or with the
-    Guide's paths off, every plan build is the predecessor's exactly, and a
+    through labels a model judged (F3). Off, or with the Guide's paths off, every plan build is the predecessor's exactly, and a
     plan already built goes back to the predecessor's reading while that
     reading is unstarted (:func:`_reading_path_switched_off`; Codex review
     F1), a plan that closed by itself only for want of the reading the path
@@ -222,7 +216,6 @@ def reading_path_plan_active(vault: Any) -> bool:
     section = getattr(vault.config, "reading_paths", None)
     return (
         plan_active(vault)
-        and vault.config.algorithms.algorithm_version in READING_PATH_PLAN_VERSIONS
         and bool(getattr(section, "enabled", False))
         and bool(getattr(section, "plan_uses_path", False))
     )
@@ -230,20 +223,19 @@ def reading_path_plan_active(vault: Any) -> bool:
 
 def deliverable_plan_active(vault: Any) -> bool:
     """Curriculum C1 (spec_deliverable_curriculum_v1 §7.6, §8.1): the plan's reading block
-    follows the nearest active deliverable's fresh path across books, at C1's tag
-    (``DELIVERABLE_PLAN_VERSIONS``), with its kill switch ``curriculum.plan_uses_path``
+    follows the nearest active deliverable's fresh path across books, with its kill switch
+    ``curriculum.plan_uses_path``
     and ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
     follows a path the learner cannot see) and RW7b's own gate on (C1 is RW7b's first
     branch, :func:`_reading_on_path`; the slice lives in the Guide's path card, shown
     only with ``reading_paths.enabled``). A successor: it changes what is served through
-    labels a model judged. Off, below the tag or with any of those off, every plan build
+    labels a model judged. Off, or with any of those off, every plan build
     is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
     while that reading is unstarted (:func:`_reading_path_switched_off`)."""
 
     section = getattr(vault.config, "curriculum", None)
     return (
         reading_path_plan_active(vault)
-        and vault.config.algorithms.algorithm_version in DELIVERABLE_PLAN_VERSIONS
         and bool(getattr(section, "enabled", False))
         and bool(getattr(section, "plan_uses_path", False))
     )

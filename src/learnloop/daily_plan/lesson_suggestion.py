@@ -50,7 +50,6 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
-from learnloop.algorithm_versions import LESSON_SUGGESTIONS_VERSIONS, ROUTER_MIXTURE_VERSIONS, TEACHER_VERSIONS
 from learnloop.clock import Clock, parse_utc
 from learnloop.daily_plan.engine import PlanEnv, latest_today
 from learnloop.db.stores import router_suggestions as store
@@ -104,17 +103,15 @@ class SuggestionError(ValueError):
 
 
 def suggestions_enabled(vault: Any) -> bool:
-    """TE1b's suggestions are on: the successor's tag, its switch, the router and its log, and lessons. A card's or
-    an offer's response, and a Start whose lesson never opened, are honoured whenever this holds."""
+    """TE1b's suggestions are on: its switch, the router and its log, and lessons. A card's or an offer's response,
+    and a Start whose lesson never opened, are honoured whenever this holds."""
 
     config = vault.config
-    if config.algorithms.algorithm_version not in LESSON_SUGGESTIONS_VERSIONS:
-        return False
     if not (config.router.lesson_suggestions.enabled and config.router.enabled and config.router.log_decisions):
         return False
     # Lessons may open (``teacher.service.lessons_active``, read here without importing the teacher, a
     # composition layer nothing below imports; a test pins the two equal).
-    return config.algorithms.algorithm_version in TEACHER_VERSIONS and bool(config.teacher.enabled)
+    return bool(config.teacher.enabled)
 
 
 def offers_in_objective(vault: Any) -> bool:
@@ -485,14 +482,14 @@ def _recovered(vault: Any, repository: Any, *, today: str, now_iso: str) -> tupl
 def _target(vault: Any, scored: Sequence[LS.ScoredCandidate], seed: str) -> LS.Target:
     """The day's target, drawn the router's way (spec §15.1, codex re-review F5).
 
-    ``router.mode = "mixture"`` (at the router's mixture successor): the router's ``model_mixture`` with
+    ``router.mode = "mixture"``: the router's ``model_mixture`` with
     the configured ``router.weights`` and the ``router.epsilon_min`` floor (:func:`LS.mixture_target`;
     the models are not asked about lesson candidates, so their weight is the staged rule's, G7).
     ``staged``: the randomization layer's ``epsilon_tiebreak`` among the near-tied top values, its
     value per lesson ``P(accept) · room`` (every card is the same length)."""
 
     config = vault.config.router
-    if config.mode == "mixture" and vault.config.algorithms.algorithm_version in ROUTER_MIXTURE_VERSIONS:
+    if config.mode == "mixture":
         return LS.mixture_target(scored, weights=config.weights.model_dump(), epsilon=config.epsilon_min, seed=seed)
     refs = [s.candidate.ref for s in scored]
     values = [math.exp(s.value) for s in scored]
