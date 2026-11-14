@@ -167,6 +167,42 @@ def test_existing_map_routes_to_append_over_new_members_only(tmp_path: Path, mon
     assert result["mode"] == "append"
 
 
+def test_a_collection_build_asked_for_its_goal_passes_create_goal(tmp_path: Path) -> None:
+    root, repo = _seed(tmp_path)
+    jobs = _RecordingJobs()
+
+    build_study_map_rpc(
+        _ctx(root, repo, jobs),
+        BuildStudyMapInput(source_set_id="set_x", brief={"outcome": "exam_prep"}, create_goal=True),
+    )
+    build_study_map_rpc(_ctx(root, repo, jobs), BuildStudyMapInput(source_set_id="set_x"))
+
+    assert [(kind, kwargs["create_goal"]) for kind, kwargs in jobs.calls] == [("build", True), ("build", False)]
+
+
+def test_an_append_is_not_asked_for_a_goal(tmp_path: Path, monkeypatch) -> None:
+    """An append makes no goal (``append_source`` has no goal step), so the
+    flag is not forwarded to a job that would not read it."""
+
+    root, repo = _seed(tmp_path)
+    monkeypatch.setattr(
+        "learnloop.content.synthesis.source_append.subject_has_applied_study_map",
+        lambda vault, subject_id: True,
+    )
+    monkeypatch.setattr(
+        "learnloop.content.synthesis.source_append.units_not_yet_sent", lambda root, source_set_id: ([], {})
+    )
+    jobs = _RecordingJobs()
+    build_study_map_rpc(
+        _ctx(root, repo, jobs),
+        BuildStudyMapInput(source_set_id="set_x", brief={"outcome": "exam_prep"}, create_goal=True),
+    )
+
+    kind, kwargs = jobs.calls[0]
+    assert kind == "append"
+    assert "create_goal" not in kwargs
+
+
 def test_per_run_ceilings_split_between_inventory_args_and_synthesis_budgets(tmp_path: Path) -> None:
     """The build-plan screen sends one ceilings map; the RPC has to route each
     entry to the stage that reads it — the inventory job takes its budgets as

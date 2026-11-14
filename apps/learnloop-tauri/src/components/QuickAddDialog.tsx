@@ -53,6 +53,8 @@ export function QuickAddDialog({
   const [createdSubjects, setCreatedSubjects] = useState<{ id: string; title: string }[]>([]);
   const subjectChoices = [...subjects, ...createdSubjects.filter((c) => !subjects.some((s) => s.id === c.id))];
   const [brief, setBrief] = useState<StudyMapBriefDto | undefined>(defaultBrief ?? undefined);
+  // The brief wizard's "this creates the Goal in the same flow" (exam prep).
+  const [createGoal, setCreateGoal] = useState(false);
   const [briefOpen, setBriefOpen] = useState(false);
   const [plan, setPlan] = useState<QuickAddPlanDto | null>(null);
   const [roleOverride, setRoleOverride] = useState<string>("");
@@ -127,6 +129,7 @@ export function QuickAddDialog({
       scope: NARROW_ADJUNCT_SCOPE,
       practiceItems: "upfront"
     }));
+    setCreateGoal(false);
     setReaderEnabled(true);
   };
 
@@ -231,7 +234,8 @@ export function QuickAddDialog({
         roleOverride,
         inventoryOutputTokens,
         unlimitedTokenBudget,
-        readerEnabled
+        readerEnabled,
+        createGoal
       });
       onEnqueued(res.quickAdd.batchId);
       onClose();
@@ -581,8 +585,9 @@ export function QuickAddDialog({
           defaultPracticeItems={readerEnabled ? "as_you_read" : "upfront"}
           submitLabel="Use brief"
           onClose={() => setBriefOpen(false)}
-          onSubmit={(b) => {
+          onSubmit={(b, goal) => {
             setBrief(b);
+            setCreateGoal(goal);
             setBriefOpen(false);
           }}
         />

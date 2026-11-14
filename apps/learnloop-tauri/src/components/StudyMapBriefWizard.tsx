@@ -299,7 +299,13 @@ export function StudyMapBriefWizard({
                 onKeyDown={(e) => e.stopPropagation()}
               />
               <div style={{ marginTop: 12 }}>
-                <Faint style={{ fontSize: 12 }}>This creates the Goal in the same flow.</Faint>
+                {/* An append into a subject's existing map makes no goal (the
+                    goal's scope is the facets a new map mints), so the promise
+                    names the case it keeps. */}
+                <Faint style={{ fontSize: 12 }}>
+                  This creates the Goal in the same flow when it builds the subject's first study map. Adding to an
+                  existing map leaves your goals as they are; make one from Today.
+                </Faint>
               </div>
             </div>
           ) : null}

@@ -111,3 +111,51 @@ def test_confirm_quick_add_unknown_subject_typed_error(tmp_path):
     # 45k is accepted by the request schema; validation reaches the handler and
     # reports the deliberately unknown subject instead of generic Invalid params.
     assert results[1]["error"]["data"]["code"] == "unknown_subject"
+
+
+class _RecordingQuickAddJobs:
+    """Records the Quick-add enqueue without running a job."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def enqueue_quick_add_build(self, **kwargs) -> str:
+        self.calls.append(kwargs)
+        return "batch_quick"
+
+    def get_batch(self, batch_id: str) -> dict:
+        return {"id": batch_id, "jobs": []}
+
+
+def _confirm(tmp_path, **params) -> list[dict]:
+    from types import SimpleNamespace
+
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.handlers.ingest import ConfirmQuickAddInput, confirm_quick_add_rpc
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    md = tmp_path / "book.md"
+    md.write_text(_MD)
+    _seed_extraction(paths.sqlite_path, str(md))
+    vault, repo = load_vault(vault_root), Repository(paths.sqlite_path)
+    jobs = _RecordingQuickAddJobs()
+    ctx = SimpleNamespace(require_vault=lambda: (vault, repo), ingest_jobs=jobs, reload=lambda **_: None)
+    confirm_quick_add_rpc(ctx, ConfirmQuickAddInput.model_validate(
+        {"source": str(md), "subjectId": "linear-algebra", **params}
+    ))
+    return jobs.calls
+
+
+def test_confirm_quick_add_forwards_the_exam_goal_flag(tmp_path):
+    calls = _confirm(tmp_path, brief={"outcome": "exam_prep", "dueAt": "2026-11-28T04:59:59.000Z"}, createGoal=True)
+
+    assert len(calls) == 1
+    assert calls[0]["create_goal"] is True
+    assert calls[0]["brief"]["due_at"] == "2026-11-28T04:59:59.000Z"
+
+
+def test_confirm_quick_add_without_the_flag_asks_for_no_goal(tmp_path):
+    (call,) = _confirm(tmp_path)
+    assert call["create_goal"] is False

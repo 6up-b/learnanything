@@ -5128,13 +5128,17 @@ class DurableIngestJobs:
         input_budget_tokens: int | None = None,
         output_budget_tokens: int | None = None,
         unlimited_token_budget: bool = False,
+        create_goal: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
         batch_id: str | None = None,
     ) -> str:
         """Enqueue the Quick-add build batch (§1): inventory(selected units) then
         bootstrap_synthesis over the freshly-created source set, as one batch that
         drains ahead of bulk work. The synthesis job depends on the inventory job,
-        so gates only run once the selected units carry inventories."""
+        so gates only run once the selected units carry inventories.
+
+        ``create_goal``: the learner's exam-prep brief asked for its Goal (§5.1);
+        the synthesis makes it after applying the map."""
 
         runner = self._require_runner()
         inventory_payload: dict[str, Any] = {"extraction_id": extraction_id, "units": units}
@@ -5154,6 +5158,8 @@ class DurableIngestJobs:
         }
         if unlimited_token_budget:
             synthesis_payload["unlimited_token_budget"] = True
+        if create_goal:
+            synthesis_payload["create_goal"] = True
         batch_id = runner.enqueue_batch(
             "bootstrap_synthesis",
             [
@@ -5180,6 +5186,7 @@ class DurableIngestJobs:
         output_budget_tokens: int | None = None,
         synthesis_budgets: dict[str, int] | None = None,
         unlimited_token_budget: bool = False,
+        create_goal: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
     ) -> str:
         """Enqueue a study-map build batch for an EXISTING source set (§1/§8): one
@@ -5191,7 +5198,8 @@ class DurableIngestJobs:
         CLI, surfacing as one durable Activity batch.
 
         Each ``members`` entry is ``{"extraction_id": str, "units": [...]}`` where
-        units are ``[{unit_id, role, profile?}]`` (the inventory job's shape)."""
+        units are ``[{unit_id, role, profile?}]`` (the inventory job's shape).
+        ``create_goal`` as for :meth:`enqueue_quick_add_build`."""
 
         runner = self._require_runner()
         if not members:
@@ -5222,6 +5230,8 @@ class DurableIngestJobs:
             synthesis_payload["synthesis_budgets"] = dict(synthesis_budgets)
         if unlimited_token_budget:
             synthesis_payload["unlimited_token_budget"] = True
+        if create_goal:
+            synthesis_payload["create_goal"] = True
         specs.append(
             JobSpec("bootstrap_synthesis", synthesis_payload, depends_on=tuple(range(len(members))))
         )

@@ -57,6 +57,45 @@ it("with no subject to pick, lets the student create one and Analyze enables", a
   expect(api.planQuickAdd).toHaveBeenCalledWith(expect.objectContaining({ subjectId: "probability-101" }));
 });
 
+async function examPrepBriefDue(date: string) {
+  fireEvent.click(screen.getByText("customize brief"));
+  fireEvent.click(screen.getByText("exam prep"));
+  for (let step = 0; step < 3; step += 1) fireEvent.click(screen.getByRole("button", { name: "next →" }));
+  fireEvent.change(screen.getByPlaceholderText("e.g. Linear algebra final"), { target: { value: "Probability midterm" } });
+  fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: date } });
+  fireEvent.click(screen.getByRole("button", { name: "Use brief" }));
+}
+
+async function analyzeAndConfirm() {
+  await act(async () => {
+    fireEvent.click(analyze());
+  });
+  await act(async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm & build" }));
+  });
+}
+
+it("an exam-prep brief asks the build for its goal, with the brief's deadline", async () => {
+  const subjects = [{ id: "probability", title: "Probability" }];
+  render(<QuickAddDialog subjects={subjects} defaultSource="/notes/probability.md" onClose={vi.fn()} onEnqueued={vi.fn()} />);
+  await examPrepBriefDue("2026-11-27");
+  await analyzeAndConfirm();
+
+  expect(api.confirmQuickAdd).toHaveBeenCalledTimes(1);
+  const input = api.confirmQuickAdd.mock.calls[0][0];
+  expect(input.createGoal).toBe(true);
+  expect(input.brief).toMatchObject({ outcome: "exam_prep", goalTitle: "Probability midterm" });
+  expect(new Date(input.brief.dueAt).toDateString()).toBe(new Date(2026, 10, 27).toDateString());
+});
+
+it("a brief that is not exam prep asks for no goal", async () => {
+  const subjects = [{ id: "probability", title: "Probability" }];
+  render(<QuickAddDialog subjects={subjects} defaultSource="/notes/probability.md" onClose={vi.fn()} onEnqueued={vi.fn()} />);
+  await analyzeAndConfirm();
+
+  expect(api.confirmQuickAdd.mock.calls[0][0].createGoal).toBe(false);
+});
+
 it("a refused subject leaves Analyze disabled and says why", async () => {
   api.runCliCommand.mockResolvedValue({ argv: [], exitCode: 1, stdout: "", stderr: "Subject already exists" });
   render(
