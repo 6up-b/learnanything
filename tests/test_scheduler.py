@@ -758,9 +758,12 @@ def test_selection_propensities_greedy_when_disabled_or_singleton_or_probe():
         "a": 1.0
     }
 
-    # A probe at the top is never displaced by exploration, so it keeps propensity 1.
+    # With probe ties off (mvp-0.15's switch), a probe at the top is never displaced by exploration, so it keeps
+    # propensity 1 (on, tests/test_router_probe_ties.py).
     probe_queue = [_scheduled("a", 1.0, intent=SchedulerIntent.PROBE.value), _scheduled("b", 0.95)]
-    assert _selection_propensities(probe_queue, SchedulerSession(session_id="s"), _config(0.2, 1.0)) == {
+    probe_ties_off = _config(0.2, 1.0)
+    probe_ties_off.router.probe_tie_admission = False
+    assert _selection_propensities(probe_queue, SchedulerSession(session_id="s"), probe_ties_off) == {
         "a": 1.0,
         "b": 0.0,
     }
