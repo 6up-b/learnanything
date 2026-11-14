@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py) |
-| Source lines | 594 |
+| Source lines | 590 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,27 +58,27 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `reserved_item_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 119) — All practice item ids currently reserved (unreleased) across all goals.
 - `release_exam_pool(repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 129) — Release every unreleased reservation for ``goal_id``.
 - `reserve_exam_pool(vault: LoadedVault, repository: Repository, goal: Goal, *, item_count: int | None=None, defer_if_insufficient: bool=False, practice_floor: int=PRACTICE_FLOOR, clock: Clock | None=None) -> ExamPoolReport` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 139) — Reserve up to ``item_count`` held-out items covering the goal's scope.
-- `withdrawn_reasons_text(reasons: Any) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 340) — How the learner saw withdrawn exam items, in words ("an answer revealed, ...").
-- `withdrawn_note(withdrawn: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 346) — The learner-facing line for withdrawn exam items, or None.
-- `withdraw_exposed_reservations(vault: LoadedVault, repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 356) — Release this goal's reserved exam items the learner has been shown since (or before) they were reserved, and say why (Codex review F5).
+- `withdrawn_reasons_text(reasons: Any) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 336) — How the learner saw withdrawn exam items, in words ("an answer revealed, ...").
+- `withdrawn_note(withdrawn: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 342) — The learner-facing line for withdrawn exam items, or None.
+- `withdraw_exposed_reservations(vault: LoadedVault, repository: Repository, goal_id: str, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 352) — Release this goal's reserved exam items the learner has been shown since (or before) they were reserved, and say why (Codex review F5).
 
 ### Module constants
 
 - `_DIFFICULTY_STRATA` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 43)
 - `PRACTICE_FLOOR` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 80)
-- `WITHDRAWN_NOTE` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 333)
-- `_WITHDRAWN_REASONS` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 336)
+- `WITHDRAWN_NOTE` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 329)
+- `_WITHDRAWN_REASONS` ([src/learnloop/goals/exam_pool.py](../../../../../../src/learnloop/goals/exam_pool.py), line 332)
 
 ## Internal implementation anchors
 
 - `_difficulty_stratum(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 46)
 - `class _Candidate` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 58)
 - `_unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 307)
-- `_shown_items(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 321) — Items whose own material the learner has already been shown (exam protection, owner default 2026-10-13: such material never becomes an exam item): a reveal of the answer, the canonical exercise or its book solution read in a source, or the prompt rendered in a proposal, ever.
-- `_candidates(vault: LoadedVault, repository: Repository, scope: dict[str, set[str]], own_reserved_ids: set[str]) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 392) — Reservable items: active, never attempted, never shown, not reserved elsewhere.
-- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 463) — The (facet, capability) blueprint components ``item`` can testify to.
-- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 524) — Independent-evidence groups the learner has already been served.
-- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 547) — Greedy blueprint-coverage selection with stratification + surface novelty.
+- `_shown_items(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 317) — Items whose own material the learner has already been shown (exam protection, owner default 2026-10-13: such material never becomes an exam item): a reveal of the answer, the canonical exercise or its book solution read in a source, or the prompt rendered in a proposal, ever.
+- `_candidates(vault: LoadedVault, repository: Repository, scope: dict[str, set[str]], own_reserved_ids: set[str]) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 388) — Reservable items: active, never attempted, never shown, not reserved elsewhere.
+- `_item_components(vault: LoadedVault, item: PracticeItem, covered: set[str]) -> frozenset[tuple[str, str]]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 459) — The (facet, capability) blueprint components ``item`` can testify to.
+- `_practiced_surface_families(vault: LoadedVault, attempted: set[str]) -> set[str]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 520) — Independent-evidence groups the learner has already been served.
+- `_select(candidates: list[_Candidate], item_count: int) -> list[_Candidate]` ([source](../../../../../../src/learnloop/goals/exam_pool.py), line 543) — Greedy blueprint-coverage selection with stratification + surface novelty.
 
 ## Who imports or calls it
 
@@ -96,7 +96,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `utc_now_iso`; calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exposed_items`; calls `exposed_items`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`

@@ -189,7 +189,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_named_gaps_reach_the_learner_state_card`
   - `test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_diagnosis_is_read_from_its_causes_without_a_call`
   - `test_diagnosis_kinds`

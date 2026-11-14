@@ -35,7 +35,7 @@ This workflow converts a pinned source set into proposed learning objects, facet
 - a subject-scoped source set with pinned revisions from [[Import Canonical Sources]]
 - `source-coverage <set-id>` reports ready, or its flags have been intentionally resolved
 - the `canonical_ingest` route is ready; see [[Configure AI Providers]]
-- vault `algorithm_version` is mvp-0.9 (mvp-0.7 or later is required to apply)
+- the vault opens (its `algorithm_version` is at or above the oldest supported tag, [[ADR-019 The oldest supported tag]]); applying a learnable map has no further version requirement
 
 ## 1. Inspect coverage
 

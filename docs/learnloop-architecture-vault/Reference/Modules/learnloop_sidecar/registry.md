@@ -381,8 +381,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
-  - `test_below_the_successor_the_offer_logs_no_value_decisions`
   - `test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer`
+  - `test_with_the_switches_off_the_offer_logs_no_value_decisions`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_why_get_is_registered_desktop_only_and_never_phone_allowed`
 - [tests/ux_phase1_add_source_helpers.py](../../../../../tests/ux_phase1_add_source_helpers.py) — direct import

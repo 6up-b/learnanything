@@ -12,7 +12,6 @@ from learnloop.content.facet_identity import authority
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid, snake_case
-from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.ops.vault_lock import vault_mutation_lock
 from learnloop.vault.loader import load_vault
@@ -29,13 +28,6 @@ from learnloop.vault.writer import (
     upsert_learning_object,
     upsert_practice_item,
 )
-
-# Learnable-map item types whose acceptance requires an mvp-0.7 vault
-# (source-ingestion §8.2 / knowledge-model §12.7 feature gate). Applying any of
-# these in a legacy vault is refused so no attempts can accrue against a
-# partially-upgraded map.
-LEARNABLE_MAP_ITEM_TYPES = frozenset({"facet", "task_blueprint"})
-
 
 class PatchApplicationError(ValueError):
     pass
@@ -637,21 +629,6 @@ def _compile_source_conflict(vault: LoadedVault, item: dict[str, Any], payload: 
     )
 
 
-def _refuse_learnable_on_legacy(vault: LoadedVault, item_type: str, entity_id: str) -> None:
-    """Bootstrap evidence refusal (§8.2 enforcement 2, knowledge-model §12.7).
-
-    A learnable study map (facets/blueprints) may only be applied once the vault
-    is at algorithm_version mvp-0.7. In a legacy vault synthesis/preview may run
-    but ACCEPTANCE refuses with a typed reason, so no attempts can accrue against
-    a partially-upgraded map."""
-
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        raise PatchApplicationError(
-            f"bootstrap_evidence_refused: cannot apply learnable {item_type} {entity_id} "
-            f"in a legacy vault (requires the canonical model mvp-0.7/mvp-0.8)"
-        )
-
-
 def _compile_facet(
     vault: LoadedVault,
     item: dict[str, Any],
@@ -684,7 +661,6 @@ def _compile_facet(
     """
 
     entity_id = _entity_id(item, payload)
-    _refuse_learnable_on_legacy(vault, "facet", entity_id)
     if facet_authority is None:
         raise PatchApplicationError(
             f"Refusing to compile facet {entity_id}: a facet write is checked by the meaning-authority "
@@ -865,7 +841,6 @@ def _compile_task_blueprint(vault: LoadedVault, item: dict[str, Any], payload: d
     blueprint_id = str(payload.get("id") or "")
     if not blueprint_id:
         raise PatchApplicationError(f"Proposal item {item['id']} task_blueprint requires an id")
-    _refuse_learnable_on_legacy(vault, "task_blueprint", blueprint_id)
     learning_object_id = payload.get("learning_object_id") or item.get("target_entity_id")
     existing = vault.learning_objects.get(str(learning_object_id))
     if existing is None:
@@ -1103,13 +1078,10 @@ def _compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: di
 def _reject_unregistered_facets(vault: LoadedVault, entity_id: str, data: dict[str, Any]) -> None:
     """Generated-item facet gate (knowledge-model §3.2, mirrors the probe gate).
 
-    On mvp-0.7 vaults a newly generated item MUST reference registered canonical
-    facets; an unregistered facet id is rejected. Legacy vaults keep today's
-    lenient behavior (doctor warns instead), so frozen content is untouched.
+    A newly generated item MUST reference registered canonical facets; an
+    unregistered facet id is rejected.
     """
 
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
     if not vault.evidence_facets:
         return
     from learnloop.learner.capability_mapping import unregistered_facet_errors

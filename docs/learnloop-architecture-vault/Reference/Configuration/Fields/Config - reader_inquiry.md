@@ -22,6 +22,7 @@ source_paths:
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
+  - "tests/followup_serve_helpers.py"
   - "tests/identity_pins_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mobile_host_auth_helpers.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
-  - "tests/reader_passage_check_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-inquiry"
@@ -66,6 +66,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
+- `tests/followup_serve_helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mobile_host_auth_helpers.py`
@@ -73,7 +74,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
-- `tests/reader_passage_check_helpers.py`
 
 ## Extension and modification guidance
 

@@ -2,8 +2,7 @@
 change-log entry b').
 
 This module wires the tested robust-composition library
-(:mod:`learnloop.diagnosis.robust_composition`) into the probe episode loop **under
-mvp-0.8 vaults only**. It resolves and pins the calibration channel at episode open,
+(:mod:`learnloop.diagnosis.robust_composition`) into the probe episode loop. It resolves and pins the calibration channel at episode open,
 builds the deterministic composition ensemble on the pinned channel, and exposes the
 robust products (candidate ranking / stop / abstain, decision-time observed_update
 posterior) the episode loop consumes.
@@ -13,10 +12,6 @@ candidate ranking ensemble and the decision-time ``observed_update`` seed from t
 episode-pinned ``calibration_model_hash``; a change of the active head model can never
 silently reinterpret a historical episode decision -- that is the separate named
 reinterpretation projection (:func:`p0_projection.record_reinterpretation_if_changed`).
-
-The legacy mvp-0.6/0.7 point path (``probe_families.instrument_*`` +
-``probe_episodes.episode_posterior``) is untouched and stays byte-identical; nothing
-here runs unless :func:`use_robust_probe` is true.
 """
 
 from __future__ import annotations
@@ -28,10 +23,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.attempts import grader_calibration as gc
 from learnloop.diagnosis import robust_composition as rc
-from learnloop.learner.assessment_contracts import (
-    P0_ALGORITHM_VERSION,
-    P0_PROJECTION_VERSIONS,
-)
+from learnloop.learner.assessment_contracts import P0_ALGORITHM_VERSION
 from learnloop.attempts.grade_classifier import bucket_confidence
 from learnloop.attempts.outcome_schemas import SIGNATURE_ERROR_SLUG, resolve_schema_id
 from learnloop.diagnosis.probe_families import CompiledInstrument
@@ -40,24 +32,11 @@ from learnloop.diagnosis.probe_outcome_mapping import (
     coarse_class_for_outcome,
     coarse_instrument_rows,
 )
-from learnloop.vault.models import LoadedVault
 
 # The episode pins one coarse channel. Diagnostic probe cards recognize a specific
 # misconception (§3.1), so the episode-level pinned schema is the three-class
 # signature-error schema; per-instrument coarse rows aggregate onto its true classes.
 EPISODE_COARSE_SCHEMA_SLUG = SIGNATURE_ERROR_SLUG
-
-
-def use_robust_probe(vault: LoadedVault) -> bool:
-    """True iff this vault runs the mvp-0.8 authority-propagation probe path.
-
-    Mirrors the ``project_canonical_facet_state`` version gate (canonical_projection):
-    the robust cutover is the mvp-0.8 projection namespace and its successors
-    (mvp-0.9 tags a recording change, not a projection change); mvp-0.6/0.7 keep
-    the legacy point path.
-    """
-
-    return vault.config.algorithms.algorithm_version in P0_PROJECTION_VERSIONS
 
 
 @dataclass(frozen=True)

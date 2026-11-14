@@ -712,17 +712,10 @@ def _narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any],
 NOT_PLANNED_KEY = "not_planned"
 
 
-def _not_planned_reason(vault: Any) -> str:
-    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
-
-    version = getattr(getattr(vault.config, "algorithms", None), "algorithm_version", None)
-    return "followups_off" if version in READER_FOLLOWUPS_VERSIONS else "below_followups_successor"
-
-
 def sessions_to_summarize(vault: Any, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]:
     """Ended reader sessions within follow-ups' time cap with no digest row,
-    while narration is on and follow-ups are not live (switched off, or the
-    vault below their successor): the narrative's own sessions (Codex review
+    while narration is on and follow-ups are not live (switched off): the
+    narrative's own sessions (Codex review
     F2; ``digest.narrative_enabled`` and ``followups.enabled`` are separate
     switches, §9.6). Cheap: the digests and the session list only; activity
     is checked when a session is summarized. With follow-ups live, part 1
@@ -758,7 +751,8 @@ def summarize_ended_sessions(vault: Any, repository: Repository, *, now: datetim
     from learnloop.instructional import reader_followups as RF
 
     written: list[dict[str, Any]] = []
-    reason = _not_planned_reason(vault)
+    # Follow-ups are not live only by their switch: every tag a vault opens at is at their successor.
+    reason = "followups_off"
     for session in sessions_to_summarize(vault, repository, now=now):
         summary = RC.session_summary(vault, repository, extraction_id=session.extraction_id, session=session,
                                      now=now)

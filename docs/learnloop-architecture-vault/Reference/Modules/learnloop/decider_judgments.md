@@ -47,34 +47,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py) |
-| Source lines | 517 |
+| Source lines | 509 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class NoClearAnswer(ValueError)` ([source](../../../../../src/learnloop/decider_judgments.py), line 78) — The Decider's top probability is shared by two or more options: it decides nothing (review F8).
-- `argmax(probabilities: Mapping[str, float]) -> str | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 82) — The single option with the highest probability; None when the top is tied (or nothing is there).
-- `enabled(config: Any, task: str) -> bool` ([source](../../../../../src/learnloop/decider_judgments.py), line 98) — Whether the Decider decides ``task`` for this vault's config (its switch and version).
-- `connection_note(config: Any) -> str | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 116) — The AI connection sheet's sentence about the Decider (UX Phase 1's one OK, Q4; D6), or None.
-- `client_for(root: Any, config: Any) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 169) — The ready Decider client of ``ai.routing.tier1_decider``; raises when it is not ready.
-- `class Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 181) — One Tier-1 check: ``choice`` is the argmax option, or None (``status`` says why).
-  - `detail(self) -> dict[str, Any]` (line 197; public)
-- `record_failure(repository: Any, decision: Decision, *, error: str | None=None) -> Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 215) — Ledger a check that gave no answer (``decision.status``), for a caller that asked the Decider itself.
-- `route_rule(config: Any, route: str) -> tuple[str, str | None]` ([source](../../../../../src/learnloop/decider_judgments.py), line 252) — Why ``route`` had no ready Decider to ask (``no_decider_routed`` or ``decider_not_ready``) and the profile it names, read from the configuration: no client is built.
-- `log_llm(repository: Any, decision: Decision, *, choice: str, model: str, rationale: str='') -> str` ([source](../../../../../src/learnloop/decider_judgments.py), line 281) — The fallback LLM's verdict on the Decider's input, as a real pair for the agreement report.
-- `decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, question: ChoiceQuestion, left_kind: str='input', left_id: str | None=None, right_kind: str | None=None, right_id: str | None=None, client_factory: Callable[[], Any] | None=None, spend: Any=None, input_hash: str | None=None, ledger_task: str | None=None, question_name: str='verdict', candidates: int=0, pairs: int=0, judgment_id: str | None=None, admit: Admit | None=None, rationale: Mapping[str, Any] | None=None, route: str=ROUTE, reuse: bool=False) -> Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 289) — Ask the Decider one typed question; a disabled judgment returns ``status='disabled'`` unasked.
-- `ask_decider(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any], owner_id: str, route: str, spend: Any=None, question_set_version: str=VERSION, timeout_seconds: float | None=None) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 420) — One admitted Decider request for a caller that keeps its own ledger rows (the Reader's intent box, ``learnloop.reader.reader_intent``; the hint chooser, ``learnloop.hints.chooser``): the same admission and receipts as :func:`decide` (owner kind ``task``), on ``route``'s listed p…
-- `decide_many(*, root: Any, config: Any, repository: Any, task: str, state: Any, questions: dict[str, ChoiceQuestion], left_kind: str, left_id: str, spend: Any=None, candidates: int=0) -> dict[str, Decision]` ([source](../../../../../src/learnloop/decider_judgments.py), line 436) — One physical request for independent questions about one input; one ledger row per question.
+- `class NoClearAnswer(ValueError)` ([source](../../../../../src/learnloop/decider_judgments.py), line 76) — The Decider's top probability is shared by two or more options: it decides nothing (review F8).
+- `argmax(probabilities: Mapping[str, float]) -> str | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 80) — The single option with the highest probability; None when the top is tied (or nothing is there).
+- `enabled(config: Any, task: str) -> bool` ([source](../../../../../src/learnloop/decider_judgments.py), line 96) — Whether the Decider decides ``task`` for this vault's config (its switch).
+- `connection_note(config: Any) -> str | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 108) — The AI connection sheet's sentence about the Decider (UX Phase 1's one OK, Q4; D6), or None.
+- `client_for(root: Any, config: Any) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 161) — The ready Decider client of ``ai.routing.tier1_decider``; raises when it is not ready.
+- `class Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 173) — One Tier-1 check: ``choice`` is the argmax option, or None (``status`` says why).
+  - `detail(self) -> dict[str, Any]` (line 189; public)
+- `record_failure(repository: Any, decision: Decision, *, error: str | None=None) -> Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 207) — Ledger a check that gave no answer (``decision.status``), for a caller that asked the Decider itself.
+- `route_rule(config: Any, route: str) -> tuple[str, str | None]` ([source](../../../../../src/learnloop/decider_judgments.py), line 244) — Why ``route`` had no ready Decider to ask (``no_decider_routed`` or ``decider_not_ready``) and the profile it names, read from the configuration: no client is built.
+- `log_llm(repository: Any, decision: Decision, *, choice: str, model: str, rationale: str='') -> str` ([source](../../../../../src/learnloop/decider_judgments.py), line 273) — The fallback LLM's verdict on the Decider's input, as a real pair for the agreement report.
+- `decide(*, root: Any, config: Any, repository: Any, task: str, state: Any, question: ChoiceQuestion, left_kind: str='input', left_id: str | None=None, right_kind: str | None=None, right_id: str | None=None, client_factory: Callable[[], Any] | None=None, spend: Any=None, input_hash: str | None=None, ledger_task: str | None=None, question_name: str='verdict', candidates: int=0, pairs: int=0, judgment_id: str | None=None, admit: Admit | None=None, rationale: Mapping[str, Any] | None=None, route: str=ROUTE, reuse: bool=False) -> Decision` ([source](../../../../../src/learnloop/decider_judgments.py), line 281) — Ask the Decider one typed question; a disabled judgment returns ``status='disabled'`` unasked.
+- `ask_decider(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any], owner_id: str, route: str, spend: Any=None, question_set_version: str=VERSION, timeout_seconds: float | None=None) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 412) — One admitted Decider request for a caller that keeps its own ledger rows (the Reader's intent box, ``learnloop.reader.reader_intent``; the hint chooser, ``learnloop.hints.chooser``): the same admission and receipts as :func:`decide` (owner kind ``task``), on ``route``'s listed p…
+- `decide_many(*, root: Any, config: Any, repository: Any, task: str, state: Any, questions: dict[str, ChoiceQuestion], left_kind: str, left_id: str, spend: Any=None, candidates: int=0) -> dict[str, Decision]` ([source](../../../../../src/learnloop/decider_judgments.py), line 428) — One physical request for independent questions about one input; one ledger row per question.
 
 ### Module constants
 
-- `ROUTE` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 54)
-- `VERSION` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 56)
-- `SERVING_TASKS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 58)
-- `CONTENT_TASKS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 69)
-- `FAILURE_VERDICTS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 73)
+- `ROUTE` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 52)
+- `VERSION` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 54)
+- `SERVING_TASKS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 56)
+- `CONTENT_TASKS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 67)
+- `FAILURE_VERDICTS` ([src/learnloop/decider_judgments.py](../../../../../src/learnloop/decider_judgments.py), line 71)
 
 ### Explicit exports
 
@@ -99,11 +99,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_append(repository: Any, decision: Decision, *, judge: str, choice: str, model: str, rationale: Mapping[str, Any], judgment_id: str | None=None, prompt_version: str=VERSION) -> str` ([source](../../../../../src/learnloop/decider_judgments.py), line 202)
-- `_record_unanswered(repository: Any, config: Any, decision: Decision, *, task: str, route: str, outcome: Callable[[], tuple[str, str, dict[str, Any] | None]], error: BaseException | None=None) -> None` ([source](../../../../../src/learnloop/decider_judgments.py), line 230) — The decision record of a check that gave no answer (refactor B5): a disabled switch or a Decider never routed leaves no ledger row, and the ledger's ``unavailable``/``failed`` names neither the cause nor the limit.
-- `_unanswered(config: Any, route: str, status: str, error: BaseException | None, *, client_ready: bool) -> tuple[str, str, dict[str, Any] | None]` ([source](../../../../../src/learnloop/decider_judgments.py), line 266) — A failed check's record status, rule and facts: which limit refused, or why no Decider was there to ask.
-- `_recorded(repository: Any, decision: Decision, question: ChoiceQuestion) -> Decision | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 357) — The latest answer (an option, never a failure) already ledgered for ``decision``'s input.
-- `_ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any], owner_id: str, spend: Any=None, candidates: int=0, pairs: int=0, admit: Admit | None=None, route: str=ROUTE, question_set_version: str=VERSION, timeout_seconds: float | None=None) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 383)
+- `_append(repository: Any, decision: Decision, *, judge: str, choice: str, model: str, rationale: Mapping[str, Any], judgment_id: str | None=None, prompt_version: str=VERSION) -> str` ([source](../../../../../src/learnloop/decider_judgments.py), line 194)
+- `_record_unanswered(repository: Any, config: Any, decision: Decision, *, task: str, route: str, outcome: Callable[[], tuple[str, str, dict[str, Any] | None]], error: BaseException | None=None) -> None` ([source](../../../../../src/learnloop/decider_judgments.py), line 222) — The decision record of a check that gave no answer (refactor B5): a disabled switch or a Decider never routed leaves no ledger row, and the ledger's ``unavailable``/``failed`` names neither the cause nor the limit.
+- `_unanswered(config: Any, route: str, status: str, error: BaseException | None, *, client_ready: bool) -> tuple[str, str, dict[str, Any] | None]` ([source](../../../../../src/learnloop/decider_judgments.py), line 258) — A failed check's record status, rule and facts: which limit refused, or why no Decider was there to ask.
+- `_recorded(repository: Any, decision: Decision, question: ChoiceQuestion) -> Decision | None` ([source](../../../../../src/learnloop/decider_judgments.py), line 349) — The latest answer (an option, never a failure) already ledgered for ``decision``'s input.
+- `_ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any], owner_id: str, spend: Any=None, candidates: int=0, pairs: int=0, admit: Admit | None=None, route: str=ROUTE, question_set_version: str=VERSION, timeout_seconds: float | None=None) -> Any` ([source](../../../../../src/learnloop/decider_judgments.py), line 375)
 
 ## Who imports or calls it
 
@@ -144,7 +144,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/review_spend|learnloop.ai.review_spend]] — imports `ReviewSpend`, `RouteInfo`; calls `ReviewSpend`, `RouteInfo`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`, `ready_client_for_task`; calls `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendCaps`, `SpendLimitExceeded`; calls `SpendCaps`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `module`; calls `decider_record`, `disabled_rule`, `route_rule`, `spend_rule`, `write`
 
@@ -178,8 +177,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`
   - `test_nothing_in_tier1_reads_the_deleted_route_check`
   - `test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perplexity_route`
-  - `test_tier1_judgments_move_only_at_mvp022`
+  - `test_tier1_judgments_move_at_mvp022_with_their_switches`
   - `test_with_every_decider_route_off_the_one_ok_is_unchanged`
+  - `test_with_the_tier1_switches_off_the_one_ok_names_only_the_routes_still_on`
 - [tests/test_facet_reword_confirm.py](../../../../../tests/test_facet_reword_confirm.py) — direct import
   - `test_a_cited_reword_records_its_sources_on_the_facets_history`
   - `test_a_confirm_refuses_when_the_facets_wording_changed_since`
@@ -207,7 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_misconception_match_without_a_model_asks_no_decider`
   - `test_needed_is_the_deciders_and_its_refusal_falls_back`
   - `test_route_decision_fallback_and_switch`
-  - `test_serving_judgments_wait_for_the_successor_and_the_router_is_never_tier1`
+  - `test_serving_judgments_follow_their_switches_and_the_router_is_never_tier1`
   - `test_settings_and_eval_judges_disclose_the_tier1_routes`
   - `test_text_gap_kind_is_reused_never_paid_for_twice`
 

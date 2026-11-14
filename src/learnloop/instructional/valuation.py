@@ -604,21 +604,19 @@ def episode_instruments(vault: LoadedVault, repository: Repository, problem: Val
 
     Exactly what the robust probe path reads (``eligible_instruments`` under
     the live posterior, the channel ``load_pinned_channel`` rehydrates from
-    the episode's ``calibration_model_hash``). Below the robust cutover, or
-    with no pinned channel, ``reason`` says why and instruments are valued as
+    the episode's ``calibration_model_hash``). With no pinned channel (an
+    episode opened before the robust cutover), ``reason`` says why and instruments are valued as
     ordinary items (§8.3.2)."""
 
     cached = problem.context.get("_instruments")
     if cached is not None:
         return cached
     from learnloop.diagnosis.probe_episodes import eligible_instruments
-    from learnloop.diagnosis.probe_robust import load_pinned_channel, use_robust_probe
+    from learnloop.diagnosis.probe_robust import load_pinned_channel
 
     found: dict[str, Any] = {"channel": None, "by_item": {}, "reason": None}
     episode = problem.context.get("episode")
-    if not use_robust_probe(vault):
-        found["reason"] = "below_robust_cutover"
-    elif episode is None or episode.calibration_model_hash is None:
+    if episode is None or episode.calibration_model_hash is None:
         found["reason"] = "no_pinned_channel"
     else:
         channel = load_pinned_channel(repository, episode.calibration_model_hash)

@@ -64,7 +64,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 8 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 8 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
@@ -108,7 +108,7 @@ flowchart LR
     n_learnloop_diagnosis_text_gaps["learnloop.diagnosis.text_gaps"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault["learnloop.vault"]
-    center -->|9| n_learnloop
+    center -->|8| n_learnloop
     n_learnloop_diagnosis -->|8| center
     center -->|8| n_learnloop_field
     n_learnloop_sidecar_handlers -->|6| center

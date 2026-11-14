@@ -50,7 +50,7 @@ function showStart({
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   api.getTodayQueue.mockResolvedValue(EMPTY_QUEUE);
   // Daily-loop DL1 is off unless a test passes a plan: Start is then DL0's (gate G1).
-  api.getDailyPlan.mockResolvedValue(plan ?? { version: 1, enabled: false, reason: "algorithm_version", plan: null });
+  api.getDailyPlan.mockResolvedValue(plan ?? { version: 1, enabled: false, reason: "plan_disabled", plan: null });
   if (startSummary instanceof Error) api.getStartSummary.mockRejectedValue(startSummary);
   else api.getStartSummary.mockResolvedValue(startSummary);
   api.startSession.mockResolvedValue({ sessionId: "s1" });

@@ -20,7 +20,6 @@ from tests.helpers import (
     admit_probe_instrument_card,
     append_config_toml,
     create_basic_vault,
-    pin_old_basic_vault,
     set_algorithm_version,
 )
 
@@ -40,19 +39,14 @@ def _setup(
     with_card: bool = True,
     extra_item: bool = False,
     algorithm_version: str | None = None,
-    old_path: bool = False,
     switched_off: str | None = None,
 ):
-    """``old_path`` puts the vault back to the pre-D2a basic vault
-    (``pin_old_basic_vault``), for a test of a path no head vault takes.
-    ``switched_off`` is a TOML fragment turning a kill switch off on the head
+    """``switched_off`` is a TOML fragment turning a kill switch off on the head
     vault, for a test of the predecessor that switch serves (it goes with the
     switch in D7)."""
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    if old_path:
-        paths = pin_old_basic_vault(paths)
     if switched_off is not None:
         append_config_toml(vault_root, switched_off)
     if algorithm_version is not None:

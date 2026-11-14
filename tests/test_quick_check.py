@@ -140,7 +140,7 @@ def test_quick_check_is_never_prompted(tmp_path):
 
 
 def test_quick_check_needs_placement(tmp_path):
-    paths, vault, repository = _setup(tmp_path, version="mvp-0.9")
+    paths, vault, repository = _setup(tmp_path, placement_toml="[placement]\nenabled = false\n")
     with pytest.raises(QuickCheckError):
         _start(vault, repository, ["lo_diag"])
 

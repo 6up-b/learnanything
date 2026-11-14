@@ -104,7 +104,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_rereview_f3_the_subject_is_the_one_frozen_with_the_contract`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
   - `test_a_confused_stuck_answer_keeps_its_topic_out_of_fast_track`
 

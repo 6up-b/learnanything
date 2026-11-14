@@ -25,6 +25,7 @@ source_paths:
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
+  - "tests/followup_serve_helpers.py"
   - "tests/identity_pins_helpers.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mobile_host_auth_helpers.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
   - "tests/pfc_unassessed_readers_helpers.py"
-  - "tests/practice_index_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/field"
@@ -55,7 +55,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3591`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
 | `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3592`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/placement/decisions.py:80` |
-| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3593`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/field/outcomes.py:241` |
+| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3593`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/field/outcomes.py:239` |
 | `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3594`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/field_classification.py:101` |
 | `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3595`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/cli/probability_arms.py:154` |
 
@@ -70,6 +70,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
+- `tests/followup_serve_helpers.py`
 - `tests/identity_pins_helpers.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mobile_host_auth_helpers.py`
@@ -77,7 +78,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
 - `tests/pfc_unassessed_readers_helpers.py`
-- `tests/practice_index_fakes.py`
 
 ## Extension and modification guidance
 

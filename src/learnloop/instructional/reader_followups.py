@@ -153,15 +153,10 @@ def _config(vault: Any) -> Any:
 
 
 def followups_enabled(vault: Any) -> bool:
-    """Follow-ups are live: the vault is at the successor
-    (``READER_FOLLOWUPS_VERSIONS``, mvp-0.39; Codex review F4) and
-    ``followups.enabled`` is on (default). Off, or below the tag, nothing is
+    """Follow-ups are live: ``followups.enabled`` is on (default; the successor mvp-0.39's switch). Off, nothing is
     planned or re-valued: the predecessor's plan exactly."""
 
-    from learnloop.algorithm_versions import READER_FOLLOWUPS_VERSIONS
-
-    version = getattr(getattr(vault.config, "algorithms", None), "algorithm_version", None)
-    return version in READER_FOLLOWUPS_VERSIONS and bool(getattr(_config(vault), "enabled", True))
+    return bool(getattr(_config(vault), "enabled", True))
 
 
 def formative_questions_enabled(vault: Any) -> bool:

@@ -33,6 +33,13 @@ WORKING_FIXTURES = working_vault_params()
 MOMENT = FrozenClock(datetime(2026, 10, 12, 9, 30, tzinfo=UTC))
 
 
+#: Placement's kill switch: the predecessor's serving (a vault below mvp-0.11 no longer opens).
+PLACEMENT_OFF = "[placement]\nenabled = false\n"
+#: The unevidenced return's kill switch (mvp-0.56): every tag below it served the placement hole, and its tag half is
+#: gone, so a copy standing for an older tag turns it off.
+HOLE_KEPT = "[placement]\nunevidenced_return = false\n"
+
+
 def _copy(tmp_path, fixture, name, *, version, placement_toml=None, sync=True):
     root = tmp_path / name
     copy_tree_with_databases(owner_vault(fixture), root)
@@ -63,12 +70,11 @@ def _fingerprint(vault, repository):
 def test_kill_switch_matches_the_predecessor_on_fixture_copies(tmp_path, fixture):
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
-    baseline = _fingerprint(*_copy(tmp_path, fixture, "baseline", version="mvp-0.9"))
+    # The predecessor: its tag with placement's switch off (the switch's off-branch is the predecessor's code).
+    baseline = _fingerprint(*_copy(tmp_path, fixture, "baseline", version="mvp-0.9", placement_toml=PLACEMENT_OFF))
     # The split (mvp-0.10) changes grading, not serving: same queue.
-    assert _fingerprint(*_copy(tmp_path, fixture, "split", version="mvp-0.10")) == baseline
-    switched_off = _fingerprint(*_copy(
-        tmp_path, fixture, "off", version="mvp-0.11", placement_toml="[placement]\nenabled = false\n",
-    ))
+    assert _fingerprint(*_copy(tmp_path, fixture, "split", version="mvp-0.10", placement_toml=PLACEMENT_OFF)) == baseline
+    switched_off = _fingerprint(*_copy(tmp_path, fixture, "off", version="mvp-0.11", placement_toml=PLACEMENT_OFF))
     assert switched_off == baseline
 
     # The narrower switch (opening probes back, placement otherwise on) serves
@@ -92,9 +98,10 @@ def test_placement_ignores_unanswered_opening_episodes_on_fixture_copies(tmp_pat
         pytest.skip(f"{fixture} fixture absent")
     from learnloop.placement.state import ignored_opening_episode_ids
 
-    baseline_vault, baseline_repository = _copy(tmp_path, fixture, "baseline", version="mvp-0.10")
+    baseline_vault, baseline_repository = _copy(tmp_path, fixture, "baseline", version="mvp-0.10",
+                                                placement_toml=PLACEMENT_OFF)
     baseline_queue = read_due_queue(baseline_vault, baseline_repository, clock=MOMENT)
-    on_vault, on_repository = _copy(tmp_path, fixture, "on", version="mvp-0.11", sync=False)
+    on_vault, on_repository = _copy(tmp_path, fixture, "on", version="mvp-0.11", placement_toml=HOLE_KEPT, sync=False)
     before = {lo: (episode.id, episode.status) for lo, episode in on_repository.open_probe_episodes().items()}
     sync_vault_state(on_vault, on_repository, clock=MOMENT)
     # Nothing is rewritten or closed: the same episodes, in the same state.
@@ -170,16 +177,13 @@ def test_no_lo_answered_without_a_due_time_leaves_the_queue_at_the_latest_tag(tm
 
 @pytest.mark.parametrize("fixture", WORKING_FIXTURES)
 def test_the_hole_stays_at_the_old_tag_and_with_the_switch_off(tmp_path, fixture):
-    """The predecessor's behaviour, pinned: its queue is the switched-off successor's, row for row, and it does not
-    hold the LO the successor returns."""
+    """The predecessor's behaviour, pinned: its queue (an older tag, served through the switch) is the switched-off
+    successor's at the latest tag, row for row, and it does not hold the LO the successor returns."""
 
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
-    old = _copy(tmp_path, fixture, "old", version=PHONE_PROBES_ALGORITHM_VERSION)
-    off = _copy(
-        tmp_path, fixture, "off", version=LATEST_ALGORITHM_VERSION,
-        placement_toml="[placement]\nunevidenced_return = false\n",
-    )
+    old = _copy(tmp_path, fixture, "old", version=PHONE_PROBES_ALGORITHM_VERSION, placement_toml=HOLE_KEPT)
+    off = _copy(tmp_path, fixture, "off", version=LATEST_ALGORITHM_VERSION, placement_toml=HOLE_KEPT)
     assert _fingerprint(*off) == _fingerprint(*old)
     answered = _answered_without_a_due_time(*old)
     served = {s.learning_object_id for s in read_due_queue(*old, clock=MOMENT)}

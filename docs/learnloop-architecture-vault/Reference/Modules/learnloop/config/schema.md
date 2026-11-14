@@ -391,7 +391,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_nothing_in_tier1_reads_the_deleted_route_check`
   - `test_the_decider_requests_no_output_budget_and_a_fallback_route_keeps_the_shared_policy`
   - `test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perplexity_route`
-  - `test_tier1_judgments_move_only_at_mvp022`
+  - `test_tier1_judgments_move_at_mvp022_with_their_switches`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_every_tag_defaults_the_switch_off`
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
@@ -489,7 +489,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
-  - `test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on`
+  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
   - `test_find_dry_run_names_metered_rerank_prices_and_caps`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
@@ -580,7 +580,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_teacher_episode_log_is_classified_and_on_by_default`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
-  - `test_serving_judgments_wait_for_the_successor_and_the_router_is_never_tier1`
+  - `test_serving_judgments_follow_their_switches_and_the_router_is_never_tier1`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
 - [tests/test_ux_phase1_round2_review.py](../../../../../../tests/test_ux_phase1_round2_review.py) — direct import

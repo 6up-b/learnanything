@@ -181,10 +181,10 @@ def test_an_empty_stuck_answer_is_no_learner_text(tmp_path):
     assert sweep_backlog(load_vault(paths.root), repository, clock=_at(5), dry_run=True)["stuck_answer"] == 0
 
 
-# -- Phase 6 serving reads the gap's signal only at mvp-0.16 ------------------------------------
+# -- Phase 6 serving reads the gap's signal only with the mvp-0.16 successor's switch on ---------
 
 
-def test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch(tmp_path):
+def test_the_gap_signal_changes_serving_only_with_its_switch(tmp_path):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
     event_id = ask_question(vault, repository, GapTutor(EIGEN_GAP), context="practice",
@@ -213,13 +213,14 @@ def test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch(tmp_path)
             (paths.root / "learnloop.toml").write_text(text, encoding="utf-8")
 
     successor = serving("mvp-0.16")
-    predecessor = serving("mvp-0.15")
+    # The predecessor: its tag with the successor's switch off (the switch's off-branch is its code).
+    predecessor = serving("mvp-0.15", "[learner_text_gaps]\nsooner_check_enabled = false\n")
     grounded = serving("mvp-0.15", "[learner_text_gaps]\nenabled = false\n")
     switched_off = serving("mvp-0.16", "[learner_text_gaps]\nsooner_check_enabled = false\n")
     # The gap's target is the question's prerequisite signal at mvp-0.16 ...
     assert ("question_event:" + event_id + ":lo_eigen_basics", "lo_eigen_basics", "prerequisite", 0.15) in successor[0]
     assert "lo_eigen_basics" in successor[1]
-    # ... and nowhere below it, or with the successor's kill switch off: the
+    # ... and nowhere with the successor's kill switch or the pipeline off: the
     # F11 grounded rule exactly as at mvp-0.15.
     assert predecessor == grounded == switched_off
     assert "lo_eigen_basics" not in predecessor[1]
@@ -229,9 +230,10 @@ def test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch(tmp_path)
 # -- a stuck answer: main's confusion signal and one gap observation ---------------------------
 
 
-@pytest.mark.parametrize("version", ["mvp-0.15", "mvp-0.16"])
-def test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation(tmp_path, version):
-    paths, repository = _vault(tmp_path, version=version)
+@pytest.mark.parametrize("sooner_check", ["off", "on"])
+def test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation(tmp_path, sooner_check):
+    paths, repository = _vault(
+        tmp_path, toml="[learner_text_gaps]\nsooner_check_enabled = false\n" if sooner_check == "off" else "")
     result = _stuck_answer(paths, repository, STUCK_TEXT)
     _reading(repository, result.attempt_id, "what an eigenvalue")
     reader = GapLLMFake(reading=EIGEN_GAP, decide=word_match("eigenvalues"), needed="no")
@@ -245,8 +247,8 @@ def test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation(
     # Main's stuck_confusion: the item's own LO, no outcome, no mass, at every
     # stuck-prompt version.
     assert [(s.lo_id, s.outcome, s.effective_mass) for s in confusion] == [("lo_diag", None, 0.0)]
-    # The gap's observation: another LO, once, and only at mvp-0.16.
-    expected = [("lo_eigen_basics", "prerequisite", 0.0, 0.15)] if version == "mvp-0.16" else []
+    # The gap's observation: another LO, once, and only with the mvp-0.16 successor's switch on.
+    expected = [("lo_eigen_basics", "prerequisite", 0.0, 0.15)] if sooner_check == "on" else []
     assert [(s.lo_id, s.signal_type, s.outcome, s.effective_mass) for s in gaps] == expected
 
 

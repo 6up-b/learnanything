@@ -33,8 +33,10 @@ from tests.serve_eligibility_helpers import SUCCESSOR, _at_version, _basic, _one
 
 ITEM = "pi_svd_define_001"
 T0 = datetime(2026, 10, 12, 10, 0, 0, tzinfo=UTC)
-PREDECESSORS = [("mvp-0.26", True), (SUCCESSOR, False)]
-PREDECESSOR_IDS = ["below_the_tag", "switch_off"]
+#: The predecessor (mvp-0.26's serving): the successor's switch off, whose off-branch is its code. Below the tag no
+#: vault opens any more.
+PREDECESSORS = [(SUCCESSOR, False)]
+PREDECESSOR_IDS = ["switch_off"]
 
 
 def _iso(moment: datetime) -> str:

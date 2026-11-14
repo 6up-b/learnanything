@@ -86,7 +86,8 @@ def placement_report(connection: Any, vault: Any, *, now_iso: str | None = None)
         "report_version": REPORT_VERSION,
         "rules_version": RULES_VERSION,
         "algorithm_version": version,
-        "placement_version": version in PLACEMENT_VERSIONS,
+        # Every tag a vault opens at is a placement version (the floor is past mvp-0.11).
+        "placement_version": True,
         "placement_config_hash": sha256(json.dumps(
             vault.config.placement.model_dump(mode="json"), sort_keys=True
         ).encode()).hexdigest(),

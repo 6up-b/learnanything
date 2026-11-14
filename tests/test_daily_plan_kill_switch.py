@@ -57,7 +57,8 @@ def test_plan_off_is_dl0_on_fixture_copies(tmp_path, monkeypatch, fixture):
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
-    dl0, _ = _copy(tmp_path, fixture, "dl0", version="mvp-0.13")
+    # DL0: the predecessor's tag with the plan's switch off (its off-branch is DL0's code).
+    dl0, _ = _copy(tmp_path, fixture, "dl0", version="mvp-0.13", toml="[plan]\nenabled = false\n")
     off, off_root = _copy(tmp_path, fixture, "off", version="mvp-0.14", toml="[plan]\nenabled = false\n")
     baseline = _today_reads(dl0)
     assert baseline["queue"]["totalItems"] > 0
@@ -83,15 +84,6 @@ def test_plan_off_is_dl0_on_fixture_copies(tmp_path, monkeypatch, fixture):
     # Still DL0 after those calls, and that last read wrote nothing either.
     assert _today_reads(off) == baseline
     assert _plan_rows(off_root) == plans_before
-
-
-def test_the_plan_needs_the_successor_version(tmp_path, monkeypatch):
-    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
-    paths = create_daily_plan_vault(tmp_path / "vault", version="mvp-0.13")
-    ctx = SidecarContext()
-    ctx.load(paths.root)
-    off = _call(ctx, "get_daily_plan", {})
-    assert off["enabled"] is False and off["reason"] == "algorithm_version"
 
 
 # ── §6.8's plan.enabled x router.enabled table ──────────────────────────────

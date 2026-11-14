@@ -74,7 +74,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 13 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 5 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
@@ -115,8 +115,8 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop["learnloop"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
     n_learnloop_matching["learnloop.matching"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
@@ -125,9 +125,9 @@ flowchart LR
     center -->|19| n_learnloop_vault
     center -->|17| n_learnloop_ai
     center -->|16| n_learnloop_db
-    n_learnloop -->|1| center
-    center -->|12| n_learnloop
     center -->|13| n_learnloop_db_stores
+    n_learnloop -->|1| center
+    center -->|11| n_learnloop
     n_learnloop_diagnosis_split -->|2| center
     center -->|5| n_learnloop_diagnosis_split
     center -->|7| n_learnloop_matching

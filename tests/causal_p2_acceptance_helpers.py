@@ -84,16 +84,20 @@ def _extra_item(root, item_id: str, *, source_family: str, prompt: str) -> None:
     )
 
 
-def _acceptance_vault(tmp_path, *, version: str = KM2_OLD_TAG):
+def _acceptance_vault(tmp_path, *, version: str = KM2_OLD_TAG, toml: str | None = None):
     """A synthetic vault (at ``version``; the tag its own tests were written at, which the learner/ gate's tests still
     read) with a probe surface and a cold surface.
 
     Both extra items live in their OWN source family: a cold verification is
     rejected outright when it shares a surface group with its source, and a
-    near-clone probe never certifies (§4.3).
+    near-clone probe never certifies (§4.3). ``toml`` is appended to the config before the first sync.
     """
 
     paths = build_shared_facet_vault(tmp_path / "vault", version=version)
+    if toml:
+        from tests.helpers import append_config_toml
+
+        append_config_toml(paths.root, toml)
     _extra_item(
         paths.root,
         PROBE_ITEM,

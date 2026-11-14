@@ -6,8 +6,9 @@ asking, a further follow-up is queued, a further teach-back is kept and a due
 project probe enters the plan while the next observation's value pays for its
 minutes. Part 2 (``diagnosis.probe_lane_reads_diagnosis``): the follow-up
 misconception gate's hypothesis set reads the diagnosis overlay and holds out
-an event whose diagnosis is pending. Below mvp-0.21, or with a switch off,
-serving is mvp-0.20's exactly.
+an event whose diagnosis is pending. With a switch off, serving is mvp-0.20's
+exactly; with both parts' switches off (``VOI_OFF``) it is mvp-0.20's
+everywhere, the state every vault below mvp-0.21 was in.
 """
 
 from __future__ import annotations
@@ -71,30 +72,34 @@ from tests.voi_stopping_helpers import (
     _teach_back_vault,
 )
 
+#: Both parts' kill switches off: mvp-0.20's serving (each switch's off-branch is the predecessor's code).
+VOI_OFF = "[voi_stopping]\nenabled = false\n[diagnosis]\nprobe_lane_reads_diagnosis = false\n"
+
+
+def _predecessor(config):
+    config.voi_stopping.enabled = False
+    config.diagnosis.probe_lane_reads_diagnosis = False
+
+
 # ── the gates ─────────────────────────────────────────────────────────────────
 
 
-def test_the_value_gate_needs_the_successor_the_switch_and_the_site():
+def test_the_value_gate_needs_the_switch_and_the_site():
     for site in voi.SITES:
         assert voi.voi_stopping_active(_config("mvp-0.21"), site)
         assert not voi.voi_stopping_active(_config("mvp-0.21", enabled=False), site)
         assert not voi.voi_stopping_active(_config("mvp-0.21", **{voi.SITE_SWITCH[site]: False}), site)
-        for version in ("mvp-0.6", "mvp-0.9", "mvp-0.10", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.17",
-                        "mvp-0.18", "mvp-0.19", "mvp-0.20"):
-            assert not voi.voi_stopping_active(_config(version), site)
     # A sub-switch turns off its own site only.
     config = _config("mvp-0.21", teach_back=False)
     assert voi.voi_stopping_active(config, voi.SITE_PROBE_EPISODE)
     assert not voi.voi_stopping_active(config, voi.SITE_TEACH_BACK)
 
 
-def test_the_probe_lane_gate_needs_the_successor_and_its_switch():
+def test_the_probe_lane_gate_needs_its_switch():
     assert voi.probe_lane_reads_diagnosis(_config("mvp-0.21"))
     off = _config("mvp-0.21")
     off.diagnosis.probe_lane_reads_diagnosis = False
     assert not voi.probe_lane_reads_diagnosis(off)
-    for version in ("mvp-0.10", "mvp-0.15", "mvp-0.16", "mvp-0.20"):
-        assert not voi.probe_lane_reads_diagnosis(_config(version))
     # Part 2 does not depend on Part 1's switch.
     assert voi.probe_lane_reads_diagnosis(_config("mvp-0.21", enabled=False))
 
@@ -231,8 +236,8 @@ def _session_spent(monkeypatch, repository, count=4):
     monkeypatch.setattr(repository, "qualifying_probe_observation_count_for_session", lambda _sid: count)
 
 
-def test_below_the_successor_the_spent_session_cap_blocks_probes(tmp_path, monkeypatch):
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.20")
+def test_with_the_switches_off_the_spent_session_cap_blocks_probes(tmp_path, monkeypatch):
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21", toml=VOI_OFF)
     _session_spent(monkeypatch, repository)
     assert probe_serving_block_reason(vault, repository, session_id="sess") == "session_cap_reached"
     queue = _build(vault, repository)
@@ -276,7 +281,7 @@ def test_at_the_successor_value_stops_an_episode_whose_next_observation_does_not
 
 @pytest.mark.parametrize("toml", ["[voi_stopping]\nenabled = false\n", "[voi_stopping]\nprobe_episodes = false\n"])
 def test_the_kill_switch_serves_mvp020s_probe_queue_exactly(tmp_path, monkeypatch, toml):
-    _bp, base_vault, base_repo = _probe_vault(tmp_path / "base", "mvp-0.20")
+    _bp, base_vault, base_repo = _probe_vault(tmp_path / "base", "mvp-0.20", toml=VOI_OFF)
     _op, off_vault, off_repo = _probe_vault(tmp_path / "off", "mvp-0.21", toml=toml)
     for spent in (0, 4):
         _session_spent(monkeypatch, base_repo, spent)
@@ -315,8 +320,8 @@ def test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer
     assert presentation.selection_components["voi_stopping"]["decision"] == voi.CONTINUE
 
 
-def test_below_the_successor_the_offer_logs_no_value_decisions(tmp_path):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.20")
+def test_with_the_switches_off_the_offer_logs_no_value_decisions(tmp_path):
+    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21", toml=VOI_OFF)
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
     from learnloop_sidecar.registry import METHOD_REGISTRY
@@ -337,8 +342,9 @@ def test_below_the_successor_the_offer_logs_no_value_decisions(tmp_path):
 # ── (b) further follow-ups on an LO in a session ─────────────────────────────
 
 
-def test_below_the_successor_a_further_follow_up_is_suppressed_by_count(tmp_path):
-    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.20")
+def test_with_the_switches_off_a_further_follow_up_is_suppressed_by_count(tmp_path):
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.21")
+    _predecessor(loaded.config)
     decision = _further(loaded, repository, result)
     assert decision.triggered is False
     assert decision.reason == f"intervention_followup:session_cap_reached:{LO}"
@@ -550,8 +556,9 @@ def test_a_value_suppressed_follow_up_keeps_its_receipt(tmp_path, monkeypatch):
     ]
 
 
-def test_below_the_successor_no_follow_up_receipt_carries_a_value_decision(tmp_path):
-    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.20")
+def test_with_the_switches_off_no_follow_up_receipt_carries_a_value_decision(tmp_path):
+    loaded, repository, result = _followup_setup(tmp_path, "mvp-0.21")
+    _predecessor(loaded.config)
     _first(loaded, repository, result)
     row = repository.decision_features(decision_id=result.attempt_id, decision_type="followup")
     assert row is not None and "voi_stopping" not in row["context"]
@@ -582,6 +589,7 @@ def test_value_suppressions_never_label_the_trigger(tmp_path, monkeypatch):
 @pytest.mark.parametrize("switch", ["enabled", "followups"])
 def test_the_kill_switch_restores_the_follow_up_count_cap(tmp_path, switch):
     base, base_repo, base_result = _followup_setup(tmp_path / "base", "mvp-0.20")
+    _predecessor(base.config)
     off, off_repo, off_result = _followup_setup(tmp_path / "off", "mvp-0.21")
     setattr(off.config.voi_stopping, switch, False)
     expected = _further(base, base_repo, base_result)
@@ -605,6 +613,7 @@ def _teach_back_decisions(trace):
 
 def test_teach_backs_stay_while_their_conditional_value_pays(tmp_path, monkeypatch):
     base_vault, base_repo = _teach_back_vault(tmp_path, "mvp-0.20")
+    _predecessor(base_vault.config)
     vault, repository = _teach_back_vault(tmp_path, "mvp-0.21")
     assert len(_teach_backs(_build(base_vault, base_repo, session_id="sess_1"))) == 1
     _minutes(monkeypatch, 0.01)
@@ -688,6 +697,7 @@ def test_a_sole_teach_back_is_valued_and_receipted(tmp_path, monkeypatch):
 @pytest.mark.parametrize("switch", ["enabled", "teach_back"])
 def test_the_kill_switch_serves_mvp020s_teach_back_queue_exactly(tmp_path, monkeypatch, switch):
     base_vault, base_repo = _teach_back_vault(tmp_path / "base", "mvp-0.20")
+    _predecessor(base_vault.config)
     vault, repository = _teach_back_vault(tmp_path / "off", "mvp-0.21")
     setattr(vault.config.voi_stopping, switch, False)
     _minutes(monkeypatch, 0.01)
@@ -892,7 +902,7 @@ def test_the_plan_values_probes_on_one_episode_over_its_hypotheses():
 def test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows(tmp_path):
     """The rows the conditional valuation needs ride on the scheduled item at
     the successor (never persisted); the decomposed terms still reproduce the
-    reward's total. Below the successor nothing is attached."""
+    reward's total. With the switches off nothing is attached."""
 
     _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
     probes = [item for item in _build(vault, repository) if item.components.get("probe_eig", 0.0) > 0.0]
@@ -907,7 +917,7 @@ def test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows(tmp_path):
         )
         assert terms is not None and terms.hypothesis is not None
         assert terms.hypothesis_conditioning.startswith("expected_posterior_branches")
-    _old, old_vault, old_repository = _probe_vault(tmp_path / "old", "mvp-0.20")
+    _old, old_vault, old_repository = _probe_vault(tmp_path / "old", "mvp-0.21", toml=VOI_OFF)
     assert all(item.hypothesis_channel is None for item in _build(old_vault, old_repository))
 
 
@@ -980,8 +990,8 @@ def test_the_block_chooser_plans_the_best_probe_per_minute_first():
     assert all(item.plan_rank is None for item in old)
 
 
-def test_the_plan_values_project_probes_at_the_successor_and_counts_them_below(tmp_path):
-    before, before_details = _plan_with_probes(tmp_path, "mvp-0.20")
+def test_the_plan_values_project_probes_and_counts_them_with_the_switches_off(tmp_path):
+    before, before_details = _plan_with_probes(tmp_path / "before", "mvp-0.21", VOI_OFF)
     after, after_details = _plan_with_probes(tmp_path, "mvp-0.21")
     off, off_details = _plan_with_probes(tmp_path / "off", "mvp-0.21", "[voi_stopping]\nproject_probes = false\n")
     assert len(before) == len(off) == 4
@@ -1000,9 +1010,8 @@ def _lane_labels(vault, repository):
     return {h.label for h in build_hypothesis_set(vault, repository, "lo_svd_compute").hypotheses}
 
 
-@pytest.mark.parametrize("version", ["mvp-0.20", "mvp-0.21"])
-def test_a_slip_the_diagnoser_ruled_out_leaves_the_lane_only_at_the_successor(tmp_path, version):
-    _paths, vault, repository = split_vault(tmp_path, version=version, seed=False)
+def test_a_slip_the_diagnoser_ruled_out_leaves_the_lane(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.21", seed=False)
     client = _StatementFake(causal_class="transient_execution")
     result = submit(vault, repository, client)
     raw = repository.raw_error_events_for_attempt(result.attempt_id)
@@ -1010,10 +1019,7 @@ def test_a_slip_the_diagnoser_ruled_out_leaves_the_lane_only_at_the_successor(tm
     prior_labels = {f"misconception:{event['error_type']}" for event in raw}
     drain_jobs(vault, repository, client)
     labels = _lane_labels(vault, repository)
-    if version == "mvp-0.20":
-        assert prior_labels <= labels
-    else:
-        assert not (prior_labels & labels)
+    assert not (prior_labels & labels)
 
 
 def test_the_lane_switch_restores_the_stored_flag(tmp_path):
@@ -1028,12 +1034,13 @@ def test_the_lane_switch_restores_the_stored_flag(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "version,pending,held_out",
-    [("mvp-0.20", "hold_out", False), ("mvp-0.21", "hold_out", True), ("mvp-0.21", "keep_prior", False)],
+    "reads,pending,held_out",
+    [("false", "hold_out", False), ("true", "hold_out", True), ("true", "keep_prior", False)],
 )
-def test_a_pending_diagnosis_holds_the_event_out_of_the_lane(tmp_path, version, pending, held_out):
+def test_a_pending_diagnosis_holds_the_event_out_of_the_lane(tmp_path, reads, pending, held_out):
     _paths, vault, repository = split_vault(
-        tmp_path, version=version, seed=False, config=f'[diagnosis]\nprobe_lane_pending = "{pending}"'
+        tmp_path, version="mvp-0.21", seed=False,
+        config=f'[diagnosis]\nprobe_lane_pending = "{pending}"\nprobe_lane_reads_diagnosis = {reads}',
     )
     client = _StatementFake()
     result = submit(vault, repository, client)  # the diagnosis job is queued, not drained
@@ -1129,12 +1136,12 @@ def test_the_decision_features_receipt_reads_the_overlay_and_says_so(tmp_path):
 # ── (a) continued: a value stop ends the episode, with its decision ──────────
 
 
-@pytest.mark.parametrize("version", ["mvp-0.20", "mvp-0.21"])
-def test_a_value_stop_ends_the_episode_only_at_the_successor(tmp_path, monkeypatch, version):
-    _paths, vault, repository = _probe_vault(tmp_path, version)
+@pytest.mark.parametrize("switches", ["on", "off"])
+def test_a_value_stop_ends_the_episode_only_with_the_switch_on(tmp_path, monkeypatch, switches):
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21", toml=VOI_OFF if switches == "off" else "")
     _minutes(monkeypatch, 10_000.0)  # after one answer, nothing pays for its minutes
     episode = _answer_probe(vault, repository)
-    if version == "mvp-0.20":
+    if switches == "off":
         assert episode.completion_reason != "value_of_information_stop"
         return
     assert episode.status == "complete" and episode.completion_reason == "value_of_information_stop"
@@ -1178,7 +1185,7 @@ def test_value_carries_one_episode_past_its_former_maximum(tmp_path, monkeypatch
 
 
 @pytest.mark.parametrize(
-    "version,toml", [("mvp-0.20", ""), ("mvp-0.21", "[voi_stopping]\nprobe_episodes = false\n")]
+    "version,toml", [("mvp-0.21", VOI_OFF), ("mvp-0.21", "[voi_stopping]\nprobe_episodes = false\n")]
 )
 def test_the_episode_maximum_still_ends_an_episode_off_the_value_rule(tmp_path, monkeypatch, version, toml):
     vault, repository = _long_probe_vault(tmp_path, version, toml)
@@ -1200,14 +1207,14 @@ def test_a_calibration_session_keeps_the_episode_maximum(tmp_path, monkeypatch):
     assert episode.completion_reason == "observation_budget_exhausted"
 
 
-@pytest.mark.parametrize("version", ["mvp-0.20", "mvp-0.21"])
-def test_the_probe_contract_says_value_decides_only_at_the_successor(tmp_path, version):
+@pytest.mark.parametrize("switches", ["on", "off"])
+def test_the_probe_contract_says_value_decides_only_with_the_switch_on(tmp_path, switches):
     from learnloop.diagnosis.probe_episodes import episode_contract
 
-    _paths, vault, repository = _probe_vault(tmp_path, version)
+    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21", toml=VOI_OFF if switches == "off" else "")
     contract = episode_contract(vault, repository, LO)
     assert contract["maximum_observations"] == 4
-    assert contract.get("value_stopping", False) is (version == "mvp-0.21")
+    assert contract.get("value_stopping", False) is (switches == "on")
 
 
 def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
@@ -1292,26 +1299,3 @@ def test_a_served_probe_records_its_probability_over_the_composed_queue(tmp_path
         outcome.probability for outcome in trace.outcomes
         if outcome.composed and outcome.composed[0].practice_item_id == presentation.practice_item_id
     ) == served_by["selection_propensity"]
-
-
-# ── every earlier version is unchanged ───────────────────────────────────────
-
-
-@pytest.mark.parametrize("version", ["mvp-0.10", "mvp-0.14", "mvp-0.15", "mvp-0.16", "mvp-0.20"])
-def test_below_the_successor_the_new_switches_change_nothing(tmp_path, monkeypatch, version):
-    _a, on_vault, on_repo = _probe_vault(tmp_path / "on", version)
-    _b, off_vault, off_repo = _probe_vault(
-        tmp_path / "off", version,
-        toml="[voi_stopping]\nenabled = false\n[diagnosis]\nprobe_lane_reads_diagnosis = false\n",
-    )
-    for spent in (0, 4):
-        _session_spent(monkeypatch, on_repo, spent)
-        _session_spent(monkeypatch, off_repo, spent)
-        on_trace, off_trace = OfferTrace(), OfferTrace()
-        assert _fingerprint(_build(on_vault, on_repo, trace=on_trace)) == _fingerprint(
-            _build(off_vault, off_repo, trace=off_trace)
-        )
-        assert on_trace.voi_decisions == () and "voi_stopping" not in on_trace.config_snapshot
-        # The count cap still serves below the successor.
-        expected = "session_cap_reached" if spent else None
-        assert probe_serving_block_reason(on_vault, on_repo, session_id="sess") == expected

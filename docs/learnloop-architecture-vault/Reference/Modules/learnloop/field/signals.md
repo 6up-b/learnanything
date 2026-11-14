@@ -47,44 +47,44 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py) |
-| Source lines | 624 |
+| Source lines | 618 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `instant(value: str) -> datetime` ([source](../../../../../../src/learnloop/field/signals.py), line 67) — Normalize ISO timestamps, including legacy naive UTC values.
-- `normalize_question(event: Mapping[str, Any], *, reader: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/signals.py), line 82) — Flatten logged reader payloads without inventing a type or LO mapping.
-- `classification_input(event: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/signals.py), line 118) — Whitelist question-time inputs; never include tutor answers/later grades.
-- `input_hash(event: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/field/signals.py), line 143)
-- `derive_interaction_signals(question_events: Iterable[Mapping[str, Any]], interaction_events: Iterable[Mapping[str, Any]], attempts: Iterable[AttemptRow], *, facet_to_lo: Mapping[str, str | tuple[str, ...]], cached_classifications: Iterable[Mapping[str, Any]]=(), daily_mass_cap: float=DAILY_SIGNAL_MASS_CAP, lo_to_subject: Mapping[str, str] | None=None, diagnostics: dict[str, Any] | None=None, stuck_confusions: Iterable[Mapping[str, Any]]=(), learner_gaps: Iterable[Mapping[str, Any]]=()) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 152) — Derive immutable rows using logged data and already-paid classifications.
-- `load_interaction_signals(connection: Any, vault: Any, attempts: Iterable[AttemptRow], *, diagnostics: dict[str, Any] | None=None, include_workbench: bool=True) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 407) — Read logged mappings and paid outputs, never today's authored model.
-- `learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/signals.py), line 454) — Prerequisite gap targets the pipeline persisted, read at mvp-0.16 or later.
-- `enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 564) — Add predictor-only covariates without future-question leakage.
-- `blocks_fast_track(signal: SignalRow) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 604) — The one report-2 blocking rule, shared by the harness and the helper below.
-- `confusion_blocks_fast_track(signals: Iterable[SignalRow], *, lo_id: str, as_of: str, subject_id: str='default', self_report_known: bool=False) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 612) — Pure report-2 eligibility only; does not implement or mutate F2 routing.
+- `instant(value: str) -> datetime` ([source](../../../../../../src/learnloop/field/signals.py), line 66) — Normalize ISO timestamps, including legacy naive UTC values.
+- `normalize_question(event: Mapping[str, Any], *, reader: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/signals.py), line 81) — Flatten logged reader payloads without inventing a type or LO mapping.
+- `classification_input(event: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/signals.py), line 117) — Whitelist question-time inputs; never include tutor answers/later grades.
+- `input_hash(event: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/field/signals.py), line 142)
+- `derive_interaction_signals(question_events: Iterable[Mapping[str, Any]], interaction_events: Iterable[Mapping[str, Any]], attempts: Iterable[AttemptRow], *, facet_to_lo: Mapping[str, str | tuple[str, ...]], cached_classifications: Iterable[Mapping[str, Any]]=(), daily_mass_cap: float=DAILY_SIGNAL_MASS_CAP, lo_to_subject: Mapping[str, str] | None=None, diagnostics: dict[str, Any] | None=None, stuck_confusions: Iterable[Mapping[str, Any]]=(), learner_gaps: Iterable[Mapping[str, Any]]=()) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 151) — Derive immutable rows using logged data and already-paid classifications.
+- `load_interaction_signals(connection: Any, vault: Any, attempts: Iterable[AttemptRow], *, diagnostics: dict[str, Any] | None=None, include_workbench: bool=True) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 406) — Read logged mappings and paid outputs, never today's authored model.
+- `learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/signals.py), line 453) — Prerequisite gap targets the pipeline persisted (the learner-text gap successor, mvp-0.16).
+- `enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 558) — Add predictor-only covariates without future-question leakage.
+- `blocks_fast_track(signal: SignalRow) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 598) — The one report-2 blocking rule, shared by the harness and the helper below.
+- `confusion_blocks_fast_track(signals: Iterable[SignalRow], *, lo_id: str, as_of: str, subject_id: str='default', self_report_known: bool=False) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 606) — Pure report-2 eligibility only; does not implement or mutate F2 routing.
 
 ### Module constants
 
-- `SIGNAL_VERSION` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 46)
-- `DAILY_SIGNAL_MASS_CAP` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 47)
-- `LEARNER_GAP_SIGNAL_MASS` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 50)
-- `QUESTION_TYPES` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 51)
-- `ATTEMPT_PROGRESS_NO_WORK` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 58)
-- `STUCK_CONFUSION_SIGNAL` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 60)
-- `BOUND_QUESTION_SIGNAL` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 63)
-- `FAST_TRACK_BLOCKING_TYPES` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 598)
+- `SIGNAL_VERSION` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 45)
+- `DAILY_SIGNAL_MASS_CAP` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 46)
+- `LEARNER_GAP_SIGNAL_MASS` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 49)
+- `QUESTION_TYPES` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 50)
+- `ATTEMPT_PROGRESS_NO_WORK` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 57)
+- `STUCK_CONFUSION_SIGNAL` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 59)
+- `BOUND_QUESTION_SIGNAL` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 62)
+- `FAST_TRACK_BLOCKING_TYPES` ([src/learnloop/field/signals.py](../../../../../../src/learnloop/field/signals.py), line 592)
 
 ## Internal implementation anchors
 
-- `_list(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/field/signals.py), line 73)
-- `_question_time_targets(row: Mapping[str, Any], facets: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/field/signals.py), line 112) — LOs a logged facet mapped to when the question was asked (sorted).
-- `_facet_los(mapping: Mapping[str, Any], facet: str) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 147)
-- `_logged_no_work_yet(event: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 378) — A practice question logged as asked before any work (spec §3.1).
-- `_target_subject(event: Mapping[str, Any], lo: str, attempt: AttemptRow | None) -> str` ([source](../../../../../../src/learnloop/field/signals.py), line 389) — A mapped target keeps its own subject, not the asking item's (review F11).
-- `_link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/signals.py), line 500) — Link a practice-screen question to the attempt it preceded (review F5).
-- `_available_for_attempt(signal: SignalRow, attempt: AttemptRow) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 555) — At tied timestamps only linked, logged practice assistance precedes the result.
+- `_list(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/field/signals.py), line 72)
+- `_question_time_targets(row: Mapping[str, Any], facets: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/field/signals.py), line 111) — LOs a logged facet mapped to when the question was asked (sorted).
+- `_facet_los(mapping: Mapping[str, Any], facet: str) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/field/signals.py), line 146)
+- `_logged_no_work_yet(event: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 377) — A practice question logged as asked before any work (spec §3.1).
+- `_target_subject(event: Mapping[str, Any], lo: str, attempt: AttemptRow | None) -> str` ([source](../../../../../../src/learnloop/field/signals.py), line 388) — A mapped target keeps its own subject, not the asking item's (review F11).
+- `_link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/signals.py), line 494) — Link a practice-screen question to the attempt it preceded (review F5).
+- `_available_for_attempt(signal: SignalRow, attempt: AttemptRow) -> bool` ([source](../../../../../../src/learnloop/field/signals.py), line 549) — At tied timestamps only linked, logged practice assistance precedes the result.
 
 ## Who imports or calls it
 
@@ -102,7 +102,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LEARNER_TEXT_GAP_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `stuck_answers`; calls `stuck_answers`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `NON_SERVING_SOURCE_KINDS`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `AttemptRow`, `SignalRow`; calls `SignalRow`
@@ -156,7 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_without_a_reading_nothing_is_targeted_and_the_grounded_rule_stays`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
   - `test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation`
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_rereview.py](../../../../../../tests/test_learner_text_gaps_rereview.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f14_a_stuck_answer_and_its_diagnosis_give_one_observation`

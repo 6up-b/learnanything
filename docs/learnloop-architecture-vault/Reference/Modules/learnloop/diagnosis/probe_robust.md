@@ -47,41 +47,40 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_robust.py](../../../../../../src/learnloop/diagnosis/probe_robust.py) |
-| Source lines | 309 |
+| Source lines | 288 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `use_robust_probe(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 51) — True iff this vault runs the mvp-0.8 authority-propagation probe path.
-- `class EpisodeChannel` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 64) — The calibration channel pinned on an episode at open (§4.2, invariant 3).
-- `resolve_episode_channel(repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> EpisodeChannel` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 75) — Resolve + freeze the coarse calibration channel for an episode (§4.2).
-- `load_pinned_channel(repository: Repository, model_hash: str) -> EpisodeChannel | None` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 162) — Rehydrate the pinned channel from its stored hash for replay (§2.2).
-- `instrument_ensemble(channel: EpisodeChannel, instrument: CompiledInstrument, slot_map: Mapping[str, str], posterior: Mapping[str, float], *, episode_id: str | None) -> tuple[rc.Ensemble, str]` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 199) — Build the deterministic composition ensemble for one candidate on the pinned channel.
-- `coarse_emission(channel: EpisodeChannel, instrument: CompiledInstrument, *, observed_outcome: str, grader_confidence: float | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 229) — The observed joint emission ``E = (coarse_G, confidence_bucket)`` (§3.2).
-- `pinned_decision_posterior(channel: EpisodeChannel, instrument: CompiledInstrument, slot_map: Mapping[str, str], posterior_before: Mapping[str, float], *, observed_outcome: str, grader_confidence: float | None, episode_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 244) — The immutable decision-time posterior snapshot (§4.2 product 1).
-- `class RobustCandidate` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 281)
-- `robust_selection(channel: EpisodeChannel, candidates: Sequence[RobustCandidate], posterior: Mapping[str, float], *, episode_id: str | None) -> rc.RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 288) — Robust candidate ranking + stop rule + agreement gate + abstention (§4.2).
+- `class EpisodeChannel` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 43) — The calibration channel pinned on an episode at open (§4.2, invariant 3).
+- `resolve_episode_channel(repository: Repository, *, learning_object_id: str, clock: Clock | None=None) -> EpisodeChannel` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 54) — Resolve + freeze the coarse calibration channel for an episode (§4.2).
+- `load_pinned_channel(repository: Repository, model_hash: str) -> EpisodeChannel | None` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 141) — Rehydrate the pinned channel from its stored hash for replay (§2.2).
+- `instrument_ensemble(channel: EpisodeChannel, instrument: CompiledInstrument, slot_map: Mapping[str, str], posterior: Mapping[str, float], *, episode_id: str | None) -> tuple[rc.Ensemble, str]` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 178) — Build the deterministic composition ensemble for one candidate on the pinned channel.
+- `coarse_emission(channel: EpisodeChannel, instrument: CompiledInstrument, *, observed_outcome: str, grader_confidence: float | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 208) — The observed joint emission ``E = (coarse_G, confidence_bucket)`` (§3.2).
+- `pinned_decision_posterior(channel: EpisodeChannel, instrument: CompiledInstrument, slot_map: Mapping[str, str], posterior_before: Mapping[str, float], *, observed_outcome: str, grader_confidence: float | None, episode_id: str | None) -> dict[str, object]` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 223) — The immutable decision-time posterior snapshot (§4.2 product 1).
+- `class RobustCandidate` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 260)
+- `robust_selection(channel: EpisodeChannel, candidates: Sequence[RobustCandidate], posterior: Mapping[str, float], *, episode_id: str | None) -> rc.RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 267) — Robust candidate ranking + stop rule + agreement gate + abstention (§4.2).
 
 ### Module constants
 
-- `EPISODE_COARSE_SCHEMA_SLUG` ([src/learnloop/diagnosis/probe_robust.py](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 48)
+- `EPISODE_COARSE_SCHEMA_SLUG` ([src/learnloop/diagnosis/probe_robust.py](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 39)
 
 ## Internal implementation anchors
 
-- `_persist_pinned_channel(repository: Repository, resolved: gc.ResolvedModel, schema_id: str, schema_version: int, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 117) — Content-address the pooled channel by its composite hash so :func:`load_pinned_channel` can rehydrate it for replay.
-- `_decision_context_hash(*, episode_id: str | None, candidate_card_version: str | None, slot_map: Mapping[str, str], posterior: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 183)
+- `_persist_pinned_channel(repository: Repository, resolved: gc.ResolvedModel, schema_id: str, schema_version: int, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 96) — Content-address the pooled channel by its composite hash so :func:`load_pinned_channel` can rehydrate it for replay.
+- `_decision_context_hash(*, episode_id: str | None, candidate_card_version: str | None, slot_map: Mapping[str, str], posterior: Mapping[str, float]) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_robust.py), line 162)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`, `use_robust_probe`; statically calls `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`, `use_robust_probe`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`; statically calls `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_selection`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `instrument_ensemble`, `load_pinned_channel`; statically calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `resolve_episode_channel`
-- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `instrument_ensemble`, `load_pinned_channel`, `use_robust_probe`; statically calls `instrument_ensemble`, `load_pinned_channel`, `use_robust_probe`
+- [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `instrument_ensemble`, `load_pinned_channel`; statically calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `resolve_episode_channel`
 
 ### Repository tooling consumers
@@ -100,8 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CompiledInstrument`
 - [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]] — imports `PROBE_COARSE_MAPPING_VERSION`, `coarse_class_for_outcome`, `coarse_instrument_rows`; calls `coarse_class_for_outcome`, `coarse_instrument_rows`
 - [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] — imports `module`; calls `build_ensemble`, `decision_context_hash`, `evaluate_selection`, `observed_update`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `P0_ALGORITHM_VERSION`
 
 ### Platform and third-party dependencies
 

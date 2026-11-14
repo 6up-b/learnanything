@@ -8,15 +8,17 @@ import pytest
 
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
-from tests.helpers import create_placement_vault, set_algorithm_version
+from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
 from tests.graph_editor_reads_helpers import _blueprint_ctx, _call
 from tests.km3_projections_helpers import INTEG, LO_ID
 
 
-def _placement_ctx(root, *, version="mvp-0.11"):
+def _placement_ctx(root, *, version="mvp-0.11", toml=None):
     import learnloop_sidecar.handlers  # noqa: F401 -- registers methods
 
     paths = create_placement_vault(root, version=version)
+    if toml:
+        append_config_toml(paths.root, toml)
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"
@@ -45,7 +47,7 @@ def test_self_report_rpc_on_an_item_labels_its_lo_in_the_inspector(tmp_path):
 
 
 def test_self_report_rpc_refuses_honestly_when_placement_is_off(tmp_path):
-    ctx = _placement_ctx(tmp_path / "vault", version="mvp-0.9")
+    ctx = _placement_ctx(tmp_path / "vault", toml="[placement]\nenabled = false\n")
     with pytest.raises(SidecarError) as error:
         _call(ctx, "placement_self_report", {"report": "know_this", "learningObjectIds": ["lo_diag"]})
     assert error.value.code == "placement_inactive"

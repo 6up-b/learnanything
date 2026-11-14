@@ -265,7 +265,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_library_question_is_anchored_by_its_notes_single_learning_object`
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
   - `test_t6_verified_spans_and_the_tutors_named_gap_both_hold`
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_job_that_keeps_failing_is_logged_as_failed_without_a_target`
   - `test_the_queue_runs_a_text_once_retries_failures_and_respects_the_switch`

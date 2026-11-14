@@ -105,19 +105,13 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
         assert classify_config_path(key) is not None
 
 
-def test_the_rule_is_live_only_at_the_tag_with_its_switch(tmp_path):
+def test_the_rule_is_live_only_with_its_switch(tmp_path):
     _paths, vault, _repository = _vault(tmp_path)
     assert vault.config.algorithms.algorithm_version == TAG
     assert se.help_converts_active(vault)
     off_paths, off, _ = _vault(tmp_path / "off", {("ask", "cold_help_converts"): False})
     assert not se.help_converts_active(off)
-    below_paths, below, _ = _vault(tmp_path / "below", {("algorithms", "algorithm_version"): PREDECESSOR_TAG})
-    assert not se.help_converts_active(below)
     assert not se.help_converts_active(None)
-
-
-# The immediate predecessor since the batch landing (rebuild equivalence's mvp-0.34; RW7b's mvp-0.32 on the branch).
-PREDECESSOR_TAG = REPLAY_LEDGER_ALGORITHM_VERSION
 
 
 # -- Q4: help taken on a cold follow-up converts the attempt ----------------------------------------
@@ -153,8 +147,10 @@ def _repair_at(tmp_path, *, converts: bool):
     from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
+    # CA2's rule as at its tag: the later cold-retry reschedule (mvp-0.38) off by its switch.
     set_config(vault.root, {("algorithms", "algorithm_version"): TAG,
-                            ("ask", "cold_help_converts"): converts})
+                            ("ask", "cold_help_converts"): converts,
+                            ("practice", "reschedule_cold_after_assist"): False})
     return load_vault(vault.root), repository, misconception_id
 
 

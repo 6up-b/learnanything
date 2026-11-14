@@ -1112,24 +1112,20 @@ ASSISTED_RESCHEDULE_TRIGGER = "assisted_cold_retry"
 
 def reschedule_cold_after_assist_active(vault: Any) -> bool:
     """The cold-retry reschedule (``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``,
-    ``mvp-0.38``): at that tag or later with
-    ``practice.reschedule_cold_after_assist`` on, and with Reader CA2's rule on
-    (``serve_eligibility.help_converts_active``: without it submit refuses an
-    assisted attempt on a due cold retry, so there is nothing to reschedule).
-    Below the tag, switched off, or no vault (replay, a regrade): the
+    ``mvp-0.38``): ``practice.reschedule_cold_after_assist`` on, and Reader
+    CA2's rule on (``serve_eligibility.help_converts_active``: without it submit
+    refuses an assisted attempt on a due cold retry, so there is nothing to
+    reschedule). Switched off, or no vault (replay, a regrade): the
     predecessor."""
 
     from learnloop import serve_eligibility
-    from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_VERSIONS
 
     config = getattr(vault, "config", None)
     if config is None:
         return False
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
     switch = getattr(config, "practice", None)
     return (
-        version in COLD_RETRY_RESCHEDULE_VERSIONS
-        and bool(getattr(switch, "reschedule_cold_after_assist", False))
+        bool(getattr(switch, "reschedule_cold_after_assist", False))
         and serve_eligibility.help_converts_active(vault)
     )
 

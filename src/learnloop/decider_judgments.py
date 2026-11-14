@@ -23,14 +23,12 @@ ledger row, and a refused, unavailable or failed one, whose ledger verdict
 names neither the cause (no Decider routed, the route not ready, the spend
 cap and its limit) nor the exception's class.
 
-Each judgment has its own switch under ``[decider_routes]`` (default on); a
-serving judgment is live only at ``mvp-0.22`` or later
-(:data:`~learnloop.algorithm_versions.DECIDER_TIER1_VERSIONS`), while the content
-paths, the facet span-support check and the method-explicit items' one-time
-required-method statement judgment (registered at its merge onto mvp-0.24's
-main; :mod:`learnloop.content.proposals.method_statement_judge`, which asks
-the Decider through its own route, ``ai.routing.rubric_phrasing_judge``,
-defaulting to this module's), follow their switches at every version. The
+Each judgment has its own switch under ``[decider_routes]`` (default on), and
+follows it: the serving judgments (mvp-0.22's), the content paths, the facet
+span-support check and the method-explicit items' one-time required-method
+statement judgment (:mod:`learnloop.content.proposals.method_statement_judge`,
+which asks the Decider through its own route, ``ai.routing.rubric_phrasing_judge``,
+defaulting to this module's). The
 action router's ``router_decider`` is never a Tier-1 judgment: :func:`enabled`
 is false for it, so no generic fallback ever reaches it.
 """
@@ -96,7 +94,7 @@ def argmax(probabilities: Mapping[str, float]) -> str | None:
 
 
 def enabled(config: Any, task: str) -> bool:
-    """Whether the Decider decides ``task`` for this vault's config (its switch and version).
+    """Whether the Decider decides ``task`` for this vault's config (its switch).
 
     A config without a ``[decider_routes]`` section (a partial config a caller
     builds by hand) keeps every judgment on its predecessor path.
@@ -104,13 +102,7 @@ def enabled(config: Any, task: str) -> bool:
 
     if task not in SERVING_TASKS and task not in CONTENT_TASKS:
         return False
-    if not bool(getattr(getattr(config, "decider_routes", None), task, False)):
-        return False
-    if task in CONTENT_TASKS:
-        return True
-    from learnloop.algorithm_versions import DECIDER_TIER1_VERSIONS
-
-    return getattr(getattr(config, "algorithms", None), "algorithm_version", None) in DECIDER_TIER1_VERSIONS
+    return bool(getattr(getattr(config, "decider_routes", None), task, False))
 
 
 def connection_note(config: Any) -> str | None:

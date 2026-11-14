@@ -262,8 +262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_request_carries_the_output_budget_its_estimate_reports`
 - [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
-- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
-  - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import

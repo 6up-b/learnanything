@@ -625,7 +625,10 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
 
 
 def test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay(tmp_path, grader):
-    paths, repository = _vault(tmp_path, version=ELIGIBILITY_DECISION_ALGORITHM_VERSION)
+    # The refusal as at its tag: Reader CA2 (mvp-0.35), which admits help on a cold check as practice, off by its
+    # switch (below CA2's tag it was off by the tag).
+    paths, repository = _vault(tmp_path, version=ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+                               config="[ask]\ncold_help_converts = false")
     _due_cold_check(repository)
     ctx = _context(paths.root)
     attempts = _count(repository, "practice_attempts")

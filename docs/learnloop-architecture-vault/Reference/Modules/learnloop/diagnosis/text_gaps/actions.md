@@ -47,43 +47,43 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/actions.py](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py) |
-| Source lines | 655 |
+| Source lines | 650 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 67)
-- `day_start(now_iso: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 91)
-- `prerequisite_graph(vault: LoadedVault, edges: Iterable[ConceptEdge] | None=None) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 98) — Concept -> concepts that build on it (``prerequisite`` edges and LO declarations).
-- `edges_on_disk(vault: LoadedVault) -> list[ConceptEdge]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 115) — Every edge in ``concepts/relations.yaml`` as it is now, including the learner-text gap edges a switch keeps out of the loaded vault.
-- `would_cycle(vault: LoadedVault, prerequisite_concept: str, dependent_concept: str, *, edges: Iterable[ConceptEdge] | None=None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 125) — Would ``prerequisite -> dependent`` close a cycle (or point a concept at itself)?
-- `declared_prerequisite(vault: LoadedVault, prerequisite_lo: str, dependent_lo: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 145)
-- `edge_id_for(text: LearnerText, prerequisite_lo: str, dependent_lo: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 155) — The edge a learner text adds (deterministic: a retry finds it, F3).
-- `add_prerequisite_edge(root: Path, vault: LoadedVault, *, prerequisite_lo: str, dependent_lo: str, text: LearnerText, rationale: str, clock: Clock | None=None, edge_id: str | None=None, origin: str='match') -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 161) — Write the edge; returns (edge id, status) with status ``added`` or why not.
-- `delete_edge(root: Path, edge_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 209)
-- `slug(text: str, *, limit: int=40) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 219)
-- `creations_today(repository: Repository, *, now_iso: str) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 223) — Kept creations since today's UTC midnight (the daily cap counts these).
-- `subject_for_creation(vault: LoadedVault, text: LearnerText) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 231) — The asking item's subject; never a new or an inferred one.
-- `creation_ids(text: LearnerText, draft: Any, *, dependent_lo: str | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 243) — The concept, LO and edge ids a creation writes: derived from the text and the draft, so a retry of the same job names the same entities (F3).
-- `write_created_prerequisite(root: Path, repository: Repository, *, draft: Any, subject_id: str, concept_id: str, learning_object_id: str, edge_id: str | None, dependent_lo: str | None, text: LearnerText, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 256) — Write the concept, the LO and (when there is an asking LO) the edge.
-- `seed_from_question(root: Path, *, question_event_id: str, learning_object_id: str, tutor_client: Any, authoring_client: Any, clock: Clock | None=None) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 320) — One practice item made from the question and the tutor's answer.
-- `undo_creation(root: Path, repository: Repository, gap: Mapping[str, Any], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 354) — The created LO goes dormant (its items are no longer served); its edge goes.
-- `record_belief(vault: LoadedVault, repository: Repository, *, text: LearnerText, statement: str, matched: Mapping[str, Any] | None, clock: Clock | None=None) -> ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 377) — A sighting on the matched entry, or a new holding-pen candidate.
-- `not_this_belief(repository: Repository, gap: Mapping[str, Any], *, actor: str='learner', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 449) — "Not what I meant": a ``different`` verdict (``learner_card``, or ``owner``).
-- `sooner_check_active(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 478)
-- `advance_check(vault: LoadedVault, repository: Repository, *, learning_object_id: str, now_iso: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 487) — The advance row to write for a matched prerequisite, or None.
-- `persist_check_advance(connection: Any, advance: Mapping[str, Any], *, gap_id: str, now_iso: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 529)
-- `commitment_row(vault: LoadedVault, *, learning_object_id: str, practice_item_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 533)
-- `reversal_verdict(gap: Mapping[str, Any], reversal: str, *, actor: str, created_at: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 552) — The ``judgment_ledger`` row an undo is (F9): a ``no`` on ``prerequisite_needed``.
-- `class UndoError(ValueError)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 583)
-- `reverse_gap(root: Path, repository: Repository, gap_id: str, reversal: str, *, actor: str='learner', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 587) — Apply one reversal (idempotent: a repeated tap changes nothing).
+- `class ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 66)
+- `day_start(now_iso: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 90)
+- `prerequisite_graph(vault: LoadedVault, edges: Iterable[ConceptEdge] | None=None) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 97) — Concept -> concepts that build on it (``prerequisite`` edges and LO declarations).
+- `edges_on_disk(vault: LoadedVault) -> list[ConceptEdge]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 114) — Every edge in ``concepts/relations.yaml`` as it is now, including the learner-text gap edges a switch keeps out of the loaded vault.
+- `would_cycle(vault: LoadedVault, prerequisite_concept: str, dependent_concept: str, *, edges: Iterable[ConceptEdge] | None=None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 124) — Would ``prerequisite -> dependent`` close a cycle (or point a concept at itself)?
+- `declared_prerequisite(vault: LoadedVault, prerequisite_lo: str, dependent_lo: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 144)
+- `edge_id_for(text: LearnerText, prerequisite_lo: str, dependent_lo: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 154) — The edge a learner text adds (deterministic: a retry finds it, F3).
+- `add_prerequisite_edge(root: Path, vault: LoadedVault, *, prerequisite_lo: str, dependent_lo: str, text: LearnerText, rationale: str, clock: Clock | None=None, edge_id: str | None=None, origin: str='match') -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 160) — Write the edge; returns (edge id, status) with status ``added`` or why not.
+- `delete_edge(root: Path, edge_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 208)
+- `slug(text: str, *, limit: int=40) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 218)
+- `creations_today(repository: Repository, *, now_iso: str) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 222) — Kept creations since today's UTC midnight (the daily cap counts these).
+- `subject_for_creation(vault: LoadedVault, text: LearnerText) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 230) — The asking item's subject; never a new or an inferred one.
+- `creation_ids(text: LearnerText, draft: Any, *, dependent_lo: str | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 242) — The concept, LO and edge ids a creation writes: derived from the text and the draft, so a retry of the same job names the same entities (F3).
+- `write_created_prerequisite(root: Path, repository: Repository, *, draft: Any, subject_id: str, concept_id: str, learning_object_id: str, edge_id: str | None, dependent_lo: str | None, text: LearnerText, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 255) — Write the concept, the LO and (when there is an asking LO) the edge.
+- `seed_from_question(root: Path, *, question_event_id: str, learning_object_id: str, tutor_client: Any, authoring_client: Any, clock: Clock | None=None) -> tuple[str | None, str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 319) — One practice item made from the question and the tutor's answer.
+- `undo_creation(root: Path, repository: Repository, gap: Mapping[str, Any], *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 353) — The created LO goes dormant (its items are no longer served); its edge goes.
+- `record_belief(vault: LoadedVault, repository: Repository, *, text: LearnerText, statement: str, matched: Mapping[str, Any] | None, clock: Clock | None=None) -> ActionOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 376) — A sighting on the matched entry, or a new holding-pen candidate.
+- `not_this_belief(repository: Repository, gap: Mapping[str, Any], *, actor: str='learner', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 448) — "Not what I meant": a ``different`` verdict (``learner_card``, or ``owner``).
+- `sooner_check_active(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 477)
+- `advance_check(vault: LoadedVault, repository: Repository, *, learning_object_id: str, now_iso: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 482) — The advance row to write for a matched prerequisite, or None.
+- `persist_check_advance(connection: Any, advance: Mapping[str, Any], *, gap_id: str, now_iso: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 524)
+- `commitment_row(vault: LoadedVault, *, learning_object_id: str, practice_item_id: str | None, now_iso: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 528)
+- `reversal_verdict(gap: Mapping[str, Any], reversal: str, *, actor: str, created_at: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 547) — The ``judgment_ledger`` row an undo is (F9): a ``no`` on ``prerequisite_needed``.
+- `class UndoError(ValueError)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 578)
+- `reverse_gap(root: Path, repository: Repository, gap_id: str, reversal: str, *, actor: str='learner', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 582) — Apply one reversal (idempotent: a repeated tap changes nothing).
 
 ### Module constants
 
-- `_SLUG` ([src/learnloop/diagnosis/text_gaps/actions.py](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 63)
-- `REVERSALS` ([src/learnloop/diagnosis/text_gaps/actions.py](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 543)
+- `_SLUG` ([src/learnloop/diagnosis/text_gaps/actions.py](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 62)
+- `REVERSALS` ([src/learnloop/diagnosis/text_gaps/actions.py](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 538)
 
 ### Explicit exports
 
@@ -118,9 +118,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_iso(value) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 87)
-- `_hash(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 151)
-- `_reversal_judge(actor: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 445)
+- `_iso(value) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 86)
+- `_hash(*parts: Any) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 150)
+- `_reversal_judge(actor: str) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/actions.py), line 444)
 
 ## Who imports or calls it
 
@@ -137,7 +137,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`; calls `content_key`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `LEARNER_TEXT_GAP_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

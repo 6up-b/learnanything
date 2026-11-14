@@ -43,7 +43,7 @@ from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake, PlanDeliverableFake
-from tests.helpers import append_config_toml, create_placement_vault, set_algorithm_version
+from tests.helpers import append_config_toml, create_placement_vault
 from tests.reading_path_fixtures import call, context
 from tests.plan_follows_path_helpers import HEAD, _fixture_copy, _plan_state
 from tests.curriculum_c1_plan_follows_path_helpers import (
@@ -98,8 +98,6 @@ def test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
     paths = create_placement_vault(tmp_path / "v", version=TAG)
     assert E.deliverable_plan_active(load_vault(paths.root))
-    set_algorithm_version(paths, PREDECESSOR)
-    assert not E.deliverable_plan_active(load_vault(paths.root))
     for index, fragment in enumerate((C1_OFF, CURRICULUM_OFF, RW7B_OFF, GUIDE_OFF, "[plan]\nenabled = false\n")):
         other = create_placement_vault(tmp_path / f"off{index}", version=TAG)
         append_config_toml(other.root, fragment)
@@ -378,7 +376,8 @@ _BOOK_PATH = {"ch_eigen": "core", "ch_det": "enrichment", "ch_orth": "core"}
 
 @pytest.mark.parametrize("variant", ["switch_off", "curriculum_off"])
 def test_gc4_off_every_plan_build_is_rw7bs(tmp_path, monkeypatch, variant):
-    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, book_path=_BOOK_PATH)
+    # RW7b's plans: the predecessor's tag with C1's switch off (the switch's off-branch is the predecessor's code).
+    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, book_path=_BOOK_PATH, config=C1_OFF)
     off = _c1(tmp_path, monkeypatch, "off", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, book_path=_BOOK_PATH,
               config=C1_OFF if variant == "switch_off" else CURRICULUM_OFF)
     baseline = _plan_state(base.paths)
@@ -403,7 +402,7 @@ def test_the_receipts_predecessor_is_rw7bs_choice_with_its_own_receipt_kept(tmp_
 
 
 def test_with_no_deliverable_in_play_the_plan_is_rw7bs_byte_for_byte(tmp_path, monkeypatch):
-    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, judge=False, book_path=_BOOK_PATH)
+    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, judge=False, book_path=_BOOK_PATH, config=C1_OFF)
     on = _c1(tmp_path, monkeypatch, "on", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, judge=False, book_path=_BOOK_PATH)
     assert _plan_state(on.paths) == _plan_state(base.paths)
 

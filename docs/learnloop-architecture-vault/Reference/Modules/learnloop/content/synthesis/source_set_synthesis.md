@@ -347,7 +347,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_below_coordination_is_kept_silently`
   - `test_integration_without_capability_is_dropped_not_defaulted`
   - `test_invalid_structuring_nomination_is_a_noop`
-  - `test_legacy_vault_acceptance_refused`
   - `test_lo_prerequisites_derive_concept_edges_without_model_relations`
   - `test_manifest_cache_hit_writes_no_epigraphs`
   - `test_manifest_idempotency_cache_zero_new_calls`

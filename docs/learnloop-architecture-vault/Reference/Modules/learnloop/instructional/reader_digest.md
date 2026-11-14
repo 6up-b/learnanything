@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/reader_digest.py](../../../../../../src/learnloop/instructional/reader_digest.py) |
-| Source lines | 906 |
+| Source lines | 900 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -83,11 +83,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `claim_key(digest_id: str) -> str` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 499)
 - `admission_problem(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None) -> NarrativeUnavailable | None` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 507) — Whether a narration would be refused now, before any call.
 - `narrate_digest(vault: Any, repository: Repository, digest_id: str, *, client: Any | None=None, now: datetime, clock: Clock | None=None) -> NarrativeResult` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 579) — Write one session's narrative (§9.2), once.
-- `sessions_to_summarize(vault: Any, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 722) — Ended reader sessions within follow-ups' time cap with no digest row, while narration is on and follow-ups are not live (switched off, or the vault below their successor): the narrative's own sessions (Codex review F2; ``digest.narrative_enabled`` and ``followups.enabled`` are s…
-- `summarize_ended_sessions(vault: Any, repository: Repository, *, now: datetime, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 750) — Persist the typed summary of each session :func:`sessions_to_summarize` names and had activity, as a summary-only digest row (``incomplete``, ``valuation_json.not_planned``; no commitment, no valuation, no model call), so it can be narrated (Codex review F2).
-- `digests_waiting(vault: Any, repository: Repository, *, now: datetime, client: Any | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 788) — Digest rows whose ended session has no narrative yet, oldest first, or [] when narration is switched off or would be refused before any call now (so a Today build starts no job that can do nothing).
-- `narrate_waiting(vault: Any, repository: Repository, *, now: datetime, client: Any | None=None, clock: Clock | None=None) -> list[NarrativeResult]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 807) — Narrate every waiting session (the background job).
-- `narrative_view(vault: Any, repository: Repository, *, extraction_id: str, session_key: str | None, now: datetime, client: Any | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 831) — The session's narrative for "Last time here" and Wrap up, or None (switched off, no digest row for the session yet, or the session still running).
+- `sessions_to_summarize(vault: Any, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 715) — Ended reader sessions within follow-ups' time cap with no digest row, while narration is on and follow-ups are not live (switched off): the narrative's own sessions (Codex review F2; ``digest.narrative_enabled`` and ``followups.enabled`` are separate switches, §9.6).
+- `summarize_ended_sessions(vault: Any, repository: Repository, *, now: datetime, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 743) — Persist the typed summary of each session :func:`sessions_to_summarize` names and had activity, as a summary-only digest row (``incomplete``, ``valuation_json.not_planned``; no commitment, no valuation, no model call), so it can be narrated (Codex review F2).
+- `digests_waiting(vault: Any, repository: Repository, *, now: datetime, client: Any | None=None, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 782) — Digest rows whose ended session has no narrative yet, oldest first, or [] when narration is switched off or would be refused before any call now (so a Today build starts no job that can do nothing).
+- `narrate_waiting(vault: Any, repository: Repository, *, now: datetime, client: Any | None=None, clock: Clock | None=None) -> list[NarrativeResult]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 801) — Narrate every waiting session (the background job).
+- `narrative_view(vault: Any, repository: Repository, *, extraction_id: str, session_key: str | None, now: datetime, client: Any | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 825) — The session's narrative for "Last time here" and Wrap up, or None (switched off, no digest row for the session yet, or the session still running).
 
 ### Module constants
 
@@ -164,8 +164,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_session_ended(row: Mapping[str, Any], now: datetime) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 543)
 - `_record(repository: Repository, row: Mapping[str, Any], *, narrative: str | None, cited: Sequence[str], model: str, prompt: str, reasons: Sequence[str], words: int | None, clock: Clock | None, claim: Any | None=None, version: str=PROMPT_VERSION) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 548) — The narrative (or the drop) and its verdict, in one transaction.
 - `_narrate_claimed(vault: Any, repository: Repository, row: Mapping[str, Any], summary: Mapping[str, Any], result: NarrativeResult, claim: Any, route: NarrativeRoute, *, clock: Clock | None) -> NarrativeResult` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 650) — The narration itself, under the session's claim (Codex re-review F3).
-- `_not_planned_reason(vault: Any) -> str` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 715)
-- `_landed(row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 825)
+- `_landed(row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_digest.py), line 819)
 
 ## Who imports or calls it
 
@@ -185,7 +184,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `READER_FOLLOWUPS_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `module`; calls `exam_withheld`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -238,7 +236,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_invalid_citation_drops_the_narrative_records_why_and_is_never_paid_again`
   - `test_an_overlong_narrative_is_dropped`
   - `test_an_unpriced_metered_route_is_refused_before_sending`
-  - `test_below_the_follow_ups_successor_the_summary_row_says_so`
   - `test_citable_ids_are_the_summarys_event_ids`
   - `test_no_summary_row_with_narration_off_or_follow_ups_live`
   - `test_overlapping_narrations_from_two_repositories_pay_once`

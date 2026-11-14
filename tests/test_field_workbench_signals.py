@@ -515,7 +515,7 @@ def test_the_switch_is_on_by_default_and_classified():
     config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": TAG})(),
                             "workbench": WorkbenchConfig()})()
     assert workbench_field_signals_live(type("V", (), {"config": config})())
-    config.algorithms.algorithm_version = PREDECESSOR
+    config.workbench = WorkbenchConfig(field_signals_enabled=False)
     assert not workbench_field_signals_live(type("V", (), {"config": config})())
 
 
@@ -529,13 +529,10 @@ def _seed_everything(paths):
     _step(paths.sqlite_path, "wb_eig", "st_e", "stuck", "Is lambda allowed to be zero?", minutes=5)
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "below_tag"])
-def test_off_the_derivation_and_blocking_are_the_predecessors(tmp_path, variant):
-    base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR)
-    if variant == "switch_off":
-        paths, vault, _ = _vault(tmp_path, "off", toml=LOW_Q + OFF)
-    else:
-        paths, vault, _ = _vault(tmp_path, "below", version=PREDECESSOR)
+def test_off_the_derivation_and_blocking_are_the_predecessors(tmp_path):
+    # The predecessor: its tag with the switch off (the switch's off-branch is the predecessor's code).
+    base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR, toml=LOW_Q + OFF)
+    paths, vault, _ = _vault(tmp_path, "off", toml=LOW_Q + OFF)
     for target in (base_paths, paths):
         _seed_everything(target)
     assert _signals(paths, vault) == _signals(base_paths, base_vault)
@@ -545,7 +542,7 @@ def test_off_the_derivation_and_blocking_are_the_predecessors(tmp_path, variant)
 def test_on_the_derivation_is_the_predecessors_plus_the_workbench_rows(tmp_path):
     from learnloop.field.workbench_signals import is_workbench_signal
 
-    base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR)
+    base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR, toml=LOW_Q + OFF)
     paths, vault, _ = _vault(tmp_path, "on")
     for target in (base_paths, paths):
         _seed_everything(target)
@@ -774,7 +771,7 @@ def test_g41_off_is_the_predecessor_on_fixture_copies(tmp_path, monkeypatch, fix
     if not (owner_vault(fixture) / "state.sqlite").exists():
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
-    base, _ = _fixture_copy(tmp_path, fixture, "base", version=PREDECESSOR)
+    base, _ = _fixture_copy(tmp_path, fixture, "base", version=PREDECESSOR, toml=OFF)
     off, _ = _fixture_copy(tmp_path, fixture, "off", version=TAG, toml=OFF)
     baseline = _reads(base)
     assert baseline["queue"]["totalItems"] > 0

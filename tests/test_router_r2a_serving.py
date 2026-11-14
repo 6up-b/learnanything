@@ -48,8 +48,17 @@ WORKING_FIXTURES = working_vault_params()
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 
 
+def _staged(root):
+    """R2a's staged frame: the mixture's ``router.mode`` switch (below R2b's tag the mixture was dormant by the tag)."""
+
+    from tests.ux_phase1_support import set_config
+
+    set_config(root, {("router", "mode"): "staged"})
+
+
 def _routed_env(tmp_path, *, version: str = A, toml: str | None = None):
     paths = _wide_vault(tmp_path, version=version)
+    _staged(paths.root)
     if toml:
         append_config_toml(paths.root, toml)
     env = make_env(paths.root, _wide_items(), clock=MovableClock(), session_id="s1")
@@ -79,8 +88,10 @@ def _run(env, *, steps: int = 30) -> list[tuple]:
 
 
 def test_with_nothing_refused_the_staged_frame_serves_dl1s_blocks_in_dl1s_order(tmp_path):
-    dl1 = make_env(_wide_vault(tmp_path / "dl1", version="mvp-0.22").root, _wide_items(), clock=MovableClock(),
-                   session_id="s1")
+    # DL1's pair: the router's switch off (below R2a's tag it was off by the tag).
+    dl1_vault = _wide_vault(tmp_path / "dl1", version="mvp-0.22")
+    append_config_toml(dl1_vault.root, "[router]\nenabled = false\n")
+    dl1 = make_env(dl1_vault.root, _wide_items(), clock=MovableClock(), session_id="s1")
     _seed_wide(dl1.repository)
     assert dl1.policy is DEFAULT_POLICY
     build_plan(dl1, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
@@ -225,6 +236,7 @@ def _rpc_vault(tmp_path, monkeypatch):
     paths = create_daily_plan_vault(
         tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}, version=A,
     )
+    _staged(paths.root)
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"
@@ -409,7 +421,10 @@ def test_switch_off_at_the_successor_serves_the_predecessors_plan_on_fixture_cop
         pytest.skip(f"{fixture} fixture absent")
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     traces = []
-    for name, version, toml in (("pre", "mvp-0.22", None), ("off", A, "[router]\nenabled = false\n")):
+    # Both arms switched off: below R2a's tag the router was off by the tag, a half that is gone, so the predecessor's
+    # tag stands beside the successor's with the switch, and the plan must not depend on which.
+    off = "[router]\nenabled = false\n"
+    for name, version, toml in (("pre", "mvp-0.22", off), ("off", A, off)):
         root = tmp_path / name
         copy_tree_with_databases(owner_vault(fixture), root)
         set_algorithm_version(type("Paths", (), {"root": root})(), version)

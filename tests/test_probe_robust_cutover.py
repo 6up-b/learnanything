@@ -6,7 +6,6 @@ mapping snapshotted on the administration, and byte-identical legacy replay.
 
 from __future__ import annotations
 
-from learnloop.algorithm_versions import P0_ALGORITHM_VERSION
 import json
 
 import pytest
@@ -152,10 +151,12 @@ def test_robust_selection_abstains_on_indistinguishable_candidates(tmp_path):
 
 
 def test_evaluate_completion_abstains_on_planted_indistinguishable_case(tmp_path, monkeypatch):
-    """Integration: an mvp-0.8 episode with an unstable posterior and only
-    non-discriminating instruments left completes with the abstention outcome."""
+    """Integration: an episode with an unstable posterior and only
+    non-discriminating instruments left completes with the abstention outcome
+    where value of information does not decide the episode (its site's switch off)."""
 
-    loaded, repository = _load(tmp_path, version=P0_ALGORITHM_VERSION)
+    loaded, repository = _load(tmp_path)
+    loaded.config.voi_stopping.probe_episodes = False
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     posterior = episode_posterior(loaded, repository, repository.probe_episode(episode.id))
 
@@ -230,15 +231,28 @@ def test_decision_snapshot_byte_stable_after_model_activation_with_receipt(tmp_p
     assert dict(final.features["robust"]["posterior_after"]) == pinned_before
 
 
-# --- Deliverable 3: legacy mvp-0.6/0.7 byte-identical ---
+# --- Deliverable 3: an episode opened before the cutover replays byte-identical ---
 
 
-def test_legacy_mvp07_episode_is_byte_identical(tmp_path):
-    """A legacy mvp-0.7 vault runs the point path: no channel pin, and the replayed
-    posterior matches the pinned characterization expectations exactly."""
+def _as_opened_before_the_cutover(repository, episode_id):
+    """The episode as an mvp-0.6/0.7 vault opened it: no calibration channel pinned. That writer is gone (every
+    vault that opens takes the robust path); upgraded vaults still hold such episodes."""
 
-    loaded, repository = _load(tmp_path, version="mvp-0.7")
-    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE probe_episodes SET calibration_model_id = NULL, calibration_model_hash = NULL, "
+            "probe_mapping_version = NULL WHERE id = ?", (episode_id,))
+        connection.commit()
+
+
+def test_an_episode_opened_before_the_cutover_replays_on_the_point_path(tmp_path):
+    """An episode with no pinned channel runs the point path, and the replayed posterior
+    matches the pinned characterization expectations exactly."""
+
+    loaded, repository = _load(tmp_path)
+    opened = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    _as_opened_before_the_cutover(repository, opened.id)
+    episode = repository.probe_episode(opened.id)
     # No robust channel pinned on a legacy episode.
     assert episode.calibration_model_hash is None
     assert episode.probe_mapping_version is None

@@ -77,8 +77,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `compile_assessment_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `snapshot_for_presentation`
-- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `CANONICAL_STATE_VERSIONS`
-- [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
+- [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `P0_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `compile_assessment_contract`; statically calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `compile_assessment_contract`, `rubric_from_contract`; statically calls `compile_assessment_contract`, `rubric_from_contract`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `rubric_from_contract`; statically calls `rubric_from_contract`
@@ -118,7 +117,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]], [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

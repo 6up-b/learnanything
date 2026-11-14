@@ -89,9 +89,14 @@ def _serving_fingerprint(vault, repository, minutes):
     ]
 
 
+#: Placement's kill switch.
+OFF = "[placement]\nenabled = false\n"
+
+
 @pytest.mark.parametrize("predecessor", ["mvp-0.9", "mvp-0.10"])
 def test_kill_switch_restores_initial_probes_serving_and_ordering_exactly(tmp_path, predecessor):
-    _p0, baseline_vault, baseline_repo = _setup(tmp_path, version=predecessor, name="baseline")
+    # The predecessor: its tag with placement's switch off (the switch's off-branch is the predecessor's code).
+    _p0, baseline_vault, baseline_repo = _setup(tmp_path, version=predecessor, name="baseline", placement_toml=OFF)
     paths, vault, repository = _setup(
         tmp_path, placement_toml="[placement]\nenabled = false\n", name="switched_off",
     )
@@ -109,7 +114,7 @@ def test_kill_switch_ignores_assumptions_made_while_on(tmp_path, predecessor):
     (paths.root / "learnloop.toml").write_text(text + "\n[placement]\nenabled = false\n")
     off = load_vault(paths.root)
     sync_vault_state(off, repository, clock=_at(3))
-    _b, baseline_vault, baseline_repo = _setup(tmp_path, version=predecessor, name="baseline")
+    _b, baseline_vault, baseline_repo = _setup(tmp_path, version=predecessor, name="baseline", placement_toml=OFF)
     assert _serving_fingerprint(off, repository, 4) == _serving_fingerprint(baseline_vault, baseline_repo, 4)
 
 
@@ -165,10 +170,9 @@ def test_self_report_is_idempotent_while_open_and_refused_when_placement_is_off(
     assert again["results"][0]["status"] == "already_assumed"
     assert len(_decisions(paths)) == 1
 
-    for predecessor in ("mvp-0.9", "mvp-0.10"):
-        _p, off_vault, off_repo = _setup(tmp_path, version=predecessor, name=f"pre-{predecessor}")
-        with pytest.raises(PlacementInactive):
-            record_self_report(off_vault, off_repo, learning_object_ids=["lo_diag"], report="know_this")
+    _p, off_vault, off_repo = _setup(tmp_path, placement_toml=OFF, name="off")
+    with pytest.raises(PlacementInactive):
+        record_self_report(off_vault, off_repo, learning_object_ids=["lo_diag"], report="know_this")
 
 
 def test_too_easy_retirement_marks_the_lo_assumed_without_extra_writes(tmp_path):

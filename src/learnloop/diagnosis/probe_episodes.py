@@ -62,7 +62,6 @@ from learnloop.diagnosis.probes import (
     score_bucket,
 )
 from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
-from learnloop.diagnosis.probe_robust import use_robust_probe
 from learnloop.vault.lifecycle import learning_object_servable
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -188,21 +187,18 @@ def episode_open_contract(
             target_contract_version_id = head.id
             target_support_hash = head.support_hash
 
-    # mvp-0.8 robust cutover (§4.2, invariant 3): resolve + pin the calibration
+    # The robust cutover (§4.2, invariant 3): resolve + pin the calibration
     # channel at episode open. Both robust selection and the decision-time
-    # observed_update consume this pinned model hash. Legacy vaults leave it NULL.
-    calibration_model_id: str | None = None
-    calibration_model_hash: str | None = None
-    probe_mapping_version: str | None = None
-    from learnloop.diagnosis.probe_robust import resolve_episode_channel, use_robust_probe
+    # observed_update consume this pinned model hash (an episode opened before
+    # the cutover holds NULL and keeps the point path).
+    from learnloop.diagnosis.probe_robust import resolve_episode_channel
 
-    if use_robust_probe(vault):
-        channel = resolve_episode_channel(
-            repository, learning_object_id=learning_object_id, clock=clock
-        )
-        calibration_model_id = channel.model_id or None
-        calibration_model_hash = channel.model_hash
-        probe_mapping_version = channel.mapping_version
+    channel = resolve_episode_channel(
+        repository, learning_object_id=learning_object_id, clock=clock
+    )
+    calibration_model_id = channel.model_id or None
+    calibration_model_hash = channel.model_hash
+    probe_mapping_version = channel.mapping_version
     return {
         "algorithm_version": vault.config.algorithms.algorithm_version,
         "required_facets": sorted(required_facets(vault, learning_object_id, repository)),
@@ -2339,7 +2335,7 @@ def _dual_write_probe_grade(
     unchanged three-key ``grader_channel`` probe observation. The probe posterior
     update is untouched (still ignores grader_confidence). Never raises.
 
-    Under mvp-0.8 the versioned probe-outcome -> coarse-class mapping (§3.1) is
+    The versioned probe-outcome -> coarse-class mapping (§3.1) is
     snapshotted into the raw grade event's raw_output and the coarse class is pinned
     as the interpretation's observed class, so replay reproduces the mapping.
 
@@ -2359,7 +2355,7 @@ def _dual_write_probe_grade(
         coarse_override: str | None = None
         mapping_meta: dict[str, Any] = {}
         outcome_schema_slug = COARSE_RESPONSE_SLUG
-        if instrument is not None and use_robust_probe(vault):
+        if instrument is not None:
             from learnloop.diagnosis.probe_outcome_mapping import (
                 coarse_class_for_outcome,
                 coarse_schema_slug,

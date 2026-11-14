@@ -325,7 +325,9 @@ def test_a_cold_check_served_as_practice_or_displaced_leaves_a_record(tmp_path, 
     from learnloop import serve_eligibility as se
     from learnloop.scheduling import scheduler
 
-    env = mixture_env(tmp_path, fake_runtime())
+    # The plan's own revalidation is the subject: the scheduler's serve paths ask the eligibility decision too
+    # (mvp-0.27), and would take the patched verdict first; their switch off, as below that tag (the mixture's).
+    env = mixture_env(tmp_path, fake_runtime(), toml="[eligibility]\nenabled = false\n")
     record, _step = advance(env, serve=False)
     target = record.current_block().items[0].practice_item_id
     decision = se.EligibilityDecision(request="serve", verdict=verdict, reason=se.COLD_CHECK_ROUTINE_DISPLAY,

@@ -82,8 +82,8 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 13 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 12 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
@@ -112,8 +112,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.field"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop["learnloop"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_placement["learnloop.placement"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
@@ -122,8 +122,8 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_cli -->|17| center
-    center -->|13| n_learnloop
     center -->|12| n_learnloop_ai
+    center -->|10| n_learnloop
     center -->|9| n_learnloop_db_stores
     n_learnloop_placement -->|8| center
     n_learnloop_adaptive_difficulty -->|7| center

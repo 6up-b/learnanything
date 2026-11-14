@@ -303,8 +303,13 @@ def _cold_retry(repository, item_id, at):
     )
 
 
+#: DL2's F15 duty as at its tag: Reader CA2 (mvp-0.34), which never withholds help on a cold follow-up, off by its
+#: switch (below CA2's tag it was off by the tag).
+CA2_OFF = "[ask]\ncold_help_converts = false\n"
+
+
 def test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty(tmp_path):
-    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION)
+    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION, plan_toml=CA2_OFF)
     iv.choose("practice_item", "pi_b1", "check_once", NOW)
     due_day = NOW + timedelta(days=8)
     _cold_retry(iv.repository, "pi_b1", due_day)
@@ -355,7 +360,7 @@ def side(tmp_path):
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
 
-    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION)
+    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION, plan_toml=CA2_OFF)
     context = SidecarContext()
     context.load(iv.root)
     context.grading_provider_override = "manual"

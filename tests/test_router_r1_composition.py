@@ -44,7 +44,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests.daily_plan_fakes import NOW, MovableClock, make_env, scheduled, seed_due
-from tests.helpers import append_config_toml, create_daily_plan_vault, create_placement_vault
+from tests.helpers import append_config_toml, create_daily_plan_vault
 
 DAY1 = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 
@@ -97,8 +97,6 @@ def test_the_full_list_seam_reads_the_plan(tmp_path):
     append_config_toml(plan.root, "[plan]\nenabled = false\n")
     # The plan's kill switch: Today is the legacy queue again, whose head is served.
     assert today_head_served(load_vault(plan.root)) is True
-    legacy = create_placement_vault(tmp_path / "legacy", version="mvp-0.11")
-    assert today_head_served(load_vault(legacy.root)) is True
 
 
 def test_under_the_plan_the_full_list_serves_no_head_and_a_pick_from_it_is_logged(tmp_path, frozen_now):
@@ -142,6 +140,8 @@ def test_plan_block_decisions_get_router_decision_ids_end_to_end(tmp_path, froze
         tmp_path / "vault", version="mvp-0.15",
         learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]},
     )
+    # DL1's chooser: the router's own switch off (below R2a's tag it was off by the tag).
+    append_config_toml(paths.root, "[router]\nenabled = false\n")
     ctx = _ctx(paths.root)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     served = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})

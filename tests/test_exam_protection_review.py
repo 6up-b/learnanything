@@ -492,6 +492,8 @@ def test_with_the_switch_off_shown_material_is_selected_as_before(tmp_path):
     _problem_book(probe_repository)
     _with_exercise(probe_paths.root, HELD_OUT_ITEM, source_id="src_problems", extraction_id="ext_problems",
                    span_id="s2")
+    # The answer-key gate leaves an unverified import out at every tag that opens (the probe vault was below it).
+    _key_checked(probe_paths.root, probe_repository, HELD_OUT_ITEM)
     _expose(probe_repository, "ext_problems", "s2")
     assert select_held_out_probe_item(load_vault(probe_paths.root), probe_repository,
                                       certificate).practice_item_id is None

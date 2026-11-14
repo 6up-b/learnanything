@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import DECIDER_TIER1_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, process_learner_text
@@ -11,7 +12,7 @@ from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, append_config_toml, create_placement_vault
+from tests.helpers import NOW, append_config_toml, create_placement_vault, set_config_switch
 from tests.text_gap_fakes import GapLLMFake
 
 
@@ -19,10 +20,24 @@ EIGEN_GAP = LearnerGap(prerequisite_name="Eigenvalues", prerequisite_line="Scala
                        kind="prerequisite")
 
 
+#: Below Tier 1's tag (mvp-0.22) the pipeline judged pairs and kinds without the Decider's authority. No vault opens
+#: there now, so these two switches (their off-branches are that predecessor's code) serve it to a vault built below.
+PRE_TIER1_SWITCHES = ("decider_routes.learner_gap_judge", "decider_routes.learner_gap_kind")
+
+
+def serve_pre_tier1(root, version: str) -> None:
+    """A vault at ``version`` below Tier 1's tag: the two learner-gap Tier-1 switches off."""
+
+    if SUCCESSOR_CHAIN.index(version) < SUCCESSOR_CHAIN.index(DECIDER_TIER1_ALGORITHM_VERSION):
+        for switch in PRE_TIER1_SWITCHES:
+            set_config_switch(root, switch, False)
+
+
 def _vault(tmp_path, *, version: str = "mvp-0.16", toml: str = ""):
     paths = create_placement_vault(tmp_path / "vault", version=version)
     if toml:
         append_config_toml(paths.root, toml)
+    serve_pre_tier1(paths.root, version)
     return paths.root, Repository(paths.sqlite_path)
 
 

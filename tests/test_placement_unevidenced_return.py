@@ -36,7 +36,14 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 from tests.daily_plan_fakes import make_env, scheduled
-from tests.helpers import NOW, append_config_toml, create_basic_vault, create_placement_vault, set_algorithm_version
+from tests.helpers import (
+    NOW,
+    append_config_toml,
+    create_basic_vault,
+    create_placement_vault,
+    set_algorithm_version,
+    set_config_switch,
+)
 
 TAG = LATEST_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION
@@ -62,14 +69,13 @@ def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
     ("version", "toml", "active"),
     [
         (TAG, None, True),
-        (OLD, None, False),
         (TAG, OFF, False),
         (TAG, "[placement]\nenabled = false\n", False),
         (TAG, "[placement]\ninitial_probes = true\n", False),
     ],
-    ids=["at-tag", "below-tag", "switch-off", "placement-off", "initial-probes"],
+    ids=["at-tag", "switch-off", "placement-off", "initial-probes"],
 )
-def test_the_gate_is_the_tag_the_switch_and_ignored_opening_episodes(tmp_path, version, toml, active):
+def test_the_gate_is_the_switch_and_ignored_opening_episodes(tmp_path, version, toml, active):
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, version)
     if toml:
@@ -81,9 +87,12 @@ def test_the_gate_is_the_tag_the_switch_and_ignored_opening_episodes(tmp_path, v
 
 
 def _vault(tmp_path, name="vault", *, only_item=True):
-    """A placement vault below the tag, with ``ITEM`` the only active item of its LO when ``only_item``."""
+    """A placement vault below the tag, with ``ITEM`` the only active item of its LO when ``only_item``. Below the tag
+    stands the predecessor's serving: no vault opens there now, so the successor's switch off serves it (its off-branch
+    is the predecessor's code)."""
 
     paths = create_placement_vault(tmp_path / name, version=OLD)
+    set_config_switch(paths.root, "placement.unevidenced_return", False)
     if only_item:
         path = paths.practice_item_path("linear-algebra", SIBLING)
         write_yaml(path, {**read_yaml(path), "status": "retired"})
@@ -124,11 +133,11 @@ def _queue(vault, repository, minutes=2):
     return read_due_queue(vault, repository, clock=_at(minutes))
 
 
-def _reload(paths, version=None, toml=None):
-    if version is not None:
-        set_algorithm_version(paths, version)
-    if toml:
-        append_config_toml(paths.root, toml)
+def _reload(paths, version, toml=None):
+    """The vault moved to ``version``: at the tag the switch is on unless ``toml`` is :data:`OFF`; below it, off."""
+
+    set_algorithm_version(paths, version)
+    set_config_switch(paths.root, "placement.unevidenced_return", version == TAG and toml != OFF)
     return load_vault(paths.root)
 
 
@@ -259,6 +268,7 @@ def test_a_returned_prerequisite_moves_its_dependents_one_layer_later(tmp_path):
     results = {}
     for name, version in (("below", OLD), ("at", TAG)):
         paths = create_placement_vault(tmp_path / name, version=OLD)
+        set_config_switch(paths.root, "placement.unevidenced_return", False)
         for retired in ("pi_eig_mid", "pi_eig_hard"):
             path = paths.practice_item_path("linear-algebra", retired)
             write_yaml(path, {**read_yaml(path), "status": "retired"})
@@ -362,8 +372,7 @@ def test_a_whole_vault_rebuild_writes_the_same_state_at_both_tags(tmp_path):
 def test_a_shadow_rebuild_reports_nothing_moved_for_the_shape(tmp_path):
     paths, _vault_at, repository = _with_primed_answer(tmp_path)
     # The vault at the tag, its derived state rebuilt there (what the tag's activation left).
-    set_algorithm_version(paths, TAG)
-    rebuild_all_derived_state(load_vault(paths.root), repository)
+    rebuild_all_derived_state(_reload(paths, TAG), repository)
     invocation = CliRunner().invoke(app, ["rebuild", "--shadow", "--json", "--vault", str(paths.root)])
     assert invocation.exit_code == 0, invocation.output
     report = json.loads(invocation.output)["shadow_rebuild"]

@@ -21,6 +21,7 @@ source_paths:
   - "tests/facet_identity_fakes.py"
   - "tests/facet_span_support_helpers.py"
   - "tests/http_provider_double.py"
+  - "tests/learner_text_gaps_helpers.py"
   - "tests/required_method_authority_helpers.py"
   - "tests/structured_ai.py"
   - "tests/test_ad1_codex_review_fixes.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/test_ad1_fix_round6.py"
   - "tests/test_ad1_fix_round9.py"
   - "tests/test_ad1_outside_and_cli.py"
-  - "tests/test_ad1_send_guard.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/decider-routes"
@@ -71,6 +71,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/facet_identity_fakes.py`
 - `tests/facet_span_support_helpers.py`
 - `tests/http_provider_double.py`
+- `tests/learner_text_gaps_helpers.py`
 - `tests/required_method_authority_helpers.py`
 - `tests/structured_ai.py`
 - `tests/test_ad1_codex_review_fixes.py`
@@ -78,7 +79,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_fix_round6.py`
 - `tests/test_ad1_fix_round9.py`
 - `tests/test_ad1_outside_and_cli.py`
-- `tests/test_ad1_send_guard.py`
 
 ## Extension and modification guidance
 

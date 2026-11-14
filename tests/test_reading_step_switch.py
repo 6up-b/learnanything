@@ -59,10 +59,8 @@ def test_the_reading_step_is_not_a_successor_tag():
 
 
 def test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch(tmp_path):
-    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.9")
+    paths = create_placement_vault(tmp_path / "vault", version=DAILY_PLAN_ALGORITHM_VERSION)
     expected = {
-        "mvp-0.9": (False, False),
-        "mvp-0.13": (False, False),
         DAILY_PLAN_ALGORITHM_VERSION: (True, True),
         LATEST_ALGORITHM_VERSION: (True, True),
     }

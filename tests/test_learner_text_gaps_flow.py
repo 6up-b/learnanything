@@ -109,13 +109,15 @@ def test_the_switch_off_queue_equals_the_predecessor_version(tmp_path):
     _gap(root, repository, minutes=10)
     off = _view(_queue(root, repository, 10 + DAY + 5))
     predecessor = tmp_path / "predecessor"
-    root_b, repository_b = _setup(predecessor, version="mvp-0.15")
+    # The predecessor: its tag with the successor's switch off (the switch's off-branch is its code).
+    root_b, repository_b = _setup(predecessor, version="mvp-0.15",
+                                  toml="[learner_text_gaps]\nsooner_check_enabled = false\n")
     record_self_report(load_vault(root_b), repository_b, learning_object_ids=["lo_eigen_basics"], report="know_this",
                        clock=_at(1))
     _gap(root_b, repository_b, minutes=10)
     assert off == _view(_queue(root_b, repository_b, 10 + DAY + 5))
     with closing(connect(repository_b.sqlite_path, read_only=True)) as connection:
-        assert store.check_advances(connection) == []  # below mvp-0.16 none is written
+        assert store.check_advances(connection) == []  # with the switch off none is written
 
 
 def test_a_gap_on_a_maintenance_lo_brings_its_next_review_forward_until_answered(tmp_path):
