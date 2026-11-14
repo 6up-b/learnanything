@@ -590,15 +590,12 @@ def exercise_import_ids(connection: sqlite3.Connection, items: Iterable[Any]) ->
     return ids
 
 
-def unverified_import_ids(connection: sqlite3.Connection, items: Iterable[Any], *, gated: bool) -> set[str]:
+def unverified_import_ids(connection: sqlite3.Connection, items: Iterable[Any]) -> set[str]:
     """Exercise imports whose CURRENT key is not verified (C3, §7.3a).
 
     Certification cold probes and exam pools leave them out, as DL3 keeps
-    unverified captures out. ``gated`` is whether the vault is at or above the
-    gate's tag; below it nothing is excluded."""
+    unverified captures out."""
 
-    if not gated:
-        return set()
     items = list(items)
     candidates = exercise_import_ids(connection, items)
     return {item.id for item in items

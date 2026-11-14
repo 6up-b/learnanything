@@ -307,15 +307,11 @@ def reserve_exam_pool(
 def _unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]:
     from contextlib import closing
 
-    from learnloop.algorithm_versions import SOURCE_REFERENCE_GATE_VERSIONS
     from learnloop.db.connection import connect
     from learnloop.db.stores.source_service import unverified_import_ids
 
-    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
-    if not gated:
-        return set()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return unverified_import_ids(connection, vault.practice_items.values(), gated=True)
+        return unverified_import_ids(connection, vault.practice_items.values())
 
 
 def _shown_items(vault: LoadedVault, repository: Repository) -> set[str]:
