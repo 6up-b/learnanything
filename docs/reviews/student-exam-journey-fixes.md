@@ -109,3 +109,131 @@ from the wizard and Quick Add's own preset, whose `authoringPreset` is carried).
 The other date inputs in the app: `GoalWizard` (create only), `DeliverableScope` (create only), and `IntentControl`
 ("move the deadline": an empty field with its own save, the current deadline shown beside it). None reopens a saved
 value into a form that saves everything, so none has the slip.
+
+## SJ-1 (A): a subject can be made where one is required (`dd898a5ef2`)
+
+Fail first: `QuickAddDialog.test.tsx` "with no subject to pick, lets the student create one and Analyze enables" and
+"a refused subject leaves Analyze disabled and says why" both failed at the base on `Unable to find an element with the
+placeholder text of: new subject title` (the first assertion, Analyze disabled with no subject, passed: the audit's
+state). `AddToCollection.test.tsx` "a vault with no subject can still start a collection: the panel makes one" failed
+the same way.
+
+The choice: an inline create-subject control, not Ordinary Add's title-named subject. Quick Add needs a subject
+because its source set carries one; naming it from the source's title is the behaviour finding 5 questions (three
+materials, three subjects), and it would keep the copy's promise only by making the subject for the student. The
+control asks for the student's own name (one course, finding 5's direction) and keeps "create a subject on the next
+step" true.
+
+The fix: `components/NewSubjectControl.tsx`, a title field and "create subject" over the existing
+`api.runCliCommand(["add-subject", id, title])` (the Ingest screen's call; the sidecar reloads the vault after it),
+the id the title in kebab case as the Ingest screen makes it. Quick Add shows it in place of the picker when there is
+no subject to pick, keeps what it made in its own list (the caller's list arrives from the app snapshot) and selects
+it; a refusal (the CLI's stderr) shows as the dialog's error. The add-to-collection panel's new-collection form shows
+the same control when the vault has no subject.
+
+Siblings (step 0's table): the three Quick Add openers share the dialog, so all three are fixed; add-to-collection is
+fixed; the Ingest screen already had its own control; registry review and the Reader's deliverable scope do not need
+one. The new-vault wizard's own "add subject" is in its unreachable step 2 (SJ-9). Copy: the new-vault wizard's "skip
+this and create a subject on the next step" is now true and unchanged.
+
+## SJ-2 (B): the exam goal reaches the build (`4983f16155`)
+
+Fail first, at the base:
+
+- The audit's probe as a test: a Quick Add with the wizard's exam-prep brief (title, `dueAt`, target recall, item
+  count), enqueued as the dialog's confirm enqueues it, completed with `applied: True` and `len(goals) == 0`
+  (`AssertionError: assert 0 == 1`). It ran as a temporary file, since the committed test passes the new argument.
+- `QuickAddDialog.test.tsx` "an exam-prep brief asks the build for its goal, with the brief's deadline":
+  `expected undefined to be true` (the dialog sent no flag); "a brief that is not exam prep asks for no goal": `expected
+  undefined to be false`.
+- `SourceLibrarySidebar.test.tsx` (new) "an exam-prep collection brief asks the build for its goal" and "a collection
+  with no brief asks for no goal": `expected undefined to be true` / `false`.
+- `test_quick_add.py::test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal` and
+  `::test_quick_add_without_an_exam_brief_makes_no_goal`, `test_ingest_jobs.py::test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job[quick_add|source_set]`,
+  `test_sidecar_quick_add.py::test_confirm_quick_add_forwards_the_exam_goal_flag` and
+  `::test_confirm_quick_add_without_the_flag_asks_for_no_goal`,
+  `test_build_study_map_routing.py::test_a_collection_build_asked_for_its_goal_passes_create_goal`: each failed on the
+  missing argument or field (`TypeError` unexpected keyword `create_goal`, pydantic `extra_forbidden`, `KeyError:
+  'create_goal'`).
+
+The decision, from the spec: the goal stays behind the explicit flag, not "every exam-prep brief". Spec §5.1 says the
+flow *can* end by creating the goal "when the brief's outcome is exam preparation (or the user opts in)"; the
+synthesis already gates on `create_goal and _is_exam_prep(brief)`, and the CLI's `--create-goal` is opt-in. The wizard
+sets the flag exactly when it shows the promise (`outcome === "exam_prep"`), so in the app copy and behaviour agree;
+keeping the flag explicit is what keeps an old job from minting a goal (below).
+
+The fix: `createGoal` from the wizard's `onSubmit` is kept by Quick Add (cleared by the enrichment preset, which sets
+general learning) and sent with `confirmQuickAdd`; the collections section keeps it per collection and sends it with
+`buildStudyMap`. The sidecar's `ConfirmQuickAddInput` and `BuildStudyMapInput` take `create_goal`;
+`enqueue_quick_add`, `enqueue_quick_add_build` and `enqueue_source_set_build` take it and write `create_goal: True`
+into the synthesis payload only when asked (a build that does not ask keeps the payload it always had). The job
+handler and `_apply_map` were already right. The end-to-end test runs the real batch (fake inventory and synthesis
+clients) and finds the applied map and one goal with the brief's title, `due_at`, target recall, held-out count and
+the minted facets; the general-learning build finds none.
+
+Siblings (step 0's table): Quick Add and the collection build are fixed. The append is not forwarded the flag
+(`build_study_map` passes it only to `enqueue_source_set_build`; a test pins that), because the append makes no goal:
+SJ-8. The automatic build's brief is never exam prep; retries and revalidation copy the job's own payload; the
+`create_study_map` RPC and the CLI already carry the flag; CLI `quick-add` takes no brief. The K2.4 goldens
+(`test_synthesis_tail_golden.py`, with bootstrap's clean case applying with its exam goal) pass unchanged: they call
+`create_study_map` directly.
+
+Copy: the wizard said "This creates the Goal in the same flow." That stays true for a subject's first map and is false
+for an append, so it now reads "This creates the Goal in the same flow when it builds the subject's first study map.
+Adding to an existing map leaves your goals as they are; make one from Today."
+
+### What a rerun of an old exam-prep brief does now
+
+Nothing new: no rerun mints a goal it would not have minted before.
+
+- A retry, a revalidation (`reuse_candidate`) or a crash-resume of a synthesis job queued before this change copies or
+  reads that job's payload, which has no `create_goal`, so it makes no goal, as before.
+- A capture whose Quick Add was in flight across the upgrade: its stored request has no `create_goal`; the request
+  model now has the field, so `_request_hash` differs and the resume is refused as a conflict, as for any
+  request-model change (`identity_pins_helpers` registers `capture.py::_request_hash` with that reason). It never
+  mints a goal.
+- A new build with the same brief from the app is a new confirmation through the wizard: it asks for the goal when the
+  brief is exam prep, as the wizard says. If the subject already has a map the build is an append and makes none. A
+  second apply of the same proposal finds the goal it made (the goal id is keyed by the proposal).
+- `learnloop rebuild` replays derived tables; it runs no synthesis and never writes `goals.yaml`.
+
+So no guard was needed.
+
+## SJ-3 (C): the wizard reopens with the deadline (`0e057e91e8`)
+
+Fail first: `StudyMapBriefWizard.test.tsx` (new) "starts the due date from the brief it was opened with" (`expected
+'' to be '2026-11-27'`), "saving without touching the date keeps the deadline, and every other field" (the saved brief
+lost `dueAt`), "a date-only deadline opens on that day" (`''`). "clearing the date removes the deadline" passed at the
+base and still does.
+
+The fix: the date starts from `initialBrief.dueAt`, read back as the local day `build()` saved (it saves the day's
+23:59:59 local time as an ISO instant, whose UTC date is the next day west of Greenwich); a bare `YYYY-MM-DD` is taken
+as the day. The test file passes under `TZ=UTC`, `America/New_York` and `Asia/Tokyo`. The round-trip test reopens a
+brief with every wizard field set and saves it unchanged: the saved brief equals the opened one, so no other field has
+the slip. Both openers (Quick Add, the collections' "edit brief") use the wizard, so both are fixed.
+
+## Gates
+
+See the report for the run: typecheck, vitest, the frontend build, the targeted Python gate
+(`scripts/affected_tests.py` against the base plus the rules' fixed list), `lint-imports`, `ruff`, the four vault
+validators, `check_gate_partition.py`, and one regeneration of the vault references.
+
+## Found on the way (for the UX journey audit; not fixed)
+
+- **SJ-8** (finding 2's neighbour, design): an exam-prep brief on a subject that already has a study map makes no
+  goal: Quick Add or "synthesize →" route to the append, which has no goal step. And the goal a first map makes scopes
+  only the facets that map minted, so the lectures or problem sets a student adds later never join the exam goal's
+  scope. Choices: (a) the append makes or extends the goal over the subject's whole map; (b) leave goals to Today's
+  goal wizard and the Reader's deliverable scope (finding 4), and say so (what the copy now does). Recommendation: (b)
+  now, and settle (a) with finding 4's "exam goal during course setup", since that goal should cover the course, not
+  the first book.
+- **SJ-9** (finding 4, design): `NewVaultWizard` renders only its first step (`STEP_LABELS = ["vault"]`); creating the
+  vault closes it. Its steps 2 to 5 (first source with "add subject", proposals, the optional goal with `GoalWizard`,
+  the loop) and their header comment are unreachable. The goal step is the course-setup goal finding 4 asks for;
+  whether to restore it or delete the dead steps is that design's call.
+- Finding 4: the brief wizard's exam goal (title, intent, deadline, target recall, held-out items) and the Reader's
+  "Learning this for something?" (sentence, topics, deadline, exam) are two ways to make an exam goal with different
+  fields and different scopes (the map's minted facets against the resolved deliverable scope).
+- Finding 5: Quick Add still requires a subject while ordinary Add files each source under a subject named from its
+  title; after SJ-1 a student who starts in Quick Add names the course once, and one who starts with ordinary Add gets
+  one subject per source. The two entry points disagree on what a subject is.
