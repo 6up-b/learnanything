@@ -187,6 +187,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_zero_evidence_state_gets_full_merge_weight`
 - [tests/test_evidence_config.py](../../../../../../tests/test_evidence_config.py) — direct import
   - `test_override_flows_through_resolvers`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
   - `test_default_step_cap_leaves_normal_attempts_untouched`
   - `test_difficulty_defaults_to_zero_when_unset`

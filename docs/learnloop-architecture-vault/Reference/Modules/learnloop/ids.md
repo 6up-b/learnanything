@@ -327,6 +327,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_rw5b_fix_round2.py](../../../../../tests/test_figures_rw5b_fix_round2.py) — direct import
   - `test_a_forked_ask_offers_and_builds_on_the_fork`
 - [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
+- [tests/test_grade_application_golden.py](../../../../../tests/test_grade_application_golden.py) — direct import
 - [tests/test_ids.py](../../../../../tests/test_ids.py) — direct import
   - `test_a_new_millisecond_restarts_from_fresh_randomness`
   - `test_new_ulid_after_ignores_a_floor_that_is_not_a_ulid_or_is_behind`

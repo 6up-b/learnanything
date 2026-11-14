@@ -139,7 +139,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `CanonicalExercise`, `PracticeItem`, `SourceRef`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]] — imports `PracticeItem`
 - [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] — imports `LoadedVault`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LoadedVault`, `PracticeItem`, `Rubric`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `LoadedVault`, `PracticeItem`, `Rubric`
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `LoadedVault`
@@ -562,6 +562,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_library_question_targets_only_its_notes_learning_objects`
 - [tests/test_goal_intent.py](../../../../../../tests/test_goal_intent.py) — direct import
 - [tests/test_goal_scope_material.py](../../../../../../tests/test_goal_scope_material.py) — direct import
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_graph_nomination.py](../../../../../../tests/test_graph_nomination.py) — direct import
   - `test_backfill_reuses_a_vector_paid_at_ingest_under_another_id`
   - `test_concept_queries_carry_their_linked_definitions`
