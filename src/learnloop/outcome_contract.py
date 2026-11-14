@@ -149,7 +149,7 @@ def grade_is_held(*, record_held: bool, anything_assessed: bool) -> bool:
     over it, so a hold never outlives the revision that settled it.
 
     Two callers evaluate it, and every reader reads one of them: the attempt
-    step in flight (``attempts._compute_resolved_grade_application``, the
+    step in flight (``attempts.grade_scope``, the
     grade being applied, before its blind record is written) and the ledger
     (``learnloop.held_grades.held_for_review_attempts``, re-exported by
     ``substrate.canonical_projection``: any persisted attempt). A held grade

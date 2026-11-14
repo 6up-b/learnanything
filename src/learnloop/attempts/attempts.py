@@ -556,9 +556,10 @@ class AttemptPriorState:
 class AttemptApplication:
     """Computed attempt outputs before they are persisted.
 
-    This is the state-output boundary for the attempt pipeline. The computation
-    still loads its prior snapshot through Repository today, but every row the
-    attempt will write is materialized here before the persistence step runs.
+    This is the state-output boundary for the attempt pipeline: every row the
+    attempt will write is materialized here, by the pure ``grade_application``
+    over what ``_compute_resolved_grade_application`` read, before the
+    persistence step runs.
     """
 
     attempt_record: dict[str, Any]
@@ -5971,7 +5972,7 @@ def assessed_rubric_score(
     asked-criteria score is the same construction). With NO criterion
     assessed, the deterministic final-answer check has verified the answer, so
     the fraction is 1: correct for scheduling (the attempt writes no facet
-    evidence; see ``_compute_resolved_grade_application``).
+    evidence; see ``grade_scope``).
 
     ``answer_validated = False`` (mvp-0.17, re-review F9): nothing validated
     the answer (no verified final answer, no criterion an independent check

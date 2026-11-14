@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 283
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 76
-comment_lines_naming_a_stage_artifact = 2392
+functions_over_200_lines = 75
+comment_lines_naming_a_stage_artifact = 2387
 test_files_named_for_a_stage = 184
 
 [members]
@@ -243,7 +243,6 @@ root_modules = [
 functions_over_200_lines = [
     "src/learnloop/adaptive_difficulty/replay.py load_events",
     "src/learnloop/attempts/attempts.py _apply_attempt_in_transaction",
-    "src/learnloop/attempts/attempts.py _compute_resolved_grade_application",
     "src/learnloop/attempts/attempts.py graded_reference_contents",
     "src/learnloop/attempts/coldness_receipt.py _scan_exposures",
     "src/learnloop/attempts/grade_resolution.py resolve_grade",
@@ -546,7 +545,7 @@ stage_test_files = [
 "src/learnloop/ai/spend.py" = 1
 "src/learnloop/algorithm_versions.py" = 40
 "src/learnloop/attempts/ai_contracts.py" = 1
-"src/learnloop/attempts/attempts.py" = 28
+"src/learnloop/attempts/attempts.py" = 23
 "src/learnloop/attempts/clarification.py" = 2
 "src/learnloop/attempts/grade_resolution.py" = 4
 "src/learnloop/attempts/grading.py" = 3
