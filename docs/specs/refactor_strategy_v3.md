@@ -764,9 +764,9 @@ The map's methods were name- and import-based, so whole risk classes were invisi
 **K9. Diagnosis: deep map and structure strategy** (L; review, two jobs, K2's method). Before arc G.
 - **Why:** the largest package (110 files, 73,609 lines) holds 65 of the cycle's 189 modules, and arc G changes what it decides without anyone having mapped its layout.
 - **Scope:** `diagnosis/`, with `causal_orchestrator.py` and `probe_episodes.py` first; `params/parameter_registry.py`'s cost per change (in 11% of commits, about 380 registered constants). The orchestrator checks the map's claims before the strategy uses them.
-  - **K9.0 The planted-type simulation on the robust probe path** (behaviour; investigation first): ledger D-39, found by D6 after the strategy was written; before any K9 step that moves the posterior or the instruments.
 - **Output:** K9.1... after arc D. K6 widens from side effects to `source_retrieval`'s structure the same way, if the method pays a second time.
 - **Strategy** (Nov 14): `docs/reviews/k9-diagnosis-strategy-2026-11-14.md`, built on the map (`docs/reviews/k9-diagnosis-map-2026-11-12.md`) re-checked at `ace5d5f9b4` (its §0 lists where the map was stale; §4 has each step's problem, files, deletions, proof and size). The steps (K9.1-K9.3 first and alone; the moves after D6, and best after D7; K9.6-K9.8 before G1, K9.9-K9.11 before G4):
+  - **K9.0 The planted-type simulation on the robust probe path** (behaviour; investigation first): ledger D-39, found by D6 after the strategy was written; before any K9 step that moves the posterior or the instruments.
   - **K9.1 A mid-check stop settles the block's answers** (S, behaviour; TH-3, due at arc D's close): the block end's release, normalization and diagnosis queueing become one function the stop also calls.
   - **K9.2 The screen says why the check was withheld** (S, behaviour, desktop; K9-1): "You asked me not to check" only for the learner's own "Not now".
   - **K9.3 The primed-sibling ranking takes a clock** (S; K9-2): the copy-or-call question goes to K8.
