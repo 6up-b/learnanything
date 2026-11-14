@@ -82,12 +82,6 @@ from datetime import timedelta
 import json
 from typing import Any
 
-from learnloop.algorithm_versions import (
-    DIAGNOSIS_SPLIT_VERSIONS,
-    LEARNER_TEXT_GAP_VERSIONS,
-    PLACEMENT_VERSIONS,
-    UNEVIDENCED_RETURN_VERSIONS,
-)
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -133,18 +127,15 @@ PLACEMENT_TABLES = ("assumption_decisions", "assumption_returns", "placement_qui
 
 
 def placement_active(vault: LoadedVault) -> bool:
-    """F2 serves only at a placement version with the kill switch on."""
+    """F2 serves with its kill switch on."""
 
-    return (
-        vault.config.algorithms.algorithm_version in PLACEMENT_VERSIONS
-        and bool(vault.config.placement.enabled)
-    )
+    return bool(vault.config.placement.enabled)
 
 
 def diagnosis_can_arrive(vault: LoadedVault) -> bool:
     """Whether a queued live diagnosis can land now (``split_grading_active``).
 
-    The post-attempt worker runs a live diagnosis only at a split version with
+    The post-attempt worker runs a live diagnosis only with
     ``diagnosis.split_enabled``; otherwise the job is held, so placement falls
     back to today's rule instead of waiting (owner decision 2026-10-12). The
     first serving build or worker pass that sees the switch off stamps every
@@ -155,10 +146,7 @@ def diagnosis_can_arrive(vault: LoadedVault) -> bool:
     (:func:`load_miss_verdicts`).
     """
 
-    config = vault.config
-    if config.algorithms.algorithm_version not in DIAGNOSIS_SPLIT_VERSIONS:
-        return False
-    return bool(getattr(getattr(config, "diagnosis", None), "split_enabled", True))
+    return bool(getattr(getattr(vault.config, "diagnosis", None), "split_enabled", True))
 
 
 def initial_probes_enabled(vault: LoadedVault) -> bool:
@@ -188,11 +176,7 @@ def gap_sooner_checks_active(vault: LoadedVault) -> bool:
     """``mvp-0.16``: sooner checks are read (kill switch ``sooner_check_enabled``)."""
 
     section = getattr(vault.config, "learner_text_gaps", None)
-    return bool(
-        section is not None
-        and vault.config.algorithms.algorithm_version in LEARNER_TEXT_GAP_VERSIONS
-        and section.enabled and section.sooner_check_enabled
-    )
+    return bool(section is not None and section.enabled and section.sooner_check_enabled)
 
 
 #: ``probe_episodes.trigger`` of the opening episode earlier versions opened per new LO.
@@ -222,11 +206,7 @@ def unevidenced_return_active(vault: LoadedVault) -> bool:
     the queue, so it acts only where those episodes are ignored: ``placement.initial_probes = true`` keeps its promise
     of the predecessor's serving."""
 
-    return (
-        opening_probes_ignored(vault)
-        and vault.config.algorithms.algorithm_version in UNEVIDENCED_RETURN_VERSIONS
-        and bool(vault.config.placement.unevidenced_return)
-    )
+    return opening_probes_ignored(vault) and bool(vault.config.placement.unevidenced_return)
 
 
 def unanswered_opening_episode_ids(connection: Any, episode_ids: Iterable[str] | None = None) -> frozenset[str]:

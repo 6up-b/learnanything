@@ -15,11 +15,9 @@ import sqlite3
 from types import SimpleNamespace
 from typing import Any
 
-from learnloop.algorithm_versions import P0_SUCCESSOR_VERSIONS, P0_ALGORITHM_VERSION
 from learnloop.attempts.attempts import fsrs_rating_for_attempt
 from learnloop.attempts.effective_observation import (
     build_effective_observation,
-    effective_observation_from_posterior,
     load_effective_observation_references,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
@@ -287,7 +285,6 @@ def measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, floa
     references = load_effective_observation_references(
         repository, (r.get("active_interpretation") for r in entries),
     )
-    p0 = vault.config.algorithms.algorithm_version in (P0_ALGORITHM_VERSION, *P0_SUCCESSOR_VERSIONS)
     masses = {}
     for entry in entries:
         attempt_type = entry["attempt_type"]
@@ -298,15 +295,9 @@ def measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, floa
             assistance_discount=1.0, familiarity_discount=1.0, score_fraction={},
             unassessable=attempt_type == "unassessable",
         )
-        interpretation = entry.get("active_interpretation")
-        if interpretation is not None or p0:
-            effective = build_effective_observation(
-                repository, interpretation=interpretation, references=references, **kwargs,
-            )
-        else:
-            effective = effective_observation_from_posterior(
-                observation_id=None, posterior={"graded": 1.0}, certainty_lcb=1.0, **kwargs,
-            )
+        effective = build_effective_observation(
+            repository, interpretation=entry.get("active_interpretation"), references=references, **kwargs,
+        )
         masses[str(entry["attempt_id"])] = effective.effective_mass
     return masses
 
@@ -575,19 +566,9 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
                 familiarity_discount=1.0 if dont_know else familiarity,
                 score_fraction={}, unassessable=attempt["attempt_type"] == "unassessable",
             )
-            interpretation = source.get("active_interpretation")
-            if interpretation is not None or vault.config.algorithms.algorithm_version in (
-                P0_ALGORITHM_VERSION, *P0_SUCCESSOR_VERSIONS,
-            ):
-                effective = build_effective_observation(
-                    repository, interpretation=interpretation, references=references, **kwargs,
-                )
-            else:
-                # Pre-calibration evidence remains readable: the criterion
-                # ledger is the deterministic observation, not a debug copy.
-                effective = effective_observation_from_posterior(
-                    observation_id=None, posterior={"graded": 1.0}, certainty_lcb=1.0, **kwargs,
-                )
+            effective = build_effective_observation(
+                repository, interpretation=source.get("active_interpretation"), references=references, **kwargs,
+            )
             effective_mass = effective.effective_mass
             calibration_status = effective.calibration_status
             mass_without_assistance = replace(

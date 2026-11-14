@@ -12,7 +12,7 @@ from learnloop.db.repositories import Repository
 from learnloop.field.outcomes import load_attempt_rows
 from learnloop.substrate.family_memory import PROJECTION_LEGACY_FALLBACK, rebuild_family_memory
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, create_basic_vault, pin_old_basic_vault
+from tests.helpers import NOW, create_basic_vault
 
 
 def _attempt(repo, n, **overrides):
@@ -37,10 +37,8 @@ def _attempt(repo, n, **overrides):
             (f"evidence-{n}", values["id"], points, values["created_at"]))
 
 
-def _vault(tmp_path, *, old: bool = False):
+def _vault(tmp_path):
     paths = create_basic_vault(tmp_path/"vault")
-    if old:
-        paths = pin_old_basic_vault(paths)
     return load_vault(paths.root), Repository(paths.sqlite_path)
 
 
@@ -149,17 +147,16 @@ def test_registry_has_exactly_one_owner_on_the_outcome_view():
 
 
 def test_dont_know_is_an_observed_failure_review(tmp_path):
-    # Old path only: ``_attempt`` writes a pre-calibration attempt (no grade observation). Below P0 (mvp-0.8) its
-    # criterion ledger is the observation; from P0 on (so the head) an attempt with no interpretation carries no mass.
-    vault, repo = _vault(tmp_path, old=True)
+    # ``_attempt`` writes a pre-calibration attempt (no grade observation, as written before P0.2): it is an observed
+    # failure review all the same, and with no interpretation it carries no ability mass (the reliability discount
+    # fails closed; below P0, mvp-0.8, no vault opens any more, its criterion ledger was the observation).
+    vault, repo = _vault(tmp_path)
     _attempt(repo, 0, attempt_type="dont_know", rubric_score=0)
     row, = _rows(vault, repo)
     assert row.outcome == 0
     assert row.fsrs_rating == 1  # FSRS Again
     assert row.memory_eligible
-    # Ability mass is the canonical view's configured dont_know mass.
-    assert row.effective_mass == pytest.approx(
-        vault.config.evidence.attempt_types["dont_know"].evidence_mass)
+    assert row.effective_mass == 0.0
 
 
 def test_legacy_revision_fallback_is_explicit_and_reveal_is_past_only(tmp_path):

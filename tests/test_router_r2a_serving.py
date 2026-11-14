@@ -48,8 +48,17 @@ WORKING_FIXTURES = working_vault_params()
 A = ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 
 
+def _staged(root):
+    """R2a's staged frame: the mixture's ``router.mode`` switch (below R2b's tag the mixture was dormant by the tag)."""
+
+    from tests.ux_phase1_support import set_config
+
+    set_config(root, {("router", "mode"): "staged"})
+
+
 def _routed_env(tmp_path, *, version: str = A, toml: str | None = None):
     paths = _wide_vault(tmp_path, version=version)
+    _staged(paths.root)
     if toml:
         append_config_toml(paths.root, toml)
     env = make_env(paths.root, _wide_items(), clock=MovableClock(), session_id="s1")
@@ -79,8 +88,10 @@ def _run(env, *, steps: int = 30) -> list[tuple]:
 
 
 def test_with_nothing_refused_the_staged_frame_serves_dl1s_blocks_in_dl1s_order(tmp_path):
-    dl1 = make_env(_wide_vault(tmp_path / "dl1", version="mvp-0.22").root, _wide_items(), clock=MovableClock(),
-                   session_id="s1")
+    # DL1's pair: the router's switch off (below R2a's tag it was off by the tag).
+    dl1_vault = _wide_vault(tmp_path / "dl1", version="mvp-0.22")
+    append_config_toml(dl1_vault.root, "[router]\nenabled = false\n")
+    dl1 = make_env(dl1_vault.root, _wide_items(), clock=MovableClock(), session_id="s1")
     _seed_wide(dl1.repository)
     assert dl1.policy is DEFAULT_POLICY
     build_plan(dl1, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
@@ -225,6 +236,7 @@ def _rpc_vault(tmp_path, monkeypatch):
     paths = create_daily_plan_vault(
         tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}, version=A,
     )
+    _staged(paths.root)
     ctx = SidecarContext()
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"

@@ -3,7 +3,7 @@
 ``interaction-signals-v1`` chooses a conservative 0.3 mass per subject/LO/UTC
 day (D12 does not specify a number). ``interaction-signals-v2`` adds the
 learner-text gap targets (available from when the gap was read, one per
-attempt; read at ``mvp-0.16`` or later, :func:`learner_gap_targets`). Missing
+attempt; read behind the sooner check's switch, :func:`learner_gap_targets`). Missing
 timing is NOT evidence of help
 before work: only an explicitly logged zero, or the practice screen's explicit
 "no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
@@ -34,7 +34,6 @@ import logging
 import math
 from typing import Any
 
-from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.attempts.stuck import stuck_answers
 from learnloop.field.types import AttemptRow, SignalRow
 from learnloop.field.workbench_signals import is_workbench_signal, load_workbench_signals
@@ -452,16 +451,15 @@ def load_interaction_signals(
 
 
 def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
-    """Prerequisite gap targets the pipeline persisted, read at mvp-0.16 or later.
+    """Prerequisite gap targets the pipeline persisted (the learner-text gap successor, mvp-0.16).
 
     A target is a weak ``prerequisite`` observation on its LO, and placement's
     fast-track rule reads these signals (``placement.signals``), so it changes
     what is served: it belongs to the learner-text gap successor. It is read
-    only at a version in ``LEARNER_TEXT_GAP_VERSIONS`` with the pipeline
-    (``learner_text_gaps.enabled``) and the successor's kill switch
-    (``learner_text_gaps.sooner_check_enabled``) on. Below it, switched off,
-    or for a vault whose version is unknown, the F11 grounded rule applies
-    exactly as at mvp-0.15. Undone creations are left out, and so are gaps
+    only with the pipeline (``learner_text_gaps.enabled``) and the
+    successor's kill switch (``learner_text_gaps.sooner_check_enabled``) on.
+    Switched off, or for a vault with no config to read, the F11 grounded rule
+    applies exactly as at mvp-0.15. Undone creations are left out, and so are gaps
     read from a source whose gaps stay content only
     (``NON_SERVING_SOURCE_KINDS``: a missed active-reading answer, RW1b review
     F1), which has no successor to change serving.
@@ -469,12 +467,8 @@ def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
 
     from learnloop.diagnosis.text_gaps.contract import NON_SERVING_SOURCE_KINDS
 
-    config = getattr(vault, "config", None)
-    algorithms = getattr(config, "algorithms", None)
-    if getattr(algorithms, "algorithm_version", None) not in LEARNER_TEXT_GAP_VERSIONS:
-        return []
-    section = getattr(config, "learner_text_gaps", None)
-    if section is not None and not (section.enabled and section.sooner_check_enabled):
+    section = getattr(getattr(vault, "config", None), "learner_text_gaps", None)
+    if section is None or not (section.enabled and section.sooner_check_enabled):
         return []
     if connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='learner_text_gaps'"

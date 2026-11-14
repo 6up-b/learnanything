@@ -8416,7 +8416,7 @@ export interface DailyPlanDto {
   enabled: boolean;
   /** FG1 §6.4: the router's decision on the block in hand, while `ui.show_router_decisions` is on. */
   routerDecision?: RouterDecisionDto | null;
-  /** Present when the plan is off: "plan_disabled" or "algorithm_version". */
+  /** Present when the plan is off: "plan_disabled" (its switch is off). */
   reason?: string;
   headlineEnabled?: boolean;
   /** IH3: the quiet "Something else would help" link may show (absent with the switch off). */

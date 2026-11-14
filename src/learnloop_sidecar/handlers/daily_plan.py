@@ -342,8 +342,8 @@ def _secondary(ctx: SidecarContext) -> bool:
 
 def _off(ctx: SidecarContext) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
-    reason = "plan_disabled" if not bool(vault.config.plan.enabled) else "algorithm_version"
-    return versioned(disabled_view(vault, reason=reason))
+    # The plan is off only by its switch: every tag a vault opens at serves it.
+    return versioned(disabled_view(vault, reason="plan_disabled"))
 
 
 def _view(env: PlanEnv, record: Any, step: dict[str, Any] | None, context: Any) -> dict[str, Any]:

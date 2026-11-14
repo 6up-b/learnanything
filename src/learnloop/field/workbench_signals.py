@@ -1,9 +1,9 @@
 """RW2d: workbench signals in the learner field (spec_reader_workbench_v1 §5.11, G41).
 
 Two sources join the field's interaction-signal derivation
-(:func:`learnloop.field.signals.load_interaction_signals`) at the successor
-``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION`` with
-``workbench.field_signals_enabled`` on:
+(:func:`learnloop.field.signals.load_interaction_signals`) with
+``workbench.field_signals_enabled`` on (the successor
+``WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION``):
 
 * **A mid-work stuck step.** A workbench stuck step with text says where the
   learner is stuck, like an "I'm stuck" answer the grader read as confusion,
@@ -57,7 +57,7 @@ before contracts were snapshotted) has no target and is counted as unmapped.
 
 The workbench tables are read by SQL here, never through the workbench's
 modules (the ``evidence-never-reads-the-workbench`` import contract), and only
-when the successor is live: below the tag or switched off, nothing here runs.
+when the successor is live: switched off, nothing here runs.
 The pure part (:func:`derive_workbench_signals`) takes plain rows.
 """
 
@@ -67,7 +67,6 @@ from collections.abc import Iterable, Mapping
 import json
 from typing import Any
 
-from learnloop.algorithm_versions import WORKBENCH_FIELD_SIGNALS_VERSIONS
 from learnloop.field.types import SignalRow
 
 #: Recorded in the derivation's diagnostics and on every receipt.
@@ -92,13 +91,9 @@ SUBJECT_UNRECORDED = "workbench:subject-unrecorded"
 
 
 def workbench_field_signals_live(vault: Any) -> bool:
-    """At the successor (or later) with ``workbench.field_signals_enabled`` on."""
+    """With ``workbench.field_signals_enabled`` on."""
 
-    config = getattr(vault, "config", None)
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    if version not in WORKBENCH_FIELD_SIGNALS_VERSIONS:
-        return False
-    section = getattr(config, "workbench", None)
+    section = getattr(getattr(vault, "config", None), "workbench", None)
     return bool(getattr(section, "field_signals_enabled", False))
 
 

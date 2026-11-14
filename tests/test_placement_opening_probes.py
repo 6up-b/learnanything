@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import json
+import tomllib
 
 import pytest
 from typer.testing import CliRunner
@@ -32,7 +33,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
-from tests.helpers import NOW, NOW_ISO, append_config_toml, create_placement_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, create_placement_vault, set_algorithm_version, set_config_switch
 
 PLACEMENT_LOS = {"lo_diag", "lo_eigen_basics", "lo_spectral"}
 
@@ -44,9 +45,12 @@ def _at(minutes: float) -> FrozenClock:
 def _upgraded(tmp_path, name="vault", *, placement_toml=None, empty_lo=False, before_upgrade=None):
     """A vault whose opening episodes were opened at mvp-0.10, then moved to
     mvp-0.11 (as the owner's upgrade does: nothing is rewritten).
-    ``before_upgrade(paths, vault, repository)`` runs at mvp-0.10."""
+    ``before_upgrade(paths, vault, repository)`` runs at mvp-0.10. Its opening
+    episodes are opened with placement's switch off, whose off-branch is
+    mvp-0.10's state sync (a vault below placement's tag no longer opens)."""
 
     paths = create_placement_vault(tmp_path / name, version="mvp-0.10")
+    set_config_switch(paths.root, "placement.enabled", False)
     if empty_lo:
         # An LO in a goal's scope with no item: its opening episode starves.
         write_yaml(
@@ -69,8 +73,9 @@ def _upgraded(tmp_path, name="vault", *, placement_toml=None, empty_lo=False, be
     if before_upgrade is not None:
         before_upgrade(paths, vault, repository)
     set_algorithm_version(paths, "mvp-0.11")
-    if placement_toml:
-        append_config_toml(paths.root, placement_toml)
+    set_config_switch(paths.root, "placement.enabled", True)
+    for key, value in tomllib.loads(placement_toml or "").get("placement", {}).items():
+        set_config_switch(paths.root, f"placement.{key}", value)
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=_at(1))
     return paths, vault, repository
@@ -115,6 +120,7 @@ def test_the_switches_serve_the_opening_episodes_again_exactly(tmp_path, switch)
 
 def create_and_sync_predecessor(tmp_path):
     paths = create_placement_vault(tmp_path / "baseline", version="mvp-0.10")
+    set_config_switch(paths.root, "placement.enabled", False)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository, clock=_at(0))
@@ -166,7 +172,7 @@ def test_an_in_progress_opening_episode_serves_no_probe_and_is_not_parked(tmp_pa
 
     # With the kill switch the predecessor's door acts on it again (here: no
     # approved grading provider, so it parks the episode, as before).
-    append_config_toml(paths.root, "[placement]\nenabled = false\n")
+    set_config_switch(paths.root, "placement.enabled", False)
     ctx.load(paths.root)
     ctx.grading_provider_override = "manual"
     _call(ctx, "get_probe_contract", {"practiceItemId": "pi_diag_mid"})
@@ -198,7 +204,7 @@ def test_an_ignored_opening_episode_commissions_no_instrument_generation(tmp_pat
         )
 
     # With the kill switch the predecessor's sweep sees the starved episode.
-    append_config_toml(paths.root, "[placement]\nenabled = false\n")
+    set_config_switch(paths.root, "placement.enabled", False)
     off = load_vault(paths.root)
     conditions = probe_pool_empty_conditions(off, repository)
     assert [c.learning_object_id for c in conditions] == ["lo_empty"]
@@ -512,7 +518,7 @@ def test_a_notice_raised_before_placement_is_held_not_resolved(tmp_path):
     (held,) = pool_notices()
     assert (held["id"], held["status"]) == (notice["id"], "active")
 
-    append_config_toml(paths.root, "[placement]\nenabled = false\n")
+    set_config_switch(paths.root, "placement.enabled", False)
     off = load_vault(paths.root)
     swept = reconcile_empty_probe_pools(off, repository, clock=_at(4), provider_available=False)
     assert swept["notice_ids"] == [notice["id"]] and swept["resolved_notice_ids"] == []

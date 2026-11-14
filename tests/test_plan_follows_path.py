@@ -372,7 +372,7 @@ def _fixture_parity(tmp_path, monkeypatch, source: Path) -> None:
     import learnloop.clock as clock_module
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
-    baseline = _plan_state(_fixture_copy(tmp_path, source, "base", version=PREDECESSOR))
+    baseline = _plan_state(_fixture_copy(tmp_path, source, "base", version=PREDECESSOR, toml=OFF))
     assert _plan_state(_fixture_copy(tmp_path, source, "off", version=READING_PATH_PLAN_ALGORITHM_VERSION, toml=OFF)) == baseline
     assert _plan_state(_fixture_copy(tmp_path, source, "guide_off", version=READING_PATH_PLAN_ALGORITHM_VERSION, toml=GUIDE_OFF)) == baseline
     # On, with no reading path judged on the copy: the predecessor's plan too
