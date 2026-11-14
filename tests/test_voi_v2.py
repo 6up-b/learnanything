@@ -471,7 +471,6 @@ def test_the_robust_gate_does_not_end_an_episode_while_value_decides(tmp_path, m
         ("mvp-0.21", "[voi_stopping]\nrobust_gate_with_value = true\n"),  # the switch restores the gate
         ("mvp-0.21", "[voi_stopping]\nprobe_episodes = false\n"),  # value off: today's gate
         ("mvp-0.21", "[voi_stopping]\nenabled = false\n"),
-        ("mvp-0.20", ""),
     ],
 )
 def test_the_gate_still_ends_an_episode_where_value_does_not_decide_or_the_switch_is_on(tmp_path, monkeypatch, version, toml):

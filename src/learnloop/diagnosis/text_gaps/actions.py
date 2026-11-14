@@ -39,7 +39,6 @@ import re
 from typing import Any
 
 from learnloop.ai.execution import content_key
-from learnloop.algorithm_versions import LEARNER_TEXT_GAP_VERSIONS
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -477,11 +476,7 @@ def not_this_belief(
 
 def sooner_check_active(vault: LoadedVault) -> bool:
     config = vault.config.learner_text_gaps
-    return (
-        vault.config.algorithms.algorithm_version in LEARNER_TEXT_GAP_VERSIONS
-        and bool(config.enabled)
-        and bool(config.sooner_check_enabled)
-    )
+    return bool(config.enabled) and bool(config.sooner_check_enabled)
 
 
 def advance_check(

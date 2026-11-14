@@ -120,7 +120,6 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.data_capture.gates import serving_on
-from learnloop.algorithm_versions import VOI_STOPPING_VERSIONS
 from learnloop.diagnosis.robust_composition import (
     BURDEN_COST,
     LAMBDA_TIME,
@@ -236,12 +235,9 @@ _ROUND_DIGITS = 8
 
 
 def voi_stopping_active(config: Any, site: str | None = None) -> bool:
-    """True at a ``VOI_STOPPING_VERSIONS`` member with the kill switch (and the
-    site's sub-switch) on. Off, the site's former count cap serves exactly."""
+    """True with the kill switch (and the site's sub-switch) on. Off, the
+    site's former count cap serves exactly."""
 
-    algorithms = getattr(config, "algorithms", None)
-    if getattr(algorithms, "algorithm_version", None) not in VOI_STOPPING_VERSIONS:
-        return False
     section = getattr(config, "voi_stopping", None)
     if section is None or not bool(getattr(section, "enabled", False)):
         return False
@@ -253,14 +249,10 @@ def voi_stopping_active(config: Any, site: str | None = None) -> bool:
 def probe_lane_reads_diagnosis(config: Any) -> bool:
     """mvp-0.21 Part 2: the probe hypothesis lane reads the diagnosis overlay.
 
-    True at a ``VOI_STOPPING_VERSIONS`` member with
-    ``diagnosis.probe_lane_reads_diagnosis`` on. The overlay changes only
-    blind-graded events, so a joint-graded vault reads what it always read.
+    True with ``diagnosis.probe_lane_reads_diagnosis`` on. The overlay changes
+    only blind-graded events, so a joint-graded vault reads what it always read.
     """
 
-    algorithms = getattr(config, "algorithms", None)
-    if getattr(algorithms, "algorithm_version", None) not in VOI_STOPPING_VERSIONS:
-        return False
     diagnosis = getattr(config, "diagnosis", None)
     return bool(getattr(diagnosis, "probe_lane_reads_diagnosis", False))
 
@@ -2458,7 +2450,6 @@ __all__ = [
     "EPISODE_MAXIMUM_CAP",
     "VALUATION_SUPPRESSION_REASONS",
     "VOI_VALUE_SUPPRESSION",
-    "VOI_STOPPING_VERSIONS",
     "probe_episode_decision",
     "Candidate",
     "CandidateValue",

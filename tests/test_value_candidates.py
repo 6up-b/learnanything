@@ -194,22 +194,27 @@ def test_an_instrument_only_request_matches_robust_selection(tmp_path, items):
             assert abs(stop["robust_eig_per_second"] - round(live.robust_eig_per_second, 8)) < 1e-12
 
 
-def test_below_the_robust_cutover_instruments_are_ordinary_items(tmp_path):
+def test_an_episode_with_no_pinned_channel_values_instruments_as_ordinary_items(tmp_path):
     from learnloop.clock import FrozenClock
     from learnloop.db.repositories import Repository
     from learnloop.diagnosis.probe_episodes import enter_episode
     from learnloop.instructional.valuation import episode_problem, item_input
     from learnloop.vault.loader import load_vault
-    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault, pin_old_basic_vault
+    from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
 
     root = tmp_path / "vault"
-    # Old path only: below the robust cutover (the legacy item-point path, mvp-0.6).
-    paths = pin_old_basic_vault(create_basic_vault(root))
+    paths = create_basic_vault(root)
     vault = load_vault(root)
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)
     episode = enter_episode(vault, repository, "lo_svd_definition", clock=FrozenClock(NOW))
+    # The episode as a vault below the robust cutover (mvp-0.6/0.7) opened it, with no channel pinned: that writer is
+    # gone, and upgraded vaults still hold such episodes.
+    with repository.connection() as connection:
+        connection.execute("UPDATE probe_episodes SET calibration_model_id = NULL, calibration_model_hash = NULL, "
+                           "probe_mapping_version = NULL WHERE id = ?", (episode.id,))
+        connection.commit()
     problem, _missing = episode_problem(vault, repository, episode.id)
     candidate = item_input(vault, repository, problem, vault.practice_items["pi_svd_define_001"])
     assert candidate.regime == "item_point"
-    assert candidate.minutes_provenance["instrument_path"] in ("below_robust_cutover", "no_pinned_channel")
+    assert candidate.minutes_provenance["instrument_path"] == "no_pinned_channel"

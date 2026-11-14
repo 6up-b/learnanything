@@ -1324,9 +1324,8 @@ def _fill_offer_trace(
         "requested_items_per_session": config.tutor_promotion.requested_items_per_session,
         "router": config.router.model_dump(mode="json"),
     }
-    if config.algorithms.algorithm_version in voi.VOI_STOPPING_VERSIONS:
-        # mvp-0.21: the value-of-information switches shape the build too.
-        trace.config_snapshot["voi_stopping"] = config.voi_stopping.model_dump(mode="json")
+    # The value-of-information switches shape the build too.
+    trace.config_snapshot["voi_stopping"] = config.voi_stopping.model_dump(mode="json")
     rate = clamp(config.scheduler.selection_exploration_rate)
     window = max(config.scheduler.selection_exploration_reward_window, 0.0)
     support = _exploration_support(greedy_queue, session, config)

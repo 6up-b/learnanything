@@ -102,11 +102,9 @@ def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, 
 
 @pytest.mark.parametrize("with_repairs", [True, False])
 def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_repairs):
-    from learnloop.vault.paths import VaultPaths
-
     vault, repository = block_setup._setup(tmp_path)
-    set_algorithm_version(VaultPaths(vault.root, vault.config), "mvp-0.7")
-    append_config_toml(vault.root, JOINT)
+    # The block closes on its count: value of information's switch off (below mvp-0.21 it was off by the tag).
+    append_config_toml(vault.root, JOINT + "\n[voi_stopping]\nenabled = false\n")
     vault = load_vault(vault.root)
     clock = block_setup.CLOCK
 

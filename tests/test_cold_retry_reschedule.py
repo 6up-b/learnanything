@@ -282,14 +282,13 @@ def test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it(tm
     assert [row["id"] for row in probes] == [probe["id"]]
 
 
-# -- the switch: off, or below the tag, is the predecessor --------------------------------------------
+# -- the switch: off is the predecessor -----------------------------------------------------------------
 
 
 @pytest.mark.parametrize(("version", "switch", "converts", "active"), [
     (TAG, None, True, True), (TAG, False, True, False), (TAG, None, False, False),
-    (PREDECESSOR, None, True, False), (PREDECESSOR, True, True, False),
-], ids=["tag", "tag-switch-off", "tag-ca2-off", "predecessor", "predecessor-switch-on"])
-def test_the_gate_is_the_tag_its_switch_and_ca2s_rule(tmp_path, version, switch, converts, active):
+], ids=["tag", "tag-switch-off", "tag-ca2-off"])
+def test_the_gate_is_its_switch_and_ca2s_rule(tmp_path, version, switch, converts, active):
     vault, _repository, _episode, _primed, _cold = _repair(tmp_path, version=version, switch=switch,
                                                            converts=converts)
     assert reschedule_cold_after_assist_active(vault) is active
@@ -308,14 +307,14 @@ def _predecessor_state(repository, episode_id):
     return tasks, (episode["state"], episode["cold_item_id"]), outcomes, decisions
 
 
-@pytest.mark.parametrize(("version", "switch"), [(TAG, False), (PREDECESSOR, None)],
-                         ids=["tag-switch-off", "predecessor"])
-def test_off_or_below_the_tag_the_assisted_retry_is_left_open_exactly_as_the_predecessor(tmp_path, version, switch):
+def test_off_the_assisted_retry_is_left_open_exactly_as_the_predecessor(tmp_path):
     from learnloop.scheduling.scheduler import apply_eligibility_writes, cold_check_decision
 
-    vault, repository, episode, _primed, cold_item = _repair(tmp_path, version=version, switch=switch)
+    vault, repository, episode, _primed, cold_item = _repair(tmp_path, version=TAG, switch=False)
     _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
-    reference_vault, reference, ref_episode, _p, ref_cold = _repair(tmp_path / "ref", version=PREDECESSOR)
+    # The predecessor: its tag with the switch off (the switch's off-branch is the predecessor's code).
+    reference_vault, reference, ref_episode, _p, ref_cold = _repair(tmp_path / "ref", version=PREDECESSOR,
+                                                                    switch=False)
     _answer(reference_vault, reference, ref_cold, ASSISTED_AT, hints=1)
     assert _predecessor_state(repository, episode["id"]) == _predecessor_state(reference, ref_episode["id"])
 

@@ -40,7 +40,6 @@ from learnloop.diagnosis.probe_families import (
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
-from learnloop.vault.loader import load_vault
 
 from tests.helpers import (
     NOW,
@@ -52,10 +51,8 @@ from tests.probe_episodes_helpers import (
     LO_ID,
     PLACEMENT_OFF,
     VOI_STOPPING_OFF,
-    _add_item,
     _commit,
     _setup,
-    admit_contrast_card,
 )
 
 def _grade(score: int, *, error_attributions=None) -> ResolvedGrade:
@@ -534,31 +531,6 @@ def test_next_probe_item_peeks_the_unused_surface_without_committing(tmp_path):
     episode = repository.probe_episode(episode.id)
     assert episode.status == "complete"
     assert next_probe_item(loaded, repository, LO_ID) is None
-
-
-def test_budget_exhaustion_completes_episode(tmp_path):
-    # Four signature-distinct surfaces: §5.4 forbids re-serving an observed
-    # item or surface family, so budget exhaustion needs four fresh instruments.
-    # Old path only (D2a): the episode's count budget. From mvp-0.8 the robust gate (a pinned calibration
-    # channel, no kill switch) ends this unstable episode first, even with `voi_stopping.enabled` off
-    # (checked); from mvp-0.21 value of information replaces the count. Waits on the floor (D1/D3).
-    vault_root, _stale, repository = _setup(tmp_path, with_card=False, extra_item=True, old_path=True)
-    _add_item(vault_root, "pi_svd_define_003", surface_family="surface_three")
-    _add_item(vault_root, "pi_svd_define_004", surface_family="surface_four")
-    loaded = load_vault(vault_root)
-    items = [ITEM_ID, "pi_svd_define_002", "pi_svd_define_003", "pi_svd_define_004"]
-    admit_contrast_card(repository, items=tuple(items))
-    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
-    scores = [4, 1, 1, 4]  # conflicting evidence keeps the posterior unstable
-    for item_id, score in zip(items, scores, strict=True):
-        episode = repository.probe_episode(episode.id)
-        if episode.status != "in_progress":
-            break
-        presentation = _commit(loaded, repository, episode, item_id=item_id)
-        _submit(loaded, repository, item_id=item_id, presentation_id=presentation.id, score=score)
-    episode = repository.probe_episode(episode.id)
-    assert episode.status == "complete"
-    assert episode.completion_reason == "observation_budget_exhausted"
 
 
 def test_exhausted_instrument_pool_parks_episode_with_generation_need(tmp_path):
