@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/158_vault_epigraphs.sql"
   - "src/learnloop/ai/routing.py"
+  - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/vault_epigraphs.py"
   - "src/learnloop/db/repositories.py"

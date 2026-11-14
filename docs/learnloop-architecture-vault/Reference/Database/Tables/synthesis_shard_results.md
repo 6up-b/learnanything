@@ -16,8 +16,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/064_synthesis_shard_results.sql"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
+  - "src/learnloop/db/repositories.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

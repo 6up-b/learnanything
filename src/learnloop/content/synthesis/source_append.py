@@ -25,13 +25,11 @@ other item stays a pending review proposal.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.execution import ModelCheckpoint, generation_limit, model_settings
 from learnloop.clock import Clock
 from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
@@ -51,14 +49,13 @@ from learnloop.content.facet_identity import authority as facet_meaning
 from learnloop.content.synthesis.source_set_synthesis import (
     RunScope,
     StudyMapError,
-    SynthesisAnswer,
+    SynthesisCall,
     SynthesisMode,
     SynthesisOutcome,
     _Normalized,
     _count_items,
     _collect_inputs,
     _normalize,
-    _resolve_span_requests,
     _result_tokens,
     _row,
     _span_refs,
@@ -73,6 +70,7 @@ from learnloop.content.synthesis.synthesis_gates import (
     ProvenanceRef,
 )
 from learnloop.content.synthesis.synthesis_manifests import content_hash
+from learnloop.content.synthesis.vault_epigraphs import digest_for_append
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -110,57 +108,48 @@ def append_checkpoint_key(prompt: str, settings: dict[str, Any]) -> str:
     )
 
 
-@dataclass(frozen=True)
-class _AppendCall:
-    """One append request, checkpointed and bounded as a bootstrap pass is:
-    a saved answer is read before anything is paid; otherwise the input is held
-    to its ceiling before the call, the call runs under the output budget as
-    its generation limit, and the answer is saved before the output check, so
-    a retry never pays for it again. ``None`` limits: an unlimited run.
-    An answer the gates reject is dropped (:meth:`discard_answers`), so a retry
-    pays for a fresh one instead of replaying the rejection."""
+@dataclass
+class _AppendBudget:
+    """An append's spend against its budgets (the shard runner's ``spend``). Each request is held alone to
+    ``append_input_ceiling``, after its checkpoint misses and before it is paid, and refused typed; a span round is not
+    added to the call before it. Each request runs under ``append_output_tokens`` as its generation limit, and each
+    answer, fresh or saved, is held to it by its own size (not the provider's report). ``unlimited``: counted, never
+    limited."""
 
-    client: Any
-    repository: Repository
-    settings: dict[str, Any]
-    input_ceiling: int | None
-    output_budget: int | None
-    #: Each answer this run used, fresh or reused: its checkpoint key and the stored form it was served from.
-    answers: list[tuple[str, Any]] = field(default_factory=list)
+    budgets: Any
+    unlimited: bool
+    calls: int = 0
+    input_tokens_estimate: int = 0
+    output_tokens_spent: int = 0
 
-    def __call__(self, context: AppendReconciliationContext) -> AppendReconciliation:
-        prompt = append_reconciliation_prompt(context)
-        checkpoint = ModelCheckpoint(
-            self.repository, append_checkpoint_key(prompt, self.settings), APPEND_AGENT_PURPOSE,
-            AppendReconciliation.model_validate,
-        )
-        # The same estimate as a bootstrap pass: the prompt and schema sent.
-        tokens = max(1, (len(prompt) + len(json.dumps(AppendReconciliation.model_json_schema()))) // 4)
+    def _check_input(self, tokens: int) -> None:
+        if not self.unlimited and tokens > self.budgets.append_input_ceiling:
+            raise _over_ceiling(tokens, self.budgets.append_input_ceiling)
 
-        def call() -> AppendReconciliation:
-            if self.input_ceiling is not None and tokens > self.input_ceiling:
-                raise _over_ceiling(tokens, self.input_ceiling)
-            with generation_limit(self.output_budget):
-                return request_append_reconciliation(self.client, context)
+    def check_base_passes(self, unpaid: list[int]) -> None:
+        for tokens in unpaid:
+            self._check_input(tokens)
 
-        result, _reused, stored = checkpoint.answer_stored(
-            call, usage=lambda answer: {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(answer)},
-        )
-        self.answers.append((checkpoint.key, stored))
-        if self.output_budget is not None and _result_tokens(result) > self.output_budget:
+    def check_next_pass_input(self, tokens: int, *, reserve: int) -> None:
+        self._check_input(tokens)
+
+    def pass_output_limit(self) -> int | None:
+        return None if self.unlimited else self.budgets.append_output_tokens
+
+    def charge_pass(self, *, estimated_input: int, reported_input: int, output: int) -> None:
+        self.calls += 1
+        self.input_tokens_estimate += max(estimated_input, reported_input)
+        self.output_tokens_spent += output
+
+    def check_pass_output(self, charge: int, limit: int | None) -> None:
+        """Nothing beyond :meth:`check_shard_output`, which holds a saved answer as well as a fresh one."""
+
+    def check_shard_output(self, result: Any) -> None:
+        if not self.unlimited and _result_tokens(result) > self.budgets.append_output_tokens:
             raise StudyMapError("budget_exceeded", "Append reconciliation exceeded its output budget.")
-        return result
 
-    def discard_answers(self) -> None:
-        """Drop every answer this run used (the first call and its span round).
-        A rejected answer is the model's, not the budget's: kept, it would be
-        replayed into the same rejection by every retry at zero cost while the
-        card offers Retry. An over-budget answer is not dropped: a raised
-        budget reuses it. Each is dropped only while it is still the saved
-        answer, so a fresh one another run saved since is kept."""
-
-        for key, stored in self.answers:
-            self.repository.discard_model_checkpoint(key, result=stored)
+    def check_merged_output(self, merged: Any, message: str) -> None:
+        """An append is one unit: its answer was held by :meth:`check_shard_output`."""
 
 
 def _over_ceiling(tokens: int, ceiling: int) -> StudyMapError:
@@ -469,10 +458,10 @@ def _append(
     apply_gate: Callable[[], bool] | None = None,
 ) -> AppendResult:
     """The append opens its run with the shared head (:func:`open_synthesis_run`); its scope step selects the new
-    inventories and the bounded neighbourhood around them, which the manifest records and the request reads. Its
-    call asks the append prompt (with a span round when the model asks for one); everything after the answer is the
-    shared tail (:func:`finish_synthesis_run`), under the ``APPEND`` mode, with §10.3's routine items as what it
-    applies."""
+    inventories and the bounded neighbourhood around them, which the manifest records and the request reads. The rest
+    is the shared tail (:func:`finish_synthesis_run`) under the ``APPEND`` mode: the shard runner with the append
+    prompt over the new inventories as one unit (a span round when the model asks for one), then the gates and
+    persistence, with §10.3's routine items as what it applies."""
 
     def decide_scope(_brief, inputs, budgets, nominator) -> RunScope:
         revs = set(new_revision_ids or inputs.selected_revision_ids)
@@ -491,7 +480,7 @@ def _append(
                 new_unit_ids=new_unit_ids, facet_identity_client=facet_identity_client, revision_diff=revision_diff,
             ),
             revision_ids=sorted(revs),
-            context=(new_inventories, neighborhood.as_context()),
+            context=_AppendContext(new_inventories, neighborhood.as_context(), change_kind, revision_diff),
         )
 
     run = open_synthesis_run(
@@ -500,27 +489,9 @@ def _append(
         unlimited_token_budget=unlimited_token_budget, embedding_client_factory=embedding_client_factory,
         facet_identity_client=facet_identity_client,
     )
-    source_set, budgets = run.source_set, run.budgets
-    new_inventories, neighborhood_context = run.context
-    call = _AppendCall(
-        client, repository,
-        # A bootstrap pass's settings: what shapes the answer, with the run's provider and model.
-        settings={**model_settings(client), "provider": run.provider, "model": run.model},
-        input_ceiling=None if unlimited_token_budget else budgets.append_input_ceiling,
-        output_budget=None if unlimited_token_budget else budgets.append_output_tokens,
-    )
-
-    def ask() -> SynthesisAnswer:
-        reconciliation, span_request_count = _run_reconciliation(
-            call, repository, run.inputs, new_inventories, neighborhood_context, source_set,
-            source_set.subject_id, change_kind, revision_diff, run.brief, budgets,
-            one_facet_per_skill=run.one_facet_per_skill,
-        )
-        reconciliation, preset_diagnostics = _within_preset(reconciliation, run.brief)
-        return SynthesisAnswer(reconciliation, span_request_count, diagnostics=preset_diagnostics)
-
+    source_set = run.source_set
     outcome = finish_synthesis_run(
-        run, APPEND, ask=ask, drop_answers=call.discard_answers,
+        run, APPEND,
         apply=lambda outcome: _apply_routine_items(
             root, repository, vault, outcome, auto_apply=auto_apply, apply_gate=apply_gate, clock=clock,
         ),
@@ -582,36 +553,6 @@ def _apply_routine_items(
         p.as_dict() for p in near_duplicate_facet_review(vault_after, nominator=GraphNominator.for_review(vault_after))
     ]
     return added
-
-def _run_reconciliation(
-    call: _AppendCall, repository, inputs, new_inventories, neighborhood_context, source_set,
-    subject_id, change_kind, revision_diff, brief, budgets, *, one_facet_per_skill: bool = False,
-):
-    context = AppendReconciliationContext(
-        source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-        brief=brief, new_inventories=new_inventories, neighborhood=neighborhood_context,
-        exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=[],
-        one_facet_per_skill=one_facet_per_skill,
-    )
-    result = call(context)
-    span_request_count = 0
-    requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
-    if requests:
-        span_request_count = len(requests)
-        resolved, _hashes = _resolve_span_requests(
-            repository, requests, inputs,
-            max_count=budgets.synthesis_span_request_max_count,
-            char_cap=budgets.synthesis_span_char_cap,
-        )
-        context = AppendReconciliationContext(
-            source_set_id=source_set.id, subject_id=subject_id, change_kind=change_kind,
-            brief=brief, new_inventories=new_inventories, neighborhood=neighborhood_context,
-            exam_profile=inputs.exam_profile or {}, revision_diff=revision_diff, resolved_spans=resolved,
-            one_facet_per_skill=one_facet_per_skill,
-        )
-        result = call(context)
-    return result, span_request_count
-
 
 # --- normalization ----------------------------------------------------------
 
@@ -839,6 +780,59 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
     )
 
 
+@dataclass(frozen=True)
+class _AppendContext:
+    """What an append's request reads beyond the source set's inputs (``SynthesisRun.context``)."""
+
+    new_inventories: list[dict[str, Any]]
+    #: The bounded neighbourhood's request context (``Neighborhood.as_context``).
+    neighborhood: dict[str, Any]
+    change_kind: str
+    revision_diff: dict[str, Any]
+
+
+def _append_unit(run: Any) -> list[list[dict[str, Any]]]:
+    """One unit, the new inventories whole: an append over its input ceiling is refused, not split."""
+
+    return [run.context.new_inventories]
+
+
+def _append_contexts(run: Any):
+    def context(shard, ordinal, shard_count, resolved_spans):
+        return AppendReconciliationContext(
+            source_set_id=run.source_set.id, subject_id=run.source_set.subject_id,
+            change_kind=run.context.change_kind, brief=run.brief, new_inventories=shard,
+            neighborhood=run.context.neighborhood, exam_profile=run.inputs.exam_profile or {},
+            revision_diff=run.context.revision_diff, resolved_spans=resolved_spans,
+            shard_ordinal=ordinal, shard_count=shard_count, one_facet_per_skill=run.one_facet_per_skill,
+        )
+
+    return context
+
+
+def _within_the_brief(run: Any, answer: Any, **_unused: Any) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]:
+    answer, preset_diagnostics = _within_preset(answer, run.brief)
+    return answer, {}, preset_diagnostics
+
+
+def _append_digest(rows: list[dict[str, Any]], context: _AppendContext, summary: str) -> Any:
+    return digest_for_append(rows, context.new_inventories, context.neighborhood, summary=summary)
+
+
+APPEND_CALL = SynthesisCall(
+    request=request_append_reconciliation,
+    prompt=append_reconciliation_prompt,
+    result_model=AppendReconciliation,
+    checkpoint_key=append_checkpoint_key,
+    checkpoint_purpose=APPEND_AGENT_PURPOSE,
+    shards=_append_unit,
+    contexts=_append_contexts,
+    spend=_AppendBudget,
+    sharded=False,
+    after_passes=_within_the_brief,
+)
+
+
 APPEND = SynthesisMode(
     name="append",
     agent_purpose=APPEND_AGENT_PURPOSE,
@@ -852,7 +846,9 @@ APPEND = SynthesisMode(
     proposal_purpose=APPEND_PROPOSAL_PURPOSE,
     summary_fallback="append reconciliation for {subject}",
     gate_failure=("append_gate_failed", "Append proposal failed hard quality gates."),
+    call=APPEND_CALL,
     normalize=_normalize_append,
+    epigraph_digest=_append_digest,
     append_vocabulary=True,
     facet_action_origin="append",
     keeps_candidate_for_repair=False,
@@ -860,6 +856,10 @@ APPEND = SynthesisMode(
     analyzes_identifiability=False,
     meters_the_model_call=False,
     usage_only_with_a_proposal=True,
+    records_call_usage=False,
+    records_resolved_span_hashes=False,
+    declares_its_budgets=False,
+    forgets_dropped_answers=False,
     resolves_an_empty_subject=False,
 )
 

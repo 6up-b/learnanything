@@ -1,0 +1,217 @@
+{
+ "database": {
+  "agent_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_input_tokens": 100,
+     "actual_output_tokens": 10,
+     "codex_revision": null,
+     "completed_at": "2026-07-13T12:00:00Z",
+     "error_message": "append_gate_failed: Append proposal failed hard quality gates.",
+     "est_input_tokens": 0,
+     "est_output_tokens": 0,
+     "id": "01M3250V00TP209AYDNCPVR75R",
+     "input_context_hash": "<context:0>",
+     "model": "fake-append-1",
+     "output_schema": "AppendReconciliation",
+     "prompt_template": "append-reconciliation",
+     "prompt_version": "mvp-0.11-append-one-facet-per-testable-skill-no-locks-sibling-criterion-dependencies-criteria-by-fact-v2",
+     "provider": "codex",
+     "provider_revision": null,
+     "provider_type": "codex",
+     "purpose": "append_reconciliation",
+     "sdk_version": null,
+     "started_at": "2026-07-13T12:00:00Z",
+     "status": "failed"
+    }
+   ]
+  },
+  "model_work_checkpoints": {
+   "removed": [
+    {
+     "<rowid>": 5,
+     "cache_key": "102c809248c940b16bb89296492d5ee9607f01f977216e286d4d3e4b37b0a7c2",
+     "created_at": "<wall>",
+     "purpose": "append_reconciliation",
+     "result_json": {
+      "<json>": {
+       "blueprints": [],
+       "concepts": [],
+       "conflict_candidates": [],
+       "conflicts": [],
+       "facets": [],
+       "learning_objects": [],
+       "non_conflict_dispositions": [],
+       "notation_mappings": [],
+       "notes": [],
+       "practice_items": [],
+       "provenance_links": [],
+       "restructures": [],
+       "span_requests": [
+        {
+         "extraction_id": "ext_alt",
+         "purpose": "check what the exam asks",
+         "span_id": "s1",
+         "unit_id": "chapter_symmetry_alt"
+        }
+       ],
+       "summary": "asks to read the exam's span"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 6759,
+       "output_tokens_estimate": 109
+      }
+     }
+    },
+    {
+     "<rowid>": 6,
+     "cache_key": "6fb19ae6aa5a5a801656c0505005359b5c9feb53869c5e2d11cc6cbbd6a3abf7",
+     "created_at": "<wall>",
+     "purpose": "append_reconciliation",
+     "result_json": {
+      "<json>": {
+       "blueprints": [],
+       "concepts": [],
+       "conflict_candidates": [],
+       "conflicts": [],
+       "facets": [],
+       "learning_objects": [],
+       "non_conflict_dispositions": [],
+       "notation_mappings": [],
+       "notes": [],
+       "practice_items": [],
+       "provenance_links": [
+        {
+         "client_item_id": "plink_exam",
+         "expected_target_hash": "",
+         "reconciliation_intent": "assessment_alignment",
+         "relation": "assessment_alignment",
+         "span": {
+          "extraction_id": "ext_alt",
+          "locator": "",
+          "relation": "support",
+          "revision_id": "",
+          "role": "reference",
+          "source_id": "",
+          "span_id": "s1",
+          "unit_id": "chapter_symmetry_alt"
+         },
+         "target_entity_id": "lo_diagonalize_symmetric",
+         "target_entity_type": "learning_object"
+        }
+       ],
+       "restructures": [],
+       "span_requests": [],
+       "summary": "aligns the exam"
+      }
+     },
+     "usage_json": {
+      "<json>": {
+       "input_tokens_estimate": 6816,
+       "output_tokens_estimate": 180
+      }
+     }
+    }
+   ]
+  },
+  "synthesis_runs": {
+   "added": [
+    {
+     "<rowid>": 3,
+     "actual_usage_json": null,
+     "agent_run_id": "01M3250V00TP209AYDNCPVR75R",
+     "candidate_output_json": null,
+     "completed_at": "<wall>",
+     "coverage_decisions_json": {
+      "<json>": {
+       "gate_diagnostics": [
+        {
+         "entity_refs": [
+          "facet_symmetry_definition"
+         ],
+         "gate": "adequate_provenance",
+         "message": "created/updated semantic contract lacks an in-scope span from a role allowed semantic authority",
+         "severity": "review",
+         "suggested_action": "attach an authoritative in-scope span or mark human/manual context"
+        },
+        {
+         "entity_refs": [
+          "facet_symmetry_definition"
+         ],
+         "gate": "exam_authority",
+         "message": "exam-only evidence attempts to establish a canonical claim/equivalence/prerequisite",
+         "severity": "hard_fail",
+         "suggested_action": "corroborate with an explanatory source span or grant explicit manual authority"
+        }
+       ]
+      }
+     },
+     "created_at": "<wall>",
+     "id": "01M3250V00TP209AYDNCPVR75S",
+     "manifest_id": "01M3250V00TP209AYDNCPVR75F",
+     "mode": "append",
+     "proposal_id": null,
+     "resolved_span_hashes_json": null,
+     "span_request_json": null,
+     "status": "failed"
+    }
+   ]
+  }
+ },
+ "error": {
+  "candidate_preserved": false,
+  "code": "append_gate_failed",
+  "diagnostics": [
+   {
+    "entity_refs": [
+     "facet_symmetry_definition"
+    ],
+    "gate": "adequate_provenance",
+    "message": "created/updated semantic contract lacks an in-scope span from a role allowed semantic authority",
+    "severity": "review",
+    "suggested_action": "attach an authoritative in-scope span or mark human/manual context"
+   },
+   {
+    "entity_refs": [
+     "facet_symmetry_definition"
+    ],
+    "gate": "exam_authority",
+    "message": "exam-only evidence attempts to establish a canonical claim/equivalence/prerequisite",
+    "severity": "hard_fail",
+    "suggested_action": "corroborate with an explanatory source span or grant explicit manual authority"
+   }
+  ],
+  "message": "Append proposal failed hard quality gates.",
+  "synthesis_run_id": null
+ },
+ "files": {},
+ "model_requests": [
+  [
+   "append_reconciliation",
+   "e209bc959526496f"
+  ]
+ ],
+ "receipts": [
+  {
+   "budget_json": null,
+   "output_budget_tokens": 10000,
+   "purpose": "append_reconciliation",
+   "root": true,
+   "schema_hash": "674d98e471fed80dc2940f8e412bd230b5b4b465913f98c6cac0f5931d26fce6"
+  }
+ ],
+ "sent": [
+  {
+   "isolated": false,
+   "output_budget_tokens": 10000,
+   "purpose": "append_reconciliation",
+   "reasoning_effort": null,
+   "result_model": "AppendReconciliation",
+   "schema": "9db0abbc4b163707",
+   "timeout_seconds": null
+  }
+ ]
+}

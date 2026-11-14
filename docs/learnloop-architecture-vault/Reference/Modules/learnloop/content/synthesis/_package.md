@@ -83,14 +83,14 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates#^module-purpose|purpose]] | `ACTIVE` | 9 | 9 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 8 |
-| [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 26 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 19 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 18 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 9 static module edges
@@ -135,7 +135,7 @@ flowchart LR
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ingest["learnloop.ingest"]
     center -->|26| n_learnloop_vault
-    center -->|19| n_learnloop_ai
+    center -->|18| n_learnloop_ai
     n_learnloop_content_facet_identity -->|6| center
     center -->|8| n_learnloop_content_facet_identity
     n_learnloop -->|1| center

@@ -30,6 +30,7 @@ import copy
 import json
 import re
 from collections.abc import Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from collections import Counter
 from pathlib import Path
@@ -108,7 +109,6 @@ from learnloop.content.synthesis.synthesis_manifests import (
 from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.vault_epigraphs import (
-    digest_for_append,
     digest_from_proposal_rows,
     generate_vault_epigraphs,
 )
@@ -2212,8 +2212,8 @@ def _create_study_map(
     apply_gate: Callable[[], bool] | None = None,
 ) -> StudyMapResult:
     """The bootstrap opens its run with the shared head (:func:`open_synthesis_run`), recording the brief's scope:
-    it reads every scope unit's inventory. Its call is the shard runner (:func:`_run_synthesis`); everything after
-    the answer is the shared tail (:func:`finish_synthesis_run`), under the ``BOOTSTRAP`` mode, with the whole map
+    it reads every scope unit's inventory. The rest is the shared tail (:func:`finish_synthesis_run`) under the
+    ``BOOTSTRAP`` mode: the shard runner over those inventories, then the gates and persistence, with the whole map
     and the exam goal as what it applies when asked."""
 
     run = open_synthesis_run(
@@ -2226,18 +2226,6 @@ def _create_study_map(
         )),
     )
     manifest_hash = run.manifest["manifest_hash"]
-    answers = _SavedAnswers()
-
-    def ask() -> SynthesisAnswer:
-        with declared_budgets(run.token_budget):
-            merged, span_request_count, resolved_hashes, usage = _run_synthesis(
-                client, repository, run.inputs, vault, run.source_set, run.brief, run.budgets, clock=clock,
-                client=client, provider=run.provider, model=run.model,
-                manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-                progress=progress, nominator=run.nominator,
-                one_facet_per_skill=run.one_facet_per_skill, answers=answers,
-            )
-        return SynthesisAnswer(merged, span_request_count, resolved_hashes, usage)
 
     def apply_map(outcome: SynthesisOutcome) -> dict[str, Any]:
         # Acceptance and goal wiring, when asked (a learnable map requires mvp-0.7;
@@ -2250,9 +2238,7 @@ def _create_study_map(
         )
         return {"applied": True, "goal_id": goal_id}
 
-    outcome = finish_synthesis_run(
-        run, BOOTSTRAP, ask=ask, drop_answers=lambda: answers.discard(repository), apply=apply_map,
-    )
+    outcome = finish_synthesis_run(run, BOOTSTRAP, apply=apply_map)
     return StudyMapResult(
         source_set_id=run.source_set.id, subject_id=run.source_set.subject_id, mode=BOOTSTRAP.name,
         manifest_hash=manifest_hash, synthesis_run_id=run.synthesis_run_id, proposal_id=outcome.proposal_id,
@@ -2262,6 +2248,34 @@ def _create_study_map(
         resolved_span_hashes=outcome.answer.resolved_span_hashes, facet_identity=outcome.facet_identity,
         **outcome.applied,
     )
+
+
+@dataclass(frozen=True)
+class SynthesisCall:
+    """How a mode asks the model, as the values the one shard runner (:func:`_run_synthesis`) reads: what a pass
+    sends and is saved under, the units the run's input is split into, and the rule its spend is held to. Bootstrap's
+    is beside ``BOOTSTRAP``; the append's beside ``APPEND`` in :mod:`source_append`."""
+
+    #: One pass's request: ``request(client, context)`` sends ``prompt(context)`` for a ``result_model`` answer.
+    request: Callable[[Any, Any], Any]
+    prompt: Callable[[Any], str]
+    result_model: Any
+    #: A pass's checkpoint key, from the prompt it sends and the provider settings, and the purpose it is saved under.
+    checkpoint_key: Callable[[str, dict[str, Any]], str]
+    checkpoint_purpose: str
+    #: The run's units of work, lists of inventories: one base pass, and at most one span round, each.
+    shards: Callable[[SynthesisRun], list[list[dict[str, Any]]]]
+    #: Given the run, ``context(shard, ordinal, shard_count, resolved_spans)``: what one pass renders.
+    contexts: Callable[[SynthesisRun], Callable[[list[dict[str, Any]], int, int, list[dict[str, Any]]], Any]]
+    #: ``spend(budgets, unlimited)``: the run's spend against its budgets (the methods ``_SynthesisBudget`` has).
+    spend: Callable[[Any, bool], Any]
+    #: Each shard's answer is filed under its base pass's key (``synthesis_shard_results``, which answers a one-request
+    #: shard on a rerun), its client ids are made local to it, and the shards are merged. Unsharded: one unit, whose
+    #: answer is the candidate with the ids the model wrote.
+    sharded: bool
+    #: ``after_passes(run, merged, spend=, answers=, settings=, shard_count=) -> (candidate, usage, diagnostics)``: what
+    #: follows the passes; the usage joins the runner's record, the diagnostics are the answer's own review records.
+    after_passes: Callable[..., tuple[Any, dict[str, Any], list[dict[str, Any]]]]
 
 
 @dataclass(frozen=True)
@@ -2292,8 +2306,13 @@ class SynthesisMode:
     summary_fallback: str
     #: The typed error of a candidate the synthesis gates block: its code and message.
     gate_failure: tuple[str, str]
+    #: How the mode asks the model (:class:`SynthesisCall`): the one shard runner reads it.
+    call: SynthesisCall
     #: Maps the answer to proposal rows: the bootstrap normalizer, or the append's, which adds its own item kinds.
     normalize: Callable[..., _Normalized]
+    #: ``epigraph_digest(rows, context, summary)``: what the Start-screen epigraphs are written about. An append's rows
+    #: may hold only links, so its digest is topped up from its new inventories and neighbourhood.
+    epigraph_digest: Callable[[list[dict[str, Any]], Any, str], Any]
     #: The gates judge the append vocabulary: only an explicit restructure may update or deactivate.
     append_vocabulary: bool
     #: Where the run's facet-identity actions say they came from.
@@ -2310,34 +2329,18 @@ class SynthesisMode:
     meters_the_model_call: bool
     #: Kept: the synthesis run records its usage only when it writes a proposal.
     usage_only_with_a_proposal: bool
+    #: Kept: the run's usage includes the model call's record (passes, estimates, shards); otherwise only facet
+    #: identity's.
+    records_call_usage: bool
+    #: Kept: the run records the hashes of the spans its span rounds resolved.
+    records_resolved_span_hashes: bool
+    #: Kept: the model call runs with the run's budgets declared on its root receipts.
+    declares_its_budgets: bool
+    #: Kept: dropping the answers a run served forgets them, so a later drop in the same run (a fresh answer the gates
+    #: reject after a rejected match) names only the answers served since; otherwise it names the earlier ones again.
+    forgets_dropped_answers: bool
     #: Kept: the rows of a source set whose ``subject_id`` is empty carry the vault's first subject.
     resolves_an_empty_subject: bool
-
-
-BOOTSTRAP = SynthesisMode(
-    name="bootstrap",
-    agent_purpose=SYNTHESIS_AGENT_PURPOSE,
-    prompt_template="source-set-synthesis",
-    output_schema="SourceSetSynthesis",
-    prompt_version=source_set_synthesis_prompt_version,
-    recorded_budgets=(
-        "synthesis_shard_input_tokens", "synthesis_shard_output_tokens", "synthesis_total_input_ceiling",
-        "synthesis_output_tokens",
-    ),
-    unlimited_recorded_budgets=("synthesis_shard_input_tokens",),
-    proposal_purpose=BOOTSTRAP_PROPOSAL_PURPOSE,
-    summary_fallback="bootstrap study map for {subject}",
-    gate_failure=("synthesis_gate_failed", "Synthesis proposal failed hard quality gates."),
-    normalize=_normalize,
-    append_vocabulary=False,
-    facet_action_origin="ingest",
-    keeps_candidate_for_repair=True,
-    checks_client_id_collisions=True,
-    analyzes_identifiability=True,
-    meters_the_model_call=True,
-    usage_only_with_a_proposal=False,
-    resolves_an_empty_subject=True,
-)
 
 
 def _gate_and_persist(
@@ -2536,9 +2539,9 @@ class SynthesisAnswer:
     #: What facet identity, the normalizer and the summaries read.
     candidate: Any
     span_request_count: int = 0
-    #: The span hashes the call resolved; None: the mode's call does not report them, and the run records none.
+    #: The span hashes the call resolved; None: the mode does not record them, and the run records none.
     resolved_span_hashes: list[str] | None = None
-    #: The call's own usage record (bootstrap's shard runner); facet identity's joins it.
+    #: The call's own usage record (None: the mode does not record it); facet identity's joins it.
     usage: dict[str, Any] | None = None
     #: The mode's review records about the answer itself, reported after the normalizer's.
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
@@ -2573,10 +2576,12 @@ class SynthesisRun:
     #: Facet identity is on, so the prompt carries the one-facet-per-skill rule.
     one_facet_per_skill: bool
     progress: ProgressFn | None = None
-    #: What the mode's request reads beyond the source set's inputs: the append's new inventories and the context
-    #: of the neighbourhood around them. They also top up the epigraph digest, since an append's rows may hold only
-    #: links. None: the inputs alone (bootstrap).
-    context: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+    #: What the mode's request reads beyond the source set's inputs (the append's new inventories, the context of the
+    #: neighbourhood around them, its change kind and revision diff); the mode's epigraph digest reads it too. None:
+    #: the inputs alone (bootstrap).
+    context: Any = None
+    #: No budget is enforced; spend is still counted.
+    unlimited_token_budget: bool = False
 
 
 @dataclass(frozen=True)
@@ -2588,7 +2593,7 @@ class RunScope:
     scope: Any
     #: The revisions the manifest names. None: the source set's selected revisions.
     revision_ids: list[str] | None = None
-    context: tuple[list[dict[str, Any]], dict[str, Any]] | None = None
+    context: Any = None
 
 
 def open_synthesis_run(
@@ -2688,7 +2693,7 @@ def open_synthesis_run(
         now=now, clock=clock, agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id, client=client,
         nominator=nominator, facet_identity_client=facet_identity_client, manifest=manifest, budgets=budgets,
         token_budget=token_budget, provider=provider, model=model, one_facet_per_skill=one_facet_per_skill,
-        progress=progress, context=decided.context,
+        progress=progress, context=decided.context, unlimited_token_budget=unlimited_token_budget,
     )
 
 
@@ -2719,23 +2724,29 @@ def finish_synthesis_run(
     run: SynthesisRun,
     mode: SynthesisMode,
     *,
-    ask: Callable[[], SynthesisAnswer],
-    drop_answers: Callable[[], None],
     apply: Callable[[SynthesisOutcome], dict[str, Any]],
 ) -> SynthesisOutcome:
-    """Everything a synthesis run does once its head has opened it, for both modes: ask the model, plan facet
-    identity, gate and persist the proposal (or match an earlier one), finalize the run rows, apply, write epigraphs.
+    """Everything a synthesis run does once its head has opened it, for both modes: ask the model (the shard runner,
+    under the mode's call), plan facet identity, gate and persist the proposal (or match an earlier one), finalize the
+    run rows, apply, write epigraphs.
 
     The model is asked at most twice: the second time only after the rows equalled a proposal the learner wholly
     rejected, whose answers were dropped (``proposal_match``). Any failure up to the persisted proposal fails both
     run rows. Apply and epigraphs run after, outside those arms, so a failed apply leaves the run completed and its
-    proposal waiting, which answers the retry. The callables are the mode's own behaviour: ``ask`` and
-    ``drop_answers`` are its model call and the answers that call saved (the two modes' calls differ until both run
-    through the shard runner), and ``apply`` is what it applies once the proposal stands and what follows
-    (bootstrap: the whole map and the exam goal; append: §10.3's routine items, the study-map diff and the facet
-    doctor). ``apply`` returns the fields it adds to the mode's result."""
+    proposal waiting, which answers the retry. ``apply`` is the mode's own behaviour: what it applies once the
+    proposal stands and what follows (bootstrap: the whole map and the exam goal; append: §10.3's routine items, the
+    study-map diff and the facet doctor). It returns the fields it adds to the mode's result."""
 
     repository, client = run.repository, run.client
+    answers = _SavedAnswers()
+
+    def ask() -> SynthesisAnswer:
+        with declared_budgets(run.token_budget) if mode.declares_its_budgets else nullcontext():
+            return _run_synthesis(run, mode, answers)
+
+    def drop_answers() -> None:
+        answers.discard(repository, forget=mode.forgets_dropped_answers)
+
     items_off = run.brief["practice_items"] == "as_you_read"
     # A metered mode drains its client ONCE per answer, into a local threaded to every arm that finalizes the
     # run: the gate stage completes the agent run, and a gate failure completes it again out here, where a second
@@ -2827,10 +2838,7 @@ def finish_synthesis_run(
     # failed apply still surfaces first, and outside `_gate_and_persist` because
     # revalidation reuses that with no client.
     summary = str(getattr(answer.candidate, "summary", "") or "")
-    digest = (
-        digest_from_proposal_rows(normalized.rows, summary=summary) if run.context is None
-        else digest_for_append(normalized.rows, *run.context, summary=summary)
-    )
+    digest = mode.epigraph_digest(normalized.rows, run.context, summary)
     generate_vault_epigraphs(
         repository, run.vault, client,
         subject_id=run.source_set.subject_id, source_set_id=run.source_set.id,
@@ -3093,8 +3101,11 @@ class _SynthesisBudget:
     def remaining_output(self) -> int | None:
         return None if self.unlimited else max(0, self.budgets.synthesis_output_tokens - self.output_tokens_spent)
 
-    def check_base_passes(self, needed: int) -> None:
+    def check_base_passes(self, unpaid: list[int]) -> None:
+        """``unpaid``: the input of each base pass no checkpoint answers; together they must fit the ceiling."""
+
         ceiling = self.input_ceiling()
+        needed = sum(unpaid)
         if ceiling is not None and needed > ceiling:
             raise StudyMapError(
                 "budget_exceeded",
@@ -3124,6 +3135,12 @@ class _SynthesisBudget:
         self.input_tokens_estimate += max(estimated_input, reported_input)
         self.output_tokens_spent += output
 
+    def check_pass_output(self, charge: int, limit: int | None) -> None:
+        """A fresh pass's output, charged the larger of its size and the provider's report, against its limit."""
+
+        if limit is not None and charge > limit:
+            raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
+
     def check_shard_output(self, result: Any) -> None:
         if not self.unlimited and _result_tokens(result) > self.budgets.synthesis_shard_output_tokens:
             raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
@@ -3151,49 +3168,46 @@ class _SavedAnswers:
     shards: list[tuple[str, Any]] = field(default_factory=list)
     passes: list[tuple[str, Any]] = field(default_factory=list)
 
-    def discard(self, repository: Repository) -> None:
-        """Drop every answer served so far, and forget them: a later drop in the same run (a fresh answer the gates
-        reject after a rejected match) names only the answers judged since."""
+    def discard(self, repository: Repository, *, forget: bool = True) -> None:
+        """Drop every answer served so far. ``forget``: and forget them, so a later drop in the same run (a fresh
+        answer the gates reject after a rejected match) names only the answers judged since; kept, it names these
+        again, and deletes one only if the store holds that exact answer again (``SynthesisMode.forgets_dropped_answers``)."""
 
         for key, output in self.shards:
             repository.discard_synthesis_shard_result(key, output=output)
         for key, stored in self.passes:
             repository.discard_model_checkpoint(key, result=stored)
-        self.shards.clear()
-        self.passes.clear()
+        if forget:
+            self.shards.clear()
+            self.passes.clear()
 
 
-def _run_synthesis(
-    transport, repository, inputs, vault, source_set, brief, budgets, *, clock,
-    client: Any = None, provider: str | None = None, model: str | None = None,
-    manifest_hash: str | None = None, unlimited_token_budget: bool = False,
-    progress: ProgressFn | None = None, nominator: Any = None,
-    one_facet_per_skill: bool = False, answers: _SavedAnswers | None = None,
-):
-    answers = answers if answers is not None else _SavedAnswers()
-    registry = _registry_index(vault)
-    shards = _shards(inputs.unit_inventories, budgets.synthesis_shard_input_tokens)
+def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswers) -> SynthesisAnswer:
+    """The shard runner, for both modes: split the run's input into the mode's units, ask each one (a base pass and at
+    most one span round, each answered by its checkpoint when the same request was paid before), then let the mode
+    finish the candidate. Every answer served, fresh or reused, joins ``answers``, which the tail drops when the gates
+    or the learner reject the candidate.
+
+    The budget rule is the mode's (``call.spend``): an input preflight over every base pass still to pay before
+    anything is sent, then each pass checked before it is sent, run under its output limit, saved before its output
+    is checked (a paid answer is kept for a retry under a larger budget), and checked again after."""
+
+    call, repository, budgets, client, progress = mode.call, run.repository, run.budgets, run.client, run.progress
+    shards = call.shards(run)
+    context_for = call.contexts(run)
     merged = None
     span_request_count = 0
     resolved_hashes: list[str] = []
     reused_shards = 0
-    spend = _SynthesisBudget(budgets, unlimited=unlimited_token_budget)
-    schema = SourceSetSynthesis.model_json_schema()
-    settings = {**model_settings(client or transport), "provider": provider, "model": model}
+    spend = call.spend(budgets, run.unlimited_token_budget)
+    schema = call.result_model.model_json_schema()
+    settings = {**model_settings(client), "provider": run.provider, "model": run.model}
 
     def pass_request(context):
-        prompt = source_set_synthesis_prompt(context)
+        prompt = call.prompt(context)
         tokens = max(1, (len(prompt) + len(json.dumps(schema))) // 4)
-        key = _synthesis_pass_key(prompt, schema, settings)
-        return ModelCheckpoint(repository, key, "synthesis_pass", SourceSetSynthesis.model_validate), tokens
-
-    def base_context(ordinal, shard):
-        return SourceSetSynthesisContext(
-            source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
-            brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
-            registry_index=registry, resolved_spans=[], shard_ordinal=ordinal, shard_count=len(shards),
-            one_facet_per_skill=one_facet_per_skill,
-        )
+        key = call.checkpoint_key(prompt, settings)
+        return ModelCheckpoint(repository, key, call.checkpoint_purpose, call.result_model.model_validate), tokens
 
     # Durable per-shard checkpoints: resolve every shard's cache slot up front so
     # the total-input preflight only charges for shards that will actually run.
@@ -3208,14 +3222,14 @@ def _run_synthesis(
     shard_states: list[tuple[int, list[dict[str, Any]], str, dict[str, Any] | None]] = []
     base_reserves = {}
     for ordinal, shard in enumerate(shards):
-        checkpoint, tokens = pass_request(base_context(ordinal, shard))
-        cached = repository.synthesis_shard_result(checkpoint.key)
+        checkpoint, tokens = pass_request(context_for(shard, ordinal, len(shards), []))
+        cached = repository.synthesis_shard_result(checkpoint.key) if call.sharded else None
         cached = cached if cached and cached.get("output") else None
         if cached is not None and int(cached["output"].get("span_request_count") or 0):
             cached = None
         shard_states.append((ordinal, shard, checkpoint.key, cached))
         base_reserves[ordinal] = 0 if cached or checkpoint.load() is not None else tokens
-    spend.check_base_passes(sum(base_reserves.values()))
+    spend.check_base_passes([tokens for tokens in base_reserves.values() if tokens])
 
     def run_pass(context, *, future_input_reserve=0):
         checkpoint, tokens = pass_request(context)
@@ -3225,17 +3239,16 @@ def _run_synthesis(
             return fetched[0]
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
-        meter = UsageMeter(client or transport)
+        meter = UsageMeter(client)
         with generation_limit(output_limit):
-            result = request_source_set_synthesis(transport, context)
+            result = call.request(client, context)
         output_charge = meter.output_charge(_result_tokens(result))
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
         # Save before the budget check: the key has no budget in it, so a
         # retry under a larger one reuses this paid answer.
         stored = checkpoint.save(result, {"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
         answers.passes.append((checkpoint.key, stored))
-        if output_limit is not None and output_charge > output_limit:
-            raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
+        spend.check_pass_output(output_charge, output_limit)
         return result
 
     for ordinal, shard, shard_key, cached in shard_states:
@@ -3244,7 +3257,7 @@ def _run_synthesis(
             # A one-request shard: its row and its base pass hold the same answer.
             answers.shards.append((shard_key, output))
             answers.passes.append((shard_key, output.get("result") or {}))
-            result = SourceSetSynthesis.model_validate(output.get("result") or {})
+            result = call.result_model.model_validate(output.get("result") or {})
             span_request_count += int(output.get("span_request_count") or 0)
             resolved_hashes.extend(str(h) for h in output.get("resolved_span_hashes") or [])
             reused_shards += 1
@@ -3258,9 +3271,8 @@ def _run_synthesis(
         _notify(progress, "synthesis",
                 f"Synthesizing shard {ordinal + 1} of {len(shards)}",
                 current=ordinal + 1, total=len(shards))
-        context = base_context(ordinal, shard)
         future_reserve = sum(tokens for next_ordinal, tokens in base_reserves.items() if next_ordinal > ordinal)
-        result = run_pass(context, future_input_reserve=future_reserve)
+        result = run_pass(context_for(shard, ordinal, len(shards), []), future_input_reserve=future_reserve)
         spend.check_shard_output(result)
         shard_span_requests = 0
         shard_hashes: list[str] = []
@@ -3271,65 +3283,149 @@ def _run_synthesis(
                     f"Resolving evidence spans for shard {ordinal + 1} of {len(shards)}",
                     current=ordinal + 1, total=len(shards))
             resolved, shard_hashes = _resolve_span_requests(
-                repository, requests, inputs,
+                repository, requests, run.inputs,
                 max_count=budgets.synthesis_span_request_max_count,
                 char_cap=budgets.synthesis_span_char_cap,
             )
-            context = SourceSetSynthesisContext(
-                source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
-                brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
-                registry_index=registry, resolved_spans=resolved, shard_ordinal=ordinal, shard_count=len(shards),
-                one_facet_per_skill=one_facet_per_skill,
-            )
             # Reserve the remaining base shards before spending on optional
             # evidence expansion. Re-check before every subsequent base call.
-            result = run_pass(context, future_input_reserve=future_reserve)
+            result = run_pass(context_for(shard, ordinal, len(shards), resolved), future_input_reserve=future_reserve)
             spend.check_shard_output(result)
         span_request_count += shard_span_requests
         resolved_hashes.extend(shard_hashes)
-        # Checkpoint AFTER the output-budget check so an oversized shard is
-        # regenerated on retry rather than reused into the same failure.
-        shard_output = {
-            "result": result.model_dump(mode="json"),
-            "span_request_count": shard_span_requests,
-            "resolved_span_hashes": shard_hashes,
-        }
-        repository.save_synthesis_shard_result(
-            shard_key=shard_key, shard_ordinal=ordinal, shard_count=len(shards),
-            manifest_hash=manifest_hash, result=shard_output, clock=clock,
-        )
-        answers.shards.append((shard_key, shard_output))
-        result = _namespace_synthesis_shard(result, ordinal)
+        if call.sharded:
+            # Checkpoint AFTER the output-budget check so an oversized shard is
+            # regenerated on retry rather than reused into the same failure.
+            shard_output = {
+                "result": result.model_dump(mode="json"),
+                "span_request_count": shard_span_requests,
+                "resolved_span_hashes": shard_hashes,
+            }
+            repository.save_synthesis_shard_result(
+                shard_key=shard_key, shard_ordinal=ordinal, shard_count=len(shards),
+                manifest_hash=run.manifest["manifest_hash"], result=shard_output, clock=run.clock,
+            )
+            answers.shards.append((shard_key, shard_output))
+            result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
         spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget; completed shards are saved.")
 
     if merged is None:
-        merged = SourceSetSynthesis()
-    usage: dict[str, Any] = {}
+        merged = call.result_model()
+    candidate, usage, diagnostics = call.after_passes(
+        run, merged, spend=spend, answers=answers, settings=settings, shard_count=len(shards),
+    )
+    usage = {**usage,
+             "calls": spend.calls,
+             "input_tokens_estimate": spend.input_tokens_estimate,
+             "output_tokens_charged": spend.output_tokens_spent,
+             "shard_count": len(shards),
+             "reused_shards": reused_shards}
+    return SynthesisAnswer(
+        candidate, span_request_count,
+        resolved_span_hashes=resolved_hashes if mode.records_resolved_span_hashes else None,
+        usage=usage if mode.records_call_usage else None,
+        diagnostics=diagnostics,
+    )
+
+
+def _bootstrap_pass_key(prompt: str, settings: dict[str, Any]) -> str:
+    """Checkpoint identity of one bootstrap pass (:func:`_synthesis_pass_key` over its schema)."""
+
+    return _synthesis_pass_key(prompt, SourceSetSynthesis.model_json_schema(), settings)
+
+
+def _bootstrap_shards(run: SynthesisRun) -> list[list[dict[str, Any]]]:
+    return _shards(run.inputs.unit_inventories, run.budgets.synthesis_shard_input_tokens)
+
+
+def _bootstrap_contexts(run: SynthesisRun):
+    registry = _registry_index(run.vault)
+
+    def context(shard, ordinal, shard_count, resolved_spans):
+        return SourceSetSynthesisContext(
+            source_set_id=run.source_set.id, subject_id=run.source_set.subject_id, mode="bootstrap",
+            brief=run.brief, unit_inventories=shard, exam_profile=run.inputs.exam_profile or {},
+            registry_index=registry, resolved_spans=resolved_spans, shard_ordinal=ordinal, shard_count=shard_count,
+            one_facet_per_skill=run.one_facet_per_skill,
+        )
+
+    return context
+
+
+def _structure_merged(run: SynthesisRun, merged: Any, *, spend: Any, answers: _SavedAnswers,
+                      settings: dict[str, Any], shard_count: int) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]:
+    """After a bootstrap's passes: concepts of the same title consolidated across shards, then the graph structured
+    (its own checkpointed model call, held to what the passes left of the budgets)."""
+
     merged = _consolidate_same_title_concepts(merged)
     merged, structuring_usage = _model_graph_structuring(
-        merged, client, source_set, inputs, repository, vault,
-        shard_count=len(shards),
+        merged, run.client, run.source_set, run.inputs, run.repository, run.vault,
+        shard_count=shard_count,
         input_tokens_estimate=spend.input_tokens_estimate,
         total_input_ceiling=spend.input_ceiling(),
         output_budget_tokens=spend.remaining_output(),
-        progress=progress,
-        nominator=nominator,
+        progress=run.progress,
+        nominator=run.nominator,
         settings=settings,
         answers=answers,
     )
     spend.calls += int(structuring_usage.pop("calls", 0))
     spend.input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
-    usage.update(structuring_usage)
     spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget.")
-    usage.update({
-        "calls": spend.calls,
-        "input_tokens_estimate": spend.input_tokens_estimate,
-        "output_tokens_charged": spend.output_tokens_spent,
-        "shard_count": len(shards),
-        "reused_shards": reused_shards,
-    })
-    return merged, span_request_count, resolved_hashes, usage
+    return merged, structuring_usage, []
+
+
+def _rows_digest(rows: list[dict[str, Any]], _context: Any, summary: str) -> Any:
+    return digest_from_proposal_rows(rows, summary=summary)
+
+
+BOOTSTRAP_CALL = SynthesisCall(
+    request=request_source_set_synthesis,
+    prompt=source_set_synthesis_prompt,
+    result_model=SourceSetSynthesis,
+    checkpoint_key=_bootstrap_pass_key,
+    checkpoint_purpose="synthesis_pass",
+    shards=_bootstrap_shards,
+    contexts=_bootstrap_contexts,
+    spend=_SynthesisBudget,
+    sharded=True,
+    after_passes=_structure_merged,
+)
+
+
+BOOTSTRAP = SynthesisMode(
+    name="bootstrap",
+    agent_purpose=SYNTHESIS_AGENT_PURPOSE,
+    prompt_template="source-set-synthesis",
+    output_schema="SourceSetSynthesis",
+    prompt_version=source_set_synthesis_prompt_version,
+    recorded_budgets=(
+        "synthesis_shard_input_tokens", "synthesis_shard_output_tokens", "synthesis_total_input_ceiling",
+        "synthesis_output_tokens",
+    ),
+    unlimited_recorded_budgets=("synthesis_shard_input_tokens",),
+    proposal_purpose=BOOTSTRAP_PROPOSAL_PURPOSE,
+    summary_fallback="bootstrap study map for {subject}",
+    gate_failure=("synthesis_gate_failed", "Synthesis proposal failed hard quality gates."),
+    call=BOOTSTRAP_CALL,
+    normalize=_normalize,
+    epigraph_digest=_rows_digest,
+    append_vocabulary=False,
+    facet_action_origin="ingest",
+    keeps_candidate_for_repair=True,
+    checks_client_id_collisions=True,
+    analyzes_identifiability=True,
+    meters_the_model_call=True,
+    usage_only_with_a_proposal=False,
+    records_call_usage=True,
+    records_resolved_span_hashes=True,
+    declares_its_budgets=True,
+    forgets_dropped_answers=True,
+    resolves_an_empty_subject=True,
+)
+
+
 
 
 def _synthesis_pass_key(
