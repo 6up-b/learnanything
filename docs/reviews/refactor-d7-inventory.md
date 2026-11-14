@@ -309,7 +309,7 @@ Eleven of §1's fields are read by replay or a rebuild's replayer. For a vault t
 - the five AD fields `enabled`, `learned_coupling`, `reading_opportunities`, `reading_self_check`, `lesson_opportunities`;
 - `facet_diagnostic.canonical_belief_fixes`.
 
-`projection_switches` (`RS:475-488`) records only two of these, the interval factor and the head's facet-belief key, so **doctor can see a flip of only those two**. The playbook's rule of 2026-11-04 ("a config switch that changes how a projection is derived is a projection change … the rebuild's receipt records the switches it derived under", `docs/algorithm-change-playbook.md:136-144`) is met for those two and not for the other nine. For the AD five, the derived tables are AD's own and nothing decides from `ad_state` (`adaptive_difficulty/protected_tables.py:580`).
+`projection_switches` (`RS:475-488`) records only two of these, the interval factor and the head's facet-belief key, so **doctor can see a flip of only those two**. The playbook's rule of 2026-11-04 ("a config switch that changes how a projection is derived is a projection change … the rebuild's receipt records the switches it derived under", `docs/algorithm-change-playbook.md:137-144`) is met for those two and not for the other nine. For the AD five, the derived tables are AD's own and nothing decides from `ad_state` (`adaptive_difficulty/protected_tables.py:580`).
 
 **`replay.ledger_bounded`, read at its source.** The strategy says it affects rebuild results (`attempts/attempts.py:1378`).
 - **What turning it off changes.** `replay_existing_attempt` passes `replay_ledger_position=None` instead of the attempt's `(created_at, id)` (`attempts/attempts.py:1521-1525`). Three things follow in a replay:
@@ -328,7 +328,7 @@ Eleven of §1's fields are read by replay or a rebuild's replayer. For a vault t
 **The pre-eligibility cold lane and hold.** The strategy cites `scheduling/scheduler.py:1831` and `:2018`. Those lines are stale: at this tip, 1831 is inside `_cold_task_reveals` and 2018 inside the successor lane. The predecessor code is:
 - `_predecessor_defer_revealed_cold_followups` (`scheduling/scheduler.py:2045-2179`), the mvp-0.26 cold lane, whose sole caller is the off arm at `:1930-1933`;
 - `_predecessor_cold_check_hold_until` (`:2232-2287`), the mvp-0.26 routine-display hold, called by the off arms of `cold_check_hold_until`, `cold_check_serve_hold` and `cold_check_serve_decision` (`:2224`, `:2309`, `:2333`);
-- `reveal_coverage.routine_displays_covering` (`scheduling/reveal_coverage.py:124-146`), whose only callers are that hold and the off arm of `diagnosis/probe_episodes.py:1254-1257`.
+- `reveal_coverage.routine_displays_covering` (`reveal_coverage.py:124-146`), whose only callers are that hold and the off arm of `diagnosis/probe_episodes.py:1254-1257`.
 
 It is **reachable today by one config, `[eligibility] enabled = false`**, and by a caller that passes no vault (`decision_active(None)`; none found in production). It goes with `eligibility.enabled`, about 255 lines in 8 files. What stays is the one eligibility decision in `serve_eligibility.py` and the successor bodies of the scheduler's callers. `_cold_task_reveals` stays too, because `deferred_cold_followups` (`:2395`) reads it with no switch.
 
@@ -394,3 +394,113 @@ Batch 1 is the largest removal and the one whose switches replay reads most. Bat
 - **Run `scripts/vault_report.py` on the live and retired vaults** (agents do not open them). Its list names only 50 of §1's 99 fields, and it was written for a floor of mvp-0.55. Before the run, either the script's `D7_SWITCHES` gets the 49 missing keys (the "no" rows in §1), or the owner checks those keys by hand in each `learnloop.toml`.
 - **Look hardest at the switches replay reads** (§2.1), because a past off setting would change stored state at the next rebuild without a warning: `recurrence.enabled`, `mastery.claim_fixes_enabled`, `replay.ledger_bounded`, `data_capture.serving` and `scheduler.surprise.remove_interval_factor`.
 - **Check `router.lesson_suggestions.*` in particular:** a vault that sets either key would fail to load after its removal (`extra="forbid"`).
+
+## 6. The untagged switches, and every other boolean and mode
+
+The 218 boolean and mode fields not in §1 were read field by field against their schema comments and class docstrings, then classed by wording:
+- **untagged kill switches (54):** the doc says the off value, or a named value such as `classic` or `cascade`, restores the predecessor "exactly", "byte for byte", "bit-for-bit" or the "legacy" behaviour;
+- **other settings (164):** everything else.
+
+The proposed tag rule cannot apply to any of them. Each untagged switch goes only by an owner decision by name. The classes below are:
+- **K10.16:** decided, retire (the owner, Nov 14: `docs/reviews/k10-figures-strategy-2026-11-14.md:17`, Q1);
+- **C:** keep, with the reason;
+- **U:** a predecessor nothing seems to need, removable by name if the owner wants.
+
+Reader counts are approximate grep line counts (many reads go through `getattr`). Off-only tests and off-code lines were **not** counted for this list (§7).
+
+### 6.1 The 54 untagged kill switches
+
+| config path | default | the off value restores | main reader | identity | class |
+|---|---|---|---|---|---|
+| `figures.predictions_enabled` | true | (no predecessor wording) predictions off | `figures/service.py:3825` | none | **K10.16** |
+| `figures.region_enabled` | true | (no predecessor wording) | `figures/service.py:1883` | none | **K10.16** |
+| `figures.revisions_enabled` | true | (no predecessor wording) | `figures/service.py:1891` | none | **K10.16** |
+| `figures.advanced_panels_enabled` | true | the author is not told of advanced panels | `figures/figure_admission.py:48` | author prompt | **K10.16** |
+| `figures.offers_enabled` | true | no figure offers in organizer and tutor prompts | `figures/figure_admission.py:56` | prompts | **K10.16** |
+| `figures.show_me_enabled` | true | figures start only from a passage; the tutor's prompt is the predecessor's | `figures/help.py:416`, `teacher/visuals.py:67` | prompts | **K10.16** (`teacher.visuals` needs it, `config/schema.py:4545`) |
+| `figures.sketch_enabled` | true | the author's contract is the predecessor's byte for byte | `figures/figure_admission.py:82` | author contract | **K10.16** |
+| `figures.checked_labels_enabled` | true | every view is the predecessor's | `figures/figure_admission.py:92` | none | **K10.16** |
+| `goals.held_out_selection` | true | the unprotected selection (exam and held-out material may be served) | `content/sources/exam_material.py:1538` | none | **C**: the exam-integrity safeguard |
+| `diagnosis.history_includes_prior_analysis` | `randomized` | (`off`) the diagnoser's predecessor context byte for byte | `diagnosis/split/prior_analysis.py:82` | the arm is recorded on the context receipt | **C**: a live randomized study arm (`learnloop diagnose m2-report`) |
+| `hints.adaptive_enabled` | true | the practice RPCs byte-identical to the base | `hints/service.py:204` | none | **C**: paid help calls |
+| `workbench.enabled` | true | the practice screen byte-identical, every workbench RPC refuses | `reader/workbench.py:125` | none | **C**: a feature with paid checks |
+| `workbench.help_enabled` | true | the scratchpad only | `workbench/compare_methods.py:131` | none | **C**: paid help |
+| `reader_intent.enabled` | true | the palette opens in Notes, as the predecessor | `sidecar/handlers/reader_intent.py:81` | none | **C**: sends typed text to a paid Decider |
+| `library_ask.enabled` | true | the library and Reader exactly as without it | `source_retrieval/library_ask.py:172` | none | **C**: paid, with a daily cap |
+| `figures.rich_tiers_enabled` | true | the author's contract is V2's byte for byte | `figures/rich.py:102` | author contract | **C**: sandboxed rendered code (not in K10.16's eight) |
+| `facet_identity.enabled` | true | the lexical gate only, the predecessor's synthesis prompts | `content/synthesis/source_set_synthesis.py:670` | **A1** (`MANIFEST_CONFIG_FIELDS`, `content/facet_identity/judge.py:1186`; `identity_view`, so `RETIRED_FIELDS` holds it) | **C**: a paid judge |
+| `teacher.visuals` | true | the teacher's prompt and turn schema byte for byte | `figures/service.py:367` | prompt | **C**: paid lesson figures |
+| `source_retrieval.enabled` | true | every consumer's previous behaviour (substring search) | `source_retrieval/library.py:127`, `:201`, `reader_tutor.py:205`, `tutor.py:341` | recorded in report manifests | **C**: the whole retrieval stack, with spend |
+| `mastery.irt.enabled` | true | the legacy logit-space update, bit-for-bit | `learner/mastery.py:898`, `attempts/surprise.py:68` | **C1, C2** (`MasteryConfig` dumped whole; `RETIRED_FIELDS` holds it) | **U**; **replay reads it** (the mastery update); the owner's copies set it, to its default |
+| `mastery.irt.difficulty_from_prior` | true | b not derived from the item and LO difficulty | `learner/mastery.py:751` | C1, C2 (as above) | **U**: H6 retires it (strategy §2.11); replay reads it; the copies set it, to its default |
+| `scheduler.followup.gate_mode` | `score` | (`cascade`) the legacy hard trigger chain, "kept as a bit-for-bit escape hatch" | `diagnosis/followups.py:235` (an unknown value falls back to `cascade`) | none | **U**; the copies set it, to its default |
+| `tutor_qa.adopt_reference_questions` | true | references stay references | `reader/reader_authoring.py:309`, `vault/lifecycle.py:164` | none | **U** |
+| `tutor_qa.expanded_delivery` | true | the narrow passages | `source_retrieval/tutor.py:210` | none found | **U** |
+| `diagnosis.grading_support` | true | the predecessor's blind prompt exactly | `attempts/attempts.py:2180` | prompt (not checked further) | **U**; it also keeps the rules-free grading path alive after `proof_check.enabled` goes |
+| `hints.telemetry_enabled` | true | no help rows, as without telemetry | `hints/telemetry.py:49` | none | **U**: `hints.adaptive_enabled` needs it |
+| `reader_inquiry.enabled` | true | the flat rail, every RPC as the predecessor | `sidecar/handlers/reader_intent.py:118` | none | **U**; three reader switches need it |
+| `workbench.passage_draw_enabled` | true | the first passage, as before | `sidecar/handlers/workbench_help.py:523` | none | **U** |
+| `digest.enabled` | true | the router card is the predecessor's byte for byte | `daily_plan/router_reader.py:108` | the router card (not checked as a hash) | **U** |
+| `digest.narrative_quotes_inquiry` | true | the predecessor's prompt exactly | `instructional/reader_digest.py:193` | prompt | **U** |
+| `reader_tutor.retrieval_enabled` | true | the selection-and-neighbours tutor | `sidecar/handlers/reader_tutor.py:39` | prompt | **U** |
+| `reader_tutor.learner_state_enabled` | true | the predecessor's prompt and manifest | `reader_learner_state.py:101` | manifest (not checked) | **U** |
+| `figures.author_learner_state` | true | the author's payload, prompt and keys | `figures/figure_admission.py:299` | a figure reuse key hashes the state (unpinned) | **U** (not in K10.16's eight) |
+| `reader_compare.scope_enabled` | true | only the pinned request | `sidecar/handlers/library_ask.py:585` | none | **U** |
+| `reader_compare.by_point` | true | the Reader requests `source_compare.v1` | `source_retrieval/kept_comparisons.py:173` | the prompt version | **U** |
+| `practice.as_printed.enabled` | true | every screen as without it | `sidecar/handlers/as_printed.py:60` | none | **U** |
+| `roles.on_demand_enabled` | true | both judges' requests and outputs exactly | `reader/source_roles.py:190` | none | **U** |
+| `curriculum.exam_units_in_scope` | true | the predecessor's prompt | `source_retrieval/deliverables.py:874` | prompt | **U** |
+| `reader.correspondence.enabled` | true | the Guide as without it | `sidecar/handlers/correspondents.py:78` | none | **U** |
+| `reader.side_by_side.enabled` | true | the Reader as without it | `sidecar/handlers/side_by_side.py:47` | none | **U** |
+| `embedding.map_neighbors_enabled` | true | facet and concept-graph neighbours (display only) | `sidecar/handlers/item_text_neighbors.py:88` | none | **U** |
+| `graph_nomination.enabled` | true | the lexical-only behaviour exactly | `content/synthesis/graph_nomination.py:101` | `GraphNominationConfig` is dumped for A3, through `identity_view` | **U** (acts only with `embedding.enabled`, off by default) |
+| `source_retrieval.tutor_deadline_cancels` | **false** | (`true`) the tutor's time box | `source_retrieval/tutor.py:348` | none | **U** (inverse) |
+| `source_retrieval.complete_passages` | true | 900-character judge passages (report `t6-eval-v2`) | `source_retrieval/evaluation.py:442` | the report version (unpinned) | **U** |
+| `facet_identity.reword_confirm` | true | the predecessor rule: such a change is refused | `content/facet_identity/authority.py:169` | **A1** (`RETIRED_FIELDS` holds it) | **U** |
+| `plan.reading_from_furthest` | true | the first unfinished section in book order | `daily_plan/engine.py:177` | none | **U** |
+| `plan.deterministic_staged_plans` | true | the staged plan's session-seeded pool draws | `daily_plan/engine.py:741` | a seed (unpinned; not checked against C3 or C6) | **U** |
+| `followup.hypothesis_marks` | true | every reply and context as it was | `followup_serve/gates.py:43` | the router card's marks section (not checked) | **U** |
+| `adaptive_difficulty.history_answer_excerpts` | true | the predecessor's card and state version | `adaptive_difficulty/outside.py:189` | the frozen state version `ad-forecast-state-v2` (unpinned) | **U** |
+| `ui.practice_feedback` | `simple` | (`classic`) the detailed screens exactly | `sidecar/context.py:1060` (to the desktop) | none | **U**: the classic screens are desktop code (not sized) |
+| `ui.shell` | `simple` | (`classic`) the ten-tab shell exactly | `sidecar/context.py:1060` | none | **U**: as above |
+| `teacher.confidence_events_enabled` | true | each context its predecessor's (`learner_state_card_v1`) | `confidence_events.py:101` | the card version | **U** |
+| `teacher.episode_log` | true | nothing written, lessons the predecessor's | `teacher/episodes.py:70` | none | **U** |
+| `ask.panel_enabled` | true | the overlay and practice prompt exactly as the predecessor | `sidecar/handlers/tutor_qa.py:408` | prompt | **U** |
+
+**Counts:** K10.16 8, C 11, U 35.
+
+**K9's Q4 is not a config switch.** The EVSI-2 shadow selection that `docs/reviews/k9-diagnosis-strategy-2026-11-14.md` Q4 asks about runs unconditionally in `diagnosis/causal_orchestrator.py:1491-1515`. `probe.shadow.enabled` (`config/schema.py:355`, read at `scheduling/scheduler.py:758`, `:1067`, `sidecar/handlers/practice.py:617`) is a different shadow: the alternative rankings logged on a probe presentation. Q4 is an owner question for K9.16, not a D7 row.
+
+### 6.2 The other 164 booleans and modes (not kill switches)
+
+- **Opt-ins, off by default (29):** `mastery.irt.eb_difficulty_enabled`, `probe.generation.auto_generate_on_entry` (read only on FG1's off branches, so it dies with `followup.generate_and_serve`), `animation.video_generate_audio`, `.latex_enabled`, `.auto_provision_venv`, `ingest.allow_auto_captions`, `ingest.pdf.force_ocr`, `.use_llm`, `embedding.enabled`, `.backfill_enabled`, `embedding.local.enabled`, `embedding.fallback.enabled`, `embedding.source_space.learned_fusion`, `.exploration`, `source_retrieval.tutor_query_rewrite`, `field.enabled`, `.question_classification_enabled`, `.llm_probability_enabled`, `practice_index.dossiers_enabled`, `.evaluation_enabled`, `router.ties_only`, `pf.generation_enabled`, `capabilities.residual_activation_enabled`, `diagnosis.chat_shows_recorded_text`, `evsi.measured_loss_enabled`, `workbench.symbolic_checks_enabled`, `followups.generate_when_nothing_fits`, `library_exercises.fallback_enabled`, `notes.gaps_enabled`.
+- **Cost and spend controls (19):** `embedding.backfill_sources_on_extract`, `embedding.local.index_on_extract`, `embedding.fallback.maintain_index`, `graph_nomination.embed_new_text`, `source_retrieval.query_rewrite`, `.tutor_rerank`, `project.generate_before_serving`, `practice_index.rerank_enabled`, `diagnostic_augmentation.sampling_enabled`, `hints.maps.build_on_serve`, `hints.outcome_placement_enabled`, `cues.discovery_enabled`, `digest.narrative_enabled`, `reader_intent.speculative_enabled`, `library_ask.expand_graph`, `figures.prefetch_enabled`, `curriculum.coverage_on_extract`, `project.grading_reasoning_effort`, `adaptive_difficulty.outside_forecasters`.
+- **Operational and safety (5):** `animation.enabled`, `ingest.native.fallback_when_unavailable`, `project.require_tool_isolation` (a safety valve: off runs agentic transports unconfined, `config/schema.py:3362-3368`), `recurrence.require_guard` (it acts only on the mvp-0.12 upgrade, which is below the floor: ADR-019 names it for `pre-floor`), `practice.device_eligibility_enabled`.
+- **Display and preference (8):** `plan.headline`, `recurrence.escalation_card_enabled`, `cues.one_per_viewport`, `library_ask.personalized_default`, `reader.correspondence.hide_everywhere`, `ui.show_router_decisions`, `hints.help_style`, `cues.density`.
+- **Selection among peers (23):** `scheduler.followup.threshold_mode`, `animation.renderer`, `ingest.pdf.engine`, `ingest.pdf.glm_ocr.backend`, `.base64_style`, `ingest.pdf.llm_model`, `ingest.audio.mode`, `.transcription_model`, `embedding.model`, `embedding.source_space.default`, `source_retrieval.pool`, `field.active_predictor`, `field.legacy_fallback`, `practice_index.retrieval_path`, `router.sensor_source`, `pf.default_path`, `diagnosis.history_mode`, `hints.choice_policy`, `learner_text_gaps.chooser`, `adaptive_difficulty.history_fallback`, `.priors`, `.hyper`, `.ladder`.
+- **Feature toggles whose docs name no predecessor (78):**
+  - probe and tutor: `scheduler.followup.require_misconception_discrimination` (its comment says "parsed but inert", `config/schema.py:78`, but `diagnosis/followups.py:1963` reads it), the three `probe.episode` toggles, `probe.generation.llm_surfaces`, `probe.shadow.enabled`, four `tutor_qa` toggles (`reader_enabled`, `apply_uncertainty_effect`, `apply_question_evidence`, `resolve_references`), `rung_variants.retry_on_rung_violation`;
+  - ingest and embeddings: `animation.auto_repair`, `ingest.auto_build`, `.auto_apply_passing_builds`, `embedding.local.student`, `.teacher_replay`, `embedding.source_space.log_feedback`, `source_retrieval.dense`, `.suggest_learning_objects`;
+  - sources and projects: `project.auto_sweep`, `practice_index.enabled`, the 13 `source_service` keys (its class doc calls every key a kill switch, `config/schema.py:3718-3720`, but none names a predecessor);
+  - router and logging: `router.log_decisions`, `.sensors`, `.similar_decisions`, `.teach_back_summary`, `data_capture.receipts`, `trace_evidence.elicitation_enabled`, `evsi.forecast_logging`;
+  - diagnosis and learner text: `diagnosis.card_enabled`, `.forward_card_taps`, `.forecast_receipts`, `recurrence.judge_enabled`, `.escalation_repair_enabled`, `learner_text_gaps.enabled`, `.add_edges_enabled`, `.create_prerequisites_enabled`, `.sightings_enabled`;
+  - hints and the workbench: `hints.maps.enabled`, `hints.chooser_enabled`, the six workbench sub-features;
+  - the Reader: `cues.enabled`, `.try_first_enabled`, `.value_order_enabled`, `recap.enabled`, `.wrap_up_enabled`, `followups.formative_questions_enabled`, `reader_active_reading.enabled`, `reader_formative.enabled`, `library_exercises.enabled`, `reader_compare.enabled`, `.keep_enabled`, `roles.positive_filter_enabled`, `reading_paths.enabled`, `notes.enabled`, `reader_tutor.offers_enabled`;
+  - the rest: `figures.enabled`, `figures.help_kind_enabled`, `adaptive_difficulty.rating_tap`, `.reading_dose_offers`, `teacher.brief.use_deliverable`, and `evidence.item_coverage_by_practice_mode` (a table of numbers, not a switch).
+- **Not decided (2):** `adaptive_difficulty.forecast_receipts` and `.feature_audit`. The class doc says each AD switch restores "its part's predecessor exactly" (`config/schema.py:4664`), but these two are logging and audit toggles.
+
+## 7. What I could not verify
+
+- **The live vaults.** Only the Nov 12 copies were checked, against all 99 §1 fields and all 218 §6 fields. The live and retired vaults are the owner's to run (§5).
+- **Line and test counts are estimates.**
+  - Off-body lines were counted by hand. Functions were counted as their AST spans.
+  - Tests were sorted into off-only and port by reading names and the hit lines. Not every test was read in full, and none was run.
+  - The test-lines estimate (≈ 4,000) uses a mean of 17 lines per test function from twelve of the files involved.
+  - The TypeScript lines (`plan.enabled`, `stuck_prompt.enabled`, `teacher.enabled`) are rough.
+  - §6's off code and off-only tests were not counted at all.
+- **Whether `learner_text_gaps.sooner_check_enabled` changes a replayed row.** The `family_memory` replayer reaches its read (`substrate/rebuild_orchestrator.py:477-494` → `field/outcomes.py` → `field/signals.py:474-478`). I did not establish that a learner-gap signal changes any replayed value. One shadow rebuild of a copy with it off against one with it on would settle it.
+- **Whether a bare `PlanEnv`'s follow-up insertion runs with the router on.** If `DEFAULT_POLICY`'s gate-None path (`daily_plan/engine.py:4680-4699`) is reachable from a bare `PlanEnv` with the router on (for example `sidecar/handlers/reader.py:2259`), it stays even if every router switch goes. Not traced.
+- **Removing `learned_coupling` as "off".** The coupling machinery that would then become dead was not sized.
+- **Unpinned hashes.** Whether the unpinned version strings and hashes named in §6, and the `daily_plans.config_hash` and decision-state `versions.config` whole-config dumps, are compared anywhere later. I found only their writers for the last two.
+- **Paths not read.** The vault's generated `Reference/Configuration/Fields` notes, the TUI and the phone frontend (`apps/learnloop-mobile`) were read only by grep for these keys.
+- **D6 part 2's tests.** This document describes D6 part 2 from its source diff on `refactor/d6-part2-wip-orig`. That branch still had about 196 old-tag test failures to port (D6 record §8 item 1). Its test ports were not read, so the port counts above are main's plus D6 part 1's.
