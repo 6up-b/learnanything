@@ -796,6 +796,43 @@ def _decoded_attribution(raw: str | None) -> object:
         return None
 
 
+def _epoch_rubric_and_group(
+    vault: LoadedVault,
+    snapshot: FacetTimelineSnapshot,
+    item,
+    practice_item_id: str,
+    records: Iterable[GradingEvidenceRecord],
+):
+    """The rubric and surface group one grading epoch is read under: the
+    contract its rows cite (one, as the projection requires), else the live
+    item, as the projection falls back for rows written before contracts."""
+
+    version_ids = {
+        record.assessment_contract_version_id
+        for record in records
+        if record.assessment_contract_version_id
+    }
+    contract = None
+    if len(version_ids) == 1:
+        stored = snapshot.contracts_by_id.get(next(iter(version_ids)))
+        contract = stored.get("contract") if stored is not None else None
+    if contract is None:
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        return rubric, surface_group_id(item) if item is not None else f"item:{practice_item_id}"
+    from learnloop.learner.assessment_contracts import rubric_from_contract
+
+    fingerprint = contract.get("evidence_fingerprint") or {}
+    group = next(
+        (
+            str(fingerprint[key])
+            for key in ("shared_stimulus_id", "source_family", "solution_recipe_family")
+            if fingerprint.get(key)
+        ),
+        str(contract.get("surface_family") or f"item:{practice_item_id}"),
+    )
+    return rubric_from_contract(contract), group
+
+
 def _observation_events_by_facet(
     vault: LoadedVault,
     snapshot: FacetTimelineSnapshot,
@@ -874,31 +911,9 @@ def _observation_events_by_facet(
         # branch ran a marking-only pass because the projection treated every
         # ungraded criterion as a failure.)
         for index, ((epoch_at, _revision_key), records) in enumerate(epoch_items):
-            version_ids = {
-                record.assessment_contract_version_id
-                for record in records
-                if record.assessment_contract_version_id
-            }
-            contract = None
-            if len(version_ids) == 1:
-                stored = snapshot.contracts_by_id.get(next(iter(version_ids)))
-                contract = stored.get("contract") if stored is not None else None
-            if contract is not None:
-                from learnloop.learner.assessment_contracts import rubric_from_contract
-
-                rubric = rubric_from_contract(contract)
-                fingerprint = contract.get("evidence_fingerprint") or {}
-                group = next(
-                    (
-                        str(fingerprint[key])
-                        for key in ("shared_stimulus_id", "source_family", "solution_recipe_family")
-                        if fingerprint.get(key)
-                    ),
-                    str(contract.get("surface_family") or f"item:{attempt['practice_item_id']}"),
-                )
-            else:
-                rubric = vault.rubric_for_item(item) if item is not None else None
-                group = surface_group_id(item) if item is not None else f"item:{attempt['practice_item_id']}"
+            rubric, group = _epoch_rubric_and_group(
+                vault, snapshot, item, str(attempt["practice_item_id"]), records
+            )
             if rubric is None or not rubric.criteria:
                 continue
             epoch_rows = {
