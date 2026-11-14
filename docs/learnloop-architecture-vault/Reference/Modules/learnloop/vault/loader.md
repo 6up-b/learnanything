@@ -2464,8 +2464,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_reader_question_transcript_can_be_resumed`
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
+  - `test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal`
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
   - `test_quick_add_one_url_one_confirmation_to_study_map`
+  - `test_quick_add_without_an_exam_brief_makes_no_goal`
 - [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
   - `test_crash_before_the_link_reuses_the_commitments_own_card`
 - [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import
@@ -3070,6 +3072,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stop_probe_diagnosing_converts_episode`
 - [tests/test_sidecar_queue_serialization.py](../../../../../../tests/test_sidecar_queue_serialization.py) — direct import
   - `test_queue_serialization_bulk_loads_state_once`
+- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import

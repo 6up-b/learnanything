@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/QuickAddDialog.tsx](../../../../../../apps/learnloop-tauri/src/components/QuickAddDialog.tsx) |
-| Source lines | 642 |
+| Source lines | 667 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,43 +54,44 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function QuickAddDialog(` — function, line 23
+- `export function QuickAddDialog(` — function, line 24
 
 ## Internal implementation anchors
 
-- `const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"]` — const, line 18
-- `const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 19
-- `const NARROW_ADJUNCT_SCOPE = "Treat this source as a narrow enrichment adjunct. Make only additive changes: attach it to existing curriculum when it fits` — const, line 20
-- `const mountedRef = useRef(true)` — const, line 67
-- `const fileDragging = useSourceFileDrop(` — const, line 68
-- `async function browseForSource()` — function, line 87
-- `const picked = await pickSourceFile()` — const, line 89
-- `const handler = (e: KeyboardEvent)` — const, line 100
-- `const effectiveBrief = (): StudyMapBriefDto` — const, line 111
-- `const enrichmentActive = brief?.authoringPreset === "narrow_adjunct"` — const, line 115
-- `const applyEnrichmentPreset = ()` — const, line 117
-- `const clearEnrichmentPreset = ()` — const, line 129
-- `const next =` — const, line 132
-- `const runPlan = async (rangeIsCurrent = false)` — const, line 142
-- `const res = await api.planQuickAdd(` — const, line 152
-- `const command = getCommandError(err)` — const, line 158
-- `const importThenPlan = async ()` — const, line 169
-- `const batch = await api.startImportBatch(` — const, line 174
-- `const current = await api.getIngestBatch(batch.id)` — const, line 180
-- `const activeJob = current.jobs.find((job)` — const, line 182
-- `const progressStatus = current.status === "running" ? "running" : "queued"` — const, line 184
-- `const failed = current.jobs.find((job)` — const, line 192
-- `const confirmBuild = async ()` — const, line 217
-- `const res = await api.confirmQuickAdd(` — const, line 222
-- `const allConsented = consentTicked.every(Boolean)` — const, line 240
-- `const budgetValid = unlimitedTokenBudget || (inventoryOutputTokens >= 1_000 && inventoryOutputTokens <= 100_000)` — const, line 241
-- `function Label(` — function, line 574
-- `const backdropStyle: CSSProperties =` — const, line 582
-- `const modalStyle: CSSProperties =` — const, line 594
-- `const headerStyle: CSSProperties =` — const, line 606
-- `const footerStyle: CSSProperties =` — const, line 615
-- `const primaryBtn: CSSProperties =` — const, line 624
-- `const ghostBtn: CSSProperties =` — const, line 634
+- `const ROLES = ["primary_textbook", "lecture", "paper", "reference", "alternate_explanation"]` — const, line 19
+- `const RECOMMENDED_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 20
+- `const NARROW_ADJUNCT_SCOPE = "Treat this source as a narrow enrichment adjunct. Make only additive changes: attach it to existing curriculum when it fits` — const, line 21
+- `const subjectChoices = [...subjects, ...createdSubjects.filter((c)` — const, line 54
+- `const mountedRef = useRef(true)` — const, line 73
+- `const fileDragging = useSourceFileDrop(` — const, line 74
+- `async function browseForSource()` — function, line 93
+- `const picked = await pickSourceFile()` — const, line 95
+- `const handler = (e: KeyboardEvent)` — const, line 106
+- `const effectiveBrief = (): StudyMapBriefDto` — const, line 117
+- `const enrichmentActive = brief?.authoringPreset === "narrow_adjunct"` — const, line 121
+- `const applyEnrichmentPreset = ()` — const, line 123
+- `const clearEnrichmentPreset = ()` — const, line 136
+- `const next =` — const, line 139
+- `const runPlan = async (rangeIsCurrent = false)` — const, line 149
+- `const res = await api.planQuickAdd(` — const, line 159
+- `const command = getCommandError(err)` — const, line 165
+- `const importThenPlan = async ()` — const, line 176
+- `const batch = await api.startImportBatch(` — const, line 181
+- `const current = await api.getIngestBatch(batch.id)` — const, line 187
+- `const activeJob = current.jobs.find((job)` — const, line 189
+- `const progressStatus = current.status === "running" ? "running" : "queued"` — const, line 191
+- `const failed = current.jobs.find((job)` — const, line 199
+- `const confirmBuild = async ()` — const, line 224
+- `const res = await api.confirmQuickAdd(` — const, line 229
+- `const allConsented = consentTicked.every(Boolean)` — const, line 248
+- `const budgetValid = unlimitedTokenBudget || (inventoryOutputTokens >= 1_000 && inventoryOutputTokens <= 100_000)` — const, line 249
+- `function Label(` — function, line 599
+- `const backdropStyle: CSSProperties =` — const, line 607
+- `const modalStyle: CSSProperties =` — const, line 619
+- `const headerStyle: CSSProperties =` — const, line 631
+- `const footerStyle: CSSProperties =` — const, line 640
+- `const primaryBtn: CSSProperties =` — const, line 649
+- `const ghostBtn: CSSProperties =` — const, line 659
 
 ## Who imports or calls it
 
@@ -109,6 +110,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `QuickAddPlanDto`, `StudyMapBriefDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|src/components/AsciiLoadingBar.tsx]] — import-or-re-export; imports `AsciiLoadingBar`
+- [[Reference/Desktop/TypeScript/components/NewSubjectControl|src/components/NewSubjectControl.tsx]] — import-or-re-export; imports `NewSubjectControl`
 - [[Reference/Desktop/TypeScript/components/PageRangeSelector|src/components/PageRangeSelector.tsx]] — import-or-re-export; imports `PageRangeSelector`, `pageSelectionError`
 - [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|src/components/StudyMapBriefWizard.tsx]] — import-or-re-export; imports `StudyMapBriefWizard`
 - [[Reference/Desktop/TypeScript/components/quickAddConsent|src/components/quickAddConsent.ts]] — import-or-re-export; imports `initialConsentTicks`
@@ -130,6 +132,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/QuickAddDialog.test.tsx](../../../../../../apps/learnloop-tauri/src/components/QuickAddDialog.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_ingest_m3.py](../../../../../../tests/test_sidecar_ingest_m3.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

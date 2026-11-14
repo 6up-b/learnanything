@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py) |
-| Source lines | 5842 |
+| Source lines | 5852 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -144,25 +144,25 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `enqueue_figure_rich(self, *, payload: Mapping[str, Any], grant: Any=None, origin: str | None=None) -> str` (line 5051; public) — Enqueue one rich figure build (Reader RW5d P2b; interactive band: the learner pressed "show me" and the quick figure, if any, is on the page).
   - `retry_figure_rich(self, job_id: str, *, error_code: str) -> bool` (line 5073; public) — Requeue a rich figure job that failed with ``error_code`` (the plan wait), unless it was cancelled (Reader RW5d P2b).
   - `enqueue_inventory(self, *, extraction_id: str, units: list[dict[str, Any]], subject_id: str | None=None, source_set_id: str | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=0) -> str` (line 5086; public) — Enqueue a role-aware unit-inventory batch (§7).
-  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY, batch_id: str | None=None) -> str` (line 5119; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
-  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5171; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
-  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5238; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
-  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 5309; public) — Retry only a failed synthesis stage with revised execution ceilings.
-  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5384; public)
-  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 5391; public)
-  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5419; public)
-  - `_cancel_batch(self, runner: IngestRunner, batch_id: str) -> None` (line 5426; internal) — Cancel, and settle the reading requests of the books whose work this was, in one transaction (reading-hardening, part 1: a cancel answers the request, so the sweep never re-plans the work the learner just stopped; review F1: both commit or neither does).
-  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 5436; public) — Interrupt one live Codex call while keeping the sidecar process alive.
-  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5471; public)
-  - `drain_foreground(self) -> int` (line 5481; public) — Drain the queue synchronously (tests + CLI-less contexts).
-  - `_ensure_worker(self) -> None` (line 5486; internal)
-  - `_worker_loop(self) -> None` (line 5516; internal)
-  - `_quick_check_worker_loop(self) -> None` (line 5559; internal) — Drain independent quick checks beside the serialized vault writer.
-  - `kick_reader_drain(self) -> None` (line 5593; public) — Ensure queued demand-paged reader requests get drained.
-  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 5616; internal) — Drain queued reader requests with a real synthesize client.
-  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 5636; internal)
-  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 5665; internal) — The synthesis job the frontend polls (the batch also holds an import job).
-  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 5674; internal)
+  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY, batch_id: str | None=None) -> str` (line 5119; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
+  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5177; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
+  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5248; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
+  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 5319; public) — Retry only a failed synthesis stage with revised execution ceilings.
+  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5394; public)
+  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 5401; public)
+  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5429; public)
+  - `_cancel_batch(self, runner: IngestRunner, batch_id: str) -> None` (line 5436; internal) — Cancel, and settle the reading requests of the books whose work this was, in one transaction (reading-hardening, part 1: a cancel answers the request, so the sweep never re-plans the work the learner just stopped; review F1: both commit or neither does).
+  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 5446; public) — Interrupt one live Codex call while keeping the sidecar process alive.
+  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5481; public)
+  - `drain_foreground(self) -> int` (line 5491; public) — Drain the queue synchronously (tests + CLI-less contexts).
+  - `_ensure_worker(self) -> None` (line 5496; internal)
+  - `_worker_loop(self) -> None` (line 5526; internal)
+  - `_quick_check_worker_loop(self) -> None` (line 5569; internal) — Drain independent quick checks beside the serialized vault writer.
+  - `kick_reader_drain(self) -> None` (line 5603; public) — Ensure queued demand-paged reader requests get drained.
+  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 5626; internal) — Drain queued reader requests with a real synthesize client.
+  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 5646; internal)
+  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 5675; internal) — The synthesis job the frontend polls (the batch also holds an import job).
+  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 5684; internal)
 
 ### Module constants
 
@@ -194,7 +194,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `QUICK_ADD_PRIORITY` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3951)
 - `_PARALLEL_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3952)
 - `_QUICK_CHECK_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3953)
-- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5693)
+- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5703)
 
 ## Internal implementation anchors
 
@@ -272,12 +272,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3436) — One item at an open AD commission's point, through the ordinary generation path and its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4).
 - `_run_reading_sweep(host: 'weakref.ref[DurableIngestJobs]') -> None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3969) — The reading sweep thread.
 - `_reading_due_at(retry_at: str | None) -> datetime | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3996) — When a pending reading request is due: its retry time, or ``None`` (due now) when it has none or one that does not parse or convert to UTC (``0001-01-01T00:00:00+01:00`` overflows, reading-hardening verify N2), so no stored value can keep a request from ever being due.
-- `_iso(moment: datetime | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5681) — ``moment`` (default: now) as the ISO UTC text reading requests store.
-- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5700) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
-- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5760)
-- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5800)
-- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5811) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
-- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5818)
+- `_iso(moment: datetime | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5691) — ``moment`` (default: now) as the ISO UTC text reading requests store.
+- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5710) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
+- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5770)
+- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5810)
+- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5821) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
+- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5828)
 
 ## Who imports or calls it
 
@@ -415,6 +415,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_import_split_parity.py](../../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged`
 - [tests/test_ingest_jobs.py](../../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job`
   - `test_background_reader_drain_records_model_call_receipts`
   - `test_bind_premarks_previously_completed_apply_jobs`
   - `test_cancelled_job_reaches_terminal_state`

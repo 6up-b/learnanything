@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx](../../../../../../apps/learnloop-tauri/src/components/StudyMapBriefWizard.tsx) |
-| Source lines | 460 |
+| Source lines | 479 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -72,18 +72,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const handler = (e: KeyboardEvent)` — const, line 102
 - `const tag = (e.target as HTMLElement)?.tagName` — const, line 108
 - `const current = steps[step]` — const, line 118
-- `function ChipInput(` — function, line 323
-- `const add = ()` — const, line 325
-- `const value = draft.trim()` — const, line 326
-- `function Label(` — function, line 374
-- `const backdropStyle: CSSProperties =` — const, line 382
-- `const modalStyle: CSSProperties =` — const, line 394
-- `const headerStyle: CSSProperties =` — const, line 406
-- `const footerStyle: CSSProperties =` — const, line 415
-- `const inputStyle: CSSProperties =` — const, line 424
-- `const primaryBtn: CSSProperties =` — const, line 435
-- `const ghostBtn: CSSProperties =` — const, line 445
-- `const segBtn: CSSProperties =` — const, line 455
+- `function dateInputValue(dueAt: string | undefined): string` — function, line 333
+- `const due = new Date(dueAt)` — const, line 336
+- `const pad = (n: number)` — const, line 338
+- `function ChipInput(` — function, line 342
+- `const add = ()` — const, line 344
+- `const value = draft.trim()` — const, line 345
+- `function Label(` — function, line 393
+- `const backdropStyle: CSSProperties =` — const, line 401
+- `const modalStyle: CSSProperties =` — const, line 413
+- `const headerStyle: CSSProperties =` — const, line 425
+- `const footerStyle: CSSProperties =` — const, line 434
+- `const inputStyle: CSSProperties =` — const, line 443
+- `const primaryBtn: CSSProperties =` — const, line 454
+- `const ghostBtn: CSSProperties =` — const, line 464
+- `const segBtn: CSSProperties =` — const, line 474
 
 ## Who imports or calls it
 
@@ -117,6 +120,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/StudyMapBriefWizard.test.tsx](../../../../../../apps/learnloop-tauri/src/components/StudyMapBriefWizard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_graph_edit_proposals.py](../../../../../../tests/test_graph_edit_proposals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

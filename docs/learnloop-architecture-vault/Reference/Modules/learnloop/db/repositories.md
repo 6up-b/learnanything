@@ -2537,6 +2537,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_import_split_parity.py](../../../../../../tests/test_import_split_parity.py) — direct import
   - `test_author_then_write_writes_what_import_exercises_writes`
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_a_build_asked_for_its_goal_carries_create_goal_to_the_synthesis_job`
   - `test_background_reader_drain_records_model_call_receipts`
   - `test_bind_premarks_previously_completed_apply_jobs`
   - `test_cancelled_job_reaches_terminal_state`
@@ -3274,6 +3275,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stop_probe_diagnosing_converts_episode`
 - [tests/test_sidecar_queue_serialization.py](../../../../../../tests/test_sidecar_queue_serialization.py) — direct import
   - `test_queue_serialization_bulk_loads_state_once`
+- [tests/test_sidecar_quick_add.py](../../../../../../tests/test_sidecar_quick_add.py) — direct import
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../tests/test_sidecar_reader_pdf_view.py) — direct import

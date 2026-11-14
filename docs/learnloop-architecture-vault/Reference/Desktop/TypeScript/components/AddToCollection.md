@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddToCollection.tsx](../../../../../../apps/learnloop-tauri/src/components/AddToCollection.tsx) |
-| Source lines | 264 |
+| Source lines | 276 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SYLLABUS_ROLE_HINT = "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)"` — const, line 29
-- `export function AddToCollectionPanel(` — function, line 39
+- `export const SYLLABUS_ROLE_HINT = "syllabus: used only to scope what your deliverables need — never taught from, never practice, never protected (don't give it the exam role, or LearnLoop hides it whole)"` — const, line 30
+- `export function AddToCollectionPanel(` — function, line 40
 
 ## Internal implementation anchors
 
-- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes", "syllabus" ] as const` — const, line 15
-- `function kebab(value: string): string` — function, line 32
-- `let cancelled = false` — let, line 72
-- `const list = setsSnap.sourceSets ?? []` — const, line 76
-- `const confirm = useCallback(async ()` — const, line 92
-- `const member =` — const, line 97
-- `let payload: SourceSetDto` — let, line 108
-- `let title: string` — let, line 109
-- `const members = [ ...sourceSet.members.filter((m)` — const, line 118
-- `const id = kebab(newName)` — const, line 125
-- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 149
-- `function ModeChip(` — function, line 247
+- `const SOURCE_ROLES = [ "primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "exam", "notes", "syllabus" ] as const` — const, line 16
+- `function kebab(value: string): string` — function, line 33
+- `let cancelled = false` — let, line 73
+- `const list = setsSnap.sourceSets ?? []` — const, line 77
+- `const confirm = useCallback(async ()` — const, line 93
+- `const member =` — const, line 98
+- `let payload: SourceSetDto` — let, line 109
+- `let title: string` — let, line 110
+- `const members = [ ...sourceSet.members.filter((m)` — const, line 119
+- `const id = kebab(newName)` — const, line 126
+- `const scopeLabel = scopeUnitIds.length > 0 ? `$` — const, line 150
+- `function ModeChip(` — function, line 259
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `SourceSetDto`, `SourceSetSummaryDto`
+- [[Reference/Desktop/TypeScript/components/NewSubjectControl|src/components/NewSubjectControl.tsx]] — import-or-re-export; imports `NewSubjectControl`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`
 
 ### Assets, platform, and third-party dependencies
