@@ -30,7 +30,7 @@ from learnloop.intent.control import Scope
 from learnloop.intent.deadline import goal_id_for, set_deadline
 from learnloop.scheduling.intent.model import TIER_PUSH, TIER_UNCOMMITTED
 from learnloop.scheduling.intent.recall_targets import effective_due, load_anchors
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -497,7 +497,7 @@ def test_f2_with_intent_off_commitments_change_nothing_in_the_ranked_list_or_the
     def ranked(iv):
         return [
             (entry.practice_item_id, round(entry.priority, 12), tuple(sorted(entry.components.items())))
-            for entry in build_due_queue(iv.vault, iv.repository, clock=FrozenClock(at), persist_explanations=False)
+            for entry in read_due_queue(iv.vault, iv.repository, clock=FrozenClock(at))
             if entry.practice_item_id in OURS
         ]
 

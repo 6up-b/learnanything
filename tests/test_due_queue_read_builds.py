@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from learnloop.db.repositories import Repository
 from learnloop.scheduling import staged_policy as sp
 from learnloop.scheduling.controller_snapshot import Candidate
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 
 from tests.due_queue_helpers import CLOCK, SESSION, build_rich_vault
 
@@ -33,8 +33,7 @@ def _withdraw_the_assigned_probe(repository):
 def test_a_read_build_with_a_session_records_no_contrast_pair_serving(tmp_path):
     vault, repository = build_rich_vault(tmp_path / "vault")
 
-    queue = build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION),
-                            persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION))
 
     assert {"pi_pair_first", "pi_pair_second"} <= {item.practice_item_id for item in queue}
     assert repository.contrast_pair_serving_rows() == []
@@ -45,8 +44,7 @@ def test_a_read_build_with_a_session_leaves_the_committed_presentation(tmp_path)
     _withdraw_the_assigned_probe(repository)
     committed = repository.active_probe_presentation_for_session(SESSION)
 
-    queue = build_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION),
-                            persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION))
 
     assert ASSIGNED not in {item.practice_item_id for item in queue}
     assert repository.active_probe_presentation_for_session(SESSION) == committed

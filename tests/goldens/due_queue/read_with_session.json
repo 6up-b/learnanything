@@ -1,37 +1,5 @@
 {
  "database": {
-  "contrast_pair_servings": {
-   "added": [
-    {
-     "<rowid>": 1,
-     "adjacency_basis": "separated_by_interleaving",
-     "counterpart_item_id": "pi_pair_second",
-     "created_at": "2026-10-12T09:00:00Z",
-     "id": "<ulid:3>",
-     "pair_key": "pi_pair_first|pi_pair_second",
-     "practice_item_id": "pi_pair_first",
-     "randomization_seed": "sess_due_queue|pi_pair_first|pi_pair_second",
-     "randomization_value": 0.4041375276,
-     "separated": 1,
-     "serve_position": 0,
-     "session_id": "sess_due_queue"
-    },
-    {
-     "<rowid>": 2,
-     "adjacency_basis": "separated_by_interleaving",
-     "counterpart_item_id": "pi_pair_first",
-     "created_at": "2026-10-12T09:00:00Z",
-     "id": "<ulid:4>",
-     "pair_key": "pi_pair_first|pi_pair_second",
-     "practice_item_id": "pi_pair_second",
-     "randomization_seed": "sess_due_queue|pi_pair_first|pi_pair_second",
-     "randomization_value": 0.4041375276,
-     "separated": 1,
-     "serve_position": 1,
-     "session_id": "sess_due_queue"
-    }
-   ]
-  },
   "followup_tasks": {
    "changed": [
     {

@@ -34,7 +34,7 @@ from learnloop.diagnosis.probe_episodes import (
     enter_episode,
     episode_hypothesis_set,
 )
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -164,8 +164,8 @@ def _attempt(
 
 
 def _queue(vault, repository, **kwargs):
-    return build_due_queue(
-        vault, repository, clock=CLOCK, persist_explanations=False, **kwargs
+    return read_due_queue(
+        vault, repository, clock=CLOCK, **kwargs
     )
 
 

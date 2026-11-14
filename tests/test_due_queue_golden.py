@@ -1,7 +1,7 @@
 """The due queue's whole build pinned on one vault that reaches every stage (``tests/due_queue_helpers.py``).
 
 Three builds of the same state, each on a fresh copy: a serving build with the session that committed a probe
-presentation, a read build (``persist_explanations=False``) with that session, and a read build with no session. Each
+presentation, a read build (``read_due_queue``) with that session, and a read build with no session. Each
 record holds the returned queue (ids, order, scores, components, explanations, slate and candidate ids), the
 exploration draw (its support, roll, choice and every outcome's composed order, from the offer trace), the trace's
 exclusions, cold deferrals and pin, and every row the build added, changed or removed, table by table.
@@ -33,7 +33,7 @@ from typing import Any
 import pytest
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
-from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, build_due_queue, read_due_queue
 
 from tests.due_queue_helpers import CLOCK, SESSION, build_rich_vault
 
@@ -213,14 +213,13 @@ def test_a_serving_build_with_a_session(tmp_path, seeded_ids):
 
 
 def test_a_read_build_with_the_same_session(tmp_path, seeded_ids):
-    _check("read_with_session", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
-        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace,
-        persist_explanations=False)))
+    _check("read_with_session", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, session=SchedulerSession(session_id=SESSION), offer_trace=trace)))
 
 
 def test_a_read_build_with_no_session(tmp_path, seeded_ids):
-    _check("read_without_session", _record(tmp_path, lambda vault, repository, trace: build_due_queue(
-        vault, repository, clock=CLOCK, offer_trace=trace, persist_explanations=False)))
+    _check("read_without_session", _record(tmp_path, lambda vault, repository, trace: read_due_queue(
+        vault, repository, clock=CLOCK, offer_trace=trace)))
 
 
 def test_the_vault_reaches_every_stage(tmp_path, seeded_ids):

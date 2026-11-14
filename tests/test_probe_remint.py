@@ -48,7 +48,7 @@ from learnloop.diagnosis.probe_remint import (
     remint_probe_as_practice_item,
 )
 from learnloop.learner.recall_coverage import familiarity_discount_from_attempts
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
@@ -203,7 +203,7 @@ def _remint(vault, repository, *, attempt_id: str = ATTEMPT_ID):
 
 
 def _queue_ids(vault, repository) -> set[str]:
-    queue = build_due_queue(vault, repository, clock=CLOCK, persist_explanations=False)
+    queue = read_due_queue(vault, repository, clock=CLOCK)
     return {entry.practice_item_id for entry in queue}
 
 

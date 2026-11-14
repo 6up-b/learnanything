@@ -5,7 +5,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.learner.mastery import logit
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object, upsert_practice_item
@@ -58,7 +58,7 @@ def test_state_sync_enters_probe_for_new_active_goal_learning_object(tmp_path):
     # read-only history). With no admitted instrument the episode parks in
     # pending_items — which never blocks ordinary practice on the LO.
     episode = repository.open_probe_episode("lo_svd_definition")
-    queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(load_vault(vault_root), repository, clock=clock)
 
     assert episode is not None
     assert episode.status == "pending_items"
@@ -78,7 +78,7 @@ def test_state_sync_enters_probe_for_new_active_learning_object_without_goal(tmp
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
 
     episode = repository.open_probe_episode("lo_svd_definition")
-    queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(load_vault(vault_root), repository, clock=clock)
 
     assert episode is not None
     assert episode.status == "pending_items"
@@ -124,7 +124,7 @@ def test_state_sync_enters_probe_when_practice_item_arrives_after_learning_objec
     )
 
     sync_vault_state(load_vault(vault_root), repository, clock=clock)
-    queue = build_due_queue(load_vault(vault_root), repository, clock=clock, persist_explanations=False)
+    queue = read_due_queue(load_vault(vault_root), repository, clock=clock)
 
     assert repository.open_probe_episode("lo_svd_definition") is not None
     assert [item.practice_item_id for item in queue] == ["pi_svd_define_001"]

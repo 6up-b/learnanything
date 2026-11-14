@@ -7,7 +7,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.practice_index.admission import EXCLUSION_REASONS, PracticeAdmission
-from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -35,7 +35,7 @@ def _reason(vault, repository, item_id):
 
 def test_everything_the_scheduler_would_serve_is_admitted(practice):
     _paths, vault, repository = practice
-    queue = build_due_queue(vault, repository, persist_explanations=False, clock=FrozenClock(NOW))
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
     admission = PracticeAdmission.load(vault, repository, clock=FrozenClock(NOW))
     admitted, excluded = admission.admit(vault, sorted(vault.practice_items))
     assert {entry.practice_item_id for entry in queue} <= set(admitted)
@@ -124,7 +124,7 @@ def test_shared_rules_exclude_exactly_what_the_scheduler_drops(practice):
         "reserved_at": _iso(NOW),
     }])
     vault = load_vault(paths.root)
-    queue = build_due_queue(vault, repository, persist_explanations=False, clock=FrozenClock(NOW))
+    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW))
     admission = PracticeAdmission.load(vault, repository, clock=FrozenClock(NOW))
     admitted, excluded = admission.admit(vault, sorted(vault.practice_items))
     assert {entry.practice_item_id for entry in queue} == set(admitted)

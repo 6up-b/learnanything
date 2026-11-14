@@ -63,7 +63,7 @@ def test_many_open_text_practice_items_schedule_and_record_attempt(tmp_path):
         )
     )
 
-    queue = build_due_queue(vault, repository, clock=clock, persist_explanations=True)
+    queue = build_due_queue(vault, repository, clock=clock)
 
     assert len(queue) >= 100
     assert "pi_bulk_open_text_000" in {item.practice_item_id for item in queue}

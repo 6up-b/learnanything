@@ -537,7 +537,7 @@ def test_f12_the_seed_unit_is_admitted_on_a_metered_tutor_route(tmp_path):
 
 
 def test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version(tmp_path):
-    from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+    from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 
     def queue_after_a_question(name, version, toml):
         paths = create_placement_vault(tmp_path / name, version=version)
@@ -548,8 +548,7 @@ def test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version
         text = tutor_question_text(load_vault(paths.root), repository, event_id)
         assert process_learner_text(paths.root, repository, text, clients=_clients(
             GapLLMFake(decide=word_match("eigenvalues"))), clock=_at(1)) is None
-        queue = build_due_queue(load_vault(paths.root), repository, clock=_at(DAY), session=SchedulerSession(),
-                                persist_explanations=False)
+        queue = read_due_queue(load_vault(paths.root), repository, clock=_at(DAY), session=SchedulerSession())
         return [(entry.practice_item_id, sorted(k for k, v in entry.components.items() if v)) for entry in queue]
 
     off = queue_after_a_question("off", "mvp-0.16", "[learner_text_gaps]\nenabled = false\n")
