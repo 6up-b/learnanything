@@ -298,7 +298,16 @@ invalidation. The returned queue is identical for every caller, because the buil
   in the pool, and the comparator leaves no serving row.
 - Targeted tests: all 1,261 files `affected_tests.py` names (the 179 scheduler, contrast-pair, probe, placement,
   slate, plan, prefetch, intent, VoI and follow-up files, the two edited ones, then the rest in chunks of 100 at
-  `-n 4`). Results are in §8.7.
+  `-n 4`).
+  - The first two batches (1,312 and 1,147 tests) each had one failure: the two tests in §8.4. After those two
+    changes, their files pass (24 tests).
+  - The 11 chunks of the rest pass: 16,977 passed, none failed.
+  - The gate's own tests also pass: identity pins, retired config identities, architecture, test layout, effective
+    defaults, CLI help snapshot, structure ratchets, public-tip guards, the goldens and the fail-first file (329
+    passed).
+  - `lint-imports` (42 kept), `ruff check`, the four vault validators and the gate partition (30,837 = 30,777 +
+    60) also pass.
+  - The vault references were regenerated (`eb6f00cccd`), and a second run changed nothing.
 - P-shadow: on fresh backup-API copies of the three Nov 3 owner copies, upgraded to the head, `rebuild --shadow
   --json` on base code and on branch code gives identical output apart from the timestamp, database hashes and
   marker id. On every copy: `learner_state_diff.summary` facet 0, mastery 0, schedule 0; `schedule_effects` 0 due
