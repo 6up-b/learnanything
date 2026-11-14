@@ -17,7 +17,8 @@ from learnloop.content.synthesis.ai_contracts import (
     SynthFacet,
     SynthSpanRef,
 )
-from learnloop.content.synthesis.source_set_synthesis import _collect_inputs, _gate_context, _normalize
+from learnloop.content.synthesis.normalize import normalize
+from learnloop.content.synthesis.source_set_synthesis import _collect_inputs, _gate_context
 from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 from learnloop.content.synthesis.synthesis_gates import GateProposal, run_synthesis_gates
 from learnloop.vault.loader import load_vault
@@ -139,7 +140,7 @@ def _consolidation(tmp_path, *, survivor_cites, retired_cites, action, absorb_as
     plan = FacetIdentityPlan(status="judged", retirements={"f_retired": Retirement(
         client_id="f_retired", scope="in_run", action=action, absorb_as=absorb_as, survivor_client="f_survivor",
     )})
-    normalized = _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT, facet_identity_plan=plan)
+    normalized = normalize(synth, inputs, vault, NOW, subject_id=SUBJECT, facet_identity_plan=plan)
     report = run_synthesis_gates(GateProposal(items=normalized.gate_items), _gate_context(vault, repo, inputs, []))
     survivor = next(row["payload"] for row in normalized.rows if row["client_item_id"] == "f_survivor")
     return normalized, report, survivor

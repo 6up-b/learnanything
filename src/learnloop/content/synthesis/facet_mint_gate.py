@@ -74,7 +74,7 @@ reviewed, which is the structural change D2 asks for.
 
 Everything here is a pure function of payload dicts: no vault, no repository, no
 writes. :func:`judge_facet_mints` decides and explains; the ingest caller
-(``source_set_synthesis._normalize``) is the only thing that acts on it.
+(``normalize.normalize``) is the only thing that acts on it.
 """
 
 from __future__ import annotations

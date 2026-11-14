@@ -46,20 +46,16 @@ from learnloop.content.synthesis.append_neighborhood import select_neighborhood
 from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.facet_identity import authority as facet_meaning
+from learnloop.content.synthesis.normalize import Normalized, _dump, _row, _span_refs, _support_citations, normalize
 from learnloop.content.synthesis.source_set_synthesis import (
     RunScope,
     StudyMapError,
     SynthesisCall,
     SynthesisMode,
     SynthesisOutcome,
-    _Normalized,
     _count_items,
     _collect_inputs,
-    _normalize,
     _result_tokens,
-    _row,
-    _span_refs,
-    _support_citations,
     _synthesis_pass_key,
     finish_synthesis_run,
     open_synthesis_run,
@@ -557,44 +553,38 @@ def _apply_routine_items(
 # --- normalization ----------------------------------------------------------
 
 
-def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
-                      items_off: bool = False, nominator=None, facet_identity_plan=None) -> _Normalized:
-    """Map an AppendReconciliation to proposal rows and gate items: the bootstrap normalizer over its new
-    coverage, then the append's own item kinds after it, with the client ids §10.3 auto-applies."""
+@dataclass
+class _AppendState:
+    """What the append's own item kinds share: the answer and the inputs it is read against, and the rows, gate items,
+    review records and auto-apply ids built so far (the bootstrap normalizer's rows come first)."""
 
-    def d(obj):
-        return obj if isinstance(obj, dict) else obj.model_dump()
+    reconciliation: Any
+    inputs: Any
+    vault: LoadedVault
+    now: str
+    subject_id: str
+    rows: list[dict[str, Any]]
+    gate_items: list[GateItem]
+    dropped_diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    auto_apply_ids: list[str] = field(default_factory=list)
 
-    # new_coverage reuses the bootstrap normalizer — including its items-off
-    # drop guard, which this lane previously bypassed by omission.
-    coverage = SourceSetSynthesis(
-        concepts=getattr(reconciliation, "concepts", []) or [],
-        facets=getattr(reconciliation, "facets", []) or [],
-        learning_objects=getattr(reconciliation, "learning_objects", []) or [],
-        blueprints=getattr(reconciliation, "blueprints", []) or [],
-        practice_items=getattr(reconciliation, "practice_items", []) or [],
-    )
-    normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id,
-                            items_off=items_off, nominator=nominator,
-                            facet_identity_plan=facet_identity_plan)
-    rows = list(normalized.rows)
-    gate_items = list(normalized.gate_items)
-    auto_apply_ids: list[str] = []
 
-    # provenance_link items.
-    dropped_diagnostics: list[dict[str, Any]] = []
-    for link in getattr(reconciliation, "provenance_links", []) or []:
-        obj = d(link)
+def _provenance_links(st: _AppendState) -> None:
+    """Provenance links: dropped with a review record when their span does not resolve or is exam material aimed
+    at a facet; those that pass ``_auto_applies`` join ``auto_apply_ids``."""
+
+    for link in getattr(st.reconciliation, "provenance_links", []) or []:
+        obj = _dump(link)
         client = obj.get("client_item_id") or f"plink_{new_ulid()[:8]}"
         target_type = obj.get("target_entity_type") or "facet"
         target_id = obj.get("target_entity_id") or ""
-        problem = _span_problem(obj.get("span") or {}, inputs)
+        problem = _span_problem(obj.get("span") or {}, st.inputs)
         if problem:
             # A link IS its span: with nothing resolvable to attach, the item
             # is empty. Drop it with a typed review record rather than letting
             # the span/scope/unit gates hard-fail the whole paid run — the same
             # trade the bootstrap normalizer makes for unresolved concepts.
-            dropped_diagnostics.append(
+            st.dropped_diagnostics.append(
                 {
                     "gate": "provenance_link_span",
                     "severity": "review",
@@ -608,14 +598,14 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
             )
             continue
         relation = obj.get("relation") or _relation_for_intent(obj.get("reconciliation_intent"))
-        gate_refs, yaml_refs, span_ids = _span_refs([obj.get("span") or {}], inputs, default_relation=relation)
+        gate_refs, yaml_refs, span_ids = _span_refs([obj.get("span") or {}], st.inputs, default_relation=relation)
         ref = yaml_refs[0] if yaml_refs else {}
         # An exam span (its role resolved from the source set) only ever aligns
         # assessment (§4.2).
         if ref.get("role") in ASSESSMENT_ONLY_ROLES:
             relation = "assessment_alignment"
         if relation == "assessment_alignment" and target_type == "facet":
-            dropped_diagnostics.append(
+            st.dropped_diagnostics.append(
                 {
                     "gate": "provenance_link_span",
                     "severity": "review",
@@ -628,7 +618,7 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
                 }
             )
             continue
-        current_hash = compute_target_hash(vault, _hash_type(target_type), target_id)
+        current_hash = compute_target_hash(st.vault, _hash_type(target_type), target_id)
         payload = {
             "target_entity_type": target_type,
             "target_entity_id": target_id,
@@ -641,25 +631,28 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
             "locator": ref.get("locator"),
             "locator_scheme": ref.get("locator_scheme"),
             "span_hash": ref.get("span_hash"),
-            "subject_id": subject_id,
+            "subject_id": st.subject_id,
         }
-        rows.append(_row("provenance_link", new_ulid(), payload, [], client_id=client, now=now,
+        st.rows.append(_row("provenance_link", new_ulid(), payload, [], client_id=client, now=st.now,
                          target_entity_id=target_id, target_entity_type=_target_type(target_type)))
-        gate_items.append(
+        st.gate_items.append(
             GateItem(
                 client_item_id=client, item_type="provenance_link", operation="create",
                 entity_id=None, payload=payload, provenance=gate_refs,
                 reconciliation_intent=obj.get("reconciliation_intent"),
             )
         )
-        if _auto_applies(payload, gate_refs, vault, current_hash, target_type):
-            auto_apply_ids.append(client)
+        if _auto_applies(payload, gate_refs, st.vault, current_hash, target_type):
+            st.auto_apply_ids.append(client)
 
-    # notation_mapping items (review-required).
-    for mapping in getattr(reconciliation, "notation_mappings", []) or []:
-        obj = d(mapping)
+
+def _notation_mappings(st: _AppendState) -> None:
+    """Notation mappings (review-required)."""
+
+    for mapping in getattr(st.reconciliation, "notation_mappings", []) or []:
+        obj = _dump(mapping)
         client = obj.get("client_item_id") or f"notation_{new_ulid()[:8]}"
-        _gate_refs, yaml_refs, _ = _span_refs([obj.get("span") or {}], inputs, default_relation="support")
+        _gate_refs, yaml_refs, _ = _span_refs([obj.get("span") or {}], st.inputs, default_relation="support")
         ref = yaml_refs[0] if yaml_refs else {}
         payload = {
             "target_entity_type": obj.get("target_entity_type") or "facet",
@@ -670,21 +663,23 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
             "source_id": ref.get("source_id"),
             "revision_id": ref.get("revision_id"),
             "locator": ref.get("locator"),
-            "subject_id": subject_id,
+            "subject_id": st.subject_id,
         }
-        rows.append(_row("notation_mapping", new_ulid(), payload, [], client_id=client, now=now))
-        gate_items.append(
+        st.rows.append(_row("notation_mapping", new_ulid(), payload, [], client_id=client, now=st.now))
+        st.gate_items.append(
             GateItem(client_item_id=client, item_type="notation_mapping", operation="create",
                      entity_id=None, payload=payload)
         )
 
-    # source_conflict items (always reviewed).
-    conflict_candidates = list(getattr(reconciliation, "conflict_candidates", []) or [])
-    for conflict in getattr(reconciliation, "conflicts", []) or []:
-        obj = d(conflict)
+
+def _source_conflicts(st: _AppendState) -> None:
+    """Source conflicts (always reviewed)."""
+
+    for conflict in getattr(st.reconciliation, "conflicts", []) or []:
+        obj = _dump(conflict)
         client = obj.get("client_item_id") or f"conflict_{new_ulid()[:8]}"
-        left = _span_yaml(obj.get("left"), inputs)
-        right = _span_yaml(obj.get("right"), inputs)
+        left = _span_yaml(obj.get("left"), st.inputs)
+        right = _span_yaml(obj.get("right"), st.inputs)
         payload = {
             "entity_type": obj.get("entity_type") or "facet",
             "entity_id": obj.get("entity_id") or "",
@@ -692,27 +687,30 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
             "left": left,
             "right": right,
             "candidate_id": client,
-            "subject_id": subject_id,
+            "subject_id": st.subject_id,
         }
-        rows.append(_row("source_conflict", new_ulid(), payload, [], client_id=client, now=now))
-        gate_items.append(
+        st.rows.append(_row("source_conflict", new_ulid(), payload, [], client_id=client, now=st.now))
+        st.gate_items.append(
             GateItem(client_item_id=client, item_type="source_conflict", operation="create",
                      entity_id=None, payload=payload)
         )
 
-    # restructure_unlocked items (update/deactivate, review + lock-checked).
-    for restructure in getattr(reconciliation, "restructures", []) or []:
-        obj = d(restructure)
+
+def _restructures(st: _AppendState) -> None:
+    """Restructures (update or deactivate; review and lock-checked); a facet reword goes through its own check."""
+
+    for restructure in getattr(st.reconciliation, "restructures", []) or []:
+        obj = _dump(restructure)
         client = obj.get("client_item_id") or f"restructure_{new_ulid()[:8]}"
         target_type = obj.get("target_entity_type") or "learning_object"
         target_id = obj.get("target_entity_id") or ""
         operation = obj.get("operation") or "update"
         if target_type == "facet":
-            reword = _facet_reword(obj, vault, inputs, operation, target_id)
+            reword = _facet_reword(obj, st.vault, st.inputs, operation, target_id)
             refs = [client, target_id] if target_id else [client]
             unresolved = "; ".join(reword.unresolved)
             if reword.payload is None:
-                dropped_diagnostics.append(
+                st.dropped_diagnostics.append(
                     {
                         "gate": reword.gate,
                         "severity": "review",
@@ -730,7 +728,7 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
                 )
                 continue
             if unresolved:
-                dropped_diagnostics.append(
+                st.dropped_diagnostics.append(
                     {
                         "gate": "facet_restructure",
                         "severity": "review",
@@ -743,12 +741,12 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
                     }
                 )
             if reword.confirm is not None:
-                dropped_diagnostics.append({**reword.confirm, "entity_refs": refs})
-            row = _row("facet", target_id, reword.payload, [], client_id=client, now=now,
+                st.dropped_diagnostics.append({**reword.confirm, "entity_refs": refs})
+            row = _row("facet", target_id, reword.payload, [], client_id=client, now=st.now,
                        target_entity_id=target_id, target_entity_type="facet")
             row["operation"] = operation
-            rows.append(row)
-            gate_items.append(
+            st.rows.append(row)
+            st.gate_items.append(
                 GateItem(client_item_id=client, item_type="facet", operation=operation,
                          entity_id=target_id, payload=reword.payload, provenance=reword.provenance,
                          reconciliation_intent="restructure_unlocked")
@@ -757,13 +755,38 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
         payload = dict(obj.get("payload") or {})
         payload["id"] = target_id
         payload["expected_target_hash"] = obj.get("expected_target_hash")
-        row = _row(target_type, target_id, payload, [], client_id=client, now=now)
+        row = _row(target_type, target_id, payload, [], client_id=client, now=st.now)
         row["operation"] = operation
-        rows.append(row)
-        gate_items.append(
+        st.rows.append(row)
+        st.gate_items.append(
             GateItem(client_item_id=client, item_type=target_type, operation=operation,
                      entity_id=target_id, payload=payload, reconciliation_intent="restructure_unlocked")
         )
+
+
+def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
+                      items_off: bool = False, nominator=None, facet_identity_plan=None) -> Normalized:
+    """Map an AppendReconciliation to proposal rows and gate items: the bootstrap normalizer over its new
+    coverage, then the append's own item kinds after it, with the client ids §10.3 auto-applies."""
+
+    # new_coverage reuses the bootstrap normalizer — including its items-off
+    # drop guard, which this lane previously bypassed by omission.
+    coverage = SourceSetSynthesis(
+        concepts=getattr(reconciliation, "concepts", []) or [],
+        facets=getattr(reconciliation, "facets", []) or [],
+        learning_objects=getattr(reconciliation, "learning_objects", []) or [],
+        blueprints=getattr(reconciliation, "blueprints", []) or [],
+        practice_items=getattr(reconciliation, "practice_items", []) or [],
+    )
+    normalized = normalize(coverage, inputs, vault, now, subject_id=subject_id,
+                           items_off=items_off, nominator=nominator,
+                           facet_identity_plan=facet_identity_plan)
+    st = _AppendState(reconciliation, inputs, vault, now, subject_id,
+                      rows=list(normalized.rows), gate_items=list(normalized.gate_items))
+    _provenance_links(st)
+    _notation_mappings(st)
+    _source_conflicts(st)
+    _restructures(st)
 
     # `normalized.edge_diagnostics` carries the bootstrap normalizer's typed review
     # records — concept-edge drops and the D2 facet-mint verdicts. They must ride
@@ -771,14 +794,13 @@ def _normalize_append(reconciliation, inputs, vault, now, *, subject_id,
     # silent", and a record dropped here is silent.
     return replace(
         normalized,
-        rows=rows,
-        gate_items=gate_items,
-        conflict_candidates=conflict_candidates,
+        rows=st.rows,
+        gate_items=st.gate_items,
+        conflict_candidates=list(getattr(reconciliation, "conflict_candidates", []) or []),
         non_conflict_dispositions=set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
-        edge_diagnostics=[*normalized.edge_diagnostics, *dropped_diagnostics],
-        auto_apply_ids=auto_apply_ids,
+        edge_diagnostics=[*normalized.edge_diagnostics, *st.dropped_diagnostics],
+        auto_apply_ids=st.auto_apply_ids,
     )
-
 
 @dataclass(frozen=True)
 class _AppendContext:

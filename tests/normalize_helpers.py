@@ -11,7 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from learnloop.content.synthesis.source_set_synthesis import _collect_inputs, _normalize
+from learnloop.content.synthesis.normalize import normalize
+from learnloop.content.synthesis.source_set_synthesis import _collect_inputs
 from learnloop.vault.loader import load_vault
 
 from tests.facet_authority_helpers import NOW, SUBJECT, _source_set
@@ -44,7 +45,7 @@ def world(tmp_path, *, add_role="exam"):
 
 
 def run(synth, vault, inputs, **kwargs):
-    return _normalize(synth, inputs, vault, NOW, subject_id=SUBJECT, **kwargs)
+    return normalize(synth, inputs, vault, NOW, subject_id=SUBJECT, **kwargs)
 
 
 def record(normalized: Any) -> dict[str, Any]:

@@ -492,7 +492,7 @@ def test_pf_publication_keeps_the_parents_required_method_and_states_it():
 def test_synthesis_keeps_a_required_method_only_on_a_procedure_target(vault_paths):
     from types import SimpleNamespace
 
-    from learnloop.content.synthesis.source_set_synthesis import _method_target_view
+    from learnloop.content.synthesis.normalize import _method_target_view
 
     vault = load_vault(vault_paths.root)
     rows = [
