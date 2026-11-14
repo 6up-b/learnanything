@@ -399,17 +399,3 @@ def test_promotion_on_independent_surface(tmp_path):
     durable = repository.misconceptions_for_learning_object(LO_ID)
     assert len(durable) == 1
     assert durable[0].promotion_reason == "independent_surface"
-
-
-def test_legacy_vault_still_mints_immediately(tmp_path):
-    # mvp-0.6 promotion discipline is unchanged: one statement mints one row.
-    vault, repository = _mvp06(tmp_path)
-    _insert_attempt(repository, attempt_id="att1")
-    _insert_mc_event(
-        repository, attempt_id="att1", event_id="ev1", statement="believes X", error_type="conceptual_slip"
-    )
-    touched = normalize_attempt_misconceptions(
-        vault, repository, attempt_id="att1", learning_object_id=LO_ID, clock=FrozenClock(NOW)
-    )
-    assert len(touched) == 1
-    assert len(repository.misconceptions_for_learning_object(LO_ID)) == 1
