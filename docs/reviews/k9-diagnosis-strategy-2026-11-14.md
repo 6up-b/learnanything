@@ -12,27 +12,27 @@ Refactor arc K, step K9, job 2. It stands on the map `docs/reviews/k9-diagnosis-
 1. **Fix the three ledger faults first** (K9.1-K9.3), each small and from a failing test. TH-3 is due at arc D's close.
 2. **Pin what nothing pins, then split the two large modules by who calls them** (K9.5-K9.11). Diagnosis has no golden and only one identity pin today. The split is moves only, in the shape of K2.5 (which paid), not K2.4 (which unified and grew). It cuts the 21-module diagnosis cycle to 11 by a simulation (§4.3), ends `probe_blocks`' imports of private functions, and puts arc G's two targets (the probe decision and the discriminating observation) in modules of about 1,000 and 600 lines instead of one of 3,471.
 3. **Record why** (K9.12, and the verdict's record inside G1): a withheld offer, an unread probe answer and a failed hook each get a row the trace reaches.
-4. **Let arc G do the deciding.** K9 does not build `probe_facts`, the router as decider or one belief. It hands G1 a shape that its reads already allow (§4.6) and gives G4 a posterior that can be tested with literals (K9.14, conditional).
+4. **Let arc G do the deciding.** K9 does not build `probe_facts`, the router as decider or one belief. It hands G1 a shape that its reads already allow (§4.6) and gives G4 a posterior that can be tested with literals (K9.13, conditional).
 
 **What you must decide** (§9 has the detail):
 
 | # | Question | Recommendation | Yes costs / No costs |
 |---|---|---|---|
 | Q1 | When does a repair episode whose primed attempt is never taken end (R1-2)? | **When the item's next ordinary review comes due**, with "the learner declined" added if the UX audit gives them a decline | Either: one small behaviour step (K9.4) on the existing sweep seam, no migration (`abandoned` is already a state, `migrations/058_remediation_episodes.sql:6`). No answer: the episode stays open and its cold item's protection stays tied to the cold retry only |
-| Q2 | Should a held grade that is later released, or a regrade, move the beliefs (K9-3)? And where is it fixed? | **Yes for the episode posterior. Fold it into G4 if G3 says G4 runs; otherwise its own small successor (K9.18).** The discriminating observation follows G4's answer | Yes: a successor with a kill switch and a shadow rebuild (P-playbook). No: write down that a probe answer's first classification is final, and the ledger row closes as "by design" |
-| Q3 | Delete `diagnosis/failure_triage.py` (no caller; the registry imports it by string; L3's list)? | **Yes** (K9.16, S) | Yes: 1,054 lines, its three registry entries and the two `Repository` methods only it uses go; the table stays readable for `causal_health`. No: it stays dead code that a deletion by import alone would break |
-| Q4 | Retire the EVSI-2 shadow selection that runs beside every probe decision with zero live authority? | **Yes, with or after G2** (K9.17, M) | Yes: about 600 lines (`record_shadow_selection`, its receipts writer, the readiness report) go, and you lose the "causal selection readiness" panel on the measurement-health screen. No: every probe decision keeps paying for a shadow nothing promotes |
+| Q2 | Should a held grade that is later released, or a regrade, move the beliefs (K9-3)? And where is it fixed? | **Yes for the episode posterior. Fold it into G4 if G3 says G4 runs; otherwise its own small successor (K9.17).** The discriminating observation follows G4's answer | Yes: a successor with a kill switch and a shadow rebuild (P-playbook). No: write down that a probe answer's first classification is final, and the ledger row closes as "by design" |
+| Q3 | Delete `diagnosis/failure_triage.py` (no caller; the registry imports it by string; L3's list)? | **Yes** (K9.15, S) | Yes: 1,054 lines, its three registry entries and the two `Repository` methods only it uses go; the table stays readable for `causal_health`. No: it stays dead code that a deletion by import alone would break |
+| Q4 | Retire the EVSI-2 shadow selection that runs beside every probe decision with zero live authority? | **Yes, with or after G2** (K9.16, M) | Yes: about 600 lines (`record_shadow_selection`, its receipts writer, the readiness report) go, and you lose the "causal selection readiness" panel on the measurement-health screen. No: every probe decision keeps paying for a shadow nothing promotes |
 | Q5 | The parameter registry: should diagnosis get a new way to register constants? | **No step in K9.** Moves keep each registered path in the same commit. If you want registration beside the constant, make it one cross-package step for all 380 entries, not a diagnosis-only second way | §4.9 |
 
 **What stays as it is, and why:**
-- **The guarantees arc G names** (§3.3): bundles before the answer, the pin of ids, the locked set before the answer, the posterior at selection, the discriminating observations' eight readers, old rows readable. No step here edits them.
+- **The guarantees arc G names** (§3, principle 5): bundles before the answer, the pin of ids, the locked set before the answer, the posterior at selection, the discriminating observations' eight readers, old rows readable. No step here edits them.
 - **The pure pieces that are already pure:** `_bayes_update` (`diagnosis/probe_episodes.py:2074`), `select_minimal_repair` (`diagnosis/causal_attribution.py:691`, called with plain values only), `decide_probe` given its parameters (`diagnosis/causal_probe_coherence.py:413`), robust composition, the prior-analysis arm (`diagnosis/split/prior_analysis.py:86`), the instrument likelihoods (`diagnosis/probe_families.py:450`, `:505`, `:716`).
 - **The episode lifecycle, instruments and posterior stay together** in `probe_episodes.py`: they reference each other in both directions (§4.4), so splitting them would add a cycle, not remove one.
 - **The hypothesis-label literals in five modules** (D9C3): no label has been added since the Aug 20 squash, so the copies have not drifted. One vocabulary module would be K2.4's lesson again: an abstraction with nothing yet to pay for it.
 - **The SQL CHECKs for stop reasons and gap source kinds** (D9H4): their cost is the head fixture and upgrade tests, which arcs A and D own.
 - **`split/`, `text_gaps/`, `recurrence/` and `offline_review/`**: no step restructures them. Their remaining 11-module cycle (§4.3) runs through `apply_diagnosis`'s hook list, and cutting it is L1's edge work.
 
-**Cost.** Fifteen numbered steps that run without your answer (six S, nine M), plus four that wait on Q1-Q4 and one conditional on G3. About two weeks of queue at the strategy's pace, with the three fixes about a day together (§5; an estimate). The package grows by about 100-150 lines through the moves and shrinks only by deletion: about 190 lines without your answers, about 1,850 with Q3 and Q4 (§6; estimates).
+**Cost.** Seventeen steps: twelve that run without your answer (four S, eight M), four that wait on Q1-Q4 (two S, two M) and one M conditional on G3. About two weeks of queue at the strategy's pace, with the three fixes about a day together (§5; an estimate). The package grows by about 100-150 lines through the moves and shrinks only by deletion: about 190 lines without your answers, about 1,850 with Q3 and Q4 (§6; estimates).
 
 ## 0. The map at this tip
 
@@ -58,7 +58,7 @@ The map was written at `95bee5f02a`. Main has moved 442 commits (403 without mer
 | 14 | The strategy's G2 says "six sites answer" whether to probe | The map's ten still stand at this tip (#1-#10 of its §3.1 re-checked; new lines for #2, #3 and #9 above) | read |
 | 15 | (after the map) | TH-3 was found by the teach hand-off routing (`docs/reviews/teach-handoff-routing.md:180-192`): a mid-check stop never ends the block. It is in the map's area and gets K9.1 | ledger `docs/reviews/refactor-bug-ledger.md:135` |
 
-**What I re-checked and found as the map says** (files unchanged since the map unless a line is given): `_status_for_factor`'s 517 lines, its eleven reads and two pre-verdict writes (`diagnosis/causal_orchestrator.py:1414-1930`, writes `:1593`, `:1620`); `decide_probe`'s ladder and its "every threshold is resolved from the fitted store" (`diagnosis/causal_probe_coherence.py:432-433`); the eight withheld-offer and status arms (`diagnosis/causal_orchestrator.py:1800-1930`); `hard_refusal`'s copy of `_probe_episode_conflict`'s four lines and its order (preference before machine checks, `followup_run/router.py:105-118`, against `diagnosis/causal_orchestrator.py:2007-2017`); the held-grade inert observation and the replay skip (`diagnosis/probe_episodes.py:2596-2602`, `:1924-1927`); the six `decision_records` kinds (`diagnosis/chain_records.py:38-43`); the four grade-keyed hooks that only log (`diagnosis/followups.py:853-906`); `failure_triage`'s string import by the registry (`params/parameter_registry.py:127`, `:3099`) and its three entries (`:1130-1136`); `CausalAttribution.tsx`'s withheld line (`apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407`); the wall clock in the primed-sibling ranking (`learnloop_sidecar/handlers/feedback.py:1107`); the 14 CLI-only modules and `failure_triage`'s "none" reach; every commit count in the map's §7 table (`git show --name-only`, all ten re-run).
+**What I re-checked and found as the map says** (files unchanged since the map unless a line is given): `_status_for_factor`'s 517 lines, its eleven reads and two pre-verdict writes (`diagnosis/causal_orchestrator.py:1414-1930`, writes `:1593`, `:1620`); `decide_probe`'s ladder and its "every threshold is resolved from the fitted store" (`diagnosis/causal_probe_coherence.py:432-433`); the eight withheld-offer and status arms (`diagnosis/causal_orchestrator.py:1800-1930`); `hard_refusal`'s copy of `_probe_episode_conflict`'s four lines and its order (preference before machine checks, `followup_run/router.py:105-120`, against `diagnosis/causal_orchestrator.py:2007-2017`); the held-grade inert observation and the replay skip (`diagnosis/probe_episodes.py:2596-2602`, `:1924-1927`); the six `decision_records` kinds (`diagnosis/chain_records.py:38-43`); the four grade-keyed hooks that only log (`diagnosis/followups.py:853-906`); `failure_triage`'s string import by the registry (`params/parameter_registry.py:127`, `:3099`) and its three entries (`:1130-1136`); `CausalAttribution.tsx`'s withheld line (`apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407`); the wall clock in the primed-sibling ranking (`learnloop_sidecar/handlers/feedback.py:1107`); the 14 CLI-only modules and `failure_triage`'s "none" reach; every commit count in the map's §7 table (`git show --name-only`, all ten re-run).
 
 **What D4-D6 change here.** D4 and D5 deleted nothing in diagnosis; D5b removed the statement-matching normalization (`cf7d65e7e0`). D6 is not on main. Its branch (`refactor/d6-part2-wip`) removes five tag halves in diagnosis (`use_robust_probe` in `diagnosis/probe_robust.py`, the `VOI_STOPPING_VERSIONS` tests in `diagnosis/voi_stopping.py:243`, `:262`, `remediation.py:1131`, `text_gaps/actions.py:481`) and three beside it (`followup_serve/gates.py`, `followup_run/router.py:188-191`, `phone_probes_on`'s dead argument), +36 −86 lines. **No step below plans for code D6 deletes**, and the moves in K9.9-K9.11 start only after D6 lands, because D6 edits `probe_episodes.py:157-225` and `:2335-2360`. D7 (kill switches) would delete the off-paths that keep the count cap serving (`diagnosis/probe_episodes.py:1560-1566`, `:1599`, `:3055-3058`; `diagnosis/followups.py:348-349`) and FG1's predecessor in eight diagnosis sites. The moves carry those branches unchanged; if D7 runs first, they move less.
 
@@ -81,7 +81,7 @@ The map was written at `95bee5f02a`. Main has moved 442 commits (403 without mer
 |---|---|---|---|---|---|
 | 1 | **A mid-check stop never ends the block.** "Stop diagnosing and teach me" converts the episode; nothing runs the block end, and the attempt pipeline had deferred each in-block answer's normalization, workflow and diagnosis to it. | Answers never normalized (the lesson's brief misses their misconceptions), never diagnosed, their withheld feedback never shown | TH-3 | `diagnosis/probe_episodes.py:3447-3494`; `attempts/post_attempt.py:155-188`, `:312-322`; `diagnosis/probe_blocks.py:314-401` | K9.1 |
 | 2 | **A wrong line on screen.** "You asked me not to check again for now" shows for every withheld offer, including the two the learner never asked for. The DTO's comment repeats the mistake. | The learner is told they did something they didn't | D9B5; K9-1 | `apps/learnloop-tauri/src/components/CausalAttribution.tsx:403-407`; `apps/learnloop-tauri/src/api/dto.ts:2008-2010`; `diagnosis/causal_orchestrator.py:1875-1903` | K9.2 |
-| 3 | **A held grade released later, or a regrade, never reaches either belief.** The episode keeps the submission's outcome; the discriminating observation is never reclassified. | A probe's verdict can rest on a grade you overturned | D9D2, D9B2; K9-3 | `diagnosis/probe_episodes.py:1924-1927`, `:2596-2602`, `:2462-2463`; `diagnosis/causal_orchestrator.py:2984-2989` | Q2: G4 or K9.18 |
+| 3 | **A held grade released later, or a regrade, never reaches either belief.** The episode keeps the submission's outcome; the discriminating observation is never reclassified. | A probe's verdict can rest on a grade you overturned | D9D2, D9B2; K9-3 | `diagnosis/probe_episodes.py:1924-1927`, `:2596-2602`, `:2462-2463`; `diagnosis/causal_orchestrator.py:2984-2989` | Q2: G4 or K9.17 |
 | 4 | **A repair episode whose primed attempt is never taken never ends.** | Its cold item's protection rests on another record; an open episode with no lifetime | R1-2 | ledger `:58`; `scheduling/serving_exclusions.py:130`, `:154`, `:339` | Q1: K9.4 |
 | 5 | **"Why wasn't the check offered?" and "why wasn't this answer read?" have no stored answer.** The verdict's receipt has no `decision_records` row; the classifier's six declines write nothing; four per-attempt hooks fail to a log line. | Each such question is a code read, not a `learnloop why` | D9O1, D9O2, D9D5 | `diagnosis/causal_orchestrator.py:1467`, `:2967-3001`; `diagnosis/chain_records.py:38-43`; `diagnosis/followups.py:853-906` | G1 (its record), K9.12 |
 | 6 | **Two modules hold the lane.** `causal_orchestrator.py` (3,471 lines: decision, learner actions, machine checks, the second belief, the cold check) and `probe_episodes.py` (3,651: lifecycle, presentations and serve gates, the posterior, evidence, seven stopping rules, controls). | A change to one part is read against all; G1, G2 and G4 all land in them | D9P1, D9P2 | §4.3, §4.4 | K9.6-K9.11 |
@@ -90,7 +90,7 @@ The map was written at `95bee5f02a`. Main has moved 442 commits (403 without mer
 | 9 | **Three docstrings at the lane's centre are false.** | A reader goes to the wrong place first | D9C1; K9-4 | `diagnosis/causal_orchestrator.py:15-16`, `:2736-2738`; `diagnosis/causal_probe_coherence.py:432-433` | K9.6-K9.8 |
 | 10 | **The parameter registry costs a line per constant in nine diagnosis modules and none in the other 100**, and calls hand-set numbers "decision" parameters. | A new constant in `voi_stopping` fails a test until registered; the 0.40 sensor cut in `causal_orchestrator` needs nothing | D9H3, D9B3 | §4.9 | Q5 (none in K9) |
 | 11 | **Dead and shadow code beside the serving code.** `failure_triage` (no caller), the EVSI-2 shadow (no authority), two test-only functions. | About 1,850 lines a reader must learn to ignore | D9P5, D9C2 | §0 row 11; `diagnosis/causal_orchestrator.py:1491-1515` | K9.10, K9.11, Q3, Q4 |
-| 12 | **The one concept note describes August's system.** | A reader starting there finds states that don't exist | D9V1, D9V2 | `docs/learnloop-architecture-vault/Concepts/Diagnosis and Remediation.md:8`, `:28-37` | K9.15 |
+| 12 | **The one concept note describes August's system.** | A reader starting there finds states that don't exist | D9V1, D9V2 | `docs/learnloop-architecture-vault/Concepts/Diagnosis and Remediation.md:8`, `:28-37` | K9.14 |
 | 13 | Small: the primed-sibling ranking reads the wall clock, re-implementing `remediation._rank_items`. | A frozen-clock test sees wall time | D9B5; K9-2 | `learnloop_sidecar/handlers/feedback.py:1063-1107`; `diagnosis/remediation.py:437` | K9.3 |
 
 ## 3. Principles for this area
@@ -102,7 +102,7 @@ Pure decisions hidden among reads and writes, and whether each is worth extracti
 | Decision | Where | Extract? |
 |---|---|---|
 | The value of a probe and the verdict (gain, chance it changes the repair, burden, classes, hard stops) | `_status_for_factor`'s reads `diagnosis/causal_orchestrator.py:1622-1738`, then `decide_probe` `:1740` | **Yes, but it is G1's step** (`probe_facts`). §4.6 gives G1 the shape: the reads are unconditional after two early arms, so two stages with today's exact reads, as I1 |
-| The episode posterior | `episode_posterior` `diagnosis/probe_episodes.py:1869-1981` gathers observations, incidental attempts, segments and the held predicate around the pure fold | **Yes, conditionally** (K9.14): a gather and a pure fold, before G4 or with K9-3's own successor. Not if G3 says G4 is skipped and Q2 says no |
+| The episode posterior | `episode_posterior` `diagnosis/probe_episodes.py:1869-1981` gathers observations, incidental attempts, segments and the held predicate around the pure fold | **Yes, conditionally** (K9.13): a gather and a pure fold, before G4 or with K9-3's own successor. Not if G3 says G4 is skipped and Q2 says no |
 | The stopping rules | `_evaluate_completion` `diagnosis/probe_episodes.py:2902-3052` | **No.** Eligibility is read only when the earlier rules continue (`:2973-2981`, `:2984-3002`), so a pure ladder reads ahead of need (I2's stop). The stability test (`:2939-2945`) is two lines |
 | VOI's context | `VoiContext` `diagnosis/voi_stopping.py:389-479` | **Not in K9.** I2 found the scheduler needs it frozen too; it is L4's |
 | The causal prior's weighting | `build_causal_hypothesis_set` `diagnosis/causal_probe_coherence.py:747-801` | **No**, unless G4 needs it: 55 lines, and G4's recommendation reuses commissioning's set instead of recomputing a prior |
@@ -151,7 +151,7 @@ A step that would need to change one stops and goes to the owner.
 - **P-ast:** every moved function's AST, docstrings removed, identical to its source (A3's and K2.5's method).
 - **P-draw**, **P-shadow**, **P-playbook:** the strategy's.
 
-Only K9.4 (with Q1), K9.18 (with Q2) and G4 change persisted meaning; the rest are bug fixes without a successor or structure.
+Only K9.4 (with Q1), K9.17 (with Q2) and G4 change persisted meaning; the rest are bug fixes without a successor or structure.
 
 ### 4.1 Behaviour track: the ledger faults (fix first)
 
@@ -294,33 +294,33 @@ These are not K9 landings; they are inputs to arc G's steps, written here becaus
 
 **G3, the disagreement report.** It can also count, on the copies, how many probe answers were held and later released, and how many were regraded: the size of Q2's fix.
 
-**G4, one belief.** K9.14 (below) makes the posterior a gather and a pure fold before G4 changes what it gathers. If Q2 is "fold into G4", G4's gather reads the latest grading epoch per attempt and the released holds, and its tests state the posterior with literals.
+**G4, one belief.** K9.13 (below) makes the posterior a gather and a pure fold before G4 changes what it gathers. If Q2 is "fold into G4", G4's gather reads the latest grading epoch per attempt and the released holds, and its tests state the posterior with literals.
 
-**K9.14. The episode posterior as a gather and a pure fold** (M). Structure. D9F1. **Only if G3 says G4 runs, or Q2 chooses K9.18;** with L4's review of the episode posterior.
+**K9.13. The episode posterior as a gather and a pure fold** (M). Structure. D9F1. **Only if G3 says G4 runs, or Q2 chooses K9.17;** with L4's review of the episode posterior.
 - **Does:** `episode_posterior` (`diagnosis/probe_episodes.py:1869-1981`) becomes a shell that gathers `EpisodeEvidence` (the locked set and prior; per observation and incidental attempt, its likelihoods and weight, in replay order; the held set) with today's reads in today's order, and a pure `fold_posterior(evidence) -> EpisodePosterior` over `_bayes_update`.
 - **Check in step 0 (I2's stop):** that no read depends on a value the fold computes. By reading, the gather depends on rows and the held predicate only (`:1896-1910`, `:1943-1945`, `:1985`). If one does, the step stops and says which.
-- **Abstraction and why it pays:** `EpisodeEvidence`, one frozen dataclass. It lets G4's and K9.18's tests say "this released hold moves the posterior by this much" with literals. **Stop rule:** more than about eight fields, or more than about 80 net lines with no new literal test, and it stops.
+- **Abstraction and why it pays:** `EpisodeEvidence`, one frozen dataclass. It lets G4's and K9.17's tests say "this released hold moves the posterior by this much" with literals. **Stop rule:** more than about eight fields, or more than about 80 net lines with no new literal test, and it stops.
 - **Proof:** P-golden; P-shadow (the posterior is persisted through `persist_episode_beliefs`); new literal tests of the fold. **Size:** M.
 
-**K9.18. A released hold or a regrade enters the episode posterior** (M). Behaviour, lands alone, P-playbook. **Only if Q2 chooses its own successor.** K9-3.
+**K9.17. A released hold or a regrade enters the episode posterior** (M). Behaviour, lands alone, P-playbook. **Only if Q2 chooses its own successor.** K9-3.
 - **Does:** on a hold's release or a regrade of a probe answer, the observation is re-derived from the current grading epoch as a superseding row (the old one kept); replay reads the latest per attempt. A successor tag and kill switch serve the predecessor exactly.
 - **Proof:** P-fail `tests/test_probe_held_release.py::test_a_released_hold_moves_the_episode_posterior` and `::test_a_regrade_of_a_probe_answer_moves_the_episode_posterior` (strict xfails until then, as the fail-first tests of a queued fix); P-playbook. **Size:** M.
 
 ### 4.7 Docs
 
-**K9.15. The Diagnosis note true at this tip** (S). D9V1, D9V2.
+**K9.14. The Diagnosis note true at this tip** (S). D9V1, D9V2.
 - **Does:** `Concepts/Diagnosis and Remediation.md` loses the states that don't exist (`concentrated`, `burden_stop`, `:28-37`) and gains: who decides whether to probe today (the map's ten sites, in one table, with arc G's plan beside it), the two beliefs over hypotheses and where they differ (the map's §3.3 table), the module layout after K9.6-K9.11, and what `why` answers (§3's list). `implementation_version` is updated. It links ADR-016, ADR-017 and the ADR-020 that G2 will add.
 - **When:** after K9.11, so the paths are right. The full rewrite stays with the vault plan's last stage (strategy §5), after G2 and G4 change what the note describes.
 - **Proof:** the four validators; the orchestrator reads the note against the code. **Size:** S.
 
 ### 4.8 Conditional on the owner
 
-**K9.16. Delete `failure_triage`** (S). **Only if Q3 is yes.** D9C2, D9P5.
+**K9.15. Delete `failure_triage`** (S). **Only if Q3 is yes.** D9C2, D9P5.
 - **Step 0:** strategy §2.1's deletion proof again, at that tip.
 - **Does:** removes `diagnosis/failure_triage.py` (1,054 lines), its `MODULE_INVENTORY` entry and three `_reg_const` entries (`params/parameter_registry.py:127`, `:1130-1136`) in the same commit, and the two `Repository` methods only it uses (`append_failure_triage_event`, `failure_triage_event`). The live route methods stay (`failure_triage_routes`, `failure_triage_route_for_reason`: read by `diagnosis/voi_stopping.py:476` and three others), and so does `failure_triage_events_for`, which `diagnosis/causal_health.py:327` reads. The table stays, readable.
 - **Proof:** `tests/test_registry_audit.py`, `tests/test_architecture.py`'s resolution check, the five test files that import it deleted or ported. **Size:** S.
 
-**K9.17. Retire the EVSI-2 shadow selection** (M). **Only if Q4 is yes;** with or after G2.
+**K9.16. Retire the EVSI-2 shadow selection** (M). **Only if Q4 is yes;** with or after G2.
 - **Does:** removes `record_shadow_selection` (360 lines, `diagnosis/causal_diagnostic_selector.py:312`) and its call in `finish` (`diagnosis/causal_orchestrator.py:1491-1515`), the readiness report (`diagnosis/causal_selection_audit.py`, 228 lines; `cli/app.py:4436`; `learnloop_sidecar/handlers/measurement.py:8`) and its panel. `build_causal_loss_table` and `likelihood_regime_for_candidate` stay where `instructional/valuation.py:251`, `:727` read them (they move into `causal_discrimination.py` or a small module, by step 0's read). `causal_shadow_selection_receipts` stays readable.
 - **Proof:** P-golden less the shadow rows; P-draw (the shadow is never read by a decision, `:1491-1494`). **Size:** M.
 
@@ -343,19 +343,19 @@ K9.5 (goldens, pins; tests only) ─ beside arc D
 
 after D6 (and best after D7):
 K9.5 ─→ K9.6 ─→ K9.7 ─→ K9.8 ─┐
-K9.5 ─→ K9.9 ─→ K9.10 ─→ K9.11 ┴─→ K9.12 ─→ K9.15 (note)
-K9.8 ─→ G1 (with the verdict's record) ─→ G2 ─→ K9.17 (if Q4)
-G3 ─→ K9.14 (if G4 runs, or Q2 chooses K9.18) ─→ G4 or K9.18
-K9.16 (if Q3) ─ any time after K9.5, alone
+K9.5 ─→ K9.9 ─→ K9.10 ─→ K9.11 ┴─→ K9.12 ─→ K9.14 (note)
+K9.8 ─→ G1 (with the verdict's record) ─→ G2 ─→ K9.16 (if Q4)
+G3 ─→ K9.13 (if G4 runs, or Q2 chooses K9.17) ─→ G4 or K9.17
+K9.15 (if Q3) ─ any time after K9.5, alone
 ```
 
 **Dependencies on other arcs:**
 - **Arc B:** K9.12 uses ADR-017's record and `why` as B1 built them. The verdict's record lands with G1 under L6, since `probe_facts` is the core that returns it.
 - **Arc D:** K9.1 is due at arc D's close (ledger). The moves start after D6 (it edits `probe_episodes.py`, `voi_stopping.py`, `remediation.py`). D7 removes the kill switches' off-paths that the moves would otherwise carry (§0).
-- **Arc G:** K9.6-K9.8 before G1 (G1's file becomes the decision only). K9.9-K9.11 before G4. K9.14 between G3 and G4. K9.17 with or after G2. G6 (protection) is untouched: diagnosis's protection reads (held grades, routine display, reserved items) move as they are.
+- **Arc G:** K9.6-K9.8 before G1 (G1's file becomes the decision only). K9.9-K9.11 before G4. K9.13 between G3 and G4. K9.16 with or after G2. G6 (protection) is untouched: diagnosis's protection reads (held grades, routine display, reserved items) move as they are.
 - **K8 (the sidecar handlers):** receives K9.3's copy question (`_pick_primed_sibling` against `remediation._rank_items`) and the practice handler's episode parking (`learnloop_sidecar/handlers/practice.py:573-581`), a lifecycle transition in a handler (map §3.4). K9 moves nothing out of handlers: the phone and TUI already call the same diagnosis functions through the sidecar registry, and no second consumer of these two decisions is named.
 - **L1:** the remaining 11-module diagnosis cycle and the global component's edges are L1's. K9.11 removes one of its seven edges (`probe_episodes` → `probe_blocks`); K9.6-K9.8 make the `causal_orchestrator` → `probe_episodes` reads downward.
-- **L4 and L5:** K9.14 is L4's episode-posterior item, done here when G4 needs it. L5 covers the 19 functions over 200 lines that no step rewrites; K9.8 gives `_status_for_factor` its header.
+- **L4 and L5:** K9.13 is L4's episode-posterior item, done here when G4 needs it. L5 covers the 19 functions over 200 lines that no step rewrites; K9.8 gives `_status_for_factor` its header.
 - **The UX overhaul:** K9.1's released feedback and K9.2's line need wording from it (§7).
 
 **What can run beside what.** K9.1-K9.3 beside anything; they fill lane 3's "ledger fixes" slot. K9.5 beside arc D: it is test-only. The two split chains (K9.6-K9.8 on `causal_orchestrator.py`, K9.9-K9.11 on `probe_episodes.py`) can run in two lanes after D6; K9.8 and K9.10 share one import and land in sequence. They share no file with K2.6-K2.12 or G6. K9.12 after both chains. Each step lands alone or in a batch of up to four.
@@ -376,13 +376,13 @@ K9.16 (if Q3) ─ any time after K9.5, alone
 | K9.10 Presentations out; dead block planner gone | structure | M |
 | K9.11 Evidence and controls out; cycle edge cut | structure | M |
 | K9.12 Why a probe answer wasn't read; failed hooks | structure (records) | M |
-| K9.14 Posterior as gather and fold (conditional) | structure | M |
-| K9.15 The Diagnosis note | docs | S |
-| K9.16 Delete `failure_triage` (Q3) | structure | S |
-| K9.17 Retire the EVSI-2 shadow (Q4) | structure | M |
-| K9.18 Released holds and regrades enter the posterior (Q2) | behaviour (successor) | M |
+| K9.13 Posterior as gather and fold (conditional) | structure | M |
+| K9.14 The Diagnosis note | docs | S |
+| K9.15 Delete `failure_triage` (Q3) | structure | S |
+| K9.16 Retire the EVSI-2 shadow (Q4) | structure | M |
+| K9.17 Released holds and regrades enter the posterior (Q2) | behaviour (successor) | M |
 
-(K9.13 is not used: the verdict's record is G1's.) **Total:** the fifteen that run without an answer (K9.1-K9.3, K9.5-K9.12, K9.15, and K9.14 only if G3 says so) are six S and nine M with K9.14: about 1.5-2 weeks of queue, of which the three fixes take about a day and the two split chains about a week. The four conditional steps add about two and a half days. These are estimates.
+**Total:** seventeen steps. The twelve that run without an answer (K9.1-K9.3, K9.5-K9.12, K9.14) are four S and eight M: about 1.5-2 weeks of queue, of which the three fixes take about a day and the two split chains about a week. The four that wait on Q1-Q4 (K9.4, K9.15 S; K9.16, K9.17 M) and K9.13 (M, if G3 says so) add about three days. These are estimates.
 
 ## 6. What a change costs, today and after
 
@@ -420,7 +420,7 @@ What the learner sees that is a structure problem this strategy fixes, and what 
 
 **Where the map, and this strategy, could not see:**
 - **Nothing was run** but static sweeps and `git`. The split simulation is a graph estimate; the commit locality (§1) uses hunk lines at the time of each commit, which drift.
-- **No data.** How often the two beliefs disagree, how often holds release mid-episode, how often a probe answer is regraded, how often the classifier declines, whether a remediation episode is ever left untaken: all unmeasured. G3 and the owner's counts decide Q2's size and K9.14's worth.
+- **No data.** How often the two beliefs disagree, how often holds release mid-episode, how often a probe answer is regraded, how often the classifier declines, whether a remediation episode is ever left untaken: all unmeasured. G3 and the owner's counts decide Q2's size and K9.13's worth.
 - **Normalization at the stop (K9.1).** I traced that the block end passes `ai_client=None` (`diagnosis/probe_blocks.py:369-376`), not whether a `None` client can still reach a model inside normalization. K9.1's step 0 checks it; if it can, the stop moves normalization to the diagnose thread instead.
 - **The desktop beyond the two components read.** `FollowupPanel.tsx`, `PracticeScreen.tsx` and the TUI's practice screen were not read; K9.2 may find the same line elsewhere.
 
@@ -434,7 +434,7 @@ What the learner sees that is a structure problem this strategy fixes, and what 
 **What would make me stop a step:**
 - an identity pin or golden that moves in a structure step;
 - P-ast failing for a moved function;
-- K9.14 crossing its stop rule, or a gather read that depends on the fold;
+- K9.13 crossing its stop rule, or a gather read that depends on the fold;
 - a step needing to change one of §3's guarantees;
 - a new module that would have to import upward to stay green (the order in §4.3 or §4.4 was wrong; re-measure, don't add a local import).
 
@@ -449,15 +449,15 @@ What the learner sees that is a structure problem this strategy fixes, and what 
    - **Either:** K9.4, half a day, no migration. **No answer:** the ledger row stays open past arc D.
 2. **Q2: held grades released later, and regrades** (K9-3).
    - **Today:** neither moves the episode posterior; the discriminating observation is never reclassified. The diagnosis, grade interpretation and recurrence groups do move.
-   - **Recommended:** yes, they should move the episode posterior. G3 first (it counts how often this happens). If G4 runs, fold the fix into G4, whose one belief makes the discriminating observation's resolution follow the posterior. If G4 is skipped, K9.18, a small successor for the episode posterior alone.
-   - **If yes:** a successor and kill switch, a shadow rebuild on copies (P-playbook), after K9.14. **If no:** the rule "a probe answer's first classification is final" goes into the Diagnosis note, and the ledger row closes as by design.
+   - **Recommended:** yes, they should move the episode posterior. G3 first (it counts how often this happens). If G4 runs, fold the fix into G4, whose one belief makes the discriminating observation's resolution follow the posterior. If G4 is skipped, K9.17, a small successor for the episode posterior alone.
+   - **If yes:** a successor and kill switch, a shadow rebuild on copies (P-playbook), after K9.13. **If no:** the rule "a probe answer's first classification is final" goes into the Diagnosis note, and the ledger row closes as by design.
 3. **Q3: delete `failure_triage`.**
    - **Today:** 1,054 lines whose functions have no caller; the registry imports the module by string for three constants; it is the only writer of `failure_triage_events`, which `causal_health` reads (old rows).
-   - **Recommended:** yes, K9.16 (S). L3's list already names it for you.
+   - **Recommended:** yes, K9.15 (S). L3's list already names it for you.
    - **If no:** it stays, and any deletion by import alone breaks `refresh`.
 4. **Q4: retire the EVSI-2 shadow selection.**
    - **Today:** every causal probe decision also computes and stores a shadow selection with zero live authority (`diagnosis/causal_orchestrator.py:1491-1515`), read only by a readiness report on the measurement-health screen. Your rule since Oct is live changes over shadow stages.
-   - **Recommended:** yes, with or after G2, when the router decides and the shadow has nothing left to ready for. K9.17 (M).
+   - **Recommended:** yes, with or after G2, when the router decides and the shadow has nothing left to ready for. K9.16 (M).
    - **If yes:** about 600 lines go and the readiness panel goes. **If no:** it stays as a report, and each decision keeps paying for it.
 5. **Q5: the parameter registry.**
    - **Recommended:** no diagnosis-only change. If you want a constant registered beside its definition, ask for one cross-package step (all 380 entries, 96 modules), outside K9. Until then, a moved constant takes its registry path with it.
