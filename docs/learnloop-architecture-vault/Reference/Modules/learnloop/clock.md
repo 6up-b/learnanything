@@ -795,7 +795,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it`
-  - `test_off_or_below_the_tag_the_assisted_retry_is_left_open_exactly_as_the_predecessor`
+  - `test_off_the_assisted_retry_is_left_open_exactly_as_the_predecessor`
   - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
   - `test_the_fresh_retry_is_invisible_until_due_then_measures_the_repair_cold`
   - `test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured`
@@ -903,7 +903,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_headline_switch_hides_only_the_headline`
   - `test_plan_off_is_dl0_on_fixture_copies`
   - `test_plan_off_rows_serve_the_open_queue_whatever_the_router`
-  - `test_the_plan_needs_the_successor_version`
 - [tests/test_daily_plan_reentry.py](../../../../../tests/test_daily_plan_reentry.py) — direct import
   - `test_the_reentry_panel_is_survival_first_with_no_overdue_count_or_streak`
   - `test_with_the_plan_off_the_dl0_queue_cap_still_applies_and_with_it_on_the_list_is_whole`
@@ -1382,7 +1381,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_candidates_are_grounded_in_the_asking_subject`
   - `test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide`
 - [tests/test_learner_text_gaps_composition.py](../../../../../tests/test_learner_text_gaps_composition.py) — direct import
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
@@ -2159,8 +2158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_valuation_calibration_fields.py](../../../../../tests/test_valuation_calibration_fields.py) — direct import
   - `test_exposure_age_is_measured_at_delivery_not_at_valuation`
 - [tests/test_value_candidates.py](../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_episode_with_no_pinned_channel_values_instruments_as_ordinary_items`
   - `test_an_instrument_only_request_matches_robust_selection`
-  - `test_below_the_robust_cutover_instruments_are_ordinary_items`
 - [tests/test_vault_epigraphs.py](../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../tests/test_vault_writer.py) — direct import
   - `test_registry_writers_do_not_parse_the_whole_vault`

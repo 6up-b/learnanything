@@ -47,18 +47,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/policy.py](../../../../../../src/learnloop/daily_plan/policy.py) |
-| Source lines | 196 |
+| Source lines | 180 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 36) — The router composes Today: the plan serves, the vault is at the R2a successor or later, and the router's kill switch (``router.enabled``) is on.
-- `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 48) — The model mixture chooses Today's blocks: the router composes Today, the vault is at the R2b + R2c successor or later, and ``router.mode`` is ``mixture``.
-- `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 62) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
-- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False, start_only: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 71) — Today's source/chooser pair for one plan env (one RPC).
-- `prefetch_can_start(vault: Any, *, runtime: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 146) — Spec_instruct_handoff_v1 §3a: a boundary's objective job has something to ask: the objective chooses Today and a model is set up.
+- `router_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 32) — The router composes Today: the plan serves and the router's kill switch (``router.enabled``) is on.
+- `mixture_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 39) — The model mixture chooses Today's blocks: the router composes Today and ``router.mode`` is ``mixture``.
+- `objective_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 46) — Router objective RO4 (spec §8): the objective chooses Today's blocks: the mixture serves and the vault is at RO4's tag with ``[router_objective] enabled``.
+- `policy_for(vault: Any, repository: Any, *, session_id: str | None=None, clock: Any=None, runtime: Any=None, serve: bool=False, start_only: bool=False) -> PlanPolicy` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 55) — Today's source/chooser pair for one plan env (one RPC).
+- `prefetch_can_start(vault: Any, *, runtime: Any=None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 130) — Spec_instruct_handoff_v1 §3a: a boundary's objective job has something to ask: the objective chooses Today and a model is set up.
 
 ### Explicit exports
 
@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 158) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
+- `_lesson_offer_builder(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop/daily_plan/policy.py), line 142) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the boundary's lesson offer, at TE3b's tag with its switch on (``router_objective_switches.lesson_offers_on``); None (the predecessor's boundary exactly) otherwise.
 
 ## Who imports or calls it
 
@@ -91,7 +91,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/chooser|learnloop.daily_plan.chooser]] — imports `LaneQuotaChooser`; calls `LaneQuotaChooser`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DEFAULT_POLICY`, `PlanPolicy`, `plan_active`; calls `PlanPolicy`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; calls `Offer`, `build`, `sweep_due`, `sweep_ignored`

@@ -251,7 +251,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_empty_stuck_answer_is_no_learner_text`
   - `test_t6_verified_spans_and_the_tutors_named_gap_both_hold`
   - `test_the_default_adapter_reads_mains_stuck_module_by_id_without_a_scan`
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_diagnosis_is_read_from_its_causes_without_a_call`
   - `test_diagnosis_kinds`

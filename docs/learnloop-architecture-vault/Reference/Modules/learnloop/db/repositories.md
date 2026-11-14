@@ -3496,8 +3496,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together`
   - `test_the_bundle_carries_the_question_as_it_was_given`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_episode_with_no_pinned_channel_values_instruments_as_ordinary_items`
   - `test_an_instrument_only_request_matches_robust_selection`
-  - `test_below_the_robust_cutover_instruments_are_ordinary_items`
 - [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_template.py](../../../../../../tests/test_vault_template.py) — direct import
   - `test_template_copies_have_independent_database_files_and_configuration`

@@ -178,37 +178,20 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`, `ADAPTIVE_DIFFICULTY_VERSIONS`, `LESSON_OPPORTUNITY_VERSIONS`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `DAILY_PLAN_VERSIONS`, `DELIVERABLE_PLAN_VERSIONS`, `READING_PATH_PLAN_VERSIONS`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `FAILURE_SHARE_VERSIONS`
-- [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `LESSON_SUGGESTIONS_VERSIONS`, `ROUTER_MIXTURE_VERSIONS`, `TEACHER_VERSIONS`
-- [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `ROUTER_MIXTURE_VERSIONS`, `ROUTER_STAGED_FRAME_VERSIONS`
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `DATA_CAPTURE_VERSIONS`
-- [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_RETRY_RESCHEDULE_VERSIONS`
-- [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `LEARNER_TEXT_GAP_VERSIONS`
-- [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `VOI_STOPPING_VERSIONS`
-- [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `P0_ALGORITHM_VERSION`, `P0_SUCCESSOR_VERSIONS`
-- [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] — imports `LEARNER_TEXT_GAP_VERSIONS`
-- [[Reference/Modules/learnloop/field/workbench_signals|learnloop.field.workbench_signals]] — imports `WORKBENCH_FIELD_SIGNALS_VERSIONS`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `FIGURE_WAIT_VERSIONS`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `FOLLOWUP_SERVE_VERSIONS`
-- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `SOURCE_REFERENCE_GATE_VERSIONS`
-- [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `SOURCE_REFERENCE_GATE_VERSIONS`
-- [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `SOURCE_FIRST_NEEDS_VERSIONS`
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `READER_FOLLOWUPS_VERSIONS`
-- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `READER_FOLLOWUPS_VERSIONS`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`, `P0_SUCCESSOR_VERSIONS`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `PLACEMENT_VERSIONS`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `DIAGNOSIS_SPLIT_VERSIONS`, `LEARNER_TEXT_GAP_VERSIONS`, `PLACEMENT_VERSIONS`, `UNEVIDENCED_RETURN_VERSIONS`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `FACET_BELIEF_FIX_VERSIONS`, `FAILURE_SHARE_VERSIONS`, `INTERVAL_FACTOR_VERSIONS`, `LESSON_OFFERS_VERSIONS`, `ROUTER_CALIBRATION_VERSIONS`, `ROUTER_FOLLOWUPS_VERSIONS`, `ROUTER_LEARNED_TAIL_VERSIONS`, `ROUTER_OBJECTIVE_VERSIONS`, `SLIP_GAP_VERSIONS`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `INTENT_VERSIONS`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `PROBE_TIE_VERSIONS`
-- [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `ELIGIBILITY_DECISION_VERSIONS`, `ONE_ASK_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `DECIDER_TIER1_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `TEACHER_VERSIONS`
@@ -238,7 +221,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 35 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -461,20 +444,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_off_every_plan_build_is_the_predecessors`
   - `test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the_record`
   - `test_the_successor_is_one_constant_after_rw2d`
-  - `test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on`
+  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
   - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
-- [tests/test_probe_robust_cutover.py](../../../../../tests/test_probe_robust_cutover.py) — direct import
-  - `test_evaluate_completion_abstains_on_planted_indistinguishable_case`
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_the_successor_is_one_constant_after_rebuild_equivalence`
 - [tests/test_reader_cues.py](../../../../../tests/test_reader_cues.py) — direct import
   - `test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does`
-- [tests/test_reader_digest_narrative.py](../../../../../tests/test_reader_digest_narrative.py) — direct import
-  - `test_below_the_follow_ups_successor_the_summary_row_says_so`
 - [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
   - `test_mvp039_is_one_constant_after_mvp038_and_the_latest`
 - [tests/test_reader_guidance.py](../../../../../tests/test_reader_guidance.py) — direct import
@@ -666,7 +645,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_journal_that_appears_while_bound_stops_serving_until_a_load_succeeds`
   - `test_a_reload_refused_below_the_floor_stops_serving_until_a_load_succeeds`
 - [tests/test_source_first_needs.py](../../../../../tests/test_source_first_needs.py) — direct import
-  - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
+  - `test_with_the_switch_off_nothing_runs`
 - [tests/test_stuck_prompt_composition.py](../../../../../tests/test_stuck_prompt_composition.py) — direct import
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import

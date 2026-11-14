@@ -371,7 +371,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_daily_plan_kill_switch.py](../../../../../tests/test_daily_plan_kill_switch.py) — direct import
   - `test_headline_switch_hides_only_the_headline`
   - `test_plan_off_rows_serve_the_open_queue_whatever_the_router`
-  - `test_the_plan_needs_the_successor_version`
 - [tests/test_daily_plan_reading.py](../../../../../tests/test_daily_plan_reading.py) — direct import
 - [tests/test_daily_plan_reentry.py](../../../../../tests/test_daily_plan_reentry.py) — direct import
   - `test_the_reentry_panel_is_survival_first_with_no_overdue_count_or_streak`
@@ -671,8 +670,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_watch_refresh_rejects_an_event_from_the_previously_selected_vault`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
-  - `test_below_the_successor_the_offer_logs_no_value_decisions`
   - `test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer`
+  - `test_with_the_switches_off_the_offer_logs_no_value_decisions`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_why_get_returns_ids_numbers_and_codes_and_never_a_payload`
   - `test_why_get_withholds_an_items_reasons_and_says_where`

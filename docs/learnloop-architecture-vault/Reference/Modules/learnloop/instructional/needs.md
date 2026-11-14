@@ -47,22 +47,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/needs.py](../../../../../../src/learnloop/instructional/needs.py) |
-| Source lines | 332 |
+| Source lines | 330 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `source_first_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/needs.py), line 60)
-- `need_intent(need: Mapping[str, Any], path: str) -> str` ([source](../../../../../../src/learnloop/instructional/needs.py), line 66)
-- `fulfil_need_from_sources(vault: LoadedVault, repository: Repository, need: Mapping[str, Any], *, path: str, clients: Mapping[str, Any] | None=None, rerank_client: Any | None=None, estimator: Any | None=None, pending_decision: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/needs.py), line 91) — Try the sources for one need; ``{"outcome": fulfilled | stale | generate, ...}``.
-- `live_repair_class(repository: Repository, *, attempt_id: str, factor_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/instructional/needs.py), line 269) — The repair class the causal path is running for this attempt, or None.
-- `pending_causal_decision(vault: LoadedVault, repository: Repository, need: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/needs.py), line 293) — The need's attempt's open causal factor as a priced decision, or None.
+- `source_first_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/instructional/needs.py), line 59)
+- `need_intent(need: Mapping[str, Any], path: str) -> str` ([source](../../../../../../src/learnloop/instructional/needs.py), line 64)
+- `fulfil_need_from_sources(vault: LoadedVault, repository: Repository, need: Mapping[str, Any], *, path: str, clients: Mapping[str, Any] | None=None, rerank_client: Any | None=None, estimator: Any | None=None, pending_decision: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/needs.py), line 89) — Try the sources for one need; ``{"outcome": fulfilled | stale | generate, ...}``.
+- `live_repair_class(repository: Repository, *, attempt_id: str, factor_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/instructional/needs.py), line 267) — The repair class the causal path is running for this attempt, or None.
+- `pending_causal_decision(vault: LoadedVault, repository: Repository, need: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/needs.py), line 291) — The need's attempt's open causal factor as a priced decision, or None.
 
 ### Module constants
 
-- `PATHS` ([src/learnloop/instructional/needs.py](../../../../../../src/learnloop/instructional/needs.py), line 57)
+- `PATHS` ([src/learnloop/instructional/needs.py](../../../../../../src/learnloop/instructional/needs.py), line 56)
 
 ### Explicit exports
 
@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_chooser_gate(vault: LoadedVault, repository: Repository, need: Mapping[str, Any])` ([source](../../../../../../src/learnloop/instructional/needs.py), line 73) — The follow-up chooser's own rule, applied to an authored draft.
+- `_chooser_gate(vault: LoadedVault, repository: Repository, need: Mapping[str, Any])` ([source](../../../../../../src/learnloop/instructional/needs.py), line 71) — The follow-up chooser's own rule, applied to an authored draft.
 
 ## Who imports or calls it
 
@@ -93,7 +93,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SOURCE_FIRST_NEEDS_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `import_source_exercise`; calls `import_source_exercise`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
@@ -139,9 +138,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_an_open_causal_factor_with_competing_repairs_is_a_decision_question`
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import
   - `test_a_need_resumes_its_search_before_it_goes_to_generation`
-  - `test_below_the_tag_and_with_the_switch_off_nothing_runs`
   - `test_discriminate_drafts_must_pass_the_choosers_own_gate`
   - `test_the_primed_retry_adapter_tries_sources_before_generating`
+  - `test_with_the_switch_off_nothing_runs`
 
 ## Modification guidance
 

@@ -86,9 +86,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 23 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 21 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 19 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 19 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 17 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 12 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
@@ -129,9 +129,9 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
-    n_learnloop["learnloop"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_practice_index["learnloop.practice_index"]
+    n_learnloop["learnloop"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_sidecar_handlers -->|39| center
@@ -139,9 +139,9 @@ flowchart LR
     center -->|23| n_learnloop_db_stores
     center -->|23| n_learnloop_source_retrieval
     center -->|21| n_learnloop_ai
-    center -->|19| n_learnloop
     center -->|19| n_learnloop_vault
     center -->|17| n_learnloop_practice_index
+    center -->|16| n_learnloop
     center -->|12| n_learnloop_diagnosis
     n_learnloop_cli -->|6| center
 ```

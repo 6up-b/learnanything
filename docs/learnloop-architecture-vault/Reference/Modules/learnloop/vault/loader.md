@@ -1980,7 +1980,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation`
   - `test_an_empty_stuck_answer_is_no_learner_text`
   - `test_stuck_answer_reads_one_attempt_exactly_as_stuck_answers_does`
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_diagnosis_is_read_from_its_causes_without_a_call`
   - `test_a_gap_brings_an_assumed_los_check_forward_and_the_switch_restores_the_predecessor`
@@ -2259,8 +2259,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_causal_quick_check_stops_the_episode_being_ignored`
 - [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
   - `test_a_returned_prerequisite_moves_its_dependents_one_layer_later`
-  - `test_a_shadow_rebuild_reports_nothing_moved_for_the_shape`
-  - `test_the_gate_is_the_tag_the_switch_and_ignored_opening_episodes`
+  - `test_the_gate_is_the_switch_and_ignored_opening_episodes`
 - [tests/test_plan_determinism.py](../../../../../../tests/test_plan_determinism.py) — direct import
   - `test_a_greedy_scheduler_session_never_draws_and_logs_the_greedy_design`
   - `test_dl1s_draw_is_seeded_from_logged_state_and_its_log_reproduces_the_pick`
@@ -2298,7 +2297,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
   - `test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out`
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
-  - `test_the_switch_is_on_by_default_classified_and_acts_only_at_the_tag_with_the_guide_on`
+  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
@@ -2378,8 +2377,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_enter_probe_creates_in_progress_state_and_locked_hypothesis_set`
   - `test_enter_probe_is_deterministic`
   - `test_enter_probe_reduces_target_with_strong_claim`
-- [tests/test_probe_episodes.py](../../../../../../tests/test_probe_episodes.py) — direct import
-  - `test_budget_exhaustion_completes_episode`
 - [tests/test_probe_hierarchy.py](../../../../../../tests/test_probe_hierarchy.py) — direct import
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
   - `test_generation_is_idempotent`
@@ -3132,7 +3129,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_integration_at_coordination_is_kept_but_flagged`
   - `test_integration_below_coordination_is_kept_silently`
   - `test_integration_without_capability_is_dropped_not_defaulted`
-  - `test_legacy_vault_acceptance_refused`
   - `test_lo_prerequisites_derive_concept_edges_without_model_relations`
   - `test_replay_identical_after_apply`
   - `test_revalidate_saved_candidate_completes_without_model`
@@ -3311,7 +3307,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_closed_suggested_lessons_receipt_names_the_decision`
   - `test_every_response_is_logged_once`
   - `test_not_now_mutes_the_goal_per_the_recovery_prior`
-  - `test_off_or_below_the_tag_nothing_is_drawn_or_written`
+  - `test_off_nothing_is_drawn_or_written`
   - `test_responses_move_the_acceptance_model`
   - `test_the_candidate_reasons`
   - `test_the_card_comes_at_most_once_a_day`
@@ -3441,8 +3437,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_bundle_carries_the_question_as_it_was_given`
   - `test_the_practice_feedback_switch_defaults_to_simple_and_reaches_the_app`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_episode_with_no_pinned_channel_values_instruments_as_ordinary_items`
   - `test_an_instrument_only_request_matches_robust_selection`
-  - `test_below_the_robust_cutover_instruments_are_ordinary_items`
 - [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import
   - `test_registry_writers_do_not_parse_the_whole_vault`

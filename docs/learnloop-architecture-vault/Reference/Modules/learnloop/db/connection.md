@@ -613,7 +613,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_answer_keeps_its_confusion_signal_and_adds_one_gap_observation`
   - `test_a_stuck_answer_with_text_is_queued_at_recording_and_read`
   - `test_stuck_answer_reads_one_attempt_exactly_as_stuck_answers_does`
-  - `test_the_gap_signal_changes_serving_only_at_mvp016_with_its_switch`
+  - `test_the_gap_signal_changes_serving_only_with_its_switch`
 - [tests/test_learner_text_gaps_flow.py](../../../../../../tests/test_learner_text_gaps_flow.py) — direct import
   - `test_a_gap_brings_an_assumed_los_check_forward_and_the_switch_restores_the_predecessor`
   - `test_a_gap_on_a_maintenance_lo_brings_its_next_review_forward_until_answered`

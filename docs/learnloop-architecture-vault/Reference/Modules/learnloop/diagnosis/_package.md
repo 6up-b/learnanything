@@ -167,8 +167,8 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 79 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 52 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 77 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 51 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 48 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 26 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 22 static module edges
@@ -246,8 +246,8 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    center -->|79| n_learnloop
-    center -->|52| n_learnloop_vault
+    center -->|77| n_learnloop
+    center -->|51| n_learnloop_vault
     center -->|48| n_learnloop_db
     n_learnloop_attempts -->|20| center
     center -->|26| n_learnloop_attempts

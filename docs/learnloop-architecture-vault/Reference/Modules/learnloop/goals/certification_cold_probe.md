@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/certification_cold_probe.py](../../../../../../src/learnloop/goals/certification_cold_probe.py) |
-| Source lines | 1962 |
+| Source lines | 1958 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -70,24 +70,24 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `current_certificate(vault: LoadedVault, repository: Repository, learning_object: LearningObject) -> Certificate | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 395) — The certificate this LO currently holds, or None if it holds none.
 - `class HeldOutSelection` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 536) — The chosen probe item, or the typed reason there is none.
   - `as_dict(self) -> dict[str, Any]` (line 560; public)
-- `select_held_out_probe_item(vault: LoadedVault, repository: Repository, certificate: Certificate) -> HeldOutSelection` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 602) — Pick one active item that observes a certified cell on an unused surface.
-- `class ScheduleDecision` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 765) — What the scheduler did (or declined to do) for one LO.
-  - `as_dict(self) -> dict[str, Any]` (line 778; public)
-- `class ScheduleReport` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 793)
-  - `counts(self) -> dict[str, int]` (line 798; public)
-  - `as_dict(self) -> dict[str, Any]` (line 804; public)
-- `schedule_certification_cold_probes(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None, clock: Clock | None=None) -> ScheduleReport` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 814) — Queue one delayed cold probe per certified LO.
-- `probe_window(certified_at: str | None, parameters: ColdProbeParameters, *, clock: Clock | None=None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1138) — ``(not_before, expires_at)`` for a certificate earned at ``certified_at``.
-- `record_certification_cold_probe_attempt(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, grading_source: str | None=None, grading_agent_run_id: str | None=None, grade_held_for_review: bool=False, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1238) — Consume a due probe and record whether the certificate held.
-- `class FalseCertificationRate` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1540) — `false_certification_rate` with its denominator and availability arm.
-  - `available(self) -> bool` (line 1579; public)
-  - `keys(self) -> tuple[str, ...]` (line 1591; public)
-  - `__getitem__(self, key: str) -> Any` (line 1594; internal)
-  - `as_dict(self) -> dict[str, Any]` (line 1597; public) — The §3 B5 scoreboard entry.
-- `effective_cold_probe_outcomes(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1637) — The outcome store as every reader takes it NOW (held-grade-evidence, review F2).
-- `false_certification_rate(repository: Repository, *, clock: Clock | None=None) -> FalseCertificationRate` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1684) — Certified-then-failed over certified-and-probed (§5.7, §3 B5).
-- `cold_outcome_labels(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1776) — The certification lane's cold-outcome labels, in the causal P4 shape.
-- `certification_cold_probe_report(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1825) — `false_certification_rate` plus the coverage of the probe lane itself.
+- `select_held_out_probe_item(vault: LoadedVault, repository: Repository, certificate: Certificate) -> HeldOutSelection` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 598) — Pick one active item that observes a certified cell on an unused surface.
+- `class ScheduleDecision` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 761) — What the scheduler did (or declined to do) for one LO.
+  - `as_dict(self) -> dict[str, Any]` (line 774; public)
+- `class ScheduleReport` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 789)
+  - `counts(self) -> dict[str, int]` (line 794; public)
+  - `as_dict(self) -> dict[str, Any]` (line 800; public)
+- `schedule_certification_cold_probes(vault: LoadedVault, repository: Repository, *, learning_object_id: str | None=None, clock: Clock | None=None) -> ScheduleReport` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 810) — Queue one delayed cold probe per certified LO.
+- `probe_window(certified_at: str | None, parameters: ColdProbeParameters, *, clock: Clock | None=None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1134) — ``(not_before, expires_at)`` for a certificate earned at ``certified_at``.
+- `record_certification_cold_probe_attempt(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, grading_source: str | None=None, grading_agent_run_id: str | None=None, grade_held_for_review: bool=False, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1234) — Consume a due probe and record whether the certificate held.
+- `class FalseCertificationRate` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1536) — `false_certification_rate` with its denominator and availability arm.
+  - `available(self) -> bool` (line 1575; public)
+  - `keys(self) -> tuple[str, ...]` (line 1587; public)
+  - `__getitem__(self, key: str) -> Any` (line 1590; internal)
+  - `as_dict(self) -> dict[str, Any]` (line 1593; public) — The §3 B5 scoreboard entry.
+- `effective_cold_probe_outcomes(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1633) — The outcome store as every reader takes it NOW (held-grade-evidence, review F2).
+- `false_certification_rate(repository: Repository, *, clock: Clock | None=None) -> FalseCertificationRate` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1680) — Certified-then-failed over certified-and-probed (§5.7, §3 B5).
+- `cold_outcome_labels(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1772) — The certification lane's cold-outcome labels, in the causal P4 shape.
+- `certification_cold_probe_report(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1821) — `false_certification_rate` plus the coverage of the probe lane itself.
 
 ### Module constants
 
@@ -143,21 +143,21 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_recipe(learning_object: LearningObject, blueprint_id: str, recipe_id: str)` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 480)
 - `_certified_components(vault: LoadedVault, recipe, gaps) -> list[tuple[Any, str]]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 490) — The components `recipe_gaps` actually gated on, with their roles.
 - `_unverified_imports(vault: LoadedVault, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 577)
-- `_shown_items(vault: LoadedVault, repository: Repository, item_ids: Any) -> set[str]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 591) — Candidates that are no longer an independent check (exam protection): the learner has already been shown their own material, ever (owner default 2026-10-13), or they are made from held-out material, which a cold probe would put in front of the learner (Codex review F1).
-- `_selection_inventory_trigger(vault: LoadedVault, repository: Repository, certificate: Certificate) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1060) — Stable pre-selection identity for the currently available item pool.
-- `_target_learning_objects(vault: LoadedVault, learning_object_id: str | None) -> list[LearningObject]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1106)
-- `_cancel_stale_probes(repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> ScheduleDecision` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1115) — Retire probes for an LO that is no longer certified.
-- `_probe_context(certificate: Certificate, selection: HeldOutSelection, parameters: ColdProbeParameters, not_before: str, expires_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1162) — Everything the consume side will need, resolved NOW (migration 124's rule).
-- `_avoided_affordances(certificate: Certificate, selection: HeldOutSelection) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1212) — What the probe gives up relative to the certifying evidence.
-- `_record_probe_outcome(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, grading_source: str | None, grading_agent_run_id: str | None, grade_held_for_review: bool=False, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1287)
-- `_attempt_is_assisted(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1466) — The shared assistance test, not a local re-derivation.
-- `_certificate_state_at_probe(vault: LoadedVault, repository: Repository, learning_object_id: str, certificate_id: str) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1484) — ``active`` iff the LO still holds the exact certificate being probed.
-- `_grader_stamp(repository: Repository, attempt_id: str, *, grading_source: str | None, grading_agent_run_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1501) — Grader provenance for the label, following `diagnosis_adjudication`.
-- `_rate(bucket: Mapping[str, int]) -> float | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1764)
-- `_horizon_key(value: Any) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1769)
-- `_carried(context: Mapping[str, Any], key: str, fallback: float) -> float` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1908) — A numeric knob carried on the task, else the live default.
-- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1924)
-- `_iso(value) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1929)
+- `_shown_items(vault: LoadedVault, repository: Repository, item_ids: Any) -> set[str]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 587) — Candidates that are no longer an independent check (exam protection): the learner has already been shown their own material, ever (owner default 2026-10-13), or they are made from held-out material, which a cold probe would put in front of the learner (Codex review F1).
+- `_selection_inventory_trigger(vault: LoadedVault, repository: Repository, certificate: Certificate) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1056) — Stable pre-selection identity for the currently available item pool.
+- `_target_learning_objects(vault: LoadedVault, learning_object_id: str | None) -> list[LearningObject]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1102)
+- `_cancel_stale_probes(repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> ScheduleDecision` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1111) — Retire probes for an LO that is no longer certified.
+- `_probe_context(certificate: Certificate, selection: HeldOutSelection, parameters: ColdProbeParameters, not_before: str, expires_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1158) — Everything the consume side will need, resolved NOW (migration 124's rule).
+- `_avoided_affordances(certificate: Certificate, selection: HeldOutSelection) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1208) — What the probe gives up relative to the certifying evidence.
+- `_record_probe_outcome(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, grading_source: str | None, grading_agent_run_id: str | None, grade_held_for_review: bool=False, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1283)
+- `_attempt_is_assisted(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1462) — The shared assistance test, not a local re-derivation.
+- `_certificate_state_at_probe(vault: LoadedVault, repository: Repository, learning_object_id: str, certificate_id: str) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1480) — ``active`` iff the LO still holds the exact certificate being probed.
+- `_grader_stamp(repository: Repository, attempt_id: str, *, grading_source: str | None, grading_agent_run_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1497) — Grader provenance for the label, following `diagnosis_adjudication`.
+- `_rate(bucket: Mapping[str, int]) -> float | None` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1760)
+- `_horizon_key(value: Any) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1765)
+- `_carried(context: Mapping[str, Any], key: str, fallback: float) -> float` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1904) — A numeric knob carried on the task, else the live default.
+- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1920)
+- `_iso(value) -> str` ([source](../../../../../../src/learnloop/goals/certification_cold_probe.py), line 1925)
 
 ## Who imports or calls it
 
@@ -174,7 +174,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `SOURCE_REFERENCE_GATE_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `LANE_CERTIFICATION_COLD_PROBE`, `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`; calls `evaluate_final_coldness`, `record_final_receipt`, `record_schedule_refusal_receipt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exposed_items`; calls `exposed_items`

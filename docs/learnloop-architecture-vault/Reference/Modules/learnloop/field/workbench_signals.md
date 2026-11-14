@@ -47,27 +47,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py) |
-| Source lines | 357 |
+| Source lines | 352 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `workbench_field_signals_live(vault: Any) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 94) — At the successor (or later) with ``workbench.field_signals_enabled`` on.
-- `is_workbench_signal(signal: SignalRow) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 105) — A row only the successor's derivation produces (the predecessor's are the rest).
-- `derive_workbench_signals(sessions: Iterable[Mapping[str, Any]], steps: Iterable[Mapping[str, Any]], assists: Iterable[Mapping[str, Any]], *, attempts: Mapping[str, Mapping[str, Any]], contract_targets: Mapping[str, str], diagnostics: dict[str, Any] | None=None) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 173) — The two workbench sources as zero-mass signal rows (pure).
-- `load_workbench_signals(connection: Any, vault: Any, *, diagnostics: dict[str, Any] | None=None) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 268) — The workbench rows for a live successor (empty otherwise).
+- `workbench_field_signals_live(vault: Any) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 93) — With ``workbench.field_signals_enabled`` on.
+- `is_workbench_signal(signal: SignalRow) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 100) — A row only the successor's derivation produces (the predecessor's are the rest).
+- `derive_workbench_signals(sessions: Iterable[Mapping[str, Any]], steps: Iterable[Mapping[str, Any]], assists: Iterable[Mapping[str, Any]], *, attempts: Mapping[str, Mapping[str, Any]], contract_targets: Mapping[str, str], diagnostics: dict[str, Any] | None=None) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 168) — The two workbench sources as zero-mass signal rows (pure).
+- `load_workbench_signals(connection: Any, vault: Any, *, diagnostics: dict[str, Any] | None=None) -> tuple[SignalRow, ...]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 263) — The workbench rows for a live successor (empty otherwise).
 
 ### Module constants
 
-- `WORKBENCH_SIGNAL_VERSION` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 74)
-- `STUCK_CONFUSION_SIGNAL` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 77)
-- `WORKBENCH_HELP_SIGNAL` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 80)
-- `STUCK_PREFIX` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 81)
-- `HELP_PREFIX` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 82)
-- `HELP_ASSIST_KINDS` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 86)
-- `SUBJECT_UNRECORDED` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 91)
+- `WORKBENCH_SIGNAL_VERSION` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 73)
+- `STUCK_CONFUSION_SIGNAL` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 76)
+- `WORKBENCH_HELP_SIGNAL` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 79)
+- `STUCK_PREFIX` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 80)
+- `HELP_PREFIX` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 81)
+- `HELP_ASSIST_KINDS` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 85)
+- `SUBJECT_UNRECORDED` ([src/learnloop/field/workbench_signals.py](../../../../../../src/learnloop/field/workbench_signals.py), line 90)
 
 ### Explicit exports
 
@@ -84,12 +84,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_has_text(value: Any) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 111)
-- `_chain_roots(steps: Iterable[Mapping[str, Any]], wanted: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 115) — The chain root of each ``wanted`` step row: an edit, tombstone or undo supersedes the head.
-- `_snapshot_has_work(raw: Any, step_rows: Mapping[str, Mapping[str, Any]] | None=None) -> bool | None` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 139) — Whether a logged step snapshot holds an ordinary step with text.
-- `_table_present(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 256)
-- `_rows(connection: Any, sql: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 262)
-- `_contract_targets(connection: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 313) — The LO per contract version an unsubmitted session froze (review F3).
+- `_has_text(value: Any) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 106)
+- `_chain_roots(steps: Iterable[Mapping[str, Any]], wanted: Iterable[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 110) — The chain root of each ``wanted`` step row: an edit, tombstone or undo supersedes the head.
+- `_snapshot_has_work(raw: Any, step_rows: Mapping[str, Mapping[str, Any]] | None=None) -> bool | None` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 134) — Whether a logged step snapshot holds an ordinary step with text.
+- `_table_present(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 251)
+- `_rows(connection: Any, sql: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 257)
+- `_contract_targets(connection: Any, sessions: Iterable[Mapping[str, Any]], attempts: Mapping[str, Any]) -> dict[str, str]` ([source](../../../../../../src/learnloop/field/workbench_signals.py), line 308) — The LO per contract version an unsubmitted session froze (review F3).
 
 ## Who imports or calls it
 
@@ -104,7 +104,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `WORKBENCH_FIELD_SIGNALS_VERSIONS`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `SignalRow`; calls `SignalRow`
 
 ### Platform and third-party dependencies

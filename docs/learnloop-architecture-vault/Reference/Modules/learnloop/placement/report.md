@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py) |
-| Source lines | 395 |
+| Source lines | 396 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `placement_report(connection: Any, vault: Any, *, now_iso: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 81) — Report 3 over one read-only snapshot, as of ``now_iso`` (default: now).
-- `write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 347)
+- `write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 348)
 
 ### Module constants
 
@@ -69,8 +69,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_wilson(failures: int, n: int) -> list[float] | None` ([source](../../../../../../src/learnloop/placement/report.py), line 60)
 - `_minutes_per_item(connection: Any) -> tuple[float, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 69)
-- `_full_marks_misses(rows: Any) -> int` ([source](../../../../../../src/learnloop/placement/report.py), line 312) — Resolved first reviews whose answer fell short of clean full marks: returned to learning, or kept by the diagnosis (an unassessed PF-c answer is no failure evidence, so it is not one).
-- `_maintenance_outcomes(state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 324) — Misses on LOs in maintenance, by how the diagnosis decided them.
+- `_full_marks_misses(rows: Any) -> int` ([source](../../../../../../src/learnloop/placement/report.py), line 313) — Resolved first reviews whose answer fell short of clean full marks: returned to learning, or kept by the diagnosis (an unassessed PF-c answer is no failure evidence, so it is not one).
+- `_maintenance_outcomes(state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 325) — Misses on LOs in maintenance, by how the diagnosis decided them.
 
 ## Who imports or calls it
 
