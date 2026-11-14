@@ -5,7 +5,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass, replace
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.attempts.ai_contracts import (
@@ -494,7 +494,7 @@ def _direct_criteria_by_facet(
     item: PracticeItem,
     rubric: Rubric,
     *,
-    vault: LoadedVault | None = None,
+    canonical_facet_id: Callable[[str], str] | None = None,
 ) -> dict[str, set[str]]:
     """Criterion links eligible to protect a facet at the write barrier."""
 
@@ -518,8 +518,8 @@ def _direct_criteria_by_facet(
             ]
         for facet in facets:
             facet_id = (
-                vault.canonical_facet_id(str(facet))
-                if vault is not None
+                canonical_facet_id(str(facet))
+                if canonical_facet_id is not None
                 else str(facet)
             )
             direct.setdefault(facet_id, set()).add(criterion.id)
@@ -534,16 +534,22 @@ def enforce_passed_target_firewall(
     error_attributions: Iterable[Any],
     repair_suggestions: Iterable[Mapping[str, Any]] = (),
     vault: LoadedVault | None = None,
+    canonical_facet_id: Callable[[str], str] | None = None,
 ) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """Strip negative/repair targets protected by raw criterion outcomes.
 
     This is deliberately called again at the attempt write boundary even when
     Codex validation already called it. That makes the safety invariant hold
     for self grades, replay inputs, and hand-constructed ResolvedGrade objects.
+
+    Facet ids are canonicalized by ``canonical_facet_id``, else by the vault's
+    alias map, else kept as written.
     """
 
+    if canonical_facet_id is None and vault is not None:
+        canonical_facet_id = vault.canonical_facet_id
     passed, failed = _criterion_outcome_state(rubric, criterion_points)
-    direct = _direct_criteria_by_facet(item, rubric, vault=vault)
+    direct = _direct_criteria_by_facet(item, rubric, canonical_facet_id=canonical_facet_id)
     protected_facets = {
         facet
         for facet, criterion_ids in direct.items()
@@ -649,8 +655,8 @@ def enforce_passed_target_firewall(
         suggestion = dict(raw)
         raw_facets = [
             (
-                vault.canonical_facet_id(str(value))
-                if vault is not None
+                canonical_facet_id(str(value))
+                if canonical_facet_id is not None
                 else str(value)
             )
             for value in suggestion.get("target_evidence_families") or []

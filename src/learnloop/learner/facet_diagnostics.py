@@ -522,8 +522,10 @@ def apply_mastery_variance_floor(
 
 
 def build_facet_uncertainty_updates(
-    vault: LoadedVault,
+    config: LearnLoopConfig,
     *,
+    error_types: Mapping[str, Any],
+    learning_object: Any,
     item: PracticeItem,
     rubric: Rubric,
     learning_object_id: str,
@@ -540,9 +542,12 @@ def build_facet_uncertainty_updates(
     criterion_facet_weights: Mapping[str, Mapping[str, float]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """``criterion_facet_weights``: the criterion -> facet map ``facet_outcomes`` was derived with, which a hedged
-    criterion's facets come from too; None keeps the item's own map."""
+    criterion's facets come from too; None keeps the item's own map. ``error_types`` is the vault's error taxonomy
+    and ``learning_object`` the vault's ``learning_object_id`` (or None): a new uncertainty row's hypotheses read
+    which misconceptions concern its concept."""
 
-    config = vault.config.facet_diagnostic
+    tau_facet_share = config.recall_coverage.tau_facet_share
+    config = config.facet_diagnostic
     support = candidate_facet_support(item)
     fatal_error_ids = {fatal_error.id for fatal_error in rubric.fatal_errors}
     criterion_facets = (
@@ -558,7 +563,7 @@ def build_facet_uncertainty_updates(
         for facet, outcome in facet_outcomes.items()
     }
     for facet in sorted(set(facet_outcomes) | hedged_facets):
-        if float(normalized_facet_weights.get(facet, 0.0)) < vault.config.recall_coverage.tau_facet_share:
+        if float(normalized_facet_weights.get(facet, 0.0)) < tau_facet_share:
             continue
         outcome = clamp(float(facet_outcomes.get(facet, 0.5)))
         prior = prior_uncertainties.get(facet)
@@ -574,7 +579,7 @@ def build_facet_uncertainty_updates(
         marginal_before = (
             dict(prior.hypothesis_marginal)
             if prior is not None
-            else _initial_hypothesis_marginal(vault, learning_object_id, facet, error_attributions)
+            else _initial_hypothesis_marginal(error_types, learning_object, facet, error_attributions)
         )
         posterior = apply_facet_observation(
             marginal_before,
@@ -806,14 +811,14 @@ def _facet_uncertainty_id(learning_object_id: str, facet_id: str) -> str:
 
 
 def _initial_hypothesis_marginal(
-    vault: LoadedVault,
-    learning_object_id: str,
+    error_types: Mapping[str, Any],
+    learning_object: Any,
     facet_id: str,
     error_attributions: Iterable[Any],
 ) -> dict[str, float]:
     labels = [f"facet_solid:{facet_id}", f"facet_absent:{facet_id}"]
     for attribution in error_attributions:
-        if not _attribution_targets_facet(vault, learning_object_id, attribution, facet_id):
+        if not _attribution_targets_facet(error_types, learning_object, attribution, facet_id):
             continue
         label = f"misconception:{getattr(attribution, 'error_type', '')}"
         if label not in labels:
@@ -828,16 +833,15 @@ def _initial_hypothesis_marginal(
 
 
 def _attribution_targets_facet(
-    vault: LoadedVault,
-    learning_object_id: str,
+    error_types: Mapping[str, Any],
+    learning_object: Any,
     attribution: Any,
     facet_id: str,
 ) -> bool:
     targets = {str(facet) for facet in getattr(attribution, "target_evidence_families", [])}
     if facet_id in targets:
         return True
-    error_type = vault.error_types.get(str(getattr(attribution, "error_type", "")))
-    learning_object = vault.learning_objects.get(learning_object_id)
+    error_type = error_types.get(str(getattr(attribution, "error_type", "")))
     if error_type is None or learning_object is None:
         return not targets
     return learning_object.concept in set(error_type.related_concepts) and not targets

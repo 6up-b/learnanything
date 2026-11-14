@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
@@ -249,13 +249,13 @@ DIFFICULTY_RATINGS = frozenset({"easy", "about_right", "hard"})
 FIRST_HINT_PROGRESS = frozenset({"no_draft", "draft_started"})
 
 
-def _ad_logged_fields(vault: Any, draft: AttemptDraft) -> dict[str, str | None]:
+def _ad_logged_fields(config: Any, draft: AttemptDraft) -> dict[str, str | None]:
     """The AD1 columns this attempt records: each only with its switch on.
 
     Read from config here (not from ``learnloop.adaptive_difficulty``): the
     attempt path imports nothing of AD's, and AD reads nothing it writes."""
 
-    section = getattr(getattr(vault, "config", None), "adaptive_difficulty", None)
+    section = getattr(config, "adaptive_difficulty", None)
     enabled = bool(section is not None and getattr(section, "enabled", False))
     rating = draft.difficulty_rating if enabled and getattr(section, "rating_tap", False) else None
     marker = (
@@ -4443,7 +4443,7 @@ def _compute_resolved_grade_application(
             ledger_before=ledger_position if replay else None,
         )
     prior_mastery = prior_state.mastery
-    grade_attributions = _canonicalized_grade_attributions(vault, grade.error_attributions)
+    grade_attributions = _canonicalized_grade_attributions(vault.canonical_facet_id, grade.error_attributions)
     (
         grade_attributions,
         repair_suggestions,
@@ -4454,7 +4454,7 @@ def _compute_resolved_grade_application(
         criterion_points=criterion_points,
         error_attributions=grade_attributions,
         repair_suggestions=grade.repair_suggestions,
-        vault=vault,
+        canonical_facet_id=vault.canonical_facet_id,
     )
     attribution_audit_events = [
         *grade.attribution_audit_events,
@@ -4579,9 +4579,10 @@ def _compute_resolved_grade_application(
     resolved_attributions: list[GradeAttribution] = []
     for attribution in grade_attributions:
         severity, trace = event_local_severity_from_attempts(
-            vault,
             prior_state.recent_learning_object_attempts,
             item,
+            error_types=vault.error_types,
+            config=vault.config,
             error_type=attribution.error_type,
             attempt_type=draft.attempt_type,
             hints_used=draft.hints_used,
@@ -4824,7 +4825,7 @@ def _compute_resolved_grade_application(
         "declared_dont_know": draft.declared_dont_know,
         "declared_stuck": draft.declared_stuck,
         "reference_status": _attempt_reference_status(repository, item, draft, replay=replay),
-        **_ad_logged_fields(vault, draft),
+        **_ad_logged_fields(vault.config, draft),
         "received_at": draft.received_at,
     }
     error_event_ids = [
@@ -4846,7 +4847,7 @@ def _compute_resolved_grade_application(
                 "misconception_statement": attribution.misconception_statement,
                 "misconception_consistent_answer": attribution.misconception_consistent_answer,
                 "misconception_id": attribution.misconception_id,
-                "repair_plan": _error_event_repair_plan(vault, base_attribution),
+                "repair_plan": _error_event_repair_plan(vault.error_types, base_attribution),
                 "status": "active",
                 "created_at": now_iso,
                 "updated_at": now_iso,
@@ -4863,7 +4864,9 @@ def _compute_resolved_grade_application(
             not in unassessed
         ]
     facet_uncertainty_updates, facet_uncertainty_trace = build_facet_uncertainty_updates(
-        vault,
+        vault.config,
+        error_types=vault.error_types,
+        learning_object=vault.learning_objects.get(learning_object.id),
         item=item,
         rubric=rubric,
         learning_object_id=learning_object.id,
@@ -5197,17 +5200,17 @@ def _self_grade_attributions(
 
 
 def _canonicalized_grade_attributions(
-    vault: LoadedVault,
+    canonical_facet_id: Callable[[str], str],
     attributions: list[GradeAttribution],
 ) -> list[GradeAttribution]:
     canonicalized: list[GradeAttribution] = []
     for attribution in attributions:
         target_evidence_families = list(
-            dict.fromkeys(vault.canonical_facet_id(facet) for facet in attribution.target_evidence_families)
+            dict.fromkeys(canonical_facet_id(facet) for facet in attribution.target_evidence_families)
         )
         target_ref = dict(attribution.target_ref) if attribution.target_ref else None
         if target_ref and target_ref.get("kind") == "facet_capability":
-            target_ref["facet_id"] = vault.canonical_facet_id(
+            target_ref["facet_id"] = canonical_facet_id(
                 str(target_ref.get("facet_id") or "")
             )
         facet_contrast = (
@@ -5218,7 +5221,7 @@ def _canonicalized_grade_attributions(
         if facet_contrast:
             for key in ("target_facet", "confused_with_facet"):
                 if facet_contrast.get(key):
-                    facet_contrast[key] = vault.canonical_facet_id(
+                    facet_contrast[key] = canonical_facet_id(
                         str(facet_contrast[key])
                     )
         candidate_causes: list[dict[str, Any]] = []
@@ -5227,7 +5230,7 @@ def _canonicalized_grade_attributions(
             cause_ref = cause.get("target_ref")
             if isinstance(cause_ref, dict) and cause_ref.get("kind") == "facet_capability":
                 cause_ref = dict(cause_ref)
-                cause_ref["facet_id"] = vault.canonical_facet_id(
+                cause_ref["facet_id"] = canonical_facet_id(
                     str(cause_ref.get("facet_id") or "")
                 )
                 cause["target_ref"] = cause_ref
@@ -5269,7 +5272,7 @@ def _dont_know_error_type(hints_used: int) -> str:
     return map_legacy_error_type(legacy)
 
 
-def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) -> dict[str, object] | None:
+def _error_event_repair_plan(error_types: Mapping[str, Any], attribution: GradeAttribution) -> dict[str, object] | None:
     repair_plan: dict[str, object] = {}
     if attribution.evidence:
         repair_plan["evidence"] = attribution.evidence
@@ -5308,7 +5311,7 @@ def _error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) 
         repair_plan["postdictive_claims"] = list(attribution.postdictive_claims)
     if attribution.soft_postdictive_claims:
         repair_plan["soft_postdictive_claims"] = list(attribution.soft_postdictive_claims)
-    if abs(attribution.severity - _error_severity(vault, attribution.error_type)) > 1e-9:
+    if abs(attribution.severity - _taxonomy_severity(error_types, attribution.error_type)) > 1e-9:
         repair_plan["base_severity"] = attribution.severity
     return repair_plan or None
 
@@ -5670,7 +5673,11 @@ def _elapsed_days(state: PracticeItemState | None, observed_at) -> float:
 
 
 def _error_severity(vault: LoadedVault, error_type: str) -> float:
-    taxonomy = vault.error_types.get(error_type)
+    return _taxonomy_severity(vault.error_types, error_type)
+
+
+def _taxonomy_severity(error_types: Mapping[str, Any], error_type: str) -> float:
+    taxonomy = error_types.get(error_type)
     return taxonomy.severity_default if taxonomy is not None else 0.5
 
 
