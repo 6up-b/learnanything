@@ -3421,6 +3421,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_item_with_unmapped_criterion_is_invalid`
   - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
   - `test_well_formed_teach_back_item_is_valid`
+- [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
+  - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_cancellation_is_never_a_fallback`
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
