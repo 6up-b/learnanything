@@ -57,7 +57,7 @@ export function StudyMapBriefWizard({
   );
   const [goalTitle, setGoalTitle] = useState(initialBrief?.goalTitle ?? "");
   const [intentSentence, setIntentSentence] = useState(initialBrief?.intentSentence ?? "");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(dateInputValue(initialBrief?.dueAt));
   const [targetRecall, setTargetRecall] = useState(initialBrief?.targetRecall ?? 0.85);
   const [examItemCount, setExamItemCount] = useState(initialBrief?.examItemCount ?? 20);
 
@@ -324,6 +324,19 @@ export function StudyMapBriefWizard({
       </div>
     </div>
   );
+}
+
+// The date input's YYYY-MM-DD for a saved deadline. build() saves the chosen
+// day's 23:59:59 local time as an ISO instant, so the day is read back in local
+// time (west of Greenwich the instant's UTC date is the next day). A bare date
+// is already the day; new Date() would read it as UTC midnight.
+function dateInputValue(dueAt: string | undefined): string {
+  if (!dueAt) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dueAt)) return dueAt;
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`;
 }
 
 function ChipInput({ label, chips, onChange, placeholder }: { label: string; chips: string[]; onChange: (c: string[]) => void; placeholder: string }) {
