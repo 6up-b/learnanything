@@ -157,7 +157,7 @@ Only K9.4 (with Q1), K9.17 (with Q2) and G4 change persisted meaning; the rest a
 
 Each lands alone, from a failing test, before or beside anything else.
 
-**K9.1. A mid-check stop settles the block's answers** (S). Behaviour, no successor. TH-3; due at arc D's close.
+**K9.1. A mid-check stop settles the block's answers** (S). Behaviour, no successor. TH-3; due at arc D's close. **Done** (`55205863a2`; `docs/reviews/refactor-adfix2.md`; the calibration dialogue had the same fault and is fixed with it; the released feedback's screen is TH-4).
 - **Problem:** `stop_diagnosing_and_teach` (`diagnosis/probe_episodes.py:3447-3494`) invalidates the presentation, writes the transition and sets `converted_to_tutoring`. `end_diagnostic_block` then returns early for a non-`in_progress` episode (`diagnosis/probe_blocks.py:332-333`), and nothing calls it anyway. The attempt pipeline had skipped each in-block answer's normalization, workflow and diagnosis job because the block end would run them (`attempts/post_attempt.py:155-188`, `_defers_to_block_end` `:312-322`).
 - **Does:**
   - The block end's steps 1, 2 and 2b (release withheld feedback, normalize joint-graded answers or enqueue a blind answer's diagnosis, resume the deferred causal hooks: `diagnosis/probe_blocks.py:337-401`) become one function, `settle_block_answers(vault, repository, episode, *, ai_client, clock)`, which `end_diagnostic_block` calls where those lines were.
@@ -169,12 +169,12 @@ Each lands alone, from a failing test, before or beside anything else.
 - **Deletes:** nothing. **Abstraction:** none (one function from existing lines).
 - **Proof:** P-fail `tests/test_teach_handoff_stop_settles.py::test_a_mid_check_stop_normalizes_joint_answers_and_releases_their_feedback` (a joint vault: two in-block misses, stop; the misconception rows exist and the feedback is released) and `::test_a_mid_check_stop_queues_the_blind_answers_diagnosis` (a blind vault: one `diagnose` job per answer). The existing block-end and teach hand-off tests unchanged. **Vault:** the Diagnosis note's line "the block is not ended" (`Concepts/Diagnosis and Remediation.md:66`). **Size:** S.
 
-**K9.2. The screen says why the check was withheld** (S). Behaviour (desktop). K9-1; D9B5.
+**K9.2. The screen says why the check was withheld** (S). Behaviour (desktop). K9-1; D9B5. **Done** (`4f5b325939`: no line for burden or budget, the orchestrator's message alone).
 - **Problem:** the status's `reason` is the verb (`defer_learner_preference`, `defer_recent_burden`, `defer_session_budget`; `diagnosis/causal_orchestrator.py:1875-1903`) and the DTO carries it (`apps/learnloop-tauri/src/api/dto.ts:1996-2002`), but the component branches on `!probeOffered` alone (`CausalAttribution.tsx:403-407`).
 - **Does:** the "You asked me not to check" line shows only for `reason === "defer_learner_preference"`. For the other two the component shows the server's `message` (`DEFERRED_OFFER_MESSAGE`, `diagnosis/causal_orchestrator.py:235-238`, which already says nothing about the learner). The DTO comment at `dto.ts:2008-2009` is corrected. Final wording is the UX audit's.
 - **Proof:** P-fail (vitest, a new `CausalAttribution.test.tsx`): a status with `reason: "defer_recent_burden"` doesn't render "You asked me". **Size:** S.
 
-**K9.3. The primed-sibling ranking takes a clock** (S). Behaviour (tests and replay only). K9-2.
+**K9.3. The primed-sibling ranking takes a clock** (S). Behaviour (tests and replay only). K9-2. **Done** (`ce11173c99`).
 - **Problem:** `_pick_primed_sibling` reads `SystemClock().now()` (`learnloop_sidecar/handlers/feedback.py:1107`) where the ranking it re-implements takes one (`diagnosis/remediation.py:437`). The sidecar injects no clock today (no handler reads one), so production behaviour is the same; a frozen-clock test is not.
 - **Does:** a `clock` parameter through `_pick_primed_sibling`'s three callers (`:962`, `:971`, `:1004`), defaulting to the wall clock. Whether the copy should call `remediation._rank_items` instead (it differs: a boolean facet overlap and the source item excluded) is a policy question for K8's handler review, recorded there, not changed here.
 - **Proof:** P-fail: a frozen clock inside the recent-attempt window ranks an item answered "minutes ago" last. **Size:** S.
