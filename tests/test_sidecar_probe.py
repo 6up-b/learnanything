@@ -95,6 +95,7 @@ def test_stop_probe_diagnosing_converts_episode(tmp_path):
 
     assert result["stopped"] is True
     assert result["decision"]["tutorMove"] in ("elicit_reasoning", "localize_error")
+    assert result["releasedFeedback"] == []  # nothing was committed in the block
     refreshed = repository.probe_episode(episode.id)
     assert refreshed.status == "converted_to_tutoring"
     segments = repository.state_segments_for_learning_object("lo_svd_definition")

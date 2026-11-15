@@ -578,9 +578,9 @@ def test_stop_and_teach_ends_measurement_and_segments_evidence(tmp_path):
     _submit(loaded, repository, presentation_id=presentation.id, score=1)
     posterior_before = episode_posterior(loaded, repository, repository.probe_episode(episode.id)).posterior
 
-    decision = stop_diagnosing_and_teach(loaded, repository, LO_ID, clock=CLOCK)
-    assert decision is not None
-    assert decision["diagnosed_gap"] is not None
+    stopped = stop_diagnosing_and_teach(loaded, repository, LO_ID, clock=CLOCK)
+    assert stopped is not None
+    assert stopped.decision["diagnosed_gap"] is not None
     episode = repository.probe_episode(episode.id)
     assert episode.status == "converted_to_tutoring"
 

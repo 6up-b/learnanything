@@ -1403,6 +1403,8 @@ export interface StopProbeResultDto {
   /** The episode the stop converted (null when nothing was open), so the lesson opened next can name it. */
   episodeId?: string | null;
   learningObjectId?: string;
+  /** The block's committed answers, settled by the stop (their block end never runs), in the block end's shape. */
+  releasedFeedback?: ProbeBlockEndDto["releasedFeedback"];
 }
 
 /** §5.7 block continuity: the item that would continue this LO's open episode,

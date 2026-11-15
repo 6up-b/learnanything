@@ -667,8 +667,10 @@ def _with_intent_check(vault: Any, repository: Any, practice_item_id: str, paylo
 
 @method("stop_probe_diagnosing", PracticeItemInput)
 def stop_probe_diagnosing(ctx: SidecarContext, params: PracticeItemInput) -> dict[str, Any]:
-    """`Stop diagnosing and teach me` (§3): end the measurement block, persist
-    the typed transition decision, and open a post-intervention state segment."""
+    """`Stop diagnosing and teach me` (§3): settle the block's committed answers,
+    end the measurement block, persist the typed transition decision, and open a
+    post-intervention state segment. ``released_feedback`` has the block end's
+    shape (claim-checked entries)."""
 
     vault, repository = ctx.require_vault()
     item = vault.practice_items.get(params.practice_item_id)
@@ -676,10 +678,15 @@ def stop_probe_diagnosing(ctx: SidecarContext, params: PracticeItemInput) -> dic
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
     # The episode the stop converts, so the lesson the desktop opens next can name it (teacher.from_check).
     episode = repository.open_probe_episode(item.learning_object_id)
-    decision = stop_diagnosing_and_teach(vault, repository, item.learning_object_id)
-    return versioned({"stopped": decision is not None, "decision": decision,
-                      "episode_id": episode.id if decision is not None and episode is not None else None,
-                      "learning_object_id": item.learning_object_id})
+    stopped = stop_diagnosing_and_teach(vault, repository, item.learning_object_id)
+    payload = versioned({"stopped": stopped is not None,
+                         "decision": stopped.decision if stopped is not None else None,
+                         "released_feedback": stopped.released_feedback if stopped is not None else [],
+                         "episode_id": episode.id if stopped is not None and episode is not None else None,
+                         "learning_object_id": item.learning_object_id})
+    # Marked as the block end's released answers are, so a held grade's provisional score is never shown.
+    mark_released_held({"probeBlockEnd": payload}, repository)
+    return payload
 
 
 class NextProbeItemInput(ParamsModel):
