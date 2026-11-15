@@ -27,6 +27,7 @@ from tests.followup_serve_helpers import (
     author_clients,
     live_shape_vault,
 )
+from tests.router_mixture_helpers import join_carried_valuations
 
 PLAN_OFF = "\n[plan]\nenabled = false\n"
 ARMS = {"preparing": router.ASK_NOW, "ready": router.ASK_NOW, "waiting": router.WAIT, "pending_wait": router.WAIT,
@@ -128,6 +129,10 @@ def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0):
     if arm is not None:
         real = router.decide
         monkeypatch.setattr(router, "decide", lambda *a, **k: replace(real(*a, **k), chosen_ref=arm, reason=arm))
+    # Each plan decision of the no-model runtime values its carried tail on a thread of its own after the serve; on a
+    # loaded machine the last one outlives the cell and fails its teardown (``tests/thread_guard.py``). Each serve
+    # waits for its own here: no cell reads that valuation.
+    join_carried_valuations(monkeypatch)
     desk = _Desk(ctx=ctx, client=client, paths=paths, session=None)
     started = desk.call("start_session", {"available_minutes": 45})
     desk.session = started.get("sessionId") or started["session_id"]
