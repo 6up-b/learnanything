@@ -157,7 +157,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FIGURE_WAIT_VERSIONS`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] — imports `module`; calls `Incremental`, `Model`, `Observation`, `PlanDay`, `open_posterior`, `pause_posterior`, `wait_estimate`, `waits`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ALL_SPEC_VERSIONS`
+- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `ALL_SPEC_VERSIONS`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `billing_for`; calls `billing_for`
 
 ### Platform and third-party dependencies

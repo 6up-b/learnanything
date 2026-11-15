@@ -1458,6 +1458,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_allowing_where_manim_cannot_run_is_refused`
   - `test_the_standing_opt_in_is_written_once_with_its_date`
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
+  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_at_the_tag_the_rows_say_v2_and_the_records_carry_ws_basis`
   - `test_switched_off_or_below_the_tag_the_rows_say_v1_and_the_records_are_as_before`

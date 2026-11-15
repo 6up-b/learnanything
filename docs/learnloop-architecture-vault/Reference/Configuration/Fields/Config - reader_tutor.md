@@ -23,6 +23,7 @@ source_paths:
   - "tests/reader_source_identity_guard_helpers.py"
   - "tests/test_compare_keep_switch_off.py"
   - "tests/test_figure_offers.py"
+  - "tests/test_figure_switch_predicates.py"
   - "tests/test_figures_rpc.py"
   - "tests/test_figures_rw5b_review.py"
   - "tests/test_figures_switch_off.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/test_reader_inquiry_kill_switch.py"
   - "tests/test_reader_intent.py"
   - "tests/test_reader_rw1c_review.py"
-  - "tests/test_reader_tutor_offers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-tutor"
@@ -66,6 +66,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/reader_source_identity_guard_helpers.py`
 - `tests/test_compare_keep_switch_off.py`
 - `tests/test_figure_offers.py`
+- `tests/test_figure_switch_predicates.py`
 - `tests/test_figures_rpc.py`
 - `tests/test_figures_rw5b_review.py`
 - `tests/test_figures_switch_off.py`
@@ -73,7 +74,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_reader_inquiry_kill_switch.py`
 - `tests/test_reader_intent.py`
 - `tests/test_reader_rw1c_review.py`
-- `tests/test_reader_tutor_offers.py`
 
 ## Extension and modification guidance
 

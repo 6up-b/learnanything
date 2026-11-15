@@ -47,58 +47,57 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py) |
-| Source lines | 930 |
+| Source lines | 928 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ManimFigureError(ValueError)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 95) — A Manim figure outside its contract; ``problems`` says why (sent back to the author).
-  - `__init__(self, problems: Sequence[str]) -> None` (line 98; internal)
-- `class Argument` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 104)
-- `class Function` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 111)
-- `class Claim` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 117)
-- `class ManimFigure` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 126)
-  - `declared(self) -> dict[str, Any]` (line 135; public)
-- `parse_declared(raw: Any) -> tuple[tuple[Function, ...], tuple[Claim, ...], tuple[str, ...], list[str]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 153) — The declared functions, claims and ``plotted_from`` entries of ``declared_json`` (JSON text or a mapping): what is well formed, and the problems of what is not.
-- `parse_figure(output: Any) -> ManimFigure` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 251) — A :class:`ManimFigure` from the rich author's answer (scene fields and ``declared_json``), or :class:`ManimFigureError` with every problem.
-- `class Extraction` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 280)
-- `module_bindings(tree: ast.Module) -> Counter[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 346) — How many times each name is bound in the module's own scope (Codex review F4): assignments (augmented included), deletions, defs, classes, imports and loop or ``with`` targets at module level, outside any def, lambda or class body; a name declared ``global`` anywhere counts twic…
-- `extract_functions(scene_code: str, functions: Sequence[Function]) -> Extraction` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 456) — The checkable part of the scene (module docstring).
-- `grid(function: Function) -> list[list[float]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 581) — Each argument's min, midpoint and max, every combination (at most 81 points).
-- `sandboxed_runner(module_source: str, points: Mapping[str, list[list[float]]]) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 640) — Run the extracted functions in the concept pipeline's bubblewrap profile (:func:`learnloop.content.authoring.pf_sandbox.run_sandboxed_python`: no network, no home or vault, read-only system, rlimits, a wall clock); manim is never imported (the module names only math and numpy).
-- `class CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 662)
-  - `failed(self) -> bool` (line 672; public)
-- `plotted_from_ok(scene_code: str, function: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 727) — ``function`` supplies a Manim plot call's curve (spec §9b.1, AST-checked; Codex review F5): it is that call's function argument (:data:`PLOT_FUNCTION_ARGS`), by name or inside a lambda that calls it, and the name there resolves to the module's ``def``: bound once in the module a…
-- `class ClaimWorkExceeded(Exception)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 758) — The claim check passed its work cap or its wall clock (code's words in ``reason``).
-  - `__init__(self, reason: str) -> None` (line 761; internal)
-- `check_claims(figure: ManimFigure, *, runner: FunctionRunner | None=None, interrupt: Callable[[], None] | None=None) -> CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 803) — Check the figure's declared claims (module docstring).
+- `class ManimFigureError(ValueError)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 94) — A Manim figure outside its contract; ``problems`` says why (sent back to the author).
+  - `__init__(self, problems: Sequence[str]) -> None` (line 97; internal)
+- `class Argument` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 103)
+- `class Function` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 110)
+- `class Claim` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 116)
+- `class ManimFigure` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 125)
+  - `declared(self) -> dict[str, Any]` (line 134; public)
+- `parse_declared(raw: Any) -> tuple[tuple[Function, ...], tuple[Claim, ...], tuple[str, ...], list[str]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 152) — The declared functions, claims and ``plotted_from`` entries of ``declared_json`` (JSON text or a mapping): what is well formed, and the problems of what is not.
+- `parse_figure(output: Any) -> ManimFigure` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 250) — A :class:`ManimFigure` from the rich author's answer (scene fields and ``declared_json``), or :class:`ManimFigureError` with every problem.
+- `class Extraction` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 279)
+- `module_bindings(tree: ast.Module) -> Counter[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 345) — How many times each name is bound in the module's own scope (Codex review F4): assignments (augmented included), deletions, defs, classes, imports and loop or ``with`` targets at module level, outside any def, lambda or class body; a name declared ``global`` anywhere counts twic…
+- `extract_functions(scene_code: str, functions: Sequence[Function]) -> Extraction` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 455) — The checkable part of the scene (module docstring).
+- `grid(function: Function) -> list[list[float]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 580) — Each argument's min, midpoint and max, every combination (at most 81 points).
+- `sandboxed_runner(module_source: str, points: Mapping[str, list[list[float]]]) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 639) — Run the extracted functions in the concept pipeline's bubblewrap profile (:func:`learnloop.content.authoring.pf_sandbox.run_sandboxed_python`: no network, no home or vault, read-only system, rlimits, a wall clock); manim is never imported (the module names only math and numpy).
+- `class CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 661)
+  - `failed(self) -> bool` (line 671; public)
+- `plotted_from_ok(scene_code: str, function: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 726) — ``function`` supplies a Manim plot call's curve (spec §9b.1, AST-checked; Codex review F5): it is that call's function argument (:data:`PLOT_FUNCTION_ARGS`), by name or inside a lambda that calls it, and the name there resolves to the module's ``def``: bound once in the module a…
+- `class ClaimWorkExceeded(Exception)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 757) — The claim check passed its work cap or its wall clock (code's words in ``reason``).
+  - `__init__(self, reason: str) -> None` (line 760; internal)
+- `check_claims(figure: ManimFigure, *, runner: FunctionRunner | None=None, interrupt: Callable[[], None] | None=None) -> CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 802) — Check the figure's declared claims (module docstring).
 
 ### Module constants
 
-- `MANIM_FIG_VERSION` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 46)
-- `MAX_FUNCTIONS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 48)
-- `MAX_FUNCTION_ARGS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 50)
-- `MAX_FIGURE_CLAIMS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 52)
-- `MAX_PLOTTED` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 54)
-- `MAX_TITLE` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 56)
-- `MAX_NARRATION` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 57)
-- `FUNCTION_CHECK_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 59)
-- `FUNCTION_CHECK_MEMORY_MB` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 60)
-- `MAX_CLAIM_WORK` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 64)
-- `CHECK_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 68)
-- `INTERRUPT_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 71)
-- `_TICK_WORK` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 74)
-- `CLAIM_KINDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 75)
-- `INVARIANT_PROPERTIES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 76)
-- `SAFE_BUILTINS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 79)
-- `PLOT_FUNCTION_ARGS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 85)
-- `PLOT_CALLS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 91)
-- `_ALLOWED_MODULES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 92)
-- `_SCOPES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 340)
-- `_SCALAR_BUILTINS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 343)
-- `HARNESS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 588)
+- `MAX_FUNCTIONS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 47)
+- `MAX_FUNCTION_ARGS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 49)
+- `MAX_FIGURE_CLAIMS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 51)
+- `MAX_PLOTTED` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 53)
+- `MAX_TITLE` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 55)
+- `MAX_NARRATION` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 56)
+- `FUNCTION_CHECK_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 58)
+- `FUNCTION_CHECK_MEMORY_MB` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 59)
+- `MAX_CLAIM_WORK` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 63)
+- `CHECK_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 67)
+- `INTERRUPT_SECONDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 70)
+- `_TICK_WORK` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 73)
+- `CLAIM_KINDS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 74)
+- `INVARIANT_PROPERTIES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 75)
+- `SAFE_BUILTINS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 78)
+- `PLOT_FUNCTION_ARGS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 84)
+- `PLOT_CALLS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 90)
+- `_ALLOWED_MODULES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 91)
+- `_SCOPES` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 339)
+- `_SCALAR_BUILTINS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 342)
+- `HARNESS` ([src/learnloop/figures/manim_figure.py](../../../../../../src/learnloop/figures/manim_figure.py), line 587)
 
 ### Explicit exports
 
@@ -110,7 +109,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `Extraction`
 - `Function`
 - `FunctionRunner`
-- `MANIM_FIG_VERSION`
 - `ManimFigure`
 - `ManimFigureError`
 - `check_claims`
@@ -123,22 +121,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_number(value: Any, what: str, problems: list[str]) -> float | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 146)
-- `_module_aliases(tree: ast.Module) -> tuple[dict[str, str], list[str]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 288) — Top-level ``math``/``numpy`` names (alias -> what it is) and their import lines.
-- `_bound_names(node: ast.AST) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 311) — Names a function binds locally (its arguments, assignments, loop and comprehension targets).
-- `_free_reads(node: ast.AST) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 323)
-- `_forbidden_shape(node: ast.AST) -> str | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 327)
-- `_root_name(node: ast.AST) -> str | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 385)
-- `_mutated_names(tree: ast.Module) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 391) — Names whose object is mutated somewhere in the scene, in any scope (Codex review F4): an item or attribute assigned, augmented or deleted (``A[0] = 1``, ``A.x += 1``, ``del A[0]``), or a method called on it (``A.fill(0)``, ``L.append(1)``) or written through ``out=A``.
-- `_passed_names(tree: ast.Module, skip: Sequence[ast.AST]) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 415) — Names handed bare to a call as an argument (``g(A)``, ``g(x=A)``, ``g(*A)``) anywhere outside ``skip`` (the declared functions and the constants' own definitions): a mutable object handed to arbitrary code may be changed by it.
-- `_immutable_value(node: ast.AST, aliases: Mapping[str, str], immutable: set[str]) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 433) — A constant's value can't be a mutable object: literals, arithmetic, tuples, ``math`` (or ``numpy`` scalar names, never calls), scalar builtins and other immutable constants (Codex review F4).
-- `_value(entry: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 676)
-- `_close(value: float, expected: float) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 685) — The sketch tier's tolerance (spec §9b.4: same tolerances).
-- `_scope_binds(scope: ast.AST, name: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 691) — ``name`` is bound in this def, lambda or class (its arguments or any store in its body; nested scopes included, which only errs towards *not* recognizing a plotted function).
-- `_function_argument(call: ast.Call, keyword: str) -> ast.AST | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 706)
-- `_draws_from(argument: ast.AST, function: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 713) — The plot call's function argument is the module's ``function``: the bare name, or a lambda that calls it (and doesn't take it as an argument).
-- `class _ClaimBudget(G.Meter)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 766) — The oracle's limits (Codex review F2), the sketch verifier's pattern: every node the grammar evaluates for a claim is charged as it runs (:data:`MAX_CLAIM_WORK`), and every :data:`_TICK_WORK` steps the clock is read against the deadline of the whole check (:data:`CHECK_SECONDS`)…
-- `_check_claims(figure: ManimFigure, *, runner: FunctionRunner | None, budget: _ClaimBudget, report: CheckReport) -> CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 825)
+- `_number(value: Any, what: str, problems: list[str]) -> float | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 145)
+- `_module_aliases(tree: ast.Module) -> tuple[dict[str, str], list[str]]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 287) — Top-level ``math``/``numpy`` names (alias -> what it is) and their import lines.
+- `_bound_names(node: ast.AST) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 310) — Names a function binds locally (its arguments, assignments, loop and comprehension targets).
+- `_free_reads(node: ast.AST) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 322)
+- `_forbidden_shape(node: ast.AST) -> str | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 326)
+- `_root_name(node: ast.AST) -> str | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 384)
+- `_mutated_names(tree: ast.Module) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 390) — Names whose object is mutated somewhere in the scene, in any scope (Codex review F4): an item or attribute assigned, augmented or deleted (``A[0] = 1``, ``A.x += 1``, ``del A[0]``), or a method called on it (``A.fill(0)``, ``L.append(1)``) or written through ``out=A``.
+- `_passed_names(tree: ast.Module, skip: Sequence[ast.AST]) -> set[str]` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 414) — Names handed bare to a call as an argument (``g(A)``, ``g(x=A)``, ``g(*A)``) anywhere outside ``skip`` (the declared functions and the constants' own definitions): a mutable object handed to arbitrary code may be changed by it.
+- `_immutable_value(node: ast.AST, aliases: Mapping[str, str], immutable: set[str]) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 432) — A constant's value can't be a mutable object: literals, arithmetic, tuples, ``math`` (or ``numpy`` scalar names, never calls), scalar builtins and other immutable constants (Codex review F4).
+- `_value(entry: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 675)
+- `_close(value: float, expected: float) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 684) — The sketch tier's tolerance (spec §9b.4: same tolerances).
+- `_scope_binds(scope: ast.AST, name: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 690) — ``name`` is bound in this def, lambda or class (its arguments or any store in its body; nested scopes included, which only errs towards *not* recognizing a plotted function).
+- `_function_argument(call: ast.Call, keyword: str) -> ast.AST | None` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 705)
+- `_draws_from(argument: ast.AST, function: str) -> bool` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 712) — The plot call's function argument is the module's ``function``: the bare name, or a lambda that calls it (and doesn't take it as an argument).
+- `class _ClaimBudget(G.Meter)` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 765) — The oracle's limits (Codex review F2), the sketch verifier's pattern: every node the grammar evaluates for a claim is charged as it runs (:data:`MAX_CLAIM_WORK`), and every :data:`_TICK_WORK` steps the clock is read against the deadline of the whole check (:data:`CHECK_SECONDS`)…
+- `_check_claims(figure: ManimFigure, *, runner: FunctionRunner | None, budget: _ClaimBudget, report: CheckReport) -> CheckReport` ([source](../../../../../../src/learnloop/figures/manim_figure.py), line 824)
 
 ## Who imports or calls it
 
@@ -146,7 +144,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; statically calls `ManimFigure`, `check_claims`, `parse_figure`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`
 
 ## Dependencies
 
@@ -169,7 +166,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

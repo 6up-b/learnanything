@@ -218,6 +218,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_reserved_only.py](../../../../../../../tests/test_followup_reserved_only.py) — direct import
   - `test_a_vault_with_exam_attempts_and_incomplete_records_reaches_the_probe_lane`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
+  - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_a_statement_whose_inputs_cannot_be_established_is_not_searched`

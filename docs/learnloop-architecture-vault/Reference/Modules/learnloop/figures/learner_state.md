@@ -122,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `open_gap_statements`; statically calls `open_gap_statements`
-- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `inputs_withheld`; statically calls `inputs_withheld`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `inputs_withheld`; statically calls `inputs_withheld`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`, `state_hash`; statically calls `anchored_learning_objects`, `enabled`, `read_learner_state`, `state_hash`
 
 ## Dependencies
@@ -150,7 +150,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -162,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_gap_judge_retry_is_not_sent_once_its_passage_is_held_out`
   - `test_f1_rereview_a_gap_judge_retry_revalidates_on_the_vault_loaded_now`
 - [tests/test_followups_nov2_figure_provenance.py](../../../../../../tests/test_followups_nov2_figure_provenance.py) — direct import
+  - `test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs`
   - `test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh`
 - [tests/test_learner_data_relax_2.py](../../../../../../tests/test_learner_data_relax_2.py) — direct import
   - `test_a_reading_derived_gap_is_checked_against_the_passage_it_was_written_beside`

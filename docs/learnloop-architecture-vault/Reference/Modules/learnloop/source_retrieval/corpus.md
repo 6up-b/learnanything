@@ -145,7 +145,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `current_extractions`, `model_reader_withheld`; statically calls `current_extractions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `current_extractions`, `library_scope`; statically calls `current_extractions`, `library_scope`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `item_exclusions`; statically calls `item_exclusions`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `item_exclusions`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `module`; statically calls `item_exclusions`
 - [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] — imports `Scope`, `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `role_keys`, `teaching_scope`; statically calls `role_keys`, `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `teaching_scope`; statically calls `teaching_scope`

@@ -169,6 +169,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `connect`; statically calls `connect`
@@ -294,7 +295,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 176 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 177 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -534,6 +535,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rebuild_never_reads_the_workbench_tables`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_the_recorded_seed_redraws_the_pass_exactly`
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
   - `test_each_author_call_is_named_by_its_builds_mode_from_the_ledger`

@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `add_report_block`, `plan_providers`, `pressed_waits_on`; calls `add_report_block`, `plan_providers`, `pressed_waits_on`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `row_withheld`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `row_withheld`; calls `row_withheld`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `add_report_block`, `module`; calls `add_report_block`, `audit`, `coverage`, `enabled`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `planning_repository`; calls `planning_repository`
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `build_reader_report`; calls `build_reader_report`
