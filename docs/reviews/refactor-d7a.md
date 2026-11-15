@@ -1,4 +1,4 @@
-# Refactor D7, batch 1, part 1: kill switches at or below the floor (grading, attempts)
+# Refactor D7, batch 1, parts 1 to 3: kill switches at or below the floor (grading, attempts, eligibility)
 
 Step D7 batch 1 of arc D (`docs/specs/refactor_strategy_v3.md` §2.6), on branch `refactor/d7a-switches-grading-replay`, based on main `b4c8fbad98` (D6 part 2 landed). The rule is ADR-019's (owner, Nov 12; L7): when every live vault is at or past a tag, its gates and kill switches go, except a short kept-because list. The precondition holds: on Nov 14 the owner ran `scripts/vault_report.py` on the three live vaults (all at `mvp-0.58`) and the five retired ones, and no vault sets any tagged switch. Structure track: for every vault the owner has, each switch removed here is at its default, so removing it with its off-branch changes nothing that vault computes.
 
@@ -360,3 +360,193 @@ All under the empty-home wrapper in 5 GB scopes.
 - Ledger rows D7-1, D7-3, D7-5 updated; D7-7 added.
 
 Rule exceptions: `npm ci --offline` (to give the worktree a `node_modules` for typecheck and vitest) ran with the real `HOME` so npm could read its package cache; it ran no install scripts (`--ignore-scripts`) and nothing else ran outside the wrapper.
+
+# Part 3
+
+Branch `refactor/d7c-eligibility-split`, based on `be034aaec8` (part 2's tip merged with main: parts 1 and 2, the robust gate fixes, the simulation fixes and the arc D close fixes). Same rule, precondition and conventions as parts 1 and 2. This landing removes `eligibility.enabled` with the pre-eligibility cold lane and hold. It does **not** remove `diagnosis.split_enabled` and `diagnosis.shadow`: their step 0 (§21) found readers of stored rows that ask the split switch, which this step was told to stop and report on. Line numbers are the base's (`be034aaec8`).
+
+## 20. `eligibility.enabled` (mvp-0.27)
+
+### Step 0
+
+**The predicate** `serve_eligibility.decision_active` (`serve_eligibility.py:946`, getattr default **False**: no vault, or a config without `[eligibility]`, read as mvp-0.26) and its eleven readers:
+
+| reader | what it passes today | off arm |
+|---|---|---|
+| submit, `attempts/attempts.py:2871` (`_resolve_attempt_target`) | its `vault: LoadedVault` (every caller loads one) | the unbounded auto-prime window and the bare cold guard (`:2895-2903`) |
+| `attempts/attempts.py:3246` (`_apply_attempt_in_transaction`) | its `vault: LoadedVault` | historical writers' window unbounded |
+| CLI attempt, `cli/app.py:3487` | `loaded` | no serve decision |
+| quick check, `diagnosis/quick_check.py:203` | its vault (read as `vault.practice_items` below) | no reveal reads (the serving exclusions alone) |
+| the queue's cold lane, `scheduling/scheduler.py:1924` (`_defer_revealed_cold_followups`, from `_due_queue`) | `_due_queue`'s vault | `_predecessor_defer_revealed_cold_followups` (`:2039-2179`) |
+| `cold_check_hold_until` (`:2218`), `cold_check_serve_hold` (`:2303`), `cold_check_serve_decision` (`:2327`) | their callers' vaults: `daily_plan/engine.py:2306`, `:4100`, `:5872` (`env.vault`), `tui/screens/practice.py:98` (`state.vault`), `cli/app.py:3486` (`loaded`), `sidecar/handlers/queue.py:442` (via `revalidate_cold_check`, called at `queue.py:407`, `practice.py:371`, `daily_plan.py:829` with the handler's vault) | `_predecessor_cold_check_hold_until` (`:2226-2283`), the only scheduler caller of `reveal_coverage.routine_displays_covering` |
+| `sidecar/handlers/queue.py:443` (`revalidate_cold_check`) | the handler's vault | returns None (no `eligibility` key on the detail) |
+| the probe guard, `diagnosis/probe_episodes.py:1250` (`routine_display_covers_item`) and `:1271` (`refuse_routine_display_covered`) | see below | `routine_displays_covering` alone; `refuse_routine_display_covered`'s own off arm called `routine_display_covers_item` **without** a vault |
+
+Doctor and reports read neither the switch nor the old lane. Replay reads each attempt's stored `primed` flag (`attempts/attempts.py:3240`: the auto-prime is skipped on `replace_existing`), never the switch. No identity names it but the whole-config digest; no receipt, decision record or `projection_switches` stores it.
+
+**The D7-3 hazard: every caller of the two guards and of `decision_active`, and what each passes.** Both guards defaulted `vault: LoadedVault | None = None`, and `decision_active(None)` read off, so a caller that omitted the vault got mvp-0.26's guard.
+
+| caller | passes |
+|---|---|
+| `probe_episodes.py:1412` (`presentation_commit_payload`, the guard every new presentation row passes) | `vault=vault`, its required `vault: LoadedVault`; its callers `commit_presentation` (`:1308`) and the scheduler's slate (`scheduler.py:1140`) pass loaded vaults |
+| `probe_episodes.py:1529` (`serve_presentation`, `vault: LoadedVault \| None = None`) | its own `vault`, which its callers set: `probe_episodes.py:1653` (`commit_item_presentation`), `probe_dialogue.py:328`, `sim/diagnostic_validation.py:542`, `sidecar/handlers/practice.py:602`: each a loaded vault (each reads `vault.practice_items` or `eligible_instruments(vault, ...)` first) |
+| `probe_episodes.py:1692` (`plan_precommitted_block`) | `vault=vault` (it reads `vault.config.probe.block` first) |
+| `causal_orchestrator.py:2033` (`_answer_shown`, `vault=None` default) | its caller `:2157` passes the offer's vault (read as `vault.practice_items` just before) |
+| `sidecar/handlers/practice.py:646` | the handler's vault (read as `vault.config.probe.shadow` just before) |
+| `probe_episodes.py:1272` (the guard's own off arm) | **no vault**: reached only when the switch was already off |
+| `decision_active`'s other ten callers | the loaded vaults in the table above |
+| tests | 23 call sites (17 files) of `serve_presentation` passed **no vault** (`tests/probe_episodes_helpers.py:111`, `p2_acceptance_helpers.py:80`, `test_causal_repair_sidecar_rpcs.py:475`, `test_characterization_probe_regrade.py:52`, `probe_block_end_helpers.py:109`, `test_characterization_probe_replay.py:52`, `probe_robust_cutover_helpers.py:46`, `test_probe_orchestration_remainder.py:211`, `:287`, `:442`, `test_p2_leakage_suite.py:193`, `test_probe_audit.py:131`, `test_probe_longform_families.py:306`, `test_probe_policy.py:70`, `:109`, `:113`, `:134`, `test_probe_episodes.py:334`, `test_teacher_te2_landing_r1.py:196`, `voi_stopping_helpers.py:295`, `test_voi_merge_composition.py:540`, `test_ux_phase4_feedback.py:2669`, `:2671`): they served under the predecessor's guard |
+
+**Finding: no production caller passes no vault.** Every owner vault took the head's arm on every probe path; only those test call sites took the predecessor's. So there is no callers' fix commit. The head's arm needs only the repository (`probe_eligibility(repository, item, clock=)`), so with the off arms gone the parameter goes from both guards and from `_answer_shown` and their callers, rather than becoming required. `serve_presentation` keeps a `vault` keyword that nothing reads, because `sim/diagnostic_validation.py:542` passes it and this step stays out of `src/learnloop/sim/` (open item). All the test call sites above now serve under the head's guard, and pass (§22).
+
+### What went (`395268c811`)
+
+`decision_active` and every read; `_predecessor_defer_revealed_cold_followups`, `_predecessor_cold_check_hold_until`, the scheduler's `COLD_CHECK_ROUTINE_DISPLAY` (read only by the off arms; `serve_eligibility.COLD_CHECK_ROUTINE_DISPLAY` stays), `reveal_coverage.routine_displays_covering` (its two callers were the off arms), submit's bare cold guard, the probe guard's off arms and the `vault` parameter of both guards and `_answer_shown`; `RoutineDisplayCovered`'s mvp-0.26 message (one message now; `decision` stays optional). `EligibilityConfig` and `LearnLoopConfig.eligibility`; `[eligibility]` retired whole on `LearnLoopConfig` (`RetiredField("LearnLoopConfig", ("eligibility", "enabled"), bool, True, "D7")`); the kill-switch table row and its kept-because line; the vault generator's field and section descriptions; the tag's comment in `algorithm_versions.py`; the effective-defaults golden (one line). No registry rule, no desktop or phone reader (searched `apps/`). `_cold_task_reveals` stays (`deferred_cold_followups` reads it with no switch). `tests/successor_switches.py` names none of this part's switches, so neither it nor its test changes.
+
+**Deletion proof:** `decision_active`, `_predecessor_defer_revealed_cold_followups`, `_predecessor_cold_check_hold_until`, `routine_displays_covering`, `EligibilityConfig`, the scheduler's `COLD_CHECK_ROUTINE_DISPLAY` searched over `src/`, `scripts/`, `tests/`, `apps/` and the vault's `_scripts/` as names and strings: no function-local or `importlib` import, no registry, Typer or `MODULE_INVENTORY` entry left.
+
+**What a learner saw, and sees:** nothing changes on any owner vault: every path already asked the one decision (the switch at its default, and no production caller reached the no-vault arm).
+
+### Tests
+
+**Deleted** (each with its subject):
+- `test_serve_eligibility_review::test_f4_the_gate_reads_the_version_and_the_switch` (the predicate, `decision_active(None)` included).
+- `::test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026` (off equals mvp-0.26: the cold retry served, the bare refusal).
+- `::test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served` (off: a practised cold check is still served).
+- `::test_f4_the_plan_serves_the_12_9_case_as_mvp_026_with_the_switch_off` (the plan's serve off).
+- the `switch_off` cases of `::test_f1_…`, `::test_f4_a_probe_of_an_item_submit_would_prime_…`, `::test_f4_q33s_bounded_window_…` (twins; their successor side stays).
+- `test_ux_phase4_landing::test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it` (round 6's predecessor scenario on the direct opens, run with the switch off; its comment said it goes with the switch; the successor half is `test_serve_eligibility_review::test_a_cold_check_on_a_direct_open_is_withdrawn_…`).
+- `test_reader_workbench_rw2a::test_with_the_eligibility_switch_off_the_old_cold_guard_still_refuses_the_book` (the bare guard; with its helper `_due_cold_check`, used by nothing else).
+- the `predecessor` cases (mvp-0.11 with the switch off) of `test_ux_phase4_feedback::test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage` (3 cases: the predecessor's quick check presenting a full tutor answer first).
+
+**Every assertion changed, and why:**
+
+| test | before | after | why |
+|---|---|---|---|
+| `test_serve_eligibility_review::test_f1_an_auto_primed_draft_is_refused_…` | parametrized; off: the bare message | the successor's message ("still shown when this answer was started") | twin: the on side |
+| `::test_f4_new_vaults_start_at_the_successor` (was `…_with_the_switch_on`) | `config.eligibility.enabled`, `decision_active(fresh)` | removed (the version assertion stays) | the field and predicate are gone |
+| `::test_f4_a_probe_of_an_item_submit_would_prime_is_refused` | `(presentation is None) is (successor and enabled)` | `presentation is None` | twin |
+| `::test_f4_q33s_bounded_window` | `primed is not (successor and enabled)` | `not primed` | twin |
+| `test_ux_phase4_feedback::test_f1l_the_quick_check_…` | the `tutor_answer` case at mvp-0.11 presented the item first | removed with its case | the predecessor arm |
+| `test_ux_phase4_feedback::test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run` (the patched `refuse_routine_display_covered`) | took and forwarded `vault=` | takes and forwards `clock=` only | the guard has no `vault` parameter (a public function patched, not a private name moved) |
+| `test_forced_withdrawal_records::test_a_cold_check_served_as_practice_or_displaced_leaves_a_record` | turned the switch off so the plan's pool and serve holds took the predecessor arms and never saw the patched decision | patches `scheduler.cold_check_hold_until` and `cold_check_serve_hold` to hold nothing | the subject is the plan's own revalidation; every assertion stands |
+| `tests/serve_eligibility_helpers.py` | `enabled=` on four builders | removed | no caller turns the switch off |
+
+Edits made by a script rather than the Edit tool: most source and test edits were exact-pattern replacements in Python one-offs that assert each pattern occurs exactly once (or a block cut between two unique markers); `ruff check --fix --select F401` removed one import a deleted test left unused.
+
+## 21. `diagnosis.split_enabled` and `diagnosis.shadow`: step 0, and why it stops here
+
+### Every reader, classified
+
+The split switch is read through two predicates, `attempts/blind_grading.split_grading_active` (`blind_grading.py:74`, getattr default True) and `placement/state.diagnosis_can_arrive` (`state.py:135`, the same field, default True); the shadow switch directly. Nothing in `apps/` or the sidecar's snapshot reads either.
+
+| reader (base lines) | kind | what it does with the switch off |
+|---|---|---|
+| `attempts/attempts.py:704`, `:1050` (the practice door: AI grading with fallback, and the plain AI door) | new answer | grades jointly: `_complete_joint_graded_attempt` (`:2211-2286`), `_augmented_grading_context`, `_joint_sample_count`, `_run_augmented_diagnosis`, `_record_diagnostic_augmentation`; the joint stuck prompt (`:711`, `:1057`) |
+| `attempts/attempts.py:978` (`plan_grading_calls`, the CLI dry run) | new answer | plans a joint call (`joint_grading_prompt_tokens`) |
+| `attempts/regrade.py:216` | new grade of a stored attempt | a practice attempt without a blind record is regraded jointly; on, it is regraded blind (and gains a blind record); teach-back and an attempt already blind are unaffected |
+| `attempts/grading.py:128` (`request_vault_grading_proposal`), `:145` (`vault_grading_run_identity`), `:174` (`vault_grading_calibration_identity`) | new answer (teach-back, exams, the probe audit, the taxonomy regrade, teacher checks and probes, a teach-back regrade) | the joint prompt and identity; `None` as the calibration identity |
+| `diagnosis/taxonomy_regrade.py:120` | new answer (labels the check's own calls) | `GRADING_PROMPT_VERSION` |
+| `diagnosis/split/jobs.py:314`, `:716`, `:1559` (lease, run, plan a diagnose job) | new work (the diagnosis of a new grade) | holds queued live diagnoses (`Repository.hold_queued_live_diagnoses`, `db/stores/diagnoses.py:885`), releases a leased one (`split_disabled`, `SPLIT_OFF_RECHECK_SECONDS`), plans `hold:split_disabled` |
+| `scheduling/scheduler.py:1502` (a serving build with placement on) | new work | stamps the hold (`split_held_at`, write-once) |
+| `daily_plan/engine.py:1124` (`_open_problems`) | serving | the repair lane falls back to the recency rule (`REPAIR_RULE_RECENT_ERROR`) |
+| `diagnosis/split/jobs.py:147` (`diagnosis.shadow`) and `attempts/post_attempt.py:185`, `:255-256` | new work | on (shadow): a shadow diagnosis of an AI-graded attempt with no blind record; off (the default) nothing |
+| **`placement/state.py:951`** via `load_miss_verdicts(diagnosis_live=)` and `load_placement_state_from_connection(diagnosis_live=)`, fed `diagnosis_can_arrive(vault)` by `placement/state.py:1444` (`load_placement_state`), `placement/decisions.py:136`, `:235`, `:346`, `:466`, `:651`, `diagnosis/quick_check.py:357`, **`placement/report.py:99`** (the placement report), **`diagnosis/text_gaps/report.py:108`** (the learner-text gaps report), **`cli/placement.py:53`** | **reader of stored rows** | a blind miss whose live diagnose job is still queued and not yet stamped held reads as decided by today's rule (`split_disabled`, as of now) instead of pending |
+| **`diagnosis/split/reports.py:269`** (`m2_report`'s manifest) | **report** | echoes the switch's value (`split_enabled`) |
+| `placement/state.py:873` (the stored `split_held_at` stamp) | reader of stored rows | none: it reads the stamp, never the switch; stays |
+| replay (`attempts/attempts.py:1509`), `joint_grade_record`, the feedback bundle, doctor | reader of stored rows | none: each reads the attempt's recorded mode (a blind record exists or not) |
+
+**The finding.** `load_miss_verdicts` reads stored rows (`blind_grade_records`, `attempt_diagnoses`, `post_attempt_jobs`) and asks the split switch, through the `diagnosis_live` argument, how to read one of them: a queued, unstamped live diagnose job. Three reports reach it (`placement/report.py:99`, `diagnosis/text_gaps/report.py:108`, the CLI's `placement` command `cli/placement.py:53`), and placement's own state does at every serve. `m2_report` prints the switch. On an owner vault every one of them read the switch at its default, **true** (the owner's report: no vault sets it; the three copies' configs set no `[diagnosis]` key named either switch): a queued job read as pending, and the manifest said `split_enabled: true`. So making the switch the constant true would change nothing those vaults read, but this step was told to stop and report when a reader of stored rows asks either diagnosis switch, and it did. Stored counts on the three P-shadow copies are in §23.
+
+How joint-graded history is read does not depend on the switch anywhere: a joint grade is recognized by the absence of a blind record (`load_miss_verdicts`: "not blind-graded: no diagnosis can arrive, today's rule"; replay; `joint_grade_record`).
+
+### What the removal would take (not started)
+
+- **Source:** the joint arms above with `_complete_joint_graded_attempt`, `_augmented_grading_context`, `_joint_sample_count`, `_run_augmented_diagnosis`, `_record_diagnostic_augmentation`, `diagnostic_augmentation.augment_grading_context`, `diagnostic_history_context` and `record_phase_c_receipt` (their only callers are the joint arm; `run_diagnosis_samples` and `request_grading_proposal` stay for the offline evaluation and M1's baseline), the grading door's joint branches (the calibration identity becomes the blind pair), `hold_queued_live_diagnoses` and the three job sites, `diagnosis_can_arrive` and the `diagnosis_live` parameter (the stored `split_held_at` reading stays), the repair lane's fallback, the shadow trigger. `joint_grade_record`, the joint prompt and joint replay stay.
+- **Tests** (28 files set the split off or the shadow on): the off-only and shadow tests go (`test_diagnosis_pipeline::test_kill_switch_restores_joint_grading`, `::test_kill_switch_holds_queued_live_diagnoses`, `::test_shadow_diagnosis_on_a_joint_vault_changes_nothing_live`, the joint tail of `::test_non_practice_graders_…`, `test_daily_plan_owner_decisions::test_repair_falls_back_to_recent_error_only_while_the_split_is_off`, `test_placement_diagnosis_decides::test_no_diagnosis_can_arrive_falls_back_to_todays_rule`'s switch case, `test_reader_guidance::test_joint_guide_plan_never_waits_on_a_shadow_diagnosis`, `test_stuck_prompt::test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`, the joint arm of `::test_confusion_is_read_and_signalled_in_both_grading_modes`, `test_km4_taxonomy`'s joint prompt-version case); the files whose subject is joint history (`test_active_errors_overlay`, `test_attempt_completion`, `test_diagnosis_card`, `test_diagnosis_async_router`, `test_pfc_unverified_unassessed`, `test_stuck_prompt_replay`, `test_reader_guidance::test_joint_guide_plan_is_unchanged_by_the_overlay_read`, `test_voi_stopping::test_a_joint_vault_lane_is_unchanged`, `test_placement_diagnosis_decides::test_a_joint_grade_falls_back_to_todays_rule`, `test_diagnosis_pipeline::test_a_joint_attempt_regraded_in_a_split_vault_is_graded_blind_and_isolated`, `test_teacher_te2_landing_r1`, `test_teach_back`'s two identity tests) need a builder of joint-graded rows; joint *regrades* as stored history (`test_regrade_contract_successor`'s two `JOINT` tests, `test_route_rules_in_grader::test_f5_a_joint_regrade_supersedes_a_route_verdict`, `test_stuck_prompt::test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`, `test_ux_phase4_feedback::test_f9f_…`) need a second construction or a decision that their subject goes with the joint regrade; the rest move to blind grading (`test_deferred_regrade`, `test_diagnosis_input_provenance_landing::test_q14_…`, `test_diagnostic_augmentation::test_a_receipt_that_cannot_be_written_…` (whose subject is the joint receipt's transaction: it may go), `test_exam_session`'s joint identity case, `test_learner_text_gaps_review`'s two). This list is a reading of each test's name and switch line, not a per-test port.
+- **The builder:** the joint path's writes are all made by functions that stay (`build_grading_context`, `diagnostic_verifier_observations`, `insert_agent_run` with the joint identity, `complete_codex_graded_attempt` inside `grading_in_progress`, `record_stuck_reading_judgment`, `insert_diagnostic_augmentation_receipt`, `record_grading(writer="joint_grader")`, `finish_agent_run`), so a `tests/joint_grading_helpers.py` can write the same rows from a given proposal without a model call; the C4 history it shows (and so the receipt's history ids and the run's context hash) needs `diagnostic_history_context`'s selection, which leaves production with the joint arm and would be copied into the helper. Its rows were not yet compared with a base run.
+
+## 22. Proof (`eligibility.enabled`)
+
+**The retired-config identity, with the entry removed.** `RETIRED_FIELDS` without the `("eligibility", "enabled")` line (a mutation, not committed): `test_retired_config_identities.py` fails three tests, `test_the_config_identity_reproduces_both_recorded_digests`, `test_an_embedding_compare_report_is_named_as_before_arc_c` and `test_a_config_setting_the_removed_switches_keeps_every_identity[default]`; the `switched` case passes, because the file's `[eligibility]` table survives on `LearnLoopConfig` as an unread extra and dumps the same bytes (as for the other sections retired whole). Restored, 16 passed. `SWITCHES_TOML` already set `[eligibility] enabled = false` and `_pre_arc_c_shape` already carried the field, so the test needed no new line; its digests are `b4c8fbad98`'s, and `ADDED_SINCE_SWITCHES_BASE` (the K9.0b default added since) is unchanged.
+
+**P-shadow**, as parts 1 and 2 (§5, §13), base `be034aaec8` (a `git archive` of `src/` and `migrations/` on `PYTHONPATH`) against this branch at `395268c811`; counts only; copies deleted:
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `learnloop upgrade`, both | `mvp-0.58 -> mvp-0.59` | same | same |
+| shadow facet / mastery / schedule changed | 0 / 0 / 0 (80 / 21 / 99 unchanged) | 0 / 0 / 0 (3 / 18 / 77) | 0 / 0 / 0 (7 / 34 / 32) |
+| `schedule_effects` due dates moved (items, cards) | 0, 0 | 0, 0 | 0, 0 |
+| the two shadow reports, marker id, `as_of` and hashes aside | equal | equal | equal |
+| every table of the two upgraded copies, row by row | 402 tables, 19,442 rows: none differ | 402, 10,426: none | 402, 23,877: none |
+| the same after the shadow | none differ | none | none |
+| the same after a real `rebuild-derived-state` on each side | 19,749 rows: none differ | 10,498: none | 23,719: none |
+
+**Old rows at the floor and the head** (`fixtures/mvp017_route_check_replay`, retagged to `mvp-0.58` and `mvp-0.59`, two live rebuilds per code): every table equal row by row after each rebuild at both tags except the one `attempt_debug_payloads` row of `att_02_svd_fail`, whose only differing fields, with replay's minted ULIDs normalized in its dictionary keys too, are the diagnosis receipt's id (`causal_attribution.diagnosis_receipt.id` and the same receipt in `diagnosis_receipts`), hashed from the minted hypothesis id, as in parts 1 and 2.
+
+**Goldens.** The effective-defaults golden lost exactly one line (`eligibility.enabled = true`) and gained none. The CLI snapshot did not change (no CLI parameter names the switch). The grade-application and due-queue goldens ran unchanged in the sweep (§24). `tests/test_identity_pins.py`: unmoved, nothing written.
+
+## 23. Stored grading history on the three copies (counts only)
+
+Read from each copy after the real rebuild, the same on both sides (`fixtures-local/d7c/{before,after}`):
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| attempts | 70 | 3 | 3 |
+| AI-graded (`grading_source` `ai`/`codex`) | 29 | 3 | 0 |
+| of those, graded jointly (no blind record) | 29 | 2 | 0 |
+| of those, graded blind | 0 | 1 | 0 |
+| joint augmentation receipts (`grader_mode` null) / blind | 11 / 0 | 2 / 1 | 0 / 0 |
+| diagnose jobs (mode:state) | none | 1 (`live:done`) | none |
+| queued live diagnose jobs; `split_held_at` stamps | 0; 0 | 0; 0 | 0; 0 |
+| `learnloop.toml` keys `split_enabled` / `shadow`; `[eligibility]` | 0 / 0; 0 | 0 / 0; 0 | 0 / 0; 0 |
+
+So the miss-verdict reader's switch-dependent case (a queued, unstamped live job) has no row to read on any copy, and the stamp it reads instead is absent: the three placement-facing reports read the same with the switch at either value on these copies. The joint history is read by its missing blind record. That is evidence for the next step, not a reason to have gone on.
+
+## 24. Gates run
+
+All under the empty-home wrapper in 5 GB scopes.
+- The commit: the 142 test files naming the eligibility decision, its holds, the probe guard, the quick check, exam seeding or a cold retry, with the identity, retired-config, kill-switch, effective-defaults, CLI-snapshot, test-layout, architecture, structure and successor-switch tests, in two chunks at `-n 6` behind the lock: 4,196 passed, 18 skipped.
+- **The sweep:** `scripts/affected_tests.py --base be034aaec8` selects 1,324 test files (with the standard files, 1,327); all ran in 14 chunks of 100 at `-n 4 -m "not arc_close"` behind `flock /tmp/learnloop-fullsuite.lock`, on `23c77a5dbd`: **29,013 passed, 101 skipped, 12 xfailed, no failure or error**, first time through. The grade-application and due-queue goldens ran in it unchanged.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,863 collected, landing 30,798 + arc_close 65. `tests/test_structure_ratchets.py`: golden lowered (`d4dd36d763`: stage-naming comments 2,378 to 2,377); green with `test_kill_switches` and `test_identity_pins` after it (223 passed).
+- Vault: references regenerated once after the source commit (`23c77a5dbd`); `Config - eligibility` deleted by hand and the two hand-written leaf counts changed (1,174 to 1,173 leaves, 77 to 76 sections); a second `generate_all.py` changed nothing. Validators: `db_validate_reference`, `module_validate`, `validate_vault` pass; `desktop_validate` fails on its hard-coded source count (324 expected, 326 found), its activation audit and its lifecycle count, with no file under `apps/` changed (as part 2 recorded at its base).
+- The owner lane (`-m owner_vaults`, 31 files, copies made with the gate's `owner_copy_make.py` under `fixtures-local/owner-lane-d7c`, deleted after): 92 passed, 8 skipped, as at part 2. No owner-lane test was edited.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, the arc-close lane, vitest, `cargo check` (no frontend file changed).
+
+## 25. The census and the measures
+
+**The census** (parts 1 and 2's scratch plugin around `version_floor.may_open_below_floor`), over the 7 test files this part edited, base code and tests against this branch: **57 test cases opened a vault below the floor at the base, 47 now (-10)**, in 5 files both times. The 6 cases the branch has and the base lacks are the same tests unparametrized (§20) at their old tags. The 47 left (`test_serve_eligibility` 16, `test_serve_eligibility_review` 10, `test_ux_phase4_feedback` 10, `test_forced_withdrawal_records` 6, `test_ux_phase4_landing` 5) are tests whose vaults sit at `mvp-0.27` or another old tag for their own setup (the serve-eligibility helpers pin `mvp-0.27`): they wait on the re-tagging step, not on a switch.
+
+**Measures** (`scripts/refactor_measures.py`, base `be034aaec8` from a `git archive` against this branch):
+
+| measure | base | this part |
+|---|---|---|
+| ADR-019's kept-because list | 85 | 84 |
+| tagged switches in `TAGGED_SWITCHES` | 87 | 86 |
+| `mvp-0.N` literals: code / docstring / comment | 271 / 336 / 588 | 270 / 315 / 580 |
+| `config/schema.py` lines | 4,994 | 4,974 |
+| raw lines; code lines (all four packages) | 615,090; 432,554 | 614,757; 432,362 |
+| functions over 100 lines; over 200 | 476; 73 | 475; 73 |
+| `src/` lines (diff) | | +61, -394 |
+| test lines (diff) | | +40, -228 |
+| comments naming a stage artifact | 2,378 | 2,377 |
+| effective config leaves | 1,182 | 1,181 (the measures count; the vault's catalog counts 1,173) |
+
+## 26. Bug ledger
+
+- **D7-1:** unchanged in substance; `eligibility.enabled` is not read by replay. What is left: `replay.ledger_bounded`, `mastery.claim_fixes_enabled` (not started) and, if they go, the split pair (not read by replay either).
+- **D7-3:** `decision_active(None)` is gone with its switch, and with it the probe guard's `vault=None` defaults (no production caller reached them; §20). `claim_fixes_live` remains.
+- **D7-5:** none of it belonged to `eligibility.enabled`.
+
+No new bug was found.
+
+## 27. What remains, and judgment calls
+
+**Not removed here:** `diagnosis.split_enabled` and `diagnosis.shadow` (§21: readers of stored rows ask the split switch; stopped as told); `replay.ledger_bounded` and `mastery.claim_fixes_enabled` (the next step).
+
+**Judgment calls:**
+1. **No callers' fix commit.** No production caller of the probe guard or of `decision_active` passed no vault; only test call sites of `serve_presentation` did. So the D7-3 hazard was never live on an owner vault, and the fix is the removal itself.
+2. **The guards lose `vault` rather than making it required:** the head's arm reads only the repository. `serve_presentation` keeps an unread `vault` keyword (`del vault`, with a docstring line saying why) because `src/learnloop/sim/diagnostic_validation.py:542` passes it and this step stays out of `sim/`.
+3. **`RoutineDisplayCovered` keeps one message**; its `decision` stays optional (a test raises it without one).
+4. **The plan-revalidation record test patches the plan's two holds** instead of deleting the test: its subject (the plan's own revalidation leaves a record) had no other test.
+5. **Stopping before the split pair.** Every reader of the split switch is classified in §21; the miss-verdict reader and `m2_report` read stored rows or report on them and ask the switch. On the three copies that reader's switch-dependent case has no row (§23), so the constant `true` would read the same there; the call to go on is the orchestrator's.
