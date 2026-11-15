@@ -22,17 +22,21 @@ who answered exactly from the instruments' model would make the simulation
 circular, since the episode would then be checked against the very likelihoods
 it updates with, and could not show where those likelihoods are wrong.
 
-Each episode's robust ensembles seed on its episode id, a fresh ULID per run,
-so a seed fixes the planted learner's answers but not the ensembles' draws: two
-runs of one seed can differ where a robust decision is close to its threshold.
+Each episode's robust ensembles seed on its episode id. The sim mints every id
+of a run from a stream the run's seed fixes (:func:`seeded_ulids`), so a seed
+fixes the run: the planted learner's answers, the episode id and with it the
+ensembles' draws.
 """
 
 from __future__ import annotations
 
 import random
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 from learnloop.clock import FrozenClock
@@ -359,6 +363,43 @@ def _action_for_label(label: str | None) -> str | None:
     return DEFAULT_INSTRUCTIONAL_ACTIONS.get(label)
 
 
+@contextmanager
+def seeded_ulids(seed: int, start: datetime) -> Iterator[None]:
+    """Every ULID this process mints inside the block comes from a stream ``seed`` fixes.
+
+    A probe episode's robust ensembles seed on its episode id, which state sync
+    mints with :func:`learnloop.ids.new_ulid` (the wall clock's millisecond and
+    80 system-random bits). Without this, a seed fixes the planted learner's
+    answers but not the ensembles' draws, and two runs of one seed differ
+    wherever a robust decision is near its threshold. Seeding the stream, not
+    the ensemble, leaves what production seeds on as it is: an episode in a
+    vault still seeds on its own id.
+
+    The stream is the module's own (its timestamp pinned to ``start``, its
+    randomness drawn from ``random.Random(seed)``, its monotonic state started
+    afresh), so every id in the run is fixed and they still sort in creation
+    order. The previous clock, randomness and state come back afterwards, so ids
+    minted later in the process sort after those minted before the block. One
+    run at a time: a thread minting ids during the block would draw from this
+    stream and shift it.
+    """
+
+    from learnloop import ids
+
+    stream = SimpleNamespace(randbits=random.Random(f"probe-validation-ids|{seed}").getrandbits)
+    start_ms = int(start.timestamp() * 1000)
+    with ids._ulid_lock:
+        saved = (ids._wall_clock_ms, ids.secrets, ids._last_timestamp_ms, ids._last_randomness)
+        ids._wall_clock_ms = lambda: start_ms
+        ids.secrets = stream
+        ids._last_timestamp_ms, ids._last_randomness = -1, 0
+    try:
+        yield
+    finally:
+        with ids._ulid_lock:
+            ids._wall_clock_ms, ids.secrets, ids._last_timestamp_ms, ids._last_randomness = saved
+
+
 def run_probe_validation(
     source_vault: Path,
     workdir: Path,
@@ -387,14 +428,15 @@ def run_probe_validation(
         for seed in seeds:
             run_root = workdir / f"run_{planted.replace(':', '_')}_{seed}"
             prepare_run_vault(source_vault, run_root, reset_state=True)
-            outcome = _run_one_episode(
-                run_root,
-                planted=planted,
-                seed=seed,
-                learning_object_id=learning_object_id,
-                claim_level=claim_level,
-                config_overrides=config_overrides,
-            )
+            with seeded_ulids(seed, VALIDATION_START):
+                outcome = _run_one_episode(
+                    run_root,
+                    planted=planted,
+                    seed=seed,
+                    learning_object_id=learning_object_id,
+                    claim_level=claim_level,
+                    config_overrides=config_overrides,
+                )
             if isinstance(outcome, SimulationRefusal):
                 # Every run copies the same vault under the same overrides.
                 report.refusal = outcome
