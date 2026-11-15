@@ -1714,18 +1714,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the phone's device rules (mobile PR-6): off, a phone request is served as the desktop is, "
         "with no queue exclusion, no desktop_only refusal and no refusal to adopt around a draft. Never read by "
         "a desktop request or by replay."),
-    # Follow-ups Nov 2 (mvp-0.42, renumbered from mvp-0.41 at its landing; Codex review F1; docs/reviews/followups-nov2.md):
-    # the kill switch of the successor whose keyed help fold counts exactly the
-    # rows that attach. A boolean (classified so every new key has a rule); no
-    # weight, margin or threshold is added. Off restores the predecessor's fold
-    # exactly; replay never reads it.
-    _ConfigRule(_exact(
-        "hints.fold_follows_attach",
-    ), "structural", "operational",
-        "kill switch for the help-fold successor mvp-0.42: a keyed submit's fold counts the key's shown server "
-        "hints in any practice session and the attempt takes them in its own transaction (a hint shown before the "
-        "session rolled over is counted or primes where it attaches); off, the predecessor's session-only fold and "
-        "H0's attach after the commit. Never read by replay."),
     # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
     # events in model contexts and on the router card. A boolean (classified
     # so every new key has a rule); the events are context, never a weight,

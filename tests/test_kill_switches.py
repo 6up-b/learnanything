@@ -43,7 +43,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "stuck_prompt.enabled",
     "proof_check.enabled",
     "required_method.enabled",
-    "hints.fold_follows_attach",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
     "ask.cold_help_converts",

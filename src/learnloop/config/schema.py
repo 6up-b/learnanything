@@ -2169,7 +2169,7 @@ class HintsMapsConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
 
 
-class HintsConfig(BaseModel):
+class HintsConfig(KeepsRetiredFields):
     """Adaptive hints.
 
     ``telemetry_enabled``: the practice screen records each authored hint it
@@ -2207,17 +2207,6 @@ class HintsConfig(BaseModel):
     only, never the grade, the diagnosis or evidence; it joins the maps'
     envelope ``maps.max_daily_cost_usd``). Neither is read by scoring,
     scheduling, projection or serving, so no successor.
-
-    ``fold_follows_attach``: the kill switch of
-    ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``. At that tag or later, with it on,
-    a keyed submit's fold counts the key's shown server hints in any practice
-    session (the telemetry's attach rule) and the
-    attempt takes the rows it counted in its own write transaction, so a hint
-    shown before the session rolled over is counted (levels 1-3) or primes
-    (levels 4-5) where it attaches. Off, or below the tag: the fold reads the
-    submit's own session only and the attach takes the key's rows after the
-    commit, exactly as the predecessor. Replay never reads it (replay never
-    folds).
     """
 
     telemetry_enabled: bool = True
@@ -2258,7 +2247,6 @@ class HintsConfig(BaseModel):
     outcome_placement_enabled: bool = True
     #: Kill switch of ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``: a keyed fold
     #: counts exactly the help rows that attach (see the class docstring).
-    fold_follows_attach: bool = True
 
 
 class ReaderInquiryConfig(BaseModel):

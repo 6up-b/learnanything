@@ -1362,15 +1362,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and "
         "the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor."
     ),
-    "hints.fold_follows_attach": (
-        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; Codex "
-        "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "
-        "server hint rows in any practice session (H0's attach rule) and the attempt takes the rows it counted "
-        "in its own write transaction, so a hint shown before the session rolled over raises hints_used "
-        "(levels 1-3) or primes (levels 4-5) the attempt it attaches to. Off, the fold reads the submit's own "
-        "session only and H0's attach takes the key's rows after the commit, exactly as mvp-0.41. Dormant "
-        "below the successor; replay never reads it (replay never folds)."
-    ),
     "teacher.enabled": (
         "Kill switch for teacher TE1's successor (mvp-0.41; spec_teacher_v1 §18.3). "
         "On, a lesson the learner starts may open (lesson.turn); its checks enter mastery at the learned mass "

@@ -59,6 +59,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("TeacherConfig", ("weight", "learned"), bool, True, "D7"),
     RetiredField("TeacherConfig", ("weight", "source"), Literal["pool", "parametric"], "pool", "D7"),
     RetiredField("PracticeConfig", ("attempt_keeps_content_state",), bool, True, "D7"),
+    RetiredField("HintsConfig", ("fold_follows_attach",), bool, True, "D7"),
     RetiredField("PracticeConfig", ("reschedule_cold_after_assist",), bool, True, "D7"),
 )
 

@@ -671,9 +671,8 @@ TEACHER_ALGORITHM_VERSION = "mvp-0.41"
 # attempts are primed and their hint counts (so dampening, certification
 # eligibility and FSRS), never replay (replay re-applies the stored
 # ``hints_used`` and ``primed`` and never folds) or the projection, so it is a
-# successor by the 2026-10-17 eligibility rule. Kill switch:
-# ``hints.fold_follows_attach`` (off, or below the tag: the predecessor's fold
-# and attach exactly).
+# successor by the 2026-10-17 eligibility rule. Its kill switch went once
+# every vault was past the tag.
 HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 
 # mvp-0.43 (teacher TE1b, the router suggests lessons and the learner opts in;

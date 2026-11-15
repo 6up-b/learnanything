@@ -562,7 +562,6 @@ hints.authored_offer_after_seconds = 4.0
 hints.choice_policy = "sample"
 hints.chooser_enabled = true
 hints.chooser_timeout_seconds = 3.0
-hints.fold_follows_attach = true
 hints.help_style = "balanced"
 hints.maps.build_on_serve = true
 hints.maps.enabled = true
