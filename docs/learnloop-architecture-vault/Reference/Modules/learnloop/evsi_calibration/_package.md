@@ -80,7 +80,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 12 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 13 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
@@ -112,7 +112,7 @@ flowchart LR
     n_learnloop_config["learnloop.config"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_substrate["learnloop.substrate"]
-    center -->|12| n_learnloop_diagnosis
+    center -->|13| n_learnloop_diagnosis
     n_learnloop_cli -->|10| center
     center -->|10| n_learnloop_scheduling
     center -->|5| n_learnloop_db_stores

@@ -1020,6 +1020,13 @@ FIGURE_WAIT_VERSIONS: frozenset[str] = successors_from(FIGURE_WAIT_ALGORITHM_VER
 # gates must use this set, never equality.
 FACET_BELIEF_FIX_VERSIONS: frozenset[str] = successors_from(FACET_BELIEF_FIX_ALGORITHM_VERSION)
 
+# mvp-0.59 also holds the robust completion gate fixes (refactor bug ledger D-39; docs/reviews/refactor-k9.0b.md),
+# behind ``probe.episode.robust_gate_fixes``: a fragile pick no longer ends an unstable probe episode (only a fragile
+# stop does), and the robust selector ranks distinct instruments, so a card's second item is not its winner's rival.
+# They were made before any vault was known to hold mvp-0.59, so they share its tags; were a vault already there, a
+# new tag would replace this one line (``diagnosis.probe_robust.robust_gate_fixes_on`` is the only reader).
+ROBUST_GATE_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
+
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
 # (``config.template.default_config_text``; owner decision 2026-10-12).

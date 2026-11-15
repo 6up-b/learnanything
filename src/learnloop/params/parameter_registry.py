@@ -2621,6 +2621,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "books a total failure's coverage where its failure mass lands, and per-LO facet uncertainty is "
                 "written and read on canonical vaults; off (or below the tag) mvp-0.58's belief and empty "
                 "uncertainty reads exactly."),
+    _ConfigRule(_exact("probe.episode.robust_gate_fixes"), "structural", "operational",
+                "kill switch for the robust completion gate fixes in mvp-0.59: a fragile pick no longer ends an "
+                "unstable probe episode (only a fragile stop does), and the robust selector ranks distinct "
+                "instruments (a card's second item is not its rival); off (or below the tag) mvp-0.58's gate and "
+                "selector exactly."),
     _ConfigRule(_exact("mastery.claim_fixes_enabled"), "structural", "operational",
                 "kill switch for LP-min (a)'s successor: gap claims re-anchor, claims replay at their own time, "
                 "a claim never lowers a variance, ties by recency then pseudo-count, the resolving review's claim "

@@ -27,6 +27,16 @@ class ExamGradingManager:
         self._worker_slots = threading.BoundedSemaphore(value=2)
         self._active: dict[ExamGradingKey, threading.Thread] = {}
         self._errors: dict[ExamGradingKey, Exception] = {}
+        #: Moved by :meth:`halt`: a worker submitted before it does not start its grading.
+        self._generation = 0
+
+    def halt(self) -> None:
+        """The vault stopped being served: workers still waiting for a slot end without grading (their answers stay
+        persisted and ungraded; a later resume schedules them again). Joins nothing. A grading already running
+        checks the context itself before it records (``handlers/exams.py``)."""
+
+        with self._lock:
+            self._generation += 1
 
     def submit(
         self,
@@ -48,7 +58,7 @@ class ExamGradingManager:
             request_context = contextvars.copy_context()
             thread = threading.Thread(
                 target=request_context.run,
-                args=(self._run, key, work),
+                args=(self._run, key, work, self._generation),
                 name=f"learnloop-exam-grade-{practice_item_id}",
                 daemon=True,
             )
@@ -56,10 +66,13 @@ class ExamGradingManager:
             thread.start()
         return True
 
-    def _run(self, key: ExamGradingKey, work: Callable[[], None]) -> None:
+    def _run(self, key: ExamGradingKey, work: Callable[[], None], generation: int) -> None:
         try:
             with self._worker_slots:
-                work()
+                with self._lock:
+                    halted = generation != self._generation
+                if not halted:
+                    work()
         except Exception as exc:  # noqa: BLE001 - retained for finish-time retry
             LOG.exception(
                 "background exam grading failed",

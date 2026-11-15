@@ -792,6 +792,7 @@ probe.episode.reprobe_prediction_error_window = 10
 probe.episode.reprobe_predictive_surprise_threshold = 1.0
 probe.episode.reprobe_stale_uncertainty_days = 30
 probe.episode.reprobe_stale_uncertainty_variance = 0.6
+probe.episode.robust_gate_fixes = true
 probe.episode.selection_overhead_seconds = 10.0
 probe.episode.session_qualifying_observation_cap = 4
 probe.generation.auto_generate_on_entry = false

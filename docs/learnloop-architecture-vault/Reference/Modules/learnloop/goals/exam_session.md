@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_switch_off_an_exposed_exam_item_is_administered_as_before`
   - `test_with_the_switch_off_an_item_exposed_mid_exam_is_administered_as_before`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_in_window_near_due_date`
   - `test_availability_open_ended_goal_never_in_window_but_startable`

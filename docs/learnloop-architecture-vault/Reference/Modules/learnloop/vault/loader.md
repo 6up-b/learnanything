@@ -1252,6 +1252,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_exercise_authoring.py](../../../../../../tests/test_exercise_authoring.py) — direct import
@@ -2812,6 +2813,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_refitting_on_a_later_version_does_not_change_version_ks_evaluation`
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode`
 - [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
   - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
 - [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
@@ -3075,6 +3078,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_promote_tutor_question_gap_rejected_in_library_context`
   - `test_sidecar_save_tutor_answer_note_and_facet_question_counts`
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader`
+  - `test_a_split_vault_grades_the_simulated_teach_back_blind`
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import

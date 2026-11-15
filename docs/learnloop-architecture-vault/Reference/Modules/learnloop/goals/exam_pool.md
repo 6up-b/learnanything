@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`
   - `test_with_the_switch_off_shown_material_is_selected_as_before`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_open_ended_goal_never_in_window_but_startable`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`

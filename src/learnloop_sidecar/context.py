@@ -830,8 +830,23 @@ class SidecarContext:
     def _stop_serving(self, refused: Unservable) -> None:
         # The generation moves with it, so a background job's admission of a snapshot taken before fails.
         with self._vault_lock:
+            first = self.refusal is None
             object.__setattr__(self, "refusal", refused)
             object.__setattr__(self, "vault_generation", int(self.vault_generation) + 1)
+        if first:
+            self._stop_bound_runners()
+
+    def _stop_bound_runners(self) -> None:
+        """The runners bound with the repository at load, stopped at the refusal: they never ask ``serving()``
+        themselves. None is joined: this runs on the request thread (or worker) that met the refusal, and a join
+        would hold it for as long as a runner's provider call runs (``close`` joins, bounded, at shutdown). A load
+        that succeeds binds ingest and the map builds again; the job registry and the exam graders take new work
+        as they did after ``close``. The post-attempt worker asks ``serving()`` through its supplier already."""
+
+        self.background_jobs.cancel()  # every job started so far: its next model request is refused
+        self.exam_grading.halt()
+        self.ingest_jobs.halt()
+        self.map_builds.halt()
 
     @contextmanager
     def _stops_serving_when_refused(self, target: Path) -> Iterator[None]:

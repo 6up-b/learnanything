@@ -115,7 +115,9 @@ def rebuild_ownership_head(
 
     connection = repository.connection()
     try:
-        connection.execute("BEGIN")
+        # Immediate: it reads the events, then writes the heads, and a deferred read that later asks for the write
+        # lock fails at once ("database is locked", no busy wait) when another connection committed in between.
+        connection.execute("BEGIN IMMEDIATE")
         if commitment_id is None:
             rows = connection.execute(
                 "SELECT DISTINCT commitment_id FROM controller_ownership_events"

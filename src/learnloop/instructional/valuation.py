@@ -873,7 +873,8 @@ def _conditional_series(candidate: CandidateInput, branches: Sequence[tuple[floa
 
 
 def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *, caller_kind: str = "learner",
-                  system_initiated: bool = False, already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+                  system_initiated: bool = False, already_chosen: Sequence[str] = (),
+                  distinct_instruments: bool = False) -> dict[str, Any]:
     """Groups, verdicts and stops for one hypothesis space.
 
     ``already_chosen`` (Reader RW6b, Codex re-review round 3): refs of checks
@@ -883,7 +884,12 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
     added only if it still clears the stop given them, and they are never
     listed among the new ``checks``. Only refs among this problem's competing
     candidates can be conditioned on (the others are listed as not valued).
-    Empty (the default): the selection exactly as before."""
+    Empty (the default): the selection exactly as before.
+
+    ``distinct_instruments`` (the robust gate fixes, mvp-0.59, read by the
+    caller with ``probe_robust.robust_gate_fixes_on``): candidates with identical
+    members are one instrument to the robust selectors, so a card's second item
+    is not its first item's rival."""
 
     report: dict[str, Any] = {"problem": problem.describe(), "valuation_version": VALUATION_VERSION,
                               "scale": SCALE_LABEL, "constants": {
@@ -970,16 +976,19 @@ def value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *
             triples = [(c.ref, _ensemble(c, problem), c.expected_minutes * 60.0) for c in remaining]
             if same_shape:
                 selector = "evaluate_selection"
-                decision = RC.evaluate_selection(candidates=triples, posterior=problem.prior)
+                decision = RC.evaluate_selection(candidates=triples, posterior=problem.prior,
+                                                 distinct_instruments=distinct_instruments)
             else:
                 selector = "evaluate_selection_credible_sets"
-                decision = RC.evaluate_selection_credible_sets(candidates=triples, posterior=problem.prior)
+                decision = RC.evaluate_selection_credible_sets(candidates=triples, posterior=problem.prior,
+                                                               distinct_instruments=distinct_instruments)
         else:
             branches = _branches(picks, problem.prior)
             series = [(c.ref, _conditional_series(c, branches), c.expected_minutes * 60.0) for c in remaining]
             winner_ref = max(series, key=lambda t: RC.robust_quantile([v / max(t[2], 1e-6) for v in t[1]]))[0]
             decision = RC.evaluate_series_selection(
-                candidates=series, winner_eig_nats=dict((ref, s) for ref, s, _ in series)[winner_ref])
+                candidates=series, winner_eig_nats=dict((ref, s) for ref, s, _ in series)[winner_ref],
+                distinct_instruments=distinct_instruments)
         if decision.verdict != "act":
             verdict = "stop" if decision.verdict == "stop" else "abstain"
             reason = ("lcb_value_below_minutes_cost" if decision.verdict == "stop"
@@ -1137,16 +1146,18 @@ def _evpi(problem: ValuationProblem, loss_table: Any) -> float:
 def value_candidates(problems: Sequence[ValuationProblem], inputs_by_problem: Mapping[str, Sequence[CandidateInput]],
                      *, caller_kind: str = "learner", system_initiated: bool = False,
                      unavailable: Sequence[Mapping[str, Any]] = (),
-                     already_chosen: Sequence[str] = ()) -> dict[str, Any]:
+                     already_chosen: Sequence[str] = (), distinct_instruments: bool = False) -> dict[str, Any]:
     """The valuation receipt: one section per problem, nothing summed across them.
 
     ``already_chosen``: the caller's live checks for this question, which
     each problem's greedy selection starts from (:func:`value_problem`).
-    Empty (the default), the receipt is exactly as before."""
+    Empty (the default), the receipt is exactly as before.
+    ``distinct_instruments``: :func:`value_problem`'s."""
 
     extra = {"already_chosen": list(already_chosen)} if already_chosen else {}
     sections = [value_problem(problem, inputs_by_problem.get(problem.key, ()), caller_kind=caller_kind,
-                              system_initiated=system_initiated, **extra) for problem in problems]
+                              system_initiated=system_initiated, distinct_instruments=distinct_instruments, **extra)
+                for problem in problems]
     listed: dict[str, list[dict[str, Any]]] = {}
     for section in sections:
         for group, entries in section["groups"].items():

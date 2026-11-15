@@ -112,6 +112,7 @@ BASE_CONFIG_CONTENT_KEY = {
 ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
     ("ingest", "budgets", "append_input_ceiling"),  # refactor K3.4: the append call's input ceiling
     ("facet_diagnostic", "canonical_belief_fixes"),  # arc D fixes part 1: the facet-belief successor's kill switch
+    ("probe", "episode", "robust_gate_fixes"),  # K9.0b: the robust completion gate fixes' kill switch (mvp-0.59)
 )
 
 
@@ -370,6 +371,23 @@ SWITCHES_BASE_IDENTITIES = {
 }
 
 
+#: Config defaults added after ``b4c8fbad98``, each on purpose: taken out of the whole-config dump before it is
+#: compared with the digests above, as ``ADDED_SINCE_BASE`` does for arc C's base. A new default is not a removal.
+ADDED_SINCE_SWITCHES_BASE: tuple[tuple[str, ...], ...] = (
+    ("probe", "episode", "robust_gate_fixes"),  # K9.0b: the robust completion gate fixes' kill switch (mvp-0.59)
+)
+
+
+def _without_additions_since_switches_base(dump: dict) -> dict:
+    shaped = copy.deepcopy(dump)
+    for *parents, name in ADDED_SINCE_SWITCHES_BASE:
+        node = shaped
+        for key in parents:
+            node = node[key]
+        del node[name]  # a KeyError means the entry is stale: the default left or moved
+    return shaped
+
+
 def _removed_switches() -> list:
     from learnloop.config.retired import RETIRED_FIELDS
 
@@ -385,7 +403,7 @@ def test_a_config_setting_the_removed_switches_keeps_every_identity(tmp_path, ca
     config = LearnLoopConfig() if case == "default" else load_config(path, load_environment=False)
     expected = SWITCHES_BASE_IDENTITIES[case]
     repository = SimpleNamespace(mastery_states=lambda: {}, item_parameter_states=lambda: {})
-    assert content_key(identity_dump(config)) == expected["config"]
+    assert content_key(_without_additions_since_switches_base(identity_dump(config))) == expected["config"]
     assert _sha256(identity_dump(config.mastery)) == expected["mastery"]
     assert LiveMasteryPredictor(SimpleNamespace(config=config), repository).version_hash == expected["live_mastery"]
     assert create_predictor("lo_general", config=config.mastery).version_hash == expected["lo_general"]

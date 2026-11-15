@@ -64,6 +64,7 @@ def test_exam_submit_advances_before_background_grade_finishes(
         session_id,
         practice_item_id,
         answer_md,
+        serving=None,
     ):
         started.set()
         assert release.wait(timeout=5)

@@ -282,6 +282,11 @@ class ProbeEpisodeConfig(BaseModel):
     # 0 days disables the periodic producer.
     reprobe_stale_uncertainty_variance: float = Field(default=0.6, ge=0.0)
     reprobe_stale_uncertainty_days: int = Field(default=30, ge=0)
+    #: From mvp-0.59, the kill switch of the robust completion gate fixes (refactor bug ledger D-39). Without them
+    #: a fragile pick ends an unstable episode as couldnt_reliably_distinguish while its own stop rule says the next
+    #: probe pays, and a card's second item, measuring exactly what the first does, makes every pick fragile. Off,
+    #: or below the tag, the gate and the robust selector are mvp-0.58's exactly.
+    robust_gate_fixes: bool = True
 
 
 class ProbeGenerationConfig(BaseModel):

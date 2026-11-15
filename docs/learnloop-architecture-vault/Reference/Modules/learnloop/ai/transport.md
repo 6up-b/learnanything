@@ -211,7 +211,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `STRUCTURED_COMPLETION`, `StructuredRequest`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `StructuredTransport`, `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `StructuredTransport`, `execute_structured_operation`; statically calls `execute_structured_operation`
-- [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `STRUCTURED_COMPLETION`, `StructuredRequest`
+- [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `ISOLATED_TURN`, `STRUCTURED_COMPLETION`, `StructuredRequest`
 - [[Reference/Modules/learnloop/source_retrieval/bench|learnloop.source_retrieval.bench]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
@@ -362,6 +362,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import
   - `test_f1_kill_codex_interrupts_nothing_when_its_settle_fails`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
+- [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`

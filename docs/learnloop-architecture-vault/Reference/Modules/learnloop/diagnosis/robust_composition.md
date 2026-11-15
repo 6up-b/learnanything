@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/robust_composition.py](../../../../../../src/learnloop/diagnosis/robust_composition.py) |
-| Source lines | 607 |
+| Source lines | 640 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,10 +66,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `__init__(self, sizes: Sequence[int]) -> None` (line 318; internal)
 - `class RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 324) — Robust products of one selection decision, snapshotted so historical replay never re-runs the ensemble (§2.1/§3.3).
 - `robust_eig_per_second(ensemble: Ensemble, posterior: Mapping[str, float], expected_seconds: float, quantile: float | None=None) -> float` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 349) — 10th-percentile of per-draw EIG per expected second (the robust rank score).
-- `evaluate_selection(*, candidates: Sequence[tuple[str, Ensemble, float]], posterior: Mapping[str, float], lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 361) — Robust selection over candidate instruments (§3.1/§3.2).
-- `evaluate_series_selection(*, candidates: Sequence[tuple[str, Sequence[float], float]], winner_eig_nats: Sequence[float] | None=None, quantile: float=ROBUST_QUANTILE, lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 454) — The robust selection rule over independent credible sets (canonical sources S2a, §8.3.4).
-- `evaluate_selection_credible_sets(*, candidates: Sequence[tuple[str, Ensemble, float]], posterior: Mapping[str, float], lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 524) — :func:`evaluate_selection` for candidates whose credible sets differ in size or construction (canonical sources S2a, §8.3.4).
-- `certainty_lcb(*, joint_alpha: Mapping[str, Mapping[str, float]], observed_emission: str, calibration_model_hash: str, decision_context_hash: str, prior: Mapping[str, float] | None=None, draw_count: int=ROBUST_DRAW_COUNT, quantile: float=ROBUST_QUANTILE) -> float` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 561) — Lower credible bound of ``certainty = 1 - H(P(Z|E))/log K`` across the calibration ensemble (§4.3).
+- `evaluate_selection(*, candidates: Sequence[tuple[str, Ensemble, float]], posterior: Mapping[str, float], lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD, distinct_instruments: bool=False) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 378) — Robust selection over candidate instruments (§3.1/§3.2).
+- `evaluate_series_selection(*, candidates: Sequence[tuple[str, Sequence[float], float]], winner_eig_nats: Sequence[float] | None=None, quantile: float=ROBUST_QUANTILE, lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD, distinct_instruments: bool=False) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 478) — The robust selection rule over independent credible sets (canonical sources S2a, §8.3.4).
+- `evaluate_selection_credible_sets(*, candidates: Sequence[tuple[str, Ensemble, float]], posterior: Mapping[str, float], lambda_time: float=LAMBDA_TIME, burden_cost: float=BURDEN_COST, value_per_nat_minutes: float=VALUE_PER_NAT_MINUTES, agreement_threshold: float=ENSEMBLE_ACTION_AGREEMENT_THRESHOLD, distinct_instruments: bool=False) -> RobustDecision` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 555) — :func:`evaluate_selection` for candidates whose credible sets differ in size or construction (canonical sources S2a, §8.3.4).
+- `certainty_lcb(*, joint_alpha: Mapping[str, Mapping[str, float]], observed_emission: str, calibration_model_hash: str, decision_context_hash: str, prior: Mapping[str, float] | None=None, draw_count: int=ROBUST_DRAW_COUNT, quantile: float=ROBUST_QUANTILE) -> float` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 594) — Lower credible bound of ``certainty = 1 - H(P(Z|E))/log K`` across the calibration ensemble (§4.3).
 
 ### Module constants
 
@@ -90,7 +90,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_draw_emission(rng: random.Random, joint_alpha: Mapping[str, Mapping[str, float]]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 160) — One Dirichlet draw of ``P(E | Z)`` per true class Z.
 - `_perturb_instrument(rng: random.Random, instrument_rows: Mapping[str, Mapping[str, float]], concentration: float) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 173) — Dirichlet perturbation around each authored instrument row (§4.2).
 - `_ensemble_eig_per_second(ensemble: Ensemble, posterior: Mapping[str, float], expected_seconds: float) -> list[float]` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 337)
-- `_certainty(posterior: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 550)
+- `_distinct_ranked(ranked: list, members_of) -> list` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 361) — ``ranked`` (best first) with every candidate dropped whose members equal an earlier candidate's.
+- `_certainty(posterior: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/diagnosis/robust_composition.py), line 583)
 
 ## Who imports or calls it
 
@@ -148,7 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi.py](../../../../../../tests/test_evsi.py) — direct import
   - `test_no_pze_substitution_uses_composed_pe_given_h`
 - [tests/test_evsi_calibration_sim.py](../../../../../../tests/test_evsi_calibration_sim.py) — direct import
-  - `test_the_incumbent_arm_includes_todays_robust_completion_gate`
+  - `test_the_incumbent_arm_includes_the_robust_completion_gate`
+  - `test_the_incumbent_goes_on_past_a_fragile_pick_as_serving_does`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import
   - `test_the_successor_arm_values_with_the_nat_scale_when_no_decision_is_at_stake`
 - [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import
@@ -160,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_episode_pins_channel_and_products_are_deterministic`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
   - `test_the_valuation_is_the_sources_specs_machinery`
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
 - [tests/test_robust_composition.py](../../../../../../tests/test_robust_composition.py) — direct import
   - `test_composition_marginalizes_true_class`
   - `test_discriminating_instrument_wins_and_acts`
@@ -169,6 +172,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_robust_quantile_uses_nearest_rank_ceil`
   - `test_uninformative_instrument_triggers_stop`
 - [tests/test_robust_composition_bench.py](../../../../../../tests/test_robust_composition_bench.py) — direct import
+- [tests/test_robust_selection_twin_candidates.py](../../../../../../tests/test_robust_selection_twin_candidates.py) — direct import
+  - `test_a_distinct_rival_is_still_compared`
+  - `test_a_second_item_of_the_same_card_does_not_make_the_winner_fragile`
+  - `test_identical_credible_sets_are_one_instrument_to_the_series_selection`
+  - `test_the_separating_card_alone_acts`
+  - `test_without_the_fix_identical_credible_sets_make_the_winner_fragile`
+  - `test_without_the_fix_the_twin_makes_the_winner_fragile`
+- [tests/test_sim_planted_types_forty_seeds.py](../../../../../../tests/test_sim_planted_types_forty_seeds.py) — direct import
+  - `test_each_planted_type_is_named_in_at_least_26_of_40_episodes_within_the_abstention_budget`
+- [tests/test_sim_probe_validation.py](../../../../../../tests/test_sim_probe_validation.py) — direct import
+  - `test_planted_episodes_abstain_within_the_abstention_budget`
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
   - `test_rank_feasible_values_the_episode_at_the_configured_quantile`
   - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
