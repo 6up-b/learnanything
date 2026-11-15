@@ -11,7 +11,7 @@ first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
 functions_over_200_lines = 73
-comment_lines_naming_a_stage_artifact = 2374
+comment_lines_naming_a_stage_artifact = 2371
 test_files_named_for_a_stage = 184
 
 [members]
@@ -775,7 +775,7 @@ stage_test_files = [
 "src/learnloop/instructional/needs.py" = 4
 "src/learnloop/instructional/policy.py" = 1
 "src/learnloop/instructional/practice.py" = 3
-"src/learnloop/instructional/reader_digest.py" = 11
+"src/learnloop/instructional/reader_digest.py" = 10
 "src/learnloop/instructional/reader_followups.py" = 27
 "src/learnloop/instructional/screen.py" = 2
 "src/learnloop/instructional/sources.py" = 3
@@ -961,7 +961,7 @@ stage_test_files = [
 "src/learnloop_sidecar/handlers/queue.py" = 6
 "src/learnloop_sidecar/handlers/reader.py" = 44
 "src/learnloop_sidecar/handlers/reader_cue_discovery.py" = 10
-"src/learnloop_sidecar/handlers/reader_followups.py" = 4
+"src/learnloop_sidecar/handlers/reader_followups.py" = 2
 "src/learnloop_sidecar/handlers/reader_intent.py" = 6
 "src/learnloop_sidecar/handlers/reader_tutor.py" = 3
 "src/learnloop_sidecar/handlers/reading_paths.py" = 3
