@@ -26,12 +26,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import FrozenClock, parse_utc
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.attempts.ai_contracts import (
     CriterionEvidence,
     GradingContext,
     GradingProposal,
 )
+from learnloop.attempts.blind_grading import BlindGradingProposal
 from learnloop.tutor.ai_contracts import TeachBackQuestion, TeachBackQuestionContext
 from learnloop.config import LearnLoopConfig
 from learnloop.config.schema import StorageConfig
@@ -735,9 +736,10 @@ class _SimTeachBackClient:
     The sim never calls an AI provider: the ``teach_back`` operation returns a
     canned naive-student question (question *text* is not load-bearing for the
     core selection logic, which runs in ``plan_followups``), and
-    the ``grading`` operation awards the criterion points the synthetic student
-    already earned while answering — mirroring how the runner synthesizes
-    grades for every other attempt type.
+    the ``grading`` operation (a joint vault) or the isolated ``blind_grading``
+    operation (a split vault, the default) awards the criterion points the
+    synthetic student already earned while answering — mirroring how the
+    runner synthesizes grades for every other attempt type.
     """
 
     # Names the grading agent runs a simulated teach-back records.
@@ -761,7 +763,15 @@ class _SimTeachBackClient:
         self.criterion_points: dict[str, float] = {}
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # The transport refuses an isolated turn (a split vault's blind grader)
+        # to any client that does not declare ISOLATED_TURN, because an agentic
+        # model could read prior grades and diagnoses from the vault's files,
+        # a shell, the network or its tools and so grade with learner history.
+        # This client is no model: it reads nothing but the request's prompt
+        # and the synthetic student's points, so it is isolated by
+        # construction. Declaring it leaves the check itself, and every real
+        # provider's answer to it, as they are.
+        return capability in (STRUCTURED_COMPLETION, ISOLATED_TURN)
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         payload = json.loads(request.prompt.rsplit("\n\n", 1)[-1])
@@ -769,7 +779,12 @@ class _SimTeachBackClient:
             return self._teach_back_result(TeachBackQuestionContext(**payload["context"]))
         if request.purpose == "grading":
             return self._grading_result(GradingContext(**payload["context"]))
-        raise ValueError(f"unsupported simulation operation {request.purpose!r}")
+        if request.purpose == "blind_grading" and request.result_model is BlindGradingProposal:
+            return self._blind_grading_result(payload["context"])
+        raise ValueError(
+            f"unsupported simulation operation {request.purpose!r} "
+            f"({request.result_model.__name__})"
+        )
 
     def _teach_back_result(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         return TeachBackQuestion(
@@ -780,11 +795,37 @@ class _SimTeachBackClient:
         )
 
     def _grading_result(self, context: GradingContext) -> GradingProposal:
-        # ``context.rubric`` is already restricted to the asked criteria by
+        evidence, rubric_score = self._criterion_grades(context.rubric)
+        return GradingProposal(
+            attempt_id=context.attempt_id,
+            practice_item_id=context.practice_item_id,
+            rubric_score=rubric_score,
+            criterion_evidence=evidence,
+            grader_confidence=0.9,
+            feedback_md="Simulated teach-back feedback.",
+        )
+
+    def _blind_grading_result(self, context: Mapping[str, Any]) -> BlindGradingProposal:
+        # The blind context is the joint one without learner history; the
+        # points are the same synthetic student's, so a split vault and a
+        # joint one grade a simulated teach-back alike.
+        evidence, rubric_score = self._criterion_grades(context["rubric"])
+        return BlindGradingProposal(
+            local_analysis_md="Simulated teach-back analysis.",
+            attempt_id=str(context["attempt_id"]),
+            practice_item_id=str(context["practice_item_id"]),
+            criterion_evidence=evidence,
+            rubric_score=rubric_score,
+            grader_confidence=0.9,
+            feedback_md="Simulated teach-back feedback.",
+        )
+
+    def _criterion_grades(self, rubric: Mapping[str, Any]) -> tuple[list[CriterionEvidence], int]:
+        # ``rubric`` is already restricted to the asked criteria by
         # ``finish_teach_back``. Criteria without a recorded answer only appear
         # here in the zero-answered-follow-ups fallback (opening explanation
         # graded against core criteria); synthesize their points on the spot.
-        criteria = list(context.rubric.get("criteria", []))
+        criteria = list(rubric.get("criteria", []))
         evidence: list[CriterionEvidence] = []
         awarded_total = 0.0
         max_total = 0.0
@@ -811,14 +852,7 @@ class _SimTeachBackClient:
                 )
             )
         fraction = awarded_total / max_total if max_total > 0 else 0.0
-        return GradingProposal(
-            attempt_id=context.attempt_id,
-            practice_item_id=context.practice_item_id,
-            rubric_score=max(0, min(4, int(round(4 * fraction)))),
-            criterion_evidence=evidence,
-            grader_confidence=0.9,
-            feedback_md="Simulated teach-back feedback.",
-        )
+        return evidence, max(0, min(4, int(round(4 * fraction))))
 
 
 def _simulate_teach_back_attempt(

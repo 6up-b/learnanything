@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.ai.transport import STRUCTURED_COMPLETION
 from learnloop.config import LearnLoopConfig
 from learnloop.sim.profiles import profile_from_mapping
 from learnloop.sim.runner import apply_config_overrides, prepare_run_vault, run_simulation
@@ -79,11 +80,6 @@ def _teach_back_item() -> dict:
 
 def build_teach_back_sim_vault(root: Path) -> Path:
     build_sim_vault(root)
-    # The sim vault's mvp-0.7 baseline grades jointly; the simulator provider cannot run the
-    # isolated blind grader, and no vault that opens is below the split's tag, so its switch.
-    from tests.helpers import append_config_toml
-
-    append_config_toml(root, "[diagnosis]\nsplit_enabled = false")
     vault = load_vault(root)
     paths = VaultPaths(vault.root, vault.config)
     write_yaml(paths.practice_item_path("algebra", TEACH_ITEM_ID), _teach_back_item())
@@ -230,6 +226,61 @@ def test_runner_completes_session_with_teach_back_item(
         for entry in report.metrics["belief_vs_truth"]["per_learning_object"]
     }
     assert "lo_move_terms" in belief_los
+
+
+def test_a_split_vault_grades_the_simulated_teach_back_blind(teach_runs) -> None:
+    from learnloop.attempts.blind_grading import split_grading_active
+    from learnloop.db.repositories import Repository
+
+    run_root, report = teach_runs[0]
+    # The module's runs are copies of an mvp-0.7 vault, registered in the test that built them.
+    allow_below_floor(run_root)
+    vault = load_vault(run_root)
+    assert split_grading_active(vault)
+    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    with repository.connection() as connection:
+        schemas = {
+            row["output_schema"]
+            for row in connection.execute(
+                "SELECT r.output_schema FROM attempt_feedback_metadata m "
+                "JOIN agent_runs r ON r.id = m.agent_run_id "
+                "JOIN practice_attempts a ON a.id = m.attempt_id "
+                "WHERE a.attempt_type = 'teach_back'"
+            )
+        }
+    assert schemas == {"BlindGradingProposal"}
+    assert report.metrics["counts"]["teach_back_attempts"] >= 1
+
+
+class _ProviderWithoutIsolation:
+    """A structured provider as a tool-using agent declares itself: no isolated turn."""
+
+    provider_name = "agent_without_isolation"
+
+    def __init__(self) -> None:
+        self.requests: list[object] = []
+
+    def supports(self, capability: str) -> bool:
+        return capability == STRUCTURED_COMPLETION
+
+    def complete(self, request):  # pragma: no cover - must never be reached
+        self.requests.append(request)
+        raise AssertionError("the transport sent a blind grading turn to a provider that cannot isolate it")
+
+
+def test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader(teach_vault: Path) -> None:
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.attempts.grading import build_grading_context, request_vault_grading_proposal
+
+    vault = load_vault(teach_vault)
+    item = vault.practice_items[TEACH_ITEM_ID]
+    context = build_grading_context(
+        vault, item, attempt_id="01JSIMTEACHBACKREFUSAL0000", learner_answer_md="An explanation."
+    )
+    provider = _ProviderWithoutIsolation()
+    with pytest.raises(AIProviderUnavailable, match="cannot isolate structured operation 'blind_grading'"):
+        request_vault_grading_proposal(vault, provider, context)
+    assert provider.requests == []
 
 
 def test_teach_back_runs_are_seed_deterministic(teach_runs) -> None:
