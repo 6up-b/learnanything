@@ -101,7 +101,7 @@ With value of information on, the gate no longer decides (`robust_gate_applies`,
 ## 4. What changed
 
 - `267fcda6ab` (tests only): `tests/test_robust_selection_twin_candidates.py` (new): the separating card alone acts (passes); with its second item beside it the selector abstains (strict xfail, D-39), with plain values (`rc.build_ensemble`, `rc.evaluate_selection`). `tests/test_sim_probe_validation.py`: `test_planted_episodes_abstain_within_the_abstention_budget` (new, strict xfail, D-39) asserts U-021's budget on the existing module fixture (20/25 abstain now; no extra runtime); the checkpoint gate's xfail reason names the mechanism. No assertion changed; no source changed.
-- This record, the ledger (D-39 to owner with the design, D-32's status, new row D-40), the K9 strategy's K9.0 line.
+- This record, the ledger (D-39 to owner with the design, D-32's status, new row D-41), the K9 strategy's K9.0 line.
 
 Fail-first evidence: both new xfails fail with `--runxfail` at the base (`RobustDecision(lcb_advantage_over_runner_up=0.0, action_agreement_fraction=1.0, should_stop=False, abstained=True, verdict='couldnt_reliably_distinguish')`; `assert (20 / 25) <= 0.15`).
 
@@ -130,7 +130,7 @@ Not started: the brief stops the step on (a). Sibling list (step 5), for the ste
 |---|---|---|
 | `tests/sim_probe_validation_helpers._vault_with_confusable` (used by `test_sim_probe_validation.py` and `test_ux_phase4_feedback.py::test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`) | `placement.enabled`, `followup.generate_and_serve`, `voi_stopping.enabled` (and pins `mvp-0.6`) | No: with placement or FG1 on the sim has no episode or no instruments (§1.2). Value of information on: runs, ends on the value stop (§1.2 table) |
 | `tests/test_sim_teach_back.py:86` | `diagnosis.split_enabled = false` | No: D-32 |
-| `learnloop sim probe-validation` / `probe-pilot` (`cli/sim.py:42-70`, `:102-112`) | nothing; runs the vault as it is | It prints PASS: on a default vault the report is empty and `ValidationReport.passes` is `all()` over nothing. New ledger row D-40 |
+| `learnloop sim probe-validation` / `probe-pilot` (`cli/sim.py:42-70`, `:102-112`) | nothing; runs the vault as it is | It prints PASS: on a default vault the report is empty and `ValidationReport.passes` is `all()` over nothing. New ledger row D-41 |
 
 No other `tests/test_sim_*.py` or `src/learnloop/sim/` module sets placement, FG1, value of information or the split off.
 
