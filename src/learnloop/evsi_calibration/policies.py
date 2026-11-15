@@ -6,15 +6,21 @@
 * ``eig``: :func:`learnloop.diagnosis.robust_composition.evaluate_selection`
   (robust EIG per second, the ``VALUE_PER_NAT_MINUTES`` stop rule, the 90%
   agreement gate). No count cap.
-* ``incumbent``: today's serving probe episode: the highest hypothesis-EIG
-  question, stopped as ``probe_episodes._evaluate_completion`` stops it, in its
-  order: the observation budget; on an unstable posterior the action
-  equivalence stop, then (from the minimum independent observations on) the
-  mvp-0.8 robust completion gate, which ends the episode when
+* ``incumbent``: the serving probe episode where the robust gate decides (the
+  probe-episode value site off, or a calibration session): the highest
+  hypothesis-EIG question, stopped as ``probe_episodes._evaluate_completion``
+  stops it, in its order: the observation budget; on an unstable posterior the
+  action equivalence stop, then (from the minimum independent observations on)
+  the robust completion gate (``couldnt_reliably_distinguish``); on a stable
+  one the decision stable stop after the minimum, else action equivalence.
+  Which gate is ``PolicySettings.robust_gate_fixes``: by default today's
+  (mvp-0.59, ``probe.episode.robust_gate_fixes``: only a fragile stop ends the
+  episode, the selector abstaining while its stop rule fires, with identical
+  ensembles counted once), or the predecessor's (mvp-0.58: every abstention of
   ``robust_composition.evaluate_selection`` over the remaining instruments
-  abstains (``couldnt_reliably_distinguish``); on a stable one the decision
-  stable stop after the minimum, else action equivalence. The thresholds are
-  read from :class:`learnloop.config.schema.ProbeEpisodeConfig`, never copied.
+  ends it), the gate the recorded studies (``docs/reviews/evsi-*.md``) ran. The
+  thresholds are read from :class:`learnloop.config.schema.ProbeEpisodeConfig`,
+  never copied.
 * ``caps_only``: a simplified cap-only comparator: the same chooser and caps
   WITHOUT the robust completion gate (what a legacy, unpinned episode does).
   It is not today's serving.
@@ -34,6 +40,7 @@ import numpy as np
 
 from learnloop.config.schema import ProbeEpisodeConfig
 from learnloop.diagnosis import robust_composition as rc
+from learnloop.diagnosis.probe_episodes import robust_gate_completion
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
@@ -129,6 +136,14 @@ class PolicySettings:
     #: ``evsi-single-family-unbounded`` (2026-10-13); a bound stays available as
     #: an explicit option (``learnloop evsi simulate --safety-bound N``).
     safety_bound: int | None = None
+    #: Which robust completion gate ``_incumbent_stop`` mirrors. True: today's
+    #: serving (``probe.episode.robust_gate_fixes``, mvp-0.59): only a fragile
+    #: stop ends the episode (the selector abstains and its stop rule fires),
+    #: and identical ensembles are one instrument before the runner-up is
+    #: taken. False: the predecessor (mvp-0.58, or the switch off), where
+    #: every abstention ends it; the recorded single- and multi-family studies
+    #: ran that gate.
+    robust_gate_fixes: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -313,10 +328,12 @@ def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool =
     return None
 
 
-def _robust_gate_abstains(state: EpisodeState, settings: PolicySettings) -> bool:
-    """``probe_episodes._robust_completion_override``: the robust selector over
-    the remaining instruments abstains (the episode-pinned channel here is the
-    simulation's identity channel)."""
+def _robust_gate_ends(state: EpisodeState, settings: PolicySettings) -> bool:
+    """``probe_episodes._robust_gate_verdict``: the robust selector over the
+    remaining instruments asks the episode to end (the episode-pinned channel
+    here is the simulation's identity channel). ``settings.robust_gate_fixes``
+    picks the gate, as the switch does in serving: a fragile stop only, or
+    every abstention."""
 
     candidates = [
         (q, state.ensemble_objects[q], settings.check_minutes * 60.0) for q in _prefilter(state, settings)
@@ -330,8 +347,9 @@ def _robust_gate_abstains(state: EpisodeState, settings: PolicySettings) -> bool
         burden_cost=settings.burden_cost,
         value_per_nat_minutes=settings.value_per_nat_minutes,
         agreement_threshold=settings.agreement_threshold,
+        distinct_instruments=settings.robust_gate_fixes,
     )
-    return bool(decision.abstained)
+    return robust_gate_completion(decision, stop_only=settings.robust_gate_fixes) is not None
 
 
 def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig, *,
@@ -345,7 +363,7 @@ def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: Probe
     if not _stable(state, config):
         if _action_equivalent(state, config):
             return "action_equivalent"
-        if n >= config.minimum_independent_observations and _robust_gate_abstains(state, settings):
+        if n >= config.minimum_independent_observations and _robust_gate_ends(state, settings):
             return "couldnt_reliably_distinguish"
         return None
     if n >= config.minimum_independent_observations:
