@@ -273,6 +273,7 @@ def replay_learning_object(
     error_attribution_overrides: dict[str, list[GradeAttribution]] | None = None,
     grader_identity_overrides: dict[str, tuple[str, str] | None] | None = None,
     project_canonical_state: bool = True,
+    clock: Clock | None = None,
 ) -> ReplayResult:
     """Rebuild attempt-derived state for one learning object from persisted grades.
 
@@ -293,6 +294,9 @@ def replay_learning_object(
     attempts are back, so nothing of that is ever visible to another
     connection; an interruption rolls back to the state before the replay,
     lifecycle flags included, so a retry starts from it.
+
+    ``clock`` stamps what the closing whole-ledger projection writes (each
+    attempt's own writes carry the attempt's time).
     """
 
     with repository.atomic():
@@ -303,6 +307,7 @@ def replay_learning_object(
             error_attribution_overrides=error_attribution_overrides,
             grader_identity_overrides=grader_identity_overrides,
             project_canonical_state=project_canonical_state,
+            clock=clock,
         )
 
 
@@ -314,6 +319,7 @@ def _replay_learning_object(
     error_attribution_overrides: dict[str, list[GradeAttribution]] | None,
     grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
     project_canonical_state: bool,
+    clock: Clock | None,
 ) -> ReplayResult:
     attempts = repository.list_attempts_by_learning_object(learning_object_id)
     existing_error_events = {
@@ -342,7 +348,7 @@ def _replay_learning_object(
     replayed: list[AttemptResult] = []
     for index, attempt in enumerate(attempts):
         observed_at = parse_utc(attempt.get("created_at"))
-        clock = FrozenClock(observed_at) if observed_at is not None else None
+        attempt_clock = FrozenClock(observed_at) if observed_at is not None else None
         if claim_stream is not None and observed_at is not None:
             claim_stream.advance_to(index, str(attempt["created_at"]))
         override_attributions = (error_attribution_overrides or {}).get(attempt["id"])
@@ -351,7 +357,7 @@ def _replay_learning_object(
             vault,
             repository,
             attempt,
-            clock=clock,
+            clock=attempt_clock,
             error_event_ids=None if override_attributions is not None else [event["id"] for event in event_snapshot],
             error_events=event_snapshot,
             error_attributions=override_attributions,
@@ -409,7 +415,7 @@ def _replay_learning_object(
         # umbrella disables this per-LO refresh and runs the vault-wide projector
         # once after every LO has replayed; direct callers refresh per LO by
         # default.
-        project_canonical_facet_state(vault, repository)
+        project_canonical_facet_state(vault, repository, clock=clock)
     return ReplayResult(
         learning_object_id=learning_object_id,
         replayed_attempts=len(replayed),
@@ -439,6 +445,7 @@ def rebuild_derived_state(
             repository,
             learning_object_id,
             project_canonical_state=project_canonical_state,
+            clock=clock,
         )
         rebuilt.append(learning_object_id)
         replayed_attempts += result.replayed_attempts

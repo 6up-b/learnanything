@@ -535,6 +535,49 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
     assert receipts_after == receipts_before + 1
 
 
+CANONICAL_TABLES = ("facet_recall_state", "facet_capability_evidence", "capability_residual_state")
+
+
+def _canonical_stamps(repository: Repository) -> set[str]:
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return {
+            str(stamp)
+            for table in CANONICAL_TABLES
+            for row in connection.execute(f"SELECT created_at, updated_at FROM {table}")
+            for stamp in row
+        }
+
+
+def _iso(clock: FrozenClock) -> str:
+    return clock.now().isoformat().replace("+00:00", "Z")
+
+
+def test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given(tmp_path):
+    """Each replayed attempt's writes carry the attempt's time; the closing
+    whole-ledger projection of each learning object writes with the clock the
+    caller passed, never the wall clock (ledger D-35)."""
+
+    from tests.rebuild_equivalence_helpers import _answer, _vault
+
+    _paths, vault, repository = _vault(tmp_path)
+    for minutes, item in ((10, "pi_eig_easy"), (70, "pi_svd_define_001"), (130, "pi_diag_easy"), (190, "pi_eig_mid")):
+        _answer(vault, repository, item, minutes=minutes, points=3.0)
+    # Every cell is new to the rebuild, so what its closing projections write
+    # is theirs (a cell a rebuild leaves as it was keeps its stamps).
+    with connect(repository.sqlite_path) as connection:
+        for table in CANONICAL_TABLES:
+            connection.execute(f"DELETE FROM {table}")
+        connection.commit()
+    frozen = FrozenClock(datetime(2026, 6, 18, 12, 0, tzinfo=UTC))
+
+    rebuild_derived_state(vault, repository, clock=frozen, record_receipt=False)
+
+    attempt_times = {str(attempt["created_at"]) for attempt in repository.list_all_attempts()}
+    stamps = _canonical_stamps(repository)
+    assert _iso(frozen) in stamps
+    assert stamps - attempt_times - {_iso(frozen)} == set()
+
+
 def test_same_version_full_rebuild_is_semantically_idempotent_on_golden_fixture(
     tmp_path,
 ):

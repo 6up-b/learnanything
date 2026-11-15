@@ -678,6 +678,7 @@ def _publish_regrade(
             ]
         },
         grader_identity_overrides=grader_identity_overrides,
+        clock=clock,
     )
     from learnloop.db.stores.write_provenance import record_error_event_lineage, record_grading
 

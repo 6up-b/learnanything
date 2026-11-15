@@ -588,7 +588,7 @@ def apply_integration_backfill_and_recalibrate(
         if edit.learning_object_id not in reloaded.learning_objects:
             continue
         result = replay_learning_object(
-            reloaded, repository, edit.learning_object_id
+            reloaded, repository, edit.learning_object_id, clock=clock
         )
         rebuilt.append(edit.learning_object_id)
         replayed_attempts += result.replayed_attempts
