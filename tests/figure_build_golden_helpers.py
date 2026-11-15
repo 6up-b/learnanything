@@ -34,9 +34,11 @@ from typing import Any
 
 #: The instant every ``SystemClock().now()`` returns in a golden case.
 FROZEN = datetime(2026, 10, 12, 9, 0, 0, tzinfo=UTC)
-#: The tables a figure build or a rich job writes (strategy K10.4), plus the call receipts the gate's order shows in.
+#: The tables a figure build or a rich job writes (strategy K10.4), the call receipts the gate's order shows in, and
+#: what answering a figure's prediction writes (the prediction and the gap job a missed one queues).
 TABLES = ("figure_requests", "interactive_figures", "judgment_ledger", "figure_source_checks", "help_assists",
-          "reveal_events", "ingest_jobs", "decision_records", "model_call_receipts")
+          "reveal_events", "ingest_jobs", "decision_records", "model_call_receipts", "figure_predictions",
+          "learner_text_gap_jobs")
 DURATION_KEYS = frozenset({"duration_ms", "latency_ms", "elapsed_ms", "wall_ms", "duration_seconds"})
 
 _ULID = re.compile(r"(?<![0-9A-Za-z])(?:[0-9A-HJKMNP-TV-Z]{26}|[0-9a-hjkmnp-tv-z]{26})(?![0-9A-Za-z])")

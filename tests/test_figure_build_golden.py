@@ -246,6 +246,16 @@ def case_revision(tmp_path, monkeypatch, sandbox):
     return press.record(sandbox, result=first, second=revised)
 
 
+def case_prediction_missed_and_explained(tmp_path, monkeypatch, sandbox):
+    press = Press(tmp_path / "vault", monkeypatch, [flagship()])
+    figure = build(press.ctx, dict(PRESS))["figure"]
+    found = call(press.ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 0,
+                                                      "answer": "rises"})
+    explained = call(press.ctx, "reader.figure_explain", {"predictionId": found["predictionId"],
+                                                          "text": "λ squeezes both sides toward 0, but p sets the split"})
+    return press.record(sandbox, result=found, second=explained)
+
+
 def case_delivery_withheld(tmp_path, monkeypatch, sandbox):
     from tests.figures_codex_review_helpers import _hold_out
 
