@@ -234,9 +234,9 @@ def test_legacy_learning_object_keeps_the_mastery_band_rung(tmp_path):
     # that applies everywhere, it is honouring contracts where they exist.
     # The mastery-band rung is the incumbent's: from mvp-0.30 the adaptive-difficulty generation
     # contract (§7.1) commissions every plan's point, blueprint or not, and
-    # `adaptive_difficulty.generation_contract` off serves the incumbent exactly. Goes with it in D7.
+    # AD's master switch off serves the incumbent.
     paths = create_basic_vault(tmp_path / "vault")
-    set_config_switch(paths.root, "adaptive_difficulty.generation_contract", False)
+    set_config_switch(paths.root, "adaptive_difficulty.enabled", False)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     _seed_cold_mastery(repository)

@@ -1,6 +1,6 @@
 """Generation at a feature point, and the re-forecast of a landed commission (spec §7.1, §7.4).
 
-**The contract** (AD2+AD3, switch ``generation_contract``): wherever the
+**The contract** (AD2+AD3, under AD's master switch): wherever the
 generation path picks a waypoint for an LO, AD's commission draw names the
 feature point (§6.1) at the waypoint's capability, for the LO's
 highest-weight facet. The commissioned ``RungTarget`` carries the capability,
@@ -35,7 +35,7 @@ from learnloop.db.stores import ad_serving as store
 from learnloop.adaptive_difficulty import predict as PR
 from learnloop.adaptive_difficulty import replay as RP
 from learnloop.adaptive_difficulty import selection as S
-from learnloop.adaptive_difficulty.successor import generation_contract_on, successor_active
+from learnloop.adaptive_difficulty.successor import successor_active
 
 LOG = logging.getLogger(__name__)
 
@@ -126,7 +126,10 @@ class CommissionedRequestGuard:
 
 
 def contract_on(config: Any) -> bool:
-    return generation_contract_on(config)
+    """The generation contract applies wherever AD is on (its own switch went once every vault was past
+    ``mvp-0.30``)."""
+
+    return successor_active(config)
 
 
 def lo_cell_facet(view: Any, learning_object_id: str) -> str | None:
@@ -173,7 +176,7 @@ def rung_features(point: Mapping[str, Any]) -> dict[str, Any]:
 def commission_point(vault: Any, repository: Any, *, learning_object_id: str, incumbent: Any,
                      now: str, selection_id: str | None = None,
                      view: Any = None) -> tuple[dict[str, Any], str, str] | None:
-    """Under ``generation_contract``: ``(features, capability, selection id)`` of the commissioned
+    """Under the generation contract: ``(features, capability, selection id)`` of the commissioned
     point for the LO's cell at the incumbent waypoint's capability (the open commission, else a new
     commission draw). The generation path builds its ``RungTarget`` from it, with ``max`` equal to
     the point on every dimension.
@@ -289,7 +292,7 @@ def schedule_commission_generation(vault: Any, repository: Any,
     gates; the item's landing is recorded at a later serve (§7.4). Returns the commissions
     handed to ``enqueue``; never raises (scheduling never fails a serve)."""
 
-    if enqueue is None or not successor_active(vault.config) or not contract_on(vault.config):
+    if enqueue is None or not contract_on(vault.config):
         return []
     try:
         rows = _queueable_commissions(vault, repository)

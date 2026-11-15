@@ -400,7 +400,9 @@ INTENT_ALGORITHM_VERSION = "mvp-0.29"
 # numbers and the router card's AD fields read the subject view. Six kill
 # switches under [adaptive_difficulty], each restoring its part of mvp-0.29
 # exactly: selection, generation_contract, promoted_predictor,
-# learned_coupling, reading_opportunities, reading_self_check. It changes what
+# learned_coupling, reading_opportunities, reading_self_check
+# (generation_contract went once every vault was past the tag; the contract
+# runs under AD's master switch). It changes what
 # is SERVED, never the authority-propagation projection, evidence, mastery,
 # FSRS or certification (A2, A11, A12), so it is another successor tag on the
 # mvp-0.8 namespace. The Reader's randomized dose offers ship beside it with

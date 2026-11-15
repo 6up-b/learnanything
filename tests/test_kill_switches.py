@@ -84,7 +84,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "teacher.probes",
     "adaptive_difficulty.enabled",
     "adaptive_difficulty.selection",
-    "adaptive_difficulty.generation_contract",
     "adaptive_difficulty.promoted_predictor",
     "adaptive_difficulty.learned_coupling",
     "adaptive_difficulty.reading_opportunities",

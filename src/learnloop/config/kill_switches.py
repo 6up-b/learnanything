@@ -91,7 +91,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("teacher.probes", "mvp-0.51", True),
     KillSwitch("adaptive_difficulty.enabled", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.selection", "mvp-0.30", True),
-    KillSwitch("adaptive_difficulty.generation_contract", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.promoted_predictor", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.learned_coupling", "mvp-0.30", False),
     KillSwitch("adaptive_difficulty.reading_opportunities", "mvp-0.30", True),

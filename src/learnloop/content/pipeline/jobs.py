@@ -3436,8 +3436,7 @@ def _record_commission_skip(ctx: JobContext, commission_id: str, rule: str) -> N
 def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]:
     """One item at an open AD commission's point, through the ordinary generation path and
     its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4). A
-    commission that has landed, or that the generation contract no longer applies to, is a
-    no-op success."""
+    commission that has landed, or one queued before AD was switched off, is a no-op success."""
 
     from learnloop.adaptive_difficulty.generation import contract_on
     from learnloop.content.authoring.practice_generation import (
@@ -3448,7 +3447,7 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
 
     vault = load_vault(ctx.vault_root)
     if not contract_on(vault.config):
-        return {"generated": 0, "skipped_reason": "generation_contract off"}
+        return {"generated": 0, "skipped_reason": "adaptive_difficulty off"}
     from learnloop.adaptive_difficulty.operation import ad_operation
 
     # The commission is open as AD's material view sees it (a withheld landing closes nothing);

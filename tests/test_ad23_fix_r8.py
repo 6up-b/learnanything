@@ -242,7 +242,7 @@ def _sentinel_vault(tmp_path, *, ad: str = ""):
 def test_a_withheld_items_metadata_never_reaches_an_ad_generation_target(tmp_path, monkeypatch):
     """F21: under the generation contract the LO's target counts one existing item and names
     neither ``HELD_SENTINEL`` nor ``HELD_FAMILY`` (failed before: 2 items, both named, in the
-    ``Targets:`` payload). With the contract off the predecessor's target is unchanged."""
+    ``Targets:`` payload)."""
 
     _hold_out(monkeypatch, "held")
     target, text = _target(_sentinel_vault(tmp_path / "on"))
@@ -250,9 +250,6 @@ def test_a_withheld_items_metadata_never_reaches_an_ad_generation_target(tmp_pat
     assert target.existing_practice_items == 1
     assert "HELD_SENTINEL" not in target.existing_evidence_facets and "HELD_SENTINEL" not in text
     assert "HELD_FAMILY" not in target.existing_surface_families and "HELD_FAMILY" not in text
-    off, _text = _target(_sentinel_vault(tmp_path / "off", ad="generation_contract = false\n"))
-    assert off.ad_commission_id is None and off.existing_practice_items == 2
-    assert "HELD_SENTINEL" in off.existing_evidence_facets and "HELD_FAMILY" in off.existing_surface_families
 
 
 # -- F22: selection's protection is unconditional and fails closed ---------------------------------------

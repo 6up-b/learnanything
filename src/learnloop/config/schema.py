@@ -4523,7 +4523,7 @@ class AskConfig(KeepsRetiredFields):
 AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider", "llm_history_v1")
 
 
-class AdaptiveDifficultyConfig(BaseModel):
+class AdaptiveDifficultyConfig(KeepsRetiredFields):
     """Adaptive difficulty.
 
     The measuring and logging keys are not an algorithm successor: they write
@@ -4565,17 +4565,16 @@ class AdaptiveDifficultyConfig(BaseModel):
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
 
-    The ``mvp-0.30`` successor (dormant below the tag), each switch false
-    restoring its part of the predecessor exactly:
+    The ``mvp-0.30`` successor, each switch false restoring its part of the
+    predecessor exactly (its generation contract, which asks for an item AT a
+    commissioned feature point with no difficulty band, runs whenever
+    ``enabled`` is on: its switch went once every vault was past the tag):
 
     * ``selection``: a planned new-material slot is served by AD's draw over its
       support (practice in the band, calibration within acceptable difficulty,
       exact logged propensities); an empty support displaces the slot and defers
       its item until its blocking condition clears. Off: no draw, no
       substitution, no deferral.
-    * ``generation_contract``: generation asks for an item AT a commissioned
-      feature point, with no difficulty band. Off: the predecessor's prompt and
-      band check.
     * ``promoted_predictor``: live decisions and the readiness numbers read the
       subject view. Off: each LO's own view, and no AD readiness numbers.
     * ``learned_coupling``: the subject view's learned loadings and couplings and
@@ -4618,7 +4617,6 @@ class AdaptiveDifficultyConfig(BaseModel):
     daily_spend_cap_usd: float = Field(default=0.50, ge=0.0)
     price_per_million: float | None = Field(default=None, gt=0)
     selection: bool = True
-    generation_contract: bool = True
     promoted_predictor: bool = True
     learned_coupling: bool = False
     reading_opportunities: bool = True
