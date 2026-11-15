@@ -20,6 +20,7 @@ import json
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.db.stores import figures as store
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.figures import spec as S
 from tests import figure_corpus as FC
 from tests.reading_path_fixtures import call, context
@@ -182,7 +183,7 @@ def test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes(tmp_path, 
                 "prompt_version": "v1", "input_hash": f"hash_{figure_id}", "created_at": "2026-10-30T00:00:00Z",
             })
             connection.commit()
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     verified: list[object] = []
     real = SV.verify_sketch
 

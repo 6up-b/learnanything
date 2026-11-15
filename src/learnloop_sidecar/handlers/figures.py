@@ -83,6 +83,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.figures.protection import ATTEMPT_HOST_REFS, figure_withheld
 from learnloop.figures.sketch import sketch_ready
 from learnloop.substrate.activities import log_interaction_event
@@ -199,7 +200,7 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
         # Follow-ups Nov 2: the kept view's fuller version is rebuilt from the
         # current rows (rechecked like any figure as it goes out), never the
         # one read when the build finished.
-        figure = FS.redelivered_view(vault, repository, figure)
+        figure = FV.redelivered_view(vault, repository, figure)
         result = {**result, "figure": figure}
     if attempt is not None and figure:
         # RW5d P3: a figure on an attempt host is recorded as it goes out (one
@@ -1042,7 +1043,7 @@ def attempt_view(view: dict[str, Any]) -> dict[str, Any]:
 def _refuse_rich(row: dict[str, Any] | None) -> None:
     """Ruling R1: a rich figure is never opened or revised on an attempt host."""
 
-    if row is not None and FS.rich_row(row):
+    if row is not None and FV.rich_row(row):
         raise SidecarError("validation_error", RICH_READER_ONLY)
 
 
@@ -1361,7 +1362,7 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
                    for key in {host.submission_id, *submissions} if key):
                 return {"host": "feedback", "line": COST_LINES["feedback"], "counts_as_hint": False,
                         "status": "free"}
-            if FS.rich_row(figure_store.figure(connection, figure_id) or {}):
+            if FV.rich_row(figure_store.figure(connection, figure_id) or {}):
                 # Ruling R1: a rich figure is never recorded (or shown) on an attempt host.
                 return {"host": host.kind, "status": "not_recorded", "message": RICH_READER_ONLY}
             root = chain_root(connection, figure_id)
@@ -1529,7 +1530,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
     _refuse_own_blocks(vault, repository, host.item_id, row)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         versions = len([1 for _ in figure_store.superseding(connection, str(figure_id))]) + 1
-    view = attempt_view(FS.figure_view(vault, repository, row, versions=versions))
+    view = attempt_view(FV.figure_view(vault, repository, row, versions=versions))
     help_line = record_attempt_figure(ctx, host.record(), figure_id)
     if help_line.get("status") in ("not_recorded", "disabled"):
         return versioned({"figure": None, "help": help_line})

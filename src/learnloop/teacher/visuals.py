@@ -329,15 +329,15 @@ def lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] |
     figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a
     lesson host is grammar and sketch only)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import view as FV
     from learnloop.figures.protection import figure_withheld
 
     if figure_withheld(vault, repository, figure_id):
         return None
     row = figure_row(repository, figure_id)
-    if row is None or FS.rich_row(row):
+    if row is None or FV.rich_row(row):
         return None
-    view = FS.figure_view(vault, repository, row)
+    view = FV.figure_view(vault, repository, row)
     if view.get("verification") not in ("verified", "illustrative") or not view.get("spec_json"):
         return None
     view["predictions"] = []

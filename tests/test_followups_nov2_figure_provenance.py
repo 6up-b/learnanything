@@ -31,6 +31,7 @@ from types import SimpleNamespace
 from learnloop.db.stores import figures as store
 from learnloop.figures import protection as FP
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows
 from tests.reading_path_fixtures import call
@@ -301,12 +302,12 @@ def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched
     vault = load_vault(world.root)
     with world.repository.connection() as connection:
         fresh = store.figure(connection, fresh_id)
-    assert FS.drawable_now(vault, fresh)
+    assert FV.drawable_now(vault, fresh)
     panels = bool(vault.config.figures.advanced_panels_enabled)
     _panels(world.paths, not panels)
     vault = load_vault(world.root)
     assert bool(vault.config.figures.advanced_panels_enabled) is not panels
-    assert FS.drawable_now(vault, fresh)  # still drawable under the other setting
+    assert FV.drawable_now(vault, fresh)  # still drawable under the other setting
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
     assert third["state"] == "done" and third["result"]["figure"]["figureId"] == fresh_id, third

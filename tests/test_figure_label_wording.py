@@ -28,6 +28,7 @@ import pytest
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
 from tests import sketch_fixtures as F
@@ -70,9 +71,9 @@ def test_the_vocabulary_comes_from_the_code_owned_labels():
     for label in L.CODE_OWNED_LABELS:
         assert L.label_like(label) is not None, label
         assert L.label_like(f"the figure: {label.upper()}") is not None, label
-    assert FS.SKETCH_LABEL is L.SKETCH_LABEL and FS.SKETCH_UNCHECKED_LABEL is L.SKETCH_UNCHECKED_LABEL
-    assert FS.SKETCH_NOT_FROM_BOOKS_LABEL is L.SKETCH_NOT_FROM_BOOKS_LABEL
-    assert FS.NOT_FROM_BOOKS_LABEL is L.NOT_FROM_BOOKS_LABEL and FS.LABELS["illustrative"] is L.ILLUSTRATIVE_LABEL
+    assert FV.SKETCH_LABEL is L.SKETCH_LABEL and FV.SKETCH_UNCHECKED_LABEL is L.SKETCH_UNCHECKED_LABEL
+    assert FV.SKETCH_NOT_FROM_BOOKS_LABEL is L.SKETCH_NOT_FROM_BOOKS_LABEL
+    assert FV.NOT_FROM_BOOKS_LABEL is L.NOT_FROM_BOOKS_LABEL and FV.LABELS["illustrative"] is L.ILLUSTRATIVE_LABEL
     assert RICH.MANIM_LABEL is L.MANIM_LABEL and RICH.MANIM_UNCHECKED_LABEL is L.MANIM_UNCHECKED_LABEL
     assert RICH.MANIM_NOT_FROM_BOOKS_LABEL is L.MANIM_NOT_FROM_BOOKS_LABEL
     assert RICH.MANIM_NOT_COVERED is L.MANIM_NOT_COVERED

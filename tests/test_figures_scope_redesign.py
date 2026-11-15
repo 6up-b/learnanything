@@ -26,6 +26,7 @@ import pytest
 from learnloop.ai.execution import model_call
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
     EQUATION_TEXT,
@@ -83,7 +84,7 @@ def test_no_figure_is_labelled_checked(tmp_path, spec):
     figure = build(ctx)["figure"]
     assert figure["verification"] == "illustrative"
     assert "checked" not in figure["label"].replace("not checked", "")
-    assert figure["reason"] == FS.RECONSTRUCTION_REASON and verifier.calls == 0
+    assert figure["reason"] == FV.RECONSTRUCTION_REASON and verifier.calls == 0
     (row,) = rows(repository, "interactive_figures")
     assert row["verification"] == "illustrative"
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
@@ -100,7 +101,7 @@ def test_a_stored_verified_row_is_rendered_as_an_illustration(tmp_path):
         connection.execute("UPDATE interactive_figures SET verification = 'verified'")
         connection.commit()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert listed["verification"] == "illustrative" and listed["reason"] == FS.RECONSTRUCTION_REASON
+    assert listed["verification"] == "illustrative" and listed["reason"] == FV.RECONSTRUCTION_REASON
     assert listed["label"] == "AI-built illustration of an interpretation · not checked against the book"
 
 

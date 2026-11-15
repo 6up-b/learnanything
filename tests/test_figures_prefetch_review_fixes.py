@@ -42,6 +42,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
@@ -813,18 +814,18 @@ def _quick_row(rig: _Rig) -> dict:
 
     with rig.repository.connection() as connection:
         found = store.figures_for_extraction(connection, EXTRACTION)
-    (quick,) = [row for row in found if not FS.rich_row(row)]
+    (quick,) = [row for row in found if not FV.rich_row(row)]
     return quick
 
 
 def test_r1_an_unqueued_speculative_fuller_is_not_pending_on_battery(tmp_path, monkeypatch):
     rig = _unqueued_prebuild_intent(tmp_path, monkeypatch)
     quick = _quick_row(rig)
-    on_mains = FS.fuller_state(rig.vault, rig.repository, quick)
+    on_mains = FV.fuller_state(rig.vault, rig.repository, quick)
     # On mains the next read starts it (resume_rich_intents): pending, and marked speculative.
     assert on_mains["state"] == "pending" and on_mains["speculative"] is True
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    assert FS.fuller_state(rig.vault, rig.repository, quick) is None
+    assert FV.fuller_state(rig.vault, rig.repository, quick) is None
     (listed,) = rig.listed()
     assert listed["fuller"] is None  # the Reader has nothing to poll for
 
@@ -833,11 +834,11 @@ def test_r1_an_unqueued_speculative_fuller_is_not_pending_switched_off_or_held_o
     rig = _unqueued_prebuild_intent(tmp_path, monkeypatch)
     quick = _quick_row(rig)
     RF.configure(rig.paths, prefetch_enabled=False)
-    assert FS.fuller_state(load_vault(rig.paths.root), rig.repository, quick) is None
+    assert FV.fuller_state(load_vault(rig.paths.root), rig.repository, quick) is None
     RF.configure(rig.paths, prefetch_enabled=True)
-    assert FS.fuller_state(rig.vault, rig.repository, quick)["state"] == "pending"
+    assert FV.fuller_state(rig.vault, rig.repository, quick)["state"] == "pending"
     _held(monkeypatch, {"p3"})
-    assert FS.fuller_state(rig.vault, rig.repository, quick) is None
+    assert FV.fuller_state(rig.vault, rig.repository, quick) is None
 
 
 def test_r1_a_pressed_fuller_keeps_its_pending_line_and_is_not_speculative(tmp_path, monkeypatch):
@@ -849,7 +850,7 @@ def test_r1_a_pressed_fuller_keeps_its_pending_line_and_is_not_speculative(tmp_p
     FS.build_figure(rig.vault, rig.repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                     author_client=rig.author, spawn_rich=lost)
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    fuller = FS.fuller_state(rig.vault, rig.repository, _quick_row(rig))
+    fuller = FV.fuller_state(rig.vault, rig.repository, _quick_row(rig))
     assert fuller["state"] == "pending" and "speculative" not in fuller
 
 
@@ -857,7 +858,7 @@ def test_r1_a_queued_speculative_fuller_is_marked_speculative(tmp_path, monkeypa
     rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
     FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
                              spawn_rich=rig.spawn)
-    fuller = FS.fuller_state(rig.vault, rig.repository, _quick_row(rig))
+    fuller = FV.fuller_state(rig.vault, rig.repository, _quick_row(rig))
     assert fuller["state"] == "pending" and fuller["speculative"] is True
 
 

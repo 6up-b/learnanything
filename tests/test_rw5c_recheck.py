@@ -12,8 +12,10 @@ from learnloop.cli.app import app
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
+from learnloop.figures import power as P
 from learnloop.figures import service as FS
 from learnloop.figures import source_check as SC
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import AuthorFake, build, call, context, rows, set_config
@@ -293,16 +295,25 @@ def test_the_reuse_key_is_unchanged_without_a_source_check_id():
 
 
 @sandboxed
-def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_path, monkeypatch):
-    paths, repository, _author, ctx = _vault(tmp_path, [HALF])
-    figure = _stored_before_rw5c(paths, ctx, DENSITY)
-    with repository.connection() as connection:
-        connection.execute("UPDATE interactive_figures SET origin = 'prefetch' WHERE id = ?", (figure["figureId"],))
-        connection.commit()
-    monkeypatch.setattr(FS, "_prebuilt_pressed", lambda _repository, _row: False)
-    full = store.figure(repository.connection(), figure["figureId"])
+def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_path):
+    paths, repository, author, _ctx = _vault(tmp_path, [HALF])
+    # A real pre-build (its request's build mode is ``prefetch``: nobody pressed for it), made before RW5c.
+    set_config(paths, "figures", prefetch_enabled=True)
+    set_switch(paths, False)
+    P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
+    try:
+        outcome = FS.build_prefetch_figure(load_vault(paths.root), repository, FS.FigureRequest(
+            extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
+    finally:
+        P.set_power_reader(None)
+    set_switch(paths, True)
+    figure_id = outcome.view["figure_id"]
+    reader = context(paths.root, author=AuthorFake())
+    assert [figure["figureId"] for figure in call(reader, "reader.figures", {"extractionId": EXTRACTION})["figures"]] \
+        == [figure_id]
+    full = store.figure(repository.connection(), figure_id)
     SC.recheck(load_vault(paths.root), repository, full)
-    assert call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
+    assert call(reader, "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
 
 
 @sandboxed
@@ -326,7 +337,7 @@ def test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label(tmp_
     ctx.vault = None
     fresh = call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
     assert "elements" not in fresh and "sourceCheck" not in fresh and "the model's name" in fresh["specJson"]
-    view = FS.redelivered_view(load_vault(paths.root), repository, {
+    view = FV.redelivered_view(load_vault(paths.root), repository, {
         "figure_id": fresh["figureId"], "elements": [{"id": "x"}], "source_check": {"status": "checked"}, "spec_json": "stale",
         "versions": 1})
     assert "elements" not in view and "source_check" not in view and "the model's name" in view["spec_json"]
