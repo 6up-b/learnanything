@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.clock import utc_now_iso
+from learnloop.clock import Clock, utc_now_iso
 from learnloop.substrate.instrument_serving import unservable_refusal
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
@@ -1054,7 +1054,7 @@ def _record_need_served(vault: Any, repository: Any, need: dict[str, Any], outco
 
 
 def _pick_primed_sibling(
-    vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None
+    vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None, *, clock: Clock | None = None
 ) -> tuple[Any | None, list[dict[str, Any]]]:
     """Sibling items on the same LO, best-first.
 
@@ -1076,6 +1076,10 @@ def _pick_primed_sibling(
     learner-visible "why not" channel (``reason`` on the unavailable response),
     and a skip nobody can see is indistinguishable from the picker being broken —
     the LO has items, none is offered, and nothing says which rule ate them.
+
+    "Recent" is measured on ``clock`` (the wall clock when None), the clock the
+    attempt times were written on: on the wall clock a frozen-clock test or a
+    replay would count an answer from minutes ago as months old.
     """
 
     from learnloop.clock import SystemClock, parse_utc
@@ -1097,7 +1101,7 @@ def _pick_primed_sibling(
             else None
         )
     )
-    now = SystemClock().now()
+    now = (clock or SystemClock()).now()
     candidates = []
     skipped: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
