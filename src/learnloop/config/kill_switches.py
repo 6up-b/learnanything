@@ -98,8 +98,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("workbench.field_signals_enabled", "mvp-0.31", True),
     # The teacher and adaptive difficulty
     KillSwitch("teacher.enabled", "mvp-0.41", True),
-    KillSwitch("teacher.weight.learned", "mvp-0.41", True),
-    KillSwitch("teacher.weight.source", "mvp-0.41", "pool"),
     KillSwitch("teacher.probes", "mvp-0.51", True),
     KillSwitch("adaptive_difficulty.enabled", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.selection", "mvp-0.30", True),

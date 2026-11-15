@@ -652,11 +652,10 @@ DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 # successor (the playbook; spec §18.3). Replay reads each check's recorded
 # mass (``lesson_checks``, a RECEIPT) through the one as-of seam
 # (``learner.lesson_weight.lesson_check_mass``); the weight posterior and the
-# tap/hedge recalibration are DERIVED (one replayer). Kill switches:
-# ``teacher.enabled`` (off, or below the tag: no lesson opens, so nothing
-# here writes and every path is mvp-0.40's byte for byte) and
-# ``teacher.weight.learned`` (off: a lesson check enters at the type's
-# configured 0.5); ``teacher.weight.source = "parametric"`` drops the pool.
+# tap/hedge recalibration are DERIVED (one replayer). Kill switch:
+# ``teacher.enabled`` (off: no lesson opens, so nothing here writes and every
+# path is mvp-0.40's byte for byte). The weight's own switches (the type's
+# 0.5; the learned mass without the pool) went once every vault was past the tag.
 TEACHER_ALGORITHM_VERSION = "mvp-0.41"
 # mvp-0.42 (the help fold counts exactly the help rows that attach;
 # follow-ups Nov 2 (b) and its Codex review F1; docs/reviews/followups-nov2.md),

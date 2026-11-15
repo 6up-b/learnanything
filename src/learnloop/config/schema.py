@@ -4471,13 +4471,6 @@ class UiConfig(BaseModel):
     show_router_decisions: bool = True
 
 
-class TeacherWeightConfig(BaseModel):
-    """The lesson-check weight's switches: operational only."""
-
-    learned: bool = True
-    source: Literal["pool", "parametric"] = "pool"
-
-
 class TeacherBriefConfig(BaseModel):
     """What the lesson brief holds: the prerequisite depth (fixed) and the deliverable switch."""
 
@@ -4507,7 +4500,7 @@ class TeacherPlacementConfig(BaseModel):
     max_probes: int = Field(default=8, ge=0, le=8)
 
 
-class TeacherConfig(BaseModel):
+class TeacherConfig(KeepsRetiredFields):
     """Teacher. The learner's confidence tap and the grader's hedge read,
     rendered as events with the outcome (``learnloop.confidence_events``), in
     the router card (``learner_state_card_v2``), the history-aware diagnoser
@@ -4519,15 +4512,13 @@ class TeacherConfig(BaseModel):
     Context only: no scoring, scheduling, projection or serving reads it, at
     any algorithm version (no successor).
 
-    The lessons, the kill switches of ``TEACHER_ALGORITHM_VERSION``:
+    The lessons (``TEACHER_ALGORITHM_VERSION``). A lesson check enters mastery at
+    the learned mass, with the teacher's forecast mixed in by the learned pool
+    weight where the teacher forecast the node (spec_teacher_v1 §12.1, §12.2).
 
-    * ``enabled``: at that tag or later, a lesson the learner starts may open
+    * ``enabled``, the kill switch: at that tag or later, a lesson the learner starts may open
       (``learnloop.teacher``). Off, or below the tag, no lesson opens: nothing
       of the lessons writes and every path is its predecessor's byte for byte.
-    * ``weight.learned``: a lesson check enters mastery at the learned mass;
-      off, at the type's configured mass (0.5).
-    * ``weight.source``: ``pool`` mixes in the teacher's forecast by the
-      learned pool weight; ``parametric`` uses the learned mass alone.
     * ``brief.depth`` and ``context.sources_tokens``: context budgets
       (fixed); ``brief.use_deliverable`` is the deliverable switch (the
       brief's goal and sources from the deliverable and its path, and the
@@ -4572,7 +4563,6 @@ class TeacherConfig(BaseModel):
     confidence_events_enabled: bool = True
     # The lessons' kill switch (off, or below the tag: no lesson opens).
     enabled: bool = True
-    weight: TeacherWeightConfig = Field(default_factory=TeacherWeightConfig)
     brief: TeacherBriefConfig = Field(default_factory=TeacherBriefConfig)
     context: TeacherContextConfig = Field(default_factory=TeacherContextConfig)
     delayed: TeacherDelayedConfig = Field(default_factory=TeacherDelayedConfig)

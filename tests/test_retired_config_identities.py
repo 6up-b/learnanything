@@ -250,6 +250,18 @@ def _pre_arc_c_shape(dump: dict) -> dict:
         impact["lo_mastery_delta"] = -0.05 if key in {"recall_failure", "scaffold_failure"} else 0.0
     for key, example in shaped["recall_coverage"]["severity_examples"].items():
         example["target_error_type"] = "arithmetic_slip" if key == "arithmetic_slip" else None
+    # The kill switches removed since, at their defaults (a section that lost its last field goes whole).
+    shaped["diagnosis"].update(split_enabled=True, shadow=False)
+    shaped["stuck_prompt"] = {"enabled": True}
+    shaped["proof_check"] = {"enabled": True}
+    shaped["required_method"] = {"enabled": True}
+    shaped["hints"]["fold_follows_attach"] = True
+    shaped["mastery"]["claim_fixes_enabled"] = True
+    shaped["replay"] = {"ledger_bounded": True}
+    shaped["practice"].update(attempt_keeps_content_state=True, reschedule_cold_after_assist=True)
+    shaped["ask"]["cold_help_converts"] = True
+    shaped["eligibility"] = {"enabled": True}
+    shaped["teacher"]["weight"] = {"learned": True, "source": "pool"}
     return shaped
 
 
@@ -294,3 +306,137 @@ def test_an_embedding_compare_report_is_named_as_before_arc_c(tmp_path):
                                         max_total_tokens=10**9, max_estimated_usd=10**4),
                          price_per_million=2.0, clients=clients)
     assert report["manifest"]["config_hash"] == content_key(_pre_arc_c_shape(vault.config.model_dump(mode="json")))
+
+
+# --- the kill switches the version floor passed (ADR-019) -------------------------------------------------------
+
+#: A ``learnloop.toml`` setting every kill switch the first removal batch takes, each away from its default (the
+#: predecessor's value). The owner's vaults set none of them; a vault that still does must load, and every identity
+#: that dumped the section must keep the bytes it had while the switch existed.
+SWITCHES_TOML = """\
+[diagnosis]
+split_enabled = false
+shadow = true
+
+[stuck_prompt]
+enabled = false
+
+[proof_check]
+enabled = false
+
+[required_method]
+enabled = false
+
+[hints]
+fold_follows_attach = false
+
+[mastery]
+claim_fixes_enabled = false
+
+[replay]
+ledger_bounded = false
+
+[practice]
+attempt_keeps_content_state = false
+reschedule_cold_after_assist = false
+
+[ask]
+cold_help_converts = false
+
+[eligibility]
+enabled = false
+
+[teacher.weight]
+learned = false
+source = "parametric"
+"""
+
+#: Recorded at ``b4c8fbad98`` (the switches all present) from a ``git archive`` extract on the same inputs:
+#: ``content_key(identity_dump(config))``, the sha256 of ``identity_dump(config.mastery)`` (C1's section), and the
+#: two predictor version hashes that dump the mastery section.
+SWITCHES_BASE_IDENTITIES = {
+    "default": {
+        "config": "31b289ba4099f83919ec2226a9349e8457d20b8d8b18ecce318cd6cc0057771c",
+        "mastery": "3b21afb8e641f0b1970adc413ec64320ebcdfd2bfdfa432db91118ef3b3c8239",
+        "live_mastery": "cf2f953ebde8596e5f0b90b0c836d8740ad55e0701a01f7d0fd45c498431479f",
+        "lo_general": "6ebe01dffc5633e41eaae22fb2e93c7640782ab53d4e4258d49a213f626b3c48",
+    },
+    "switched": {
+        "config": "1f18b851de9635a025cb9adb50726302ffe7e605cc0b6432195125e60aed3162",
+        "mastery": "df3572352b5d0f68c3ed12007910a56ebd5b40de248bd7fe9a063573a0cd280e",
+        "live_mastery": "30ece97b76db29523d151958e3929b024ac871ab6844636fc7cb4878ec8fcfa5",
+        "lo_general": "6ebe01dffc5633e41eaae22fb2e93c7640782ab53d4e4258d49a213f626b3c48",
+    },
+}
+
+
+def _removed_switches() -> list:
+    from learnloop.config.retired import RETIRED_FIELDS
+
+    return [field for field in RETIRED_FIELDS if field.removed_by == "D7"]
+
+
+@pytest.mark.parametrize("case", ["default", "switched"])
+def test_a_config_setting_the_removed_switches_keeps_every_identity(tmp_path, case):
+    from learnloop.config.retired import identity_dump
+
+    path = tmp_path / "switches.toml"
+    path.write_text(SWITCHES_TOML, encoding="utf-8")
+    config = LearnLoopConfig() if case == "default" else load_config(path, load_environment=False)
+    expected = SWITCHES_BASE_IDENTITIES[case]
+    repository = SimpleNamespace(mastery_states=lambda: {}, item_parameter_states=lambda: {})
+    assert content_key(identity_dump(config)) == expected["config"]
+    assert _sha256(identity_dump(config.mastery)) == expected["mastery"]
+    assert LiveMasteryPredictor(SimpleNamespace(config=config), repository).version_hash == expected["live_mastery"]
+    assert create_predictor("lo_general", config=config.mastery).version_hash == expected["lo_general"]
+
+
+def test_every_removed_switch_is_in_the_switches_config_away_from_its_default():
+    import tomllib
+
+    given = tomllib.loads(SWITCHES_TOML)
+    for field in _removed_switches():
+        node = given
+        for key in (*_section_of(field), *field.path):
+            node = node[key]
+        assert node != field.default, field
+
+
+def _section_of(field) -> tuple[str, ...]:
+    """The config path of the model a retired field lived on ("" for the root)."""
+
+    from learnloop.config import schema
+
+    def walk(model, prefix):
+        if model.__name__ == field.model:
+            yield prefix
+        for name, info in model.model_fields.items():
+            annotation = info.annotation
+            if isinstance(annotation, type) and issubclass(annotation, schema.BaseModel):
+                yield from walk(annotation, (*prefix, name))
+
+    found = list(walk(schema.LearnLoopConfig, ()))
+    assert len(found) == 1, (field.model, found)
+    return found[0]
+
+
+def test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing(tmp_path):
+    """The key is ignored, not refused: the vault opens, no model has the field, and only an identity dump shows the
+    value the file set."""
+
+    from learnloop.config.retired import identity_dump
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    append_config_toml(paths.root, SWITCHES_TOML)
+    config = load_vault(paths.root).config
+    dump = identity_dump(config)
+    for field in _removed_switches():
+        model, node = config, dump
+        for key in _section_of(field):
+            model, node = getattr(model, key), node[key]
+        assert field.path[0] not in type(model).model_fields, field
+        for key in field.path:
+            node = node[key]
+        assert node != field.default, field

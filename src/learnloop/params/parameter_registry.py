@@ -1938,18 +1938,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "repair's effect slope split by the miss's cause (gamma_gap, gamma_slip with seeded priors, gamma_slip's centred "
         "at 0), p_gap calibrated by a learned surprise coefficient with a prior centred at 0, no threshold; off, "
         "mvp-0.56's numeric values."),
-    # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
-    # and curriculum C4's brief switch. Booleans and an enum (classified so every
-    # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
-    # priors are the module constants of learner.lesson_weight), so no weight,
-    # margin or threshold is added here. Off restores mvp-0.40 exactly.
+    # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switch
+    # and curriculum C4's brief switch (booleans, classified so every new key has
+    # a rule); the lesson-check mass is learned (§12.1, its seeded priors are the
+    # module constants of learner.lesson_weight), so no weight, margin or
+    # threshold is added here. Off restores mvp-0.40 exactly.
     _ConfigRule(_exact(
-        "teacher.enabled", "teacher.weight.learned", "teacher.weight.source", "teacher.brief.use_deliverable",
+        "teacher.enabled", "teacher.brief.use_deliverable",
     ), "structural", "operational",
-        "kill switches for teacher TE1's successor: lessons may open / a lesson check enters mastery at the "
-        "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
-        "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
-        "learned quantities move with the data, never with these."),
+        "kill switch for teacher TE1's successor: lessons may open / curriculum C4's deliverable and notes in "
+        "the brief. Operational only: the learned quantities move with the data, never with these."),
     # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the successor's kill
     # switch, and the probes one lesson may ask for (keep: a burden guardrail, the teacher decides when to stop).
     _ConfigRule(_exact(

@@ -1410,15 +1410,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "draw it binds shows no card and is logged with ceiling_bound. The card is drawn at most once a day, so the "
         "default 3 binds only if that rule is relaxed."
     ),
-    "teacher.weight.learned": (
-        "Operational switch of the learned lesson-check weight (spec_teacher_v1 §12.1): on, a lesson check enters "
-        "mastery at the posterior mean of sigma(eta) as of the check; off, at the type's configured 0.5. Replay "
-        "reads each check's recorded mass, never this switch."
-    ),
-    "teacher.weight.source": (
-        "pool: the learned pool weight mixes the teacher's lesson_step_retained forecast into the mass (spec §12.2); "
-        "parametric: §12.1's mass alone. Operational only; replay reads the recorded mass."
-    ),
     "teacher.brief.use_deliverable": (
         "Curriculum C4's switch (spec_deliverable_curriculum_v1 §8.2): the brief's goal and sources from the "
         "nearest deliverable naming the lesson's topics and its path (primaries whole, alternates as outline), "

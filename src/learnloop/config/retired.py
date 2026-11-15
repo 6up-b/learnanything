@@ -1,4 +1,5 @@
-"""Config fields arc C retired, kept only for the identities that hashed them.
+"""Config fields that were removed (by arc C, and the kill switches the version floor passed), kept only for the
+identities that hashed them.
 
 Arc C (``docs/specs/refactor_strategy_v3.md`` §2.1, §2.5) removed config fields nothing read, under the rule that a
 deletion changes nothing at a fixed input. A few places hash a config section into an identity that is compared
@@ -8,7 +9,9 @@ harness's arm hashes). Removing a field changed such a hash at a fixed input: a 
 so a paid generation started again, and an unchanged predictor read as a new version (Codex review of arc C,
 finding 1; ``docs/reviews/arcC-review-fixes.md``). Those sites dump through :func:`identity_dump`, which puts every
 retired field back with the value the code before arc C would have dumped: what the model's input set (each model
-here remembers it when validated) or the recorded default.
+here remembers it when validated) or the recorded default. A kill switch removed because every vault is past its
+tag (ADR-019) comes here the same way: an identity that dumped its section keeps its bytes, and a vault whose
+``learnloop.toml`` still sets the key loads as before (the key is read by nothing).
 
 The models do not get the fields back: nothing reads them, an old config's value changes no behaviour, and only an
 identity dump shows them. Never list a field here that something should read. A stored payload or a provenance-only
@@ -20,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cache
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, PrivateAttr, TypeAdapter, ValidationError, model_validator
 
@@ -37,7 +40,8 @@ class RetiredField:
     removed_by: str
 
 
-#: Every retired field an identity dump still carries, with its type and default at ``88607cb3fe`` (arc C's base).
+#: Every retired field an identity dump still carries, with its type and default at ``88607cb3fe`` (arc C's base;
+#: a kill switch's is its default when it was removed, unchanged since that base).
 RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("FacetIdentityConfig", ("merge_locked_facets",), bool, True, "C3"),
     RetiredField("PlanConfig", ("pre_questions",), int, 3, "C3"),
@@ -51,6 +55,9 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("LearnLoopConfig", ("locks", "facet_lock_mass"), float, 2.0, "C3"),
     RetiredField("LearnLoopConfig", ("locks", "facet_surface_groups"), int, 2, "C3"),
     RetiredField("AIConfig", ("agent_harness_opt_in",), bool, False, "C4"),
+    # Kill switches the version floor passed (ADR-019). ``[teacher.weight]``, the whole section.
+    RetiredField("TeacherConfig", ("weight", "learned"), bool, True, "D7"),
+    RetiredField("TeacherConfig", ("weight", "source"), Literal["pool", "parametric"], "pool", "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}
