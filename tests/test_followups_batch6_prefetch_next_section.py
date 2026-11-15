@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
-from learnloop.figures import service as FS
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
@@ -141,8 +141,8 @@ def test_a_path_held_out_for_an_exam_plans_no_next_section(tmp_path, monkeypatch
 def test_the_path_never_opens_a_held_out_section(tmp_path, monkeypatch):
     _paths, repository, vault = _three_sections(tmp_path)
     _reads(monkeypatch, _path(t1="core", t2="core", t3="core"))
-    real = FS.withheld_message
-    monkeypatch.setattr(FS, "withheld_message",
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld",
                         lambda v, r, e, found: "held out" if "r3" in set(found) else real(v, r, e, found))
     assert PF.next_section(env_for(vault, repository), THREE, "t1") == "t3"
 

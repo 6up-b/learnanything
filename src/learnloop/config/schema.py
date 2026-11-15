@@ -4491,25 +4491,6 @@ class TeacherConfig(KeepsRetiredFields):
     placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
-class EligibilityConfig(BaseModel):
-    """One serve/administration eligibility decision (``mvp-0.27``;
-    ``learnloop.serve_eligibility``).
-
-    ``enabled`` is the successor's kill switch. On (at ``mvp-0.27`` or later),
-    every serve path asks the decision submit asks: an item submit would prime
-    is never served as a cold check, a probe or a quick-check offer; a cold
-    check whose item can no longer be taken cold (its answer shown with no
-    lapse, or the item practised since the check was set) is withdrawn with
-    its typed disposition and the item served as ordinary practice; and exam
-    seeding, an exam's finish and a kept-state sim count only reveals up to
-    their own instant when auto-priming. Off (or below the tag), every path
-    serves and admits exactly as the predecessor. Attempts and dispositions
-    already recorded keep their meaning; replay never reads this switch.
-    """
-
-    enabled: bool = True
-
-
 class ReplayConfig(BaseModel):
     """How replay reads the attempt ledger (``mvp-0.34``,
     ``REPLAY_LEDGER_ALGORITHM_VERSION``).
@@ -4775,7 +4756,6 @@ class LearnLoopConfig(KeepsRetiredFields):
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
-    eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
     replay: ReplayConfig = Field(default_factory=ReplayConfig)
     teacher: TeacherConfig = Field(default_factory=TeacherConfig)
     ask: AskConfig = Field(default_factory=AskConfig)

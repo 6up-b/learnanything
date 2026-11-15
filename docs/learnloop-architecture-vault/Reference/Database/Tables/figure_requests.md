@@ -122,6 +122,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_build_golden_helpers.py`
 - `tests/figure_prefetch_migration_helpers.py`
 - `tests/figure_requests_migration_helpers.py`
 - `tests/figures_help_helpers.py`
@@ -141,7 +142,6 @@ None found by exact static reference scan.
 - `tests/test_followups_batch7_prefetch_link_served.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_sketch_service.py`
-- `tests/test_why_reader.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

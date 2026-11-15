@@ -3472,9 +3472,9 @@ def attempt(
     # The attempt is a serve and a submit (§12.9): validate the draft BEFORE
     # asking for an answer, so a draft submit would refuse is refused here,
     # with the reason, without prompting (at every version: the refusal is
-    # submit's own, only earlier). At mvp-0.27 (``eligibility.enabled``) the
-    # serve asks the one eligibility decision first: a cold check that cannot
-    # be taken now is held or withdrawn and the item served as practice. The
+    # submit's own, only earlier). The serve asks the one eligibility
+    # decision first: a cold check that cannot be taken now is held or
+    # withdrawn and the item served as practice. The
     # draft is validated as if the decision's writes were made; they are
     # persisted only once it passes, and never by a dry run, so a refused
     # command writes nothing.
@@ -3482,16 +3482,11 @@ def attempt(
     from learnloop.attempts.attempts import validate_attempt_draft
     from learnloop.scheduling.scheduler import apply_eligibility_writes, cold_check_serve_decision
 
-    serve_decision = (
-        cold_check_serve_decision(loaded, repository, practice_item_id, persist=False)
-        if serve_eligibility.decision_active(loaded)
-        else None
-    )
-    retimed = serve_eligibility.pending_writes(serve_decision) if serve_decision is not None else {}
+    serve_decision = cold_check_serve_decision(loaded, repository, practice_item_id, persist=False)
+    retimed = serve_eligibility.pending_writes(serve_decision)
     serve_note = (
         serve_decision.message
-        if serve_decision is not None
-        and serve_decision.verdict in (serve_eligibility.SERVE_AS_ORDINARY, serve_eligibility.DEFER_UNTIL)
+        if serve_decision.verdict in (serve_eligibility.SERVE_AS_ORDINARY, serve_eligibility.DEFER_UNTIL)
         else None
     )
     try:
@@ -3516,7 +3511,7 @@ def attempt(
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
-    if not dry_run and serve_decision is not None and (
+    if not dry_run and (
         serve_decision.verdict != serve_eligibility.SERVE or serve_decision.writes
     ):
         apply_eligibility_writes(loaded, repository, serve_decision)
@@ -3558,7 +3553,7 @@ def attempt(
             }
             if stuck_note is not None:
                 payload["note"] = stuck_note
-            if serve_note is not None and serve_decision is not None:
+            if serve_note is not None:
                 payload["eligibility"] = serve_decision.record()
             _echo_attempt_plan(payload, json_output)
             if not grading["admissible"]:

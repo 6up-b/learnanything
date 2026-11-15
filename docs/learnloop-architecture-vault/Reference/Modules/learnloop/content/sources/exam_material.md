@@ -412,10 +412,20 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unresolvable_mark_withholds_every_extraction_of_its_source`
   - `test_held_out_marks_in_two_extractions_each_hold_their_own_extraction_exactly`
   - `test_the_same_unit_marked_in_two_extractions_withholds_only_that_unit`
+- [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — direct import
+  - `test_unbuilt_candidates_close_asked_or_neither_and_withheld_ones_void`
+- [tests/test_figures_prefetch_review_fixes.py](../../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
+  - `test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate`
 - [tests/test_figures_show_me.py](../../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
   - `test_a_retrieved_passage_held_out_later_withholds_the_figure`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../../tests/test_figures_show_me_codex_review.py) — direct import
+- [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — direct import
+  - `test_a_passage_released_after_a_void_decision_may_be_decided`
+- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
+  - `test_the_path_never_opens_a_held_out_section`
+- [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import
+  - `test_a_held_out_passage_or_a_closed_decision_is_not_retried`
 - [tests/test_intent_fix_round6.py](../../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_protected_set_error_names_its_input`
@@ -445,6 +455,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_pdf_selection.py](../../../../../../../tests/test_reader_pdf_selection.py) — direct import
   - `test_a_reading_held_back_by_rule_4_is_withheld_whole`
   - `test_the_reader_is_told_which_passages_are_held_out`
+- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
+  - `test_a_shown_figure_held_out_since_is_no_longer_shown`
+  - `test_held_out_inputs_are_refused_before_any_call`
 - [tests/test_reading_hardening_landing.py](../../../../../../../tests/test_reading_hardening_landing.py) — direct import
   - `test_asking_for_a_held_out_sections_check_is_refused_before_anything_is_queued`
 - [tests/test_reading_paths.py](../../../../../../../tests/test_reading_paths.py) — direct import

@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 import pytest
 
 from learnloop.ai.errors import AIProviderUnavailable
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import rich as RICH
@@ -30,6 +31,7 @@ from tests.followups_batch6_prefetch_plan_wait_helpers import (
     _env,
     _pass,
     _prebuild_jobs,
+    _queued_waits,
     _rig,
     _waiting,
 )
@@ -123,12 +125,12 @@ def test_the_pass_retries_only_on_mains_with_the_switch_on_and_the_plan_not_paus
 def test_a_held_out_passage_or_a_closed_decision_is_not_retried(tmp_path, monkeypatch):
     paths, repository, _ctx_, job = _waiting_prebuild(tmp_path, monkeypatch)
     retried: list[str] = []
-    real = FS.withheld_message
-    monkeypatch.setattr(FS, "withheld_message",
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld",
                         lambda v, r, e, found: "held out" if "p3" in set(found) else real(v, r, e, found))
     PF.retry_plan_waits(_env(paths, repository, retried), PF.PassResult("ok", "offer"))
     assert retried == []
-    monkeypatch.setattr(FS, "withheld_message", real)
+    monkeypatch.setattr(EM, "spans_withheld", real)
     (row,) = [row for row in decisions(repository) if row["request_id"]]
     with repository.connection() as connection:
         connection.execute("UPDATE figure_prefetch_decisions SET outcome = 'neither', outcome_at = ? WHERE id = ?",
@@ -141,8 +143,7 @@ def test_a_held_out_passage_or_a_closed_decision_is_not_retried(tmp_path, monkey
 def test_a_pass_retries_at_most_the_daily_build_cap(tmp_path, monkeypatch):
     paths, repository, _ctx_, job = _waiting_prebuild(tmp_path, monkeypatch)
     set_config(paths, "figures.prefetch", max_daily_builds=1)
-    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, **kwargs:
-                        [job["id"], "job_two", "job_three"] if extraction_id is None else [])
+    _queued_waits(monkeypatch, job, [job["id"], "job_two", "job_three"])
     retried: list[str] = []
     PF.retry_plan_waits(_env(paths, repository, retried), PF.PassResult("ok", "offer"))
     assert retried == [job["id"]]

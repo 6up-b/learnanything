@@ -1083,8 +1083,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn`
-- [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
-  - `test_f4_the_plan_serves_the_12_9_case_as_mvp_026_with_the_switch_off`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import
   - `test_f1_a_probe_ready_after_the_prefetched_offer_is_served_next_and_the_offer_withdrawn`
   - `test_f1_a_shown_card_with_a_probe_ready_is_withdrawn_not_ignored`

@@ -325,9 +325,9 @@ def test_a_cold_check_served_as_practice_or_displaced_leaves_a_record(tmp_path, 
     from learnloop import serve_eligibility as se
     from learnloop.scheduling import scheduler
 
-    # The plan's own revalidation is the subject: the scheduler's serve paths ask the eligibility decision too
-    # (mvp-0.27), and would take the patched verdict first; their switch off, as below that tag (the mixture's).
-    env = mixture_env(tmp_path, fake_runtime(), toml="[eligibility]\nenabled = false\n")
+    # The plan's own revalidation is the subject: the plan's pool and serve holds ask the eligibility decision too,
+    # and would take the patched verdict first, so they hold nothing here.
+    env = mixture_env(tmp_path, fake_runtime())
     record, _step = advance(env, serve=False)
     target = record.current_block().items[0].practice_item_id
     decision = se.EligibilityDecision(request="serve", verdict=verdict, reason=se.COLD_CHECK_ROUTINE_DISPLAY,
@@ -336,6 +336,8 @@ def test_a_cold_check_served_as_practice_or_displaced_leaves_a_record(tmp_path, 
     monkeypatch.setattr(E, "_open_cold_check_items", lambda env_: {target})
     monkeypatch.setattr(scheduler, "cold_check_serve_decision",
                         lambda vault, repository, item_id, clock=None: decision if item_id == target else None)
+    monkeypatch.setattr(scheduler, "cold_check_hold_until", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(scheduler, "cold_check_serve_hold", lambda *_args, **_kwargs: None)
     advance(env, serve=True)
     [entry] = _by_kind(_why(env.vault.root, f"item:{target}"), "serve_eligibility")
     assert (entry["status"], entry["rule"], entry["facts"]["verdict"]) == (status, se.COLD_CHECK_ROUTINE_DISPLAY, verdict)

@@ -113,7 +113,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
-  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
+  - `test_f4_new_vaults_start_at_the_successor`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
 - [tests/ux_phase1_support.py](../../../../../tests/ux_phase1_support.py) — direct import

@@ -22,9 +22,9 @@ from typing import Any
 import pytest
 
 from learnloop.clock import FrozenClock
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_model as PM
-from learnloop.figures import service as FS
 from tests.figure_fixtures import EXTRACTION, AuthorFake
 from tests.figures_prefetch_helpers import TWO, JudgeFake, count, decisions, env_for, make_vault, mains, plan_record  # noqa: F401
 
@@ -218,9 +218,9 @@ def test_a_passage_released_after_a_void_decision_may_be_decided(tmp_path, monke
     _passes(vault, repository, trigger, hours=0)
     (row,) = decisions(repository)
     spans = {str(span) for span in json.loads(row["anchor_json"])["span_ids"]}
-    real = FS.withheld_message
+    real = EM.spans_withheld
     with monkeypatch.context() as held:
-        held.setattr(FS, "withheld_message",
+        held.setattr(EM, "spans_withheld",
                      lambda v, r, e, ids: "held out" if e == EXTRACTION and spans & {str(i) for i in ids}
                      else real(v, r, e, ids))
         assert PF.close_horizons(env_for(vault, repository, clock=_clock(0.5))) == 1

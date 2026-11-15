@@ -1434,6 +1434,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
   - `test_practice_screen_payload_marks_help_before_work`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
@@ -3019,10 +3020,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_probe_is_committed_for_an_item_submit_would_prime`
   - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
-  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor`
-  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
-  - `test_f4_q33s_bounded_window_is_the_successors`
-  - `test_f4_the_gate_reads_the_version_and_the_switch`
+  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused`
+  - `test_f4_new_vaults_start_at_the_successor`
+  - `test_f4_q33s_bounded_window`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_off_and_below_the_tag_the_card_is_the_predecessors`

@@ -952,6 +952,195 @@ def _per_config(make: Callable[[str], Callable[[], Any]]) -> dict[str, Callable[
     return {name: make(name) for name in CONFIGS}
 
 
+# -- figures (K10.4): the reuse key, the request identity, the prompt versions, the contracts ---------------------
+
+#: A pressed figure's fixed input: the selection, what the author is sent around it, a crop's digest and a region.
+FIGURE_PASSAGE = [{"span_id": "s3", "block_type": "Equation", "text": "f_X(x) = p\\lambda e^{\\lambda x} for x < 0"}]
+FIGURE_AROUND = [{"span_id": "s2", "block_type": "Text", "text": "The two-sided exponential has density f_X."},
+                 {"span_id": "s4", "block_type": "Text", "text": "Hence P(X <= 0) = p, whatever lambda is."}]
+FIGURE_IMAGE = "ab" * 32
+FIGURE_REGION = {"span_id": "s5", "bbox": [100.0, 100.0, 400.0, 300.0]}
+FIGURE_RUNTIME = "manim Manim Community v0.19.1; bwrap-pin"
+FIGURE_MENU = ("grammar", "sketch", "manim")
+FIGURE_GOAL = "show how p splits the mass either side of zero"
+#: What the author is sent about the learner (only its hash is in the key).
+FIGURE_LEARNER = {"topics": [{"learning_object_id": "lo_pin_svd", "title": "Two-sided exponential",
+                              "status": "practising", "open_gaps": ["mixes up p and 1 - p"]}],
+                  "recent_answers": [{"question": "P(X <= 0)?", "answer": "1 - p", "graded": "incorrect"}]}
+
+
+def _figure_request(**changes: Any) -> Any:
+    from learnloop.figures.service import FigureRequest
+
+    return FigureRequest(**{"extraction_id": "ext_pin", "span_ids": ["s3"], **changes})
+
+
+def _figure_context() -> Any:
+    from learnloop.figures.service import SourceContext
+
+    return SourceContext(passage=copy.deepcopy(FIGURE_PASSAGE), around=copy.deepcopy(FIGURE_AROUND),
+                         span_texts={item["span_id"]: item["text"] for item in FIGURE_PASSAGE + FIGURE_AROUND})
+
+
+def _reuse_key(request: dict[str, Any] | None = None, *, image: str | None = None, grounding: Any = None,
+               **settings: Any) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.figures.service import request_hash
+
+        return request_hash(_figure_request(**(request or {})), _figure_context(), image, grounding=grounding,
+                            **settings)
+    return compute
+
+
+def _grounding(mode: str) -> Any:
+    from learnloop.figures.service import Grounding
+
+    keys = [("ext_pin", "s3"), ("ext_two", "q1")] if mode == "retrieved" else []
+    return Grounding(mode, keys=keys)
+
+
+def _alternate_keys(*, learner: bool) -> list[str]:
+    """The keys a build looks a shown figure up under besides its own: the same input under the other settings of the
+    panels, the sketch tier and the rich menu, each followed by its recorded-inputs twin when a learner state was
+    sent. Production assembles this list inline in ``figures.service._build``; the setting tuples are copied from
+    there (the panels on, the sketch tier on, the rich menu with Manim: the default build)."""
+
+    from learnloop.figures.service import _recorded_input_key, request_hash
+
+    advanced, sketch, tiers = True, True, FIGURE_MENU
+    state = FIGURE_LEARNER if learner else None
+    request, context = _figure_request(), _figure_context()
+    other = [request_hash(request, context, None, advanced=a, sketch=k, tiers=t, rich_runtime=FIGURE_RUNTIME,
+                          learner_state=state)
+             for a, k, t in ((not advanced, sketch, tiers), (advanced, not sketch, None),
+                             (not advanced, not sketch, None), (advanced, sketch, None),
+                             (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
+    if learner:
+        other = [key for plain in other for key in (plain, _recorded_input_key(plain))]
+    return other
+
+
+def _recorded_twin() -> Any:
+    from learnloop.figures.service import _recorded_input_key
+
+    return _recorded_input_key(_reuse_key(advanced=True, sketch=True, tiers=FIGURE_MENU, rich_runtime=FIGURE_RUNTIME,
+                                          learner_state=FIGURE_LEARNER)())
+
+
+def _request_fields() -> Any:
+    """The FigureRequest fields the reuse key reads, with their defaults: a request built without one hashes its
+    default, so a renamed field or a changed default moves every key built from such requests."""
+
+    from learnloop.figures.service import FigureRequest
+
+    read = ("extraction_id", "span_ids", "region", "supersedes_id", "revision_note", "source_check_id",
+            "different_kind", "goal_text", "goal_author")
+    found = {item.name: item for item in dataclass_fields(FigureRequest)}
+
+    def default(item: Any) -> str:
+        if item.default is not MISSING:
+            return repr(item.default)
+        return repr(item.default_factory()) if item.default_factory is not MISSING else "required"
+
+    return {name: default(found[name]) for name in read}
+
+
+def _figure_reuse_keys() -> dict[str, Callable[[], Any]]:
+    show_me = {"extraction_id": "ext_pin", "goal_text": FIGURE_GOAL, "goal_author": "learner"}
+    rich = {"advanced": True, "sketch": True, "tiers": FIGURE_MENU, "rich_runtime": FIGURE_RUNTIME}
+    return {
+        "plain": _reuse_key(),
+        "panels": _reuse_key(advanced=True),
+        "sketch": _reuse_key(sketch=True),
+        "panels_sketch": _reuse_key(advanced=True, sketch=True),
+        "rich_menu": _reuse_key(**rich),
+        "rich_menu_no_sketch": _reuse_key(advanced=True, tiers=("grammar", "manim"), rich_runtime=FIGURE_RUNTIME),
+        "region_and_crop": _reuse_key({"region": copy.deepcopy(FIGURE_REGION)}, image=FIGURE_IMAGE, advanced=True),
+        "revision": _reuse_key({"supersedes_id": "fig_pin", "revision_note": "show p = 0.7 instead"}, advanced=True),
+        "different_kind": _reuse_key({"supersedes_id": "fig_pin", "revision_note": "a video instead",
+                                      "different_kind": True}, **rich),
+        "source_check_rebuild": _reuse_key({"source_check_id": "fsc_pin"}, advanced=True),
+        "show_me.anchor": _reuse_key(show_me, grounding=_grounding("anchor"), advanced=True),
+        "show_me.retrieved": _reuse_key({**show_me, "span_ids": []}, grounding=_grounding("retrieved"),
+                                        advanced=True),
+        "show_me.none": _reuse_key({**show_me, "span_ids": []}, grounding=_grounding("none"), advanced=True),
+        "show_me.tutor_goal": _reuse_key({**show_me, "goal_author": "tutor"}, grounding=_grounding("anchor"), **rich),
+        "learner_state": _reuse_key(learner_state=FIGURE_LEARNER, **rich),
+        "learner_state.recorded_twin": _recorded_twin,
+        "alternates": lambda: _alternate_keys(learner=False),
+        "alternates.with_learner_state": lambda: _alternate_keys(learner=True),
+        "request_fields": _request_fields,
+    }
+
+
+def _figure_request_identity(generation: int) -> Callable[[], Any]:
+    """``figures.service._build``'s request identity, assembled there inline: the input and its retry generation."""
+
+    def compute() -> Any:
+        from learnloop.ai.execution import content_key
+
+        return content_key({"input_hash": _reuse_key(advanced=True)(), "generation": generation})
+    return compute
+
+
+#: Every menu ``author_prompt_version`` is built with: none (V1/V2), the default rich menu, the menu without sketch.
+FIGURE_MENUS: dict[str, tuple[str, ...] | None] = {"none": None, "gsm": FIGURE_MENU, "gm": ("grammar", "manim")}
+
+
+def _prompt_version(advanced: bool, show_me: bool, sketch: bool, menu: str, learner: bool) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.figures.routes import author_prompt_version
+
+        return author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=FIGURE_MENUS[menu],
+                                     learner=learner)
+    return compute
+
+
+def _figure_prompt_versions() -> dict[str, Callable[[], Any]]:
+    pins: dict[str, Callable[[], Any]] = {}
+    for advanced in (False, True):
+        for show_me in (False, True):
+            for sketch in (False, True):
+                for menu in FIGURE_MENUS:
+                    for learner in (False, True):
+                        name = (f"author.{'panels' if advanced else 'plain'}{'+show_me' if show_me else ''}"
+                                f"{'+sketch' if sketch else ''}+menu_{menu}{'+learner' if learner else ''}")
+                        pins[name] = _prompt_version(advanced, show_me, sketch, menu, learner)
+
+    def rich() -> Any:
+        from learnloop.figures.rich import RICH_PROMPT_VERSION
+
+        return RICH_PROMPT_VERSION
+    pins["rich"] = rich
+    return pins
+
+
+def _figure_contract(sketch: bool, menu: str) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.figures.routes import output_model
+
+        model = output_model(sketch=sketch, tiers=FIGURE_MENUS[menu])
+        return {"model": model.__name__, "schema": model.model_json_schema()}
+    return compute
+
+
+def _rich_contract() -> Any:
+    from learnloop.figures.rich import FigureManimOutputV1
+
+    return {"model": FigureManimOutputV1.__name__, "schema": FigureManimOutputV1.model_json_schema()}
+
+
+def _rich_build_key(**figures: Any) -> Callable[[], Any]:
+    """The key a rich job's gate compares before every request, read from a vault that is never opened."""
+
+    def compute() -> Any:
+        from learnloop.figures.rich import rich_build_key
+
+        config = init_config(figures=figures) if figures else init_config()
+        return rich_build_key(SimpleNamespace(root=VAULT_ROOT, config=config))
+    return compute
+
+
 IDENTITY_SITES: tuple[IdentitySite, ...] = (
     IdentitySite(
         "A1", "facet identity config in the synthesis manifest scope",
@@ -1254,6 +1443,39 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "the day's lesson card draw (seed) and its row's snapshot_hash",
         "a different card is drawn at a fixed input",
         _per_config(_lesson_draw)),
+    IdentitySite(
+        "K10.4a", "figure reuse key (request_hash) over the build's matrix, its alternates and recorded twins",
+        ("src/learnloop/figures/service.py::request_hash", "src/learnloop/figures/service.py::_build",
+         "src/learnloop/figures/service.py::_recorded_input_key", "src/learnloop/figures/learner_state.py::state_hash"),
+        "interactive_figures.input_hash: the reuse index (db/stores/figures.py reusable, latest_for_input) every "
+        "press and pre-build looks its figure up by, under its own setting and the five others",
+        "every stored figure is orphaned: each later press of the same input pays for a new build",
+        _figure_reuse_keys()),
+    IdentitySite(
+        "K10.4b", "figure request identity (content_key of the input and its retry generation)",
+        ("src/learnloop/figures/service.py::_build",),
+        "the author route's owner and checkpoints: a build rerun after a crash recovers its paid answers by it",
+        "a build interrupted after a paid answer pays for it again",
+        {f"generation.{generation}": _figure_request_identity(generation) for generation in (0, 1)}),
+    IdentitySite(
+        "K10.4c", "figure author and rich author prompt versions",
+        ("src/learnloop/figures/routes.py::author_prompt_version", "src/learnloop/figures/rich.py::rich_prompt"),
+        "inside every figure reuse key (K10.4a), on every stored figure and in the rich job's receipts",
+        "every stored figure under the moved version is orphaned (a press re-pays) and drawable-now checks change",
+        _figure_prompt_versions()),
+    IdentitySite(
+        "K10.4d", "figure author output contracts (V1, V2, V3) and the rich author's: their JSON schemas",
+        ("src/learnloop/figures/routes.py::output_model", "src/learnloop/figures/routes.py::FigureRoute.ask"),
+        "the paid checkpoint key of every figure author and rich author request (practice_index.paid)",
+        "the checkpointed answers keyed by that schema are paid again (a docstring or Field description edit moves it)",
+        {"author.v1": _figure_contract(False, "none"), "author.v2": _figure_contract(True, "none"),
+         "author.v3": _figure_contract(True, "gsm"), "rich": _rich_contract}),
+    IdentitySite(
+        "K10.4e", "rich job build key (the route, the day's cap and price, the switches and the opt-in)",
+        ("src/learnloop/figures/rich.py::rich_build_key",),
+        "the rich job's admission gate, compared before every request it makes (figure_admission.FiguresGate)",
+        "a change stops every running rich job with nothing stored (figures_changed)",
+        {"init": _rich_build_key(), "priced": _rich_build_key(price_per_million=2.0, max_daily_cost_usd=0.5)}),
 )
 
 

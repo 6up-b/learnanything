@@ -524,6 +524,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_identity_helpers.py](../../../../../tests/facet_identity_helpers.py) — direct import
 - [tests/facet_reword_confirm_helpers.py](../../../../../tests/facet_reword_confirm_helpers.py) — direct import
 - [tests/facet_rewords_helpers.py](../../../../../tests/facet_rewords_helpers.py) — direct import
+- [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
 - [tests/followups_helpers.py](../../../../../tests/followups_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../tests/forecast_receipts_helpers.py) — direct import
@@ -1895,11 +1896,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set`
   - `test_f3_a_cold_check_served_unpractised_is_still_served`
   - `test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practice`
-  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor`
-  - `test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served`
-  - `test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026`
-  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
-  - `test_f4_q33s_bounded_window_is_the_successors`
+  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused`
+  - `test_f4_new_vaults_start_at_the_successor`
+  - `test_f4_q33s_bounded_window`
   - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
 - [tests/test_shadow_components.py](../../../../../tests/test_shadow_components.py) — direct import
 - [tests/test_show.py](../../../../../tests/test_show.py) — direct import

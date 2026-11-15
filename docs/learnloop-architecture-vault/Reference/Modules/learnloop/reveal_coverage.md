@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reveal_coverage.py](../../../../../src/learnloop/reveal_coverage.py) |
-| Source lines | 157 |
+| Source lines | 132 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,8 +60,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `routine_row_covers(created_at: str, at: datetime | str) -> bool` ([source](../../../../../src/learnloop/reveal_coverage.py), line 95) — Does a routine row stamped ``created_at`` cover the moment ``at``?
 - `routine_coverage_sql(covered_from: str, table: str='') -> tuple[str, list[object]]` ([source](../../../../../src/learnloop/reveal_coverage.py), line 104) — The convention in SQL: a predicate true for routine rows stamped at or after ``covered_from`` (``routine_covered_from(T)``, or ``routine_window_start(since)`` for a reader whose window starts at ``since = T - delay``), with no upper bound.
 - `routine_released_at(created_at: str) -> str | None` ([source](../../../../../src/learnloop/reveal_coverage.py), line 115) — The first moment (ledger format) a routine row stamped ``created_at`` no longer covers: one second after its coverage ends.
-- `routine_displays_covering(repository: object, *, practice_item_id: str, learning_object_id: str | None=None, at: datetime | str) -> list[dict[str, object]]` ([source](../../../../../src/learnloop/reveal_coverage.py), line 124) — The routine display rows covering ``at`` on the item (and, when ``learning_object_id`` is given, anywhere in its learning object): the one read behind every serve-time hold (UX Phase 4 round 6), a cold check's (item or learning object, the scheduler's deferral scope) and a probe…
-- `routine_window_start(since: str) -> str` ([source](../../../../../src/learnloop/reveal_coverage.py), line 149) — For a reader whose window for a reveal starts at ``since`` (``T`` minus the cold retrieval delay): where its window for routine rows starts, the renewal grace earlier.
+- `routine_window_start(since: str) -> str` ([source](../../../../../src/learnloop/reveal_coverage.py), line 124) — For a reader whose window for a reveal starts at ``since`` (``T`` minus the cold retrieval delay): where its window for routine rows starts, the renewal grace earlier.
 
 ### Module constants
 
@@ -83,10 +82,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `ROUTINE_DISPLAY_BASES`, `ROUTINE_DISPLAY_COVERAGE`, `ROUTINE_DISPLAY_HORIZON`, `ROUTINE_DISPLAY_RENEWAL_GRACE`, `is_routine_display`, `routine_covered_from`; statically calls `is_routine_display`, `routine_covered_from`
 - [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] — imports `routine_coverage_sql`, `routine_window_start`; statically calls `routine_coverage_sql`, `routine_window_start`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `routine_coverage_sql`, `routine_window_start`; statically calls `routine_coverage_sql`, `routine_window_start`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `routine_displays_covering`; statically calls `routine_displays_covering`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `routine_coverage_sql`, `routine_window_start`; statically calls `routine_coverage_sql`, `routine_window_start`
 - [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] — imports `routine_coverage_sql`, `routine_window_start`; statically calls `routine_coverage_sql`, `routine_window_start`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `is_routine_display`, `routine_displays_covering`, `routine_released_at`, `routine_row_covers`; statically calls `is_routine_display`, `routine_displays_covering`, `routine_released_at`, `routine_row_covers`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `is_routine_display`, `routine_released_at`, `routine_row_covers`; statically calls `is_routine_display`, `routine_released_at`, `routine_row_covers`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `ROUTINE_DISPLAY_COVERAGE`, `is_routine_display`, `routine_covered_from`, `routine_released_at`, `routine_row_covers`; statically calls `is_routine_display`, `routine_covered_from`, `routine_released_at`, `routine_row_covers`
 
 ## Dependencies
@@ -107,7 +105,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]], [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]], [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]], [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]], [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

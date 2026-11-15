@@ -316,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_openai_chat_transport_sends_image_parts_only_for_an_image_profile`
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_a_provider_that_cannot_isolate_the_turn_is_refused_before_any_request`
+- [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
 - [tests/test_figures_final_round.py](../../../../../../tests/test_figures_final_round.py) — direct import
 - [tests/test_graph_nomination_ingest.py](../../../../../../tests/test_graph_nomination_ingest.py) — direct import
   - `test_kill_switch_restores_the_pre_t5_request`

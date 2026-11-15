@@ -2022,15 +2022,14 @@ def _answer_shown(
     practice_item_id: str,
     *,
     clock: Clock | None = None,
-    vault: LoadedVault | None = None,
 ) -> bool:
     """Was the item's answer shown, so no probe of it may be offered (UX Phase
-    4 round 7; at ``mvp-0.27`` the one eligibility decision's question)? The
-    offer asks before it changes anything."""
+    4 round 7; the one eligibility decision's question)? The offer asks before
+    it changes anything."""
 
     from learnloop.diagnosis.probe_episodes import routine_display_covers_item
 
-    return routine_display_covers_item(repository, practice_item_id, clock=clock, vault=vault)
+    return routine_display_covers_item(repository, practice_item_id, clock=clock)
 
 
 class _OfferRefusedAtCommit(Exception):
@@ -2154,7 +2153,7 @@ def _accept_probe_offer(
     # UX Phase 4 round 7: the probe item's answer was just shown on a routine
     # display. Refused before anything changes: no episode is relocked or
     # entered, and no other presentation is invalidated.
-    if _answer_shown(repository, practice_item_id, clock=clock, vault=vault):
+    if _answer_shown(repository, practice_item_id, clock=clock):
         return ProbeOffer(
             accepted=False,
             reason="probe_item_answer_shown",

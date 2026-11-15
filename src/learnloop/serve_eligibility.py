@@ -40,9 +40,8 @@ labelled, and those checks are withdrawn now with their typed disposition
 same holds for a cold check whose item was attempted after the check was
 scheduled. Never left due to walk into a refusal or to expire.
 
-Live behind its successor (``mvp-0.27``) and kill switch
-(``eligibility.enabled``, :func:`decision_active`): below the tag, or off,
-every path serves and admits exactly as ``mvp-0.26`` (Codex review F4).
+The successor ``mvp-0.27``; every path asks it (its kill switch went once
+every vault was past the tag).
 
 Functional core, imperative shell: :func:`decide` and the helpers above it
 are pure (inputs in, a :class:`EligibilityDecision` record out, with a reason
@@ -943,17 +942,6 @@ def check_once_at_attempt(
     return decide(inputs, CHECK_ONCE)
 
 
-def decision_active(vault: Any) -> bool:
-    """Is the one eligibility decision live for ``vault`` (a ``LoadedVault``,
-    duck-typed)? With ``eligibility.enabled`` (the successor ``mvp-0.27``'s kill
-    switch). Switched off, every serve path and submit decide exactly as
-    ``mvp-0.26`` did (their callers keep that code). No vault (a path that
-    cannot see the vault's config) reads as off."""
-
-    switch = getattr(getattr(vault, "config", None), "eligibility", None)
-    return bool(getattr(switch, "enabled", False))
-
-
 def pending_writes(decision: EligibilityDecision) -> dict[str, str | None]:
     """The decision's writes as one map, for a reader that must judge as if
     they were made without making them (the CLI's validation before it
@@ -1029,7 +1017,6 @@ __all__ = [
     "check_once_at_attempt",
     "cold_task_holds",
     "decide",
-    "decision_active",
     "disclosure_identity",
     "gather",
     "is_own_disclosure",
