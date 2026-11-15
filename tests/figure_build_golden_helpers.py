@@ -13,11 +13,17 @@ order, ``rowid``). In that walk:
   relation; a write that names a different row, or rows written in another order, changes the tokens and fails the
   golden;
 - a timestamp within three days of the real clock (one the frozen clock did not make) becomes ``<wall>``;
-- a measured duration (``DURATION_KEYS``) becomes ``<ms>``.
+- a measured duration (``DURATION_KEYS``) becomes ``<ms>``;
+- the line number in a record's ``error_where`` (``module:function:line`` of the frame that raised) becomes
+  ``<line>``: the frames are the fakes' in ``tests/``, and an edit above them must not move the golden.
 
-Nothing else is replaced. Content hashes, reuse keys and request identities (``content_key``) are deterministic and
-kept byte for byte: they are the identities a structure step must not move. Times written through the system clock
-are the frozen instant itself (:func:`freeze_wall`), and ids are minted in a fixed sequence (:func:`freeze_ids`)."""
+**Each case runs twice** (:func:`recorded_twice`), its ids minted from two different sequences (:func:`freeze_ids`).
+After the replacements above the two records must be equal except for hashes that have a minted id inside them (a
+revision's reuse key names the figure it supersedes; a rich job's owner names its payload's hash): only such a hash,
+one that differs between the two runs, becomes ``<hash:N>``, numbered like the ids. Anything else that differs fails
+the case as not deterministic. So every content hash, reuse key and request identity (``content_key``) of a fixed
+input is kept byte for byte: they are the identities a structure step must not move. Times written through the system
+clock are the frozen instant itself (:func:`freeze_wall`)."""
 
 from __future__ import annotations
 
@@ -56,23 +62,28 @@ def freeze_wall(monkeypatch: Any) -> None:
     monkeypatch.setattr(clock.SystemClock, "now", lambda self: FROZEN)
 
 
-def freeze_ids(monkeypatch: Any, seed: int = 104) -> None:
-    """``new_ulid`` mints the same ids in the same order every run: the frozen millisecond and a seeded random part.
-
-    The ids themselves are replaced by tokens anyway; what this fixes is a hash that has one inside it (a revision's
-    reuse key names the figure it supersedes). Such a hash moves if a step changes how many ids are minted before
-    it, which the record says."""
+def freeze_ids(monkeypatch: Any, seed: int) -> None:
+    """Every ULID the case's own thread mints is the next of a sequence fixed by ``seed`` (the frozen millisecond, a
+    seeded start, one up each time); other threads mint as usual. Two seeds give two runs whose ids differ everywhere,
+    which is how :func:`recorded_twice` tells a hash with an id inside it from a content hash."""
 
     import random
-    from types import SimpleNamespace
+    import threading
 
     from learnloop import ids
 
-    seeded = random.Random(seed)
-    monkeypatch.setattr(ids, "_wall_clock_ms", lambda: int(FROZEN.timestamp() * 1000))
-    monkeypatch.setattr(ids, "secrets", SimpleNamespace(randbits=seeded.getrandbits))
-    monkeypatch.setattr(ids, "_last_timestamp_ms", -1)
-    monkeypatch.setattr(ids, "_last_randomness", 0)
+    case_thread = threading.get_ident()
+    state = {"randomness": random.Random(seed).getrandbits(64)}
+    frozen_ms = int(FROZEN.timestamp() * 1000)
+    original = ids._next_ulid
+
+    def next_ulid(last_ms: int, last_randomness: int, randbits: Any) -> tuple[int, int]:
+        if threading.get_ident() != case_thread:
+            return original(last_ms, last_randomness, randbits)
+        state["randomness"] += 1
+        return frozen_ms, state["randomness"]
+
+    monkeypatch.setattr(ids, "_next_ulid", next_ulid)
 
 
 def _decoded(column: str, value: Any) -> Any:
@@ -142,6 +153,8 @@ class _Tokens:
     def walk(self, value: Any, key: str | None = None) -> Any:
         if key in DURATION_KEYS and isinstance(value, (int, float)) and not isinstance(value, bool):
             return "<ms>"
+        if key == "error_where" and isinstance(value, str):
+            value = re.sub(r":\d+$", ":<line>", value)
         if isinstance(value, str):
             return self.text(value)
         if isinstance(value, Mapping):
@@ -163,6 +176,50 @@ def normalized(record: Mapping[str, Any], order: Iterable[str]) -> dict[str, Any
     assert set(record) <= set(order), f"parts with no place in the walk: {sorted(set(record) - set(order))}"
     tokens = _Tokens()
     return {name: tokens.walk(record[name]) for name in order if name in record}
+
+
+_HASH = re.compile(r"(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])")
+
+
+def _merged(first: Any, second: Any, hashes: dict[str, str], where: str) -> Any:
+    """``first`` with each hash that differs from ``second`` at the same place replaced by its ``<hash:N>`` token;
+    any other difference is a nondeterministic case."""
+
+    if isinstance(first, Mapping) and isinstance(second, Mapping):
+        assert list(first) == list(second), f"not deterministic at {where}: keys {sorted(set(first) ^ set(second))}"
+        return {key: _merged(first[key], second[key], hashes, f"{where}.{key}") for key in first}
+    if isinstance(first, list) and isinstance(second, list):
+        assert len(first) == len(second), f"not deterministic at {where}: {len(first)} items, then {len(second)}"
+        return [_merged(a, b, hashes, f"{where}[{index}]") for index, (a, b) in enumerate(zip(first, second, strict=True))]
+    if isinstance(first, str) and isinstance(second, str) and first != second:
+        assert _HASH.split(first) == _HASH.split(second), f"not deterministic at {where}: {first[:200]!r}"
+        pairs = zip(_HASH.findall(first), _HASH.findall(second), strict=True)
+        replaced = {a: hashes.setdefault(a, f"<hash:{len(hashes) + 1}>") for a, b in pairs if a != b}
+        return _HASH.sub(lambda match: replaced.get(match.group(0), match.group(0)), first)
+    assert first == second, f"not deterministic at {where}: {first!r}, then {second!r}"
+    return first
+
+
+def recorded_twice(run: Any) -> dict[str, Any]:
+    """Run a case twice, each in its own monkeypatch scope with the clock frozen and ids from its own sequence, and
+    return its record with the hashes that have a minted id inside them tokenized (module docstring).
+
+    ``run(monkeypatch)`` builds the case in a fresh vault each time and returns its :func:`normalized` record; the
+    scope is undone after each run, so a patch the case makes (a passage held out, an engine that raises once) never
+    reaches the other run."""
+
+    import pytest
+
+    records = []
+    for seed in (104, 401):
+        with pytest.MonkeyPatch.context() as monkeypatch:
+            freeze_wall(monkeypatch)
+            freeze_ids(monkeypatch, seed)
+            records.append(run(monkeypatch))
+    hashes: dict[str, str] = {}
+    first = _merged(records[0], records[1], hashes, "record")
+    # A hash tokenized at one place is tokenized everywhere it appears (where it happened to equal the other run's).
+    return json.loads(_HASH.sub(lambda match: hashes.get(match.group(0), match.group(0)), json.dumps(first)))
 
 
 def check_golden(path: Path, case: str, recorded: Mapping[str, Any], *, write: bool) -> None:

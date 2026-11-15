@@ -30,9 +30,8 @@ from tests import sketch_fixtures as F
 from tests.figure_build_golden_helpers import (
     check_golden,
     fixed_sandbox,
-    freeze_ids,
-    freeze_wall,
     normalized,
+    recorded_twice,
     table_rows,
     written,
 )
@@ -49,7 +48,7 @@ from tests.figure_fixtures import (
 )
 from tests.rw5c_fixtures import build_check_vault
 
-#: Twenty-odd cases of about a second each (a vault apiece): about 20 s serial.
+#: Twenty-five cases, each run twice in a vault of its own: about 45 s serial.
 pytestmark = pytest.mark.slow
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figure_build_golden.json"
@@ -60,13 +59,6 @@ WHY = "a narrated video shows the spiral tighten as b grows"
 #: A demonstrates line that reads like a code-owned check label (the label rule's repair).
 LABEL_LIKE = "✓ checked against the book: the left mass is p"
 PRESS = {"extractionId": EXTRACTION, "spanIds": ["p3"]}
-
-
-@pytest.fixture
-def sandbox(monkeypatch):
-    freeze_wall(monkeypatch)
-    freeze_ids(monkeypatch)
-    return fixed_sandbox(monkeypatch)
 
 
 class Press:
@@ -305,6 +297,12 @@ CASES = {name[len("case_"):]: function for name, function in sorted(globals().it
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_the_figure_build_is_as_recorded(case, tmp_path, monkeypatch, sandbox):
-    recorded = CASES[case](tmp_path, monkeypatch, sandbox)
-    check_golden(GOLDEN, case, recorded, write=WRITE)
+def test_the_figure_build_is_as_recorded(case, tmp_path):
+    runs = iter(("first", "second"))
+
+    def run(monkeypatch):
+        root = tmp_path / next(runs)
+        root.mkdir()
+        return CASES[case](root, monkeypatch, fixed_sandbox(monkeypatch))
+
+    check_golden(GOLDEN, case, recorded_twice(run), write=WRITE)

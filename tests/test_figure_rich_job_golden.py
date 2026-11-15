@@ -28,9 +28,8 @@ from tests import rich_fixtures as RF
 from tests.figure_build_golden_helpers import (
     check_golden,
     fixed_sandbox,
-    freeze_ids,
-    freeze_wall,
     normalized,
+    recorded_twice,
     table_rows,
     written,
 )
@@ -40,15 +39,11 @@ from tests.figure_rich_job_helpers import WHY, _Rig
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figure_rich_job_golden.json"
 WRITE = os.environ.get("FIGURE_BUILD_WRITE_GOLDEN") == "1"
+#: Thirteen cases, each run twice in a vault of its own: about 18 s serial.
+pytestmark = pytest.mark.slow
+
 ORDER = ("rich_prompts", "renders", "functions", "written", "job", "list")
 QUICK = [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))]
-
-
-@pytest.fixture
-def golden_env(monkeypatch):
-    freeze_wall(monkeypatch)
-    freeze_ids(monkeypatch)
-    fixed_sandbox(monkeypatch)
 
 
 def _sha(text: str) -> str:
@@ -177,9 +172,16 @@ CASES = {name[len("case_"):]: function for name, function in sorted(globals().it
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
-def test_the_rich_job_is_as_recorded(case, tmp_path, monkeypatch, golden_env):
-    recorded = CASES[case](tmp_path, monkeypatch)
-    check_golden(GOLDEN, case, recorded, write=WRITE)
+def test_the_rich_job_is_as_recorded(case, tmp_path):
+    runs = iter(("first", "second"))
+
+    def run(monkeypatch):
+        root = tmp_path / next(runs)
+        root.mkdir()
+        fixed_sandbox(monkeypatch)
+        return CASES[case](root, monkeypatch)
+
+    check_golden(GOLDEN, case, recorded_twice(run), write=WRITE)
 
 
 def test_every_stop_code_has_a_case():
