@@ -303,8 +303,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_startup_recovery_needs_no_click`
 - [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review`
-- [tests/test_followup_next_matrix.py](../../../../../tests/test_followup_next_matrix.py) — direct import
-  - `test_the_matrix`
 - [tests/test_followup_successor.py](../../../../../tests/test_followup_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_data_capture`
 - [tests/test_followups_batch5_recap_protection.py](../../../../../tests/test_followups_batch5_recap_protection.py) — direct import

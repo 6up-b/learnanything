@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py) |
-| Source lines | 1640 |
+| Source lines | 1658 |
 | Owning package | [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -73,25 +73,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `leave_commit(self) -> None` (line 1019; public)
 - `class BackgroundBuilds` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1023) — The lifecycle of build-on-serve workers, owned by the sidecar (fix round 2, M4): a registry keyed to the loaded vault with a generation token.
   - `__init__(self, *, drain_seconds: float=DRAIN_SECONDS) -> None` (line 1037; internal)
-  - `generation(self) -> str` (line 1051; public)
-  - `_live(self, generation: str) -> bool` (line 1054; internal)
-  - `_enter_commit(self, generation: str) -> bool` (line 1057; internal)
-  - `_leave_commit(self) -> None` (line 1064; internal)
-  - `committing(self) -> int` (line 1071; public)
-  - `bind(self, sqlite_path: Any) -> None` (line 1075; public) — Key the registry to the loaded vault; a different vault (or a closed registry) closes the previous generation (draining it only if no close has drained it yet) and opens a new one.
-  - `admit(self, sqlite_path: Any) -> BuildFence | None` (line 1088; public)
-  - `launch(self, sqlite_path: Any, work: Callable[[BuildFence], Callable[[], None]], *, name: str) -> threading.Thread | None` (line 1094; public) — Admit, register and start one build atomically with :meth:`close` (fix round 3, R4): under the registry lock the build is refused once closed, and registered before it starts, so a close either refuses it or joins it.
-  - `track(self, thread: threading.Thread) -> None` (line 1114; public)
-  - `close(self, timeout: float | None=None) -> bool` (line 1118; public) — Stop admitting, cancel, and join for at most ``timeout`` seconds (default ``drain_seconds``; never hangs).
-  - `running(self) -> int` (line 1157; public)
-- `schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, find: Callable[..., Any] | None=None, builds: BackgroundBuilds | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1165) — Start a background build for a served item (``hints.maps.build_on_serve``).
-- `schedule_merge_after_hint(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, builds: BackgroundBuilds | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1229) — Start the lazy learner-route merge after a hint is shown (§4.3.1 row 3; H2a review F9): background, never on the request path, so it may use the map route's Codex.
-- `wait_for_background_builds(timeout: float=30.0) -> bool` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1296) — Join the background builds started so far, of every registry (tests; the sidecar's shutdown path closes its own registry, :meth:`BackgroundBuilds.close`).
-- `new_learner_attempts(vault: LoadedVault, repository: Repository, practice_item_id: str) -> list[SeedAttempt]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1322) — The learner's correct answers in the item's family the current map has not seen (§4.3.1 row 3: "the map predates the learner's latest correct answers"), newest first, at most ``MAX_ATTEMPTS``.
-- `merge_learner_routes(vault: LoadedVault, repository: Repository, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, deadline: float | None=None, fence: 'BuildFence | None'=None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1340) — Merge the learner's new correct routes into the item's map (lazy: H2 calls it after a hint is shown on an item whose map predates them, :func:`schedule_merge_after_hint`).
-- `select_items(vault: LoadedVault, *, item_id: str | None=None, family_id: str | None=None, learning_object_id: str | None=None) -> list[PracticeItem]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1479) — The active items one ``hints maps build`` selector names (all, without one).
-- `plan_item(vault: LoadedVault, repository: Repository, item: PracticeItem, *, client: Any | None=None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1510) — A dry run for one item: is a map due, and what would the call cost?
-- `backfill(vault: LoadedVault, repository: Repository, items: Iterable[PracticeItem], *, dry_run: bool, limit: int | None=None, client: Any | None=None, clock: Clock | None=None, find: Callable[..., Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1544) — ``learnloop hints maps build``: build the items without a current map.
+  - `generation(self) -> str` (line 1053; public)
+  - `_live(self, generation: str) -> bool` (line 1056; internal)
+  - `_enter_commit(self, generation: str) -> bool` (line 1059; internal)
+  - `_leave_commit(self) -> None` (line 1066; internal)
+  - `committing(self) -> int` (line 1073; public)
+  - `bind(self, sqlite_path: Any) -> None` (line 1077; public) — Key the registry to the loaded vault; a different vault (or a closed registry) closes the previous generation (draining it only if no close has drained it yet) and opens a new one.
+  - `halt(self) -> None` (line 1093; public) — Stop admitting and fence every running build's later writes, at once: the bound vault stopped being served.
+  - `admit(self, sqlite_path: Any) -> BuildFence | None` (line 1104; public)
+  - `launch(self, sqlite_path: Any, work: Callable[[BuildFence], Callable[[], None]], *, name: str) -> threading.Thread | None` (line 1110; public) — Admit, register and start one build atomically with :meth:`close` (fix round 3, R4): under the registry lock the build is refused once closed, and registered before it starts, so a close either refuses it or joins it.
+  - `track(self, thread: threading.Thread) -> None` (line 1130; public)
+  - `close(self, timeout: float | None=None) -> bool` (line 1134; public) — Stop admitting, cancel, and join for at most ``timeout`` seconds (default ``drain_seconds``; never hangs).
+  - `running(self) -> int` (line 1175; public)
+- `schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, find: Callable[..., Any] | None=None, builds: BackgroundBuilds | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1183) — Start a background build for a served item (``hints.maps.build_on_serve``).
+- `schedule_merge_after_hint(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, builds: BackgroundBuilds | None=None) -> threading.Thread | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1247) — Start the lazy learner-route merge after a hint is shown (§4.3.1 row 3; H2a review F9): background, never on the request path, so it may use the map route's Codex.
+- `wait_for_background_builds(timeout: float=30.0) -> bool` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1314) — Join the background builds started so far, of every registry (tests; the sidecar's shutdown path closes its own registry, :meth:`BackgroundBuilds.close`).
+- `new_learner_attempts(vault: LoadedVault, repository: Repository, practice_item_id: str) -> list[SeedAttempt]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1340) — The learner's correct answers in the item's family the current map has not seen (§4.3.1 row 3: "the map predates the learner's latest correct answers"), newest first, at most ``MAX_ATTEMPTS``.
+- `merge_learner_routes(vault: LoadedVault, repository: Repository, practice_item_id: str, *, client: Any | None=None, clock: Clock | None=None, deadline: float | None=None, fence: 'BuildFence | None'=None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1358) — Merge the learner's new correct routes into the item's map (lazy: H2 calls it after a hint is shown on an item whose map predates them, :func:`schedule_merge_after_hint`).
+- `select_items(vault: LoadedVault, *, item_id: str | None=None, family_id: str | None=None, learning_object_id: str | None=None) -> list[PracticeItem]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1497) — The active items one ``hints maps build`` selector names (all, without one).
+- `plan_item(vault: LoadedVault, repository: Repository, item: PracticeItem, *, client: Any | None=None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1528) — A dry run for one item: is a map due, and what would the call cost?
+- `backfill(vault: LoadedVault, repository: Repository, items: Iterable[PracticeItem], *, dry_run: bool, limit: int | None=None, client: Any | None=None, clock: Clock | None=None, find: Callable[..., Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1562) — ``learnloop hints maps build``: build the items without a current map.
 
 ### Module constants
 
@@ -122,7 +123,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_INFLIGHT_GUARD` ([src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py), line 993)
 - `_THREADS` ([src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py), line 994)
 - `DRAIN_SECONDS` ([src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py), line 998)
-- `_DEFAULT_BUILDS` ([src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py), line 1162)
+- `_DEFAULT_BUILDS` ([src/learnloop/hints/map_builder.py](../../../../../../src/learnloop/hints/map_builder.py), line 1180)
 
 ### Explicit exports
 
@@ -190,10 +191,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_settled_build(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome) -> bool` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 904) — True (``outcome`` set) when no build is due: the revision has a map, or a serve meets a revision whose build was not stored.
 - `_build_claimed(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome, claim: _Claim, *, client: Any | None, clock: Clock | None, deadline: float | None, find: Callable[..., Any] | None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 924)
 - `_route_kinds(value: ApproachMapV1) -> dict[str, int]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 971)
-- `_known_attempts(current: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1312) — The attempts the map has mined: those a route records (Codex review F4).
-- `_settled_merge(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome) -> tuple[dict[str, Any], list[SeedAttempt]] | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1377) — ``(current map, new attempts)`` when a merge is due, else None with ``outcome`` set (no map, or nothing new).
-- `_merge_claimed(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome, claim: _Claim, *, client: Any | None, clock: Clock | None, deadline: float | None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1393)
-- `_planned_seeds(seeds: MapSeeds) -> MapSeeds` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1501) — The dry run's seeds: the worked examples counted at their cap.
+- `_known_attempts(current: Mapping[str, Any]) -> set[str]` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1330) — The attempts the map has mined: those a route records (Codex review F4).
+- `_settled_merge(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome) -> tuple[dict[str, Any], list[SeedAttempt]] | None` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1395) — ``(current map, new attempts)`` when a merge is due, else None with ``outcome`` set (no map, or nothing new).
+- `_merge_claimed(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome, claim: _Claim, *, client: Any | None, clock: Clock | None, deadline: float | None) -> MapOutcome` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1411)
+- `_planned_seeds(seeds: MapSeeds) -> MapSeeds` ([source](../../../../../../src/learnloop/hints/map_builder.py), line 1519) — The dry run's seeds: the worked examples counted at their cap.
 
 ## Who imports or calls it
 

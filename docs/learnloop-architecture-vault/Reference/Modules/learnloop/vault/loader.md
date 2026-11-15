@@ -1255,6 +1255,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_exercise_authoring.py](../../../../../../tests/test_exercise_authoring.py) — direct import
