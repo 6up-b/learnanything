@@ -17,8 +17,9 @@ reinterpretation projection (:func:`p0_projection.record_reinterpretation_if_cha
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
+from learnloop.algorithm_versions import ROBUST_GATE_FIX_VERSIONS
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.attempts import grader_calibration as gc
@@ -37,6 +38,19 @@ from learnloop.diagnosis.probe_outcome_mapping import (
 # misconception (§3.1), so the episode-level pinned schema is the three-class
 # signature-error schema; per-instrument coarse rows aggregate onto its true classes.
 EPISODE_COARSE_SCHEMA_SLUG = SIGNATURE_ERROR_SLUG
+
+
+def robust_gate_fixes_on(config: Any) -> bool:
+    """The robust completion gate fixes (mvp-0.59, ``probe.episode.robust_gate_fixes``): an episode ends on the
+    gate only when the robust stop rule fires on a fragile winner, and the robust selector ranks distinct
+    instruments. Every caller of the gate and of the robust selection asks this and nothing else, so the tag
+    lives in one place (``algorithm_versions.ROBUST_GATE_FIX_VERSIONS``)."""
+
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in ROBUST_GATE_FIX_VERSIONS:
+        return False
+    episode = getattr(getattr(config, "probe", None), "episode", None)
+    return bool(getattr(episode, "robust_gate_fixes", False))
 
 
 @dataclass(frozen=True)
