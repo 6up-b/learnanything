@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/reveal_coverage.py"
+  - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -129,7 +129,6 @@ Database triggers:
 - `src/learnloop/attempts/reveal_ledger.py`
 - `src/learnloop/diagnosis/quick_check.py`
 - `src/learnloop/diagnosis/remediation.py`
-- `src/learnloop/reveal_coverage.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/serve_eligibility.py`
 - `src/learnloop/workbench/compare_methods.py`

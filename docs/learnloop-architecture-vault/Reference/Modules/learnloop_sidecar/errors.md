@@ -525,7 +525,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_leave_keeps_it_open_abandon_closes_it_reopen_opens_it_and_none_writes_an_attempt`
   - `test_switched_off_every_workbench_rpc_refuses_and_writes_nothing`
   - `test_the_practice_screen_never_shows_the_book_and_records_its_own_surface`
-  - `test_with_the_eligibility_switch_off_the_old_cold_guard_still_refuses_the_book`
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_wrap_up_switched_off_refuses_and_writes_nothing`
 - [tests/test_reading_hardening_landing.py](../../../../../tests/test_reading_hardening_landing.py) — direct import

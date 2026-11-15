@@ -378,7 +378,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_review_fixes.py](../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_ux_phase4_landing.py](../../../../../tests/test_ux_phase4_landing.py) — direct import
-  - `test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it`
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
   - `test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer`

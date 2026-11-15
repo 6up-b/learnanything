@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
+  - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -130,7 +131,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/staged_frame.py`
