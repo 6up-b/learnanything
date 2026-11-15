@@ -960,7 +960,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_m3_k0_observed_k1_prepared_and_a_concurrent_guide_open_for_k1_send_one_call`
   - `test_m3_the_guides_worker_moves_its_claim_to_the_inputs_it_prepared`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-  - `test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b`
+  - `test_the_plan_follows_the_deliverable_only_with_the_curriculum_the_guide_and_the_plan_on`
 - [tests/test_curriculum_c1_round5_followups.py](../../../../../../tests/test_curriculum_c1_round5_followups.py) — direct import
   - `test_c1_r5_followup_a_a_guide_judgment_keeps_its_route_rules`
   - `test_c1_r5_followup_b_a_reload_right_after_the_gates_read_cannot_slip_into_the_admission`
@@ -2286,7 +2286,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
   - `test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out`
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
-  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
+  - `test_the_plan_follows_a_path_only_with_the_guide_and_the_plan_on`
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
@@ -2489,7 +2489,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_shadow_is_zero_with_a_narrative_present`
   - `test_switched_off_there_is_no_route_call_and_no_narrative_anywhere`
   - `test_the_prompt_carries_the_typed_summary_and_never_the_learners_words`
-  - `test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated`
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
   - `test_a_workbench_session_asks_as_its_items_practice`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
@@ -2844,8 +2843,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_replayer_applies_the_vaults_servable_items`
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
   - `test_the_full_list_seam_reads_the_plan`

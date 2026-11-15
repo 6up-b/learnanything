@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `ReaderSession`
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `all_sessions`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `all_sessions`
 - [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `ReaderSession`
 - [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `module`; statically calls `ReaderSession`, `all_sessions`, `iso_seconds`, `sessions_for_source`, `split_sessions`
@@ -135,7 +135,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_rw6a_lists_a_missed_prediction_as_worth_a_second_look`
-- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
   - `test_revealed_families_are_the_sessions_reveals_only`
   - `test_the_provenance_carries_the_way_back_and_dl2_renders_it`

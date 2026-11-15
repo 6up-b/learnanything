@@ -1265,14 +1265,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_settling_writes_the_satisfaction_once_and_only_for_answered_checks`
   - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_at_the_predecessor_commitments_change_nothing`
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
   - `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`
   - `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check`
 - [tests/test_intent_codex_review.py](../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f1_a_follow_up_never_serves_an_item_a_check_once_still_holds`
   - `test_f1_a_pending_follow_up_never_resurrects_a_paused_item`
-  - `test_f2_with_intent_off_commitments_change_nothing_in_the_ranked_list_or_the_plan`
   - `test_f3_a_check_whose_answer_the_tutor_revealed_is_not_served_as_a_check_on_your_own`
   - `test_f3_a_hinted_attempt_does_not_use_up_the_check`
   - `test_f5_a_primed_retry_changes_neither_the_cost_preview_nor_the_review_load`
@@ -1309,7 +1307,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_primed_retry_and_a_diagnostic_between_reviews_leave_the_effective_due_unchanged`
   - `test_effective_due_scales_the_interval_from_the_anchor`
   - `test_fallbacks_no_state_null_due_no_anchor_and_anchor_not_before_due`
-  - `test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off`
+  - `test_identity_at_090_uncommitted_items_are_served_exactly_as_with_no_commitment`
   - `test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies`
 - [tests/test_intent_resolution.py](../../../../../tests/test_intent_resolution.py) — direct import
   - `test_a_satisfied_check_still_decides_over_an_older_lo_master`
@@ -1817,9 +1815,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_probe_ties.py](../../../../../tests/test_router_probe_ties.py) — direct import
   - `test_a_greedy_probe_presentation_carries_no_exploration_mark`
   - `test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice`
-  - `test_kill_switch_serves_the_predecessors_probe_offer_exactly`
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_router_r1_composition.py](../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../tests/test_router_r2a_serving.py) — direct import

@@ -140,7 +140,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `source_learning_objects`; statically calls `source_learning_objects`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `_action_events`, `_continue_at`, `_effective_success_since`
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `_sections`, `session_summary`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `_sections`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `_source_id`, `session_summary`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `source_learning_objects`; statically calls `source_learning_objects`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `session_summary`, `source_learning_objects`; statically calls `session_summary`, `source_learning_objects`

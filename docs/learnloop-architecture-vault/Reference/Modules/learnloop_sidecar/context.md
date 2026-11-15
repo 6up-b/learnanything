@@ -466,7 +466,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
 - [tests/test_intent_orchestrator_rulings.py](../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
-  - `test_with_intent_off_the_control_answers_off_and_refuses_writes`
 - [tests/test_judge_routes.py](../../../../../tests/test_judge_routes.py) — direct import
   - `test_grading_providers_and_settings_health_ignore_judgment_routes`
 - [tests/test_k1_unreadable_adapters.py](../../../../../tests/test_k1_unreadable_adapters.py) — direct import
@@ -541,7 +540,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_panel_off_the_sidecar_asks_as_before`
   - `test_the_snapshot_carries_the_panel`
-- [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
 - [tests/test_reader_pdf_selection.py](../../../../../tests/test_reader_pdf_selection.py) — direct import
   - `test_a_reading_held_back_by_rule_4_is_withheld_whole`
   - `test_the_reader_is_told_which_passages_are_held_out`

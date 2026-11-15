@@ -107,7 +107,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `digests`
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `digest`, `digest_for_session`, `digests`, `insert_digest`, `set_narrative`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `digest`, `digest_for_session`, `digests`, `set_narrative`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; statically calls `digest`, `digest_for_commitment`, `digest_for_session`, `digests`, `insert_digest`, `update_digest`, `without_narrative`
 - [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] — imports `digest_for_commitment`; statically calls `digest_for_commitment`
 
@@ -141,9 +141,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_the_narrative_is_written_once_even_when_two_writers_race`
   - `test_the_narrative_is_written_once_from_the_typed_summary_with_valid_citations`
-  - `test_the_queue_build_narrates_a_session_with_follow_ups_off`
-- [tests/test_reader_followups.py](../../../../../../../tests/test_reader_followups.py) — direct import
-  - `test_the_kill_switch_creates_nothing_and_runs_no_revaluation`
 - [tests/test_reader_followups_rereview.py](../../../../../../../tests/test_reader_followups_rereview.py) — direct import
   - `test_f13_a_failure_after_the_exposure_retirement_loses_neither_the_check_nor_the_re_ask`
   - `test_f3_two_resumptions_publishing_in_the_same_second_never_orphan_a_commitment`

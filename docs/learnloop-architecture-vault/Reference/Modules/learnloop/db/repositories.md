@@ -3158,8 +3158,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
   - `test_router_tables_survive_rebuild_under_production_pragmas`
-- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import

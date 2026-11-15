@@ -46,73 +46,72 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py) |
-| Source lines | 1900 |
+| Source lines | 1884 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FollowupError(ValueError)` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 143) — A refused follow-up request (nothing was written).
-- `followups_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 155) — Follow-ups are live: ``followups.enabled`` is on (default; the successor mvp-0.39's switch).
-- `formative_questions_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 162)
-- `max_wait_days(vault: Any) -> int` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 166)
-- `class Question` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 175) — One open question a later independent attempt could answer.
-  - `intent(self) -> str` (line 191; public)
-  - `as_dict(self) -> dict[str, Any]` (line 194; public)
-- `pending_cold_retry(vault: Any, repository: Repository, *, facet_id: str, attempt_ids: Sequence[str], learning_object_ids: Sequence[str], now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 221) — mvp-0.38's interaction: a repair ``cold_retry`` still pending (or served) that owns the claim: the item it measures assesses the claim's facet, on one of the claim's attempts or on the claim's learning objects (Codex review F11: ownership is by the assessed facets, never the sou…
-- `open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[str, Any], *, now: datetime) -> tuple[list[Question], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 240) — The session's open questions and the notes on what was not asked (typed).
-- `revealed_families(vault: Any, repository: Repository, session: RS.ReaderSession) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 382) — The families of every item whose answer the session revealed (the reveal ledger).
-- `constraints_for(question: Question, *, exclude_family_ids: Sequence[str], exclude_item_ids: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 398) — The ``PracticeConstraints`` mapping for one question (§9.3 item 2, exactly), plus ``exclude_item_ids``: the items an explicit learner choice decides (Codex review F2), never valued as an automatic check.
-- `committed_items(vault: Any, connection: Any, *, own: Iterable[str]=()) -> set[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 416) — Items some commitment other than ``own`` decides (DL2 §5.3's resolution): a learner's Pause, Master, Learn, Keep, reference-only or their own "Check once", or another session's follow-up.
-- `query_for(vault: Any, question: Question) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 435)
-- `default_search(vault: LoadedVault, repository: Repository, *, injections: Mapping[str, Any], rerank_client: Any | None=None, clock: Clock | None=None) -> Search` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 447) — ``find_practice`` as every caller runs it (``propose_practice``: the one hypothesis-ref contract, the service's daily cap, the Reader's caller context), system-initiated.
-- `followup_spend(vault: Any, repository: Repository, clock: Clock | None=None) -> Iterator[None]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 519) — ``followups.max_daily_cost_usd`` and ``source_service.max_daily_cost_usd`` together: a metered relevance call reserves in both, so whichever is reached first stops it (§9.3 item 6).
-- `retention_due(vault: LoadedVault, repository: Repository, *, practice_item_id: str, attempt: Mapping[str, Any] | None, now: datetime) -> tuple[datetime | None, str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 542) — When forgetting is expected for the practiced item, from FSRS.
-- `date_for(vault: LoadedVault, repository: Repository, *, purpose: str, practice_item_id: str | None, attempt: Mapping[str, Any] | None, now: datetime) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 589) — ``{"due_hint": YYYY-MM-DD, "basis", "capped"}``: never today, never past the time cap.
-- `digest_id_for(extraction_id: str, session_key: str) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 612)
-- `purpose_text(vault: Any, purpose: str, learning_object_ids: Sequence[str], novelty: str | None) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 771) — Learner-facing purpose wording (G16: never "error" or "mistake" about the learner's work).
-- `why_text(purpose: str, check: Mapping[str, Any], mode: str | None) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 782)
-- `plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: str, session: RS.ReaderSession, search: Search | None, now: datetime, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 809) — Plan the follow-ups of one ended reader session; returns its digest row.
-- `licensing_entry(question: Question) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1007) — One licensing question as a chosen line carries it (round 6): the key and everything the serve-time gate and re-valuation read, written at publication, so neither looks into the receipt's question entries.
-- `sessions_to_plan(vault: LoadedVault, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1132) — Ended reader sessions (no visit for the 30-minute gap) within the time cap with no planned digest.
-- `plan_ended_sessions(vault: LoadedVault, repository: Repository, *, search: Search | None, now: datetime, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1154) — Plan every ended session waiting for its follow-ups (the background job).
-- `revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime, valuer: Callable[..., Mapping[str, Any]] | None=None, clock: Clock | None=None, force: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1242) — Re-value every pending follow-up once a local day, before the plan is built, with no model call (Codex review F5).
-- `exposure_refresh_waiting(repository: Repository) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1430) — Whether the last re-valuation kept a check for the exposure refresh (cheap: the digests only).
-- `refresh_exposure(vault: LoadedVault, repository: Repository, *, now: datetime, clock: Clock | None=None, judge_client: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1439) — The background half of re-valuation (Codex review F5): for each pending check the last re-valuation kept only because a worked example studied since was never judged against it, ask the exposure rule's judge (route ``worked_example_equivalence``) under BOTH daily envelopes (:fun…
-- `answered_since(vault: Any, repository: Repository, question: Mapping[str, Any], *, since: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1489) — How the question was answered since ``since``, or None (still open).
-- `default_valuer(vault: LoadedVault, repository: Repository, *, estimator: Any | None=None) -> Callable[[Mapping[str, Any], str], Mapping[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1668) — ``discriminating.value_request`` for one committed item, system-initiated, with the follow-ups' familiarity discount (G35, F12) and the question's pending repair decision (F7).
-- `undo_followup(repository: Repository, *, commitment_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1712) — Retire one follow-up the learner undid, with their optional reason.
-- `undo_all(repository: Repository, *, digest_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1749) — Retire every pending follow-up from one session ("undo all").
-- `restore_followup(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1764) — Undo a retirement (re-valuation's or the learner's own undo): the check is pending again, and re-valuation leaves it to the learner from then on.
-- `coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str | None, now: datetime, retired_after: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1798) — The scheduled checks as a dated timeline (next three, then later) and the retirements since ``retired_after`` as good news.
+- `class FollowupError(ValueError)` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 142) — A refused follow-up request (nothing was written).
+- `formative_questions_enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 154)
+- `max_wait_days(vault: Any) -> int` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 158)
+- `class Question` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 167) — One open question a later independent attempt could answer.
+  - `intent(self) -> str` (line 183; public)
+  - `as_dict(self) -> dict[str, Any]` (line 186; public)
+- `pending_cold_retry(vault: Any, repository: Repository, *, facet_id: str, attempt_ids: Sequence[str], learning_object_ids: Sequence[str], now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 213) — mvp-0.38's interaction: a repair ``cold_retry`` still pending (or served) that owns the claim: the item it measures assesses the claim's facet, on one of the claim's attempts or on the claim's learning objects (Codex review F11: ownership is by the assessed facets, never the sou…
+- `open_questions(vault: LoadedVault, repository: Repository, summary: Mapping[str, Any], *, now: datetime) -> tuple[list[Question], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 232) — The session's open questions and the notes on what was not asked (typed).
+- `revealed_families(vault: Any, repository: Repository, session: RS.ReaderSession) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 374) — The families of every item whose answer the session revealed (the reveal ledger).
+- `constraints_for(question: Question, *, exclude_family_ids: Sequence[str], exclude_item_ids: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 390) — The ``PracticeConstraints`` mapping for one question (§9.3 item 2, exactly), plus ``exclude_item_ids``: the items an explicit learner choice decides (Codex review F2), never valued as an automatic check.
+- `committed_items(vault: Any, connection: Any, *, own: Iterable[str]=()) -> set[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 408) — Items some commitment other than ``own`` decides (DL2 §5.3's resolution): a learner's Pause, Master, Learn, Keep, reference-only or their own "Check once", or another session's follow-up.
+- `query_for(vault: Any, question: Question) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 427)
+- `default_search(vault: LoadedVault, repository: Repository, *, injections: Mapping[str, Any], rerank_client: Any | None=None, clock: Clock | None=None) -> Search` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 439) — ``find_practice`` as every caller runs it (``propose_practice``: the one hypothesis-ref contract, the service's daily cap, the Reader's caller context), system-initiated.
+- `followup_spend(vault: Any, repository: Repository, clock: Clock | None=None) -> Iterator[None]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 511) — ``followups.max_daily_cost_usd`` and ``source_service.max_daily_cost_usd`` together: a metered relevance call reserves in both, so whichever is reached first stops it (§9.3 item 6).
+- `retention_due(vault: LoadedVault, repository: Repository, *, practice_item_id: str, attempt: Mapping[str, Any] | None, now: datetime) -> tuple[datetime | None, str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 534) — When forgetting is expected for the practiced item, from FSRS.
+- `date_for(vault: LoadedVault, repository: Repository, *, purpose: str, practice_item_id: str | None, attempt: Mapping[str, Any] | None, now: datetime) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 581) — ``{"due_hint": YYYY-MM-DD, "basis", "capped"}``: never today, never past the time cap.
+- `digest_id_for(extraction_id: str, session_key: str) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 604)
+- `purpose_text(vault: Any, purpose: str, learning_object_ids: Sequence[str], novelty: str | None) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 763) — Learner-facing purpose wording (G16: never "error" or "mistake" about the learner's work).
+- `why_text(purpose: str, check: Mapping[str, Any], mode: str | None) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 774)
+- `plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: str, session: RS.ReaderSession, search: Search | None, now: datetime, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 801) — Plan the follow-ups of one ended reader session; returns its digest row.
+- `licensing_entry(question: Question) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 997) — One licensing question as a chosen line carries it (round 6): the key and everything the serve-time gate and re-valuation read, written at publication, so neither looks into the receipt's question entries.
+- `sessions_to_plan(vault: LoadedVault, repository: Repository, *, now: datetime) -> list[RS.ReaderSession]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1122) — Ended reader sessions (no visit for the 30-minute gap) within the time cap with no planned digest.
+- `plan_ended_sessions(vault: LoadedVault, repository: Repository, *, search: Search | None, now: datetime, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1142) — Plan every ended session waiting for its follow-ups (the background job).
+- `revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime, valuer: Callable[..., Mapping[str, Any]] | None=None, clock: Clock | None=None, force: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1230) — Re-value every pending follow-up once a local day, before the plan is built, with no model call (Codex review F5).
+- `exposure_refresh_waiting(repository: Repository) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1415) — Whether the last re-valuation kept a check for the exposure refresh (cheap: the digests only).
+- `refresh_exposure(vault: LoadedVault, repository: Repository, *, now: datetime, clock: Clock | None=None, judge_client: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1424) — The background half of re-valuation (Codex review F5): for each pending check the last re-valuation kept only because a worked example studied since was never judged against it, ask the exposure rule's judge (route ``worked_example_equivalence``) under BOTH daily envelopes (:fun…
+- `answered_since(vault: Any, repository: Repository, question: Mapping[str, Any], *, since: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1474) — How the question was answered since ``since``, or None (still open).
+- `default_valuer(vault: LoadedVault, repository: Repository, *, estimator: Any | None=None) -> Callable[[Mapping[str, Any], str], Mapping[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1653) — ``discriminating.value_request`` for one committed item, system-initiated, with the follow-ups' familiarity discount (G35, F12) and the question's pending repair decision (F7).
+- `undo_followup(repository: Repository, *, commitment_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1697) — Retire one follow-up the learner undid, with their optional reason.
+- `undo_all(repository: Repository, *, digest_id: str, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1734) — Retire every pending follow-up from one session ("undo all").
+- `restore_followup(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1749) — Undo a retirement (re-valuation's or the learner's own undo): the check is pending again, and re-valuation leaves it to the learner from then on.
+- `coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str | None, now: datetime, retired_after: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1783) — The scheduled checks as a dated timeline (next three, then later) and the retirements since ``retired_after`` as good news.
 
 ### Module constants
 
-- `FOLLOWUPS_VERSION` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 96)
-- `VIA` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 97)
-- `ENVELOPE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 99)
-- `OWNER_KIND` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 100)
-- `UNDO_TASK` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 102)
-- `UNDO_REASON_CHARS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 104)
-- `NEXT_SHOWN` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 106)
-- `PURPOSE_DISCRIMINATING` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 108)
-- `PURPOSE_RETENTION` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 109)
-- `INTENT_BY_PURPOSE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 110)
-- `NOVELTY_SAME_SURFACE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 112)
-- `NOVELTY_NEW_PROBLEM` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 113)
-- `NOVELTY_LABELS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 114)
-- `RETIRE_ANSWERED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 118)
-- `RETIRE_BELOW_STOP` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 119)
-- `RETIRE_UNDONE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 120)
-- `RETIRE_EXPOSED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 123)
-- `RETIRE_REPAIR_OWNS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 125)
-- `RETIRE_UNREADABLE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 130)
-- `KEPT_REFRESH` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 133)
-- `ANSWERED_SOLVED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 136)
-- `ANSWERED_RIVALS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 137)
-- `CHECK_VERDICTS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 140)
-- `REVALUATION_ATTEMPTS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 1302)
+- `FOLLOWUPS_VERSION` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 95)
+- `VIA` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 96)
+- `ENVELOPE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 98)
+- `OWNER_KIND` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 99)
+- `UNDO_TASK` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 101)
+- `UNDO_REASON_CHARS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 103)
+- `NEXT_SHOWN` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 105)
+- `PURPOSE_DISCRIMINATING` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 107)
+- `PURPOSE_RETENTION` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 108)
+- `INTENT_BY_PURPOSE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 109)
+- `NOVELTY_SAME_SURFACE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 111)
+- `NOVELTY_NEW_PROBLEM` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 112)
+- `NOVELTY_LABELS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 113)
+- `RETIRE_ANSWERED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 117)
+- `RETIRE_BELOW_STOP` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 118)
+- `RETIRE_UNDONE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 119)
+- `RETIRE_EXPOSED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 122)
+- `RETIRE_REPAIR_OWNS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 124)
+- `RETIRE_UNREADABLE` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 129)
+- `KEPT_REFRESH` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 132)
+- `ANSWERED_SOLVED` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 135)
+- `ANSWERED_RIVALS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 136)
+- `CHECK_VERDICTS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 139)
+- `REVALUATION_ATTEMPTS` ([src/learnloop/instructional/reader_followups.py](../../../../../../src/learnloop/instructional/reader_followups.py), line 1287)
 
 ### Explicit exports
 
@@ -136,7 +135,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `digest_id_for`
 - `exposure_refresh_waiting`
 - `followup_spend`
-- `followups_enabled`
 - `open_questions`
 - `pending_cold_retry`
 - `plan_ended_sessions`
@@ -153,52 +151,51 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_config(vault: Any) -> Any` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 151)
-- `_item_lo(vault: Any, item_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 198)
-- `_attempt_rows(repository: Repository, attempt_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 203)
-- `_facet_los(vault: Any, facet_id: str) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 213)
-- `_followups_envelope(vault: Any, repository: Repository, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 510)
-- `_local_day(moment: datetime) -> date` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 534)
-- `_iso(moment: datetime) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 538)
-- `_workbench_spans(repository: Repository, session_ids: Sequence[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 616)
-- `_section_spans(repository: Repository, extraction_id: str, sections: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 634) — The first span of the last section the session read (the studied passage).
-- `_session_spans(vault: Any, repository: Repository, summary: Mapping[str, Any], learning_object_ids: Sequence[str], extraction_id: str) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 650) — The way back (§9.3 item 9; Codex review F10): the session's inquiry roots and anchor spans on these learning objects; the spans of the workbench sessions that worked an item of them and of the formative records that touched them; with none of those, the workbench and formative s…
-- `_novelty(vault: Any, item_id: str, worked_item_ids: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 704) — Exact facts only (row 79): a candidate in the family of an item the session worked is ``same_surface`` and never transfer; anything else is "a new problem" until the relevance step returns ``new_application``.
-- `_chosen_checks(result: Mapping[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 717) — Each section's checks that may be dated: a check verdict, a licensing regime.
-- `_marginal(section: Mapping[str, Any], check: Mapping[str, Any]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 731) — P(E) under the problem's prior for a later pick, whose receipt values it conditionally (S5 records P(E) for every chosen check, §11.4 item 1): the sum the valuation's own ``_predicted`` takes, over the persisted point table.
-- `_question_outcome(result: Mapping[str, Any], chosen: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 746)
-- `_incomplete(result: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 766)
-- `_exposure_scope(vault: Any, repository: Repository, learning_object_ids: Sequence[str], extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 794) — The extractions the exposure rule's worked-example shortlist is drawn from for these learning objects (``teaching_scope``), plus the session's: the serve-time gate reads studied examples in this scope (F1).
-- `_licensing_entries(line: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1021)
-- `_licensing(line: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1026) — The keys of the questions that license a chosen check (its ``licensing`` list; a line without one is malformed and licenses nothing: round 7, F20).
-- `_live_lines(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1034) — ``ref -> index`` of each chosen line whose check is live (pending).
-- `_undone_refs(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1050) — The items whose check from this digest the learner undid (and did not restore): never scheduled again by a later search of the same session.
-- `_publish(vault: Any, repository: Repository, *, digest_id: str, existing: Mapping[str, Any] | None, extraction_id: str, session: RS.ReaderSession, summary: Mapping[str, Any], notes: Sequence[Mapping[str, Any]], families: Sequence[str], receipt_questions: list[dict[str, Any]], chosen: list[dict[str, Any]], commitment_ids: list[str], planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]], incomplete: bool, intent_excluded: set[str], now: datetime, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1065) — F3: the commitments, the digest receipt and the queue revision in one transaction.
-- `_first_version(repository: Repository, commitment_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1171)
-- `_provenance(repository: Repository, commitment_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1176)
-- `_events(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1183)
-- `_learner_kept(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1187) — The learner undid a retirement (or restored an undo): re-valuation leaves it alone.
-- `_solved_attempt(vault: Any, repository: Repository, *, learning_object_ids: Sequence[str], facet_ids: Sequence[str], since: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1201) — The unaided success that answered a retention question (the good news's date).
-- `_today(now: datetime) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1226)
-- `_gate_verdict(vault: Any, repository: Repository, *, item_id: str, provenance: Mapping[str, Any], valued_at: str, now: datetime, questions: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1230) — The serve-time gate's verdict now (exposure since valuation, repair ownership; ``scheduling.intent.followup_gate``), with no model call, by the strictest rule across the open licensing ``questions`` (F16).
-- `_revaluation_decisions(vault: Any, repository: Repository, snapshot: Mapping[str, Any], *, valuer: Callable[..., Mapping[str, Any]] | None, switched_off: str | None, now: datetime, clock: Clock | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1305) — Every pending check's decision from one digest snapshot; writes nothing.
-- `_commit_revaluation(repository: Repository, snapshot: Mapping[str, Any], lines: list[dict[str, Any]], *, now: datetime, today: str, clock: Clock | None) -> list[dict[str, Any]] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1351) — Commit one digest's decisions, or None (nothing written) when the row is no longer the snapshot they were computed from (round 8).
-- `_targets(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1481)
-- `_own_question(provenance: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1519) — The check's own question, from its provenance, as re-valuation reads a licensing question.
-- `_revaluation_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None, item_id: str, receipt_keys: set[str]) -> tuple[list[dict[str, Any]], list[str], bool]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1527) — ``(licensing, pruned, unreadable)`` for one check (round 6).
-- `_revaluation_line(vault: Any, repository: Repository, *, commitment_id: str, item_id: str, provenance: Mapping[str, Any], valuer: Callable[..., Mapping[str, Any]], extraction_id: str, now: datetime, clock: Clock | None, licensing: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1559) — One pending check's re-valuation.
-- `_applied_exposure(*_args: Any, **_kwargs: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1661) — Re-valuation's exposure verdict inside ``value_request``: the rule was applied by :func:`_gate_verdict` with no model call (F5).
-- `_require_followup(repository: Repository, commitment_id: str) -> tuple[dict[str, Any], dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1700)
-- `_retirement(repository: Repository, commitment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1784)
-- `_due_hint(repository: Repository, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1862)
+- `_config(vault: Any) -> Any` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 150)
+- `_item_lo(vault: Any, item_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 190)
+- `_attempt_rows(repository: Repository, attempt_ids: Sequence[str]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 195)
+- `_facet_los(vault: Any, facet_id: str) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 205)
+- `_followups_envelope(vault: Any, repository: Repository, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 502)
+- `_local_day(moment: datetime) -> date` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 526)
+- `_iso(moment: datetime) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 530)
+- `_workbench_spans(repository: Repository, session_ids: Sequence[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 608)
+- `_section_spans(repository: Repository, extraction_id: str, sections: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 626) — The first span of the last section the session read (the studied passage).
+- `_session_spans(vault: Any, repository: Repository, summary: Mapping[str, Any], learning_object_ids: Sequence[str], extraction_id: str) -> tuple[list[str], list[str]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 642) — The way back (§9.3 item 9; Codex review F10): the session's inquiry roots and anchor spans on these learning objects; the spans of the workbench sessions that worked an item of them and of the formative records that touched them; with none of those, the workbench and formative s…
+- `_novelty(vault: Any, item_id: str, worked_item_ids: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 696) — Exact facts only (row 79): a candidate in the family of an item the session worked is ``same_surface`` and never transfer; anything else is "a new problem" until the relevance step returns ``new_application``.
+- `_chosen_checks(result: Mapping[str, Any]) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 709) — Each section's checks that may be dated: a check verdict, a licensing regime.
+- `_marginal(section: Mapping[str, Any], check: Mapping[str, Any]) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 723) — P(E) under the problem's prior for a later pick, whose receipt values it conditionally (S5 records P(E) for every chosen check, §11.4 item 1): the sum the valuation's own ``_predicted`` takes, over the persisted point table.
+- `_question_outcome(result: Mapping[str, Any], chosen: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 738)
+- `_incomplete(result: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 758)
+- `_exposure_scope(vault: Any, repository: Repository, learning_object_ids: Sequence[str], extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 786) — The extractions the exposure rule's worked-example shortlist is drawn from for these learning objects (``teaching_scope``), plus the session's: the serve-time gate reads studied examples in this scope (F1).
+- `_licensing_entries(line: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1011)
+- `_licensing(line: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1016) — The keys of the questions that license a chosen check (its ``licensing`` list; a line without one is malformed and licenses nothing: round 7, F20).
+- `_live_lines(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1024) — ``ref -> index`` of each chosen line whose check is live (pending).
+- `_undone_refs(repository: Repository, chosen: Sequence[Mapping[str, Any]]) -> set[str]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1040) — The items whose check from this digest the learner undid (and did not restore): never scheduled again by a later search of the same session.
+- `_publish(vault: Any, repository: Repository, *, digest_id: str, existing: Mapping[str, Any] | None, extraction_id: str, session: RS.ReaderSession, summary: Mapping[str, Any], notes: Sequence[Mapping[str, Any]], families: Sequence[str], receipt_questions: list[dict[str, Any]], chosen: list[dict[str, Any]], commitment_ids: list[str], planned: Sequence[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]], incomplete: bool, intent_excluded: set[str], now: datetime, clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1055) — F3: the commitments, the digest receipt and the queue revision in one transaction.
+- `_first_version(repository: Repository, commitment_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1159)
+- `_provenance(repository: Repository, commitment_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1164)
+- `_events(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1171)
+- `_learner_kept(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1175) — The learner undid a retirement (or restored an undo): re-valuation leaves it alone.
+- `_solved_attempt(vault: Any, repository: Repository, *, learning_object_ids: Sequence[str], facet_ids: Sequence[str], since: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1189) — The unaided success that answered a retention question (the good news's date).
+- `_today(now: datetime) -> str` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1214)
+- `_gate_verdict(vault: Any, repository: Repository, *, item_id: str, provenance: Mapping[str, Any], valued_at: str, now: datetime, questions: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1218) — The serve-time gate's verdict now (exposure since valuation, repair ownership; ``scheduling.intent.followup_gate``), with no model call, by the strictest rule across the open licensing ``questions`` (F16).
+- `_revaluation_decisions(vault: Any, repository: Repository, snapshot: Mapping[str, Any], *, valuer: Callable[..., Mapping[str, Any]] | None, switched_off: str | None, now: datetime, clock: Clock | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1290) — Every pending check's decision from one digest snapshot; writes nothing.
+- `_commit_revaluation(repository: Repository, snapshot: Mapping[str, Any], lines: list[dict[str, Any]], *, now: datetime, today: str, clock: Clock | None) -> list[dict[str, Any]] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1336) — Commit one digest's decisions, or None (nothing written) when the row is no longer the snapshot they were computed from (round 8).
+- `_targets(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1466)
+- `_own_question(provenance: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1504) — The check's own question, from its provenance, as re-valuation reads a licensing question.
+- `_revaluation_licensing(provenance: Mapping[str, Any], line: Mapping[str, Any] | None, item_id: str, receipt_keys: set[str]) -> tuple[list[dict[str, Any]], list[str], bool]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1512) — ``(licensing, pruned, unreadable)`` for one check (round 6).
+- `_revaluation_line(vault: Any, repository: Repository, *, commitment_id: str, item_id: str, provenance: Mapping[str, Any], valuer: Callable[..., Mapping[str, Any]], extraction_id: str, now: datetime, clock: Clock | None, licensing: Sequence[Mapping[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1544) — One pending check's re-valuation.
+- `_applied_exposure(*_args: Any, **_kwargs: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1646) — Re-valuation's exposure verdict inside ``value_request``: the rule was applied by :func:`_gate_verdict` with no model call (F5).
+- `_require_followup(repository: Repository, commitment_id: str) -> tuple[dict[str, Any], dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1685)
+- `_retirement(repository: Repository, commitment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1769)
+- `_due_hint(repository: Repository, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/instructional/reader_followups.py), line 1847)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `digest_id_for`, `followups_enabled`, `max_wait_days`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] — imports `module`; statically calls `coming_up`, `default_search`, `default_valuer`, `exposure_refresh_waiting`, `followups_enabled`, `plan_ended_sessions`, `refresh_exposure`, `restore_followup`, `revalue_pending`, `sessions_to_plan`, `undo_all`, `undo_followup`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] — imports `module`; statically calls `coming_up`, `default_search`, `default_valuer`, `exposure_refresh_waiting`, `plan_ended_sessions`, `refresh_exposure`, `restore_followup`, `revalue_pending`, `sessions_to_plan`, `undo_all`, `undo_followup`
 - [[Reference/Modules/learnloop_sidecar/handlers/recap|learnloop_sidecar.handlers.recap]] — imports `module`; statically calls `coming_up`
 
 ## Dependencies
@@ -252,7 +249,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]], [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]], [[Reference/Modules/learnloop_sidecar/handlers/recap|learnloop_sidecar.handlers.recap]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]], [[Reference/Modules/learnloop_sidecar/handlers/recap|learnloop_sidecar.handlers.recap]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -265,8 +262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`
-- [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
-  - `test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated`
 - [tests/test_reader_followup_valuation.py](../../../../../../tests/test_reader_followup_valuation.py) — direct import
   - `test_the_default_search_is_find_practice_with_the_exact_filters_system_initiated`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
@@ -286,7 +281,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_revealed_families_are_the_sessions_reveals_only`
   - `test_the_cards_good_news_names_how_the_question_was_answered_and_drops_a_restored_check`
   - `test_the_exact_filters_reach_find_practice_admission`
-  - `test_the_kill_switch_creates_nothing_and_runs_no_revaluation`
   - `test_the_provenance_carries_the_way_back_and_dl2_renders_it`
   - `test_the_search_is_asked_with_the_exact_filters`
   - `test_the_spend_envelopes_are_the_followups_and_the_services`
@@ -336,7 +330,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_round8_a_scalar_licensing_is_unreadable_not_a_crash`
   - `test_round8_sols_interleaving_keeps_the_shared_check_live`
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
-  - `test_planning_and_revaluation_are_gated_by_the_switch`
+  - `test_planning_and_revaluation_run`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
   - `test_ii_a_rescheduled_fresh_cold_retry_holds_and_retires_an_existing_follow_up`

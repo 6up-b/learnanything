@@ -50,23 +50,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/intent.py](../../../../../../src/learnloop_sidecar/handlers/intent.py) |
-| Source lines | 104 |
+| Source lines | 90 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class IntentScopeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 32)
-- `class SetIntentInput(IntentScopeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 37)
-- `class SetIntentDeadlineInput(IntentScopeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 41)
-- `get_intent(ctx: SidecarContext, params: IntentScopeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 65)
-- `set_intent(ctx: SidecarContext, params: SetIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 77)
-- `set_intent_deadline(ctx: SidecarContext, params: SetIntentDeadlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 90)
+- `class IntentScopeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 31)
+- `class SetIntentInput(IntentScopeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 36)
+- `class SetIntentDeadlineInput(IntentScopeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 40)
+- `get_intent(ctx: SidecarContext, params: IntentScopeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 55)
+- `set_intent(ctx: SidecarContext, params: SetIntentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 65)
+- `set_intent_deadline(ctx: SidecarContext, params: SetIntentDeadlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 77)
 
 ### Module constants
 
-- `INTENT_RPCS` ([src/learnloop_sidecar/handlers/intent.py](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 29)
+- `INTENT_RPCS` ([src/learnloop_sidecar/handlers/intent.py](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 28)
 
 ### Explicit exports
 
@@ -76,9 +76,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_scope(params: IntentScopeInput) -> Scope` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 45)
-- `_describe(vault: Any, repository: Any, scope: Scope) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 51)
-- `_require_enabled(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 55)
+- `_scope(params: IntentScopeInput) -> Scope` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 44)
+- `_describe(vault: Any, repository: Any, scope: Scope) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/intent.py), line 50)
 
 ## Who imports or calls it
 
@@ -95,7 +94,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `IntentControlError`, `Scope`, `apply_choice`, `describe`; calls `Scope`, `apply_choice`, `describe`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `set_deadline`; calls `set_deadline`
 - [[Reference/Modules/learnloop/scheduling/intent/model|learnloop.scheduling.intent.model]] — imports `SCOPE_KINDS`
-- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_enabled`; calls `intent_enabled`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -123,7 +121,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_the_intent_control_is_off_below_the_tag`
+  - `test_f2_the_intent_control_is_on`
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
 
 ## Modification guidance
