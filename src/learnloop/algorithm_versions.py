@@ -510,8 +510,8 @@ REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 #
 # That changes how an attempt is classified (assisted or on your own) and
 # what submit admits, never the projection, so it is another successor tag on
-# the mvp-0.8 namespace. Kill switch: ``ask.cold_help_converts`` (off, or
-# below the tag: both rules exactly as the predecessor).
+# the mvp-0.8 namespace. Its kill switch went once every vault was past the
+# tag.
 ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 
 # mvp-0.36 (replaced learner claims kept; docs/reviews/lp-learner-report-superseded.md),

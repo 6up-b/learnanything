@@ -1,11 +1,11 @@
 """Reader CA2, one Ask (docs/specs/ux_reader_compare_ask_v1.md §7, K5-K10, §15 Q2-Q5;
 docs/reviews/reader-ca2-one-ask.md), backend.
 
-* **The successor (mvp-0.35; mvp-0.34 on the branch, ``ask.cold_help_converts``).** One help rule on a
+* **The successor (mvp-0.35; mvp-0.34 on the branch).** One help rule on a
   check on your own: a cold question counts as help only when the tutor's
   ``question_type`` is substantive, on the Reader's cold paths too (K10); help
   taken on a cold follow-up makes the attempt practice with help, admitted and
-  never the cold measurement (Q4). Off, or below the tag: the predecessor.
+  never the cold measurement (Q4).
 * **The panel (``ask.panel_enabled``).** The practice thread is the attempt's
   (K5); so is the budget on a metered route (owner 2026-10-26: B3's
   per-attempt rule kept; a subscription route has none, F8);
@@ -98,54 +98,41 @@ def test_the_successor_is_one_constant_after_rebuild_equivalence():
     # latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-25] == TAG == "mvp-0.35" and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert SUCCESSOR_CHAIN[-26] == REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34"
-    assert AskConfig().panel_enabled is True and AskConfig().cold_help_converts is True
-    for key in ("ask.panel_enabled", "ask.cold_help_converts"):
-        assert classify_config_path(key) is not None
-
-
-def test_the_rule_is_live_only_with_its_switch(tmp_path):
-    _paths, vault, _repository = _vault(tmp_path)
-    assert vault.config.algorithms.algorithm_version == TAG
-    assert se.help_converts_active(vault)
-    off_paths, off, _ = _vault(tmp_path / "off", {("ask", "cold_help_converts"): False})
-    assert not se.help_converts_active(off)
-    assert not se.help_converts_active(None)
+    assert AskConfig().panel_enabled is True
+    assert classify_config_path("ask.panel_enabled") is not None
 
 
 # -- Q4: help taken on a cold follow-up converts the attempt ----------------------------------------
 
 
-def _cold_inputs(*, hints: int, help_converts: bool, primed: bool = False) -> se.EligibilityInputs:
+def _cold_inputs(*, hints: int, primed: bool = False) -> se.EligibilityInputs:
     task = se.FollowupTask(id="task_cold", kind="cold_retry", created_at="2026-05-01T00:00:00Z",
                            not_before="2026-05-02T00:00:00Z", expires_at="2026-06-30T00:00:00Z")
     return se.EligibilityInputs(practice_item_id=ITEM, learning_object_id=None, at="2026-05-03T00:00:00Z",
-                                tasks=(task,), hints_used=hints, declared_primed=primed,
-                                help_converts=help_converts)
+                                tasks=(task,), hints_used=hints, declared_primed=primed)
 
 
-def test_the_predecessor_refuses_a_hinted_cold_check_and_the_successor_converts_it():
-    refused = se.decide(_cold_inputs(hints=1, help_converts=False), se.SUBMIT)
-    assert refused.verdict == se.REFUSE and refused.reason == se.COLD_CHECK_ASSISTED
-    converted = se.decide(_cold_inputs(hints=1, help_converts=True), se.SUBMIT)
+def test_a_hinted_cold_check_converts():
+    converted = se.decide(_cold_inputs(hints=1), se.SUBMIT)
     assert converted.verdict == se.SERVE and converted.reason == se.COLD_CHECK_HELP_TAKEN
     # It claims no task: the cold measurement is not answered by an assisted attempt.
     assert converted.task_ids == () and not converted.writes
     # Help that showed the answer converts too (the attempt is practice either way).
-    assert se.decide(_cold_inputs(hints=1, help_converts=True, primed=True), se.SUBMIT).verdict == se.SERVE
+    assert se.decide(_cold_inputs(hints=1, primed=True), se.SUBMIT).verdict == se.SERVE
 
 
 def test_without_help_the_cold_rules_are_unchanged():
-    clean = se.decide(_cold_inputs(hints=0, help_converts=True), se.SUBMIT)
+    clean = se.decide(_cold_inputs(hints=0), se.SUBMIT)
     assert clean.verdict == se.SERVE and clean.reason == se.ELIGIBLE and clean.task_ids == ("task_cold",)
-    primed = se.decide(_cold_inputs(hints=0, help_converts=True, primed=True), se.SUBMIT)
+    primed = se.decide(_cold_inputs(hints=0, primed=True), se.SUBMIT)
     assert primed.verdict == se.REFUSE
 
 
-def _repair_at(tmp_path, *, converts: bool):
+def _repair_at(tmp_path):
     from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
-    set_config(vault.root, {("algorithms", "algorithm_version"): TAG, ("ask", "cold_help_converts"): converts})
+    set_config(vault.root, {("algorithms", "algorithm_version"): TAG})
     return load_vault(vault.root), repository, misconception_id
 
 
@@ -153,7 +140,7 @@ def test_a_hinted_cold_retry_is_practice_with_help_and_never_consumes_the_measur
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
     from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
 
-    vault, repository, misconception_id = _repair_at(tmp_path, converts=True)
+    vault, repository, misconception_id = _repair_at(tmp_path)
     episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
     moment = REPAIR_NOW + timedelta(days=1, hours=1)
     at = moment.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -172,25 +159,6 @@ def test_a_hinted_cold_retry_is_practice_with_help_and_never_consumes_the_measur
     assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
 
 
-def test_switched_off_a_hinted_cold_retry_is_refused_as_before(tmp_path):
-    from learnloop.attempts.attempts import (
-        AttemptDraft,
-        AttemptValidationError,
-        SelfGradeInput,
-        complete_self_graded_attempt,
-    )
-    from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
-
-    vault, repository, misconception_id = _repair_at(tmp_path, converts=False)
-    _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
-    with pytest.raises(AttemptValidationError, match="a cold retry must be unassisted and unprimed: hints were used"):
-        complete_self_graded_attempt(
-            vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="an answer", hints_used=1),
-            SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
-            clock=FrozenClock(REPAIR_NOW + timedelta(days=1, hours=1)),
-        )
-
-
 def test_an_assisted_attempt_is_recognised():
     from learnloop.diagnosis.remediation import assisted_attempt
 
@@ -204,33 +172,25 @@ def test_a_due_cold_follow_up_is_served_with_the_take_step(tmp_path):
     from learnloop.intent.checks import HELP_LADDER_HEADER, cold_followup_view
     from tests.remediation_cold_retry_helpers import NOW as REPAIR_NOW, _drive_to_cold_scheduled
 
-    vault, repository, misconception_id = _repair_at(tmp_path, converts=True)
+    vault, repository, misconception_id = _repair_at(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
     later = REPAIR_NOW + timedelta(days=1, hours=1)
     view = cold_followup_view(vault, repository, cold_item, now=later)
     assert view is not None and view["help_header"] == HELP_LADDER_HEADER and view["locators_hidden"] is True
     assert cold_followup_view(vault, repository, cold_item, now=REPAIR_NOW) is None  # not due yet
-    off_vault, off_repository, off_misconception = _repair_at(tmp_path / "off", converts=False)
-    _e, _p, off_item = _drive_to_cold_scheduled(off_vault, off_repository, off_misconception)
-    assert cold_followup_view(off_vault, off_repository, off_item, now=later) is None
 
 
 # -- K10: the Reader's cold Ask counts only substantive questions -------------------------------------
 
 
-@pytest.mark.parametrize("cold_every", [True, False])
 @pytest.mark.parametrize("substantive", [True, False])
-def test_the_bound_cold_ask_follows_the_rule(cold_every, substantive):
-    binding = reader_modes.BoundAsk(item=object(), cold=True, cold_counts_every_question=cold_every)
-    assert binding.hint_equivalent(substantive) is (substantive or cold_every)
-    warm = reader_modes.BoundAsk(item=object(), cold=False, cold_counts_every_question=cold_every)
-    assert warm.hint_equivalent(substantive) is substantive
+def test_the_bound_cold_ask_follows_the_rule(substantive):
+    binding = reader_modes.BoundAsk(item=object())
+    assert binding.hint_equivalent(substantive) is substantive
 
 
-@pytest.mark.parametrize("converts", [True, False])
 @pytest.mark.parametrize("question_type", ["clarification", "mechanism"])
-def test_the_readers_cold_paths_count_a_clarification_only_under_the_predecessor(tmp_path, monkeypatch,
-                                                                                converts, question_type):
+def test_the_readers_cold_paths_count_only_a_substantive_question(tmp_path, monkeypatch, question_type):
     from tests.reader_tutor_fakes import LookupTutor, ask, reader_ctx
     from tests.reader_rw1c_review_helpers import ITEM as READER_ITEM, _bound_to, _cold_attempt
 
@@ -238,12 +198,12 @@ def test_the_readers_cold_paths_count_a_clarification_only_under_the_predecessor
 
     tutor = LookupTutor(question_type=question_type)
     paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
-    set_config(paths.root, {("algorithms", "algorithm_version"): TAG, ("ask", "cold_help_converts"): converts})
+    set_config(paths.root, {("algorithms", "algorithm_version"): TAG})
     ctx = _rebind(paths, ctx)
     vault, _repository = ctx.require_vault()
     assert vault.config.algorithms.algorithm_version == TAG
     session = repository.create_session()
-    counts = converts is False or question_type == "mechanism"
+    counts = question_type == "mechanism"
     # Bound to a workbench item, cold.
     bound = ask(ctx, workbenchSessionId=_bound_to(repository, READER_ITEM, session), coldActive=True)
     assert repository.question_event(bound["eventId"])["hint_equivalent"] is counts
@@ -257,7 +217,7 @@ def test_the_readers_cold_paths_count_a_clarification_only_under_the_predecessor
             "SELECT hint_equivalent, question_type FROM question_events WHERE context = 'practice' "
             "AND provider = 'reader' AND attempt_id = 'att_cold_ca2'").fetchone()
     assert bool(row["hint_equivalent"]) is counts
-    assert row["question_type"] == (question_type if converts else "other")
+    assert row["question_type"] == question_type
 
 
 # -- K5: the practice thread is the attempt's, and so is the budget (owner 2026-10-26: B3's rule) ----
@@ -420,12 +380,11 @@ def test_a_steps_question_names_its_items_workbench_and_its_step(sidecar):
         _call(ctx, "ask_tutor_question", {**base, "question": "Why?", "workbenchSessionId": mine})
 
 
-def test_the_snapshot_carries_the_panel_and_the_rule(sidecar):
+def test_the_snapshot_carries_the_panel(sidecar):
     _paths, ctx, _tutor = sidecar({("hints", "help_style"): "let_me_struggle"})
     vault, _ = ctx.require_vault()
     # RW5d P3: show me in the panel (figures.help_kind_enabled, on by default).
-    assert config_dto(vault)["ask"] == {"panelEnabled": True, "helpStyle": "let_me_struggle",
-                                        "coldHelpConverts": True, "figures": True}
+    assert config_dto(vault)["ask"] == {"panelEnabled": True, "helpStyle": "let_me_struggle", "figures": True}
 
 
 def test_the_reader_asks_in_the_help_styles_mode(tmp_path, monkeypatch):

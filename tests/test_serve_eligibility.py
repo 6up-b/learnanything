@@ -28,7 +28,6 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.clock import FrozenClock
 from learnloop import serve_eligibility as se
-from tests.helpers import append_config_toml
 from tests.serve_eligibility_helpers import _at_version, _basic, _iso, _one_cold_item_plan, _repair
 
 def _answer(env, item_id: str, moment: datetime, *, hints: int = 0):
@@ -181,26 +180,6 @@ def test_the_cli_attempt_refuses_an_inadmissible_type_without_prompting(tmp_path
     assert result.exit_code == 1
     assert "Answer" not in result.output
     assert "diagnostic_probe is not allowed" in result.output
-
-
-def test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting(tmp_path):
-    from learnloop.db.repositories import Repository
-
-    paths = _basic(tmp_path)
-    # Submit's refusal of help on a cold check: Reader CA2's rule (mvp-0.35) off by its switch.
-    append_config_toml(paths.root, "[ask]\ncold_help_converts = false\n")
-    now = datetime.now(UTC).replace(microsecond=0)
-    Repository(paths.sqlite_path).create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref="ep_cli",
-        not_before=_iso(now - timedelta(hours=1)), expires_at=_iso(now + timedelta(days=30)),
-        selected_item_id="pi_svd_define_001", clock=FrozenClock(now - timedelta(days=1)),
-    )
-
-    result = _cli("attempt", "pi_svd_define_001", "--hints-used", "1", "--vault", str(paths.root))
-
-    assert result.exit_code == 1
-    assert "Answer" not in result.output
-    assert "a cold retry must be unassisted and unprimed: hints were used" in result.output
 
 
 def test_the_cli_attempt_records_a_primed_cold_check_as_practice(tmp_path):

@@ -303,23 +303,6 @@ def _cold_retry(repository, item_id, at):
     )
 
 
-#: DL2's F15 duty as at its tag: Reader CA2 (mvp-0.34), which never withholds help on a cold follow-up, off by its
-#: switch (below CA2's tag it was off by the tag).
-CA2_OFF = "[ask]\ncold_help_converts = false\n"
-
-
-def test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty(tmp_path):
-    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION, plan_toml=CA2_OFF)
-    iv.choose("practice_item", "pi_b1", "check_once", NOW)
-    due_day = NOW + timedelta(days=8)
-    _cold_retry(iv.repository, "pi_b1", due_day)
-    view = served_check(iv.vault, iv.repository, "pi_b1", now=due_day)
-    assert view["duty"] == "cold_followup"
-    assert MEASURED in view["banner"] and "Help is still here" not in view["banner"]
-    assert "help_header" not in view
-    assert view["locators_hidden"] is True
-
-
 def test_f15_a_check_under_an_active_diagnostic_is_served_under_that_duty(tmp_path):
     iv = make_intent_vault(tmp_path / "vault")
     iv.choose("practice_item", "pi_b1", "check_once", NOW)
@@ -360,7 +343,7 @@ def side(tmp_path):
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
 
-    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION, plan_toml=CA2_OFF)
+    iv = make_intent_vault(tmp_path / "vault", version=INTENT_ALGORITHM_VERSION)
     context = SidecarContext()
     context.load(iv.root)
     context.grading_provider_override = "manual"
@@ -379,9 +362,10 @@ def _real_now():
 
 
 def test_f15_the_serve_chooses_the_variant_server_side_and_one_completion_satisfies_both(side):
-    """The practice item's serve carries the measured banner (no help header)
-    when the item has a due cold follow-up; an on-your-own answer completes
-    the cold retry and answers the check."""
+    """The practice item's serve, when the item has a due cold follow-up, is
+    the check's cold view with the help ladder (Reader CA2 never withholds
+    help on a cold follow-up); an on-your-own answer completes the cold retry
+    and answers the check."""
 
     iv, context = side
     commitment = iv.choose("practice_item", "pi_b1", "check_once", _real_now() - timedelta(days=8)).commitment_id
@@ -389,8 +373,8 @@ def test_f15_the_serve_chooses_the_variant_server_side_and_one_completion_satisf
     session_id = _call(context, "start_session", {"availableMinutes": 20})["sessionId"]
     detail = _call(context, "get_practice_item", {"practiceItemId": "pi_b1", "sessionId": session_id})
     check = detail["intentCheck"]
-    assert check["duty"] == "cold_followup" and MEASURED in check["banner"]
-    assert "helpHeader" not in check
+    assert "duty" not in check and MEASURED not in check["banner"]
+    assert check["helpHeader"] and check["cold"] is True
     assert detail["activeFollowupKind"] == "cold_retry"
 
     _call(context, "submit_attempt", {

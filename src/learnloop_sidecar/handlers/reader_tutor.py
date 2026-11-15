@@ -233,16 +233,11 @@ def bound_ask(vault: Any, repository: Any, params: Any, restricted: ReaderRestri
         recent = repository.most_recent_open_session()
         practice_session = recent["id"] if recent else None
     guard = RT.ItemBoundGuard(repository, item)
-    # ``cold`` is the restriction's (the client's flag or the server's own
-    # derivation): a cold Ask is a hint whatever its type, with or without a
-    # fetchable cold attempt (``BoundAsk.hint_equivalent``).
-    # Reader CA2 (mvp-0.34, K10): under the one help rule a cold Ask counts
-    # only when substantive, as a practice Ask does.
-    from learnloop.serve_eligibility import help_converts_active
-
-    return BoundAsk(item=item, practice_session_id=practice_session, cold=restricted.cold,
-                    context_guard=guard, answer_guard=guard.text_leaks, answer_overlap=guard.text_overlap,
-                    cold_counts_every_question=not help_converts_active(vault))
+    # Reader CA2 (K10): a cold Ask counts only when substantive, as a
+    # practice Ask does (``BoundAsk.hint_equivalent``), so the binding needs
+    # no cold status.
+    return BoundAsk(item=item, practice_session_id=practice_session,
+                    context_guard=guard, answer_guard=guard.text_leaks, answer_overlap=guard.text_overlap)
 
 
 @dataclass(frozen=True)

@@ -26,7 +26,6 @@ import pytest
 from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
-from learnloop.diagnosis.remediation import reschedule_cold_after_assist_active
 from learnloop.source_retrieval import compare_scope as CS
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
@@ -228,8 +227,7 @@ def _with_checks(root):
     from learnloop.substrate.state_sync import sync_vault_state
 
     paths, repository = build_deliverable_vault(root)
-    set_config(paths.root, {("algorithms", "algorithm_version"): COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
-                            ("ask", "cold_help_converts"): True})
+    set_config(paths.root, {("algorithms", "algorithm_version"): COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION})
     clock = FrozenClock(NOW)
     # Synced at the tag, as tests/test_cold_retry_reschedule.py builds its rebuild-equivalent vault.
     sync_vault_state(load_vault(paths.root), repository, clock=clock)
@@ -268,7 +266,6 @@ def _help_on_each_check(paths, repository, created) -> None:
 
 def test_iii_check_once_commitments_are_never_touched_by_the_cold_retry_reschedule(tmp_path):
     paths, repository, later, created = _with_checks(tmp_path / "vault")
-    assert reschedule_cold_after_assist_active(load_vault(paths.root)) is True
     assert later["commitment_id"] and len(created) == 2 and all(entry["item_id"] for entry in created)
     before = _checks(repository)
     assert [row[0] for row in before] == ["test_me_later"] * 3

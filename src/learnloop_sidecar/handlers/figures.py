@@ -1086,8 +1086,8 @@ def _item_cold(vault: Any, repository: Any, item_id: str) -> bool:
 def take_step_available(vault: Any, repository: Any, item_id: str) -> bool:
     """Whether a check on your own on ``item_id`` takes help (the ladder's
     take step, as the hint panel's): a "Check once" served cold with the
-    help header, or a due cold follow-up under Reader CA2's conversion rule
-    (``ask.cold_help_converts``, mvp-0.34). Never an item reserved for a
+    help header, or a due cold follow-up under Reader CA2's conversion rule.
+    Never an item reserved for a
     held-out exam, and never a measured view whose safeguards refuse help: a
     figure is then refused, as a hint is."""
 

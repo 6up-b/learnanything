@@ -23,7 +23,6 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.tutor import reader_modes
-from tests.helpers import append_config_toml
 from tests.reader_tutor_fakes import ROOT_QUESTION, LookupTutor, ask, call, reader_ctx, spans_given
 from tests.source_service_fakes import set_item_answer, table_counts
 from tests.reader_tutor_retrieval_helpers import _bound_session, _workbench_steps
@@ -676,37 +675,6 @@ def _next_attempt_counts(repository, vault, session_id: str) -> tuple[int, int]:
 
     at_submit = hint_equivalents_for_submission(repository, ITEM, session_id)
     return at_submit, hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_next_r5", session_id))
-
-
-@pytest.mark.parametrize("question_type", ["verification", "other"])
-@pytest.mark.parametrize("cold_attempt", ["null", "unfetchable"])
-def test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row(tmp_path, monkeypatch, question_type,
-                                                                       cold_attempt):
-    """R1 (F1, the verify's first case): retrieval on, a cold Ask on the bound
-    item with a null or unfetchable ``coldAttemptId`` and a curiosity type. No
-    cold practice row can be written, so the bound row carries the hint (L6):
-    the next attempt counts it once, and the response says what is stored."""
-
-    tutor = LookupTutor(question_type=question_type)
-    _paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
-    # "A hint whatever its type" is the predecessor's L6 rule. From Reader CA2's one help rule (mvp-0.34)
-    # a cold question counts only when substantive (``help_converts_active``); `ask.cold_help_converts`
-    # off serves the predecessor exactly. Goes with that switch in D7.
-    append_config_toml(_paths.root, "[ask]\ncold_help_converts = false")
-    ctx.load(_paths.root)
-    vault, _repository = ctx.require_vault()
-    session = repository.create_session()
-    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session), coldActive=True,
-                 coldAttemptId=None if cold_attempt == "null" else "att_missing_r5")
-    event = repository.question_event(answer["eventId"])
-    assert event["practice_item_id"] == ITEM and event["question_type"] == question_type
-    assert event["hint_equivalent"] is True
-    assert answer["hintEquivalent"] == event["hint_equivalent"]
-    with repository.connection() as connection:
-        cold_rows = connection.execute("SELECT COUNT(*) FROM question_events WHERE context = 'practice' "
-                                       "AND provider = 'reader'").fetchone()[0]
-    assert cold_rows == 0  # no cold practice row was written: nothing to deduplicate
-    assert _next_attempt_counts(repository, vault, session) == (1, 1)
 
 
 def test_an_offers_only_bound_question_counts_once(tmp_path, monkeypatch):

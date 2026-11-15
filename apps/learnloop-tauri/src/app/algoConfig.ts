@@ -75,10 +75,6 @@ export interface AlgoDisplayConfig {
 export interface AskPanelConfig {
   /** The one stored help-style preference Ask's mode follows (§7.4). */
   helpStyle: HelpStyleValue;
-  /** The successor's one help rule is live (`ask.cold_help_converts` at
-   *  mvp-0.35 or later): on a check on your own only a question about the maths
-   *  converts, and the box and the labels say so. */
-  coldHelpConverts: boolean;
   /** Reader RW5d P3 (`figures.help_kind_enabled`): the panel's *show me ▸* on
    *  practice, feedback and the workbench, with its cost line. Absent while off. */
   figures?: true;
@@ -140,7 +136,7 @@ export function setAlgoConfig(config: unknown): void {
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
-    ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown; figures?: unknown };
+    ask?: { panelEnabled?: unknown; helpStyle?: unknown; figures?: unknown };
     teacher?: { lessons?: unknown; suggestions?: unknown; te2?: unknown };
   };
   current = {
@@ -174,7 +170,7 @@ export function setAlgoConfig(config: unknown): void {
       : null,
     ask: root.ask?.panelEnabled === true
       ? {
-          helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true,
+          helpStyle: asHelpStyle(root.ask.helpStyle),
           // Reader RW5d P3: show me ▸ in the panel (present only while on).
           ...(root.ask.figures === true ? { figures: true as const } : {})
         }

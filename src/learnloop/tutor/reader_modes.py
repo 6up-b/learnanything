@@ -73,8 +73,6 @@ class BoundAsk:
     * ``item`` and ``practice_session_id``: the row is stored on them, so the
       item window counts its hint (``Repository.count_hint_equivalent_question_events``)
       and the reveal ledger debits what it showed.
-    * ``cold``: the restriction's cold status (the client's flag or the
-      server's own derivation of a cold administration of the item).
     * ``context_guard``: the item's guard over every span the tutor is given
       (the selection, its neighbours, the blocks they cite, the retrieved
       passages): ``guard(spans) -> (kept, counts)``.
@@ -91,31 +89,21 @@ class BoundAsk:
 
     item: Any
     practice_session_id: str | None = None
-    cold: bool = False
     context_guard: Callable[[Sequence[Mapping[str, Any]]], tuple[list[dict[str, Any]], dict[str, int]]] | None = None
     answer_guard: Callable[[str], bool] | None = None
     answer_overlap: Callable[[str], float] | None = None
-    #: Reader CA2 (mvp-0.34, K10, ``ask.cold_help_converts``): False when the
-    #: one help rule is live, so a cold Ask counts only when substantive, as
-    #: a practice Ask does. True (the default, the predecessor's L6 rule): a
-    #: cold Ask counts whatever its type.
-    cold_counts_every_question: bool = True
 
     def hint_equivalent(self, substantive: bool) -> bool:
         """The bound row's hint flag, the one value stored and returned (R1).
 
-        A cold Ask is a hint under L6 whatever its question type, whether or
-        not the client's cold attempt row exists or can be fetched (that row
-        only deduplicates: ``reader_dialogue._record_cold_hint_equivalent``
-        leaves its flag off when this row carries the hint). A bound Ask
-        outside a cold administration uses the ordinary classification
-        (``substantive``: its type is in ``tutor_qa.HINT_EQUIVALENT_TYPES``).
-        Under Reader CA2's one help rule (``cold_counts_every_question`` False)
-        the cold Ask uses the ordinary classification too."""
+        Under Reader CA2's one help rule (K10) every bound Ask, cold or not,
+        uses the ordinary classification (``substantive``: its type is in
+        ``tutor_qa.HINT_EQUIVALENT_TYPES``), whether or not the client's cold
+        attempt row exists or can be fetched (that row only deduplicates:
+        ``reader_dialogue._record_cold_hint_equivalent`` leaves its flag off
+        when this row carries the hint)."""
 
-        if self.cold and not self.cold_counts_every_question:
-            return bool(substantive)
-        return bool(self.cold or substantive)
+        return bool(substantive)
 
 
 #: How the texts one prompt carries together are read as one: side by side,

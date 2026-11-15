@@ -1012,12 +1012,6 @@ def _figures_help(vault: LoadedVault) -> bool:
     return help_kind_enabled(vault)
 
 
-def _cold_help_converts(vault: LoadedVault) -> bool:
-    from learnloop.serve_eligibility import help_converts_active
-
-    return help_converts_active(vault)
-
-
 def _lessons_active(vault: LoadedVault) -> bool:
     from learnloop.teacher.service import lessons_active
 
@@ -1101,14 +1095,11 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # Reader CA2 (ux_reader_compare_ask_v1 §7): the one Ask panel.
             # Present only while ask.panel_enabled is on, so with it off the
             # snapshot is exactly what it was and every host is the overlay's.
-            # ``help_style`` is the stored preference Ask's mode follows;
-            # ``cold_help_converts`` says the successor's one help rule is live
-            # (the placeholder and labels on a check on your own say it).
+            # ``help_style`` is the stored preference Ask's mode follows.
             # Reader RW5d P3: ``figures`` (present only while
             # figures.help_kind_enabled is on): the panel's show me ▸ on
             # practice, feedback and the workbench, with its cost line.
             **({"ask": {"panel_enabled": True, "help_style": config.hints.help_style,
-                        "cold_help_converts": _cold_help_converts(vault),
                         **({"figures": True} if _figures_help(vault) else {})}}
                if config.ask.panel_enabled else {}),
             # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's

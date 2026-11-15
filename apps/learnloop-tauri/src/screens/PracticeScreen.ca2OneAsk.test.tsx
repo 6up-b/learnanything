@@ -83,7 +83,7 @@ beforeEach(() => {
     },
   });
   setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 }, ui: { practiceFeedback: "simple" },
-                  ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+                  ask: { panelEnabled: true, helpStyle: "balanced" } });
   api.getTutorTranscript.mockResolvedValue({ events: [], remaining: 3, earlier: EARLIER, earlierCountsAsHint: true, cold: false });
   api.askTutorQuestion.mockResolvedValue({
     version: 1, eventId: "q1", answerMd: "Think of the shapes.", questionType: "clarification", facets: [],

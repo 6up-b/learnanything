@@ -4534,7 +4534,7 @@ class ReplayConfig(BaseModel):
     ledger_bounded: bool = True
 
 
-class AskConfig(BaseModel):
+class AskConfig(KeepsRetiredFields):
     """One Ask.
 
     ``panel_enabled`` is the presentation's kill switch (display and prompt
@@ -4546,20 +4546,9 @@ class AskConfig(BaseModel):
     (its submission key), and *earlier on this question* lists earlier
     attempts' help. Off: the overlay, the Reader's per-source answer mode and
     the practice prompt exactly as the predecessor.
-
-    ``cold_help_converts`` is the kill switch of
-    ``ONE_ASK_ALGORITHM_VERSION``. At that tag or later,
-    with it on: a question asked during a cold administration counts as help
-    only when the tutor's ``question_type`` is substantive, on the Reader's
-    cold paths too; and help taken on a cold follow-up makes the attempt
-    practice with help (submit admits it, the cold measurement is not
-    answered by it). Off, or below the tag: both exactly as the predecessor
-    (the Reader's cold Ask counts every question; help voids a cold
-    follow-up's submit). Attempts already recorded keep their meaning.
     """
 
     panel_enabled: bool = True
-    cold_help_converts: bool = True
 
 
 #: Adaptive difficulty's outside forecasters.

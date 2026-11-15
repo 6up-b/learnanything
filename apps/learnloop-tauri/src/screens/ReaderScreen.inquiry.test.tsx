@@ -283,7 +283,7 @@ it("the reconnect line and the walked-back strip survive the jump home, and go a
 
 
 it("Reader CA2 (Codex review F11): with the Ask panel on, Enter sends from the rail and Shift+Enter is a new line", async () => {
-  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced" } });
   try {
     render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "ask" }));

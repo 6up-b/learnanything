@@ -64,6 +64,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("PracticeConfig", ("attempt_keeps_content_state",), bool, True, "D7"),
     RetiredField("HintsConfig", ("fold_follows_attach",), bool, True, "D7"),
     RetiredField("PracticeConfig", ("reschedule_cold_after_assist",), bool, True, "D7"),
+    RetiredField("AskConfig", ("cold_help_converts",), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

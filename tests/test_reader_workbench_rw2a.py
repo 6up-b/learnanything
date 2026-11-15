@@ -28,7 +28,6 @@ from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
 from learnloop.reader import workbench as WB
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-from learnloop.algorithm_versions import ELIGIBILITY_DECISION_ALGORITHM_VERSION
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 
@@ -622,30 +621,6 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
     assert {(inputs.practice_item_id, inputs.hints_used, inputs.attempt_type) for inputs in workbench} == {
         (ITEM, 1, "hinted_attempt")
     }
-
-
-def test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay(tmp_path, grader):
-    # The refusal as at its tag: Reader CA2 (mvp-0.35), which admits help on a cold check as practice, off by its
-    # switch (below CA2's tag it was off by the tag).
-    paths, repository = _vault(tmp_path, version=ELIGIBILITY_DECISION_ALGORITHM_VERSION,
-                               config="[ask]\ncold_help_converts = false")
-    _due_cold_check(repository)
-    ctx = _context(paths.root)
-    attempts = _count(repository, "practice_attempts")
-    session = _open(ctx)
-    _step(ctx, session["sessionId"], "a", bodyMd="A = U Sigma V^T")
-    with pytest.raises(SidecarError) as refused:
-        _submit(ctx, session["sessionId"])
-    assert refused.value.code == "validation_error"
-    assert _count(repository, "practice_attempts") == attempts
-    view = _call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]
-    assert view["status"] == "open" and _bodies(view) == ["A = U Sigma V^T"]
-    # The same problem on your own (the book never counted) is admitted as the check.
-    _call(ctx, "workbench.abandon", {"sessionId": session["sessionId"]})
-    own = _open(ctx, entry="check_me")
-    _step(ctx, own["sessionId"], "a", bodyMd="A = U Sigma V^T")
-    row = _attempt(repository, _submit(ctx, own["sessionId"])["attempt"]["attemptId"])
-    assert row["hints_used"] == 0
 
 
 def test_with_the_eligibility_switch_off_the_old_cold_guard_still_refuses_the_book(tmp_path, grader):

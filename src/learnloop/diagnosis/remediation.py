@@ -1110,20 +1110,6 @@ ASSISTED_RESCHEDULE_CONTEXT_KEY = "assisted_reschedule"
 ASSISTED_RESCHEDULE_TRIGGER = "assisted_cold_retry"
 
 
-def reschedule_cold_after_assist_active(vault: Any) -> bool:
-    """The cold-retry reschedule (``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``,
-    ``mvp-0.38``) acts when Reader CA2's rule is on
-    (``serve_eligibility.help_converts_active``: without it submit refuses an
-    assisted attempt on a due cold retry, so there is nothing to reschedule).
-    No vault (replay, a regrade): nothing is scheduled."""
-
-    from learnloop import serve_eligibility
-
-    if getattr(vault, "config", None) is None:
-        return False
-    return serve_eligibility.help_converts_active(vault)
-
-
 def reschedule_assisted_cold_retry(
     vault: LoadedVault | None,
     repository: Repository,
@@ -1135,8 +1121,8 @@ def reschedule_assisted_cold_retry(
     cold retry for the same repair (owner decision 2026-10-25, Reader CA2
     follow-up Q4; ``mvp-0.38``). Returns the fresh task, or None.
 
-    Acts only when the rule is live (:func:`reschedule_cold_after_assist_active`)
-    and ``attempt`` is assisted (:func:`assisted_attempt`: hints, a hinted
+    Acts only with a vault (replay and a regrade pass none: nothing is
+    scheduled) and when ``attempt`` is assisted (:func:`assisted_attempt`: hints, a hinted
     type, or primed) on the item of a due, open ``cold_retry`` (the task an
     unassisted attempt would have consumed: the consumer's own lookup), and
     is not an exam attempt (which never touches the lane). Then, in the
@@ -1200,7 +1186,7 @@ def _reschedule_assisted_cold_retry(
 ) -> dict[str, Any] | None:
     """The rescheduling itself; ``withdrawn_episode_ids`` collects the episode of a retry it withdrew."""
 
-    if vault is None or not reschedule_cold_after_assist_active(vault):
+    if vault is None:
         return None
     if not assisted_attempt(attempt) or "exam" in str(attempt.get("attempt_type") or ""):
         return None
