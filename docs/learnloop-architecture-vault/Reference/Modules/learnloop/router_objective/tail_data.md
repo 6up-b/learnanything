@@ -232,12 +232,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
   - `test_the_switch_turned_off_after_carriers_exist_reads_the_predecessors_transitions`
 - [tests/test_rofu_generator_switches.py](../../../../../../tests/test_rofu_generator_switches.py) — direct import
-  - `test_below_the_tag_the_trace_and_the_payload_are_ro6s`
+  - `test_a_payload_without_switches_names_none`
 - [tests/test_rofu_scope.py](../../../../../../tests/test_rofu_scope.py) — direct import
   - `test_a_topic_entering_the_retention_scope_at_its_density_keeps_the_backup`
   - `test_codex_density_change_stays_censored_at_the_tag`
   - `test_goal_changes_stay_change_points_at_the_tag`
-  - `test_switched_off_or_below_the_tag_the_growth_is_a_change_point`
+  - `test_switched_off_the_growth_is_a_change_point`
 - [tests/test_rofu_switch_key.py](../../../../../../tests/test_rofu_switch_key.py) — direct import
   - `test_a_served_cached_answer_names_the_generator_that_produced_it`
   - `test_flipping_a_switch_between_prefetch_and_serve_starts_a_new_job`

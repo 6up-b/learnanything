@@ -1263,7 +1263,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_settling_writes_the_satisfaction_once_and_only_for_answered_checks`
   - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
+  - `test_f2_at_the_predecessor_commitments_change_nothing`
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
   - `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`
   - `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check`

@@ -7,8 +7,6 @@ import tomllib
 from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    FOLLOWUP_SERVE_VERSIONS,
-    LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import LearnLoopConfig
@@ -24,15 +22,12 @@ OLD = DATA_CAPTURE_ALGORITHM_VERSION
 
 def test_the_successor_is_one_constant_after_data_capture():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.44"
-    assert TAG == "mvp-0.45" and TAG in FOLLOWUP_SERVE_VERSIONS and OLD not in FOLLOWUP_SERVE_VERSIONS
-    assert LATEST_ALGORITHM_VERSION in FOLLOWUP_SERVE_VERSIONS
+    assert TAG == "mvp-0.45"
 
 
-def test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were():
+def test_new_vaults_get_true_effectively():
     new = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(TAG)))
-    old = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(OLD)))
     assert effective_auto_generate_on_entry(new) is True
-    assert effective_auto_generate_on_entry(old) is False
     assert new.followup.generate_and_serve is True and new.ui.show_router_decisions is True
 
 

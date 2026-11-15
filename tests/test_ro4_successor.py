@@ -14,7 +14,6 @@ from learnloop.algorithm_versions import (
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
-    ROUTER_OBJECTIVE_VERSIONS,
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import RouterObjectiveConfig
@@ -41,7 +40,6 @@ def test_the_successor_is_one_constant_after_ro1_and_the_latest():
     # Router objective RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51)
     # landed after it and keep it.
     assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-13] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert ROUTER_OBJECTIVE_VERSIONS == frozenset({TAG, "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_seeds_are_the_specs_and_validated():

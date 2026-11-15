@@ -88,7 +88,6 @@ def get_facet_evidence_timeline(ctx: SidecarContext, params: FacetIdInput) -> di
         {
             "facet_id": canonical,
             "model_version": vault.config.algorithms.algorithm_version,
-            "supported": True,
             "demonstrated": demonstrated,
             "points": [point.as_dict() for point in series],
             "counted_toward": counted_toward,

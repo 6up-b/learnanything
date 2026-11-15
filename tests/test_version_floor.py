@@ -81,10 +81,14 @@ def _door_shadow_rebuild(root: Path) -> str:
     return str(result.exception)
 
 
+def _tag_of(root: Path) -> str:
+    return re.search(r'algorithm_version = "([^"]+)"', (root / "learnloop.toml").read_text("utf-8")).group(1)
+
+
 def _door_upgrade(root: Path) -> str:
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(root)])
     assert result.exit_code == 1, result.output
-    assert f"Vault not upgraded (currently {BELOW})" in result.output
+    assert f"Vault not upgraded (currently {_tag_of(root)})" in result.output
     return " ".join(result.output.split())
 
 
@@ -109,7 +113,7 @@ def _door_sidecar(root: Path) -> str:
     error = json.loads(stdout.getvalue().splitlines()[0])["error"]
     assert error["data"]["code"] == "vault_below_oldest_supported"
     details = error["data"]["details"]
-    assert (details["algorithm_version"], details["oldest_supported"]) == (BELOW, OLDEST_SUPPORTED)
+    assert (details["algorithm_version"], details["oldest_supported"]) == (_tag_of(root), OLDEST_SUPPORTED)
     return error["message"]
 
 
@@ -206,6 +210,41 @@ def test_a_vault_below_the_floor_is_refused_at_each_door(tmp_path, door):
     _assert_names_the_three_parts(message, root.resolve(), BELOW)
 
 
+#: A tag a newer checkout's upgrade would write, and one of another shape (refactor bug ledger D-31).
+NEWER = f"mvp-0.{int(LATEST_ALGORITHM_VERSION.split('.')[1]) + 1}"
+UNKNOWN_TAGS = (NEWER, "mvp-1.0", "not-a-tag")
+
+
+@pytest.mark.parametrize("tag", UNKNOWN_TAGS)
+@pytest.mark.parametrize("door", sorted(DOORS))
+def test_a_vault_at_a_tag_this_code_does_not_know_is_refused_at_each_door(tmp_path, door, tag):
+    root = _below_floor_vault(tmp_path, tag)
+    message = DOORS[door](root)
+    assert tag in message and "a newer LearnLoop" in message, message
+    assert "git worktree add" not in message  # no route below the floor applies
+
+
+def test_a_journal_naming_a_link_this_code_does_not_know_is_refused(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    open_vault_repository(paths.root, paths.sqlite_path)
+    _retag(paths.root, NEWER)
+    journal_path(paths.sqlite_path).write_text(
+        json.dumps({"predecessor": LATEST_ALGORITHM_VERSION, "target": NEWER}, sort_keys=True), encoding="utf-8"
+    )
+    with pytest.raises(BelowOldestSupported) as refused:
+        open_vault_repository(paths.root, paths.sqlite_path)
+    assert refused.value.journal == (LATEST_ALGORITHM_VERSION, NEWER)
+    assert NEWER in str(refused.value) and "a newer LearnLoop" in str(refused.value)
+    assert journal_path(paths.sqlite_path).exists()
+
+
+@pytest.mark.parametrize("tag", UNKNOWN_TAGS)
+def test_a_shadow_rebuild_cannot_be_forced_to_a_tag_this_code_does_not_know(tmp_path, tag):
+    config = load_vault(create_basic_vault(tmp_path / "vault").root).config
+    with pytest.raises(ConfigOverrideError, match="does not know"):
+        build_candidate_config(config, [f"algorithms.algorithm_version={tag}"])
+
+
 GUARD_ROUTE = "set `recurrence.require_guard = false`"
 
 
@@ -291,7 +330,9 @@ def test_a_journal_from_the_floor_is_still_completed_by_an_opener(tmp_path, monk
 
     paths = create_basic_vault(tmp_path / "vault")
     journal = journal_path(paths.sqlite_path)
-    journal.write_text(json.dumps({"predecessor": OLDEST_SUPPORTED, "target": "mvp-0.999"}), encoding="utf-8")
+    # A link of the chain: a journal naming a tag this code does not know is refused first (D-31).
+    journal.write_text(json.dumps({"predecessor": OLDEST_SUPPORTED, "target": LATEST_ALGORITHM_VERSION}),
+                       encoding="utf-8")
     completed: list[Path] = []
 
     def complete(root: Path) -> None:

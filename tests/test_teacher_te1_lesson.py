@@ -259,22 +259,16 @@ def test_a_reader_selection_opens_on_its_sections_topics(tmp_path):
 # --- the switches --------------------------------------------------------------------------------
 
 
-def test_off_or_below_the_tag_no_lesson_opens(tmp_path):
+def test_switched_off_no_lesson_opens(tmp_path):
     from tests.ux_phase1_support import set_config
 
-    paths, repository = build_teacher_vault(tmp_path / "vault", version="mvp-0.40")
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    set_config(paths.root, {("teacher", "enabled"): False})
     with pytest.raises(S.LessonError) as raised:
         S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
                       clients=clients(TeacherFake()))
-    assert raised.value.code == "teacher_unavailable"
-    paths2, repository2 = build_teacher_vault(tmp_path / "vault2")
-    set_config(paths2.root, {("teacher", "enabled"): False})
-    with pytest.raises(S.LessonError) as raised:
-        S.open_lesson(load_vault(paths2.root), repository2, entry="learning_object", learning_object_ids=["lo_eigen"],
-                      clients=clients(TeacherFake()))
     assert raised.value.code == "teacher_disabled"
-    for repo in (repository, repository2):
-        assert _rows(repo, "SELECT COUNT(*) FROM lessons") == [(0,)]
+    assert _rows(repository, "SELECT COUNT(*) FROM lessons") == [(0,)]
 
 
 def test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass(tmp_path):

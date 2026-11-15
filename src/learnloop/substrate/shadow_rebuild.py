@@ -30,7 +30,7 @@ from learnloop.substrate.rebuild_orchestrator import (
 )
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
-from learnloop.version_floor import is_below_floor, may_open_below_floor
+from learnloop.version_floor import is_below_floor, is_unknown, may_open_below_floor
 
 
 class ShadowRebuildError(RuntimeError):
@@ -252,6 +252,11 @@ def build_candidate_config(
     # judged: the baseline's own tag was judged when the vault was opened.
     forced = any(parts == ("algorithms", "algorithm_version") for _path, parts in requested_paths)
     allowed = vault_root is not None and may_open_below_floor(vault_root)
+    if forced and is_unknown(candidate.algorithms.algorithm_version):
+        raise ConfigOverrideError(
+            f"algorithms.algorithm_version={candidate.algorithms.algorithm_version} is a tag this LearnLoop does not "
+            f"know; a shadow rebuild replays at {OLDEST_SUPPORTED} or later"
+        )
     if forced and is_below_floor(candidate.algorithms.algorithm_version) and not allowed:
         raise ConfigOverrideError(
             f"algorithms.algorithm_version={candidate.algorithms.algorithm_version} is below "

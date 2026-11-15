@@ -203,15 +203,13 @@ def test_a_jump_is_refused_and_nothing_changes(tmp_path, link):
     assert command.exit_code == 1 and PRE_FLOOR_TAG in command.output, command.output
     assert f'algorithm_version = "{below}"' in re_tag.read_text("utf-8")
 
-    # A vault at a tag the table has no row from (a newer code's vault): refused, unchanged.
+    # A vault at a tag this code does not know (a newer code's vault): refused at the door (D-31), unchanged.
     newer = create_basic_vault(tmp_path / "newer")
     set_algorithm_version(newer, "mvp-0.9999")
     result = upgrade(newer.root, to=link.tag)
-    assert not result.upgraded and result.problems == [
-        f"cannot upgrade from 'mvp-0.9999' to {link.tag!r}: only {UPGRADES[0].predecessor!r} to "
-        f"{link.predecessor!r} upgrade to it"
-    ]
-    assert _tag(newer) == "mvp-0.9999"
+    assert not result.upgraded and result.from_version == "mvp-0.9999"
+    assert "a tag this LearnLoop does not know" in result.problems[0] and "a newer LearnLoop" in result.problems[0]
+    assert 'algorithm_version = "mvp-0.9999"' in (newer.root / "learnloop.toml").read_text("utf-8")
 
 
 def test_a_target_the_table_has_no_row_for_is_refused_before_any_step(tmp_path):

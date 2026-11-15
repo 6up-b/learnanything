@@ -36,6 +36,7 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 from tests.helpers import allow_below_floor
+from tests.successor_switches import serve_as_at
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mvp017_route_check_replay"
 EXPECTED = json.loads((FIXTURE / "expected.json").read_text(encoding="utf-8"))
@@ -59,6 +60,8 @@ def _copy(tmp_path):
     root = tmp_path / "vault"
     copy_tree_with_databases(FIXTURE, root)
     allow_below_floor(root)
+    # The copy is served as its tag was: the later successors' switches off (their tag halves are gone).
+    serve_as_at(root, load_vault(root).config.algorithms.algorithm_version)
     return root, load_vault(root), open_vault_repository(root, root / "state.sqlite")
 
 

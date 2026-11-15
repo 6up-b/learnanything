@@ -59,7 +59,20 @@ def test_with_all_four_switches_off_the_sequence_equals_the_base_codes(tmp_path)
     assert at_base["payloads"]["bridge_1"]["result"]["status"] == "ready"
     for key in ("writer_contexts", "writer_prompts", "check_prompts", "chooser_states", "payloads", "rows",
                 "config_workbench"):
-        assert without_later_stage_keys(at_tip[key]) == at_base[key], key
+        assert _unsnapshotted(without_later_stage_keys(at_tip[key])) == _unsnapshotted(at_base[key]), key
+
+
+def _unsnapshotted(value):
+    """``value`` with the session's assessment contract id cleared. The pinned vault is ``mvp-0.6``, below the floor:
+    the base code took no snapshot there (its tag gate), and since refactor D6 every vault that opens takes one, which
+    RW2c's switches do not touch."""
+
+    if isinstance(value, dict):
+        return {key: (None if key == "assessmentContractVersionId" else _unsnapshotted(item))
+                for key, item in value.items()}
+    if isinstance(value, list):
+        return [_unsnapshotted(item) for item in value]
+    return value
 
 
 def test_switched_on_the_same_sequence_carries_rw2c(tmp_path):

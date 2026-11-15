@@ -16,14 +16,11 @@ from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     PHONE_PROBES_ALGORITHM_VERSION,
-    PHONE_PROBES_VERSIONS,
     SUCCESSOR_CHAIN,
 )
-from learnloop.vault.loader import load_vault
 from learnloop_mobile.config import MobileConfig
 from learnloop_sidecar.request_origin import RequestOrigin, phone_probes_on
 
-from tests.helpers import create_basic_vault, set_algorithm_version
 
 TAG = PHONE_PROBES_ALGORITHM_VERSION
 OLD = LESSON_OFFERS_ALGORITHM_VERSION
@@ -33,7 +30,6 @@ def test_the_successor_is_one_constant_after_te3b_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.53"
     # IH5's successor (mvp-0.55) follows it and keeps it, then the placement hole's (mvp-0.56) and slip or gap's (mvp-0.57).
     assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-6] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert PHONE_PROBES_VERSIONS == frozenset({TAG, "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switch_is_the_hosts_and_defaults_on():
@@ -43,13 +39,8 @@ def test_the_switch_is_the_hosts_and_defaults_on():
     assert RequestOrigin(device_id="dev").phone_probes is False
 
 
-def test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop(tmp_path):
-    paths = create_basic_vault(tmp_path / "vault")
+def test_the_gate_is_the_switch_and_never_the_desktop():
     on, off = RequestOrigin(device_id="dev", phone_probes=True), RequestOrigin(device_id="dev")
-    set_algorithm_version(paths, OLD)
-    assert not phone_probes_on(on, load_vault(paths.root).config)
-    set_algorithm_version(paths, TAG)
-    config = load_vault(paths.root).config
-    assert phone_probes_on(on, config)
-    assert not phone_probes_on(off, config)
-    assert not phone_probes_on(None, config)
+    assert phone_probes_on(on)
+    assert not phone_probes_on(off)
+    assert not phone_probes_on(None)

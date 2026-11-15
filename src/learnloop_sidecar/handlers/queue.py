@@ -258,7 +258,7 @@ def _with_followup_head(ctx: SidecarContext, vault: Any, repository: Any, queue:
     from learnloop.followup_serve.gates import PHONE_SURFACE, SERVING_SURFACE, generate_and_serve_on
 
     phone = ctx.request_origin is not None
-    if (phone and not phone_probes_on(ctx.request_origin, vault.config)) or not generate_and_serve_on(vault.config) \
+    if (phone and not phone_probes_on(ctx.request_origin)) or not generate_and_serve_on(vault.config) \
             or plan_active(vault):
         return queue
     from learnloop.followup_serve import identity
@@ -287,7 +287,7 @@ def _desktop_followups(ctx: SidecarContext, vault: Any, repository: Any) -> int:
 
     from learnloop.followup_serve.workflow import desktop_waiting_count, session_rows
 
-    if not phone_probes_on(ctx.request_origin, vault.config):
+    if not phone_probes_on(ctx.request_origin):
         return desktop_waiting_count(repository)
     from learnloop.followup_serve import identity
     from learnloop.followup_serve.gates import PHONE_SURFACE
@@ -400,7 +400,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
         refuse_held_out_item(vault, repository, item)
         from learnloop_sidecar.handlers.sessions import phone_claim_owner
 
-        phone_probes = phone_probes_on(ctx.request_origin, vault.config)
+        phone_probes = phone_probes_on(ctx.request_origin)
         # Sessionless: the phone's burn pins the open session (Codex review of V3, F1).
         refuse_generated_probe_door(ctx.request_origin, repository, item, serve=True, phone_probes=phone_probes,
                                     owned=phone_claim_owner(ctx, repository, None, phone_probes=phone_probes))

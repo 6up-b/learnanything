@@ -159,7 +159,8 @@ def test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052(tmp_path
     kwargs["now_iso"] = now_iso
     on = env.vault
     off = _with(env.vault, in_objective=False)
-    old = _with(env.vault, version=OLD)
+    # The predecessor's tag reaches it through the switch (its tag half is gone), beside the switch at the tag.
+    old = _with(env.vault, version=OLD, in_objective=False)
 
     def valued(vault):
         inputs, actions, sources = real_build(vault, env.repository, **kwargs)

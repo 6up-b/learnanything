@@ -15,9 +15,7 @@ each restoring its part of the predecessor exactly, and composing:
   ``reading_self_check`` moot);
 * ``reading_self_check``: the verdict term (D22).
 
-Below the tag every switch reads off whatever the config says, so an
-``mvp-0.29`` vault is served exactly as before. The master switch
-``adaptive_difficulty.enabled`` turns everything off.
+The master switch ``adaptive_difficulty.enabled`` turns everything off.
 
 Outside the successor: ``reading_dose_offers`` (D21), which acts at every
 version (it changes what the Reader may offer, not any persisted meaning).
@@ -27,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.algorithm_versions import ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION, ADAPTIVE_DIFFICULTY_VERSIONS
+from learnloop.algorithm_versions import ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION
 
 from learnloop.adaptive_difficulty.switches import ad_enabled
 
@@ -42,14 +40,13 @@ def _section(config: Any) -> Any:
 
 
 def successor_active(config: Any) -> bool:
-    """At the successor's tag or later, with the master switch on."""
+    """The master switch on."""
 
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    return ad_enabled(config) and version in ADAPTIVE_DIFFICULTY_VERSIONS
+    return ad_enabled(config)
 
 
 def switch_on(config: Any, name: str) -> bool:
-    """One of the six switches, read only at the tag (below it: off)."""
+    """One of the six switches, under the master switch."""
 
     if name not in SWITCHES:
         raise ValueError(f"unknown AD2+AD3 switch {name!r}")
@@ -87,15 +84,10 @@ LESSON_SWITCH = "lesson_opportunities"
 
 def lesson_opportunities_on(config: Any) -> bool:
     """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read
-    by the objective's lesson interface. Its own successor's tag (``LESSON_OPPORTUNITY_VERSIONS``, later than AD2+AD3's)
-    AND ``adaptive_difficulty.lesson_opportunities``, under the master switch; off, or below the tag, AD is its
-    predecessor exactly and the objective keeps RO4's placeholder."""
+    by the objective's lesson interface. ``adaptive_difficulty.lesson_opportunities`` (its successor mvp-0.52's switch),
+    under the master switch; off, AD is its predecessor exactly and the objective keeps RO4's placeholder."""
 
-    from learnloop.algorithm_versions import LESSON_OPPORTUNITY_VERSIONS
-
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    return (successor_active(config) and version in LESSON_OPPORTUNITY_VERSIONS
-            and bool(getattr(_section(config), LESSON_SWITCH, False)))
+    return successor_active(config) and bool(getattr(_section(config), LESSON_SWITCH, False))
 
 
 def dose_offers_on(config: Any) -> bool:

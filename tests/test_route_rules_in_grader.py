@@ -31,7 +31,6 @@ import pytest
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
-    ROUTE_RULES_VERSIONS,
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -99,7 +98,6 @@ def test_the_route_rules_follow_the_route_check_and_value_of_information_stoppin
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
     assert SUCCESSOR_CHAIN[10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
     assert SUCCESSOR_CHAIN[8] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21", "mvp-0.22", "mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27", "mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_active_only_with_the_switch_on(tmp_path):

@@ -185,12 +185,10 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
         # §5: the restraint off means the plan never waits, as DL1's rules.
         return env, record, None
     from learnloop.daily_plan.router_chooser import FollowupGate
-    from learnloop.router_objective_switches import calibration_tag
-
     gate_class: Any = FollowupGate
-    if calibration_tag(vault.config) and objective_active(vault):
-        # Router objective RO5, landing ruling R5 (1) (spec §8.3): at the tag, with the objective serving, the
-        # follow-up's decision is the two-policy mix's; below it, or with the objective off, FG1's gate as before.
+    if objective_active(vault):
+        # Router objective RO5 (spec §8.3): with the objective serving, the follow-up's decision is the two-policy
+        # mix's; with the objective off, FG1's gate as before.
         from learnloop.daily_plan.objective_chooser import ObjectiveFollowupGate
 
         gate_class = ObjectiveFollowupGate

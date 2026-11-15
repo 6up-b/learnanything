@@ -458,11 +458,9 @@ export interface FacetMasteryFacet {
 export interface FacetMasterySnapshot {
   facets: FacetMasteryFacet[];
   counts: { facets: number; learningObjects: number; practiceItems: number };
-  // KM3 §9.6 re-key: mvp-0.7 keys facets by canonical (post-alias) id so a
-  // shared parent folds across every LO that touches it; mvp-0.6 keeps the
-  // legacy raw key. The UI branches on these (optional for stale sidecars).
+  // KM3 §9.6 re-key: facets are keyed by canonical (post-alias) id so a shared
+  // parent folds across every LO that touches it (optional for stale sidecars).
   modelVersion?: string;
-  canonicalKeys?: boolean;
 }
 
 export interface KnowledgeMapPoint {
@@ -1660,14 +1658,14 @@ export interface FeedbackBundle {
   answeredPresentation?: ItemPresentationDto | null;
   /** Codex review F5, re-review F9, round 3 F9: the answer key, criteria and
    *  maximum the grade stands on, sent directly. `answeredSource` says where
-   *  they come from: the assessment contract its grading epoch cites (exact),
-   *  "live" (only in the response of a regrade that has just run: what it
-   *  read), or "unrecorded": nothing recorded says which version it read, so
+   *  they come from: the assessment contract its grading epoch cites (exact,
+   *  every grading and regrade since regrade contracts), or "unrecorded": an
+   *  epoch written before them, so nothing recorded says which version it read, so
    *  there is no key or criteria, and a maximum only when one was recorded
    *  with the grade. Absent from an older sidecar (feedback then reads the
    *  item, re-read after a regrade). The criteria are rows carrying their id
    *  (re-review F8: a map keyed by id had its keys camel-cased). */
-  answeredSource?: "contract" | "live" | "unrecorded";
+  answeredSource?: "contract" | "unrecorded";
   answeredExpectedAnswer?: unknown;
   answeredCriteria?: { criterionId: string; description: string; pointsPossible: number }[] | null;
   answeredMaxPoints?: number | null;
@@ -4944,7 +4942,6 @@ export interface ReadyCapabilitySliceDto {
 
 // B5 phase 2 (§5.1): the Ready-sentence ingredients, template-rendered from ledger.
 export interface ReadyDerivationDto {
-  supported: boolean;
   pooledRecallMean: number;
   recallAlpha: number;
   recallBeta: number;
@@ -4962,11 +4959,10 @@ export interface FacetEvidenceTimelineDto {
   version: number;
   facetId: string;
   modelVersion: string;
-  supported: boolean;
   demonstrated: number;
   points: DemonstratedTimelinePointDto[];
   countedToward: { learningObjectId: string; learningObjectTitle: string }[];
-  // B5 phase 2 (§5.1 Ready derivation) — null on legacy vaults / older payloads.
+  // B5 phase 2 (§5.1 Ready derivation) — null on older payloads.
   ready?: ReadyDerivationDto | null;
 }
 

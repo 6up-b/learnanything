@@ -843,7 +843,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_new_draw_joins_an_open_item`
   - `test_offer_shown_is_ignored_by_the_plan_and_changes_no_decision`
 - [tests/test_intent_codex_rereview.py](../../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on`
+  - `test_f2_at_the_predecessor_commitments_change_nothing`
 - [tests/test_intent_codex_review.py](../../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f1_a_check_once_chosen_after_the_plan_holds_its_planned_item`
   - `test_f1_pausing_after_the_plan_was_built_keeps_its_items_unserved`

@@ -1,7 +1,6 @@
 """Router objective RO1's switches and the availability time (spec_router_objective_v1 §5). A leaf.
 
-Each gate is the successor's tag (``INTERVAL_FACTOR_VERSIONS``, mvp-0.46) AND its own kill switch, default
-true; off, or below the tag, the predecessor's behaviour:
+Each gate is the successor mvp-0.46's own kill switch, default true; off, the predecessor's behaviour:
 
 * :func:`interval_factor_removed`: the surprise factor is not applied to the FSRS interval (§5.1). The
   attempt path asks it once per review, live and in replay alike, so a rebuild re-derives due dates under
@@ -13,19 +12,18 @@ true; off, or below the tag, the predecessor's behaviour:
   ``tests/test_ro1_availability_reads.py``);
 * :func:`self_report_not_validated_on`: a ``learner_report:*`` resolution id is no validated evidence (§5.4).
 
-Router objective RO4's (§8; ``ROUTER_OBJECTIVE_VERSIONS``, mvp-0.47): :func:`objective_on` (the tag and
-``[router_objective] enabled``), :func:`objective_scores_on` (and RO0's receipts: a comparison score needs
+Router objective RO4's (§8; mvp-0.47): :func:`objective_on` (``[router_objective] enabled``), :func:`objective_scores_on` (and RO0's receipts: a comparison score needs
 them) and :func:`sensors_in_value_on`.
 
-Router objective RO5's (§9; ``ROUTER_CALIBRATION_VERSIONS``, mvp-0.48): each arm is the tag, the objective
-serving (the coin and the checks live in its frame; the open picks only need the tag) and its own rate:
+Router objective RO5's (§9; mvp-0.48): each arm is the objective serving (the coin and the checks live in its
+frame; the open picks need only their rate) and its own rate:
 :func:`stop_coin_rate` (0: no coin), :func:`check_mode` (``"embedded"``, ``"rate"`` or ``"off"``),
 :func:`pick_open_share`; :func:`fitted_models_on` for RO4's follow-ups (§9 item 7).
 
-Router objective RO6's (§10; ``ROUTER_LEARNED_TAIL_VERSIONS``, mvp-0.49): :func:`learned_tail_on` (the tag, the
-objective serving and ``[router_objective] learned_tail``).
+Router objective RO6's (§10; mvp-0.49): :func:`learned_tail_on` (the objective serving and
+``[router_objective] learned_tail``).
 
-The follow-up batch's (``ROUTER_FOLLOWUPS_VERSIONS``, mvp-0.50): :func:`followup_on` (the tag, the objective serving
+The follow-up batch's (mvp-0.50): :func:`followup_on` (the objective serving
 and the part's own ``[router_objective]`` switch).
 
 :func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
@@ -39,14 +37,6 @@ from typing import Any
 
 from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_VERSIONS,
-    INTERVAL_FACTOR_VERSIONS,
-    LESSON_OFFERS_VERSIONS,
-    FAILURE_SHARE_VERSIONS,
-    SLIP_GAP_VERSIONS,
-    ROUTER_CALIBRATION_VERSIONS,
-    ROUTER_FOLLOWUPS_VERSIONS,
-    ROUTER_LEARNED_TAIL_VERSIONS,
-    ROUTER_OBJECTIVE_VERSIONS,
 )
 
 #: The resolution-id prefix a learner's own report carries (``record_unresolved_cause_self_report``).
@@ -67,31 +57,26 @@ INTERVAL_FACTOR_SNAPSHOT_KEY = "scheduler.surprise.remove_interval_factor"
 FACET_BELIEF_FIXES_SNAPSHOT_KEY = "facet_diagnostic.canonical_belief_fixes"
 
 
-def _at_tag(config: Any) -> bool:
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in INTERVAL_FACTOR_VERSIONS
-
-
 def interval_factor_removed(config: Any) -> bool:
-    """§5.1: True when the FSRS interval carries no surprise factor (the tag and the switch)."""
+    """§5.1: True when the FSRS interval carries no surprise factor (the switch)."""
 
     scheduler = getattr(config, "scheduler", None)
     surprise = getattr(scheduler, "surprise", None)
-    return _at_tag(config) and bool(getattr(surprise, "remove_interval_factor", False))
+    return bool(getattr(surprise, "remove_interval_factor", False))
 
 
 def available_at_reads_on(config: Any) -> bool:
     """§5.3: True when decision-time attempt reads use the availability time."""
 
     section = getattr(config, "router_objective", None)
-    return _at_tag(config) and bool(getattr(section, "available_at_reads", False))
+    return bool(getattr(section, "available_at_reads", False))
 
 
 def self_report_not_validated_on(config: Any) -> bool:
     """§5.4: True when a learner's pick is not counted as validated evidence."""
 
     section = getattr(config, "router_objective", None)
-    return _at_tag(config) and bool(getattr(section, "self_report_not_validated", False))
+    return bool(getattr(section, "self_report_not_validated", False))
 
 
 def available_at(row: Mapping[str, Any]) -> str | None:
@@ -111,7 +96,7 @@ def attempt_time_sql(config: Any, *, alias: str | None = None) -> str:
     """THE availability predicate's SQL form: the expression a decision-time read of
     ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
 
-    At the tag with ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
+    With ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
     an attempt counts at a cutoff only once it was known (an exam sat May 1 and imported May 19 is not
     there on May 5). Otherwise ``created_at``: the predecessor's column, so the read's SQL is
     the predecessor's text byte for byte. ``alias`` prefixes the columns (``a.created_at``).
@@ -128,7 +113,7 @@ def attempt_time_sql(config: Any, *, alias: str | None = None) -> str:
 
 def known_at(row: Mapping[str, Any], config: Any) -> str | None:
     """THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time
-    cutoff compares with. :func:`available_at` at the tag with the switch on (a row read without
+    cutoff compares with. :func:`available_at` with the switch on (a row read without
     ``received_at`` falls back to ``created_at``), otherwise ``created_at``, as the predecessor."""
 
     if available_at_reads_on(config):
@@ -138,8 +123,7 @@ def known_at(row: Mapping[str, Any], config: Any) -> str | None:
 
 
 def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:
-    """The resolution ids that count as validated evidence: all of them below the tag or with the switch
-    off; otherwise all but a learner's own reports (§5.4)."""
+    """The resolution ids that count as validated evidence: all of them with the switch off; otherwise all but a learner's own reports (§5.4)."""
 
     values = list(ids or [])
     if not self_report_not_validated_on(config):
@@ -147,19 +131,12 @@ def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:
     return [value for value in values if not str(value).startswith(LEARNER_REPORT_PREFIX)]
 
 
-def objective_tag(config: Any) -> bool:
-    """RO4 (§8): the vault is at the router objective's successor (mvp-0.47) or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in ROUTER_OBJECTIVE_VERSIONS
-
-
 def objective_on(config: Any) -> bool:
-    """RO4 (§8.3): the objective serves: the tag and ``[router_objective] enabled``. Off, or below the tag,
-    the predecessor's mixture and frame exactly (below the tag nothing is computed)."""
+    """RO4 (§8.3): the objective serves: ``[router_objective] enabled``. Off, the predecessor's mixture and
+    frame exactly."""
 
     section = getattr(config, "router_objective", None)
-    return objective_tag(config) and bool(getattr(section, "enabled", False))
+    return bool(getattr(section, "enabled", False))
 
 
 def objective_scores_on(config: Any) -> bool:
@@ -177,17 +154,10 @@ def sensors_in_value_on(config: Any) -> bool:
     return objective_on(config) and bool(getattr(section, "sensors_in_value", False))
 
 
-def calibration_tag(config: Any) -> bool:
-    """RO5 (§9): the vault is at the calibration successor (mvp-0.48) or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in ROUTER_CALIBRATION_VERSIONS
-
-
 def stop_coin_rate(config: Any) -> float:
     """RO5 §9 item 1: the stop coin's probability each way at a reversible boundary (0: no coin drawn)."""
 
-    if not (calibration_tag(config) and objective_on(config)):
+    if not objective_on(config):
         return 0.0
     return float(getattr(getattr(config, "router_objective", None), "stop_coin", 0.0) or 0.0)
 
@@ -199,10 +169,10 @@ CHECKS_OFF = "off"
 
 def check_mode(config: Any) -> tuple[str, float]:
     """RO5 §9 item 2: ``(mode, value)``: ``("embedded", checks per day)``, ``("rate", per topic per day)`` or
-    ``("off", 0)``. Below the tag or with the objective off, off."""
+    ``("off", 0)``. With the objective off, off."""
 
     section = getattr(config, "router_objective", None)
-    if not (calibration_tag(config) and objective_on(config)):
+    if not objective_on(config):
         return CHECKS_OFF, 0.0
     rate = getattr(section, "check_rate", CHECKS_OFF)
     if rate == CHECKS_EMBEDDED:
@@ -222,10 +192,8 @@ def calibrated_weight_on(config: Any) -> bool:
 
 
 def pick_open_share(config: Any) -> float:
-    """RO5 §9 item 6: the seeded share of misconception picks left open (0 below the tag)."""
+    """RO5 §9 item 6: the seeded share of misconception picks left open."""
 
-    if not calibration_tag(config):
-        return 0.0
     return float(getattr(getattr(config, "router_objective", None), "pick_open_share", 0.0) or 0.0)
 
 
@@ -233,30 +201,15 @@ def fitted_models_on(config: Any) -> bool:
     """RO5 §9 item 7: the rollouts read AD's fitted learning posterior and the combiner fed resolved checks."""
 
     section = getattr(config, "router_objective", None)
-    return calibration_tag(config) and objective_on(config) and bool(getattr(section, "fitted_models", False))
-
-
-def learned_tail_tag(config: Any) -> bool:
-    """RO6 (§10): the vault is at the learned tail's successor (mvp-0.49) or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in ROUTER_LEARNED_TAIL_VERSIONS
+    return objective_on(config) and bool(getattr(section, "fitted_models", False))
 
 
 def learned_tail_on(config: Any) -> bool:
-    """RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the tag, the
-    objective serving and ``[router_objective] learned_tail``). Off, or below the tag, mvp-0.48 exactly: nothing
-    is fitted, read or traced."""
+    """RO6 (§10): the numeric policy values its candidates with the learned tail's residual (the objective
+    serving and ``[router_objective] learned_tail``). Off, mvp-0.48 exactly: nothing is fitted, read or traced."""
 
     section = getattr(config, "router_objective", None)
-    return learned_tail_tag(config) and objective_on(config) and bool(getattr(section, "learned_tail", False))
-
-
-def followups_tag(config: Any) -> bool:
-    """The router objective's follow-up batch: the vault is at its successor (mvp-0.50) or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in ROUTER_FOLLOWUPS_VERSIONS
+    return objective_on(config) and bool(getattr(section, "learned_tail", False))
 
 
 def followup_on(config: Any, key: str) -> bool:
@@ -264,7 +217,7 @@ def followup_on(config: Any, key: str) -> bool:
     switch ``key`` (default true). Off, or below the tag, that part is mvp-0.49's exactly."""
 
     section = getattr(config, "router_objective", None)
-    return followups_tag(config) and objective_on(config) and bool(getattr(section, key, False))
+    return objective_on(config) and bool(getattr(section, key, False))
 
 
 def monotone_combiner_on(config: Any) -> bool:
@@ -287,17 +240,13 @@ FOLLOWUP_GENERATOR_SWITCHES: tuple[str, ...] = (
     "scope_extension", "held_ad_link", "held_reading_map", "pooled_connections")
 
 
-def followup_generator_switches(config: Any) -> dict[str, bool] | None:
-    """R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`) at the batch's tag; None
-    below it, so a predecessor's generator payload (and its trace) keeps its bytes."""
+def followup_generator_switches(config: Any) -> dict[str, bool]:
+    """R8: each of :data:`FOLLOWUP_GENERATOR_SWITCHES` as it serves (:func:`followup_on`), and slip or gap SG2's."""
 
-    if not followups_tag(config):
-        return None
     out = {key: followup_on(config, key) for key in FOLLOWUP_GENERATOR_SWITCHES}
-    if slip_gap_tag(config):
-        # Slip or gap SG2 changes a logged decision's values (R8's rule), so it is part of the generator payload and a
-        # flip is a change point. SG1 changes none, so it is not. Below the tag, the payload keeps its bytes.
-        out["miss_cause_in_value"] = miss_cause_in_value_on(config)
+    # Slip or gap SG2 changes a logged decision's values (R8's rule), so it is part of the generator payload and a
+    # flip is a change point. SG1 changes none, so it is not.
+    out["miss_cause_in_value"] = miss_cause_in_value_on(config)
     return out
 
 
@@ -329,30 +278,19 @@ COMMON_DRAW_IDENTITY_KEYS: tuple[str, ...] = ("miss_cause",)
 MISS_CAUSE_OFFER_KEY = "miss_cause"
 
 
-def followup_switch_snapshot(config: Any) -> dict[str, bool] | None:
-    """R12: each of :data:`FOLLOWUP_SWITCHES` as it serves, at the batch's tag; None below it (the boundary key
-    keeps its predecessor's bytes)."""
+def followup_switch_snapshot(config: Any) -> dict[str, bool]:
+    """R12: each of :data:`FOLLOWUP_SWITCHES` as it serves."""
 
-    if not followups_tag(config):
-        return None
     return {key: followup_on(config, key) for key in FOLLOWUP_SWITCHES}
-
-
-def lesson_offers_tag(config: Any) -> bool:
-    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the vault is at the lesson offers' successor (mvp-0.53) or
-    later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in LESSON_OFFERS_VERSIONS
 
 
 def lesson_offers_on(config: Any) -> bool:
     """Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and
     LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on
     (``router.lesson_suggestions.enabled`` with the router and its decision log, lessons able to open) and
-    ``router.lesson_suggestions.in_objective``. Off, or below the tag, mvp-0.52 exactly."""
+    ``router.lesson_suggestions.in_objective``. Off, mvp-0.52 exactly."""
 
-    if not (lesson_offers_tag(config) and objective_on(config)):
+    if not objective_on(config):
         return False
     router = getattr(config, "router", None)
     suggestions = getattr(router, "lesson_suggestions", None)
@@ -362,21 +300,13 @@ def lesson_offers_on(config: Any) -> bool:
                 and getattr(teacher, "enabled", False))
 
 
-def failure_share_tag(config: Any) -> bool:
-    """Instruct hand-off IH5 (spec_instruct_handoff_v1 §7a): the vault is at the failure-share successor (mvp-0.55)
-    or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in FAILURE_SHARE_VERSIONS
-
-
 def failure_share_to_other_policy_on(config: Any) -> bool:
     """IH5: a failed policy's share of the objective's mix goes to the other policy, not staged: the tag, the
     objective serving and ``[router_objective] failure_share_to_other_policy`` (default true). Off, or below the tag,
     mvp-0.54's mix exactly."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and objective_on(config) and bool(
+    return objective_on(config) and bool(
         getattr(section, "failure_share_to_other_policy", False))
 
 
@@ -387,7 +317,7 @@ def lessons_compete_with_followups_on(config: Any) -> bool:
     below the tag, mvp-0.54's boundary exactly: forced items keep offers out and take a drawn one back."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and lesson_offers_on(config) and bool(
+    return lesson_offers_on(config) and bool(
         getattr(section, "lessons_compete_with_followups", False))
 
 
@@ -398,7 +328,7 @@ def learner_preferences_on(config: Any) -> bool:
     through it and no preference is written, as mvp-0.54."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and bool(getattr(section, "learner_preferences", False))
+    return bool(getattr(section, "learner_preferences", False))
 
 
 def workbench_is_open_item_on(config: Any) -> bool:
@@ -409,7 +339,7 @@ def workbench_is_open_item_on(config: Any) -> bool:
 
     section = getattr(config, "router_objective", None)
     workbench = getattr(config, "workbench", None)
-    return failure_share_tag(config) and bool(getattr(workbench, "enabled", False)) and bool(
+    return bool(getattr(workbench, "enabled", False)) and bool(
         getattr(section, "workbench_is_open_item", False))
 
 
@@ -420,7 +350,7 @@ def lesson_sources_follow_diagnosis_on(config: Any) -> bool:
     the router decides. Off, or below the tag, the brief is mvp-0.54's, byte for byte."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and bool(getattr(section, "lesson_sources_follow_diagnosis", False))
+    return bool(getattr(section, "lesson_sources_follow_diagnosis", False))
 
 
 def lesson_candidate_after_cold_miss_on(config: Any) -> bool:
@@ -432,7 +362,7 @@ def lesson_candidate_after_cold_miss_on(config: Any) -> bool:
     or below the tag, mvp-0.54's ``cold_failing`` rule (the two latest cold checks below full) and its wording exactly."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and bool(getattr(section, "lesson_candidate_after_cold_miss", False))
+    return bool(getattr(section, "lesson_candidate_after_cold_miss", False))
 
 
 def preferences_inform_router_on(config: Any) -> bool:
@@ -443,14 +373,7 @@ def preferences_inform_router_on(config: Any) -> bool:
     freezes no inputs for them."""
 
     section = getattr(config, "router_objective", None)
-    return failure_share_tag(config) and objective_on(config) and bool(getattr(section, "preferences_inform_router", False))
-
-
-def slip_gap_tag(config: Any) -> bool:
-    """Slip or gap (spec_slip_vs_gap_v1): the vault is at its successor (``SLIP_GAP_ALGORITHM_VERSION``) or later."""
-
-    algorithms = getattr(config, "algorithms", None)
-    return getattr(algorithms, "algorithm_version", None) in SLIP_GAP_VERSIONS
+    return objective_on(config) and bool(getattr(section, "preferences_inform_router", False))
 
 
 def miss_cause_sensor_on(config: Any) -> bool:
@@ -460,7 +383,7 @@ def miss_cause_sensor_on(config: Any) -> bool:
     the card are the predecessor's byte for byte."""
 
     section = getattr(config, "router_objective", None)
-    return slip_gap_tag(config) and objective_on(config) and bool(getattr(section, "miss_cause_sensor", False))
+    return objective_on(config) and bool(getattr(section, "miss_cause_sensor", False))
 
 
 def miss_cause_in_value_on(config: Any) -> bool:
@@ -502,7 +425,6 @@ __all__ = [
     "CHECKS_RATE",
     "available_at_reads_on",
     "calibrated_weight_on",
-    "calibration_tag",
     "check_mode",
     "fitted_models_on",
     "FOLLOWUP_GENERATOR_SWITCHES",
@@ -512,18 +434,14 @@ __all__ = [
     "SEED_NEUTRAL_SWITCHES",
     "followup_generator_switches",
     "followup_switch_snapshot",
-    "failure_share_tag",
     "failure_share_to_other_policy_on",
     "followup_on",
     "learner_preferences_on",
     "lessons_compete_with_followups_on",
     "lesson_offers_on",
-    "lesson_offers_tag",
     "monotone_combiner_on",
-    "followups_tag",
     "interval_factor_removed",
     "learned_tail_on",
-    "learned_tail_tag",
     "pick_open_share",
     "stop_coin_rate",
     "workbench_is_open_item_on",
@@ -535,11 +453,9 @@ __all__ = [
     "MISS_CAUSE_OFFER_KEY",
     "miss_cause_in_value_on",
     "miss_cause_sensor_on",
-    "slip_gap_tag",
     "known_at",
     "objective_on",
     "objective_scores_on",
-    "objective_tag",
     "projection_switches",
     "sensors_in_value_on",
     "self_report_not_validated_on",

@@ -3,7 +3,7 @@
 Each switch that changes a logged decision's value or mixture (``combiner_trace_outcomes``, ``merged_sessions``,
 ``consistent_review_draw``, ``scope_extension``) is in the generator version, so flipping one is a change point and
 never changes ``Q`` under the same generator version. ``carried_in_prefetch`` changes only which transitions are
-valued, not the logger, so it is not. Below the batch's tag the trace and the payload are RO6's. Fakes only.
+valued, not the logger, so it is not. A payload without switches (a trace logged before the batch) is RO6's. Fakes only.
 """
 
 from __future__ import annotations
@@ -38,8 +38,10 @@ def _generators(traces: list[dict], version: str, *, scope_extension: bool) -> s
 def test_at_the_defaults_the_payload_is_stable_across_decisions_and_is_the_one_served(tmp_path):
     traces = _served(tmp_path)
     assert len(traces) >= 2
-    assert {tuple(sorted(trace["versions"]["serving_switches"].items())) for trace in traces} == {
-        tuple(sorted((key, True) for key in FOLLOWUP_GENERATOR_SWITCHES))}
+    assert {tuple(sorted((key, trace["versions"]["serving_switches"][key]) for key in FOLLOWUP_GENERATOR_SWITCHES))
+            for trace in traces} == {tuple(sorted((key, True) for key in FOLLOWUP_GENERATOR_SWITCHES))}
+    # Slip or gap's sensor, a later successor, is served off at this tag (tests/successor_switches.py).
+    assert all(trace["versions"]["serving_switches"]["miss_cause_in_value"] is False for trace in traces)
     generators = _generators(traces, TAG, scope_extension=True)
     assert len(generators) == 1
     # the serve logged each decision under the generator its trace recomputes (``generator_now``)
@@ -63,10 +65,8 @@ def test_carried_in_prefetch_is_not_part_of_the_generator(tmp_path):
     assert flipped == default
 
 
-def test_below_the_tag_the_trace_and_the_payload_are_ro6s(tmp_path):
-    traces = _served(tmp_path, version=OLD)
-    assert traces and all("serving_switches" not in trace["versions"] for trace in traces)
+def test_a_payload_without_switches_names_none():
+    # A trace logged before the batch carries no switches; its generator payload must stay RO6's.
     payload = TD.generator_payload(algorithm_version=OLD, objective="o", tail="t", terminal="c", horizon_days=90.0,
                                    llm_schema="s", seeds={}, epsilon=0.05)
     assert "switches" not in payload
-    assert {trace["residual"]["generator"] for trace in traces} == _generators(traces, OLD, scope_extension=False)

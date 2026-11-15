@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_VERSIONS
 from learnloop import learner_protection
 from learnloop.db.stores import write_provenance as wp
 from learnloop.followup_run import authoring, router
@@ -273,7 +272,6 @@ def test_the_mint_and_batch_paths_refuse_a_reserved_question_at_the_tag_only(tmp
     payload = {"prompt": f"Try: {STEM}", "expected_answer": "x", "grading_rubric": {"criteria": []}}
     assert _reproduces_reserved(vault, repository, payload)
     assert not _reproduces_reserved(vault, repository, {**payload, "prompt": "Something else entirely here."})
-    assert BELOW_THE_TAG not in FOLLOWUP_SERVE_VERSIONS
     # The same vault, reserved question and protection, with only its tag lowered: nothing else can turn the gate off.
     set_algorithm_version(paths, BELOW_THE_TAG)
     below = load_vault(paths.root)

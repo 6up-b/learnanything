@@ -566,16 +566,11 @@ def test_r5_1_no_room_to_wait_asks_now_deterministically_and_asks_no_model(tmp_p
     assert len(llm.requests) == before and "objective_trace" not in outcome.record
 
 
-@pytest.mark.parametrize("case", ["below_the_tag", "objective_off"])
-def test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged(tmp_path, monkeypatch, case):
-    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
+def test_r5_1_with_the_objective_off_fg1s_gate_is_unchanged(tmp_path, monkeypatch):
     from learnloop.daily_plan.router_chooser import NO_INTERVENTION, FollowupGate
     from learnloop.router import requests as rq
 
-    if case == "below_the_tag":
-        env, llm = _fg1_env(tmp_path, version=ROUTER_OBJECTIVE_ALGORITHM_VERSION, toml=None)
-    else:
-        env, llm = _fg1_env(tmp_path, toml="[router_objective]\nenabled = false\n")
+    env, llm = _fg1_env(tmp_path, toml="[router_objective]\nenabled = false\n")
     before = len(llm.requests)
     _row_, gate, decision = _fg1_decide(env, monkeypatch)
     assert type(gate) is FollowupGate

@@ -20,7 +20,6 @@ from learnloop.algorithm_versions import (
     FAILURE_SHARE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
-    UNEVIDENCED_RETURN_VERSIONS,
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.cli import app
@@ -62,7 +61,6 @@ def test_the_successor_is_one_constant_after_its_predecessor_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(UNEVIDENCED_RETURN_ALGORITHM_VERSION) - 1] == OLD == "mvp-0.55"
     # Slip or gap's successor (mvp-0.57) follows it and keeps it.
     assert UNEVIDENCED_RETURN_ALGORITHM_VERSION == "mvp-0.56" == SUCCESSOR_CHAIN[-4] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert UNEVIDENCED_RETURN_VERSIONS == frozenset({UNEVIDENCED_RETURN_ALGORITHM_VERSION, "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 @pytest.mark.parametrize(

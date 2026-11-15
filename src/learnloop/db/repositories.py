@@ -5940,24 +5940,16 @@ class Repository(
         self,
         claim: Mapping[str, Any],
         *,
-        keep_replaced: bool,
         clock: Clock | None = None,
     ) -> str:
         """The replace seam: ``claim`` replaces the in-force claims of its source on its scope; its id.
 
         One source keeps one claim in force per scope (init-wizard global
         claims, rung-variant requests and too-easy/too-hard reports per LO).
-        ``keep_replaced`` (the successor mvp-0.36): the replaced rows stay,
-        marked ``superseded_by`` the new claim's id in the transaction that
-        inserts it, so replay can apply each at its own time. Otherwise they
-        are deleted first, exactly as the predecessor's seam
-        (:meth:`delete_learner_claims`, then :meth:`insert_learner_claim`)."""
+        The replaced rows stay (the successor mvp-0.36), marked
+        ``superseded_by`` the new claim's id in the transaction that inserts
+        it, so replay can apply each at its own time."""
 
-        if not keep_replaced:
-            self.delete_learner_claims(
-                source=str(claim["source"]), scope_type=str(claim["scope_type"]), scope_id=claim.get("scope_id"),
-            )
-            return self.insert_learner_claim(claim, clock=clock)
         with self.atomic():
             claim_id = self.insert_learner_claim(claim, clock=clock)
             query = (
@@ -6013,7 +6005,7 @@ class Repository(
         keep_content_state: bool = False,
     ) -> None:
         """The live attempt's write. ``keep_content_state`` (the successor
-        ``ATTEMPT_CONTENT_STATE_VERSIONS`` with its kill switch on, decided by
+        mvp-0.37 with its kill switch on, decided by
         the caller): the item row takes only its scheduling columns
         (:meth:`_record_attempt_practice_item_state`); False writes the whole
         row, as the predecessor."""

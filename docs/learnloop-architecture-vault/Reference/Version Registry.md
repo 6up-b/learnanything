@@ -34,7 +34,7 @@ tags:
 | algorithm | `mvp-0.59` (`LATEST_ALGORITHM_VERSION`, the last tag of `SUCCESSOR_CHAIN`; new vaults start there, owner decision 2026-10-12) | `mvp-0.9`: persisted reveal-aware learning semantics; each later tag is an immediate successor meaning its predecessor's semantics plus its own change, behind its kill switch. Each tag's meaning is in [[Algorithm Versions and Reproducibility]] and in the comment above its constant in `src/learnloop/algorithm_versions.py`. Existing vaults keep their tag until the owner runs `learnloop upgrade` |
 | oldest supported tag | `mvp-0.58` (`OLDEST_SUPPORTED`) | a vault below it, or naming no tag, is refused at every door, `learnloop upgrade` included, with the route through the code tagged `pre-floor` ([[ADR-019 The oldest supported tag]]) |
 | upgrade table | one row, `mvp-0.59` (`whole_vault_rebuild`) | `learnloop.ops.upgrades.UPGRADES`: a `Link(tag, activate)` per successor from the floor up, each activated in one transaction with the journal before the config's publication and the publication last; `learnloop upgrade` walks it ([[Algorithm Versions and Reproducibility#The upgrade table]]) |
-| canonical projection base | `mvp-0.8` semantics | inherited by every successor, mvp-0.9 through the latest (`P0_SUCCESSOR_VERSIONS`, the `SUCCESSOR_CHAIN`) |
+| canonical projection base | `mvp-0.8` semantics | inherited by every successor, mvp-0.9 through the latest (the `SUCCESSOR_CHAIN`) |
 | knowledge-model activation | `mvp-0.7` | canonical state/contracts boundary |
 | config schema | `2` | emitted `learnloop.toml`; schema 1 accepted |
 | SQLite migration head | `202` | current schema ledger maximum |

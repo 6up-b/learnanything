@@ -69,10 +69,11 @@ def _cold_retry(iv, item_id, *, ref):
 # -- F2: intent is the successor; below the tag the predecessor's code runs ---------------------------
 
 
-def test_f2_below_the_tag_commitments_change_nothing_with_the_switch_on(tmp_path):
+def test_f2_at_the_predecessor_commitments_change_nothing(tmp_path):
+    # The predecessor's tag is served through the switch (tests/successor_switches.py).
     bare = make_intent_vault(tmp_path / "bare", version=PREDECESSOR)
     chosen = make_intent_vault(tmp_path / "chosen", version=PREDECESSOR)
-    assert chosen.vault.config.intent.enabled, "sanity: the switch is on (its default)"
+    assert not chosen.vault.config.intent.enabled
     chosen.choose("learning_object", "lo_a", "pause", NOW)
     chosen.choose("learning_object", "lo_b", "check_once", NOW)
     chosen.choose("learning_object", "lo_c", "light_touch", NOW)
@@ -208,11 +209,8 @@ def test_f11_an_available_cold_sibling_is_still_preferred(iv):
 
 def test_f2_the_chain_ends_at_the_intent_successor():
     from learnloop.algorithm_versions import (
-        ELIGIBILITY_DECISION_VERSIONS,
         INTENT_ALGORITHM_VERSION,
-        INTENT_VERSIONS,
         LATEST_ALGORITHM_VERSION,
-        P0_PROJECTION_VERSIONS,
         SUCCESSOR_CHAIN,
     )
 
@@ -223,8 +221,6 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
     assert SUCCESSOR_CHAIN[20] == "mvp-0.30"
     assert SUCCESSOR_CHAIN[18] == PREDECESSOR
-    assert INTENT_VERSIONS == frozenset({"mvp-0.29", "mvp-0.30", "mvp-0.31", "mvp-0.32", "mvp-0.33", "mvp-0.34", "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
-    assert "mvp-0.29" in ELIGIBILITY_DECISION_VERSIONS and "mvp-0.29" in P0_PROJECTION_VERSIONS
 
 
 def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):

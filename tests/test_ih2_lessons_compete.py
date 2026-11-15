@@ -665,7 +665,8 @@ def test_the_switch_defaults_on_is_classified_and_names_itself_in_the_prefetch_k
     below = _env(tmp_path / "below", version=OLD)
     assert objective_settings(on.vault.config)["lessons_compete_with_followups"] is True
     assert objective_settings(off.vault.config)["lessons_compete_with_followups"] is False
-    assert "lessons_compete_with_followups" not in objective_settings(below.vault.config)
+    # The predecessor's tag, served through the switch (tests/successor_switches.py).
+    assert objective_settings(below.vault.config)["lessons_compete_with_followups"] is False
     assert lessons_compete_with_followups_on(on.vault.config)
     assert not lessons_compete_with_followups_on(off.vault.config)
     assert not lessons_compete_with_followups_on(below.vault.config)

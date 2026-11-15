@@ -52,8 +52,13 @@ it; existing vault history must remain interpretable and reproducible.
 New vaults start at `LATEST_ALGORITHM_VERSION` (owner decision 2026-10-12,
 Slice 1 M2 open question 1). The successors form one linear chain,
 `SUCCESSOR_CHAIN` in `learnloop.algorithm_versions`: a successor merge appends
-its tag there (`LATEST_ALGORITHM_VERSION` and every version gate, such as
-`DIAGNOSIS_SPLIT_VERSIONS` and `PLACEMENT_VERSIONS`, follow). Every tag's
+its tag there (`LATEST_ALGORITHM_VERSION` and every set derived from the chain
+follow). A successor's set (`successors_from(TAG)`) is needed only while a vault
+can hold a tag below it, or where code compares a stored row's tag: once the
+floor (ADR-019) reaches the tag, its gate is its kill switch alone, and the set
+goes (refactor D6 left `PLACEMENT_VERSIONS`, `DECIDER_TIER1_VERSIONS` and
+`FAILURE_SHARE_VERSIONS` for stored rows, `FACET_BELIEF_FIX_VERSIONS` above the
+floor, and `FIGURE_WAIT_VERSIONS` in a parallel lane's module). Every tag's
 effective defaults are the latest's apart from the label
 (`tests/test_effective_defaults_golden.py`), so a new key is inert below its
 own tag by its gate, not by a per-version default.

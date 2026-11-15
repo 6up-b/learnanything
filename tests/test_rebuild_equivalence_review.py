@@ -209,7 +209,6 @@ def test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live(
 
 from learnloop.algorithm_versions import (  # noqa: E402
     CLAIM_FIXES_ALGORITHM_VERSION,
-    REPLAY_LEDGER_VERSIONS,
     SUCCESSOR_CHAIN,
 )
 
@@ -225,7 +224,6 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     # cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 as the latest (all keep it).
     assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34" == SUCCESSOR_CHAIN[-26] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(REPLAY_LEDGER_ALGORITHM_VERSION) - 1]
-    assert REPLAY_LEDGER_VERSIONS == frozenset({REPLAY_LEDGER_ALGORITHM_VERSION, "mvp-0.35", "mvp-0.36", "mvp-0.37", "mvp-0.38", "mvp-0.39", "mvp-0.40", "mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", LATEST_ALGORITHM_VERSION})
 
 
 def test_the_switch_is_on_by_default_and_classified():

@@ -26,8 +26,7 @@ class MobileConfig(BaseModel):
     #: Off, the plan's methods are refused (``phone_plan_off``) and Today is M2a's queue.
     phone_plan: bool = Field(default=True, strict=True)
     #: Mobile v2 V3's kill switch (``mobile.phone_probes``; owner decision D3): the phone serves and answers
-    #: phone-eligible probes (diagnostic and FG1's generated follow-ups) under the probe contract, at the vault's
-    #: successor tag (PHONE_PROBES_VERSIONS). Off, ``followup_next`` is refused (``phone_probes_off``), a probe
+    #: phone-eligible probes (diagnostic and FG1's generated follow-ups) under the probe contract. Off, ``followup_next`` is refused (``phone_probes_off``), a probe
     #: answer is refused (``validation_error``) and the phone is V2's: it leaves every probe for the desktop.
     phone_probes: bool = Field(default=True, strict=True)
     #: Mobile v2 V4's kill switch (``mobile.phone_reader``; owner decision D4): the phone's Reader (text first, the

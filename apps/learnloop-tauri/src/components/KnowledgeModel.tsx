@@ -831,7 +831,6 @@ export function FacetEvidenceReceipt({ facetId, onInspect }: { facetId: string; 
                   <span style={{ color: COLOR.textDim, fontSize: 11 }}>latest evidence</span>
                 </>
               ) : null}
-              {!timeline.supported ? <Faint style={{ fontSize: 10 }}>legacy vault · no capability ledger</Faint> : null}
             </div>
           </div>
 

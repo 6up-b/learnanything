@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, P0_SUCCESSOR_VERSIONS, SUCCESSOR_CHAIN
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, SUCCESSOR_CHAIN
 from learnloop.cli import app
 from learnloop.config import (
     DEFAULT_CONFIG_TEXT,
@@ -371,10 +371,8 @@ def test_a_successor_merge_appends_one_tag_and_every_gate_follows(monkeypatch) -
 
     chain = versions.SUCCESSOR_CHAIN
     assert LATEST_ALGORITHM_VERSION == chain[-1]
-    assert P0_SUCCESSOR_VERSIONS == set(chain)
-    assert versions.DIAGNOSIS_SPLIT_VERSIONS == versions.successors_from(versions.DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
     assert versions.PLACEMENT_VERSIONS == versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)
-    assert LATEST_ALGORITHM_VERSION in versions.DIAGNOSIS_SPLIT_VERSIONS & versions.PLACEMENT_VERSIONS
+    assert LATEST_ALGORITHM_VERSION in versions.PLACEMENT_VERSIONS
     # A later successor joins every gate from its predecessors' tags on.
     monkeypatch.setattr(versions, "SUCCESSOR_CHAIN", (*chain, "mvp-next"))
     assert "mvp-next" in versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)

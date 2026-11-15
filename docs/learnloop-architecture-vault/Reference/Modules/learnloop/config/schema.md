@@ -378,7 +378,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_curriculum_c3_exam_scoping.py](../../../../../../tests/test_curriculum_c3_exam_scoping.py) — direct import
   - `test_the_config_default_is_on`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_switches_are_on_by_default_and_the_gate_reads_the_tag`
+  - `test_the_switches_are_on_by_default_and_the_gate_is_the_switch`
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
   - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
@@ -430,7 +430,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_the_intent_boxs_figure_action_is_show_me_while_on`
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
-  - `test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were`
+  - `test_new_vaults_get_true_effectively`
 - [tests/test_glm_ocr.py](../../../../../../tests/test_glm_ocr.py) — direct import
   - `test_r2_f3_the_z_ai_ok_names_only_z_ai`
   - `test_the_legacy_path_uploads_only_with_the_ok_and_caches_by_backend`
@@ -547,7 +547,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import
   - `test_the_switches_default_on`
 - [tests/test_rofu_switch_key.py](../../../../../../tests/test_rofu_switch_key.py) — direct import
-  - `test_below_the_tag_the_key_names_no_switch`
+  - `test_the_key_names_the_switches_at_every_tag_a_vault_can_hold`
 - [tests/test_router_objective_migration.py](../../../../../../tests/test_router_objective_migration.py) — direct import
   - `test_the_switch_is_on_by_default_and_classified`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import

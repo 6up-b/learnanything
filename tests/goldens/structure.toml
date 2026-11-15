@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 283
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 75
-comment_lines_naming_a_stage_artifact = 2387
+functions_over_200_lines = 74
+comment_lines_naming_a_stage_artifact = 2385
 test_files_named_for_a_stage = 184
 
 [members]
@@ -260,7 +260,6 @@ functions_over_200_lines = [
     "src/learnloop/daily_plan/engine.py _boundary",
     "src/learnloop/daily_plan/engine.py advance_with_context",
     "src/learnloop/daily_plan/objective_chooser.py run_numeric",
-    "src/learnloop/daily_plan/objective_inputs.py build",
     "src/learnloop/db/repositories.py confirm_golden_path_atomic",
     "src/learnloop/diagnosis/causal_attribution.py _hypothesis_specs",
     "src/learnloop/diagnosis/causal_attribution.py claim_checked_feedback",
@@ -744,7 +743,7 @@ stage_test_files = [
 "src/learnloop/followup_run/authoring.py" = 1
 "src/learnloop/followup_run/jobs.py" = 4
 "src/learnloop/followup_run/lesson_probe.py" = 1
-"src/learnloop/followup_run/router.py" = 4
+"src/learnloop/followup_run/router.py" = 3
 "src/learnloop/followup_serve/gates.py" = 2
 "src/learnloop/followup_serve/workflow.py" = 2
 "src/learnloop/goals/certification_cold_probe.py" = 1
@@ -945,7 +944,7 @@ stage_test_files = [
 "src/learnloop_sidecar/handlers/deliverables.py" = 8
 "src/learnloop_sidecar/handlers/diagnosis_card.py" = 1
 "src/learnloop_sidecar/handlers/exams.py" = 8
-"src/learnloop_sidecar/handlers/feedback.py" = 6
+"src/learnloop_sidecar/handlers/feedback.py" = 5
 "src/learnloop_sidecar/handlers/figures.py" = 27
 "src/learnloop_sidecar/handlers/first_run.py" = 9
 "src/learnloop_sidecar/handlers/goals.py" = 3

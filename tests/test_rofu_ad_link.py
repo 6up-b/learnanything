@@ -17,7 +17,7 @@ import pytest
 
 from learnloop.adaptive_difficulty import model as ADM
 from learnloop.adaptive_difficulty import priors as ADP
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
+from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import value as V
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
@@ -137,9 +137,8 @@ def test_the_probe_with_ads_own_predictive_is_pinned(draws):
 
 
 @pytest.mark.parametrize("version,switch,expected", [(ROUTER_FOLLOWUPS_ALGORITHM_VERSION, True, True),
-                                                     (ROUTER_FOLLOWUPS_ALGORITHM_VERSION, False, False),
-                                                     (ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, True, False)])
-def test_the_numeric_policy_reads_ads_own_predictive_only_at_the_tag_with_its_switch(tmp_path, monkeypatch, version,
+                                                     (ROUTER_FOLLOWUPS_ALGORITHM_VERSION, False, False)])
+def test_the_numeric_policy_reads_ads_own_predictive_only_with_its_switch(tmp_path, monkeypatch, version,
                                                                                       switch, expected):
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.db.stores import router_objective as store

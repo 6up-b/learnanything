@@ -224,7 +224,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_offer_block_and_the_llms_row_carry_the_dated_words`
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r5_1_at_the_tag_fg1s_gate_is_the_two_policy_mix_with_its_trace`
-  - `test_r5_1_below_the_tag_and_with_the_objective_off_fg1s_gate_is_unchanged`
+  - `test_r5_1_with_the_objective_off_fg1s_gate_is_unchanged`
 - [tests/test_router_r2b_requests.py](../../../../../../tests/test_router_r2b_requests.py) — direct import
   - `test_a_fake_llm_naming_an_unknown_block_is_rejected_at_parse`
   - `test_every_router_answer_model_has_the_strict_schema_the_transports_send`

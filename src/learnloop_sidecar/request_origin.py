@@ -73,18 +73,12 @@ def device_class(origin: RequestOrigin | None) -> str:
     return DESKTOP if origin is None else origin.surface
 
 
-def phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool:
+def phone_probes_on(origin: RequestOrigin | None) -> bool:
     """Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and
-    FG1's generated ones, under the probe contract. The host's switch (``phone_probes``) AND the vault at the
-    successor's tag (``PHONE_PROBES_VERSIONS``); below it, or switched off, the phone is V2's exactly. Never true for
-    the desktop, whose serving doesn't change."""
+    FG1's generated ones, under the probe contract. The host's switch (``phone_probes``, the successor mvp-0.54's);
+    switched off, the phone is V2's exactly. Never true for the desktop, whose serving doesn't change."""
 
-    from learnloop.algorithm_versions import PHONE_PROBES_VERSIONS
-
-    if origin is None or not origin.phone_probes:
-        return False
-    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
-    return version in PHONE_PROBES_VERSIONS
+    return origin is not None and bool(origin.phone_probes)
 
 
 def phone_reader_on(origin: RequestOrigin | None) -> bool:

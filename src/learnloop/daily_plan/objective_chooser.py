@@ -127,15 +127,15 @@ _FAILURES = frozenset({TIMEOUT, FAILED, INVALID, NOT_READY, "spend", "unreachabl
 
 
 def objective_settings(config: Any) -> dict[str, Any]:
-    """The settings a prefetch boundary key names. At the follow-up batch's tag also its switches as they serve
-    (landing ruling R12, ``followup_switch_snapshot``), so a flip between a prefetch and its serve starts a new job;
-    below the tag the key keeps its predecessor's bytes."""
+    """The settings a prefetch boundary key names, the follow-up batch's switches as they serve among them
+    (landing ruling R12, ``followup_switch_snapshot``), so a flip between a prefetch and its serve starts a new job."""
 
     from learnloop.router_objective_switches import (
-        failure_share_tag,
         failure_share_to_other_policy_on,
         followup_switch_snapshot,
         lessons_compete_with_followups_on,
+        miss_cause_in_value_on,
+        miss_cause_sensor_on,
         preferences_inform_router_on,
     )
 
@@ -146,25 +146,19 @@ def objective_settings(config: Any) -> dict[str, Any]:
         "evaluation_window_days", "llm_weight_prior", "llm_min_share", "numeric_min_share", "delta_prior_sd",
         "effect_slope_prior_mean", "effect_slope_prior_variance", "stop_accept_prior_a", "stop_accept_prior_b",
         "llm_card_token_budget", "receipts")}
-    snapshot = followup_switch_snapshot(config)
-    if snapshot is not None:
-        out["followup_switches"] = snapshot
+    out["followup_switches"] = followup_switch_snapshot(config)
     # IH5: where a failed policy's share goes serves at the decision, but the key names it too, so a flip between a
-    # prefetch and its serve starts a new job; below the tag the key keeps its predecessor's bytes.
-    if failure_share_tag(config):
-        out["failure_share_to_other_policy"] = failure_share_to_other_policy_on(config)
-        # IH2: which decisions hold a lesson offer, likewise.
-        out["lessons_compete_with_followups"] = lessons_compete_with_followups_on(config)
-        # IH4: named only while it serves, so off the key keeps its bytes (a flip still starts a new job).
-        if preferences_inform_router_on(config):
-            out["preferences_inform_router"] = True
-    from learnloop.router_objective_switches import miss_cause_in_value_on, miss_cause_sensor_on, slip_gap_tag
-
-    if slip_gap_tag(config):
-        # Slip or gap: both switches as they serve, so a flip starts a new job; below the tag the key keeps its bytes.
-        # Never in the numeric policy's seed (``COMMON_DRAW_OBJECTIVE_KEYS``, :func:`numeric_seed`).
-        out["miss_cause_sensor"] = miss_cause_sensor_on(config)
-        out["miss_cause_in_value"] = miss_cause_in_value_on(config)
+    # prefetch and its serve starts a new job.
+    out["failure_share_to_other_policy"] = failure_share_to_other_policy_on(config)
+    # IH2: which decisions hold a lesson offer, likewise.
+    out["lessons_compete_with_followups"] = lessons_compete_with_followups_on(config)
+    # IH4: named only while it serves, so off the key keeps its bytes (a flip still starts a new job).
+    if preferences_inform_router_on(config):
+        out["preferences_inform_router"] = True
+    # Slip or gap: both switches as they serve, so a flip starts a new job. Never in the numeric policy's seed
+    # (``COMMON_DRAW_OBJECTIVE_KEYS``, :func:`numeric_seed`).
+    out["miss_cause_sensor"] = miss_cause_sensor_on(config)
+    out["miss_cause_in_value"] = miss_cause_in_value_on(config)
     return out
 
 
@@ -1632,8 +1626,6 @@ class ObjectiveChooser(RouterChooser):
                        decider=results.get(DECIDER), staged_ref=staged_ref, weight=(w, weight_record),
                        effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
-        from learnloop.router_objective_switches import calibration_tag
-
         contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
         if policy_card.get("statements"):
             # IH4 §7 item 6: which card the LLM read, its entries and what the budget left out of them.
@@ -1642,10 +1634,9 @@ class ObjectiveChooser(RouterChooser):
             # IH2 §5: a lesson offer against the boundary's follow-ups: the offer's declined branch is the follow-up.
             trace["followup_contest"] = {"candidate_id": contested, "item_ids": list(by_id[contested].item_ids),
                                          "offer_declined_branch": "the follow-up (it stays available)"}
-        if calibration_tag(config):
-            # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
-            # whatever its distance; the policy comparison's uses keep only the window's.
-            trace["goal_dates"] = _goal_dates(numeric)
+        # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
+        # whatever its distance; the policy comparison's uses keep only the window's.
+        trace["goal_dates"] = _goal_dates(numeric)
         if carry:
             # The follow-up batch's item 4: earlier decisions' carried valuations a later prefetch ran, recorded
             # here (read as of this trace's own time; the transition into each is then no longer censored).

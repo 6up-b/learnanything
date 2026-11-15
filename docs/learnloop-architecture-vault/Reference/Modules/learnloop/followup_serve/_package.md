@@ -59,7 +59,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 4 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 
 ### Packages that import this package
@@ -90,21 +90,21 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
-    n_learnloop["learnloop"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_sidecar["learnloop_sidecar"]
+    n_learnloop["learnloop"]
     n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_followup_run -->|16| center
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_diagnosis -->|11| center
     n_learnloop_diagnosis_split -->|7| center
-    n_learnloop -->|1| center
-    center -->|4| n_learnloop
     n_learnloop_daily_plan -->|5| center
     center -->|5| n_learnloop_db_stores
     n_learnloop_sidecar -->|5| center
+    n_learnloop -->|1| center
+    center -->|3| n_learnloop
     n_learnloop_teacher -->|4| center
     n_learnloop_attempts -->|3| center
 ```

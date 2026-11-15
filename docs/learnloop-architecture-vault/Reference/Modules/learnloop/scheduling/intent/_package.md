@@ -59,7 +59,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 8 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
@@ -85,8 +85,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.scheduling.intent"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop["learnloop"]
     n_learnloop_intent["learnloop.intent"]
+    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -95,8 +95,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_daily_plan -->|9| center
-    center -->|8| n_learnloop
     n_learnloop_intent -->|8| center
+    center -->|7| n_learnloop
     center -->|5| n_learnloop_db_stores
     n_learnloop_instructional -->|4| center
     n_learnloop_scheduling -->|1| center

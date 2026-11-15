@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 import learnloop.scheduling.scheduler as scheduler_module
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION, ROUTER_MIXTURE_VERSIONS
+from learnloop.algorithm_versions import ROUTER_MIXTURE_ALGORITHM_VERSION
 from learnloop.daily_plan import router_runtime
 from learnloop.daily_plan.engine import plan_scheduler_session, staged_plans_deterministic
 from learnloop.daily_plan.policy import mixture_active
@@ -55,7 +55,7 @@ from tests.plan_determinism_helpers import (  # noqa: F401 - ``frozen`` is a fix
 )
 
 B = ROUTER_MIXTURE_ALGORITHM_VERSION
-assert B == "mvp-0.24" and LATEST_ALGORITHM_VERSION in ROUTER_MIXTURE_VERSIONS
+assert B == "mvp-0.24"
 STAGED = '[router]\nmode = "staged"\n'
 SESSIONS = tuple(f"s_{index:02d}" for index in range(16))
 

@@ -3781,7 +3781,7 @@ class PlacementConfig(BaseModel):
     # No opening diagnostic episode per new LO. True restores them while
     # keeping assumed-known (a narrower switch than ``enabled``).
     initial_probes: bool = False
-    # Kill switch of UNEVIDENCED_RETURN_VERSIONS (mvp-0.56): an answered item
+    # Kill switch of the mvp-0.56 successor: an answered item
     # with no due time, on an LO with no evidence, starts as learning instead of
     # never coming back. Off (or below the tag) serves the predecessor exactly.
     unevidenced_return: bool = True
@@ -3801,7 +3801,7 @@ class PlanConfig(KeepsRetiredFields):
     """Daily loop: the finite daily plan.
 
     Acts only on a vault at a daily-plan algorithm version (``mvp-0.14`` or a
-    later successor, ``DAILY_PLAN_VERSIONS``).
+    later successor).
     ``enabled`` is the kill switch: off restores the predecessor's Today (the
     open queue with the re-entry cap) exactly. ``new_admission_enabled`` and
     ``reading_blocks`` are narrower sub-switches; ``reading_from_furthest``
@@ -3994,13 +3994,13 @@ class RouterConfig(BaseModel):
     ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
     decision and learner pick. It is not a serving change and acts at every
     algorithm version; off stops the rows and nothing else.
-    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor
-    (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included,
+    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor:
+    probe near-ties, teach-back items included,
     join the Today queue's seeded exploration. Off (or below ``mvp-0.15``)
     serves exactly as the predecessor.
 
-    ``enabled`` is the router's kill switch (``mvp-0.23``,
-    ``ROUTER_STAGED_FRAME_VERSIONS``). On, Today's plan is composed by the
+    ``enabled`` is the router's kill switch (``mvp-0.23``).
+    On, Today's plan is composed by the
     staged frame (the daily plan's lanes and ``lane_quota_v1`` over the set
     the constraint engine admits); off (or below ``mvp-0.23``) Today serves
     exactly as the predecessor. ``card_token_budget`` bounds the learner-state card each
@@ -4008,8 +4008,8 @@ class RouterConfig(BaseModel):
     (the card, and the models' requests and raw answers,
     ``router_decision_payloads``); the hashes stay on the decision row.
 
-    The model mixture (the successor after ``mvp-0.23``,
-    ``ROUTER_MIXTURE_VERSIONS``). ``mode`` names who chooses each block:
+    The model mixture (the successor after ``mvp-0.23``).
+    ``mode`` names who chooses each block:
     ``mixture`` (the default: a logged draw from the staged rule, the Decider
     and the router LLM, weighted by ``weights``, over the top ``k``
     reversible candidates with a floor of ``epsilon_min`` each; exact
@@ -4075,7 +4075,7 @@ class DataCaptureConfig(BaseModel):
     * ``receipts``: the prefilter receipts (``prefilter_receipts``), linked into
       each committed decision. Additive: they act at every algorithm version and
       never change what is served; off stops the rows and nothing else.
-    * ``serving``: the kill switch of ``DATA_CAPTURE_VERSIONS`` (mvp-0.44):
+    * ``serving``: the kill switch of the mvp-0.44 successor:
       measurement slots for reading, wait and stop arms, the exploration floor on
       the router's ``not_ready`` branch, the teacher's item-specific delayed-check
       picker with its logged tie draw, and ``router_outcomes_v3``. Off, or below
@@ -4332,8 +4332,8 @@ class RouterObjectiveConfig(BaseModel):
 class FollowupServeConfig(BaseModel):
     """Follow-up generate and serve.
 
-    ``generate_and_serve`` is the kill switch of ``FOLLOWUP_SERVE_VERSIONS``
-    (mvp-0.45). Off, or below the tag, behaviour matches the predecessor
+    ``generate_and_serve`` is the kill switch of the successor
+    mvp-0.45. Off, or below the tag, behaviour matches the predecessor
     from an equivalent starting state, the stored
     ``probe.generation.auto_generate_on_entry`` applies, burns persist and open
     workflows settle as skipped.
@@ -4352,7 +4352,7 @@ class VoiStoppingConfig(BaseModel):
     """Four count caps lifted onto value of information.
 
     Acts only on a vault at a value-of-information successor (``mvp-0.21`` or
-    later, ``VOI_STOPPING_VERSIONS``). ``enabled`` is the kill switch: off (or
+    later). ``enabled`` is the kill switch: off (or
     below ``mvp-0.21``) the four former caps serve exactly as the predecessor:
     ``probe.episode.session_qualifying_observation_cap``,
     ``scheduler.followup.max_interventions_per_lo_per_session``,
@@ -4559,7 +4559,7 @@ class TeacherConfig(BaseModel):
     replay reads any of it; a refused row rolls back alone with a warning. Off,
     nothing of it is written and lessons are the predecessor's byte for byte.
 
-    ``probes`` is the kill switch of ``TEACHER_PROBES_VERSIONS``: at that tag or later, with lessons on, a
+    ``probes`` is the kill switch of the ``mvp-0.51`` successor: at that tag or later, with lessons on, a
     lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up generation path
     with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap pipeline with
     ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a new topic

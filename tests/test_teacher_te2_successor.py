@@ -16,7 +16,6 @@ from learnloop.algorithm_versions import (
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     TEACHER_PROBES_ALGORITHM_VERSION,
-    TEACHER_PROBES_VERSIONS,
 )
 from learnloop.config.schema import TeacherConfig, TeacherPlacementConfig
 from learnloop.params.parameter_registry import classify_config_path
@@ -35,7 +34,6 @@ def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.50"
     # Teacher TE3a's AD successor (mvp-0.52) landed after it and keeps it.
     assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert TEACHER_PROBES_VERSIONS == frozenset({TAG, "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59"})
 
 
 def test_the_switch_and_the_keep_bound_and_their_validation():

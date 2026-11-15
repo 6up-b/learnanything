@@ -58,7 +58,7 @@ def followup_status(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any
 
     # FG1 §10 as amended by mobile v2 V3 (D3): the phone's line says its question waits for the desktop only while the
     # phone serves none (phone_probes off, or below its tag); with it, the phone reads the desktop's line.
-    phone = ctx.request_origin is not None and not phone_probes_on(ctx.request_origin, vault.config)
+    phone = ctx.request_origin is not None and not phone_probes_on(ctx.request_origin)
     current = view(vault, repository, params.attempt_id, phone=phone) if generate_and_serve_on(vault.config) else None
     if current is None:
         return versioned({"enabled": False})
@@ -74,7 +74,7 @@ def followup_next(ctx: SidecarContext, params: FollowupInput) -> dict[str, Any]:
 
     vault, repository = ctx.require_vault()
     vault = _fresh_vault(ctx, vault, repository, params.attempt_id)
-    if ctx.request_origin is not None and not phone_probes_on(ctx.request_origin, vault.config):
+    if ctx.request_origin is not None and not phone_probes_on(ctx.request_origin):
         # Mobile v2 V3: a phone that serves no probe (phone_probes off, or below its tag) goes on, as V2's did; its
         # question is the desktop's. Nothing is written for it.
         return versioned(to_camel({"action": "continue", "line": None, "practice_item_id": None,

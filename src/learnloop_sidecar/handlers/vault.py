@@ -111,7 +111,7 @@ def set_learner_profile(ctx: SidecarContext, params: SetLearnerProfileInput) -> 
     )
     # The earlier claim stays as a replaced row (successor mvp-0.36), so replay
     # seeds an LO first practised before the change from the level then in force.
-    seed_global_learner_claim(repository, params.starting_level, keep_replaced=True)
+    seed_global_learner_claim(repository, params.starting_level)
     return versioned(
         {
             "starting_level": profile["starting_level"],

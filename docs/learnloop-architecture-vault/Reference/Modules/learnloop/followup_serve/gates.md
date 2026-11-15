@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py) |
-| Source lines | 54 |
+| Source lines | 49 |
 | Owning package | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `generate_and_serve_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 29)
-- `hypothesis_marks_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 38) — FG1c's kill switch (``followup.hypothesis_marks``), at every algorithm version: a mark and an exposure are receipts, and an attributed opinion moves nothing.
-- `effective_auto_generate_on_entry(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 46) — §4.3: true while FG1 is on, whatever the file says.
+- `generate_and_serve_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 28)
+- `hypothesis_marks_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 33) — FG1c's kill switch (``followup.hypothesis_marks``), at every algorithm version: a mark and an exposure are receipts, and an attributed opinion moves nothing.
+- `effective_auto_generate_on_entry(config: Any) -> bool` ([source](../../../../../../src/learnloop/followup_serve/gates.py), line 41) — §4.3: true while FG1 is on, whatever the file says.
 
 ### Module constants
 
-- `SERVING_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 16)
-- `PHONE_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 18)
-- `WORKFLOW_SURFACES` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 23)
-- `RIVAL_CAUSES_FACTOR_VERSION` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 26)
+- `SERVING_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 15)
+- `PHONE_SURFACE` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 17)
+- `WORKFLOW_SURFACES` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 22)
+- `RIVAL_CAUSES_FACTOR_VERSION` ([src/learnloop/followup_serve/gates.py](../../../../../../src/learnloop/followup_serve/gates.py), line 25)
 
 ## Internal implementation anchors
 
@@ -103,7 +103,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FOLLOWUP_SERVE_VERSIONS`
+No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
@@ -129,7 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_a_prepared_probe_closes_with_the_switch`
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
 - [tests/test_followup_successor.py](../../../../../../tests/test_followup_successor.py) — direct import
-  - `test_new_vaults_get_true_effectively_and_older_templates_stay_as_they_were`
+  - `test_new_vaults_get_true_effectively`
   - `test_the_kill_switch_reads_off_a_vault_at_the_tag`
   - `test_the_switch_governs_the_effective_setting`
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import

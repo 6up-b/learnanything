@@ -60,17 +60,14 @@ def _item(item_id: str, reward: float, *, intent: str = "practice") -> Scheduled
     )
 
 
-def test_the_gate_needs_the_successor_and_the_switch():
+def test_the_gate_is_the_switch():
     assert probe_ties_admitted(_config("mvp-0.15"))
     assert not probe_ties_admitted(_config("mvp-0.15", switch=False))
-    for version in ("mvp-0.6", "mvp-0.9", "mvp-0.10", "mvp-0.11", "mvp-0.12", "mvp-0.13", "mvp-0.14"):
-        assert not probe_ties_admitted(_config(version))
 
 
-@pytest.mark.parametrize("version,switch", [("mvp-0.14", True), ("mvp-0.15", False), ("mvp-0.10", True)])
-def test_predecessor_and_kill_switch_keep_the_probe_exclusion_exactly(version, switch):
+def test_the_kill_switch_keeps_the_predecessors_probe_exclusion_exactly():
     session = SchedulerSession(session_id="s")
-    config = _config(version, switch=switch)
+    config = _config("mvp-0.15", switch=False)
     probe_best = [_item("p", 1.0, intent=PROBE), _item("a", 0.95)]
     assert _selection_propensities(probe_best, session, config) == {"p": 1.0, "a": 0.0}
     practice_best = [_item("a", 1.0), _item("p", 0.95, intent=PROBE), _item("b", 0.9)]
@@ -91,14 +88,15 @@ def test_successor_admits_probe_near_ties_both_ways():
     assert _selection_propensities(probe_best, session, narrow) == {"p": 1.0, "a": 0.0}
 
 
-def test_the_draw_can_displace_a_probe_only_at_the_successor(monkeypatch):
+def test_the_draw_can_displace_a_probe_only_with_the_switch_on(monkeypatch):
     from datetime import UTC, datetime
 
     queue = [_item("p", 1.0, intent=PROBE), _item("a", 0.95)]
     session = SchedulerSession(session_id="s")
     now = datetime(2026, 5, 19, 12, tzinfo=UTC)
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
-    assert [i.practice_item_id for i in _apply_seeded_exploration(queue, session, _config("mvp-0.14"), now)] == ["p", "a"]
+    off = _config("mvp-0.15", switch=False)
+    assert [i.practice_item_id for i in _apply_seeded_exploration(queue, session, off, now)] == ["p", "a"]
     explored = _apply_seeded_exploration(queue, session, _config("mvp-0.15"), now)
     assert [i.practice_item_id for i in explored] == ["a", "p"]
     assert explored[0].components["exploration_selected"] == 1.0

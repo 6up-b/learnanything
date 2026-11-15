@@ -102,7 +102,7 @@ def device_filter(
 
     if origin is None or not _device_rules_on(vault):
         return None
-    if phone_probes_on(origin, vault.config):
+    if phone_probes_on(origin):
         # Mobile v2 V3 (D3): the phone renders the presentation it committed (a phone-eligible probe, by the rules
         # above), so nothing it committed is left for the desktop.
         return DeviceFilter(vault, device_class(origin), media=phone_reader_on(origin),

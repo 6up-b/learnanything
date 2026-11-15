@@ -39,7 +39,7 @@ from learnloop_sidecar.context import config_dto
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 from tests.diagnosis_fakes import ReviewFakeClient
-from tests.helpers import RANDOMIZED_CHECKS_OFF, create_basic_vault, seed_due_item
+from tests.helpers import RANDOMIZED_CHECKS_OFF, create_basic_vault, seed_due_item, set_config_switch
 from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.held_grade_evidence_helpers import T, _graded_apply, _held_apply
 from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
@@ -779,7 +779,6 @@ def test_f5_historical_feedback_shows_the_frozen_question_answer_key_and_rubric(
     from learnloop.vault.writer import upsert_practice_item
 
     paths = ctx.paths
-    _set_canonical_state(paths)
     ctx.load(paths.root)
     vault, repository = ctx.require_vault()
     detail = _call(ctx, "get_practice_item", {"practiceItemId": ITEM})
@@ -809,13 +808,6 @@ def test_f5_historical_feedback_shows_the_frozen_question_answer_key_and_rubric(
     assert bundle["answeredCriteria"] == [
         {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
     ]
-
-
-def _set_canonical_state(paths):
-    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
-    from tests.helpers import set_algorithm_version
-
-    set_algorithm_version(paths, sorted(CANONICAL_STATE_VERSIONS)[0])
 
 
 def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
@@ -1150,7 +1142,9 @@ def _contract_answer(ctx, *, criteria=None, points=None, submission_id="sub_rr")
     from learnloop.vault.writer import upsert_practice_item
 
     paths = ctx.paths
-    _set_canonical_state(paths)
+    # These answers were written for a vault below FG1 (mvp-0.45), whose follow-up workflow holds a missed answer's
+    # worked key until its probe is answered (and races the regrade in the background): its switch serves them.
+    set_config_switch(paths.root, "followup.generate_and_serve", False)
     if criteria is not None:
         data = load_vault(paths.root).practice_items[ITEM].model_dump(mode="json")
         data["grading_rubric"]["criteria"] = criteria

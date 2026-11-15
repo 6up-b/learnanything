@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx](../../../../../../../apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx) |
-| Source lines | 481 |
+| Source lines | 480 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] |
 | Refactor status | `ACTIVE` |
@@ -54,56 +54,56 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface FeedbackNextStep` — interface, line 44
-- `export interface FeedbackContest` — interface, line 51
-- `export interface FeedbackWhy` — interface, line 63
-- `export function gradedVersionUnrecorded(f: FeedbackBundle): boolean` — function, line 86
-- `export const UNRECORDED_VERSION_LINE = "The version of this question it was graded against wasn't kept."` — const, line 91
-- `export const CURRENT_ANSWER_TITLE = "The answer as the question reads now"` — const, line 92
-- `export const CURRENT_ANSWER_NOTE = "It may not be the one this was graded against."` — const, line 93
-- `export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 99
-- `export function currentAnswerForUnrecorded(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 107
-- `export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[]` — function, line 114
-- `export function answeredMaxPoints(f: FeedbackBundle): number | null` — function, line 129
-- `export function scoreOutOf(score: number, max: number | null, digits = 0): string` — function, line 135
-- `export function AnswerWaiting(` — function, line 142
-- `export function FeedbackSurface(` — function, line 186
+- `export interface FeedbackNextStep` — interface, line 43
+- `export interface FeedbackContest` — interface, line 50
+- `export interface FeedbackWhy` — interface, line 62
+- `export function gradedVersionUnrecorded(f: FeedbackBundle): boolean` — function, line 85
+- `export const UNRECORDED_VERSION_LINE = "The version of this question it was graded against wasn't kept."` — const, line 90
+- `export const CURRENT_ANSWER_TITLE = "The answer as the question reads now"` — const, line 91
+- `export const CURRENT_ANSWER_NOTE = "It may not be the one this was graded against."` — const, line 92
+- `export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 98
+- `export function currentAnswerForUnrecorded(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 106
+- `export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[]` — function, line 113
+- `export function answeredMaxPoints(f: FeedbackBundle): number | null` — function, line 128
+- `export function scoreOutOf(score: number, max: number | null, digits = 0): string` — function, line 134
+- `export function AnswerWaiting(` — function, line 141
+- `export function FeedbackSurface(` — function, line 185
 
 ## Internal implementation anchors
 
-- `type FeedbackOrigin, ORIGIN_LABEL, VERDICT_TEXT, type Verdict } from "../../app/practiceFeedback"` — type, line 37
-- `type Verdict } from "../../app/practiceFeedback"` — type, line 40
-- `function fmtDay(iso: string | null): string` — function, line 75
-- `const date = new Date(iso)` — const, line 77
-- `const frozen = f.answeredExpectedAnswer` — const, line 101
-- `const frozen = f.answeredCriteria` — const, line 115
-- `const byId = new Map(frozen.map((criterion)` — const, line 117
-- `const criterion = byId.get(row.criterionId)` — const, line 119
-- `const points = digits > 0 ? score.toFixed(digits) : String(score)` — const, line 136
-- `function honestyLines(f: FeedbackBundle): string[]` — function, line 163
-- `const lines: string[] = []` — const, line 164
-- `const check = f.coldCheckResult` — const, line 170
-- `const when = fmtDay(check.instructedAt)` — const, line 172
-- `const held = verdict === "held"` — const, line 233
-- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 234
-- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 235
-- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 236
-- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 237
-- `const shownAnswer = fullAnswer || currentAnswer` — const, line 238
-- `const criteria = answeredCriterionRows(f)` — const, line 239
-- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 240
-- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 243
-- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 248
-- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 250
-- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 253
-- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 254
-- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 261
-- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 265
-- `const assessed = criterionAssessed(row)` — const, line 392
-- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 393
-- `const some = row.pointsAwarded > 0` — const, line 394
-- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 395
-- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 396
+- `type FeedbackOrigin, ORIGIN_LABEL, VERDICT_TEXT, type Verdict } from "../../app/practiceFeedback"` — type, line 36
+- `type Verdict } from "../../app/practiceFeedback"` — type, line 39
+- `function fmtDay(iso: string | null): string` — function, line 74
+- `const date = new Date(iso)` — const, line 76
+- `const frozen = f.answeredExpectedAnswer` — const, line 100
+- `const frozen = f.answeredCriteria` — const, line 114
+- `const byId = new Map(frozen.map((criterion)` — const, line 116
+- `const criterion = byId.get(row.criterionId)` — const, line 118
+- `const points = digits > 0 ? score.toFixed(digits) : String(score)` — const, line 135
+- `function honestyLines(f: FeedbackBundle): string[]` — function, line 162
+- `const lines: string[] = []` — const, line 163
+- `const check = f.coldCheckResult` — const, line 169
+- `const when = fmtDay(check.instructedAt)` — const, line 171
+- `const held = verdict === "held"` — const, line 232
+- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 233
+- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 234
+- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 235
+- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 236
+- `const shownAnswer = fullAnswer || currentAnswer` — const, line 237
+- `const criteria = answeredCriterionRows(f)` — const, line 238
+- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 239
+- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 242
+- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 247
+- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 249
+- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 252
+- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 253
+- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 260
+- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 264
+- `const assessed = criterionAssessed(row)` — const, line 391
+- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 392
+- `const some = row.pointsAwarded > 0` — const, line 393
+- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 394
+- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 395
 
 ## Who imports or calls it
 

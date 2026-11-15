@@ -1121,7 +1121,6 @@ class ReadyDerivation:
     folded into this facet-global number (report-not-fabricate, §1.5/§1.6).
     """
 
-    supported: bool
     pooled_recall_mean: float
     recall_alpha: float
     recall_beta: float
@@ -1136,7 +1135,6 @@ class ReadyDerivation:
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "supported": self.supported,
             "pooled_recall_mean": self.pooled_recall_mean,
             "recall_alpha": self.recall_alpha,
             "recall_beta": self.recall_beta,
@@ -1241,7 +1239,6 @@ def facet_ready_derivation(
     notes.append(f"Evidence spans one algorithm version ({version}).")
 
     return ReadyDerivation(
-        supported=True,
         pooled_recall_mean=pooled_mean,
         recall_alpha=alpha,
         recall_beta=beta,

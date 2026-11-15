@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py) |
-| Source lines | 172 |
+| Source lines | 166 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -60,13 +60,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class RequestOrigin` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 41) — One authenticated caller: the paired device and the surface it runs.
   - `__post_init__(self) -> None` (line 63; internal)
 - `device_class(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 70) — The class the eligibility module asks about (§6.4); None is the desktop.
-- `phone_probes_on(origin: RequestOrigin | None, config: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 76) — Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and FG1's generated ones, under the probe contract.
-- `phone_reader_on(origin: RequestOrigin | None) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 90) — Mobile v2 V4: a phone origin whose host has its Reader on (``phone_reader``).
-- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 96) — ``entry_surface`` of an attempt and of a submission's binding.
-- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 102) — ``entry_surface`` of a published scheduler offer.
-- `plan_surface(origin: RequestOrigin) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 108) — Mobile v2 §2.2: the surface a phone's plan step and its boundary decisions record.
-- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 123) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
-- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 150) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
+- `phone_probes_on(origin: RequestOrigin | None) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 76) — Mobile v2 V3 (owner decision D3): a phone origin serves and answers phone-eligible probes, diagnostic and FG1's generated ones, under the probe contract.
+- `phone_reader_on(origin: RequestOrigin | None) -> bool` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 84) — Mobile v2 V4: a phone origin whose host has its Reader on (``phone_reader``).
+- `practice_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 90) — ``entry_surface`` of an attempt and of a submission's binding.
+- `offer_surface(origin: RequestOrigin | None) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 96) — ``entry_surface`` of a published scheduler offer.
+- `plan_surface(origin: RequestOrigin) -> str` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 102) — Mobile v2 §2.2: the surface a phone's plan step and its boundary decisions record.
+- `bump_for_host(ctx: Any) -> None` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 117) — Tell the desktop a host request changed what it shows (PR-7, §3.3).
+- `host_mutation(handler: Callable[[Any, Any], Any]) -> Callable[[Any, Any], Any]` ([source](../../../../../src/learnloop_sidecar/request_origin.py), line 144) — A handler whose committed work changes what the desktop shows (PR-7, §3.3).
 
 ### Module constants
 
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DESKTOP_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 34)
 - `PHONE_PRACTICE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 36)
 - `PHONE_QUEUE` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 37)
-- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 120)
+- `_COMMITTED_REFUSALS` ([src/learnloop_sidecar/request_origin.py](../../../../../src/learnloop_sidecar/request_origin.py), line 114)
 
 ## Internal implementation anchors
 
@@ -98,7 +98,6 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `PHONE_PROBES_VERSIONS`
 - [[Reference/Modules/learnloop/scheduling/device_eligibility|learnloop.scheduling.device_eligibility]] — imports `DESKTOP`, `PHONE`, `PHONE_PLAN`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`
 
@@ -138,7 +137,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
 - [tests/test_mobile_v3_probes.py](../../../../../tests/test_mobile_v3_probes.py) — direct import
 - [tests/test_mobile_v3_successor.py](../../../../../tests/test_mobile_v3_successor.py) — direct import
-  - `test_the_gate_is_the_switch_and_the_tag_and_never_the_desktop`
+  - `test_the_gate_is_the_switch_and_never_the_desktop`
   - `test_the_switch_is_the_hosts_and_defaults_on`
 - [tests/test_mobile_v4_codex_review.py](../../../../../tests/test_mobile_v4_codex_review.py) — direct import
   - `test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it`

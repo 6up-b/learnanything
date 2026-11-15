@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 from math import exp, log
 from typing import Any, Mapping
 
-from learnloop.algorithm_versions import PROBE_TIE_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import (
@@ -1161,16 +1160,12 @@ def _head_probe_presentation(
 def probe_ties_admitted(config: LearnLoopConfig) -> bool:
     """Router R1's successor (``mvp-0.15``): probe near-ties join the tie-break.
 
-    True only at a ``PROBE_TIE_VERSIONS`` member with the kill switch
-    ``router.probe_tie_admission`` on; otherwise the exploration keeps the
-    predecessor's probe exclusion exactly.
+    True only with the kill switch ``router.probe_tie_admission`` on;
+    otherwise the exploration keeps the predecessor's probe exclusion exactly.
     """
 
     router = getattr(config, "router", None)
-    return (
-        config.algorithms.algorithm_version in PROBE_TIE_VERSIONS
-        and bool(getattr(router, "probe_tie_admission", False))
-    )
+    return bool(getattr(router, "probe_tie_admission", False))
 
 
 def _is_probe_intent(item: ScheduledItem) -> bool:

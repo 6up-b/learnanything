@@ -54,7 +54,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 6 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 1 static module edge
 
@@ -83,8 +83,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.data_capture"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop["learnloop"]
     n_learnloop_router_objective["learnloop.router_objective"]
+    n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_ops["learnloop.ops"]
@@ -93,8 +93,8 @@ flowchart LR
     n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_daily_plan -->|7| center
-    center -->|6| n_learnloop
     n_learnloop_router_objective -->|6| center
+    center -->|5| n_learnloop
     center -->|3| n_learnloop_db_stores
     n_learnloop_diagnosis -->|2| center
     n_learnloop_ops -->|2| center
