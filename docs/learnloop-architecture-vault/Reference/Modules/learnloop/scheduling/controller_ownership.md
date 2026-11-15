@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/controller_ownership.py](../../../../../../src/learnloop/scheduling/controller_ownership.py) |
-| Source lines | 425 |
+| Source lines | 427 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,16 +60,16 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `is_p2_golden_path_commitment(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 73) — A P2 golden-path commitment has a confirmed goal contract AND a depth policy AND a depth envelope (the three things ``golden_path_confirm`` mints atomically).
 - `ownership_head(repository: Repository, commitment_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 94)
 - `rebuild_ownership_head(repository: Repository, *, commitment_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 102) — Rebuild the current-owner head projection by folding ``controller_ownership_events`` (design §A.2: the head is a REBUILDABLE projection of the append-only event log, not a source of truth).
-- `resolve_owner(repository: Repository, commitment_id: str) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 159) — The current owner of a commitment.
-- `is_staged_owned(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 166)
-- `ownership_events(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 170)
-- `assign(repository: Repository, *, commitment_id: str, owner: str, reason: str, receipt_id: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 234) — Record a durable ownership transition (append-only + head upsert), atomically.
-- `assign_p2_run(repository: Repository, *, commitment_id: str, reason: str='p2_golden_path_run', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 271) — Assign a P2 golden-path commitment to the staged controller (design §A.2 rule 1).
-- `staged_owned_commitment_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 306) — Every commitment whose current head is owned by the staged controller.
-- `staged_owned_refs(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 316) — The atomic dual-authority exclusion input shared by every administration surface (design §A.2 rule 3): the union of every staged-owned commitment's head targets of kind ``learning_object`` / ``legacy_practice_item`` (raw refs, not resolved against a vault).
-- `is_learning_object_staged_owned(repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 356) — True when the WHOLE learning object is a head target of a staged-owned commitment (an ``learning_object``-kind ref).
-- `staged_owned_practice_item_ids(vault: Any, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 364) — The legacy-scheduler EXCLUSION set (design §A.2 rule 3, the coexistence seam): every practice item that belongs to a staged-owned commitment, resolved down from the commitment's head targets (``learning_object`` / ``legacy_practice_item`` kinds).
-- `rollback_to_legacy(repository: Repository, *, reason: str='cutover_rollback', commitment_ids: Sequence[str] | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 388) — Return owned commitments to the legacy controller atomically under ONE shared receipt (design §C step-3 gate f).
+- `resolve_owner(repository: Repository, commitment_id: str) -> str` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 161) — The current owner of a commitment.
+- `is_staged_owned(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 168)
+- `ownership_events(repository: Repository, commitment_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 172)
+- `assign(repository: Repository, *, commitment_id: str, owner: str, reason: str, receipt_id: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 236) — Record a durable ownership transition (append-only + head upsert), atomically.
+- `assign_p2_run(repository: Repository, *, commitment_id: str, reason: str='p2_golden_path_run', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 273) — Assign a P2 golden-path commitment to the staged controller (design §A.2 rule 1).
+- `staged_owned_commitment_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 308) — Every commitment whose current head is owned by the staged controller.
+- `staged_owned_refs(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 318) — The atomic dual-authority exclusion input shared by every administration surface (design §A.2 rule 3): the union of every staged-owned commitment's head targets of kind ``learning_object`` / ``legacy_practice_item`` (raw refs, not resolved against a vault).
+- `is_learning_object_staged_owned(repository: Repository, learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 358) — True when the WHOLE learning object is a head target of a staged-owned commitment (an ``learning_object``-kind ref).
+- `staged_owned_practice_item_ids(vault: Any, repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 366) — The legacy-scheduler EXCLUSION set (design §A.2 rule 3, the coexistence seam): every practice item that belongs to a staged-owned commitment, resolved down from the commitment's head targets (``learning_object`` / ``legacy_practice_item`` kinds).
+- `rollback_to_legacy(repository: Repository, *, reason: str='cutover_rollback', commitment_ids: Sequence[str] | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 390) — Return owned commitments to the legacy controller atomically under ONE shared receipt (design §C step-3 gate f).
 
 ### Module constants
 
@@ -80,8 +80,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_append_transition(connection: Any, *, commitment_id: str, to_owner: str, reason: str, receipt_id: str, detail: Mapping[str, Any] | None, now: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 180) — Append one ownership transition + upsert the head, INSIDE an open transaction.
-- `_commitment_refs(repository: Repository, commitment_id: str) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 342) — The head-target refs (learning_object / legacy_practice_item) of ONE commitment.
+- `_append_transition(connection: Any, *, commitment_id: str, to_owner: str, reason: str, receipt_id: str, detail: Mapping[str, Any] | None, now: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 182) — Append one ownership transition + upsert the head, INSIDE an open transaction.
+- `_commitment_refs(repository: Repository, commitment_id: str) -> set[str]` ([source](../../../../../../src/learnloop/scheduling/controller_ownership.py), line 344) — The head-target refs (learning_object / legacy_practice_item) of ONE commitment.
 
 ## Who imports or calls it
 

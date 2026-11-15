@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py) |
-| Source lines | 765 |
+| Source lines | 753 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,23 +55,23 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Public API
 
 - `class BoundAsk` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 62) — A Reader question a workbench session binds to a practice item, derived on the server and validated (``handlers.reader_tutor.bound_ask``).
-  - `hint_equivalent(self, substantive: bool) -> bool` (line 104; public) — The bound row's hint flag, the one value stored and returned (R1).
-- `withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Sequence[str] | None=None, already: Collection[int]=(), fixed: Collection[int]=()) -> set[int]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 127) — The indexes of the model-written ``texts`` one model call carries to withhold under the binding.
-- `withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *, placeholders: Mapping[str, str] | None=None, already: Mapping[str, Collection[int]] | None=None, fixed: Collection[str]=()) -> dict[str, set[int]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 166) — The withheld indexes, per slot, of ONE model call (fix round 7, R1).
-- `fit_slots(learner: str, slots: Sequence[str], *, limit: int, join: str=' ') -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 194) — A model-bound string of at most ``limit`` characters: the learner's own text, then WHOLE model-written ``slots``; ``(text, indexes of the slots in it)``.
-- `whole_token_cut(text: str, limit: int) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 225) — ``text`` on one line within ``limit`` characters, cut only at a space where every group is closed (fix round 10, R1; fix round 11, R4): a token, a number or a LaTeX group is never split ("2/130" never becomes "2/13").
-- `open_question_work(gaps: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 283) — The bridge's open-question lines for these gap statements (the first :data:`QUERY_GAPS`).
-- `class BoundDelivery` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 309) — What a bound request delivers to its model calls, from ONE withheld set (fix round 7, R1).
-  - `lookup_inputs(self) -> dict[str, Any]` (line 341; public)
-- `plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]], gaps: Sequence[Mapping[str, Any]]=(), misconceptions: Sequence[Any] | None=None, learner_work: Sequence[Mapping[str, Any]]=(), query_learner: str | None=None, query_limit: int | None=None, practice_question_limit: int | None=None) -> BoundDelivery` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 346) — Every model-written text a bound request delivers, withheld once (fix round 7, R1).
-- `guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 500) — The thread alone (a call that carries no other model-written text, retrieval off): :func:`plan_bound_delivery`'s ``thread`` and how many earlier answers it left out.
-- `class ReaderTutorRequest` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 509) — What the adapter hands ``tutor_qa.ask_question(reader_tutor=...)``.
-- `run_retrieval(request: ReaderTutorRequest, inputs: Mapping[str, Any] | None=None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 552) — The injected retrieval; any failure keeps today's delivery (retrieval is context).
-- `deliver(reader_spans: Sequence[Mapping[str, Any]], retrieved: Sequence[Mapping[str, Any]], *, budget_tokens: int, withheld: Any=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 566) — The selection and its neighbours first, then each retrieved passage not already delivered, within the context budget (the citation allowlist keeps the selection first, §4.6).
-- `verify_excerpt(excerpt: Any, spans: Sequence[Mapping[str, Any]], *, withheld: Any=None, item: Any=None) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 595) — ``(excerpt, None)`` when it quotes a passage the tutor was given, else ``(None, why)``.
-- `finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[dict[str, Any]], *, retrieval: Mapping[str, Any], request: ReaderTutorRequest, withheld: Any=None, item: Any=None) -> tuple[dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 632) — The answer's modes and the citations shown: ``(view, citations)``.
-- `displayed_text(answer_md: str | None, view: Mapping[str, Any] | None, *, excerpt: bool=True) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 719) — Everything a Reader answer shows as text: the explanation, the excerpt and the bridge.
-- `delivery_receipt(receipt: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 732) — The delivery's receipt when it records something (a trim, a drop, a retrieved passage added).
+  - `hint_equivalent(self, substantive: bool) -> bool` (line 96; public) — The bound row's hint flag, the one value stored and returned (R1).
+- `withhold(texts: Sequence[str], binding: BoundAsk | None, *, placeholders: Sequence[str] | None=None, already: Collection[int]=(), fixed: Collection[int]=()) -> set[int]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 115) — The indexes of the model-written ``texts`` one model call carries to withhold under the binding.
+- `withhold_for_call(slots: Sequence[Slot], binding: BoundAsk | None, *, placeholders: Mapping[str, str] | None=None, already: Mapping[str, Collection[int]] | None=None, fixed: Collection[str]=()) -> dict[str, set[int]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 154) — The withheld indexes, per slot, of ONE model call (fix round 7, R1).
+- `fit_slots(learner: str, slots: Sequence[str], *, limit: int, join: str=' ') -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 182) — A model-bound string of at most ``limit`` characters: the learner's own text, then WHOLE model-written ``slots``; ``(text, indexes of the slots in it)``.
+- `whole_token_cut(text: str, limit: int) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 213) — ``text`` on one line within ``limit`` characters, cut only at a space where every group is closed (fix round 10, R1; fix round 11, R4): a token, a number or a LaTeX group is never split ("2/130" never becomes "2/13").
+- `open_question_work(gaps: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 271) — The bridge's open-question lines for these gap statements (the first :data:`QUERY_GAPS`).
+- `class BoundDelivery` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 297) — What a bound request delivers to its model calls, from ONE withheld set (fix round 7, R1).
+  - `lookup_inputs(self) -> dict[str, Any]` (line 329; public)
+- `plan_bound_delivery(binding: BoundAsk | None, *, thread: Sequence[Mapping[str, Any]], gaps: Sequence[Mapping[str, Any]]=(), misconceptions: Sequence[Any] | None=None, learner_work: Sequence[Mapping[str, Any]]=(), query_learner: str | None=None, query_limit: int | None=None, practice_question_limit: int | None=None) -> BoundDelivery` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 334) — Every model-written text a bound request delivers, withheld once (fix round 7, R1).
+- `guard_thread(thread: Sequence[Mapping[str, Any]], binding: BoundAsk | None) -> tuple[list[dict[str, Any]], int]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 488) — The thread alone (a call that carries no other model-written text, retrieval off): :func:`plan_bound_delivery`'s ``thread`` and how many earlier answers it left out.
+- `class ReaderTutorRequest` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 497) — What the adapter hands ``tutor_qa.ask_question(reader_tutor=...)``.
+- `run_retrieval(request: ReaderTutorRequest, inputs: Mapping[str, Any] | None=None) -> tuple[list[dict[str, Any]] | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 540) — The injected retrieval; any failure keeps today's delivery (retrieval is context).
+- `deliver(reader_spans: Sequence[Mapping[str, Any]], retrieved: Sequence[Mapping[str, Any]], *, budget_tokens: int, withheld: Any=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 554) — The selection and its neighbours first, then each retrieved passage not already delivered, within the context budget (the citation allowlist keeps the selection first, §4.6).
+- `verify_excerpt(excerpt: Any, spans: Sequence[Mapping[str, Any]], *, withheld: Any=None, item: Any=None) -> tuple[dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 583) — ``(excerpt, None)`` when it quotes a passage the tutor was given, else ``(None, why)``.
+- `finalize(answer: Any, spans: Sequence[Mapping[str, Any]], citations: list[dict[str, Any]], *, retrieval: Mapping[str, Any], request: ReaderTutorRequest, withheld: Any=None, item: Any=None) -> tuple[dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 620) — The answer's modes and the citations shown: ``(view, citations)``.
+- `displayed_text(answer_md: str | None, view: Mapping[str, Any] | None, *, excerpt: bool=True) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 707) — Everything a Reader answer shows as text: the explanation, the excerpt and the bridge.
+- `delivery_receipt(receipt: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 720) — The delivery's receipt when it records something (a trim, a drop, a retrieved passage added).
 
 ### Module constants
 
@@ -82,9 +82,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `MAX_EXCERPT_CHARS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 51)
 - `MAX_BRIDGE_CHARS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 53)
 - `EARLIER_ANSWER_LEFT_OUT` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 58)
-- `_JOIN` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 124)
-- `_MATH_GROUPS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 222)
-- `QUERY_GAPS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 280)
+- `_JOIN` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 112)
+- `_MATH_GROUPS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 210)
+- `QUERY_GAPS` ([src/learnloop/tutor/reader_modes.py](../../../../../../src/learnloop/tutor/reader_modes.py), line 268)
 
 ### Explicit exports
 
@@ -117,9 +117,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_canonical_record(record: Any) -> Any` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 290) — A misconception record with its statement and correction canonical (the form the plan reads and the verification is sent, fix round 11).
-- `_misconception_text(record: Any) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 301)
-- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 591)
+- `_canonical_record(record: Any) -> Any` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 278) — A misconception record with its statement and correction canonical (the form the plan reads and the verification is sent, fix round 11).
+- `_misconception_text(record: Any) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 289)
+- `_normalized(text: str) -> str` ([source](../../../../../../src/learnloop/tutor/reader_modes.py), line 579)
 
 ## Who imports or calls it
 

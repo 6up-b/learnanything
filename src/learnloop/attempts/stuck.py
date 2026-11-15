@@ -15,10 +15,10 @@ they send is an ORDINARY attempt at the standard attempt mass:
   is nothing to grade) and, by owner decision 2026-10-12, no error tag: no
   attribution and no error event.
 
-Nothing here is ``dont_know``: there is no separate weight. The algorithm
-version gates the control and ``stuck_prompt.enabled`` is its kill switch;
-replay never reads either (the persisted ``practice_attempts.declared_stuck``
-column and the reading's ``judgment_ledger`` verdict are what an attempt was).
+Nothing here is ``dont_know``: there is no separate weight. Every surface
+offers the control; replay never asks whether it is offered (the persisted
+``practice_attempts.declared_stuck`` column and the reading's
+``judgment_ledger`` verdict are what an attempt was).
 
 This module is a leaf: wire model, prompt text, the activity gate, the
 reading's ``judgment_ledger`` verdict (task ``stuck_reading``, written in the
@@ -64,17 +64,6 @@ EMPTY_STUCK_FEEDBACK = (
     "You were stuck and sent nothing, so this counts as an ordinary answer "
     "scored 0. The worked answer is shown below."
 )
-
-
-def stuck_prompt_active(vault: Any) -> bool:
-    """Does this vault offer "I'm stuck" for NEW answers?
-
-    ``stuck_prompt.enabled`` is its kill switch. Read only when an answer is
-    recorded or a surface is drawn.
-    """
-
-    section = getattr(vault.config, "stuck_prompt", None)
-    return bool(getattr(section, "enabled", True))
 
 
 def stuck_answer_prompt() -> dict[str, str]:
@@ -484,6 +473,5 @@ __all__ = [
     "stuck_answer_summary",
     "stuck_answers",
     "stuck_attempt_type",
-    "stuck_prompt_active",
     "verified_stuck_reading",
 ]

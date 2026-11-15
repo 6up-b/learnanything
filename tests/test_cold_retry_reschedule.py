@@ -1,7 +1,7 @@
 """The cold-retry reschedule (mvp-0.38; owner decision 2026-10-25, Reader CA2 follow-up Q4;
 docs/reviews/cold-retry-after-assist.md).
 
-Reader CA2 (mvp-0.35, ``ask.cold_help_converts``) made help taken on a cold
+Reader CA2 (mvp-0.35) made help taken on a cold
 follow-up convert the attempt to practice with help; the measurement was left
 to be withdrawn at the next serve, so the repair ended unmeasurable. From
 mvp-0.38:
@@ -27,7 +27,6 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
-import pytest
 
 from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
@@ -43,7 +42,6 @@ from learnloop.diagnosis.remediation import (
     COLD_RETRIEVAL_DELAY,
     COLD_RETRY_WINDOW,
     WITHDRAWN_COLD_RETRY_OUTCOME,
-    reschedule_cold_after_assist_active,
 )
 from learnloop.serve_eligibility import COLD_CHECK_HELP_TAKEN
 from learnloop.vault.loader import load_vault
@@ -277,16 +275,6 @@ def test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it(tm
     assert repository.followup_task(probe["id"])["status"] in {"pending", "served"}
     probes = _table(repository, "SELECT id FROM followup_tasks WHERE kind = 'certification_cold_probe'")
     assert [row["id"] for row in probes] == [probe["id"]]
-
-
-# -- the gate: CA2's rule -------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(("converts", "active"), [(True, True), (False, False)], ids=["tag", "tag-ca2-off"])
-def test_the_gate_is_ca2s_rule(tmp_path, converts, active):
-    vault, _repository, _episode, _primed, _cold = _repair(tmp_path, converts=converts)
-    assert reschedule_cold_after_assist_active(vault) is active
-    assert reschedule_cold_after_assist_active(None) is False
 
 
 # -- replay and rebuild equivalence -------------------------------------------------------------------

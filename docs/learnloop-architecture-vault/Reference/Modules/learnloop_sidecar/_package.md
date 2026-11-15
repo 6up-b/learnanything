@@ -85,7 +85,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 7 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 7 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
@@ -96,7 +96,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
@@ -107,6 +106,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 1 static module edge
@@ -140,7 +140,7 @@ flowchart LR
     n_learnloop_config["learnloop.config"]
     n_learnloop_sidecar_handlers -->|323| center
     center -->|6| n_learnloop_sidecar_handlers
-    center -->|15| n_learnloop
+    center -->|14| n_learnloop
     center -->|7| n_learnloop_ai
     center -->|7| n_learnloop_vault
     center -->|5| n_learnloop_daily_plan

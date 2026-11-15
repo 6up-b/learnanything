@@ -587,6 +587,24 @@ class IngestRunner:
         # Keyed by attempt: lanes share one runner and worker id, so a job
         # resumed onto another lane must not share its predecessor's entry.
         self._active_interrupts: dict[tuple[str, int], Callable[[], Any]] = {}
+        #: Set by :meth:`halt`; never cleared (a host serving the vault again binds a new runner).
+        self.halted = threading.Event()
+
+    def halt(self) -> None:
+        """Stop writing to this vault, from any thread and without waiting: the host stopped serving it (below the
+        floor, or another process's upgrade journal beside it). No job is claimed, no lease renewed, and a job in
+        flight is fenced at its next write (``guard_ingest_writes``) and leaves its row as it was; its lease expires
+        and a later bind requeues it. Its provider call is interrupted: nothing it returns could be kept. A join here
+        would hold the request that met the refusal for as long as that call runs."""
+
+        self.halted.set()
+        with self._interrupt_lock:
+            interrupts = list(self._active_interrupts.values())
+        for interrupt in interrupts:
+            try:
+                interrupt()
+            except Exception:  # noqa: BLE001 - the fence holds whether or not the transport stops
+                _LOG.warning("could not interrupt an ingest provider call at a halt", exc_info=True)
 
     def active_interruptible_jobs(self) -> list[dict[str, Any]]:
         """Return running jobs that currently own an interruptible AI client."""
@@ -831,6 +849,8 @@ class IngestRunner:
         (no eligible job, another worker holds the drain lease, or another
         writer held the vault lock past the claim timeout)."""
 
+        if self.halted.is_set():
+            return False
         if self._lease_expiry_due():
             # Skipped when the vault lock is busy; retried on the next tick.
             self._expire_stale_leases(lock_timeout_s=_TICK_EXPIRY_LOCK_TIMEOUT_S)
@@ -979,8 +999,13 @@ class IngestRunner:
         owner = JobOwner(self.worker_id, job["attempt_count"])
 
         def finish(job_id, **values):
+            # Outside the write guard: a halt between the handler and its outcome is checked here.
+            if self.halted.is_set():
+                return False
             return self.repo.finish_owned_ingest_job(job_id, owner=owner, **values)
 
+        if self.halted.is_set():  # claimed just before the halt: left claimed, requeued when its lease expires
+            return
         self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
         ctx = JobContext(
             repo=self.repo,
@@ -1027,7 +1052,8 @@ class IngestRunner:
                 with ExitStack() as held:
                     ctx._held = held
                     with guard_ingest_writes(
-                        self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
+                        self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"],
+                        halted=self.halted.is_set,
                     ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
                             _batch_unit(self, batch_id):
                         result = handler(ctx)
@@ -1134,6 +1160,8 @@ class IngestRunner:
         interval = max(0.01, self.heartbeat_interval_seconds)
         wait_seconds = interval
         while not stop.wait(wait_seconds):
+            if self.halted.is_set():  # a renewal is a write; the lease expires instead (``halt``)
+                return
             try:
                 owned = self.repo.heartbeat_ingest_job(job_id, owner=owner, clock=self.clock)
             except Exception:  # noqa: BLE001 - renewal must outlive transient DB errors
@@ -1154,6 +1182,8 @@ class IngestRunner:
         """Mark every downstream queued job blocked when a dependency failed,
         blocked, or was cancelled — to a fixpoint (§6.2)."""
 
+        if self.halted.is_set():
+            return
         changed = True
         while changed:
             changed = False
@@ -1179,6 +1209,8 @@ class IngestRunner:
                         break
 
     def _refresh_batch(self, batch_id: str) -> None:
+        if self.halted.is_set():
+            return
         jobs = self.repo.ingest_jobs_for_batch(batch_id)
         batch = self.repo.get_ingest_batch(batch_id)
         status = derive_batch_status(jobs, batch)

@@ -14,7 +14,7 @@ import { PracticeScreen } from "./PracticeScreen";
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
-  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), submitDontKnow: vi.fn(), stopProbeDiagnosing: vi.fn(),
+  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), stopProbeDiagnosing: vi.fn(),
   recordSelfGradeDisclosure: vi.fn(), recordHintReveal: vi.fn(),
   practiceAsPrinted: vi.fn(), reportTranscription: vi.fn(), getSpanView: vi.fn(),
   workbenchForItem: vi.fn(), workbenchOpen: vi.fn(), workbenchGet: vi.fn(), workbenchLeave: vi.fn(),

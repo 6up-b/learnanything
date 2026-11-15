@@ -15,7 +15,7 @@ vi.mock("../api/client", () => ({ api }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
 vi.mock("./OpenInSource", () => ({ OpenInSource: () => null }));
 
-const PANEL = { ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } };
+const PANEL = { ask: { panelEnabled: true, helpStyle: "balanced" } };
 const EARLIER = [{
   attemptId: "att_old", at: "2026-10-14T10:00:00Z",
   outcome: { label: "with help ◌", assisted: true, rubricScore: 2, maxPoints: 4 },

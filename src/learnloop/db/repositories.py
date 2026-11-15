@@ -14427,7 +14427,9 @@ class Repository(
         version_id = new_ulid()
         connection = self.connection()
         try:
-            connection.execute("BEGIN")
+            # Immediate: a deferred read that later asks for the write lock fails at once ("database is locked", no
+            # busy wait) when another connection committed in between.
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT id, version_ordinal FROM commitment_arc_versions "
                 "WHERE arc_id = ? ORDER BY version_ordinal DESC LIMIT 1",
@@ -14471,7 +14473,7 @@ class Repository(
         now = utc_now_iso(clock)
         connection = self.connection()
         try:
-            connection.execute("BEGIN")
+            connection.execute("BEGIN IMMEDIATE")  # as in append_commitment_arc_version: it reads, then writes
             if receipt_key is not None:
                 existing = connection.execute(
                     "SELECT id, event_ordinal FROM commitment_arc_events "

@@ -765,7 +765,6 @@ def ask_question(
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
     about_step: int | None = None,
-    count_every_question: bool = False,
     attempt_aliases: AttemptAliases | None = None,
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     reader_learner_state: Any = None,
@@ -823,11 +822,9 @@ def ask_question(
     answer's ``source_context.receipt`` names the model, prompt version and
     agent run its ``question_type`` came from (§7.5's receipt).
 
-    Reader CA2, Codex review: ``count_every_question`` (F3) is the
-    workbench's cold rule for a practice question the adapter bound to a
-    workbench during a cold administration while the one help rule is off
-    (``serve_eligibility.help_converts_active``): every question is a hint,
-    as ``reader.ask``'s bound cold Ask counts. ``worked_help_check`` (F2,
+    Reader CA2, Codex review: a practice question the adapter bound to a
+    workbench during a cold administration counts as any practice question
+    does (F3: the one help rule). ``worked_help_check`` (F2,
     K9; injected by the adapter, ``(answer_md, item) -> leak flags``: the hint
     service's leak control, which this package never imports) runs on the
     answer before it is shown: an answer that would give the item's answer away is never
@@ -1273,14 +1270,13 @@ def ask_question(
         item, practice_item_id = bound_item, bound_item.id
         # Fix round 5 (R1): the binding's rule, the one value stored here and
         # returned (``result["hint_equivalent"]``, which the Reader's response
-        # reads): a cold Ask is a hint whatever its type, with or without a
-        # cold attempt row; outside a cold administration, the ordinary
-        # classification. The cold path's practice row only deduplicates
+        # reads): the ordinary classification, cold or not (Reader CA2's one
+        # help rule). The cold path's practice row only deduplicates
         # (``reader_dialogue._record_cold_hint_equivalent``), so it counts once.
         hint_equivalent = binding.hint_equivalent(answer.question_type in HINT_EQUIVALENT_TYPES)
     else:
         hint_equivalent = item is not None and (
-            answer.question_type in HINT_EQUIVALENT_TYPES or count_every_question)
+            answer.question_type in HINT_EQUIVALENT_TYPES)
     leak_overlap = (
         # A bound Reader answer shows its bridge too, scored with the
         # explanation; the excerpt is debited once, with the passages it

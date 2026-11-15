@@ -54,9 +54,8 @@ def _workbench(repository, item_id: str = ITEM) -> str:
 # -- F3: the cold status and the cold rule are the server's, on every host ---------------------------
 
 
-@pytest.mark.parametrize("converts", [True, False])
-def test_a_workbench_question_on_a_cold_item_grounds_nothing_and_follows_the_workbench_rule(sidecar, converts):
-    paths, ctx, tutor = sidecar({("ask", "cold_help_converts"): converts})
+def test_a_workbench_question_on_a_cold_item_grounds_nothing_and_follows_the_workbench_rule(sidecar):
+    paths, ctx, tutor = sidecar()
     _vault_, repository = ctx.require_vault()
     cold_followup(paths, ITEM)  # a real open cold retry holds the item
     wb = _workbench(repository)
@@ -68,14 +67,13 @@ def test_a_workbench_question_on_a_cold_item_grounds_nothing_and_follows_the_wor
     # Nothing is grounded during a cold administration (reader.ask's policy).
     assert tutor.contexts[-1].source_spans == []
     assert (event["source_context"].get("source_retrieval") or {}).get("policy") == "cold_attempt"
-    # The predecessor's workbench cold rule counts every question; the one
-    # help rule (mvp-0.35; mvp-0.34 on the branch) counts only a substantive one.
-    assert bool(event["hint_equivalent"]) is (not converts)
-    assert answer["hintEquivalent"] is (not converts)
+    # The one help rule counts only a substantive question.
+    assert bool(event["hint_equivalent"]) is False
+    assert answer["hintEquivalent"] is False
 
 
 def test_the_answer_box_on_a_cold_item_grounds_nothing_too_and_counts_as_practice_does(sidecar):
-    paths, ctx, tutor = sidecar({("ask", "cold_help_converts"): False})
+    paths, ctx, tutor = sidecar()
     _vault_, repository = ctx.require_vault()
     cold_followup(paths, ITEM)
     answer = _call(ctx, "ask_tutor_question", {
@@ -358,22 +356,16 @@ def test_a_new_draft_never_inherits_an_earlier_opening(tmp_path):
 
 
 @pytest.mark.parametrize("level, option", [(4, "worked_chunk@L4"), (5, "walkthrough@L5")])
-@pytest.mark.parametrize("converts", [True, False])
-def test_worked_help_taken_first_on_a_cold_follow_up_is_practice_with_help(tmp_path, level, option, converts):
-    from learnloop_sidecar.errors import SidecarError
+def test_worked_help_taken_first_on_a_cold_follow_up_is_practice_with_help(tmp_path, level, option):
     from tests.hint_fakes import ITEM as HINT_ITEM, WORK, ChooserFake, WriterFake, prefer
 
-    paths, ctx, session = _hint_sidecar(tmp_path, {("ask", "cold_help_converts"): converts})
+    paths, ctx, session = _hint_sidecar(tmp_path)
     task_id = cold_followup(paths, HINT_ITEM)
     ctx.hint_writer_client = WriterFake()
     ctx.hint_chooser_client = ChooserFake(prefer(option, 0.9))
     job = _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": HINT_ITEM,
                                               "submissionId": "k1", "answerMd": WORK, "takenLevel": level})
     assert job["result"]["level"] == level and job["result"]["evidence"]["primed"] is True
-    if not converts:
-        with pytest.raises(SidecarError):
-            _submit(ctx, session, key="k1", hints=0)
-        return
     attempt = _attempt_row(paths, _submit(ctx, session, key="k1", hints=0)["attemptId"])
     assert (attempt["hints_used"], attempt["primed"]) == (0, 1)
     repository = Repository(paths.sqlite_path)

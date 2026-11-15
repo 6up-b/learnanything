@@ -874,7 +874,6 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
-    "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
     "hints": "adaptive hints H0: hint telemetry (each authored hint the practice screen reveals recorded as a help_assists row, with its time and a hash and length of the draft, and attached to the attempt at submit): the kill switch; telemetry only, hints_used stays the client's count (no successor); H1: approach maps (hints.maps: a small subgoal map per item built by one background call on route approach_map when the item is served, validated in code and stored in approach_maps; the kill switch, build on serve and the metered daily cap) and the owner's price for metered hint routes; H2a: the hint service (practice.request_hint: a hint written for the learner's work, its kind and level chosen by the Decider on route hint_chooser and sampled with a logged propensity, written on route hint_writer, never on Codex, and checked in code; the kill switch, the chooser's switch, policy and time box, the help style and the metered daily cap); help, never evidence: a shown hint reaches the attempt only through hints_used, primed and a tutor_answer reveal with their existing meaning, and no scoring, scheduling, serving, grading or replay path reads the rows (no successor)",
     "source_service": "canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
@@ -1249,13 +1248,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "workbench.open_session_days": (
         "Days an open workbench problem may go untouched before the recap shows it as \"unfinished\", "
         "without alarm. A display limit only: nothing is closed automatically."
-    ),
-    "stuck_prompt.enabled": (
-        "Kill switch for mvp-0.13's \"I'm stuck\" control (write what you can, or what's confusing "
-        "you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed "
-        "when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 "
-        "vault shows \"I don't know\" and records dont_know exactly as mvp-0.12. Dormant below "
-        "mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch."
     ),
     "ai.routing.tier1_decider": (
         "Selects the decision-model profile (type `decider`) that answers the Tier-1 judgments "

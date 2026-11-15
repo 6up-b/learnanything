@@ -113,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
 - `tests/test_plan_first_transport_offer_grants_r5.py`
+- `tests/test_sidecar_stops_serving.py`
 - `tests/test_t1_batch_origin_migration.py`
 - `tests/test_ux_phase1_usability_round2.py`
 

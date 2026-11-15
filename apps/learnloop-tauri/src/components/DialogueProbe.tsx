@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CommandError, DialogueTurnDto, GuidedRedoDto, ProbeBlockEndDto, StopProbeResultDto } from "../api/dto";
-import { algoConfig, STUCK_PROMPT_TEXT } from "../app/algoConfig";
+import { STUCK_PROMPT_TEXT } from "../app/algoConfig";
 import { type CheckHandoff, STOP_AND_TEACH_LABEL } from "../app/checkHandoff";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { ProbeBlockResult } from "./ProbeBlockResult";
@@ -69,7 +69,6 @@ export function DialogueProbePanel({
   const [confidence, setConfidence] = useState<number | null>(null);
   // mvp-0.13: "I'm stuck" replaces "Don't know" — the answer box asks the
   // learner to write what they can; an empty answer may be committed.
-  const stuckPrompt = algoConfig().stuckPrompt;
   const [stuck, setStuck] = useState(false);
   const [submitted, setSubmitted] = useState<SubmittedTurn[]>([]);
   const [blockEnd, setBlockEnd] = useState<ProbeBlockEndDto | null>(null);
@@ -143,37 +142,25 @@ export function DialogueProbePanel({
   }, [phase, turn]);
 
   const submitTurn = useCallback(
-    async (dontKnow: boolean) => {
+    async () => {
       if (phase !== "asking" || turn == null || dialogueState.current == null) return;
-      if (!dontKnow && !stuck && !answer.trim()) return;
+      if (!stuck && !answer.trim()) return;
       setPhase("submitting");
       try {
         // Each turn is one committed diagnostic_probe attempt consuming the
         // turn's presentation (§5.1); grading feedback stays withheld (§5.6).
-        if (dontKnow) {
-          await api.submitDontKnow({
-            sessionId,
-            practiceItemId: turn.practiceItemId,
-            hintsUsed: 0,
-            latencySeconds: elapsedSeconds(),
-            activeSeconds: activeClock.seconds(),
-            probePresentationId: turn.presentationId,
-            answerConfidence: confidence
-          });
-        } else {
-          await api.submitAttempt({
-            sessionId,
-            practiceItemId: turn.practiceItemId,
-            answerMd: answer,
-            attemptType: "diagnostic_probe",
-            hintsUsed: 0,
-            latencySeconds: elapsedSeconds(),
-            activeSeconds: activeClock.seconds(),
-            probePresentationId: turn.presentationId,
-            answerConfidence: confidence,
-            ...(stuck ? { declaredStuck: true } : {})
-          });
-        }
+        await api.submitAttempt({
+          sessionId,
+          practiceItemId: turn.practiceItemId,
+          answerMd: answer,
+          attemptType: "diagnostic_probe",
+          hintsUsed: 0,
+          latencySeconds: elapsedSeconds(),
+          activeSeconds: activeClock.seconds(),
+          probePresentationId: turn.presentationId,
+          answerConfidence: confidence,
+          ...(stuck ? { declaredStuck: true } : {})
+        });
         const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId);
         dialogueState.current = recorded.dialogueState;
         setSubmitted((prior) => [
@@ -181,11 +168,7 @@ export function DialogueProbePanel({
           {
             kind: turn.kind,
             promptMd: turn.promptMd,
-            answerMd: dontKnow
-              ? "_(don't know)_"
-              : stuck && !answer.trim()
-                ? "_(stuck, nothing written)_"
-                : answer
+            answerMd: stuck && !answer.trim() ? "_(stuck, nothing written)_" : answer
           }
         ]);
         setTurn(null);
@@ -244,7 +227,7 @@ export function DialogueProbePanel({
       if (screenLeavesKey(event, { modal: true })) return;
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && phase === "asking") {
         event.preventDefault();
-        void submitTurn(false);
+        void submitTurn();
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (phase === "done") onDone(blockEnd);
@@ -371,33 +354,22 @@ export function DialogueProbePanel({
                 className="queue-row focused"
                 type="button"
                 disabled={phase === "submitting" || (!stuck && !answer.trim())}
-                onClick={() => void submitTurn(false)}
+                onClick={() => void submitTurn()}
               >
                 <span className="queue-hotkey">⌃↵</span>
                 <span className="queue-title">{phase === "submitting" ? "Submitting…" : "Commit answer"}</span>
               </button>
-              {stuckPrompt ? (
-                stuck ? null : (
-                  <button
-                    className="queue-row"
-                    type="button"
-                    disabled={phase === "submitting"}
-                    onClick={() => {
-                      setStuck(true);
-                      textareaRef.current?.focus();
-                    }}
-                  >
-                    <span className="queue-title">I'm stuck</span>
-                  </button>
-                )
-              ) : (
+              {stuck ? null : (
                 <button
                   className="queue-row"
                   type="button"
                   disabled={phase === "submitting"}
-                  onClick={() => void submitTurn(true)}
+                  onClick={() => {
+                    setStuck(true);
+                    textareaRef.current?.focus();
+                  }}
                 >
-                  <span className="queue-title">Don't know</span>
+                  <span className="queue-title">I'm stuck</span>
                 </button>
               )}
               <button

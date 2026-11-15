@@ -57,7 +57,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 it("switched off (no readingPaths in the contract), the Reader and its Guide are the base's byte for byte", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true }, ui: { practiceFeedback: "simple" } });
+  setAlgoConfig({ ui: { practiceFeedback: "simple" } });
   const onError = vi.fn();
   const view = render(<ReaderScreen initialSource={source} onError={onError} />);
   await screen.findAllByText(/symmetric/i);

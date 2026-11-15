@@ -14,14 +14,11 @@ from learnloop.attempt_types import default_attempt_type
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
     AttemptDraft,
-    SelfGradeInput,
     complete_empty_stuck_attempt,
-    complete_self_graded_attempt,
 )
 from learnloop.attempts.stuck import (
     STUCK_CONTROL_LABEL,
     STUCK_PROMPT_TEXT,
-    stuck_prompt_active,
 )
 from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
@@ -66,8 +63,8 @@ class PracticeScreen(Screen):
         Binding("ctrl+j", "submit", "Submit", priority=True),
         Binding("f10", "submit", "Submit", priority=True),
         Binding("ctrl+h", "hint", "Hint", priority=True),
-        # "I'm stuck" in an mvp-0.13 vault (stuck_prompt), "Don't know" otherwise.
-        Binding("ctrl+d", "dont_know", "Stuck / don't know", priority=True),
+        # "I'm stuck" (mvp-0.13), which replaced "Don't know".
+        Binding("ctrl+d", "stuck", "I'm stuck", priority=True),
         Binding("ctrl+t", "stop_diagnosing", "Stop diagnosing", priority=True),
         Binding("ctrl+s", "skip", "Skip", priority=True),
         Binding("escape", "back", "Back", priority=True),
@@ -87,11 +84,8 @@ class PracticeScreen(Screen):
         self.practice_item = state.vault.practice_items[item.practice_item_id]
         self.learning_object = state.vault.learning_objects[item.learning_object_id]
         self.attempt_type = default_attempt_type(self.practice_item.attempt_types_allowed)
-        # mvp-0.13 replaces "I don't know" with "I'm stuck" (kill switch:
-        # stuck_prompt.enabled). Decided once per screen, like the probe.
-        self.stuck_prompt = stuck_prompt_active(state.vault)
         # The retry key of the one attempt this screen composes: every draft
-        # built from the screen (feedback grading, retries, "I don't know")
+        # built from the screen (feedback grading, retries, "I'm stuck")
         # carries it, so the unique submission index records at most one
         # attempt for it. Opening the item again builds a new screen and so
         # starts a new attempt.
@@ -199,7 +193,7 @@ class PracticeScreen(Screen):
             keys=[
                 ("^enter/^j/F10", "Submit"),
                 ("^h", "Hint"),
-                ("^d", STUCK_CONTROL_LABEL if self.stuck_prompt else "Don't know"),
+                ("^d", STUCK_CONTROL_LABEL),
                 ("^s", "Skip"),
                 ("esc", "Back"),
             ],
@@ -288,38 +282,9 @@ class PracticeScreen(Screen):
         self.app.pop_screen()
         return result
 
-    def dont_know(self):
-        from learnloop.attempts.post_attempt import (
-            committed_submission_result,
-            run_post_attempt_pipeline,
-        )
-
-        result = committed_submission_result(self.state.repository, self.submission_id)
-        if result is None:
-            result = complete_self_graded_attempt(
-                self.state.vault,
-                self.state.repository,
-                self._draft("dont_know"),
-                SelfGradeInput(criterion_points={}, confidence=3),
-            )
-        # Every learner-facing attempt door runs the same post-attempt
-        # composition.
-        run_post_attempt_pipeline(
-            self.state.vault,
-            self.state.repository,
-            result=result,
-        )
-        self.app.last_attempt_result = result
-        self.state.refresh()
-        self.app.pop_screen()
-        return result
-
-    def _draft(self, attempt_type: str | None = None) -> AttemptDraft:
-        # §12: an active diagnostic block forces the recording attempt type
-        # while declared_dont_know preserves the outcome separately (§5.4).
-        declared_dont_know = attempt_type == "dont_know"
-        declared_stuck = self.stuck and not declared_dont_know
-        resolved_type = attempt_type or self.attempt_type
+    def _draft(self) -> AttemptDraft:
+        # §12: an active diagnostic block forces the recording attempt type.
+        resolved_type = self.attempt_type
         if self.probe_presentation_id is not None:
             resolved_type = "diagnostic_probe"
         return AttemptDraft(
@@ -331,8 +296,7 @@ class PracticeScreen(Screen):
             attempt_type=resolved_type,
             hints_used=self.hints_used,
             probe_presentation_id=self.probe_presentation_id,
-            declared_dont_know=declared_dont_know,
-            declared_stuck=declared_stuck,
+            declared_stuck=self.stuck,
         )
 
     # ── actions ──────────────────────────────────────────────────────────
@@ -361,11 +325,8 @@ class PracticeScreen(Screen):
             self.query_one("#probe-panel", TextStatic).update(self._probe_content())
         self.notify("Check stopped. Lessons are in the desktop app; this question goes on as practice.")
 
-    def action_dont_know(self) -> None:
-        if self.stuck_prompt:
-            self.press_stuck()
-            return
-        self.dont_know()
+    def action_stuck(self) -> None:
+        self.press_stuck()
 
     def action_skip(self) -> None:
         self.app.pop_screen()

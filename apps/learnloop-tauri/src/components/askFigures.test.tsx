@@ -28,7 +28,7 @@ vi.mock("../screens/reader/figures/FigureInline", async (importOriginal) => ({
   )
 }));
 
-const PANEL = { ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true, figures: true } };
+const PANEL = { ask: { panelEnabled: true, helpStyle: "balanced", figures: true } };
 const FIGURE = {
   figureId: "fig_1", extractionId: null, spanIds: [], anchorSpanId: null, region: null, origin: "ask",
   verification: "illustrative", kind: "illustrative", label: "AI-built illustration", reason: null,
@@ -152,7 +152,7 @@ it("a figure that couldn't be recorded on the attempt is not shown", async () =>
 });
 
 it("switched off (no ask.figures), the panel has no show me and alt+↵ asks", async () => {
-  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced" } });
   api.askTutorQuestion.mockResolvedValue({ version: 1, eventId: "e1", answerMd: "A", questionType: "clarification",
                                            facets: [], hintEquivalent: false, leakSuspected: false, citations: [],
                                            remaining: 2, answerMode: "help_me_reason" });

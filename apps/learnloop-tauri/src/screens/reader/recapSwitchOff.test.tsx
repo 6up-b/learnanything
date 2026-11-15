@@ -52,8 +52,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 const OFF_CONFIGS: Array<[string, unknown]> = [
-  ["the config before RW6a (no recap key)", { practice: { stuckPrompt: true }, ui: { practiceFeedback: "simple" } }],
-  ["recap.enabled and recap.wrap_up_enabled = false", { practice: { stuckPrompt: true }, ui: { practiceFeedback: "simple" }, recap: { enabled: false, wrapUpEnabled: false } }],
+  ["the config before RW6a (no recap key)", { ui: { practiceFeedback: "simple" } }],
+  ["recap.enabled and recap.wrap_up_enabled = false", { ui: { practiceFeedback: "simple" }, recap: { enabled: false, wrapUpEnabled: false } }],
 ];
 
 it.each(OFF_CONFIGS)("the Reader, its Guide and its rail are byte-identical with %s", async (_label, config) => {

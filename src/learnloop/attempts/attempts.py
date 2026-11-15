@@ -96,7 +96,6 @@ from learnloop.attempts.stuck import (
     is_empty_stuck,
     record_stuck_reading_judgment,
     stuck_answer_prompt,
-    stuck_prompt_active,
     verified_stuck_reading,
 )
 from learnloop.learner.assessment_contracts import (
@@ -1426,7 +1425,7 @@ def replay_existing_attempt(
         submission_id=attempt.get("submission_id"),
         declared_dont_know=bool(attempt.get("declared_dont_know")),
         # mvp-0.13: what the learner sent was a stuck answer (persisted, never
-        # read from today's stuck_prompt switch).
+        # inferred from an empty answer).
         declared_stuck=bool(attempt.get("declared_stuck")),
         # AD1: what was recorded (logged only; nothing replay derives reads it).
         difficulty_rating=attempt.get("difficulty_rating"),
@@ -2724,13 +2723,14 @@ def submit_decision(
     learning_object_id: str | None = None,
     retimed: Mapping[str, str | None] | None = None,
     window_bounded: bool = False,
-    help_converts: bool = False,
 ) -> serve_eligibility.EligibilityDecision:
-    """Submit's admissibility, asked of the one eligibility decision: a cold
-    check (the first due task on the item is a cold one) must be unassisted
-    and unprimed, and ANY primed draft is refused one (Codex review F1: an
-    auto-primed draft is not exempt; its provenance only explains the
-    refusal); anything else is admissible, primed as the ledger says.
+    """Submit's admissibility, asked of the one eligibility decision: on a
+    cold check (the first due task on the item is a cold one) help taken makes
+    the attempt practice with help (Reader CA2), which answers no task; an
+    unassisted answer must be unprimed, and ANY primed draft is refused one
+    (Codex review F1: an auto-primed draft is not exempt; its provenance only
+    explains the refusal); anything else is admissible, primed as the ledger
+    says.
     ``retimed`` (the CLI's validation before it prompts, a dry run) applies
     the writes a serve would persist (``serve_eligibility.pending_writes``:
     re-times, and None for a withdrawn task)."""
@@ -2750,14 +2750,11 @@ def submit_decision(
         attempt_type=draft.attempt_type,
     )
     inputs = serve_eligibility.with_pending_writes(inputs, retimed)
-    if help_converts:
-        # Reader CA2 (mvp-0.34, ``ask.cold_help_converts``): help taken on a
-        # cold follow-up makes the attempt practice with help. Codex review
-        # F4: worked help taken first (a shown level 4-5 rung, which primes
-        # without a hint) is help taken too, read from the persisted fold.
-        fold = draft.server_hint_fold
-        worked = fold is not None and bool(fold.folded_primed or fold.held_primed or fold.held_worked)
-        inputs = replace(inputs, help_converts=True, worked_help_taken=worked)
+    # Codex review F4: worked help taken first (a shown level 4-5 rung, which
+    # primes without a hint) is help taken too, read from the persisted fold.
+    fold = draft.server_hint_fold
+    worked = fold is not None and bool(fold.folded_primed or fold.held_primed or fold.held_worked)
+    inputs = replace(inputs, worked_help_taken=worked)
     return serve_eligibility.decide(inputs, serve_eligibility.SUBMIT)
 
 
@@ -2861,10 +2858,6 @@ def _resolve_attempt_target(
         raise AttemptValidationError("first_hint_progress must be no_draft or draft_started")
     if draft.declared_stuck and (draft.attempt_type == "dont_know" or draft.declared_dont_know):
         raise AttemptValidationError("a stuck answer is an ordinary attempt, never dont_know")
-    if draft.declared_stuck and not replay and not stuck_prompt_active(vault):
-        raise AttemptValidationError(
-            "this vault does not offer \"I'm stuck\" (mvp-0.13 with stuck_prompt.enabled)"
-        )
     if not replay:
         # Force priming from the reveal ledger BEFORE the cold guard below. The
         # order is the point: a learner who was just shown the answer and then
@@ -2891,7 +2884,7 @@ def _resolve_attempt_target(
             # the refusal names the change.
             decision = submit_decision(
                 repository, draft, clock=clock, learning_object_id=learning_object.id, retimed=retimed_tasks,
-                window_bounded=window_bounded, help_converts=serve_eligibility.help_converts_active(vault),
+                window_bounded=window_bounded,
             )
             if decision.verdict == serve_eligibility.REFUSE:
                 serve_eligibility.log_decision(decision, path="submit")

@@ -17,7 +17,7 @@ const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
   getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
-  placementSelfReport: vi.fn(), submitDontKnow: vi.fn(),
+  placementSelfReport: vi.fn(),
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
   readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
   readerLogActivity: vi.fn(),
@@ -75,8 +75,8 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 const OFF_CONFIGS: Array<[string, unknown]> = [
-  ["the config before RW2a (no workbench key)", { practice: { stuckPrompt: true }, ui: { practiceFeedback: "simple" } }],
-  ["workbench.enabled = false", { practice: { stuckPrompt: true }, ui: { practiceFeedback: "simple" }, workbench: { enabled: false } }],
+  ["the config before RW2a (no workbench key)", { ui: { practiceFeedback: "simple" } }],
+  ["workbench.enabled = false", { ui: { practiceFeedback: "simple" }, workbench: { enabled: false } }],
 ];
 
 it.each(OFF_CONFIGS)("the practice screen is byte-identical with %s", async (_label, config) => {

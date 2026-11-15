@@ -26,7 +26,6 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.attempts.blind_grading import split_grading_active
-from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import FrozenClock
 from learnloop.config.template import default_config_text
 from learnloop.daily_plan.engine import plan_active, reading_from_furthest_active
@@ -74,7 +73,7 @@ def test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch(tmp_path
     # The kill switch keeps the version and every other behaviour.
     assert switched_off.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
     assert plan_active(switched_off) and split_grading_active(switched_off) and placement_active(switched_off)
-    assert recurrence_active(switched_off) and stuck_prompt_active(switched_off)
+    assert recurrence_active(switched_off)
     # The plan's own switch still turns the whole plan off, reading step included.
     append_config_toml(paths.root, "enabled = false\n")
     assert reading_from_furthest_active(load_vault(paths.root)) is False

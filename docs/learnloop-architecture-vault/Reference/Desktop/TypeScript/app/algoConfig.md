@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/algoConfig.ts](../../../../../../apps/learnloop-tauri/src/app/algoConfig.ts) |
-| Source lines | 268 |
+| Source lines | 257 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -55,33 +55,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface AlgoDisplayConfig` — interface, line 7
-- `export interface AskPanelConfig` — interface, line 75
-- `export interface WorkbenchHelpConfig` — interface, line 87
-- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 98
-- `export interface AdaptiveHintsConfig` — interface, line 100
-- `export function setAlgoConfig(config: unknown): void` — function, line 133
-- `export function subscribeAlgoConfig(listener: ()` — function, line 195
-- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 207
-- `export function storedHelpStyle(): HelpStyleValue` — function, line 216
-- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 222
-- `export function algoConfig(): AlgoDisplayConfig` — function, line 224
-- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 228
-- `export function masteryBand(mastery: number): MasteryBand` — function, line 230
-- `export function masteryTone<T>(mastery: number, palette:` — function, line 237
-- `export function useSymbolicChecksLive(): boolean` — function, line 249
-- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 261
-- `export function activeShell(): "simple" | "classic"` — function, line 266
+- `export interface AskPanelConfig` — interface, line 71
+- `export interface WorkbenchHelpConfig` — interface, line 79
+- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 90
+- `export interface AdaptiveHintsConfig` — interface, line 92
+- `export function setAlgoConfig(config: unknown): void` — function, line 124
+- `export function subscribeAlgoConfig(listener: ()` — function, line 184
+- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 196
+- `export function storedHelpStyle(): HelpStyleValue` — function, line 205
+- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 211
+- `export function algoConfig(): AlgoDisplayConfig` — function, line 213
+- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 217
+- `export function masteryBand(mastery: number): MasteryBand` — function, line 219
+- `export function masteryTone<T>(mastery: number, palette:` — function, line 226
+- `export function useSymbolicChecksLive(): boolean` — function, line 238
+- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 250
+- `export function activeShell(): "simple" | "classic"` — function, line 255
 
 ## Internal implementation anchors
 
-- `const DEFAULTS: AlgoDisplayConfig =` — const, line 107
-- `let current: AlgoDisplayConfig =` — let, line 129
-- `let renderedShell: "simple" | "classic" | null = null` — let, line 131
-- `const root = (config ??` — const, line 134
-- `const listeners = new Set<()` — const, line 191
-- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 202
-- `const band = masteryBand(mastery)` — const, line 238
-- `function asNumber(value: unknown, fallback: number): number` — function, line 242
+- `const DEFAULTS: AlgoDisplayConfig =` — const, line 99
+- `let current: AlgoDisplayConfig =` — let, line 120
+- `let renderedShell: "simple" | "classic" | null = null` — let, line 122
+- `const root = (config ??` — const, line 125
+- `const listeners = new Set<()` — const, line 180
+- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 191
+- `const band = masteryBand(mastery)` — const, line 227
+- `function asNumber(value: unknown, fallback: number): number` — function, line 231
 
 ## Who imports or calls it
 
@@ -96,7 +96,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/app/shell|src/app/shell.ts]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
-- [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `STUCK_PROMPT_TEXT`, `algoConfig`; references `STUCK_PROMPT_TEXT`, `algoConfig`
+- [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `STUCK_PROMPT_TEXT`; references `STUCK_PROMPT_TEXT`
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `masteryTone`; references `masteryTone`
 - [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `algoConfig`; references `algoConfig`
 - [[Reference/Desktop/TypeScript/components/askPanel|src/components/askPanel.tsx]] — import-or-re-export: `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`; references `algoConfig`, `setAdaptiveHelpStyle`, `storedHelpStyle`, `subscribeAlgoConfig`

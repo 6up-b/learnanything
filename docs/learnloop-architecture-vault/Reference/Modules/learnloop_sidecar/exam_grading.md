@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/exam_grading.py](../../../../../src/learnloop_sidecar/exam_grading.py) |
-| Source lines | 103 |
+| Source lines | 116 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -55,11 +55,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `class ExamGradingManager` ([source](../../../../../src/learnloop_sidecar/exam_grading.py), line 20) — Own daemon grading workers and make scheduling idempotent per exam item.
   - `__init__(self) -> None` (line 23; internal)
-  - `submit(self, session_id: str, practice_item_id: str, work: Callable[[], None]) -> bool` (line 31; public) — Start ``work`` unless this item already has an active worker.
-  - `_run(self, key: ExamGradingKey, work: Callable[[], None]) -> None` (line 59; internal)
-  - `wait_for_session(self, session_id: str) -> None` (line 76; public) — Join every worker currently grading an answer in ``session_id``.
-  - `pop_error(self, session_id: str, practice_item_id: str) -> Exception | None` (line 91; public)
-  - `shutdown(self) -> None` (line 97; public) — Give active workers a short grace period; they are daemon threads.
+  - `halt(self) -> None` (line 33; public) — The vault stopped being served: workers still waiting for a slot end without grading (their answers stay persisted and ungraded; a later resume schedules them again).
+  - `submit(self, session_id: str, practice_item_id: str, work: Callable[[], None]) -> bool` (line 41; public) — Start ``work`` unless this item already has an active worker.
+  - `_run(self, key: ExamGradingKey, work: Callable[[], None], generation: int) -> None` (line 69; internal)
+  - `wait_for_session(self, session_id: str) -> None` (line 89; public) — Join every worker currently grading an answer in ``session_id``.
+  - `pop_error(self, session_id: str, practice_item_id: str) -> Exception | None` (line 104; public)
+  - `shutdown(self) -> None` (line 110; public) — Give active workers a short grace period; they are daemon threads.
 
 ### Module constants
 

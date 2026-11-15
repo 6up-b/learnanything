@@ -13,10 +13,6 @@ export interface AlgoDisplayConfig {
   tauFollowupNats: number;
   /** Operating point of the continuous follow-up gate score. */
   gateScoreThreshold: number;
-  /** mvp-0.13: the answer surfaces offer "I'm stuck" (write what you can)
-   *  instead of "I don't know". The sidecar decides (algorithm version +
-   *  the `stuck_prompt.enabled` kill switch); false until it says so. */
-  stuckPrompt: boolean;
   /** UX Phase 4's kill switch (`[ui] practice_feedback`, display only): the
    *  simple practice card, feedback, short-check results, repair step and
    *  session finish, or "classic" for the screens exactly as they were. */
@@ -75,10 +71,6 @@ export interface AlgoDisplayConfig {
 export interface AskPanelConfig {
   /** The one stored help-style preference Ask's mode follows (§7.4). */
   helpStyle: HelpStyleValue;
-  /** The successor's one help rule is live (`ask.cold_help_converts` at
-   *  mvp-0.35 or later): on a check on your own only a question about the maths
-   *  converts, and the box and the labels say so. */
-  coldHelpConverts: boolean;
   /** Reader RW5d P3 (`figures.help_kind_enabled`): the panel's *show me ▸* on
    *  practice, feedback and the workbench, with its cost line. Absent while off. */
   figures?: true;
@@ -109,7 +101,6 @@ const DEFAULTS: AlgoDisplayConfig = {
   masteryDevelopingThreshold: 0.35,
   tauFollowupNats: 0.05,
   gateScoreThreshold: 0.5,
-  stuckPrompt: false,
   practiceFeedback: "simple",
   shell: "simple",
   workbench: false,
@@ -134,13 +125,12 @@ export function setAlgoConfig(config: unknown): void {
   const root = (config ?? {}) as {
     mastery?: { displayStrongThreshold?: unknown; displayDevelopingThreshold?: unknown };
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
-    practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown; shell?: unknown };
     workbench?: { enabled?: unknown; openItem?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
     adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
-    ask?: { panelEnabled?: unknown; helpStyle?: unknown; coldHelpConverts?: unknown; figures?: unknown };
+    ask?: { panelEnabled?: unknown; helpStyle?: unknown; figures?: unknown };
     teacher?: { lessons?: unknown; suggestions?: unknown; te2?: unknown };
   };
   current = {
@@ -148,7 +138,6 @@ export function setAlgoConfig(config: unknown): void {
     masteryDevelopingThreshold: asNumber(root.mastery?.displayDevelopingThreshold, DEFAULTS.masteryDevelopingThreshold),
     tauFollowupNats: asNumber(root.scheduler?.followup?.tauFollowupNats, DEFAULTS.tauFollowupNats),
     gateScoreThreshold: asNumber(root.scheduler?.followup?.gateScoreThreshold, DEFAULTS.gateScoreThreshold),
-    stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
     shell: root.ui?.shell === "classic" ? "classic" : "simple",
@@ -174,7 +163,7 @@ export function setAlgoConfig(config: unknown): void {
       : null,
     ask: root.ask?.panelEnabled === true
       ? {
-          helpStyle: asHelpStyle(root.ask.helpStyle), coldHelpConverts: root.ask.coldHelpConverts === true,
+          helpStyle: asHelpStyle(root.ask.helpStyle),
           // Reader RW5d P3: show me ▸ in the panel (present only while on).
           ...(root.ask.figures === true ? { figures: true as const } : {})
         }

@@ -14,7 +14,6 @@ from learnloop import activation_journal
 from learnloop.ai.routing import (
     is_embedding_profile, is_generation_profile, ready_client_for_task, route_names, runtime_for_provider,
 )
-from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations, schema_is_current
 from learnloop.db.repositories import Repository
@@ -831,8 +830,23 @@ class SidecarContext:
     def _stop_serving(self, refused: Unservable) -> None:
         # The generation moves with it, so a background job's admission of a snapshot taken before fails.
         with self._vault_lock:
+            first = self.refusal is None
             object.__setattr__(self, "refusal", refused)
             object.__setattr__(self, "vault_generation", int(self.vault_generation) + 1)
+        if first:
+            self._stop_bound_runners()
+
+    def _stop_bound_runners(self) -> None:
+        """The runners bound with the repository at load, stopped at the refusal: they never ask ``serving()``
+        themselves. None is joined: this runs on the request thread (or worker) that met the refusal, and a join
+        would hold it for as long as a runner's provider call runs (``close`` joins, bounded, at shutdown). A load
+        that succeeds binds ingest and the map builds again; the job registry and the exam graders take new work
+        as they did after ``close``. The post-attempt worker asks ``serving()`` through its supplier already."""
+
+        self.background_jobs.cancel()  # every job started so far: its next model request is refused
+        self.exam_grading.halt()
+        self.ingest_jobs.halt()
+        self.map_builds.halt()
 
     @contextmanager
     def _stops_serving_when_refused(self, target: Path) -> Iterator[None]:
@@ -1012,12 +1026,6 @@ def _figures_help(vault: LoadedVault) -> bool:
     return help_kind_enabled(vault)
 
 
-def _cold_help_converts(vault: LoadedVault) -> bool:
-    from learnloop.serve_eligibility import help_converts_active
-
-    return help_converts_active(vault)
-
-
 def _lessons_active(vault: LoadedVault) -> bool:
     from learnloop.teacher.service import lessons_active
 
@@ -1046,9 +1054,6 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "schema_version": config.schema_version,
             "algorithm_version": config.algorithms.algorithm_version,
             "storage": {"sqlite_path": config.storage.sqlite_path},
-            # mvp-0.13: the answer surfaces offer "I'm stuck" (write what you
-            # can) instead of "I don't know" when this is true.
-            "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             # Teacher TE1's kill switch (and its successor's tag): "Teach me this" shows only while
             # lessons may open; absent otherwise, so with it off the snapshot is what it was. TE1b's
             # ``suggestions`` (Today's suggestion card) rides inside it, present only while on.
@@ -1101,14 +1106,11 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # Reader CA2 (ux_reader_compare_ask_v1 §7): the one Ask panel.
             # Present only while ask.panel_enabled is on, so with it off the
             # snapshot is exactly what it was and every host is the overlay's.
-            # ``help_style`` is the stored preference Ask's mode follows;
-            # ``cold_help_converts`` says the successor's one help rule is live
-            # (the placeholder and labels on a check on your own say it).
+            # ``help_style`` is the stored preference Ask's mode follows.
             # Reader RW5d P3: ``figures`` (present only while
             # figures.help_kind_enabled is on): the panel's show me ▸ on
             # practice, feedback and the workbench, with its cost line.
             **({"ask": {"panel_enabled": True, "help_style": config.hints.help_style,
-                        "cold_help_converts": _cold_help_converts(vault),
                         **({"figures": True} if _figures_help(vault) else {})}}
                if config.ask.panel_enabled else {}),
             # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's

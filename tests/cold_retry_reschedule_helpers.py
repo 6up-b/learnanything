@@ -22,13 +22,13 @@ THIRD_ITEM = "pi_svd_define_003"
 LO_ITEMS = {"pi_svd_define_001", "pi_svd_define_002", THIRD_ITEM}
 
 
-def _repair(tmp_path, *, version=TAG, converts: bool = True, third: bool = True):
+def _repair(tmp_path, *, version=TAG, third: bool = True):
     """A repair episode at ``cold_scheduled`` with a third item for a fresh surface."""
 
     vault, repository, misconception_id = _setup(tmp_path)
     if third:
         add_followup_item(vault.root, THIRD_ITEM)
-    set_config(vault.root, {("algorithms", "algorithm_version"): version, ("ask", "cold_help_converts"): converts})
+    set_config(vault.root, {("algorithms", "algorithm_version"): version})
     vault = load_vault(vault.root)
     episode, primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
     return vault, repository, episode, primed, cold_item

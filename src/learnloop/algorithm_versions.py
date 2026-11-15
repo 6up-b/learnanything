@@ -89,8 +89,8 @@ RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 # historical ``dont_know`` rows keep their meaning, and the projection
 # namespace is unchanged. The branch built it as mvp-0.11 and it was relabelled
 # mvp-0.13 when it merged after placement (mvp-0.11) and recurrence groups
-# (mvp-0.12). Kill switch: ``stuck_prompt.enabled``. New vaults started here
-# until mvp-0.14 merged.
+# (mvp-0.12). Its kill switch went once every vault was past the tag. New
+# vaults started here until mvp-0.14 merged.
 STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 
 # mvp-0.14 (daily-loop DL1, ``daily_plan_v1`` in spec_daily_loop_v1.md §11): the
@@ -510,8 +510,8 @@ REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 #
 # That changes how an attempt is classified (assisted or on your own) and
 # what submit admits, never the projection, so it is another successor tag on
-# the mvp-0.8 namespace. Kill switch: ``ask.cold_help_converts`` (off, or
-# below the tag: both rules exactly as the predecessor).
+# the mvp-0.8 namespace. Its kill switch went once every vault was past the
+# tag.
 ONE_ASK_ALGORITHM_VERSION = "mvp-0.35"
 
 # mvp-0.36 (replaced learner claims kept; docs/reviews/lp-learner-report-superseded.md),

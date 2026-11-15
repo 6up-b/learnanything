@@ -780,6 +780,9 @@ def test_staged_reads_nothing(tmp_path, monkeypatch):
 
 @pytest.mark.usefixtures("served_horizon")
 def test_the_staged_pick_inside_the_objective_is_the_same_with_preferences_on_record(tmp_path, monkeypatch):
+    # Each serve waits for the carried valuation it started: on a loaded machine the last one outlives the test and
+    # fails its teardown (``tests/thread_guard.py``); the staged pick does not read it.
+    join_carried_valuations(monkeypatch)
     seen: list[Any] = []
     real = StagedChooser.choose
 

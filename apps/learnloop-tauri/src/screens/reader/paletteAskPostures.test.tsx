@@ -172,7 +172,7 @@ describe("the palette's ask, from each Reader posture", () => {
 
   it("working on an item-bound problem with the Ask panel on and no practice session: Ask opens inline (Codex F10)", async () => {
     setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 },
-                    ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+                    ask: { panelEnabled: true, helpStyle: "balanced" } });
     const bound = wbSession({ practiceItemId: "pi_1", importStatus: "none", practiceSessionId: null });
     api.workbenchOpen.mockResolvedValue({ session: bound, resumed: false });
     api.workbenchRefreshImport.mockResolvedValue({ session: bound });

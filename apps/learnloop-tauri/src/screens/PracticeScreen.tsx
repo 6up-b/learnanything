@@ -276,11 +276,10 @@ export function PracticeScreen({
   const [submitting, setSubmitting] = useState(false);
   // mvp-0.13: "I'm stuck" replaces "I don't know". One tap turns the answer
   // box into "write what you can, or what's confusing you"; the same Submit
-  // sends it, empty or not. The sidecar decides whether this vault offers it.
-  const stuckPrompt = algoConfig().stuckPrompt;
+  // sends it, empty or not.
   // Restored with the draft (review F2): a navigation or restart before the
   // grade commits must not turn a stuck answer into an ordinary one.
-  const [stuck, setStuck] = useState(Boolean(restoredStuck) && stuckPrompt);
+  const [stuck, setStuck] = useState(Boolean(restoredStuck));
   // Probe redesign §12: when the LO has an in-progress diagnostic episode, the
   // sidecar commits a presentation and this contract enforces measurement
   // conditions — forced diagnostic_probe, no hints, no ask-tutor, deferred
@@ -637,9 +636,9 @@ export function PracticeScreen({
     setFieldErrors({});
     setSubmitting(false);
     setWhyLine(frozen?.explanationMd ?? "");
-    setStuck(Boolean(restoredStuck) && stuckPrompt);
+    setStuck(Boolean(restoredStuck));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt, restoredDisclosure]);
+  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, restoredDisclosure]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1017,10 +1016,7 @@ export function PracticeScreen({
         if (!isTeachBack) revealHint();
       } else if (ctrl && event.key.toLowerCase() === "d") {
         event.preventDefault();
-        if (!isTeachBack) {
-          if (stuckPrompt) pressStuck();
-          else void dontKnow();
-        }
+        if (!isTeachBack) pressStuck();
       } else if (ctrl && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void skip();
@@ -1458,47 +1454,6 @@ export function PracticeScreen({
         if (!simple) onError(command.message);
       } else {
         onError(errorMessage(error, "Could not submit this attempt."));
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function dontKnow() {
-    if (!item || !interactionReady || submitting || assistPendingRef.current) return;
-    const submittedItemId = item.id;
-    const submittedKey = submissionId.current;
-    setSubmitting(true);
-    try {
-      await flushDraft();
-      if (!mountedRef.current) return;
-      const result = await api.submitDontKnow({
-        sessionId: session.sessionId,
-        practiceItemId: submittedItemId,
-        hintsUsed: answerHints,
-        authoredHints: hintsUsed,
-        bookCounted: bookCounts,
-        latencySeconds: elapsedSeconds(),
-        activeSeconds: activeClock.seconds(),
-        probePresentationId: probeActive ? probe?.presentationId : null,
-        answerConfidence,
-        assessmentContractVersionId: item.assessmentContractVersionId,
-        submissionId: submittedKey,
-        schedulerCandidateId,
-        planPresentationId,
-        ...(difficultyRating ? { difficultyRating } : {}),
-        ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
-      });
-      suppressDraftFlush.current = true;
-      if (!mountedRef.current) return;
-      const routed = await routeAfterAttempt(result, item, () => !mountedRef.current);
-      if (routed) await acknowledgeCheckpoint(submittedItemId, submittedKey);
-    } catch (error) {
-      const recovery = committedAttemptRecovery(error);
-      if (recovery) {
-        setCommittedRecovery(recovery);
-      } else {
-        onError(errorMessage(error, "Could not record “I don't know”."));
       }
     } finally {
       setSubmitting(false);
@@ -2360,7 +2315,7 @@ export function PracticeScreen({
                     {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
                   </QuietAction>
                 ) : null}
-                {stuckPrompt && !stuck && !selfGradeVisible ? (
+                {!stuck && !selfGradeVisible ? (
                   <QuietAction onClick={pressStuck} disabled={submitting}>I'm stuck</QuietAction>
                 ) : null}
                 {!probeActive && !selfGradeVisible ? (
@@ -2381,7 +2336,7 @@ export function PracticeScreen({
                   {selfGradeVisible ? `${scorePreview}/${item.rubric?.maxPoints ?? 4}` : ""}
                 </span>
               </button>
-              {stuckPrompt && !stuck ? (
+              {!stuck ? (
                 <button className="queue-row" type="button" onClick={pressStuck} disabled={submitting}>
                   <span className="queue-hotkey">^d</span>
                   <span className="queue-title">I'm stuck</span>
@@ -2439,7 +2394,7 @@ export function PracticeScreen({
         { key: "^enter", label: "submit" },
         ...(probeActive || (onYourOwnCheck && !coldTakeStep) || (item.hints.length === 0 && !adaptive) ? []
           : [adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
-        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
+        { key: "^d", label: "I'm stuck" },
         { key: "^s", label: "skip" },
         // Reader CA2 (§7.6): in steps the key asks about the focused step.
         ...(probeActive ? [] : [{ key: "?", label: panelOn && stepsMode ? "ask about this step" : "ask" }]),
@@ -2450,13 +2405,13 @@ export function PracticeScreen({
         { key: "esc", label: "today" }
       ] : probeActive ? [
         { key: "^enter", label: "submit" },
-        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
+        { key: "^d", label: "I'm stuck" },
         { key: "^s", label: "skip" },
         { key: "esc", label: "today" }
       ] : [
         { key: "^enter", label: "submit" },
         adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" },
-        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
+        { key: "^d", label: "I'm stuck" },
         { key: "^s", label: "skip" },
         { key: "?", label: "ask tutor" },
         { key: "esc", label: "today" }

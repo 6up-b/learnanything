@@ -628,28 +628,6 @@ export const api = {
     submissionId: string;
   }) => call<PracticeSubmissionAcknowledgementDto>("acknowledge_practice_submission", { input }),
   submitAttempt: (input: SubmitAttemptInput) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_attempt", { input })),
-  submitDontKnow: (input: {
-    sessionId: string;
-    practiceItemId: string;
-    hintsUsed: number;
-    /** RW2b fix round 5: the authored reveals alone (see SubmitAttemptInput). */
-    authoredHints?: number | null;
-    /** RW2b fix round 12: the count holds a book (see SubmitAttemptInput). */
-    bookCounted?: boolean | null;
-    latencySeconds?: number | null;
-    /** RE0: active seconds (see SubmitAttemptInput). */
-    activeSeconds?: number | null;
-    probePresentationId?: string | null;
-    answerConfidence?: number | null;
-    assessmentContractVersionId?: string | null;
-    submissionId?: string | null;
-    schedulerCandidateId?: string | null;
-    /** Router R2a: the daily-plan presentation this answer is to. */
-    planPresentationId?: string | null;
-    /** Adaptive difficulty AD1 (§12, §11.2), as on `submitAttempt`. */
-    difficultyRating?: DifficultyRating | null;
-    firstHintProgress?: FirstHintProgress | null;
-  }) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_dont_know", { input })),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),
   getFeedback: (attemptId: string) => call<FeedbackBundle>("get_feedback", { attemptId }),

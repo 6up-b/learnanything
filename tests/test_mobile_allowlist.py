@@ -171,10 +171,11 @@ SLICE2_T6_RPCS = (
 
 # The stuck prompt (mvp-0.13, "I'm stuck" replaces "I don't know") adds no
 # RPC; it extends nine desktop ones: submit_attempt (declaredStuck),
-# submit_dont_know (an empty stuck answer where the vault offers it),
-# save_practice_draft and update_session_checkpoint (the draft's stuck mode),
-# start_session and get_session (the checkpoint carries it back), and
-# load_vault, reload_vault and get_config (config.practice.stuck_prompt).
+# submit_dont_know (an empty stuck answer), save_practice_draft and
+# update_session_checkpoint (the draft's stuck mode), start_session and
+# get_session (the checkpoint carries it back), and load_vault, reload_vault
+# and get_config (which carried config.practice.stuck_prompt until the
+# prompt's kill switch went).
 STUCK_PROMPT_RPCS = (
     "submit_attempt",
     "submit_dont_know",

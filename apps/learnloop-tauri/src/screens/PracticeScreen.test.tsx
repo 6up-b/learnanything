@@ -9,7 +9,7 @@ const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
   getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
-  placementSelfReport: vi.fn(), submitDontKnow: vi.fn()
+  placementSelfReport: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 const windowApi = vi.hoisted(() => ({
@@ -262,8 +262,7 @@ it("offers 'I know this' while placement is on, then leaves the card", async () 
 const STUCK = "Write what you can, or what's confusing you";
 const RESULT = { attemptId: "att-stuck", learningObjectId: "lo", probeEpisode: { feedbackDeferred: false } };
 
-it("offers I'm stuck where the vault does, and an empty stuck answer submits at once with no self-grade", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+it("offers I'm stuck, and an empty stuck answer submits at once with no self-grade", async () => {
   api.submitAttempt.mockResolvedValue(RESULT);
   const callbacks = props();
   // No grader ready: an ordinary answer would ask for a self-grade first.
@@ -283,11 +282,9 @@ it("offers I'm stuck where the vault does, and an empty stuck answer submits at 
     answerMd: "", declaredStuck: true, selfGrade: null, attemptType: "independent_attempt"
   }));
   await waitFor(() => expect(callbacks.onFeedback).toHaveBeenCalledWith("att-stuck"));
-  expect(api.submitDontKnow).not.toHaveBeenCalled();
 });
 
 it("sends a stuck answer with text as an ordinary attempt marked stuck", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
   api.submitAttempt.mockResolvedValue(RESULT);
   render(<PracticeScreen {...props()} />);
   const answer = await screen.findByRole("textbox", { name: "answer" });
@@ -297,7 +294,6 @@ it("sends a stuck answer with text as an ordinary attempt marked stuck", async (
     expect(answer.getAttribute("placeholder")).toBe(STUCK);
   });
   expect(api.submitAttempt).not.toHaveBeenCalled();
-  expect(api.submitDontKnow).not.toHaveBeenCalled();
   fireEvent.change(answer, { target: { value: "I don't see why V is transposed" } });
   fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
   await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
@@ -320,7 +316,7 @@ it("sends the attempt's active seconds beside its latency, as separate numbers (
 });
 
 it("lets the learner step back out of the stuck prompt before sending", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  setAlgoConfig({});
   api.submitAttempt.mockResolvedValue(RESULT);
   render(<PracticeScreen {...props()} />);
   const answer = await screen.findByRole("textbox", { name: "answer" });
@@ -334,25 +330,9 @@ it("lets the learner step back out of the stuck prompt before sending", async ()
   expect(api.submitAttempt.mock.calls[0][0].declaredStuck).toBeUndefined();
 });
 
-it("keeps today's don't know control and call when the vault does not offer I'm stuck", async () => {
-  api.submitDontKnow.mockResolvedValue(RESULT);
-  const callbacks = props();
-  render(<PracticeScreen {...callbacks} />);
-  await screen.findByRole("textbox", { name: "answer" });
-  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
-  expect(screen.getByText("don't know")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /I'm stuck/ })).toBeNull();
-  await waitFor(() => {
-    fireEvent.keyDown(window, { key: "d", ctrlKey: true });
-    expect(api.submitDontKnow).toHaveBeenCalledOnce();
-  });
-  expect(api.submitAttempt).not.toHaveBeenCalled();
-  await waitFor(() => expect(callbacks.onFeedback).toHaveBeenCalledWith("att-stuck"));
-});
-
 it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt type", async () => {
   // The classic card's check banner; UX Phase 4's plain line has its own test.
-  setAlgoConfig({ ui: { practiceFeedback: "classic" }, practice: { stuckPrompt: true } });
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
   api.getProbeContract.mockResolvedValue({
     version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
     observationNumber: 1, maximumObservations: 3,
@@ -383,7 +363,7 @@ it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt 
 // question is worth its minutes never claims "of up to N".
 it("labels a value-stopped diagnostic check without a count ceiling", async () => {
   // The classic card's check banner; UX Phase 4's plain line has its own test.
-  setAlgoConfig({ ui: { practiceFeedback: "classic" }, practice: { stuckPrompt: true } });
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
   api.getProbeContract.mockResolvedValue({
     version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
     observationNumber: 5, maximumObservations: 4, valueStopping: true,
@@ -400,7 +380,7 @@ it("labels a value-stopped diagnostic check without a count ceiling", async () =
 
 // Review F2: the stuck marker survives navigation and restart before grading.
 it("saves and mirrors the stuck marker with the draft", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  setAlgoConfig({});
   const callbacks = props();
   const view = render(<PracticeScreen {...callbacks} />);
   const answer = await screen.findByRole("textbox", { name: "answer" });
@@ -417,7 +397,7 @@ it("saves and mirrors the stuck marker with the draft", async () => {
 });
 
 it("saves the cleared marker when the learner steps back out of stuck mode", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  setAlgoConfig({});
   render(<PracticeScreen {...props()} />);
   await screen.findByRole("textbox", { name: "answer" });
   await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
@@ -428,7 +408,7 @@ it("saves the cleared marker when the learner steps back out of stuck mode", asy
 });
 
 it("reopens a restored stuck draft in stuck mode and submits it as a stuck answer", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  setAlgoConfig({});
   api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
   api.submitAttempt.mockResolvedValue(RESULT);
   render(
@@ -447,14 +427,6 @@ it("reopens a restored stuck draft in stuck mode and submits it as a stuck answe
   await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
     answerMd: "Why is V transposed?", declaredStuck: true, submissionId: "stuck-draft-1"
   })));
-});
-
-it("never restores stuck mode where the vault does not offer it", async () => {
-  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
-  render(<PracticeScreen {...props()} restoredAnswer="old text" restoredSubmissionId="k" restoredStuck />);
-  const answer = await screen.findByRole("textbox", { name: "answer" });
-  expect(answer.getAttribute("placeholder")).not.toBe(STUCK);
-  expect(screen.queryByRole("status", { name: "stuck prompt" })).toBeNull();
 });
 
 // Canonical sources S1/S4: a textbook exercise names its book and its key's

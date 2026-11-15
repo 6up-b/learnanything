@@ -10,8 +10,8 @@ modules_in_an_import_cycle = 283
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 74
-comment_lines_naming_a_stage_artifact = 2381
+functions_over_200_lines = 73
+comment_lines_naming_a_stage_artifact = 2378
 test_files_named_for_a_stage = 184
 
 [members]
@@ -313,7 +313,6 @@ functions_over_200_lines = [
     "src/learnloop/tutor/tutor_qa.py ask_question",
     "src/learnloop/workbench/help_outcomes.py help_outcomes",
     "src/learnloop_sidecar/handlers/knowledge_map.py _facet_field",
-    "src/learnloop_sidecar/handlers/practice.py submit_attempt_on",
     "src/learnloop_sidecar/handlers/serializers.py feedback_bundle",
 ]
 stage_test_files = [
@@ -544,7 +543,7 @@ stage_test_files = [
 "src/learnloop/ai/spend.py" = 1
 "src/learnloop/algorithm_versions.py" = 40
 "src/learnloop/attempts/ai_contracts.py" = 1
-"src/learnloop/attempts/attempts.py" = 23
+"src/learnloop/attempts/attempts.py" = 22
 "src/learnloop/attempts/clarification.py" = 2
 "src/learnloop/attempts/grade_resolution.py" = 4
 "src/learnloop/attempts/grading.py" = 3
@@ -956,7 +955,7 @@ stage_test_files = [
 "src/learnloop_sidecar/handlers/library_ask.py" = 12
 "src/learnloop_sidecar/handlers/library_exercises.py" = 3
 "src/learnloop_sidecar/handlers/placement.py" = 1
-"src/learnloop_sidecar/handlers/practice.py" = 43
+"src/learnloop_sidecar/handlers/practice.py" = 42
 "src/learnloop_sidecar/handlers/proposals.py" = 7
 "src/learnloop_sidecar/handlers/queue.py" = 6
 "src/learnloop_sidecar/handlers/reader.py" = 44
@@ -971,7 +970,7 @@ stage_test_files = [
 "src/learnloop_sidecar/handlers/settings.py" = 1
 "src/learnloop_sidecar/handlers/side_by_side.py" = 1
 "src/learnloop_sidecar/handlers/source_service.py" = 1
-"src/learnloop_sidecar/handlers/tutor_qa.py" = 14
+"src/learnloop_sidecar/handlers/tutor_qa.py" = 13
 "src/learnloop_sidecar/handlers/workbench.py" = 20
 "src/learnloop_sidecar/handlers/workbench_help.py" = 12
 "src/learnloop_sidecar/handlers/workbench_rw2c.py" = 5

@@ -18,7 +18,7 @@ const { api } = vi.hoisted(() => ({ api: {
   getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
   getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), getLearnerTextGap: vi.fn(), setHelpStyle: vi.fn(),
   recordHintReveal: vi.fn(),
-  placementSelfReport: vi.fn(), submitDontKnow: vi.fn(),
+  placementSelfReport: vi.fn(),
   workbenchForItem: vi.fn(), workbenchOpen: vi.fn(), workbenchGet: vi.fn(), workbenchReopen: vi.fn(),
   workbenchSaveStep: vi.fn(), workbenchLeave: vi.fn(), workbenchAbandon: vi.fn(), workbenchSubmit: vi.fn(),
   workbenchSetBook: vi.fn(), workbenchRefreshImport: vi.fn(), workbenchBind: vi.fn(), workbenchRetryImport: vi.fn(),
@@ -83,7 +83,7 @@ beforeEach(() => {
     },
   });
   setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 }, ui: { practiceFeedback: "simple" },
-                  ask: { panelEnabled: true, helpStyle: "balanced", coldHelpConverts: true } });
+                  ask: { panelEnabled: true, helpStyle: "balanced" } });
   api.getTutorTranscript.mockResolvedValue({ events: [], remaining: 3, earlier: EARLIER, earlierCountsAsHint: true, cold: false });
   api.askTutorQuestion.mockResolvedValue({
     version: 1, eventId: "q1", answerMd: "Think of the shapes.", questionType: "clarification", facets: [],

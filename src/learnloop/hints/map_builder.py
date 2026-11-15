@@ -1045,6 +1045,8 @@ class BackgroundBuilds:
         self._path: str | None = None
         self._generation = "gen_" + new_ulid()
         self._open = True
+        #: Fenced by :meth:`halt` and not yet drained by a :meth:`close`.
+        self._halted = False
         self._threads: list[threading.Thread] = []
 
     @property
@@ -1081,9 +1083,23 @@ class BackgroundBuilds:
         with self._lock:
             if self._open and self._path == key:
                 return
-        self.close()
+            halted = self._halted
+        if not halted:  # a halted generation is fenced already: its builds are joined at the next close
+            self.close()
         with self._lock, self._generation_lock:
             self._path, self._generation, self._open = key, "gen_" + new_ulid(), True
+            self._halted = False
+
+    def halt(self) -> None:
+        """Stop admitting and fence every running build's later writes, at once: the bound vault stopped being
+        served. The generation bump is :meth:`close`'s linearisation point without its waits, so it can run on the
+        request thread that met the refusal; a write registered before it may still commit (to its own vault, as at
+        a close's deadline). The builds are joined at the next close."""
+
+        with self._lock, self._generation_lock:
+            self._open = False
+            self._halted = True
+            self._generation = "gen_" + new_ulid()
 
     def admit(self, sqlite_path: Any) -> BuildFence | None:
         with self._lock:
@@ -1127,8 +1143,10 @@ class BackgroundBuilds:
         bound = self.drain_seconds if timeout is None else max(0.0, timeout)
         end = time.monotonic() + bound
         with self._lock:
-            already = not self._open
+            # A halt closed admission without draining: this close still joins its builds.
+            already = not self._open and not self._halted
             self._open = False
+            self._halted = False
             threads = list(self._threads)
         if already:
             with self._lock:

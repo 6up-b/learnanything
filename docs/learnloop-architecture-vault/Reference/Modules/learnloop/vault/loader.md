@@ -946,7 +946,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ii_curriculum_off_leaves_ca3_and_ca5a_as_with_no_deliverable`
   - `test_ii_the_curriculum_cap_does_not_stop_compare_scope`
   - `test_iii_a_shadow_rebuild_is_zero_with_the_checks_present`
-  - `test_iii_check_once_commitments_are_never_touched_by_the_cold_retry_reschedule`
 - [tests/test_curriculum_c1_codex_review_fixes.py](../../../../../../tests/test_curriculum_c1_codex_review_fixes.py) — direct import
   - `test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs`
   - `test_f2_c1_back_on_moves_the_unread_reading_back_to_c1s_choice`
@@ -1253,6 +1252,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
 - [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_exercise_authoring.py](../../../../../../tests/test_exercise_authoring.py) — direct import
@@ -3165,13 +3165,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag`
-  - `test_kill_switch_restores_dont_know_exactly`
   - `test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
-  - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
   - `test_propose_facet_merge_applies_live_and_records_the_owners_verdict`
   - `test_propose_facet_merge_still_holds_back_a_shared_graded_criterion`

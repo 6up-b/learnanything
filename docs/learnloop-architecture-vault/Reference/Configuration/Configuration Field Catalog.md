@@ -9,9 +9,9 @@ aliases:
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 78
-field_count: 1176
-field_status_counts: {"ACTIVE": 1156, "COMPAT": 1, "DORMANT": 15, "LEGACY": 4}
+section_count: 77
+field_count: 1174
+field_status_counts: {"ACTIVE": 1154, "COMPAT": 1, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -32,17 +32,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1176 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1174 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1156 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1154 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 1 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1176-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1174-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -94,7 +94,6 @@ Every one of the 1176 effective leaves has a semantic Function, a runtime/refact
 | [[Config - diagnostic_augmentation|`diagnostic_augmentation`]] | 3 | Runtime configuration |
 | [[Config - diagnosis|`diagnosis`]] | 24 | Runtime configuration |
 | [[Config - recurrence|`recurrence`]] | 8 | Runtime configuration |
-| [[Config - stuck_prompt|`stuck_prompt`]] | 1 | Runtime configuration |
 | [[Config - hints|`hints`]] | 13 | Runtime configuration |
 | [[Config - learner_text_gaps|`learner_text_gaps`]] | 17 | Runtime configuration |
 | [[Config - evsi|`evsi`]] | 3 | Runtime configuration |
@@ -125,7 +124,7 @@ Every one of the 1176 effective leaves has a semantic Function, a runtime/refact
 | [[Config - eligibility|`eligibility`]] | 1 | Runtime configuration |
 | [[Config - replay|`replay`]] | 1 | Runtime configuration |
 | [[Config - teacher|`teacher`]] | 15 | Runtime configuration |
-| [[Config - ask|`ask`]] | 2 | Runtime configuration |
+| [[Config - ask|`ask`]] | 1 | Runtime configuration |
 
 ## Search recipes
 

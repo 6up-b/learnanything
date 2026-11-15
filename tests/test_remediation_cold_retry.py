@@ -65,7 +65,7 @@ def test_served_cold_attempt_is_enforced_unassisted_and_unprimed(tmp_path):
     assert task["status"] == "consumed"
     assert task["consumed_attempt_id"] == result.attempt_id
 
-    # From mvp-0.35 (one Ask rule, ``ask.cold_help_converts``) help taken on a cold follow-up no
+    # From mvp-0.35 (Reader CA2's one Ask rule) help taken on a cold follow-up no
     # longer refuses the attempt: submit admits it as practice with help, and it never answers the
     # cold measurement.
     vault, repository, misconception_id = _setup(tmp_path / "helped")

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py) |
-| Source lines | 1065 |
+| Source lines | 1042 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -68,23 +68,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `due(self, at: str) -> bool` (line 343; public)
   - `from_row(cls, row: Mapping[str, Any]) -> FollowupTask` (line 348; public)
 - `class EligibilityInputs` ([source](../../../../../src/learnloop/serve_eligibility.py), line 360) — Everything the decision reads, as of one instant.
-- `class EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 416) — What a path may do with the item now, and why (inspectable: callers log :meth:`record` where they already record serving decisions).
-  - `serves(self) -> bool` (line 445; public) — Can the path serve the item as it asked?
-  - `writes(self) -> bool` (line 451; public) — Does acting on the decision write anything (a re-time, a withdrawal)?
-  - `record(self) -> dict[str, Any]` (line 456; public)
-- `class SubmitExposure` ([source](../../../../../src/learnloop/serve_eligibility.py), line 495) — Submit's reading of the item's exposure at one instant.
-- `submit_exposure(inputs: EligibilityInputs) -> SubmitExposure` ([source](../../../../../src/learnloop/serve_eligibility.py), line 509) — Submit's auto-prime total, exactly as ``Repository.total_reveal_amount`` computes it in SQL (and ``attempts.reveal_total_for_submission`` subtracts the draft's own disclosure), row for row: * the item's rows only; * a routine display counts by its coverage: stamped at or after `…
-- `active_task(inputs: EligibilityInputs) -> FollowupTask | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 583) — The task submit answers: the first due, unexpired open task of ANY kind selecting the item (``Repository.active_followup_task_for_item``, its order).
-- `cold_task_holds(inputs: EligibilityInputs, task: FollowupTask) -> list[tuple[RevealRow, str, str]]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 594) — The serving holds on one cold task now, each ``(row, released_at, reason)``: the scheduler's deferral scope, the item or anywhere in its learning object.
-- `decide(inputs: EligibilityInputs, request: str) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 648) — THE decision.
-- `gather(repository: Any, *, practice_item_id: str, learning_object_id: str | None, at: str, window_until: str | None=None, submission_id: str | None=None, learner_answer_md: str | None=None, declared_primed: bool=False, auto_primed: bool=False, hints_used: int=0, attempt_type: str | None=None, reveal_rows: Sequence[Mapping[str, Any]] | None=None, check_created_at: str | None=None) -> EligibilityInputs` ([source](../../../../../src/learnloop/serve_eligibility.py), line 846) — Read the decision's inputs for one item from ``repository``.
-- `check_once_at_attempt(repository: Any, *, practice_item_id: str, learning_object_id: str | None, attempt_id: str, attempt_at: str, check_created_at: str | None) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 900) — The ``CHECK_ONCE`` decision as it stood when an attempt was submitted (daily-loop DL2 Codex re-review F3): only an attempt the decision would have served cold can answer a "Check once".
-- `help_converts_active(vault: Any) -> bool` ([source](../../../../../src/learnloop/serve_eligibility.py), line 956) — Reader CA2's one help rule (``ONE_ASK_ALGORITHM_VERSION``): with ``ask.cold_help_converts`` on.
-- `decision_active(vault: Any) -> bool` ([source](../../../../../src/learnloop/serve_eligibility.py), line 968) — Is the one eligibility decision live for ``vault`` (a ``LoadedVault``, duck-typed)?
-- `pending_writes(decision: EligibilityDecision) -> dict[str, str | None]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 979) — The decision's writes as one map, for a reader that must judge as if they were made without making them (the CLI's validation before it prompts, a dry run): task id -> its new ``not_before``, or None for a withdrawn task.
-- `with_pending_writes(inputs: EligibilityInputs, writes: Mapping[str, str | None] | None) -> EligibilityInputs` ([source](../../../../../src/learnloop/serve_eligibility.py), line 990) — ``inputs`` as they would read once ``writes`` (:func:`pending_writes`) were made: re-timed tasks pushed (monotone), withdrawn ones gone.
-- `retime(repository: Any, decision: EligibilityDecision, *, clock: Any=None) -> None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 1006) — Apply a decision's re-times (monotone pushes of ``not_before``; never the expiry, so an episode that keeps being revealed still censors at its original end).
-- `log_decision(decision: EligibilityDecision, *, path: str) -> None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 1015) — The decision's trace line, at the path that acted on it.
+- `class EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 413) — What a path may do with the item now, and why (inspectable: callers log :meth:`record` where they already record serving decisions).
+  - `serves(self) -> bool` (line 442; public) — Can the path serve the item as it asked?
+  - `writes(self) -> bool` (line 448; public) — Does acting on the decision write anything (a re-time, a withdrawal)?
+  - `record(self) -> dict[str, Any]` (line 453; public)
+- `class SubmitExposure` ([source](../../../../../src/learnloop/serve_eligibility.py), line 492) — Submit's reading of the item's exposure at one instant.
+- `submit_exposure(inputs: EligibilityInputs) -> SubmitExposure` ([source](../../../../../src/learnloop/serve_eligibility.py), line 506) — Submit's auto-prime total, exactly as ``Repository.total_reveal_amount`` computes it in SQL (and ``attempts.reveal_total_for_submission`` subtracts the draft's own disclosure), row for row: * the item's rows only; * a routine display counts by its coverage: stamped at or after `…
+- `active_task(inputs: EligibilityInputs) -> FollowupTask | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 580) — The task submit answers: the first due, unexpired open task of ANY kind selecting the item (``Repository.active_followup_task_for_item``, its order).
+- `cold_task_holds(inputs: EligibilityInputs, task: FollowupTask) -> list[tuple[RevealRow, str, str]]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 591) — The serving holds on one cold task now, each ``(row, released_at, reason)``: the scheduler's deferral scope, the item or anywhere in its learning object.
+- `decide(inputs: EligibilityInputs, request: str) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 645) — THE decision.
+- `gather(repository: Any, *, practice_item_id: str, learning_object_id: str | None, at: str, window_until: str | None=None, submission_id: str | None=None, learner_answer_md: str | None=None, declared_primed: bool=False, auto_primed: bool=False, hints_used: int=0, attempt_type: str | None=None, reveal_rows: Sequence[Mapping[str, Any]] | None=None, check_created_at: str | None=None) -> EligibilityInputs` ([source](../../../../../src/learnloop/serve_eligibility.py), line 836) — Read the decision's inputs for one item from ``repository``.
+- `check_once_at_attempt(repository: Any, *, practice_item_id: str, learning_object_id: str | None, attempt_id: str, attempt_at: str, check_created_at: str | None) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 890) — The ``CHECK_ONCE`` decision as it stood when an attempt was submitted (daily-loop DL2 Codex re-review F3): only an attempt the decision would have served cold can answer a "Check once".
+- `decision_active(vault: Any) -> bool` ([source](../../../../../src/learnloop/serve_eligibility.py), line 946) — Is the one eligibility decision live for ``vault`` (a ``LoadedVault``, duck-typed)?
+- `pending_writes(decision: EligibilityDecision) -> dict[str, str | None]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 957) — The decision's writes as one map, for a reader that must judge as if they were made without making them (the CLI's validation before it prompts, a dry run): task id -> its new ``not_before``, or None for a withdrawn task.
+- `with_pending_writes(inputs: EligibilityInputs, writes: Mapping[str, str | None] | None) -> EligibilityInputs` ([source](../../../../../src/learnloop/serve_eligibility.py), line 968) — ``inputs`` as they would read once ``writes`` (:func:`pending_writes`) were made: re-timed tasks pushed (monotone), withdrawn ones gone.
+- `retime(repository: Any, decision: EligibilityDecision, *, clock: Any=None) -> None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 984) — Apply a decision's re-times (monotone pushes of ``not_before``; never the expiry, so an episode that keeps being revealed still censors at its original end).
+- `log_decision(decision: EligibilityDecision, *, path: str) -> None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 993) — The decision's trace line, at the path that acted on it.
 
 ### Module constants
 
@@ -109,9 +108,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `COLD_CHECK_REVEALED_SINCE_SCHEDULED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 132)
 - `COLD_CHECK_ANSWER_SHOWN` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 137)
 - `COLD_CHECK_PRACTISED_SINCE_SCHEDULED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 142)
-- `COLD_CHECK_ASSISTED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 144)
-- `COLD_CHECK_PRIMED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 146)
-- `COLD_CHECK_AUTO_PRIMED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 150)
+- `COLD_CHECK_ASSISTED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 145)
+- `COLD_CHECK_PRIMED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 147)
+- `COLD_CHECK_AUTO_PRIMED` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 151)
 - `COLD_CHECK_HELP_TAKEN` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 156)
 - `PROBE_ITEM_ANSWER_SHOWN` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 159)
 - `QUICK_CHECK_ANSWER_SHOWN` ([src/learnloop/serve_eligibility.py](../../../../../src/learnloop/serve_eligibility.py), line 161)
@@ -156,7 +155,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `cold_task_holds`
 - `decide`
 - `decision_active`
-- `help_converts_active`
 - `disclosure_identity`
 - `gather`
 - `is_own_disclosure`
@@ -170,14 +168,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 219) — Reject a JSON object that names a field twice (``json.loads`` would keep the last value, round 6): such an identity is malformed.
-- `_iso(moment: datetime) -> str` ([source](../../../../../src/learnloop/serve_eligibility.py), line 477)
-- `_parsed(value: str) -> datetime | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 481)
-- `_plus(stamp: str, delta: timedelta) -> str | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 489)
-- `_ids(rows: Iterable[RevealRow]) -> tuple[str, ...]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 631)
-- `_shown(rows: Sequence[RevealRow]) -> str` ([source](../../../../../src/learnloop/serve_eligibility.py), line 638) — "its answer was shown (tutor answer at …)" for a refusal.
-- `_decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 685)
-- `_decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 733)
-- `_decide_check_once(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 806) — A learner's "Check once" (daily-loop DL2) asks the cold check's question without a task: the same holds (:func:`cold_task_holds`, counted from the check's choice), the same standing exposure.
+- `_iso(moment: datetime) -> str` ([source](../../../../../src/learnloop/serve_eligibility.py), line 474)
+- `_parsed(value: str) -> datetime | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 478)
+- `_plus(stamp: str, delta: timedelta) -> str | None` ([source](../../../../../src/learnloop/serve_eligibility.py), line 486)
+- `_ids(rows: Iterable[RevealRow]) -> tuple[str, ...]` ([source](../../../../../src/learnloop/serve_eligibility.py), line 628)
+- `_shown(rows: Sequence[RevealRow]) -> str` ([source](../../../../../src/learnloop/serve_eligibility.py), line 635) — "its answer was shown (tutor answer at …)" for a refusal.
+- `_decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 682)
+- `_decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 723)
+- `_decide_check_once(inputs: EligibilityInputs, exposure: SubmitExposure, base: dict[str, Any]) -> EligibilityDecision` ([source](../../../../../src/learnloop/serve_eligibility.py), line 796) — A learner's "Check once" (daily-loop DL2) asks the cold check's question without a task: the same holds (:func:`cold_task_holds`, counted from the check's choice), the same standing exposure.
 
 ## Who imports or calls it
 
@@ -185,26 +183,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `EligibilityInputs`, `RevealRow`, `submit_exposure`; statically calls `EligibilityInputs`, `submit_exposure`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `module`; statically calls `decide`, `decision_active`, `gather`, `help_converts_active`, `log_decision`, `submit_exposure`, `with_pending_writes`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `module`; statically calls `decide`, `decision_active`, `gather`, `log_decision`, `submit_exposure`, `with_pending_writes`
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `module`; statically calls `attempt_submission`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `decision_active`, `log_decision`, `pending_writes`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; statically calls `decide`, `decision_active`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `module`; statically calls `decide`, `decision_active`, `gather`, `log_decision`
-- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_CHECK_HELP_TAKEN`, `module`; statically calls `help_converts_active`
-- [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `help_converts_active`; statically calls `help_converts_active`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_CHECK_HELP_TAKEN`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `COLD_FOLLOWUP_TASK_KINDS`
-- [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `help_converts_active`; statically calls `help_converts_active`
 - [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] — imports `COLD_RETRIEVAL_DELAY`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`; statically calls `check_once_at_attempt`, `decide`, `gather`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `module`; statically calls `EligibilityDecision`, `decide`, `decision_active`, `gather`, `log_decision`, `retime`
 - [[Reference/Modules/learnloop/teacher/delayed|learnloop.teacher.delayed]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `help_converts_active`; statically calls `help_converts_active`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `module`; statically calls `decision_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `help_converts_active`; statically calls `help_converts_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `help_converts_active`; statically calls `help_converts_active`
 
 ## Dependencies
 
@@ -224,7 +217,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 16 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 11 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -245,8 +238,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_cold_task_kinds_are_defined_once`
   - `test_the_learner_initiated_selectors_keep_the_wider_reservation`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
-  - `test_the_predecessor_refuses_a_hinted_cold_check_and_the_successor_converts_it`
-  - `test_the_rule_is_live_only_with_its_switch`
+  - `test_a_hinted_cold_check_converts`
   - `test_without_help_the_cold_rules_are_unchanged`
 - [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit`

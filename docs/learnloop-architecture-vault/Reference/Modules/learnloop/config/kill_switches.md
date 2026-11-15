@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py) |
-| Source lines | 204 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 
 - `OUTSIDE_LEARNLOOP_TOML` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 41)
 - `TAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 43)
-- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 142)
+- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 140)
 
 ## Internal implementation anchors
 

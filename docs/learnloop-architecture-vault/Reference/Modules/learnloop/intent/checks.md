@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py) |
-| Source lines | 272 |
+| Source lines | 257 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,8 +58,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `restoration_link(provenance: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 87) — The way back to where it was studied, or None (rendered only when present).
 - `cold_followup_duty(repository: Any, practice_item_id: str, *, now: datetime) -> str | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 122) — ``"cold_followup"`` when a due cold follow-up selects the item (the task submit answers and refuses help for), else None.
 - `served_check(vault: Any, repository: Any, practice_item_id: str, *, now: datetime, duty: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 161) — The practice view of ``practice_item_id`` when it is a due check now: cold only when the one eligibility decision says so at this serve (F3: an exposure after the check was planned is read here).
-- `cold_followup_view(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 201) — Reader CA2 (mvp-0.34, §15 Q4, ``ask.cold_help_converts``): the practice view of a due cold follow-up served without a "Check once": the cold banner, the help ladder's header (choose, then take) and no locators until feedback, exactly as a check's cold view.
-- `answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 223) — The check an attempt answered (its feedback shows the restoration link), or None.
+- `cold_followup_view(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 190) — Reader CA2 (§15 Q4): the practice view of a due cold follow-up served without a "Check once": the cold banner, the help ladder's header (choose, then take) and no locators until feedback, exactly as a check's cold view.
+- `answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 208) — The check an attempt answered (its feedback shows the restoration link), or None.
 
 ### Module constants
 
@@ -94,7 +94,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_measured_view(check: CheckState, *, duty: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 104) — F15 (R3): a cold check served under the item's stricter duty, whose safeguards refuse help; the view promises none and offers no ladder header.
 - `_view(check: CheckState, *, cold: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 133)
-- `_help_converts(vault: Any) -> bool` ([source](../../../../../../src/learnloop/intent/checks.py), line 195)
 
 ## Who imports or calls it
 
@@ -115,7 +114,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`; calls `SystemClock`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `resolve_disposition`, `satisfy_single_check`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `CheckState`, `intent_serving`; calls `intent_serving`
-- [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
 
 ### Platform and third-party dependencies
 
@@ -164,7 +162,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f13_an_assisted_reconstruction_leaves_the_check_pending_and_dates_it_again`
   - `test_f13_an_independent_attempt_still_answers`
   - `test_f15_a_check_under_an_active_diagnostic_is_served_under_that_duty`
-  - `test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty`
   - `test_f15_a_pure_diagnostic_answer_satisfies_the_check`
   - `test_f15_a_seen_check_with_a_cold_follow_up_stays_practice`
   - `test_f15_an_ordinary_check_still_offers_help`

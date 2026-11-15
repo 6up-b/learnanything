@@ -8,6 +8,8 @@ never auto-activate; auto_within_envelope (U-018 gate on) activates exactly one 
 
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 
 from learnloop.clock import FrozenClock
@@ -220,3 +222,63 @@ def test_shrink_envelope_allows_genuine_contraction(repo):
         repo, arc_id=arc["arc_id"], bounds={}, reviewed_edges=[], clock=CLOCK
     )
     assert out["shrunk"] is True
+
+
+class _WriterAfterTheFirstRead:
+    """A connection that lets another connection commit right after its first ``SELECT``: the ingest drain's job claim
+    landing while the Reader's capture writes the arc."""
+
+    def __init__(self, connection, sqlite_path, commitment_id):
+        self._connection = connection
+        self._path = sqlite_path
+        self._commitment_id = commitment_id
+        self.other = None
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
+    def execute(self, sql, *args):
+        cursor = self._connection.execute(sql, *args)
+        if self.other is None and sql.lstrip().upper().startswith("SELECT"):
+            other = sqlite3.connect(self._path, timeout=0.2)
+            try:
+                other.execute("INSERT INTO commitment_arcs(id, commitment_id, source_id, created_at) "
+                              "VALUES ('arc_other', ?, NULL, '2026-10-12T00:00:00Z')", (self._commitment_id,))
+                other.commit()
+                self.other = "committed"
+            except sqlite3.OperationalError as exc:
+                assert "locked" in str(exc), exc
+                self.other = "waited"
+            finally:
+                other.close()
+        return cursor
+
+
+@pytest.mark.durability  # WAL: the production journal, where another commit between the read and the write is legal
+@pytest.mark.parametrize("append", ["version", "event"])
+def test_an_arc_append_holds_the_write_lock_from_its_first_read(repo, monkeypatch, append):
+    """An append reads the arc's last ordinal, then writes the next one. Begun deferred, a commit by another connection
+    between the two failed the write at once with "database is locked", without the busy wait (WAL's stale snapshot;
+    a rollback journal's deadlock rule does the same), so the Reader's "Help me remember" returned ``database_busy``
+    whenever the ingest drain claimed a job meanwhile. The append holds the write lock from its first read: the other
+    writer waits, and the append lands."""
+
+    cid = _commitment(repo)
+    arc_id = repo.create_commitment_arc(commitment_id=cid, source_id="src1", clock=CLOCK)
+    with repo.connection() as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    real = repo.connection
+    made = []
+
+    def interleaved():
+        made.append(_WriterAfterTheFirstRead(real(), repo.sqlite_path, cid))
+        return made[-1]
+
+    monkeypatch.setattr(repo, "connection", interleaved)
+    if append == "version":
+        written = repo.append_commitment_arc_version(arc_id=arc_id, version={"content_hash": "h1"}, clock=CLOCK)
+        assert written["version_ordinal"] == 1
+    else:
+        written = repo.append_commitment_arc_event(arc_id=arc_id, kind="arc_created", clock=CLOCK)
+        assert written["event_ordinal"] == 1
+    assert [wrapper.other for wrapper in made] == ["waited"]

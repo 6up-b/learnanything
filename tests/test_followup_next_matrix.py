@@ -7,12 +7,11 @@ or the feedback is released and Next goes on.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock, SystemClock
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run import jobs, router
@@ -26,9 +25,9 @@ from tests.followup_serve_helpers import (
     AuthorFake,
     BlindRivalClient,
     author_clients,
-    TAG,
     live_shape_vault,
 )
+from tests.router_mixture_helpers import join_carried_valuations
 
 PLAN_OFF = "\n[plan]\nenabled = false\n"
 ARMS = {"preparing": router.ASK_NOW, "ready": router.ASK_NOW, "waiting": router.WAIT, "pending_wait": router.WAIT,
@@ -43,6 +42,8 @@ PLAN_CELLS = [
     ("plan", "none", "yesterday"),
 ]
 CELLS = [(*cell, state) for cell in PLAN_CELLS for state in ARMS]
+#: A cell takes seconds alone and under a minute on a loaded machine: far less than this before midnight.
+_MIDNIGHT_MARGIN = timedelta(minutes=30)
 
 
 class _Ready:
@@ -80,11 +81,19 @@ class _Desk(SimpleNamespace):
 
 
 def _movable_clock(monkeypatch):
-    """The system clock, moved by the test: a day can pass between a miss and its Next."""
+    """The system clock, moved by the test: a day can pass between a miss and its Next.
 
-    offset = {"days": 0}
+    The plan is the local day's (``engine.local_date``), so a cell that runs across local midnight closes a plan that
+    is no longer today's: "Done" finds no plan for the new day and the next read builds an open one. Near midnight
+    the clock starts just after it instead, moved forward as the cells that add a day move it, so the day changes
+    under a cell only when the cell moves it."""
+
     real = SystemClock.now
-    monkeypatch.setattr(SystemClock, "now", lambda self: real(self) + timedelta(days=offset["days"]))
+    now = real(SystemClock()).astimezone()
+    to_midnight = datetime.combine(now.date() + timedelta(days=1), time()).astimezone() - now
+    start = to_midnight + timedelta(minutes=1) if to_midnight < _MIDNIGHT_MARGIN else timedelta(0)
+    offset = {"days": 0}
+    monkeypatch.setattr(SystemClock, "now", lambda self: real(self) + start + timedelta(days=offset["days"]))
     return offset
 
 
@@ -103,8 +112,8 @@ def _more_items(paths, count):
         write_yaml(path.with_name(f"pi_more_{index}.yaml"), payload)
 
 
-def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0, version=TAG):
-    paths, vault, repository = live_shape_vault(tmp_path, config=config, version=version)
+def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0):
+    paths, vault, repository = live_shape_vault(tmp_path, config=config)
     if items:
         from learnloop.substrate.state_sync import sync_vault_state
         from learnloop.vault.loader import load_vault
@@ -120,6 +129,10 @@ def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0, version=TAG):
     if arm is not None:
         real = router.decide
         monkeypatch.setattr(router, "decide", lambda *a, **k: replace(real(*a, **k), chosen_ref=arm, reason=arm))
+    # Each plan decision of the no-model runtime values its carried tail on a thread of its own after the serve; on a
+    # loaded machine the last one outlives the cell and fails its teardown (``tests/thread_guard.py``). Each serve
+    # waits for its own here: no cell reads that valuation.
+    join_carried_valuations(monkeypatch)
     desk = _Desk(ctx=ctx, client=client, paths=paths, session=None)
     started = desk.call("start_session", {"available_minutes": 45})
     desk.session = started.get("sessionId") or started["session_id"]
@@ -146,10 +159,16 @@ def _miss(desk, surface):
 
 
 def _finish_the_plan(desk):
-    """Every other step of the plan answered or passed, with the screen's fetch after each."""
+    """Every other step of the plan answered or passed, with the screen's fetch after each. A lesson offer the plan's
+    objective draws is answered "Not now", as the offer page does (``answerPlanOffer`` in ``App.tsx``): the plan's
+    next step waits behind an unanswered offer, so stopping at it leaves the plan open."""
 
     for _ in range(40):
         step = desk.step(serve=False)
+        if step.get("kind") == "lesson_offer":
+            desk.call("lesson.suggestion_respond", {"decisionId": step["offer"]["decisionId"], "response": "declined",
+                                                    "sessionId": desk.session})
+            continue
         if step.get("kind") != "item":
             return
         desk.call("next_plan_item", {"sessionId": desk.session, "skipPracticeItemId": step["item"]})
@@ -161,7 +180,10 @@ def _close(desk, state):
         desk.call("plan_keep_going", {"sessionId": desk.session, "stop": True})
     else:
         _finish_the_plan(desk)
-    assert desk.call("get_daily_plan", {"sessionId": desk.session})["plan"]["status"] in {"stopped", "complete"}
+    plan = desk.call("get_daily_plan", {"sessionId": desk.session})["plan"]
+    # The plan's id and day beside today's date, so a failure says whether the day changed under the cell.
+    assert plan["status"] in {"stopped", "complete"}, (plan.get("id"), plan.get("localDate") or plan.get("local_date"),
+                                                      SystemClock().now().astimezone().date().isoformat())
 
 
 def _held(desk, attempt_id):
@@ -205,9 +227,7 @@ def _the_one_thing(desk, attempt_id, *, plan_open):
 @pytest.mark.parametrize("surface, plan, closes, state", CELLS)
 def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
     clock = _movable_clock(monkeypatch)
-    # At the head this one cell's plan is still open after the screen's steps have finished it.
-    version = FOLLOWUP_SERVE_ALGORITHM_VERSION if (surface, plan, closes, state) == ("plan", "complete", "before", "preparing") else TAG
-    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state], version=version)
+    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state])
     if plan != "none" or closes == "yesterday":
         desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, surface)

@@ -307,9 +307,6 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             **({"answer_mode": panel_ask.answer_mode} if panel_ask.answer_mode is not None else {}),
             **({"submission_id": panel_ask.submission_id, "workbench_session_id": panel_ask.workbench_session_id,
                 "about_step": params.about_step, "attempt_aliases": panel_ask.aliases,
-                # Codex review F3: a workbench question during a cold
-                # administration counts as the workbench's cold rule says.
-                "count_every_question": panel_ask.count_every_question,
                 # Codex review F2 (K9): worked help is never served on the spot.
                 "worked_help_check": _worked_help_check}
                if params.context == "practice" and ask_panel_enabled(vault) else {}),
@@ -362,15 +359,14 @@ class PanelAsk:
     """What the server derives for one practice or feedback question while
     ``ask.panel_enabled`` (Reader CA2 §7.4, K5, K7; Codex review F3, F6,
     F10), never from the client's word: the answer mode, the validated
-    workbench, the attempt's key and practice session, whether the item is
-    under a cold administration, and the cold rule's count."""
+    workbench, the attempt's key and practice session, and whether the item
+    is under a cold administration."""
 
     answer_mode: str | None = None
     workbench_session_id: str | None = None
     submission_id: str | None = None
     session_id: str | None = None
     cold: bool = False
-    count_every_question: bool = False
     #: Astra batch review: the attempt's other identities (the answer box's
     #: draft handed into Work in Steps), read as its own by budget and thread.
     aliases: AttemptAliases | None = None
@@ -396,9 +392,8 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
     recent open one, else a new one), so a question asked from the Reader
     with no practice session open still counts at the submit (F10). Codex
     review F3: the cold status is the server's; a cold item grounds in
-    nothing (``cold_attempt``), and a workbench question on it counts as the
-    workbench's cold rule says (every question while the one help rule is
-    off, ``reader.ask``'s predecessor rule; only substantive ones under it).
+    nothing (``cold_attempt``), and a workbench question on it counts only
+    when substantive (Reader CA2's one help rule).
     Off, or another context: an empty :class:`PanelAsk` and the question goes
     out exactly as before."""
 
@@ -420,7 +415,6 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
     if params.context != "practice":
         raise SidecarError("validation_error", "Only a practice question is asked from a workbench.")
     from learnloop.reader import workbench as WB
-    from learnloop.serve_eligibility import help_converts_active
     from learnloop_sidecar.handlers.workbench import _practice_session
 
     try:
@@ -443,7 +437,6 @@ def _ask_panel_inputs(ctx: SidecarContext, vault: Any, repository: Any, params: 
         submission_id=submission_id,
         session_id=practice_session,
         cold=cold,
-        count_every_question=cold and not help_converts_active(vault),
         aliases=attempt_aliases(repository, item_id, submission_id, params.workbench_session_id),
     )
 
