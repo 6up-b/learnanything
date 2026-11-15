@@ -226,6 +226,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
   - `test_f1_a_context_neighbour_held_out_after_authoring_withholds_the_figure`
 - [tests/test_figures_help.py](../../../../../../tests/test_figures_help.py) — direct import

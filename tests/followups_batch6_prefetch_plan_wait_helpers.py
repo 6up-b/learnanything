@@ -53,6 +53,20 @@ def _due_now(job_id: str) -> None:
     RICH._LAST_REQUEUE[job_id] -= RICH.PLAN_WAIT_RETRY_SECONDS + 1
 
 
+def _queued_waits(monkeypatch, job, ids) -> None:
+    """The queue the plan-wait read sees: copies of the real waiting prebuild ``job``, newest first, under ``ids``
+    (each its own input), so the pass's bound and pacing meet several waits. Patched at the queue's own read
+    (``rich.rich_jobs``), below every check the read makes, so each copy is still checked as the job is."""
+
+    def copy(job_id: str) -> dict:
+        if job_id == job["id"]:
+            return job
+        payload = {**job["payload"], "input_hash": f"{job['payload']['input_hash']}:{job_id}"}
+        return {**job, "id": job_id, "payload": payload}
+
+    monkeypatch.setattr(RICH, "rich_jobs", lambda repository: [copy(job_id) for job_id in ids])
+
+
 def _env(paths, repository, retried, **kwargs):
     return env_for(load_vault(paths.root), repository, retry_plan_wait=lambda job_id: retried.append(job_id) or True,
                    **kwargs)

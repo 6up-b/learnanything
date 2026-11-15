@@ -31,6 +31,7 @@ import pytest
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import FrozenClock
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
@@ -453,8 +454,8 @@ def test_unbuilt_candidates_close_asked_or_neither_and_withheld_ones_void(tmp_pa
                    PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"), (EXTRACTION, "p6"), (EXTRACTION, "p2"))))
     assert {row["decision"] for row in decisions(repository)} == {"skip"}
     build(context(paths.root, author=AuthorFake()), {"extractionId": EXTRACTION, "spanIds": ["p3"]})
-    real = FS.withheld_message
-    monkeypatch.setattr(FS, "withheld_message", lambda v, r, e, spans: "held out" if "p2" in spans else real(v, r, e, spans))
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld", lambda v, r, e, spans: "held out" if "p2" in spans else real(v, r, e, spans))
     tomorrow = FrozenClock(datetime(2099, 1, 2, tzinfo=UTC))
     assert PF.close_horizons(env_for(vault, repository, clock=tomorrow)) == 3
     outcomes = {json.loads(row["anchor_json"])["span_ids"][0]: row["outcome"] for row in decisions(repository)}

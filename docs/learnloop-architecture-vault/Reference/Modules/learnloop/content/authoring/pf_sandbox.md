@@ -137,6 +137,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/figure_build_golden_helpers.py](../../../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/figure_fixtures.py](../../../../../../../tests/figure_fixtures.py) — direct import
 - [tests/required_method_round3_review_helpers.py](../../../../../../../tests/required_method_round3_review_helpers.py) — direct import
 - [tests/test_embedding_compare.py](../../../../../../../tests/test_embedding_compare.py) — direct import

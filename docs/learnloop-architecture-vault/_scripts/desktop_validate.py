@@ -193,8 +193,10 @@ def main() -> int:
     # Recognition and effort RE0: screens/attemptClock.ts and screens/useAttemptClock.ts (the attempt's active clock).
     # Refactor C5 removed six with the Golden Path: GoldenPathScreen.tsx, GoldenPathSetup.tsx, TriageDecisionAid.tsx,
     # ExemplarConfirmDialog.tsx, WhyDiagnosisOverlay.tsx and fixtures/goldenpath/index.ts.
-    if len(ts_sources) != 324:
-        errors.append(f"source inventory drift: expected 324 TypeScript/TSX files, found {len(ts_sources)}")
+    # Teach hand-offs (Nov 14): app/checkHandoff.ts (a diagnostic check's hand-off to a Teacher lesson; entry-reachable).
+    # Student-journey fixes (Nov 14): components/NewSubjectControl.tsx (create a subject where none exists).
+    if len(ts_sources) != 326:
+        errors.append(f"source inventory drift: expected 326 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -292,7 +294,7 @@ def main() -> int:
         # Teacher TE3b: screens/today/LessonOfferBlock.tsx.
         # Owner captures (Nov 8): screens/workbench/BookPassage.tsx. IH1, IH3: LessonOfferPage.tsx, SomethingElse.tsx.
         # IH6: QuestionInProgress.tsx. RE0: attemptClock.ts, useAttemptClock.ts. C5: the six Golden Path files left.
-        "entry-reachable build graph": 313,
+        "entry-reachable build graph": 315,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -306,7 +308,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 330}:
+    if dict(status_counts) != {"ACTIVE": 332}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

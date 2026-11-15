@@ -398,6 +398,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/figure_rich_job_helpers.py](../../../../../../tests/figure_rich_job_helpers.py) — direct import
 - [tests/figure_rich_rereview_fixes_helpers.py](../../../../../../tests/figure_rich_rereview_fixes_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import
 - [tests/rw5c_golden_source.py](../../../../../../tests/rw5c_golden_source.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
@@ -406,8 +407,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_build_leaves_a_refused_record`
   - `test_a_refused_or_failed_prebuild_is_a_stop_record`
   - `test_a_rich_only_build_names_its_job_and_an_interrupted_build_its_error`
-  - `test_protection_exclusions_are_counted_by_rule_with_ten_keys`
-  - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_f3_a_stored_label_like_sketch_is_presented_without_that_text`
   - `test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_reused`
@@ -469,7 +468,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_background_build_stops_off_mains_before_any_request`
   - `test_a_prebuilt_figure_lists_only_while_on_or_once_pressed`
   - `test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service`
-  - `test_unbuilt_candidates_close_asked_or_neither_and_withheld_ones_void`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
   - `test_f10_a_rich_only_prebuild_shows_no_pending_or_failure_line`
   - `test_f11_unpressed_prebuilt_lines_keep_to_the_cue_budget`
@@ -489,7 +487,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r1_a_queued_speculative_fuller_is_marked_speculative`
   - `test_r1_an_unqueued_speculative_fuller_is_not_pending_on_battery`
   - `test_r1_an_unqueued_speculative_fuller_is_not_pending_switched_off_or_held_out`
-  - `test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate`
 - [tests/test_figures_rw5b_review.py](../../../../../../tests/test_figures_rw5b_review.py) — direct import
   - `test_the_reuse_key_never_names_the_origin_and_keeps_rw5as_keys`
 - [tests/test_figures_scope_redesign.py](../../../../../../tests/test_figures_scope_redesign.py) — direct import
@@ -507,21 +504,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f7_a_reuse_whose_request_cannot_be_recorded_fails_retryably_and_the_retry_reuses`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_e_the_visual_builder_decides_by_the_lesson_gate_alone`
-- [tests/test_followups_batch6_prefetch_decided_once.py](../../../../../../tests/test_followups_batch6_prefetch_decided_once.py) — direct import
-  - `test_a_passage_released_after_a_void_decision_may_be_decided`
-- [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — direct import
-  - `test_the_path_never_opens_a_held_out_section`
 - [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import
-  - `test_a_held_out_passage_or_a_closed_decision_is_not_retried`
-  - `test_a_pass_retries_at_most_the_daily_build_cap`
   - `test_the_runtime_wires_the_paced_requeue`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f1_the_readers_read_never_requeues_it_either`
   - `test_f1_the_worker_rechecks_before_the_store`
   - `test_f1_the_worker_stops_a_requeued_prebuild_before_any_request`
-  - `test_f2_a_job_that_keeps_meeting_the_limit_yields_the_slot_to_the_least_recently_asked`
-  - `test_f2_a_paced_job_first_in_line_never_starves_a_due_one`
-  - `test_f2_the_scan_goes_past_paced_jobs_until_the_bound_of_requeues`
 - [tests/test_followups_batch6_verify_fixes.py](../../../../../../tests/test_followups_batch6_verify_fixes.py) — direct import
   - `test_v1_an_answered_planned_item_lets_the_retry_through`
   - `test_v1_an_unreadable_stored_plan_fails_closed_everywhere`
@@ -560,9 +548,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_a_lesson_figure_never_spawns_a_rich_job`
-  - `test_a_shown_figure_held_out_since_is_no_longer_shown`
   - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
-  - `test_held_out_inputs_are_refused_before_any_call`
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
   - `test_the_teacher_origin_is_the_lesson_services_only`
 - [tests/test_rw5c_judgments.py](../../../../../../tests/test_rw5c_judgments.py) — direct import

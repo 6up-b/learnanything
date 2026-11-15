@@ -109,6 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_build_golden_helpers.py`
 - `tests/rw5c_golden_source.py`
 - `tests/rw5c_migration_helpers.py`
 - `tests/test_rw5c_judgments.py`

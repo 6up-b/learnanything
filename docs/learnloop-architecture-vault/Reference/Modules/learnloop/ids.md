@@ -278,6 +278,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/capture_desktop_helpers.py](../../../../../tests/capture_desktop_helpers.py) — direct import
+- [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
 - [tests/normalize_helpers.py](../../../../../tests/normalize_helpers.py) — direct import

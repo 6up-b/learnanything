@@ -34,6 +34,7 @@ import pytest
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import FrozenClock
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import foreground as FG
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
@@ -58,8 +59,8 @@ def mains():
 
 
 def _held(monkeypatch, spans: set[str]) -> None:
-    real = FS.withheld_message
-    monkeypatch.setattr(FS, "withheld_message",
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld",
                         lambda v, r, e, found: "held out" if spans & set(found) else real(v, r, e, found))
 
 
@@ -572,10 +573,10 @@ def test_f15_figures_ahead_of_need_are_on_by_default_and_the_suite_keeps_hooks_i
 # ===========================================================================
 
 def _newer_snapshot_holds(monkeypatch, newer, spans: set[str]) -> None:
-    """``withheld_message`` holds ``spans`` back only on the newer vault snapshot."""
+    """The exam predicate holds ``spans`` back only on the newer vault snapshot."""
 
-    real = FS.withheld_message
-    monkeypatch.setattr(FS, "withheld_message",
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld",
                         lambda v, r, e, found: "held out" if v is newer and spans & set(found) else real(v, r, e, found))
 
 
@@ -917,8 +918,10 @@ def test_r5_a_planned_visual_on_a_held_out_passage_is_not_a_candidate(tmp_path, 
     state = load_state(repository, view["lesson_id"])
     planned = PF.planned_visual(state.plans[-1]["outline"][0])
     key = state.book.passages[planned["anchors"][0]]
-    monkeypatch.setattr(FS, "keys_withheld", lambda v, r, keys: "held out" if any(
-        tuple(k) == (str(key["extraction_id"]), str(key["span_id"])) for k in keys) else None)
+    real = EM.spans_withheld
+    monkeypatch.setattr(EM, "spans_withheld", lambda v, r, e, spans: "held out" if any(
+        (str(e), str(span)) == (str(key["extraction_id"]), str(key["span_id"])) for span in spans)
+        else real(v, r, e, spans))
     PF.run_trigger(env_for(load_vault(paths.root), repository, author=author), PF.Trigger("lesson", view["lesson_id"]))
     assert decisions(repository) == [] and author.calls == 0
 

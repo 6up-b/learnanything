@@ -34,6 +34,7 @@ from tests.followups_batch6_prefetch_plan_wait_helpers import (
     _env,
     _pass,
     _prebuild_jobs,
+    _queued_waits,
     _rig,
     _waiting,
 )
@@ -198,8 +199,7 @@ def test_f2_a_paced_job_first_in_line_never_starves_a_due_one(tmp_path, monkeypa
     paths, repository, _ctx, _rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     set_config(paths, "figures.prefetch", max_daily_builds=1)
     # Two jobs wait, newest first: the newer is inside its retry interval, the older is due.
-    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, **kwargs:
-                        ["job_newer", "job_older"] if extraction_id is None else [])
+    _queued_waits(monkeypatch, job, ["job_newer", "job_older"])
     assert RICH.due_for_plan_retry("job_newer")  # just asked: paced now
     asked: list[str] = []
 
@@ -215,11 +215,10 @@ def test_f2_a_paced_job_first_in_line_never_starves_a_due_one(tmp_path, monkeypa
 
 
 def test_f2_the_scan_goes_past_paced_jobs_until_the_bound_of_requeues(tmp_path, monkeypatch):
-    paths, repository, _ctx, _rich_author, _job = _waiting_rig(tmp_path, monkeypatch)
+    paths, repository, _ctx, _rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     set_config(paths, "figures.prefetch", max_daily_builds=2)
     jobs = ["j1", "j2", "j3", "j4", "j5"]
-    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, **kwargs:
-                        list(jobs) if extraction_id is None else [])
+    _queued_waits(monkeypatch, job, jobs)
     for job_id in ("j1", "j2", "j3"):
         assert RICH.due_for_plan_retry(job_id)  # all three just asked: paced
     result = PF.PassResult("ok", "offer")
@@ -230,10 +229,9 @@ def test_f2_the_scan_goes_past_paced_jobs_until_the_bound_of_requeues(tmp_path, 
 
 def test_f2_a_job_that_keeps_meeting_the_limit_yields_the_slot_to_the_least_recently_asked(tmp_path,
                                                                                             monkeypatch):
-    paths, repository, _ctx, _rich_author, _job = _waiting_rig(tmp_path, monkeypatch)
+    paths, repository, _ctx, _rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     set_config(paths, "figures.prefetch", max_daily_builds=1)
-    monkeypatch.setattr(FS, "prefetch_plan_waits", lambda vault, repo, extraction_id, **kwargs:
-                        ["job_newer", "job_older"] if extraction_id is None else [])
+    _queued_waits(monkeypatch, job, ["job_newer", "job_older"])
     env = PF.PrefetchEnv(vault=load_vault(paths.root), repository=repository,
                          retry_plan_wait=RICH.due_for_plan_retry)
     first = PF.PassResult("ok", "offer")
