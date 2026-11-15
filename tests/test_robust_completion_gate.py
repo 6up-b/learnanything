@@ -9,8 +9,6 @@ and the selector are the predecessor's exactly. Fakes and plain values only; no 
 
 from __future__ import annotations
 
-import json
-
 from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
@@ -24,11 +22,8 @@ from learnloop.diagnosis.robust_composition import RobustDecision
 from learnloop.instructional.valuation import CandidateInput, ValuationProblem, value_problem
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.sim.diagnostic_validation import run_probe_validation
-from learnloop.vault.loader import load_vault
-from learnloop.vault.paths import VaultPaths
-from learnloop.vault.repository import vault_repository
 
-from tests.sim_probe_validation_helpers import _vault_with_confusable
+from tests.sim_probe_validation_helpers import _vault_with_confusable, run_records
 
 TAG = FACET_BELIEF_FIX_ALGORITHM_VERSION
 OLD = FIGURE_WAIT_ALGORITHM_VERSION
@@ -84,14 +79,8 @@ def _planted_run(tmp_path, *, version, switches_off=(), planted="surface_only", 
     vault_root = _vault_with_confusable(tmp_path / "source", version=version, switches_off=switches_off)
     report = run_probe_validation(vault_root, tmp_path / "runs", planted_types=(planted,), seeds=(seed,))
     assert len(report.results) == 1
-    run_root = tmp_path / "runs" / f"run_{planted}_{seed}"
-    vault = load_vault(run_root)
-    repository = vault_repository(VaultPaths(vault.root, vault.config))
-    with repository.connection() as connection:
-        gate_rows = connection.execute(
-            "SELECT forecast_json FROM voi_forecasts WHERE site = 'probe_robust_selection' ORDER BY created_at, id"
-        ).fetchall()
-    return report.results[0], [json.loads(row[0]) for row in gate_rows]
+    _detail, gate = run_records(tmp_path / "runs", planted, seed)
+    return report.results[0], gate
 
 
 def test_the_gate_does_not_end_a_planted_episode_whose_next_probe_pays(tmp_path):
