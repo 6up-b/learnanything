@@ -399,8 +399,11 @@ export function CausalRepairStatusPanel({
       <div style={{ marginTop: 7, color: COLOR.text, lineHeight: 1.55 }}>{status.message}</div>
 
       {/* "Not now" means stop asking, not stop being ambiguous: the state is
-          still needs_disambiguation, the offer is simply withdrawn. */}
-      {status.status === "needs_disambiguation" && !status.probeOffered ? (
+          still needs_disambiguation, the offer is simply withdrawn. The offer is
+          also withheld for recent burden or the session budget, which the
+          learner never asked for: only their own "Not now" gets this line. */}
+      {status.status === "needs_disambiguation" && !status.probeOffered
+        && status.reason === "defer_learner_preference" ? (
         <div style={{ marginTop: 6 }}>
           <Dim>You asked me not to check again for now — you can still ask to be taught.</Dim>
         </div>

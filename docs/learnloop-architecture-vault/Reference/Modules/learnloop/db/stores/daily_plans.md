@@ -119,7 +119,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; statically calls `plans_for_date`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `open_learner_state_hypotheses`; statically calls `open_learner_state_hypotheses`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `plan_served_origins`; statically calls `plan_served_origins`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `block_events_for`, `daily_plan_tables_present`, `plan_blocks`, `plans_for_date`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `module`; statically calls `block_events_for`, `daily_plan_tables_present`, `plan_blocks`, `plans_for_date`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `open_learner_state_hypotheses`; statically calls `open_learner_state_hypotheses`
 - [[Reference/Modules/learnloop/router_objective/ask_availability|learnloop.router_objective.ask_availability]] — imports `module`; statically calls `append_block_event`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `daily_plan_tables_present`, `latest_plan`

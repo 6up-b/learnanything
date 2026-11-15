@@ -210,6 +210,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_records_that_cannot_be_built_or_written_change_no_decision_build_or_prompt`
   - `test_the_recorded_seed_redraws_the_pass_exactly`
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
+  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 
 ## Modification guidance

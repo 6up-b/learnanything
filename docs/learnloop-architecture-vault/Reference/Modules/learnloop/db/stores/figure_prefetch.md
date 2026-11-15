@@ -115,6 +115,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_arcb_close_fixes.py](../../../../../../../tests/test_arcb_close_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figure_decision_records.py](../../../../../../../tests/test_figure_decision_records.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figure_prompts_golden.py](../../../../../../../tests/test_figure_prompts_golden.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
+- [tests/test_figure_switch_predicates.py](../../../../../../../tests/test_figure_switch_predicates.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figure_wait_estimate.py](../../../../../../../tests/test_figure_wait_estimate.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figures_prefetch.py](../../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
@@ -122,7 +123,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_followups_batch6_prefetch_next_section.py](../../../../../../../tests/test_followups_batch6_prefetch_next_section.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
-- [tests/test_followups_batch6_verify_fixes.py](../../../../../../../tests/test_followups_batch6_verify_fixes.py) — imports consumer [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]]
 
 ## Modification guidance
 

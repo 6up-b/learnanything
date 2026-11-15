@@ -364,10 +364,11 @@ def tier_menu_text(tiers: Sequence[str]) -> str:
     return "Media you may answer with: " + " ".join(named) + " " + rich_status_text(tiers)
 
 
-def rich_text() -> str:
-    from learnloop.figures.rich import RICH_BRIEF_MAX
+def rich_text(brief_max: int) -> str:
+    """The rich brief's contract, with its length cap (``rich.RICH_BRIEF_MAX``, passed in by the build: the
+    parameter registry names ``rich`` as the cap's owner, and this module must not import ``rich``)."""
 
-    return RICH_TEXT.replace("{brief}", f"{RICH_BRIEF_MAX:,}")
+    return RICH_TEXT.replace("{brief}", f"{brief_max:,}")
 
 
 #: Learner data-relax 2: a request whose context carries ``learner_state``
@@ -398,7 +399,10 @@ def rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None:
 
 
 def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch: bool = False,
-                        tiers: Sequence[str] | None = None, learner: bool = False) -> str:
+                        tiers: Sequence[str] | None = None, learner: bool = False,
+                        rich_brief_max: int | None = None) -> str:
+    """``rich_brief_max``: the rich brief's cap, required when ``tiers`` puts a rich tier on the menu."""
+
     text = AUTHOR_INSTRUCTIONS
     if advanced:
         marker = "annotations [{target, text}]."
@@ -415,7 +419,9 @@ def author_instructions(*, advanced: bool = False, show_me: bool = False, sketch
         text = text.replace(status, tier_menu_text(menu), 1)
         if "sketch" in menu:
             text += sketch_text()
-        text += rich_text()
+        if rich_brief_max is None:
+            raise ValueError("a menu with a rich tier needs the rich brief's cap (rich_brief_max)")
+        text += rich_text(rich_brief_max)
     elif sketch:
         # RW5d P2 (spec §8.4): the status sentence prefers the grammar and
         # names the sketch; the sketch's contract follows the grammar's.
@@ -438,12 +444,13 @@ def author_prompt_version(*, advanced: bool = False, show_me: bool = False, sket
 
 
 def author_prompt(context: dict[str, Any], *, advanced: bool = False, show_me: bool = False,
-                  sketch: bool = False, tiers: Sequence[str] | None = None, learner: bool = False) -> str:
+                  sketch: bool = False, tiers: Sequence[str] | None = None, learner: bool = False,
+                  rich_brief_max: int | None = None) -> str:
     return render_structured_prompt(
         "Explorable figure",
         author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner),
         {"instructions": author_instructions(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
-                                             learner=learner),
+                                             learner=learner, rich_brief_max=rich_brief_max),
          "context": context})
 
 

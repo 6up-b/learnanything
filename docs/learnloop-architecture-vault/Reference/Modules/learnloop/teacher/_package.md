@@ -78,13 +78,13 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] | [[Reference/Modules/learnloop/teacher/service#^module-purpose|purpose]] | `ACTIVE` | 3 | 39 |
 | [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] | [[Reference/Modules/learnloop/teacher/te2#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] | [[Reference/Modules/learnloop/teacher/topics#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] | [[Reference/Modules/learnloop/teacher/visuals#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
+| [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] | [[Reference/Modules/learnloop/teacher/visuals#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
@@ -93,9 +93,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 4 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 2 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
@@ -128,20 +128,20 @@ flowchart LR
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_attempts["learnloop.attempts"]
+    n_learnloop_figures["learnloop.figures"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_figures["learnloop.figures"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
     n_learnloop_scheduling["learnloop.scheduling"]
-    center -->|27| n_learnloop
+    center -->|28| n_learnloop
     center -->|16| n_learnloop_db_stores
     center -->|11| n_learnloop_source_retrieval
     center -->|9| n_learnloop_ai
     center -->|9| n_learnloop_attempts
+    n_learnloop_figures -->|3| center
+    center -->|3| n_learnloop_figures
     center -->|6| n_learnloop_learner
     center -->|6| n_learnloop_vault
-    n_learnloop_figures -->|3| center
-    center -->|2| n_learnloop_figures
     center -->|4| n_learnloop_followup_serve
     center -->|4| n_learnloop_scheduling
 ```

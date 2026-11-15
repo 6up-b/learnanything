@@ -62,7 +62,11 @@ def test_the_menu_is_neutral_facts_in_order_golden():
 
 
 def test_v3_instructions_replace_the_preference_and_carry_the_rich_brief():
-    instructions = R.author_instructions(sketch=True, tiers=("grammar", "sketch", "manim"))
+    instructions = R.author_instructions(sketch=True, tiers=("grammar", "sketch", "manim"),
+                                         rich_brief_max=RICH.RICH_BRIEF_MAX)
+    assert f"{RICH.RICH_BRIEF_MAX:,}" in instructions
+    with pytest.raises(ValueError):  # the cap is the build's to pass; a rich menu without it is a caller's bug
+        R.author_instructions(sketch=True, tiers=("grammar", "sketch", "manim"))
     assert R.STATUS_V2 not in instructions  # rev 1's "prefer the grammar" sentence is gone
     assert "Write a sketch only for what it cannot express" not in instructions
     assert "RICH (rich_json" in instructions and "SketchProgramV1" in instructions

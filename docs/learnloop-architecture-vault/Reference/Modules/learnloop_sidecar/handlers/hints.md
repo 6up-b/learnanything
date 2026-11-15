@@ -122,7 +122,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `enqueue_hint_feedback`; calls `enqueue_hint_feedback`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `help_kind_enabled`; calls `help_kind_enabled`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `module`, `reveal_text`; calls `chain_root`, `offer_view`, `qualifying_figure`, `reveal_text`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `figure_withheld`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `figure_withheld`; calls `figure_withheld`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `schedule_merge_after_hint`; calls `schedule_merge_after_hint`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `HintRequestError`, `HintRequestV1`, `adaptive_enabled`, `module`; calls `HintRequestV1`, `HintResultV1`, `adaptive_enabled`, `deliver_hint`, `record_discriminate_answer`, `request_hint`, `reveal_amount`, `reveal_basis`, `reveal_exempt`, `shown_text`, `undelivered_result`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`

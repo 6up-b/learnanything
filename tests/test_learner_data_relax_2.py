@@ -27,6 +27,7 @@ import anyio
 import pytest
 from mcp import Client
 
+from learnloop.figures import protection as FP
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
 from learnloop.figures.learner_state import RECENT_ANSWERS, learner_state, read_learner_state, state_hash
@@ -471,10 +472,10 @@ def test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered(tm
     rich = _rich_row(rig.repository)
     (line,) = rig.listed()
     assert line["fuller"]["state"] == "ready" and line["fuller"]["figure"]["figure_id"] == rich["id"]
-    assert not FS.figure_withheld(rig.vault, rig.repository, rich["id"])
+    assert not FP.figure_withheld(rig.vault, rig.repository, rich["id"])
     _make_exam_material(rig)
-    assert FS.figure_withheld(rig.vault, rig.repository, rich["id"])
-    assert FS.row_withheld(rig.vault, rig.repository, rich) is not None
+    assert FP.figure_withheld(rig.vault, rig.repository, rich["id"])
+    assert FP.row_withheld(rig.vault, rig.repository, rich) is not None
     # Follow-ups Nov 2 (a): the quick figure was written from the same learner
     # state (its own record), so it is not listed either (before: it stayed,
     # without its fuller version).
@@ -482,7 +483,6 @@ def test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered(tm
 
 
 def test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused(tmp_path, monkeypatch):
-    from learnloop.figures import rich as RICH
     from tests import rich_fixtures as RF
     from tests.figure_rich_job_helpers import WHY
 
@@ -500,16 +500,14 @@ def test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reuse
     with rig.repository.connection() as connection:
         assert FS._reusable(rig.vault, rig.repository, connection, rich["input_hash"], []) is None
     assert rig.listed() == []
-    assert RICH.stored_learner_state_withheld(rig.vault, rig.repository, rich) is not None
+    assert FP.stored_learner_state_withheld(rig.vault, rig.repository, rich) is not None
 
 
 def test_a_stored_rich_figure_without_learner_state_is_checked_as_before(tmp_path, monkeypatch):
-    from learnloop.figures import rich as RICH
-
     row = {"verification_report": {"outcome": "illustrative"}}
-    assert RICH.stored_learner_state_withheld(None, None, row) is None
+    assert FP.stored_learner_state_withheld(None, None, row) is None
     # A recorded learner state whose inputs record is missing fails closed.
     paths, repository = _plain_vault(tmp_path)
     vault = load_vault(paths.root)
-    assert RICH.stored_learner_state_withheld(vault, repository, {"verification_report": {
+    assert FP.stored_learner_state_withheld(vault, repository, {"verification_report": {
         "learner_state_inputs": None}}) is not None

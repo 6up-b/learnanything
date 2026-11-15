@@ -169,7 +169,6 @@ def test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes(tmp_path, 
     stays a read: no verification run, no row written, in any section."""
 
     import learnloop.figures.sketch_verify as SV
-    from learnloop.figures import sketch as K
     from tests import sketch_fixtures as SF
 
     _paths, repository, ctx, _judge = _judged(tmp_path)
@@ -177,7 +176,7 @@ def test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes(tmp_path, 
         with repository.connection() as connection:
             store.insert_figure(connection, {
                 "id": figure_id, "extraction_id": "ext_lay", "span_ids": [span], "input_span_ids": [span],
-                "origin": "selection", "spec_json": json.dumps(SF.walk()), "spec_version": K.SKETCH_VERSION,
+                "origin": "selection", "spec_json": json.dumps(SF.walk()), "spec_version": S.SKETCH_VERSION,
                 "tier": "sketch", "kind": "illustrative", "verification": "illustrative",
                 "verification_report": {}, "engine_sha256": "an-older-engine", "model": "fake",
                 "prompt_version": "v1", "input_hash": f"hash_{figure_id}", "created_at": "2026-10-30T00:00:00Z",

@@ -1307,6 +1307,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Repository`
@@ -1576,7 +1577,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 387 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 388 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -2778,6 +2779,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import
   - `test_feedback_resolves_current_ingest_span_and_filename`
   - `test_missing_note_resolves_youtube_ingest_identity`
+- [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
   - `test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context`
   - `test_rate_limits_retry_within_caps_and_malformed_answers_fail_closed`

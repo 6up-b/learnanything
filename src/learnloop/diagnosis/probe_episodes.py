@@ -3438,29 +3438,46 @@ def _value_of_information_stop(
 # --- Learner controls (§3, §12.1) -----------------------------------------------------
 
 
+@dataclass(frozen=True)
+class StoppedCheck:
+    """What `Stop diagnosing and teach me` did: the typed transition decision it
+    persisted, and the block's committed answers' feedback it released."""
+
+    decision: dict[str, Any]
+    released_feedback: list[dict[str, Any]]
+
+
 def stop_diagnosing_and_teach(
     vault: LoadedVault,
     repository: Repository,
     learning_object_id: str,
     *,
     clock: Clock | None = None,
-) -> dict[str, Any] | None:
-    """`Stop diagnosing and teach me`: end measurement, open a post-intervention
-    state segment, and persist a typed transition decision (§12.1)."""
+) -> StoppedCheck | None:
+    """`Stop diagnosing and teach me`: settle the block's committed answers, end
+    measurement, open a post-intervention state segment, and persist a typed
+    transition decision (§12.1)."""
 
     episode = repository.open_probe_episode(learning_object_id)
     if episode is None:
         return None
-    posterior = episode_posterior(vault, repository, episode)
-    active = repository.active_probe_presentation(episode.id)
-    if active is not None:
-        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
 
     from learnloop.diagnosis.probe_blocks import (
         _first_error_from_block,
         block_observation_rows,
         build_typed_transition_decision,
+        settle_block_answers,
     )
+
+    # The attempt pipeline deferred these answers' normalization, diagnosis and
+    # feedback to a block end that the conversion below means never runs. No
+    # model client, as the attempt step's block end: normalization then asks no
+    # model. Before the posterior, which the block end also reads after it.
+    released_feedback, _ = settle_block_answers(vault, repository, episode, ai_client=None, clock=clock)
+    posterior = episode_posterior(vault, repository, episode)
+    active = repository.active_probe_presentation(episode.id)
+    if active is not None:
+        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
 
     decision = build_typed_transition_decision(
         vault,
@@ -3485,7 +3502,7 @@ def stop_diagnosing_and_teach(
         reason="tutoring_transition",
         clock=clock,
     )
-    return decision
+    return StoppedCheck(decision=decision, released_feedback=released_feedback)
 
 
 def close_diagnostic_segment(

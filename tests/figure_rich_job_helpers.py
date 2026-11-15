@@ -38,9 +38,10 @@ class _Rig:
         self.batches.append(batch)
         return self.ingest.repo.ingest_jobs_for_batch(batch)[0]["id"]
 
-    def build(self, request=None):
+    def build(self, request=None, find=None):
         request = request or FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-        return FS.build_figure(self.vault, self.repository, request, author_client=self.author, spawn_rich=self.spawn)
+        return FS.build_figure(self.vault, self.repository, request, author_client=self.author, spawn_rich=self.spawn,
+                               find=find)
 
     def listed(self):
         return FS.list_figures(self.vault, self.repository, EXTRACTION)

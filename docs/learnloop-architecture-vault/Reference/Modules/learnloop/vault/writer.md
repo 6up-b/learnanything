@@ -328,6 +328,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_anchored_items_need_a_quote_verified_span_and_must_not_be_closed_book`
 - [tests/test_plan_first_transport_today_quiet.py](../../../../../../tests/test_plan_first_transport_today_quiet.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
+- [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
 - [tests/test_probe_audit.py](../../../../../../tests/test_probe_audit.py) — direct import
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
 - [tests/test_probe_llm_instances.py](../../../../../../tests/test_probe_llm_instances.py) — direct import

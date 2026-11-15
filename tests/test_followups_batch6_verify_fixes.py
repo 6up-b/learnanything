@@ -2,7 +2,7 @@
 
 V1: a prebuild's rich job never asks the plan again, sends or stores while its saved context
 touches a passage of an item the stored day plan holds open, on the Reader's retry path and in
-the worker too (one core: ``service.item_passages`` always reads the stored plan). V2: a pass's
+the worker too (one core: ``protection.item_passages`` always reads the stored plan). V2: a pass's
 plan-wait retries run only when the pass carries real learner activity: the gap worker's passes
 (poll ticks, deferred drains) and Today's reads (which background work can fire) never retry.
 
@@ -25,6 +25,7 @@ from learnloop.daily_plan.engine import PlanEnv, load_records
 from learnloop.db.stores import daily_plans as PLAN_STORE
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
+from learnloop.figures import protection as FP
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
 from learnloop.source_retrieval import corpus
@@ -136,10 +137,10 @@ def test_v1_an_unreadable_stored_plan_fails_closed_everywhere(tmp_path, monkeypa
         _plan_row(connection, "dp_bad", _today(), "2026-11-02T09:00:00+00:00", split_json="{not json")
         connection.commit()
     vault = load_vault(paths.root)
-    assert FS.item_passages(vault, repository) is None
+    assert FP.item_passages(vault, repository) is None
     assert FS.prefetch_plan_waits(vault, repository, EXTRACTION) == []
     assert PF.item_protection(_env(paths, repository, [])).available is False
-    assert FS.rich_base_item_protected(vault, repository, job["payload"]["base"]) == FS.ITEM_PASSAGE_PROTECTED
+    assert FP.rich_base_item_protected(vault, repository, job["payload"]["base"]) == FP.ITEM_PASSAGE_PROTECTED
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     assert rich_author.calls == 1
     assert ctx.ingest_jobs.retry_figure_rich(job["id"], error_code=RICH.WAITING_FOR_PLAN)
@@ -162,7 +163,7 @@ def test_v1_only_todays_plan_holds_an_item(tmp_path, monkeypatch):
     # The clock names the day: on the plan's own day, it holds.
     then = FrozenClock(datetime.now(UTC) - timedelta(days=1))
     assert FS.prefetch_plan_waits(vault, repository, EXTRACTION, clock=then) == []
-    assert FS.rich_base_item_protected(vault, repository, job["payload"]["base"], clock=then) == FS.ITEM_PASSAGE_PROTECTED
+    assert FP.rich_base_item_protected(vault, repository, job["payload"]["base"], clock=then) == FP.ITEM_PASSAGE_PROTECTED
 
 
 def test_v1_a_learners_own_press_keeps_its_behaviour(tmp_path, monkeypatch):
@@ -221,9 +222,9 @@ def test_v1_the_open_items_are_the_plan_records_own(tmp_path):
     assert isinstance(record, RECORDS.PlanRecord) and "drawn_open" in expected and "planned_twice" in expected
     assert "in_a_receipt" not in expected and "older_plan_open" not in expected
     day = FrozenClock(datetime(2026, 11, 2, 12, 0, tzinfo=UTC))
-    assert FS.stored_plan_open_items(repository, clock=day) == expected
+    assert FP.stored_plan_open_items(repository, clock=day) == expected
     assert "second_block_open" in expected and "other_day_open" not in expected and "done" not in expected
-    assert FS.stored_plan_open_items(repository, clock=FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))) == []
+    assert FP.stored_plan_open_items(repository, clock=FrozenClock(datetime(2026, 10, 1, 12, 0, tzinfo=UTC))) == []
 
 
 # --- V2: retries ride on real learner activity only ---------------------------------------------------

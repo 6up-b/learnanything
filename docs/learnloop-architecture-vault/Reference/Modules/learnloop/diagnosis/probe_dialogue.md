@@ -135,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_end_dialogue_block_invalidates_unsubmitted_turn_and_segments`
   - `test_second_dialogue_block_on_same_lo_can_open`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
 
 ## Modification guidance
 

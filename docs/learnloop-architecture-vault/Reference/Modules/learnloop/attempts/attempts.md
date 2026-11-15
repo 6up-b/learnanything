@@ -788,6 +788,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_a_mid_check_stop_queues_the_blind_answers_diagnosis`
 - [tests/test_teacher_te1_lesson.py](../../../../../../tests/test_teacher_te1_lesson.py) — direct import
   - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import

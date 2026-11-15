@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.router_objective import exposure
+from learnloop.figure_admission import figures_enabled
 from learnloop.figures import service as FS
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop.reader import reader_dialogue as RD
@@ -87,7 +88,7 @@ def figures_follow_enabled(vault: Any) -> bool:
     """RW5d P4a (figures follow the section): CA5's ``reader.correspondence.enabled``
     (respecting ``curriculum.enabled`` and the Reader) with ``figures.enabled``."""
 
-    return find_section_enabled(vault) and FS.enabled(vault)
+    return find_section_enabled(vault) and figures_enabled(vault)
 
 
 def hidden_everywhere(vault: Any) -> bool:

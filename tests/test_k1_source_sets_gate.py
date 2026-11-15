@@ -89,7 +89,7 @@ def test_every_shared_reader_refuses_unloaded_source_sets(vault_with_exam, kind)
 
 @pytest.mark.parametrize("kind", CORRUPTIONS)
 def test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load(vault_with_exam, kind):
-    from learnloop.figures.service import withheld_message
+    from learnloop.figures.protection import withheld_message
     from learnloop.reader.phone_media import phone_withheld
     from learnloop.source_retrieval.corpus import exam_exclusions, teaching_exclusions, teaching_scope
 

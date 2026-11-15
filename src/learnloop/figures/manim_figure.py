@@ -43,7 +43,6 @@ from learnloop.figures import grammar as G
 from learnloop.figures import labels as L
 from learnloop.figures.sketch import CLAIM_REL_TOL, SKETCH_MAX_CLAIM_WORK, expression_steps, impersonates
 
-MANIM_FIG_VERSION = "manim-fig-v1"
 #: keep (operational): declared functions per figure (check work, check lines).
 MAX_FUNCTIONS = 4
 #: keep (operational): arguments per declared function (3 grid values each: at most 81 points).
@@ -917,7 +916,6 @@ __all__ = [
     "Extraction",
     "Function",
     "FunctionRunner",
-    "MANIM_FIG_VERSION",
     "ManimFigure",
     "ManimFigureError",
     "check_claims",

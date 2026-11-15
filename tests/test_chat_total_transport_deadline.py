@@ -38,6 +38,33 @@ from learnloop.config import AIProviderConfig
 KEY_ENV = "LEARNLOOP_TEST_DEADLINE_KEY"
 #: Slack for scheduling on a loaded test machine (the bound itself is exact).
 SLACK = 0.75
+#: Float rounding of a virtual clock's sum of operation times (the bound on it is exact).
+ROUNDING = 1e-9
+
+
+class VirtualClock:
+    """The deadline's clock (``openai_chat._deadline_clock``) and the fake network's, advanced
+    only by the fake operations' own durations. What a deadline test measures on it is the
+    transport's time alone: wall time also counts what runs before the deadline is armed (the
+    SDK's first imports, a loaded worker), which the transport bound does not cover."""
+
+    def __init__(self) -> None:
+        self._now = 0.0
+        self._lock = threading.Lock()
+
+    def now(self) -> float:
+        with self._lock:
+            return self._now
+
+    def advance(self, seconds: float) -> None:
+        with self._lock:
+            self._now += seconds
+
+
+def _virtual_clock(monkeypatch) -> VirtualClock:
+    clock = VirtualClock()
+    monkeypatch.setattr(OC, "_deadline_clock", clock.now)
+    return clock
 
 
 class Answer(WireModel):
@@ -78,13 +105,13 @@ class FakeSocket(httpcore.NetworkStream):
             self.server.max_in_flight = max(self.server.max_in_flight, self.server.in_flight)
         try:
             if timeout is not None and delay > timeout:
-                time.sleep(max(0.0, timeout))
+                self.server.wait(max(0.0, timeout))
                 raise error("timed out")
-            time.sleep(delay)
+            self.server.wait(delay)
         finally:
             with self.server.lock:
                 self.server.in_flight -= 1
-                self.server.last_operation_ended = time.monotonic()
+                self.server.last_operation_ended = self.server.now()
 
     def write(self, buffer: bytes, timeout: float | None = None) -> None:
         self._operation(self.server.write_delay, timeout, httpcore.WriteTimeout)
@@ -106,7 +133,7 @@ class FakeSocket(httpcore.NetworkStream):
 
     def close(self) -> None:
         if self.closed_at is None:
-            self.closed_at = time.monotonic()
+            self.closed_at = self.server.now()
         self.closed.set()
 
     def start_tls(self, ssl_context: Any, server_hostname: str | None = None,
@@ -121,8 +148,10 @@ class FakeServer:
     """The fake network: connect, upload, header and body delays per operation."""
 
     def __init__(self, body: bytes, *, connect_delay: float = 0.0, write_delay: float = 0.0,
-                 head_every: float = 0.0, body_every: float = 0.0) -> None:
+                 head_every: float = 0.0, body_every: float = 0.0, clock: VirtualClock | None = None) -> None:
         self.body = body
+        #: With a virtual clock an operation advances it instead of sleeping.
+        self.clock = clock
         self.connect_delay = connect_delay
         self.write_delay = write_delay
         self.head_every = head_every
@@ -137,13 +166,22 @@ class FakeServer:
         #: Where each connection was opened: ``(host, port)``.
         self.hosts: list[tuple[str, int]] = []
 
+    def now(self) -> float:
+        return self.clock.now() if self.clock is not None else time.monotonic()
+
+    def wait(self, seconds: float) -> None:
+        if self.clock is not None:
+            self.clock.advance(seconds)
+        else:
+            time.sleep(seconds)
+
     def backend(self) -> httpcore.NetworkBackend:
         server = self
 
         class Backend(httpcore.NetworkBackend):
             def connect_tcp(self, host: str, port: int, timeout: float | None = None,
                             local_address: str | None = None, socket_options: Any = None) -> httpcore.NetworkStream:
-                server.started.append(time.monotonic())
+                server.started.append(server.now())
                 server.hosts.append((host, port))
                 sock = FakeSocket(server)
                 sock._operation(server.connect_delay, timeout, httpcore.ConnectTimeout)
@@ -203,13 +241,14 @@ def _assert_transport_over(server: FakeServer, returned_at: float) -> None:
 def test_rw6b2_f3_a_dribbling_response_is_aborted_at_the_total_deadline(monkeypatch, fake_network):
     body = _completion(Answer(text="x" * 40).model_dump_json())
     # Every read arrives well inside the per-operation timeout, but the whole body would take ~5 s.
-    server = fake_network(FakeServer(body, body_every=5.0 / len(body)))
+    clock = _virtual_clock(monkeypatch)
+    server = fake_network(FakeServer(body, body_every=5.0 / len(body), clock=clock))
     client = _client(monkeypatch, timeout=1.0)
-    started = time.monotonic()
+    started = clock.now()
     with pytest.raises(CodexUnavailable):
         _ask(client, 1.0)
-    returned = time.monotonic()
-    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    returned = clock.now()
+    assert returned - started <= OC.enforced_total_seconds(1.0) + ROUNDING
     # One physical request (no retry past the deadline), aborted long before the body ended.
     assert len(server.sockets) == 1 and server.served < len(server.sockets[0].head) + len(body)
     _assert_transport_over(server, returned)
@@ -222,13 +261,14 @@ def test_f2_delayed_response_headers_are_cancelled_at_the_deadline_not_abandoned
 
     body = _completion(Answer(text="ok").model_dump_json())
     head, _ = _http_response(body)
-    server = fake_network(FakeServer(body, head_every=5.0 / len(head)))
+    clock = _virtual_clock(monkeypatch)
+    server = fake_network(FakeServer(body, head_every=5.0 / len(head), clock=clock))
     client = _client(monkeypatch, timeout=1.0)
-    started = time.monotonic()
+    started = clock.now()
     with pytest.raises(CodexUnavailable):
         _ask(client, 1.0)
-    returned = time.monotonic()
-    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    returned = clock.now()
+    assert returned - started <= OC.enforced_total_seconds(1.0) + ROUNDING
     assert len(server.sockets) == 1 and server.served < len(head)
     _assert_transport_over(server, returned)
     assert server.max_in_flight == 1  # never two operations (a replacement request) at once
@@ -241,13 +281,15 @@ def test_f2_slow_connect_and_upload_count_against_the_same_deadline(monkeypatch,
 
     body = _completion(Answer(text="ok").model_dump_json())
     head, _ = _http_response(body)
-    server = fake_network(FakeServer(body, connect_delay=0.45, write_delay=0.45, head_every=0.9 / len(head)))
+    clock = _virtual_clock(monkeypatch)
+    server = fake_network(FakeServer(body, connect_delay=0.45, write_delay=0.45, head_every=0.9 / len(head),
+                                     clock=clock))
     client = _client(monkeypatch, timeout=1.0)
-    started = time.monotonic()
+    started = clock.now()
     with pytest.raises(CodexUnavailable):
         _ask(client, 1.0)
-    returned = time.monotonic()
-    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    returned = clock.now()
+    assert returned - started <= OC.enforced_total_seconds(1.0) + ROUNDING
     assert len(server.sockets) == 1
     _assert_transport_over(server, returned)
 
@@ -338,10 +380,12 @@ class PartialSendSocket:
     one ``SyncStream.write`` loops over many partial sends. ``settimeout`` is
     honoured like a socket's: a send slower than it waits it, then raises."""
 
-    def __init__(self, response: bytes, *, per_send: int, send_delay: float) -> None:
+    def __init__(self, response: bytes, *, per_send: int, send_delay: float,
+                 clock: VirtualClock | None = None) -> None:
         self.response = response
         self.per_send = per_send
         self.send_delay = send_delay
+        self.clock = clock
         self.timeout: float | None = None
         self.sends: list[float] = []
         self.received = b""
@@ -359,11 +403,11 @@ class PartialSendSocket:
         with self.lock:
             self.in_flight += 1
         try:
-            self.sends.append(time.monotonic())
+            self.sends.append(self._now())
             if self.timeout is not None and self.send_delay > self.timeout:
-                time.sleep(max(0.0, self.timeout))
+                self._wait(max(0.0, self.timeout))
                 raise socket.timeout("timed out")
-            time.sleep(self.send_delay)
+            self._wait(self.send_delay)
             chunk = data[:self.per_send]
             self.received += chunk
             return len(chunk)
@@ -376,9 +420,18 @@ class PartialSendSocket:
         self.position += len(chunk)
         return chunk
 
+    def _now(self) -> float:
+        return self.clock.now() if self.clock is not None else time.monotonic()
+
+    def _wait(self, seconds: float) -> None:
+        if self.clock is not None:
+            self.clock.advance(seconds)
+        else:
+            time.sleep(seconds)
+
     def close(self) -> None:
         if self.closed_at is None:
-            self.closed_at = time.monotonic()
+            self.closed_at = self._now()
 
     def fileno(self) -> int:
         return -1  # no descriptor: httpcore's readability probe treats the connection as at its end
@@ -441,17 +494,18 @@ def test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_dea
     head, _ = _http_response(body)
     # Sends of 8 bytes, each 0.06 s (well inside the per-operation timeout): the request's
     # headers alone (one httpcore write) take ~4 s, its body (a second write) longer still.
-    sock = PartialSendSocket(head + body, per_send=8, send_delay=0.06)
+    clock = _virtual_clock(monkeypatch)
+    sock = PartialSendSocket(head + body, per_send=8, send_delay=0.06, clock=clock)
 
     monkeypatch.setattr(pool_module, "SyncBackend", _sync_stream_backend(sock))
     client = _client(monkeypatch, timeout=1.0)
-    started = time.monotonic()
+    started = clock.now()
     with pytest.raises(CodexUnavailable):
         client.complete(StructuredRequest(purpose="deadline_probe", prompt="p" * 2000, result_model=Answer,
                                           timeout_seconds=1.0))
-    returned = time.monotonic()
+    returned = clock.now()
 
-    assert returned - started < OC.enforced_total_seconds(1.0) + SLACK
+    assert returned - started <= OC.enforced_total_seconds(1.0) + ROUNDING
     # The deadline is armed after ``started``: no partial send began past it.
     late = [at for at in sock.sends if at > started + OC.enforced_total_seconds(1.0)]
     assert late == [], f"{len(late)} partial sends started after the deadline"

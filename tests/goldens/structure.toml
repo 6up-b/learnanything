@@ -6,7 +6,7 @@
 
 [ratchet]
 largest_import_component = 186
-modules_in_an_import_cycle = 283
+modules_in_an_import_cycle = 279
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
@@ -730,8 +730,9 @@ stage_test_files = [
 "src/learnloop/figures/power.py" = 1
 "src/learnloop/figures/prefetch.py" = 13
 "src/learnloop/figures/prefetch_ledger.py" = 1
-"src/learnloop/figures/rich.py" = 20
-"src/learnloop/figures/service.py" = 57
+"src/learnloop/figures/protection.py" = 7
+"src/learnloop/figures/rich.py" = 18
+"src/learnloop/figures/service.py" = 52
 "src/learnloop/figures/sketch.py" = 4
 "src/learnloop/figures/sketch_engine.py" = 1
 "src/learnloop/figures/sketch_verify.py" = 10
