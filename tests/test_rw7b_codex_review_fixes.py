@@ -33,14 +33,14 @@ from learnloop.source_retrieval import reading_paths as RP
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import EXT, PathJudgeFake, call, context
-from tests.plan_follows_path_helpers import GUIDE_OFF, OFF, _split, _vault
+from tests.plan_follows_path_helpers import GUIDE_OFF, _split, _vault
 from tests.rw7b_codex_review_fixes_helpers import LABELS, _blocks, _stage_reading
 
 # -- F1: the kill switch reaches plans already built --------------------------------------------------
 
 
-@pytest.mark.parametrize("switch", [OFF, GUIDE_OFF], ids=["plan_uses_path_off", "guide_off"])
-def test_f1_switching_off_after_the_build_restores_the_predecessors_reading(tmp_path, monkeypatch, switch):
+def test_f1_switching_off_after_the_build_restores_the_predecessors_reading(tmp_path, monkeypatch):
+    switch = GUIDE_OFF
     paths, repository, _ = _vault(tmp_path, monkeypatch, labels=LABELS)
     call(context(paths.root), "get_daily_plan", {})
     built = _split(repository)
@@ -77,7 +77,7 @@ def test_f1_a_finished_core_path_that_planned_no_reading_gets_the_predecessors_b
     call(context(paths.root), "get_daily_plan", {})
     built = _split(repository)
     assert built["reading"] is None and built["reading_path"]["predecessor"]["section_id"] == "sec_eigen"
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     plan = call(context(paths.root), "get_daily_plan", {})
     split = _split(repository)
     assert split["reading"] == built["reading_path"]["predecessor"]
@@ -95,7 +95,7 @@ def test_f1_a_staged_unstarted_path_reading_is_ended_unread_and_the_predecessors
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     staged = _stage_reading(ctx, session_id)
     assert staged["reading"]["sectionId"] == "sec_spectral"
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     ctx = context(paths.root)
     step = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert step["kind"] == "reading" and step["reading"]["sectionId"] == "sec_eigen"
@@ -120,7 +120,7 @@ def test_f1_a_started_path_reading_is_kept(tmp_path, monkeypatch):
     started = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert started["reading"]["sectionId"] == "sec_spectral"
     before = _split(repository)
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     step = call(context(paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     # The learner is reading it: history is kept, nothing is rewritten.
     assert (step["kind"], step["reading"]["sectionId"], step["blockId"]) == ("reading", "sec_spectral",

@@ -76,7 +76,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("router.restraint", "mvp-0.24", True),
     KillSwitch("router.lesson_suggestions.enabled", "mvp-0.43", True),
     KillSwitch("router.lesson_suggestions.in_objective", "mvp-0.53", True),
-    KillSwitch("reading_paths.plan_uses_path", "mvp-0.32", True),
     KillSwitch("curriculum.plan_uses_path", "mvp-0.40", True),
     KillSwitch("curriculum.enabled", "mvp-0.40", True),
     KillSwitch("data_capture.serving", "mvp-0.44", True),

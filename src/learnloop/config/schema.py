@@ -2927,7 +2927,7 @@ class RolesConfig(BaseModel):
     batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
 
 
-class ReadingPathsConfig(BaseModel):
+class ReadingPathsConfig(KeepsRetiredFields):
     """Reader workbench: reading paths in the Guide.
 
     At the depth the learner picks for a source (get the idea, learn to use
@@ -2943,28 +2943,23 @@ class ReadingPathsConfig(BaseModel):
     the kill switch (off: the Guide without paths, no call, every RPC refused).
     ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
     before the call; Codex is ``estimated_only``). The Guide itself is
-    display only: nothing in scoring, projection or evidence reads a path,
-    and below ``READING_PATH_PLAN_ALGORITHM_VERSION`` nothing in scheduling
-    or serving does either (``plan_uses_path`` below is the plan's read, at
-    its own tag).
+    display only: nothing in scoring, projection or evidence reads a path.
 
-    ``plan_uses_path`` is the kill switch of
-    ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
-    with ``enabled`` on too, the plan's reading block opens the next
-    unfinished core or prerequisite section of the source's path judged
-    for the learner's current state (a "read it anyway" counts as core;
-    "skip it", enrichment, already shown and assumed are never planned; a
-    source with no path, or only a stale one, keeps the predecessor's
-    order), and the plan records the section the predecessor's order would
-    have chosen. Off, below the tag, or with ``enabled`` off: every plan
-    build exactly as the predecessor, and a plan already built gets the
-    predecessor's reading back while its reading is unstarted. The plan
-    never calls the judge.
+    With ``enabled`` on, the plan's reading block opens the next unfinished
+    core or prerequisite section of the source's path judged for the
+    learner's current state (``READING_PATH_PLAN_ALGORITHM_VERSION``, whose
+    own kill switch went once every vault was past the tag; a "read it
+    anyway" counts as core; "skip it", enrichment, already shown and assumed
+    are never planned; a source with no path, or only a stale one, keeps the
+    predecessor's order), and the plan records the section the predecessor's
+    order would have chosen. With ``enabled`` off: every plan build exactly
+    as the predecessor, and a plan already built gets the predecessor's
+    reading back while its reading is unstarted. The plan never calls the
+    judge.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
-    plan_uses_path: bool = True
 
 
 class CurriculumConfig(BaseModel):
@@ -2999,9 +2994,8 @@ class CurriculumConfig(BaseModel):
 
     ``plan_uses_path``: the kill switch of
     ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later, with it,
-    ``enabled`` and the reading-path gate on (``reading_paths.enabled`` and
-    ``reading_paths.plan_uses_path``: the plan never follows a path the
-    learner cannot see): the plan's reading block opens the next unfinished
+    ``enabled`` and the reading-path gate on (``reading_paths.enabled``: the
+    plan never follows a path the learner cannot see): the plan's reading block opens the next unfinished
     core or prerequisite section in the nearest active deliverable's path
     order, in whichever book it is, when that path is fresh; a stale path is
     re-judged quietly once a day (plan only) and is not followed meanwhile.

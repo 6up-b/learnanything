@@ -27,8 +27,8 @@ from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
 from tests.curriculum_c1_plan_follows_path_helpers import (
     C1_OFF,
+    GUIDE_OFF,
     PRIMARIES,
-    RW7B_OFF,
     _at,
     _c1,
     _complete,
@@ -105,7 +105,7 @@ def test_f2_c1_off_then_rw7b_off_in_separate_reads_ends_on_the_orders_reading(tm
     assert first["reading"] == built["reading_path"]["predecessor"] and first["reading"]["path_label"] == "core"
     [first_move] = first["reading_path"]["moves"]
     assert first_move["reason"] == "deliverable_path_off" and first["reading_path"]["move_count"] == 1
-    append_config_toml(c1.paths.root, RW7B_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
+    append_config_toml(c1.paths.root, GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     call(context(c1.paths.root), "get_daily_plan", {})
     second = _split(c1.repository)
     # Now the order's choice (what a build now gives), and both moves are in the receipt.

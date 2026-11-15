@@ -447,9 +447,9 @@ WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
 # plan's reading block; F3), never evidence or the projection, so it is
 # another successor tag on the mvp-0.8 namespace. Receipts: the plan's
 # ``split_json["reading_path"]`` records the section the predecessor's order
-# would have chosen. Kill switch: ``reading_paths.plan_uses_path`` (off, or
-# with the Guide's ``reading_paths.enabled`` off: every plan build exactly as
-# the predecessor).
+# would have chosen. Its kill switch (reading_paths.plan_uses_path) went once
+# every vault was past the tag; with the Guide's ``reading_paths.enabled``
+# off, every plan build is exactly the predecessor's.
 READING_PATH_PLAN_ALGORITHM_VERSION = "mvp-0.32"
 # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
 # spec_learned_parameters_v1 §3.0b item 1, AD §5.5;

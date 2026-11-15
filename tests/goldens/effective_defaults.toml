@@ -853,7 +853,6 @@ reader_tutor.offers_enabled = true
 reader_tutor.retrieval_enabled = true
 reading_paths.enabled = true
 reading_paths.max_daily_cost_usd = 0.5
-reading_paths.plan_uses_path = true
 recall_coverage.bad_item_min_evidence = 3
 recall_coverage.bad_item_suspicion_damage_mitigation_cap = 0.2
 recall_coverage.bad_item_suspicion_review_threshold = 0.65

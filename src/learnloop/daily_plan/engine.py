@@ -203,21 +203,18 @@ def reading_step_rule(vault: Any) -> str:
 def reading_path_plan_active(vault: Any) -> bool:
     """Reader workbench RW7b (spec_reader_workbench_v1 §10.2): the plan's
     reading block follows the learner's reading path wherever the plan acts,
-    with its kill switch ``reading_paths.plan_uses_path`` on and the Guide's paths on
-    (``reading_paths.enabled``: the plan never follows a path the learner
-    cannot see). A successor, unlike U4's order: it changes what is served
-    through labels a model judged (F3). Off, or with the Guide's paths off, every plan build is the predecessor's exactly, and a
+    with the Guide's paths on (``reading_paths.enabled``: the plan never
+    follows a path the learner cannot see). A successor, unlike U4's order: it
+    changes what is served through labels a model judged (F3); its own kill
+    switch went once every vault was past its tag. With the Guide's paths off,
+    every plan build is the predecessor's exactly, and a
     plan already built goes back to the predecessor's reading while that
     reading is unstarted (:func:`_reading_path_switched_off`; Codex review
     F1), a plan that closed by itself only for want of the reading the path
     left out reopening with it (fix round 2)."""
 
     section = getattr(vault.config, "reading_paths", None)
-    return (
-        plan_active(vault)
-        and bool(getattr(section, "enabled", False))
-        and bool(getattr(section, "plan_uses_path", False))
-    )
+    return plan_active(vault) and bool(getattr(section, "enabled", False))
 
 
 def deliverable_plan_active(vault: Any) -> bool:
@@ -4150,7 +4147,7 @@ def _reading_path_switched_off(
 
     A plan whose reading the path decided (its receipt's ``predecessor``
     differs from its ``reading``) gets the predecessor's reading back once
-    ``reading_paths.plan_uses_path`` or ``reading_paths.enabled`` is off,
+    ``reading_paths.enabled`` is off,
     while no reading of the plan has started or ended: a staged, unstarted
     path reading block is ended unread (``reading_path_off``, no minutes
     counted; appended to ``writes``), the split's reading, its full minutes
@@ -4194,8 +4191,7 @@ def _reading_path_switched_off(
         "transition": {
             "at": now,
             "reason": READING_PATH_OFF,
-            "switch": {"plan_uses_path": bool(getattr(env.vault.config.reading_paths, "plan_uses_path", False)),
-                       "enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
+            "switch": {"enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
             **change,
         },
     }
@@ -4382,8 +4378,7 @@ def _reading_follows_fresh_choice(
     updated, change = _move_plan_reading(env, record, now, writes, to=desired, withdraw=pending)
     reading_paths = env.vault.config.reading_paths
     curriculum = getattr(env.vault.config, "curriculum", None)
-    switch = {"plan_uses_path": bool(getattr(reading_paths, "plan_uses_path", False)),
-              "enabled": bool(getattr(reading_paths, "enabled", False)),
+    switch = {"enabled": bool(getattr(reading_paths, "enabled", False)),
               "curriculum": {"plan_uses_path": bool(getattr(curriculum, "plan_uses_path", False)),
                              "enabled": bool(getattr(curriculum, "enabled", False))}}
     if deliverable_plan_active(env.vault):

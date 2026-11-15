@@ -22,7 +22,6 @@ from tests.curriculum_c1_plan_follows_path_helpers import (
     CURRICULUM_OFF,
     GUIDE_OFF,
     PRIMARIES,
-    RW7B_OFF,
     _at,
     _c1,
     _split,
@@ -64,8 +63,8 @@ def test_m1_the_plan_route_is_asked(tmp_path, monkeypatch):
 # -- Medium 2: the gate on the vault as it is now -----------------------------------------------------------
 
 
-@pytest.mark.parametrize("switch", [C1_OFF, CURRICULUM_OFF, RW7B_OFF, GUIDE_OFF, "[plan]\nenabled = false\n"],
-                         ids=["plan_uses_path", "curriculum", "rw7b", "guide", "plan"])
+@pytest.mark.parametrize("switch", [C1_OFF, CURRICULUM_OFF, GUIDE_OFF, "[plan]\nenabled = false\n"],
+                         ids=["plan_uses_path", "curriculum", "guide", "plan"])
 def test_m2_a_refresh_queued_before_a_switch_went_off_sends_and_writes_nothing(tmp_path, monkeypatch, switch):
     from learnloop_sidecar.handlers import deliverables as H
 

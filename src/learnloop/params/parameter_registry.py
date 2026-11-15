@@ -2185,19 +2185,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
         "measurement authority (path labels are display only)."),
-    # Reader workbench RW7b (spec §10.2, G47): the kill switch of the
-    # successor whose plan's reading block opens the next core or
-    # prerequisite section of the reading path. A boolean (classified so
-    # every new key has a rule); the rule is structural (the path's own
-    # labels and the learner's overrides decide, no weight, margin or
-    # threshold to learn). Off restores the predecessor's reading block
-    # exactly.
-    _ConfigRule(_exact(
-        "reading_paths.plan_uses_path",
-    ), "structural", "operational",
-        "kill switch for RW7b's successor: the plan's reading block opens the next unfinished core or "
-        "prerequisite section of the learner's reading path (read it anyway counts as core, skip it and "
-        "enrichment are never planned); off, the predecessor's reading order exactly."),
     # Deliverable curriculum C0a: section coverage and reader.correspondents.
     # The switch is a boolean (classified so every new key has a rule); the
     # two dollar caps are spend guardrails (`keep`: unapproved spend is the

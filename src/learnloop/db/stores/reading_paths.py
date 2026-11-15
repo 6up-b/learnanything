@@ -2,9 +2,9 @@
 ``reader_path_depths`` (WORKFLOW, append-only by trigger; display only).
 
 Every function takes the caller's connection (and its transaction). Replay
-and evidence never read these tables; the plan reads them only at RW7b's tag
-(``source_retrieval.reading_paths.plan_path``, behind
-``reading_paths.plan_uses_path``), when it chooses its reading block.
+and evidence never read these tables; the plan reads them
+(``source_retrieval.reading_paths.plan_path``, with the Guide's paths on) when
+it chooses its reading block.
 """
 
 from __future__ import annotations

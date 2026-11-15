@@ -50,7 +50,6 @@ from tests.curriculum_c1_plan_follows_path_helpers import (
     CURRICULUM_OFF,
     GUIDE_OFF,
     PRIMARIES,
-    RW7B_OFF,
     TAG,
     _at,
     _c1,
@@ -96,7 +95,7 @@ def test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7
     assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
     paths = create_placement_vault(tmp_path / "v", version=TAG)
     assert E.deliverable_plan_active(load_vault(paths.root))
-    for index, fragment in enumerate((C1_OFF, CURRICULUM_OFF, RW7B_OFF, GUIDE_OFF, "[plan]\nenabled = false\n")):
+    for index, fragment in enumerate((C1_OFF, CURRICULUM_OFF, GUIDE_OFF, "[plan]\nenabled = false\n")):
         other = create_placement_vault(tmp_path / f"off{index}", version=TAG)
         append_config_toml(other.root, fragment)
         assert not E.deliverable_plan_active(load_vault(other.root)), fragment
@@ -413,15 +412,14 @@ def test_switching_both_paths_off_after_the_build_puts_the_orders_reading_back(t
     # RW7b's own path skips Chapter 5 (enrichment) and opens Determinants too, as core.
     assert _at(built["reading_path"]["predecessor"]) == ("ext_book", "ch_det")
     assert built["reading_path"]["predecessor"]["path_label"] == "core" and built["reading_path"]["same_as_predecessor"]
-    append_config_toml(c1.paths.root, C1_OFF + RW7B_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
+    append_config_toml(c1.paths.root, C1_OFF + GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     # Both paths off: the order's choice (what a build now gives), recorded in one move.
     assert _at(after["reading"]) == ("ext_book", "ch_eigen") and "path_label" not in after["reading"]
     [move] = after["reading_path"]["moves"]
     assert move["reason"] == "reading_path_off"
-    assert move["switch"] == {"plan_uses_path": False, "enabled": True,
-                              "curriculum": {"plan_uses_path": False, "enabled": True}}
+    assert move["switch"] == {"enabled": False, "curriculum": {"plan_uses_path": False, "enabled": True}}
     assert after["reading_path"]["deliverable"] is None and after["reading_path"]["rw7b"] is None
     call(context(c1.paths.root), "get_daily_plan", {})
     assert _split(c1.repository) == after
