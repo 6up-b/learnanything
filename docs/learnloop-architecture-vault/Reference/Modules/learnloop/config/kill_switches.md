@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py) |
-| Source lines | 201 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 
 - `OUTSIDE_LEARNLOOP_TOML` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 41)
 - `TAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 43)
-- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 139)
+- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 140)
 
 ## Internal implementation anchors
 
@@ -105,6 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_path_is_in_the_table_once_and_each_tag_is_a_real_one`
   - `test_every_row_resolves_in_the_schema_with_the_schemas_default`
   - `test_the_kept_because_list_names_only_live_switches_at_or_below_the_floor`
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_fixes_ride_on_mvp_0_59_behind_their_own_switch`
 
 ## Modification guidance
 
