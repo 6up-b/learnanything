@@ -430,7 +430,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f12_a_withheld_answer_is_never_stored_saved_promoted_or_queued`
 - [tests/test_reader_ca2_codex_review.py](../../../../../tests/test_reader_ca2_codex_review.py) — direct import
   - `test_a_workbench_of_another_item_is_refused`
-  - `test_worked_help_taken_first_on_a_cold_follow_up_is_practice_with_help`
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_a_steps_question_names_its_items_workbench_and_its_step`
   - `test_panel_off_the_sidecar_asks_as_before`
@@ -519,7 +518,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_tutor_retrieval.py](../../../../../tests/test_reader_tutor_retrieval.py) — direct import
   - `test_another_way_needs_the_answer_it_is_under`
 - [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
-  - `test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay`
   - `test_a_multi_part_import_asks_which_part_and_binds_only_one_of_its_own`
   - `test_a_selected_problem_opens_at_once_and_steps_save_before_the_import_binds`
   - `test_a_submitted_session_cannot_be_reopened_or_edited`

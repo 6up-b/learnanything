@@ -3211,7 +3211,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_a_refused_cli_attempt_writes_nothing`
   - `test_the_cli_attempt_records_a_primed_cold_check_as_practice`
-  - `test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting`
   - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
 - [tests/test_session_attempt_attribution.py](../../../../../../tests/test_session_attempt_attribution.py) — direct import
   - `test_overlapping_sessions_attribute_attempts_by_session_id`
@@ -3449,8 +3448,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_committed_model_grade_is_not_regraded_when_a_later_step_fails`
   - `test_feedback_submit_matches_cli_attempt_and_updates_state`
   - `test_tui_retry_resumes_a_committed_grade_instead_of_recording_another`
-- [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
-  - `test_practice_screen_dont_know_runs_shared_post_attempt_pipeline`
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — direct import
   - `test_today_queue_matches_scheduler_and_opens_practice`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import

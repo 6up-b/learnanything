@@ -132,7 +132,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tui_retry_resumes_a_committed_grade_instead_of_recording_another`
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
   - `test_practice_screen_collects_answer_and_opens_feedback`
-  - `test_practice_screen_dont_know_runs_shared_post_attempt_pipeline`
   - `test_practice_screen_submit_button_opens_feedback`
   - `test_practice_screen_submit_shortcut_opens_feedback`
   - `test_practice_screen_uses_item_allowed_attempt_type`

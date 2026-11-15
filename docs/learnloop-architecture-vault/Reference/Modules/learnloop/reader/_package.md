@@ -104,7 +104,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 18 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
@@ -152,8 +152,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.reader"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop["learnloop"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
+    n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_ai["learnloop.ai"]
@@ -162,8 +162,8 @@ flowchart LR
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers -->|49| center
-    center -->|27| n_learnloop
     n_learnloop_source_retrieval -->|27| center
+    center -->|26| n_learnloop
     center -->|19| n_learnloop_db
     center -->|18| n_learnloop_content_sources
     center -->|16| n_learnloop_ai

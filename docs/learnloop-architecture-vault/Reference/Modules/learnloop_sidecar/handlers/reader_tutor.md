@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_tutor.py](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py) |
-| Source lines | 471 |
+| Source lines | 466 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -63,13 +63,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `stored(self) -> dict[str, Any] | None` (line 172; public) — The restriction persisted on the question (``source_context.reader_caller``), so a caller rebuilt from it later is never wider; None when unrestricted.
 - `restriction(vault: Any, repository: Any, params: Any) -> ReaderRestriction` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 182) — The question's restriction (see :class:`ReaderRestriction`).
 - `bound_ask(vault: Any, repository: Any, params: Any, restricted: ReaderRestriction) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 199) — The question's :class:`reader_modes.BoundAsk`, or None when no workbench session binds an item.
-- `class ReaderInputs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 249) — The model-written inputs one lookup builds from, AS READ (fix round 7, R1).
-- `reader_inputs(vault: Any, repository: Any, *, lo_ids: list[str], personalized: bool, intent: str, target_hypotheses: list[dict[str, str]], binding: Any) -> ReaderInputs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 269) — The :class:`ReaderInputs` of one lookup.
-- `build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction, binding: Any=None) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 286) — The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off.
-- `tools_refused(restricted: ReaderRestriction) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 372) — No tool, practice request or offer lookup may run for this question (G48, Codex review F2, re-review F2): during a cold administration, whether the client says so (``coldActive``) or the server derives it from the bound item, and inside a bound session, where a tool's own caller…
-- `offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 383) — The Reader's own buttons under an answer (None while ``offers_enabled`` is off): RW1c's "try the next step first" and RW5b's "make this explorable".
-- `fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 425) — Without the sources service, "Practice this" is a plain ``find_practice`` on the learner's question (§4.6; the same RPC S0 later fills).
-- `record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 438) — The "From your books" excerpt's text is shown: one exposure row (best effort).
+- `class ReaderInputs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 244) — The model-written inputs one lookup builds from, AS READ (fix round 7, R1).
+- `reader_inputs(vault: Any, repository: Any, *, lo_ids: list[str], personalized: bool, intent: str, target_hypotheses: list[dict[str, str]], binding: Any) -> ReaderInputs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 264) — The :class:`ReaderInputs` of one lookup.
+- `build_request(ctx: Any, vault: Any, repository: Any, params: Any, restricted: ReaderRestriction, binding: Any=None) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 281) — The ``ReaderTutorRequest`` for one ``reader.ask``, or None while retrieval is off.
+- `tools_refused(restricted: ReaderRestriction) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 367) — No tool, practice request or offer lookup may run for this question (G48, Codex review F2, re-review F2): during a cold administration, whether the client says so (``coldActive``) or the server derives it from the bound item, and inside a bound session, where a tool's own caller…
+- `offers(vault: Any, repository: Any, result: dict[str, Any], *, extraction_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 378) — The Reader's own buttons under an answer (None while ``offers_enabled`` is off): RW1c's "try the next step first" and RW5b's "make this explorable".
+- `fallback_practice_request(vault: Any, question: str, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 420) — Without the sources service, "Practice this" is a plain ``find_practice`` on the learner's question (§4.6; the same RPC S0 later fills).
+- `record_excerpt_exposure(vault: Any, repository: Any, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_tutor.py), line 433) — The "From your books" excerpt's text is shown: one exposure row (best effort).
 
 ### Module constants
 
@@ -117,7 +117,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/reader/workbench|learnloop.reader.workbench]] — imports `module`; calls `session_row`
 - [[Reference/Modules/learnloop/reader_learner_state|learnloop.reader_learner_state]] — imports `module`; calls `build`, `enabled`, `omitted`
 - [[Reference/Modules/learnloop/router_objective/exposure|learnloop.router_objective.exposure]] — imports `module`; calls `fields`
-- [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `help_converts_active`; calls `help_converts_active`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `find_sources_for_caller`; calls `find_sources_for_caller`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `open_questions`; calls `open_questions`
 - [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] — imports `derive_policy`; calls `derive_policy`

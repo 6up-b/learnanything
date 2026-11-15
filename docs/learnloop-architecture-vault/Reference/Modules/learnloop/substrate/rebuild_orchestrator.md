@@ -361,11 +361,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_empty_stuck_answer_is_a_bare_zero_with_no_error_tag`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
-  - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`

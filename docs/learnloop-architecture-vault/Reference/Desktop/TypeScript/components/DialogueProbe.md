@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/DialogueProbe.tsx](../../../../../../apps/learnloop-tauri/src/components/DialogueProbe.tsx) |
-| Source lines | 418 |
+| Source lines | 390 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -64,22 +64,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const turnOpenedAtMs = useRef(Date.now())` — const, line 62
 - `const activeClock = useAttemptClock()` — const, line 65
 - `const elapsedSeconds = ()` — const, line 66
-- `const stuckPrompt = algoConfig().stuckPrompt` — const, line 72
-- `const dialogueState = useRef<string | null>(null)` — const, line 76
-- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 77
-- `const fail = useCallback( (error: unknown)` — const, line 79
-- `const endBlock = useCallback(async ()` — const, line 87
-- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 94
-- `const advance = useCallback(async ()` — const, line 102
-- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 105
-- `const started = useRef(false)` — const, line 128
-- `const submitTurn = useCallback( async (dontKnow: boolean)` — const, line 145
-- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 177
-- `const stopAndTeach = useCallback(async ()` — const, line 208
-- `const practiceItemId = turn.practiceItemId` — const, line 213
-- `let stopped: StopProbeResultDto | null = null` — let, line 214
-- `let ended: ProbeBlockEndDto | null = null` — let, line 225
-- `const onKey = (event: KeyboardEvent)` — const, line 243
+- `const dialogueState = useRef<string | null>(null)` — const, line 75
+- `const textareaRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 76
+- `const fail = useCallback( (error: unknown)` — const, line 78
+- `const endBlock = useCallback(async ()` — const, line 86
+- `const result = await api.endProbeDialogue(dialogueState.current)` — const, line 93
+- `const advance = useCallback(async ()` — const, line 101
+- `const next = await api.nextProbeDialogueTurn(dialogueState.current)` — const, line 104
+- `const started = useRef(false)` — const, line 127
+- `const submitTurn = useCallback( async ()` — const, line 144
+- `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 164
+- `const stopAndTeach = useCallback(async ()` — const, line 191
+- `const practiceItemId = turn.practiceItemId` — const, line 196
+- `let stopped: StopProbeResultDto | null = null` — let, line 197
+- `let ended: ProbeBlockEndDto | null = null` — let, line 208
+- `const onKey = (event: KeyboardEvent)` — const, line 226
 
 ## Who imports or calls it
 
@@ -94,7 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `DialogueTurnDto`, `GuidedRedoDto`, `ProbeBlockEndDto`, `StopProbeResultDto`
-- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `STUCK_PROMPT_TEXT`, `algoConfig`
+- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `STUCK_PROMPT_TEXT`
 - [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `CheckHandoff`, `STOP_AND_TEACH_LABEL`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/ProbeBlockResult|src/components/ProbeBlockResult.tsx]] — import-or-re-export; imports `ProbeBlockResult`

@@ -47,23 +47,22 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py) |
-| Source lines | 489 |
+| Source lines | 477 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `stuck_prompt_active(vault: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 69) — Does this vault offer "I'm stuck" for NEW answers?
-- `stuck_answer_prompt() -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 80) — What the blind grader is told about how the answer was asked for.
-- `stuck_attempt_type(allowed: list[str] | tuple[str, ...] | None, *, hints_used: int=0, probe: bool=False) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 90) — The ordinary attempt type a stuck answer records on this item.
-- `is_empty_stuck(draft: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 111) — A declared-stuck draft with nothing written (the deterministic zero).
-- `class StuckReading(WireModel)` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 119) — How the grader read an answer written under the stuck prompt.
-- `verified_stuck_reading(reading: StuckReading, learner_answer_md: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 165) — The persisted marker: the reading plus whether its quote is verbatim.
-- `record_stuck_reading_judgment(connection: Any, *, attempt_id: str, marker: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 205) — Append the grader's reading of a stuck answer to ``judgment_ledger``.
-- `stuck_answers(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 325) — Every stuck answer, its text and its CURRENT grader reading (read-only).
-- `stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 368) — One stuck answer by its id: the row :func:`stuck_answers` gives it.
-- `stuck_answer_summary(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 416) — Aggregate-only owner view: what to watch after mvp-0.13 goes live.
+- `stuck_answer_prompt() -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 69) — What the blind grader is told about how the answer was asked for.
+- `stuck_attempt_type(allowed: list[str] | tuple[str, ...] | None, *, hints_used: int=0, probe: bool=False) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 79) — The ordinary attempt type a stuck answer records on this item.
+- `is_empty_stuck(draft: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 100) — A declared-stuck draft with nothing written (the deterministic zero).
+- `class StuckReading(WireModel)` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 108) — How the grader read an answer written under the stuck prompt.
+- `verified_stuck_reading(reading: StuckReading, learner_answer_md: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 154) — The persisted marker: the reading plus whether its quote is verbatim.
+- `record_stuck_reading_judgment(connection: Any, *, attempt_id: str, marker: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 194) — Append the grader's reading of a stuck answer to ``judgment_ledger``.
+- `stuck_answers(connection: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 314) — Every stuck answer, its text and its CURRENT grader reading (read-only).
+- `stuck_answer(connection: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 357) — One stuck answer by its id: the row :func:`stuck_answers` gives it.
+- `stuck_answer_summary(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 405) — Aggregate-only owner view: what to watch after mvp-0.13 goes live.
 
 ### Module constants
 
@@ -78,8 +77,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `EMPTY_STUCK_GRADER_TIER` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 61)
 - `EMPTY_STUCK_EVIDENCE` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 62)
 - `EMPTY_STUCK_FEEDBACK` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 63)
-- `STUCK_PROMPT_RULES` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 148)
-- `_STUCK_ATTEMPT_COLUMNS` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 260)
+- `STUCK_PROMPT_RULES` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 137)
+- `_STUCK_ATTEMPT_COLUMNS` ([src/learnloop/attempts/stuck.py](../../../../../../src/learnloop/attempts/stuck.py), line 249)
 
 ### Explicit exports
 
@@ -105,18 +104,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `stuck_answer_summary`
 - `stuck_answers`
 - `stuck_attempt_type`
-- `stuck_prompt_active`
 - `verified_stuck_reading`
 
 ## Internal implementation anchors
 
-- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 161)
-- `_current_stuck_judgment(connection: Any, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 186) — The attempt's current stuck-reading judgment row (None when there is none).
-- `_has_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 250)
-- `_judged_reading(row: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 268) — (judgment id, graded at, reading) from a current stuck-reading judgment.
-- `_blind_reading(record_id: Any, created_at: Any, record_json: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 278) — (blind record id, graded at, reading) from a blind grade record.
-- `_stuck_row(attempt: Any, blind: _Reading | None, judged: _Reading | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 289)
-- `_seconds_between(start: str | None, end: str | None) -> float | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 403)
+- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 150)
+- `_current_stuck_judgment(connection: Any, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 175) — The attempt's current stuck-reading judgment row (None when there is none).
+- `_has_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 239)
+- `_judged_reading(row: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 257) — (judgment id, graded at, reading) from a current stuck-reading judgment.
+- `_blind_reading(record_id: Any, created_at: Any, record_json: Any) -> _Reading` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 267) — (blind record id, graded at, reading) from a blind grade record.
+- `_stuck_row(attempt: Any, blind: _Reading | None, judged: _Reading | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 278)
+- `_seconds_between(start: str | None, end: str | None) -> float | None` ([source](../../../../../../src/learnloop/attempts/stuck.py), line 392)
 
 ## Who imports or calls it
 
@@ -124,18 +122,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `STUCK_PROMPT_RULES`, `STUCK_PROMPT_VERSION_SUFFIX`, `StuckReading`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `EMPTY_STUCK_EVIDENCE`, `EMPTY_STUCK_FEEDBACK`, `EMPTY_STUCK_GRADER_TIER`, `EMPTY_STUCK_LOCAL_GRADER_ID`, `STUCK_READING_KEY`, `is_empty_stuck`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `stuck_prompt_active`, `verified_stuck_reading`; statically calls `is_empty_stuck`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `stuck_prompt_active`, `verified_stuck_reading`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `EMPTY_STUCK_EVIDENCE`, `EMPTY_STUCK_FEEDBACK`, `EMPTY_STUCK_GRADER_TIER`, `EMPTY_STUCK_LOCAL_GRADER_ID`, `STUCK_READING_KEY`, `is_empty_stuck`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`; statically calls `is_empty_stuck`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `STUCK_PROMPT_RULES`, `STUCK_PROMPT_VERSION_SUFFIX`, `StuckReading`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `StuckReading`
 - [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `STUCK_READING_KEY`, `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`; statically calls `record_stuck_reading_judgment`, `stuck_answer_prompt`, `verified_stuck_reading`
-- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `stuck_attempt_type`, `stuck_prompt_active`; statically calls `stuck_attempt_type`, `stuck_prompt_active`
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `module`; statically calls `stuck_answer`, `stuck_answers`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `stuck_answer_summary`; statically calls `stuck_answer_summary`
 - [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] — imports `stuck_answers`; statically calls `stuck_answers`
-- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `STUCK_CONTROL_LABEL`, `STUCK_PROMPT_TEXT`, `stuck_prompt_active`; statically calls `stuck_prompt_active`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `stuck_prompt_active`; statically calls `stuck_prompt_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `stuck_attempt_type`, `stuck_prompt_active`; statically calls `stuck_attempt_type`, `stuck_prompt_active`
+- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `STUCK_CONTROL_LABEL`, `STUCK_PROMPT_TEXT`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 
 ## Dependencies
@@ -158,7 +155,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -174,8 +171,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f8_a_stuck_answer_is_queued_at_recording_without_a_diagnosis`
   - `test_f8_the_adapter_reads_the_marker_before_scanning`
-- [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
-  - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`
   - `test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed`
@@ -187,14 +182,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_confusion_is_read_and_signalled_in_both_grading_modes`
   - `test_confusion_text_is_marked_and_becomes_a_fast_track_blocking_signal`
   - `test_stuck_attempt_type_matches_the_answer_box`
-  - `test_the_control_is_offered_and_the_switch_restores_it`
   - `test_the_owner_summary_counts_text_share_confusion_and_grading_runs`
   - `test_the_stuck_reading_appends_a_judgment_with_the_blind_record`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
-  - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
 
 ## Modification guidance
 

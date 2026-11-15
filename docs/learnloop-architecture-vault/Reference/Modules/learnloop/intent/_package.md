@@ -57,7 +57,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 8 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 6 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
@@ -90,7 +90,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     center -->|8| n_learnloop_scheduling_intent
     n_learnloop_sidecar_handlers -->|8| center
-    center -->|6| n_learnloop
+    center -->|5| n_learnloop
     center -->|3| n_learnloop_curriculum
     center -->|3| n_learnloop_vault
     n_learnloop_cli -->|1| center

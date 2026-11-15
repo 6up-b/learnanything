@@ -345,7 +345,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_the_chain_ends_at_the_intent_successor`
 - [tests/test_intent_codex_review.py](../../../../../tests/test_intent_codex_review.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
-  - `test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty`
   - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
 - [tests/test_intent_fix_round5.py](../../../../../tests/test_intent_fix_round5.py) — direct import
 - [tests/test_intent_fix_round6.py](../../../../../tests/test_intent_fix_round6.py) — direct import
@@ -416,8 +415,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
   - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
-- [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
-  - `test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay`
 - [tests/test_reading_paths.py](../../../../../tests/test_reading_paths.py) — direct import
 - [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_every_tag_defaults_the_switch_on`
@@ -593,11 +590,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_answers_pfc_unverified_criteria_are_unassessed`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
-  - `test_the_kill_switch_never_changes_how_stuck_answers_replay`
 - [tests/test_successor_switches.py](../../../../../tests/test_successor_switches.py) — direct import
   - `test_a_tag_this_code_does_not_know_writes_nothing`
   - `test_a_tests_own_switch_is_never_overwritten`

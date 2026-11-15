@@ -1626,7 +1626,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_answer_mode_reaches_the_prompt_and_the_row`
   - `test_nothing_earlier_enters_the_tutors_context`
   - `test_panel_off_the_thread_and_budget_are_b3s`
-  - `test_switched_off_a_hinted_cold_retry_is_refused_as_before`
   - `test_the_practice_thread_and_its_budget_are_keyed_by_the_attempt`
   - `test_without_a_mode_the_practice_prompt_is_todays`
 - [tests/test_reader_ca5a_find_section.py](../../../../../tests/test_reader_ca5a_find_section.py) — direct import
@@ -1881,7 +1880,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_submit_exposure_is_the_sql_total_row_for_row`
   - `test_submit_refusal_names_the_change_since_the_serve`
   - `test_the_cli_attempt_records_a_primed_cold_check_as_practice`
-  - `test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting`
   - `test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_it_honestly`
   - `test_the_real_serve_paths_agree_with_submit`
   - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
@@ -1995,7 +1993,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_empty_stuck_answer_is_a_miss_not_learner_side_help`
   - `test_stuck_answers_hypotheses_join_recurrence_groups_and_count_toward_k`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
-  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off`
+  - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
