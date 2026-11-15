@@ -12,7 +12,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock, SystemClock
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_run import jobs, router
@@ -26,7 +25,6 @@ from tests.followup_serve_helpers import (
     AuthorFake,
     BlindRivalClient,
     author_clients,
-    TAG,
     live_shape_vault,
 )
 
@@ -103,8 +101,8 @@ def _more_items(paths, count):
         write_yaml(path.with_name(f"pi_more_{index}.yaml"), payload)
 
 
-def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0, version=TAG):
-    paths, vault, repository = live_shape_vault(tmp_path, config=config, version=version)
+def _desk(tmp_path, monkeypatch, *, config="", arm=None, items=0):
+    paths, vault, repository = live_shape_vault(tmp_path, config=config)
     if items:
         from learnloop.substrate.state_sync import sync_vault_state
         from learnloop.vault.loader import load_vault
@@ -146,10 +144,16 @@ def _miss(desk, surface):
 
 
 def _finish_the_plan(desk):
-    """Every other step of the plan answered or passed, with the screen's fetch after each."""
+    """Every other step of the plan answered or passed, with the screen's fetch after each. A lesson offer the plan's
+    objective draws is answered "Not now", as the offer page does (``answerPlanOffer`` in ``App.tsx``): the plan's
+    next step waits behind an unanswered offer, so stopping at it leaves the plan open."""
 
     for _ in range(40):
         step = desk.step(serve=False)
+        if step.get("kind") == "lesson_offer":
+            desk.call("lesson.suggestion_respond", {"decisionId": step["offer"]["decisionId"], "response": "declined",
+                                                    "sessionId": desk.session})
+            continue
         if step.get("kind") != "item":
             return
         desk.call("next_plan_item", {"sessionId": desk.session, "skipPracticeItemId": step["item"]})
@@ -205,9 +209,7 @@ def _the_one_thing(desk, attempt_id, *, plan_open):
 @pytest.mark.parametrize("surface, plan, closes, state", CELLS)
 def test_the_matrix(tmp_path, monkeypatch, surface, plan, closes, state):
     clock = _movable_clock(monkeypatch)
-    # At the head this one cell's plan is still open after the screen's steps have finished it.
-    version = FOLLOWUP_SERVE_ALGORITHM_VERSION if (surface, plan, closes, state) == ("plan", "complete", "before", "preparing") else TAG
-    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state], version=version)
+    desk = _desk(tmp_path, monkeypatch, config=PLAN_OFF if surface == "no_plan" else "", arm=ARMS[state])
     if plan != "none" or closes == "yesterday":
         desk.call("get_daily_plan", {"sessionId": desk.session})
     attempt_id = _miss(desk, surface)
