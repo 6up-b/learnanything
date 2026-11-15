@@ -344,11 +344,11 @@ def _figure_deliverable(vault: Any, repository: Any, assist_id: str) -> bool:
         return True
     if not help_kind_enabled(vault) or not row.get("figure_id"):
         return False
-    from learnloop.figures import service as FS
+    from learnloop.figures.protection import figure_withheld
     from learnloop_sidecar.handlers.figures import _item_cold
 
     try:
-        if FS.figure_withheld(vault, repository, str(row["figure_id"])):
+        if figure_withheld(vault, repository, str(row["figure_id"])):
             return False
         return not _item_cold(vault, repository, str(row.get("practice_item_id") or ""))
     except Exception:  # noqa: BLE001 - fail closed: not shown

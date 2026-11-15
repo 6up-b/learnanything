@@ -74,6 +74,17 @@ from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tier
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import routes as R
+from learnloop.figures.protection import (
+    ATTEMPT_HOST_REFS,
+    LEARNER_STATE_INPUTS_KEY,
+    _carries_learner_state,
+    _inherited_withheld,
+    _inherits_learner_state,
+    _learner_state_withheld,
+    _withheld,
+    rich_base_item_protected,
+    stored_learner_state_withheld,
+)
 from learnloop.figures.spec import MANIM_FIG_VERSION
 from learnloop.ids import new_ulid
 
@@ -362,8 +373,6 @@ def rich_build_key(vault: Any) -> tuple[Any, ...]:
             admission_manim_opt_in(vault))
 
 
-#: The host references that name an attempt (``figures.service.ATTEMPT_HOST_REFS``).
-_ATTEMPT_HOST_REFS = ("item_id", "submission_id", "workbench_session_id", "attempt_id")
 #: An attempt host's rich job (RW5d P3 ruling R1: attempt hosts are grammar
 #: and sketch only; rich figures stay Reader-side).
 ATTEMPT_HOST_READER_ONLY = ("Not built: animations are made in the Reader only, never on practice, feedback "
@@ -389,7 +398,7 @@ def attempt_hosted_job(repository: Repository, payload: Mapping[str, Any]) -> bo
         # Unreadable: refused (fail closed: never a model request on a guess).
         return True
     host_ref = (asked or {}).get("host_ref") or {}
-    return any(host_ref.get(name) for name in _ATTEMPT_HOST_REFS)
+    return any(host_ref.get(name) for name in ATTEMPT_HOST_REFS)
 
 
 class RichJobStopped(Exception):
@@ -418,33 +427,6 @@ Report = Callable[[str, str], None]
 def _say(report: Report | None, phase: str, message: str) -> None:
     if report is not None:
         report(phase, message)
-
-
-def _withheld(vault: Any, repository: Repository, base: Mapping[str, Any]) -> str | None:
-    from learnloop.figures.service import keys_withheld, withheld_message
-
-    message = None
-    spans = [*list(base.get("span_ids") or ()), *list(base.get("input_span_ids") or ())]
-    if (base.get("region") or {}).get("span_id"):
-        spans.append(str(base["region"]["span_id"]))
-    if base.get("extraction_id") and spans:
-        message = withheld_message(vault, repository, str(base["extraction_id"]), spans)
-    keys = [tuple(key) for key in base.get("input_span_keys") or ()]
-    home = base.get("home")
-    if home and home.get("extraction_id") and home.get("span_id"):
-        keys.append((str(home["extraction_id"]), str(home["span_id"])))
-    return message or (keys_withheld(vault, repository, keys) if keys else None)
-
-
-def _item_protected(vault: Any, repository: Repository, base: Mapping[str, Any],
-                    clock: Clock | None = None) -> str | None:
-    """A prebuild's saved context touches the own passage of an item under a live administration
-    or held open by the stored day plan now (``service.rich_base_item_protected``, whose core
-    reads both, Codex verify V1; unreadable protection fails closed)."""
-
-    from learnloop.figures.service import rich_base_item_protected
-
-    return rich_base_item_protected(vault, repository, base, clock=clock)
 
 
 def _existing(repository: Repository, input_hash: str) -> dict[str, Any] | None:
@@ -537,7 +519,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         # plan (spec §10b.2, G-SM29), either of which may have started after the job was queued or
         # first met the plan's limit: checked now, and again before every request and before the
         # store (the hold below). A learner's own press does not come here.
-        message = _item_protected(vault, repository, base, clock)
+        message = rich_base_item_protected(vault, repository, base, clock=clock)
         if message is not None:
             raise RichJobStopped("exam_material", message)
         # RW5d P5 (spec §10b.4): a prebuild's rich job stops before its next
@@ -555,7 +537,7 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
         own_hold = hold
 
         def hold(current: Any) -> str | None:  # the prebuild's hold wraps the learner-state one
-            return held(current) or _item_protected(current, repository, base, clock) or (
+            return held(current) or rich_base_item_protected(current, repository, base, clock=clock) or (
                 own_hold(current) if own_hold is not None else None)
 
     gate = FiguresGate(vault, key, live_vault=live_vault, hold=hold, wait=_prefetch_wait if prefetch else None,
@@ -640,67 +622,6 @@ def _pressed_foreground(pressed: bool) -> Iterator[None]:
 #: learner's state, run after ``figures.author_learner_state`` went off.
 LEARNER_STATE_OFF = ("Not sent: this animation was to be told where you stand on these topics, and that is "
                      "switched off now (figures.author_learner_state); ask for it again.")
-#: A saved learner state something it was read from is protected now.
-LEARNER_STATE_PROTECTED = ("Not sent: something this animation was to be told about your work is protected now "
-                           "({reason}); ask for it again.")
-
-
-#: The rich figure's report key keeping what its author's learner state was
-#: read from (``LearnerStateRead.inputs``; Codex re-review F2). Present only
-#: when the author was sent a learner state; never shown or sent to a model.
-LEARNER_STATE_INPUTS_KEY = "learner_state_inputs"
-
-
-def _carries_learner_state(payload: Mapping[str, Any]) -> bool:
-    return bool((payload.get("author_context") or {}).get("learner_state"))
-
-
-#: Codex review F4: a rich revision job's record of what the learner states
-#: its earlier versions' authors were sent were read from (a list; ``None``
-#: for a version with no record, which fails closed). Absent when none was.
-INHERITED_LEARNER_INPUTS_KEY = "inherited_learner_state_inputs"
-
-
-def _inherits_learner_state(payload: Mapping[str, Any]) -> bool:
-    return bool(payload.get(INHERITED_LEARNER_INPUTS_KEY))
-
-
-def _inherited_withheld(vault: Any, repository: Repository, payload: Mapping[str, Any]) -> str | None:
-    """Why a revision job's inherited learner states may not be built on now,
-    or None (each against the protection as it is now; no record: fail closed)."""
-
-    from learnloop.figures.learner_state import inputs_withheld
-
-    for inputs in payload.get(INHERITED_LEARNER_INPUTS_KEY) or ():
-        reason = inputs_withheld(vault, repository, inputs)
-        if reason is not None:
-            return LEARNER_STATE_PROTECTED.format(reason=reason)
-    return None
-
-
-def stored_learner_state_withheld(vault: Any, repository: Repository, row: Mapping[str, Any]) -> str | None:
-    """Why a stored rich figure whose author was sent the learner's state may
-    not go out (be delivered, recovered or reused) now, or None: what that
-    state was read from is checked again against the protection as it is now
-    (``learner_state.inputs_withheld``; a missing record fails closed). A
-    figure whose author was sent no learner state has nothing to check here
-    (Codex re-review F2)."""
-
-    report = row.get("verification_report") or {}
-    if not isinstance(report, Mapping) or LEARNER_STATE_INPUTS_KEY not in report:
-        return None
-    return _learner_state_withheld(vault, repository, {LEARNER_STATE_INPUTS_KEY: report[LEARNER_STATE_INPUTS_KEY]})
-
-
-def intent_learner_state_withheld(vault: Any, repository: Repository, payload: Any) -> str | None:
-    """Why a saved rich job payload's learner state (a quick figure's durable
-    rich intent) may not go out now, or None when its author was sent no
-    learner state (follow-ups Nov 2: a fuller version stored with no record of
-    its own is read from its quick figure's intent, the job's payload)."""
-
-    if not isinstance(payload, Mapping) or not _carries_learner_state(payload):
-        return None
-    return _learner_state_withheld(vault, repository, payload)
 
 
 def _recovered(vault: Any, repository: Repository, payload: Mapping[str, Any],
@@ -718,17 +639,6 @@ def _recovered(vault: Any, repository: Repository, payload: Mapping[str, Any],
     if message is not None:
         raise RichJobStopped("exam_material", message)
     return {"figure_id": found["id"], "verification": found["verification"], "reused": True}
-
-
-def _learner_state_withheld(vault: Any, repository: Repository, payload: Mapping[str, Any]) -> str | None:
-    """Why the saved learner state may not be sent now, or None
-    (``learner_state.inputs_withheld``: its answers, items, questions and
-    passages against the protection as it is now; no record: fail closed)."""
-
-    from learnloop.figures.learner_state import inputs_withheld
-
-    reason = inputs_withheld(vault, repository, payload.get("learner_state_inputs"))
-    return None if reason is None else LEARNER_STATE_PROTECTED.format(reason=reason)
 
 
 def _plan_down(exc: BaseException) -> bool:
@@ -1138,12 +1048,9 @@ __all__ = [
     "RICH_TASK",
     "RICH_TIERS",
     "RichBrief",
-    "LEARNER_STATE_INPUTS_KEY",
     "LEARNER_STATE_OFF",
-    "LEARNER_STATE_PROTECTED",
     "RichJobStopped",
     "WAITING_FOR_PLAN",
-    "intent_learner_state_withheld",
     "job_state",
     "manim_opt_in_needed",
     "manim_runtime_state",
@@ -1161,6 +1068,5 @@ __all__ = [
     "rich_on_menu",
     "rich_prompt",
     "run_rich_job",
-    "stored_learner_state_withheld",
     "tiers_allowed",
 ]

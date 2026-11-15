@@ -110,8 +110,8 @@ def figure_checks(
     LearnLoop read it, its page and the figure's definition. Never calls a model."""
 
     from learnloop.db.repositories import Repository
-    from learnloop.figures import service as FS
     from learnloop.figures import source_check as SC
+    from learnloop.figures.protection import row_withheld
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -125,7 +125,7 @@ def figure_checks(
         payload: dict[str, object] = {"status": "ok", "enabled": enabled, "dry_run": dry_run}
 
         def withheld(row: Any) -> bool:
-            return FS.row_withheld(loaded, repository, row) is not None
+            return row_withheld(loaded, repository, row) is not None
 
         if not recheck:
             payload.update(SC.audit(repository, withheld=withheld) if enabled else {})

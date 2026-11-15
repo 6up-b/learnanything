@@ -330,8 +330,9 @@ def lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] |
     lesson host is grammar and sketch only)."""
 
     from learnloop.figures import service as FS
+    from learnloop.figures.protection import figure_withheld
 
-    if FS.figure_withheld(vault, repository, figure_id):
+    if figure_withheld(vault, repository, figure_id):
         return None
     row = figure_row(repository, figure_id)
     if row is None or FS.rich_row(row):

@@ -121,6 +121,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import records as FR
 from learnloop.figures import routes as R
+from learnloop.figures.protection import item_passages, keys_withheld, withheld_message
 from learnloop.ids import new_ulid
 
 _LOG = logging.getLogger(__name__)
@@ -315,12 +316,10 @@ class ItemProtection:
 
 def item_protection(env: PrefetchEnv) -> ItemProtection:
     """What :class:`ItemProtection` covers now (read fresh on every call: before judging, on
-    the author's whole context, and again before each build): ``service.item_passages``, the one
-    core the Reader's retries and a prebuild's rich job check too (it reads the stored plan)."""
+    the author's whole context, and again before each build): ``protection.item_passages``, the
+    one core the Reader's retries and a prebuild's rich job check too (it reads the stored plan)."""
 
-    from learnloop.figures import service as FS
-
-    found = FS.item_passages(env.vault, env.repository, clock=env.clock)
+    found = item_passages(env.vault, env.repository, clock=env.clock)
     if found is None:
         return ItemProtection(available=False)
     return ItemProtection(*found)
@@ -461,7 +460,6 @@ def section_blocks(env: PrefetchEnv, extraction_id: str, section_id: str,
     (Codex review F4) every passage of an item under a live administration or held open by the
     stored plan."""
 
-    from learnloop.figures.service import withheld_message
     from learnloop.reader.reader_guidance import extraction_sections
 
     ir = env.repository.load_document_ir(extraction_id)
@@ -584,8 +582,6 @@ def judge_gap(env: PrefetchEnv, gap: Mapping[str, Any], passage: Mapping[str, An
     is a ``judgment_ledger`` row (task ``figure_prefetch_judge``, ``left_kind`` learner_gap, keyed
     by the input's hash and the prompt version, appended once), as the section judge's is."""
 
-    from learnloop.figures.service import withheld_message
-
     context = {"mode": "gap", "unsure_of": str(gap["statement"])[:GAP_STATEMENT_CHARS], "topic": gap.get("topic"),
                "passage": str(passage.get("text") or "")[:PASSAGE_CHARS]}
     input_hash = _gap_hash(context, gap, passage)
@@ -669,7 +665,6 @@ def next_section(env: PrefetchEnv, extraction_id: str, section_id: str) -> str |
     Otherwise (reading paths off, no depth chosen, not judged, judged only for an older state,
     or the path unreadable) the next section in book order, as before."""
 
-    from learnloop.figures.service import withheld_message
     from learnloop.reader.reader_guidance import extraction_sections
 
     ir = env.repository.load_document_ir(extraction_id)
@@ -799,7 +794,6 @@ def _touched_topics(env: PrefetchEnv) -> list[str]:
 
 def _gap_candidates(env: PrefetchEnv, *, call: bool, result: PassResult, open_keys: set[str]) -> list[Candidate]:
     from learnloop.figures.learner_state import open_gap_statements
-    from learnloop.figures.service import withheld_message
 
     if not show_me_enabled(env.vault):
         return []  # a gap's figure has a goal: "show me" must be on
@@ -957,8 +951,6 @@ def filter_candidates(env: PrefetchEnv, found: Iterable[Candidate], *, open_keys
 
 def _filtered(env: PrefetchEnv, found: Sequence[Candidate], *, open_keys: set[str],
               log: FR.FilterLog) -> list[Candidate]:
-    from learnloop.figures.service import keys_withheld, withheld_message
-
     vault = env.vault
     if not enabled(vault):
         return []  # switched off: no record either (off, a pass writes nothing)
@@ -1626,7 +1618,6 @@ def close_horizons(env: PrefetchEnv, result: PassResult | None = None) -> int:
     """Close every open decision whose horizon has passed, once (spec §10b.5)."""
 
     from learnloop.figures.learner_state import open_gap_statements
-    from learnloop.figures.service import withheld_message
 
     link_stored_requests(env)
     with closing(connect(env.repository.sqlite_path, read_only=True)) as connection:
@@ -1719,7 +1710,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     counted: Codex review F2), least recently asked first, and paced by the same per-job interval
     the Reader's retries use (one process-wide clock, so the two never double a request). A job
     whose saved context touches an item's own passage now (a live administration or the stored
-    plan's open items: ``service.item_passages``, the rule of ``item_protection``, the Reader's
+    plan's open items: ``protection.item_passages``, the rule of ``item_protection``, the Reader's
     reads and the worker) is not asked (Codex review F1, verify V1); the requeued job's own gate
     checks the switch, the power, the route, held-out material and those items' passages again
     before every request and before it stores."""

@@ -83,6 +83,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures.protection import ATTEMPT_HOST_REFS, figure_withheld
 from learnloop.figures.sketch import sketch_ready
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.context import SidecarContext
@@ -192,7 +193,7 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
     figure = result.get("figure") or {}
     # Rechecked on the stored row: every span the author was sent, the
     # paragraphs around the selection included (Codex review F1).
-    if figure and FS.figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
+    if figure and figure_withheld(vault, repository, str(figure.get("figure_id") or "")):
         return {"figure": None, "reused": False, "withheld": True}
     if figure:
         # Follow-ups Nov 2: the kept view's fuller version is rebuilt from the
@@ -455,7 +456,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     goal = " ".join(str(goal_text or "").split()) or None
     if goal is not None and not show_me_enabled(vault):
         raise SidecarError("show_me_disabled", "\"Show me\" in your own words is switched off (figures.show_me_enabled).")
-    if origin == "ask" or any(host_ref.get(name) for name in FS.ATTEMPT_HOST_REFS):
+    if origin == "ask" or any(host_ref.get(name) for name in ATTEMPT_HOST_REFS):
         # RW5d P3: the Ask panel on practice, feedback and the workbench.
         if origin != "ask" or extraction_id or span_ids or region:
             raise SidecarError("validation_error", "A figure on practice, feedback or the workbench comes from "
@@ -638,7 +639,7 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
     attempt = None
     current = {key: value for key, value in (params.host_ref.model_dump() if params.host_ref else {}).items()
                if value}
-    if current and not any(current.get(name) for name in FS.ATTEMPT_HOST_REFS):
+    if current and not any(current.get(name) for name in ATTEMPT_HOST_REFS):
         raise SidecarError("validation_error", "A revision's host is an attempt host (practice, feedback or the "
                                                "workbench).")
     try:
@@ -696,7 +697,7 @@ def reader_figure_recheck(ctx: SidecarContext, params: FigureRecheckInput) -> di
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         row = store.figure(connection, params.figure_id) if store.has_tables(connection) else None
     if (row is None or not SC.enabled(vault) or not SC.grammar_row(row) or row.get("verification") not in store.SHOWN
-            or FS.figure_withheld(vault, repository, params.figure_id)
+            or figure_withheld(vault, repository, params.figure_id)
             or not SC.recheck_due(SC.current_row(repository, params.figure_id))):
         return versioned({"job_id": None, "state": "none"})
 

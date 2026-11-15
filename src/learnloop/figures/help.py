@@ -391,6 +391,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     figures already opened in this attempt (their chain roots)."""
 
     from learnloop.figures import service as FS
+    from learnloop.figures.protection import row_withheld, show_me_row
     from learnloop.figures.spec import SPEC_VERSIONS
     from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.tutor.tutor_qa import span_leaks_expected
@@ -414,7 +415,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         if FS.rich_row(row):
             # Ruling R1: attempt hosts are grammar and sketch only.
             continue
-        if FS.show_me_row(row) and not show_me_enabled(vault):
+        if show_me_row(row) and not show_me_enabled(vault):
             continue
         if not FS.drawable_now(vault, row) or FS.advanced_off_row(vault, row) is not row \
                 or FS.sketch_off_row(vault, row) is not row:
@@ -431,7 +432,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
             continue
         if span_leaks_expected(reveal_text(row), item.expected_answer):
             continue
-        if FS.row_withheld(vault, repository, row) is not None:
+        if row_withheld(vault, repository, row) is not None:
             continue
         return row
     return None
