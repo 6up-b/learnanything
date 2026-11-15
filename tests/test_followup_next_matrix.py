@@ -7,7 +7,7 @@ or the feedback is released and Next goes on.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -41,6 +41,8 @@ PLAN_CELLS = [
     ("plan", "none", "yesterday"),
 ]
 CELLS = [(*cell, state) for cell in PLAN_CELLS for state in ARMS]
+#: A cell takes seconds alone and under a minute on a loaded machine: far less than this before midnight.
+_MIDNIGHT_MARGIN = timedelta(minutes=30)
 
 
 class _Ready:
@@ -78,11 +80,19 @@ class _Desk(SimpleNamespace):
 
 
 def _movable_clock(monkeypatch):
-    """The system clock, moved by the test: a day can pass between a miss and its Next."""
+    """The system clock, moved by the test: a day can pass between a miss and its Next.
 
-    offset = {"days": 0}
+    The plan is the local day's (``engine.local_date``), so a cell that runs across local midnight closes a plan that
+    is no longer today's: "Done" finds no plan for the new day and the next read builds an open one. Near midnight
+    the clock starts just after it instead, moved forward as the cells that add a day move it, so the day changes
+    under a cell only when the cell moves it."""
+
     real = SystemClock.now
-    monkeypatch.setattr(SystemClock, "now", lambda self: real(self) + timedelta(days=offset["days"]))
+    now = real(SystemClock()).astimezone()
+    to_midnight = datetime.combine(now.date() + timedelta(days=1), time()).astimezone() - now
+    start = to_midnight + timedelta(minutes=1) if to_midnight < _MIDNIGHT_MARGIN else timedelta(0)
+    offset = {"days": 0}
+    monkeypatch.setattr(SystemClock, "now", lambda self: real(self) + start + timedelta(days=offset["days"]))
     return offset
 
 
@@ -165,7 +175,10 @@ def _close(desk, state):
         desk.call("plan_keep_going", {"sessionId": desk.session, "stop": True})
     else:
         _finish_the_plan(desk)
-    assert desk.call("get_daily_plan", {"sessionId": desk.session})["plan"]["status"] in {"stopped", "complete"}
+    plan = desk.call("get_daily_plan", {"sessionId": desk.session})["plan"]
+    # The plan's id and day beside today's date, so a failure says whether the day changed under the cell.
+    assert plan["status"] in {"stopped", "complete"}, (plan.get("id"), plan.get("localDate") or plan.get("local_date"),
+                                                      SystemClock().now().astimezone().date().isoformat())
 
 
 def _held(desk, attempt_id):
