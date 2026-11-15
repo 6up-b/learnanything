@@ -322,9 +322,7 @@ def case_context(vault: LoadedVault, case: HardCase, arm: str = PRODUCTION_ARM) 
     successor (``attempts._blind_grading_plan``): C2 verifier observations and
     PF-c's reference policy with the own-route rules (``own-route-v2``, with
     the item's required method; live grading drops the policy only when
-    ``diagnosis.grading_support`` is off, the rules when
-    ``proof_check.enabled`` is, and their required-method part when
-    ``required_method.enabled`` is), varied by ``arm``:
+    ``diagnosis.grading_support`` is off), varied by ``arm``:
 
     * ``solve_first`` - the reference solution is withheld (the policy says
       ``absent``, so the grader writes its own expected answer first);

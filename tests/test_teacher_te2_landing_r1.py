@@ -35,14 +35,12 @@ def _regrade_identity(vault) -> str:
     """The calibration prompt identity a blind regrade in ``vault`` grades under (reference policy + route rules)."""
 
     from learnloop.attempts.grading_support import (
+        METHOD_ROUTE_RULES_VERSION,
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
         route_rules_suffix,
-        route_rules_version,
     )
 
-    rules = route_rules_version(vault)
-    return f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{route_rules_suffix(rules)}" if rules else (
-        REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION)
+    return f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{route_rules_suffix(METHOD_ROUTE_RULES_VERSION)}"
 
 
 def _active(repository, attempt_id):

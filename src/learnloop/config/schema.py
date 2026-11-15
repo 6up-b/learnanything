@@ -1245,8 +1245,7 @@ RETIRED_ROUTES: dict[str, str] = {
     # Its rules are in the grader's own prompt, which uses the grading route.
     "proof_check": (
         "mvp-0.17's separate proofs route check is retired; the grader applies the "
-        "own-route rules in its one call on ai.routing.grading (mvp-0.20, kill switch "
-        "proof_check.enabled)."
+        "own-route rules in its one call on ai.routing.grading (mvp-0.20)."
     ),
 }
 
@@ -3251,44 +3250,6 @@ class EvsiConfig(BaseModel):
     unresolved_cost_prior_pseudo_count: float = Field(default=5.0, gt=0.0)
 
 
-class ProofCheckConfig(BaseModel):
-    """The valid-alternative gate for proofs and explanations, in the grader.
-
-    ``enabled`` is the kill switch of ``mvp-0.20``'s own-route rules (the
-    grader grades every criterion on the learner's own route and marks down
-    only by quoting the failing step; a mark-down on a divergent route that
-    quotes nothing is unassessed, and a grade with nothing assessed and
-    nothing validated is held for review). Dormant below ``mvp-0.20``. Off, new
-    answers grade without the own-route rules; there is no separate route
-    check, so an ``mvp-0.17``, ``mvp-0.18`` or ``mvp-0.19`` vault grades as
-    ``mvp-0.16`` did whatever this says. Grades already recorded keep their meaning (the blind
-    record and the evidence rows carry the outcome; replay never reads this
-    switch).
-    """
-
-    enabled: bool = True
-
-
-class RequiredMethodConfig(BaseModel):
-    """Method-explicit items: the grading side.
-
-    ``enabled`` is the kill switch of the method-explicit successor
-    (``mvp-0.25``): the own-route rules grade a criterion tied to an item's
-    ``required_method`` (frozen with the assessment contract: the one
-    authority, never re-derived from the prompt) on use of that method
-    (``own-route-v2``), so another route fails it without a quoted wrong
-    step. Dormant below the successor and whenever the own-route rules
-    themselves are off (``proof_check.enabled``). Off, new answers grade
-    exactly as the predecessor. Grades already recorded keep their meaning (the
-    blind record carries the rules and the method criteria; replay never reads
-    this switch). The generation side (criteria phrased by fact) and the
-    ``criterion:method_phrased`` doctor check are content paths, not gated
-    here.
-    """
-
-    enabled: bool = True
-
-
 class ProjectConfig(BaseModel):
     """Project understanding: delayed probes.
 
@@ -4831,11 +4792,9 @@ class LearnLoopConfig(KeepsRetiredFields):
     notes: NotesConfig = Field(default_factory=NotesConfig)
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
-    proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
-    required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
     eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
     replay: ReplayConfig = Field(default_factory=ReplayConfig)

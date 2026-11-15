@@ -45,8 +45,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("diagnosis.split_enabled", "mvp-0.10", True),
     KillSwitch("diagnosis.shadow", "mvp-0.10", False),
     KillSwitch("stuck_prompt.enabled", "mvp-0.13", True),
-    KillSwitch("proof_check.enabled", "mvp-0.17", True),
-    KillSwitch("required_method.enabled", "mvp-0.25", True),
     KillSwitch("mastery.claim_fixes_enabled", "mvp-0.33", True),
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
     KillSwitch("ask.cold_help_converts", "mvp-0.35", True),

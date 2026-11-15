@@ -41,8 +41,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "diagnosis.split_enabled",
     "diagnosis.shadow",
     "stuck_prompt.enabled",
-    "proof_check.enabled",
-    "required_method.enabled",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
     "ask.cold_help_converts",

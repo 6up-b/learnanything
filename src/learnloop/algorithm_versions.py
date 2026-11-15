@@ -160,13 +160,9 @@ LEARNER_TEXT_GAP_ALGORITHM_VERSION = "mvp-0.16"
 # reads every record as written and the projection namespace is unchanged. The
 # branch built it as mvp-0.15 (a placeholder) and it was relabelled mvp-0.17
 # when it merged after probe ties (mvp-0.15) and learner-text gaps (mvp-0.16).
-# Kill switch: ``proof_check.enabled``. New vaults started here until mvp-0.18
-# merged.
+# New vaults started here until mvp-0.18 merged.
 # Owner decision 2026-10-13 (route-check-in-grader): the separate check was
-# removed from serving. Its own kill switch defined "mvp-0.17 without the
-# check" (``proof_check.enabled = false`` grades new answers as mvp-0.16), so
-# an mvp-0.17 vault now grades new answers in that state, whatever the
-# switch says. Records written by the check (blind records, ledger rows,
+# removed from serving. Records written by the check (blind records, ledger rows,
 # calibration identities, holds) keep their meaning and replay exactly: replay
 # reads the records, never the check. The protective core moved into the
 # grader's prompt as mvp-0.20. mvp-0.18 and mvp-0.19 inherit the same state:
@@ -216,9 +212,8 @@ SOURCE_FIRST_NEEDS_ALGORITHM_VERSION = "mvp-0.19"
 # no item reading, no second model. Persisted meaning changes for NEW grades
 # only (the blind record's ``grading_support.proof_route_check``, the
 # ``+own-route-v1`` prompt and calibration identity); the projection
-# namespace is unchanged. Kill switch: ``proof_check.enabled`` (off: new
-# answers grade as mvp-0.19 now does, whose grading is mvp-0.16's). The
-# branch built it as mvp-0.18 (a placeholder) and it was relabelled mvp-0.20
+# namespace is unchanged. Its kill switch (off: mvp-0.16's grading) went once
+# every vault was past the tag. The branch built it as mvp-0.18 (a placeholder) and it was relabelled mvp-0.20
 # when it merged after the sources track (mvp-0.18, mvp-0.19).
 ROUTE_RULES_ALGORITHM_VERSION = "mvp-0.20"
 
@@ -314,9 +309,8 @@ ROUTER_MIXTURE_ALGORITHM_VERSION = "mvp-0.24"
 # verbatim quote). Persisted meaning changes for NEW grades on required-method
 # items only (the policy's ``required_method``, the record's method criteria,
 # the ``+own-route-v2`` prompt and calibration identity); the projection
-# namespace is unchanged and replay reads every record as written. Kill
-# switch: ``required_method.enabled`` (off: new answers grade exactly as
-# mvp-0.24). The branch built it as mvp-0.22-placeholder (no migration) and it
+# namespace is unchanged and replay reads every record as written. Its kill
+# switch (off: mvp-0.24's grading) went once every vault was past the tag. The branch built it as mvp-0.22-placeholder (no migration) and it
 # was relabelled mvp-0.25 when it merged after VOI v2 (mvp-0.21), the Decider
 # migration (mvp-0.22) and router R2a/R2b+c (mvp-0.23, mvp-0.24).
 # The generation side (criteria phrased by fact, the required method written
