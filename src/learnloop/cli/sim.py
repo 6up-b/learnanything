@@ -7,6 +7,31 @@ sim_app = typer.Typer(
     help="Synthetic-student simulation harness and config sensitivity sweeps.",
 )
 
+def _echo_what_did_not_run(report) -> bool:
+    """Say what the planted-type simulation could not run and why; True when it ran nothing to judge.
+
+    A refusal stops the command before any accuracy line: over no results the
+    accuracies are zeros of nothing and the gate has nothing to pass. Runs that
+    opened no episode are listed, and the gate then fails below.
+    """
+
+    if report.refusal is not None:
+        typer.echo(report.refusal.message)
+        typer.echo(
+            "Rerun with "
+            + " ".join(f"--set {switch}=false" for switch in report.refusal.switches)
+            + " to simulate the opening episode those switches replace."
+        )
+        typer.echo("FAIL: no episode ran.")
+        return True
+    for entry in report.not_run:
+        typer.echo(f"Not run: {entry.planted} seed {entry.seed}: {entry.reason}")
+    if not report.results:
+        typer.echo("FAIL: no episode ran.")
+        return True
+    return False
+
+
 @sim_app.command("probe-validation")
 def sim_probe_validation_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root (copied per run, never written).")] = None,
@@ -53,8 +78,12 @@ def sim_probe_validation_command(
     )
     _write_or_echo_report(payload, json_output=json_output, output=output)
     if json_output and output is None:
+        if not payload["passes"]:
+            raise typer.Exit(code=1)
         return
     typer.echo(f"Run dir: {workdir}")
+    if _echo_what_did_not_run(report):
+        raise typer.Exit(code=1)
     for planted_type, summary in payload["by_planted"].items():
         typer.echo(
             f"{planted_type}: label {summary['label_accuracy']:.2f}, "
@@ -114,7 +143,8 @@ def sim_probe_pilot_command(
     # Audit every run vault the validation produced; aggregate determinism.
     audits: list[dict] = []
     deterministic = True
-    for run_root in sorted(workdir.glob("run_*")):
+    # A refused simulation leaves one untouched copy: nothing to audit.
+    for run_root in sorted(workdir.glob("run_*")) if validation.results else []:
         try:
             run_vault = load_vault(run_root)
         except Exception:
@@ -138,8 +168,12 @@ def sim_probe_pilot_command(
     }
     _write_or_echo_report(payload, json_output=json_output, output=output)
     if json_output and output is None:
+        if not entry_gate_passes or not deterministic:
+            raise typer.Exit(code=1)
         return
     typer.echo(f"Run dir: {workdir}")
+    if _echo_what_did_not_run(validation):
+        raise typer.Exit(code=1)
     typer.echo(
         f"Entry gate (Checkpoint 3 sim validation): {'PASS' if entry_gate_passes else 'FAIL'} "
         f"at label>={label_threshold} action>={action_threshold}"

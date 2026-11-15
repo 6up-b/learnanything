@@ -48,7 +48,8 @@ def test_planted_confuses_with_is_diagnosed_within_budget(validation_report):
 
 
 def test_every_planted_episode_completes_within_its_budget(validation_report):
-    # An empty report passes vacuously (D2a: it was empty at the head, which runs no opening episode).
+    # Every requested run opened its episode (a run that opens none is listed, not judged).
+    assert validation_report.refusal is None and validation_report.not_run == []
     assert len(validation_report.results) == len(PLANTED_TYPES) * len(SEEDS)
     # Selection, stopping, and accounting: every episode completed within its
     # observation budget through qualifying observations only.
