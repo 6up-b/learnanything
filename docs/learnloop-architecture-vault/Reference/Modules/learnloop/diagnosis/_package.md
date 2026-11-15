@@ -113,7 +113,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] | [[Reference/Modules/learnloop/diagnosis/chain_records#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] | [[Reference/Modules/learnloop/diagnosis/contrast_pairs#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] | [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
-| [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
+| [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_gate#^module-purpose|purpose]] | `ACTIVE` | 9 | 6 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_pack#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] | [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
@@ -170,7 +170,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 77 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 51 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 48 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 26 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 25 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 22 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 18 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 18 static module edges
@@ -250,7 +250,7 @@ flowchart LR
     center -->|51| n_learnloop_vault
     center -->|48| n_learnloop_db
     n_learnloop_attempts -->|20| center
-    center -->|26| n_learnloop_attempts
+    center -->|25| n_learnloop_attempts
     n_learnloop_sidecar_handlers -->|29| center
     n_learnloop_substrate -->|5| center
     center -->|22| n_learnloop_substrate

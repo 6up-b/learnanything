@@ -538,6 +538,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ingest_runner_helpers.py](../../../../../tests/ingest_runner_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../tests/intent_fakes.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../tests/km3_projections_helpers.py) — direct import
 - [tests/learner_pick_proposal_helpers.py](../../../../../tests/learner_pick_proposal_helpers.py) — direct import
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
@@ -935,7 +936,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
-  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_deliverable_codex_review.py](../../../../../tests/test_deliverable_codex_review.py) — direct import
   - `test_f11_didnt_help_kept_comparisons_and_minutes_reach_the_judge`
@@ -1332,6 +1332,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hard_correct_completes_probe_on_hypothesis_convergence`
 - [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_joint_grading_builder.py](../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
   - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
   - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
@@ -1477,15 +1478,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_decided_miss_is_not_reopened_by_a_regrade`
   - `test_a_decided_miss_is_not_reopened_by_a_retry`
   - `test_a_diagnosis_that_never_lands_stops_holding_the_check`
+  - `test_a_held_miss_stays_decided_at_its_hold`
+  - `test_a_joint_grade_falls_back_to_todays_rule`
   - `test_a_miss_decided_before_the_hold_keeps_its_diagnosis`
   - `test_a_miss_the_diagnosis_does_not_call_a_gap_keeps_the_topic_in_maintenance`
   - `test_i_dont_know_this_does_not_wait_on_a_pending_diagnosis`
   - `test_lapses_in_maintenance_are_decided_by_the_diagnosis`
   - `test_learner_side_help_does_not_wait_on_an_earlier_pending_miss`
   - `test_the_decision_waits_while_the_diagnosis_is_pending`
-  - `test_the_first_serving_build_with_the_split_off_records_the_hold`
   - `test_the_kill_switch_ignores_diagnosis_decided_outcomes`
-  - `test_turning_the_split_back_on_does_not_reopen_held_misses`
 - [tests/test_placement_fixture_copies.py](../../../../../tests/test_placement_fixture_copies.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../tests/test_placement_opening_probes.py) — direct import
 - [tests/test_placement_split_grades.py](../../../../../tests/test_placement_split_grades.py) — direct import
@@ -1995,6 +1996,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_empty_stuck_answer_is_a_miss_not_learner_side_help`
   - `test_stuck_answers_hypotheses_join_recurrence_groups_and_count_toward_k`
 - [tests/test_stuck_prompt_replay.py](../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
   - `test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag`
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`

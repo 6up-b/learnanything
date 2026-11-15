@@ -208,10 +208,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnostic_augmentation.py](../../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
 - [tests/test_followup_fg1c_codex_review.py](../../../../../../../tests/test_followup_fg1c_codex_review.py) — direct import

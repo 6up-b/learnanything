@@ -46,31 +46,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py) |
-| Source lines | 429 |
+| Source lines | 428 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class QuickCheckError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 84)
-- `start_quick_check(vault: LoadedVault, repository: Repository, *, session_id: str, learning_object_ids: list[str], request_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 117)
-- `next_quick_check_item(vault: LoadedVault, repository: Repository, predictor: Any, *, undecided: set[str], excluded: frozenset[str]=frozenset(), clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 240) — The never-seen item with the largest conditional gain; ties by id (G8).
-- `quick_check_progress(vault: LoadedVault, repository: Repository, calibration_session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 327) — Calibration progress with the quick check's own target and results.
+- `class QuickCheckError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 83)
+- `start_quick_check(vault: LoadedVault, repository: Repository, *, session_id: str, learning_object_ids: list[str], request_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 116)
+- `next_quick_check_item(vault: LoadedVault, repository: Repository, predictor: Any, *, undecided: set[str], excluded: frozenset[str]=frozenset(), clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 239) — The never-seen item with the largest conditional gain; ties by id (G8).
+- `quick_check_progress(vault: LoadedVault, repository: Repository, calibration_session_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 326) — Calibration progress with the quick check's own target and results.
 
 ### Module constants
 
-- `QUICK_CHECK_SELECTION` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 77)
-- `_EXCLUDED_MODES` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 80)
-- `_DECIDED` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 81)
+- `QUICK_CHECK_SELECTION` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 76)
+- `_EXCLUDED_MODES` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 79)
+- `_DECIDED` ([src/learnloop/diagnosis/quick_check.py](../../../../../../src/learnloop/diagnosis/quick_check.py), line 80)
 
 ## Internal implementation anchors
 
-- `_existing_quick_check(repository: Repository, *, session_id: str, scope: list[str], request_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 88) — The check a retried start should recover, if any.
-- `_candidate_items(vault: LoadedVault, repository: Repository, undecided: set[str], attempted: set[str], excluded: frozenset[str]=frozenset(), *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 175) — Never-seen ordinary items on undecided LOs that routine serving could offer (the shared exclusions apply, with the out-of-timing ones), minus ``excluded``.
-- `_attempted_item_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 233)
-- `_present_next(vault: LoadedVault, repository: Repository, predictor: Any, record: dict[str, Any], presentations: list[dict[str, Any]], *, undecided: set[str], clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 271) — The check's current presentation, or a new one while fewer than k exist.
-- `_results(vault: LoadedVault, repository: Repository, outcome: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 402)
+- `_existing_quick_check(repository: Repository, *, session_id: str, scope: list[str], request_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 87) — The check a retried start should recover, if any.
+- `_candidate_items(vault: LoadedVault, repository: Repository, undecided: set[str], attempted: set[str], excluded: frozenset[str]=frozenset(), *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 174) — Never-seen ordinary items on undecided LOs that routine serving could offer (the shared exclusions apply, with the out-of-timing ones), minus ``excluded``.
+- `_attempted_item_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 232)
+- `_present_next(vault: LoadedVault, repository: Repository, predictor: Any, record: dict[str, Any], presentations: list[dict[str, Any]], *, undecided: set[str], clock: Clock | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 270) — The check's current presentation, or a new one while fewer than k exist.
+- `_results(vault: LoadedVault, repository: Repository, outcome: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/quick_check.py), line 401)
 
 ## Who imports or calls it
 
@@ -93,7 +93,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `bind_quick_check_answers`, `finish_quick_check_split`, `quick_check_answers`, `quick_check_presentations`, `quick_check_record`, `quick_check_split`, `quick_check_window_end`; calls `bind_quick_check_answers`, `finish_quick_check_split`, `quick_check_answers`, `quick_check_presentations`, `quick_check_record`, `quick_check_split`, `quick_check_window_end`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `active_predictor`; calls `active_predictor`
 - [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] — imports `blocking_signals_by_lo`; calls `blocking_signals_by_lo`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `diagnosis_can_arrive`, `load_answers`, `load_placement_state_from_connection`, `placement_active`; calls `diagnosis_can_arrive`, `load_answers`, `load_placement_state_from_connection`, `placement_active`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `load_answers`, `load_placement_state_from_connection`, `placement_active`; calls `load_answers`, `load_placement_state_from_connection`, `placement_active`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `out_of_timing_serving_exclusions`; calls `out_of_timing_serving_exclusions`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`; calls `decide`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`

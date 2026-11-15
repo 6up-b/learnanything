@@ -217,6 +217,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/pfc_unassessed_readers_helpers.py](../../../../../../tests/pfc_unassessed_readers_helpers.py) — direct import
 - [tests/route_rules_in_grader_helpers.py](../../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import

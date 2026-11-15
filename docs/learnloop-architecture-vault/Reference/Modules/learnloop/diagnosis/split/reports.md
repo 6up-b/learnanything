@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/reports.py](../../../../../../../src/learnloop/diagnosis/split/reports.py) |
-| Source lines | 349 |
+| Source lines | 348 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 257)
-- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 295)
+- `render_markdown(report: Mapping[str, Any]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 294)
 
 ### Module constants
 
@@ -78,7 +78,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_e7(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 94)
 - `_signals(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 181)
 - `_e2_prior_analysis_arms(repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 234) — E2's ``anchoring_suspect`` rate per prior-analysis arm (learner-blindness relax): completed live diagnoses, grouped by the arm their context receipt records (``unassigned``: written before the arm existed).
-- `_fmt(rate: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 289)
+- `_fmt(rate: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/reports.py), line 288)
 
 ## Who imports or calls it
 

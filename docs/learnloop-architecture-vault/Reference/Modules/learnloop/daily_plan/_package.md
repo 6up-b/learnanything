@@ -136,9 +136,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 5 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges

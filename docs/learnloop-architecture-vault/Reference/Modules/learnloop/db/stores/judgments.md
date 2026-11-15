@@ -206,8 +206,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_supersession_is_how_a_judges_different_is_replaced`
 - [tests/test_recurrence_merge_composition.py](../../../../../../../tests/test_recurrence_merge_composition.py) — direct import
   - `test_a_decider_same_cause_verdict_is_logged_but_joins_no_group`
-- [tests/test_route_rules_in_grader.py](../../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_f5_a_joint_regrade_supersedes_a_route_verdict`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_only_new_authoritative_decider_links_reach_recurrence`
   - `test_the_gaps_report_skips_decider_failure_rows`

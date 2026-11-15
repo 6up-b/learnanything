@@ -47,43 +47,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py) |
-| Source lines | 688 |
+| Source lines | 687 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ScheduledCheck` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 86) — A fixed-date cold check the plan serves in the maintain lane (§6.1 rule 1).
-- `register_scheduled_check_provider(provider: ScheduledCheckProvider) -> None` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 101)
-- `unregister_scheduled_check_provider(provider: ScheduledCheckProvider) -> None` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 106)
-- `scheduled_checks(vault: Any, repository: Any, item_ids: Sequence[str]) -> dict[str, ScheduledCheck]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 111)
-- `class PoolItem` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 120) — One eligible item as the plan sees it.
-  - `counts_as_new(self) -> bool` (line 148; public) — New material as the plan admits and counts it: never attempted, or back as learning (mvp-0.56).
-  - `order_rank(self) -> int` (line 154; public) — The rank the plan orders by: ``plan_rank`` when set, else ``rank``.
-  - `as_dict(self) -> dict[str, Any]` (line 159; public)
-- `is_followup(scheduled: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 176)
-- `classify_item(scheduled: Any, *, rank: int, state: Any, requested: bool, now: datetime, est_minutes: float, check: ScheduledCheck | None, probe_slot_available: bool, deadline: bool=False, open_problem: bool | None=None, probe_value: Mapping[str, Any] | None=None, due_override: bool | None=None, intent_push: bool=False) -> PoolItem` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 183) — §6.1: the first lane that matches, in order.
-- `classify_pool(scheduled_items: Sequence[Any], *, item_states: Mapping[str, Any], requested_ids: Iterable[str], now: datetime, estimate: Callable[[str], float], checks: Mapping[str, ScheduledCheck], probe_cap_left: int, deadline_learning_object_ids: Iterable[str]=(), open_problem_learning_object_ids: Iterable[str] | None=None, project_probe_admission: Callable[[Sequence[tuple[Any, float]]], Sequence[tuple[str, Mapping[str, Any]]]] | None=None, is_due: Callable[[str, Any], bool] | None=None, push_ids: Iterable[str]=()) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 299) — Classify the scheduler's ranked list, in rank order (§6.1).
-- `reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None=None) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 406) — §7: assumed-known checks that came due, then intent tier (Master, Learn and goals with deadlines; then Keep; then uncommitted), then rank.
-- `class LegacyLanesSource` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 494) — ``legacy_lanes_v1``: deterministic block candidates from the lanes (§6.8).
-  - `lane_items(self, lane: str) -> list[PoolItem]` (line 523; public)
-  - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 531; public)
-  - `_reading_candidate(self, limit: float) -> BlockCandidate | None` (line 581; internal)
+- `class ScheduledCheck` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 85) — A fixed-date cold check the plan serves in the maintain lane (§6.1 rule 1).
+- `register_scheduled_check_provider(provider: ScheduledCheckProvider) -> None` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 100)
+- `unregister_scheduled_check_provider(provider: ScheduledCheckProvider) -> None` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 105)
+- `scheduled_checks(vault: Any, repository: Any, item_ids: Sequence[str]) -> dict[str, ScheduledCheck]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 110)
+- `class PoolItem` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 119) — One eligible item as the plan sees it.
+  - `counts_as_new(self) -> bool` (line 147; public) — New material as the plan admits and counts it: never attempted, or back as learning (mvp-0.56).
+  - `order_rank(self) -> int` (line 153; public) — The rank the plan orders by: ``plan_rank`` when set, else ``rank``.
+  - `as_dict(self) -> dict[str, Any]` (line 158; public)
+- `is_followup(scheduled: Any) -> bool` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 175)
+- `classify_item(scheduled: Any, *, rank: int, state: Any, requested: bool, now: datetime, est_minutes: float, check: ScheduledCheck | None, probe_slot_available: bool, deadline: bool=False, open_problem: bool | None=None, probe_value: Mapping[str, Any] | None=None, due_override: bool | None=None, intent_push: bool=False) -> PoolItem` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 182) — §6.1: the first lane that matches, in order.
+- `classify_pool(scheduled_items: Sequence[Any], *, item_states: Mapping[str, Any], requested_ids: Iterable[str], now: datetime, estimate: Callable[[str], float], checks: Mapping[str, ScheduledCheck], probe_cap_left: int, deadline_learning_object_ids: Iterable[str]=(), open_problem_learning_object_ids: Iterable[str] | None=None, project_probe_admission: Callable[[Sequence[tuple[Any, float]]], Sequence[tuple[str, Mapping[str, Any]]]] | None=None, is_due: Callable[[str, Any], bool] | None=None, push_ids: Iterable[str]=()) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 298) — Classify the scheduler's ranked list, in rank order (§6.1).
+- `reentry_order(pool: Sequence[PoolItem], tiers: Mapping[str, int] | None=None) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 405) — §7: assumed-known checks that came due, then intent tier (Master, Learn and goals with deadlines; then Keep; then uncommitted), then rank.
+- `class LegacyLanesSource` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 493) — ``legacy_lanes_v1``: deterministic block candidates from the lanes (§6.8).
+  - `lane_items(self, lane: str) -> list[PoolItem]` (line 522; public)
+  - `candidates(self, state: PlanState) -> list[BlockCandidate]` (line 530; public)
+  - `_reading_candidate(self, limit: float) -> BlockCandidate | None` (line 580; internal)
 
 ### Module constants
 
 - `SOURCE_NAME` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 51)
 - `_EPS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 52)
 - `FOLLOWUP_COMPONENTS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 55)
-- `REPAIR_MIN_RECENT_ERROR` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 66)
-- `REPAIR_RULE_DIAGNOSIS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 69)
-- `REPAIR_RULE_RECENT_ERROR` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 70)
-- `ASSUMED_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 74)
-- `GAP_COMMITMENT_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 79)
-- `GAP_SOONER_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 80)
-- `INTENT_PUSH_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 82)
-- `_CHECK_PROVIDERS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 98)
+- `REPAIR_MIN_RECENT_ERROR` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 65)
+- `REPAIR_RULE_DIAGNOSIS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 68)
+- `REPAIR_RULE_RECENT_ERROR` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 69)
+- `ASSUMED_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 73)
+- `GAP_COMMITMENT_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 78)
+- `GAP_SOONER_CHECK_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 79)
+- `INTENT_PUSH_REASON` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 81)
+- `_CHECK_PROVIDERS` ([src/learnloop/daily_plan/lanes.py](../../../../../../src/learnloop/daily_plan/lanes.py), line 97)
 
 ### Explicit exports
 
@@ -110,18 +110,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_order_probes_by_value(pool: list[PoolItem], admitted_order: Sequence[str]) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 383) — Admitted project probes take their own positions in admission order (the best conditional value per minute first); every other item keeps its place.
-- `_candidate_id(lane: str, item_ids: Sequence[str], reading: ReadingTarget | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 440)
-- `_group_by_lo(items: Sequence[PoolItem]) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 446)
-- `_lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 453)
-- `_pack(items: Sequence[PoolItem], *, lane: str, limit: float, items_left: int | None, merge_small: bool, max_blocks: int) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 620) — Greedy, rank-ordered packing of LO groups into blocks under ``limit``.
+- `_order_probes_by_value(pool: list[PoolItem], admitted_order: Sequence[str]) -> list[PoolItem]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 382) — Admitted project probes take their own positions in admission order (the best conditional value per minute first); every other item keeps its place.
+- `_candidate_id(lane: str, item_ids: Sequence[str], reading: ReadingTarget | None) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 439)
+- `_group_by_lo(items: Sequence[PoolItem]) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 445)
+- `_lane_reason(lane: str, items: Sequence[PoolItem], titles: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 452)
+- `_pack(items: Sequence[PoolItem], *, lane: str, limit: float, items_left: int | None, merge_small: bool, max_blocks: int) -> list[list[PoolItem]]` ([source](../../../../../../src/learnloop/daily_plan/lanes.py), line 619) — Greedy, rank-ordered packing of LO groups into blocks under ``limit``.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `LegacyLanesSource`, `PoolItem`, `REPAIR_RULE_DIAGNOSIS`, `REPAIR_RULE_RECENT_ERROR`, `SOURCE_NAME`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`; statically calls `LegacyLanesSource`, `PoolItem`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `LegacyLanesSource`, `PoolItem`, `REPAIR_RULE_DIAGNOSIS`, `SOURCE_NAME`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`; statically calls `LegacyLanesSource`, `PoolItem`, `ScheduledCheck`, `classify_pool`, `reentry_order`, `scheduled_checks`
 - [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `PoolItem`; statically calls `PoolItem`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `ASSUMED_CHECK_REASON`, `GAP_COMMITMENT_CHECK_REASON`, `GAP_SOONER_CHECK_REASON`, `LegacyLanesSource`, `PoolItem`; statically calls `LegacyLanesSource`
 

@@ -81,7 +81,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `estimated_prompt_tokens`; statically calls `estimated_prompt_tokens`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `admit_grading_call`, `estimated_prompt_tokens`; statically calls `admit_grading_call`, `estimated_prompt_tokens`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `admit_grading_call`; statically calls `admit_grading_call`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `admit_grading_call`; statically calls `admit_grading_call`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `estimated_prompt_tokens`, `grading_admission`; statically calls `estimated_prompt_tokens`, `grading_admission`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `estimated_prompt_tokens`; statically calls `estimated_prompt_tokens`

@@ -553,6 +553,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cli_generate_refuses_when_disabled_and_rejects_bad_input`
 - [tests/test_pf_reports.py](../../../../../../tests/test_pf_reports.py) — direct import
   - `test_eval_cli_reports_without_judge_are_read_only`
+- [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
+  - `test_stored_misses_read_as_with_the_split_on`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_an_ignored_opening_episode_commissions_no_instrument_generation`
   - `test_probe_instances_reaches_an_ignored_episode_when_the_lo_is_named`

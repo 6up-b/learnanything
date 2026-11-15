@@ -124,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/method_explicit_landing_helpers.py](../../../../../../tests/method_explicit_landing_helpers.py) — direct import
 - [tests/required_method_round3_rereview_helpers.py](../../../../../../tests/required_method_round3_rereview_helpers.py) — direct import
 - [tests/test_architecture.py](../../../../../../tests/test_architecture.py) — direct import

@@ -371,7 +371,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
-  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
   - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`

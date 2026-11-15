@@ -49,7 +49,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/placement.py](../../../../../../src/learnloop/cli/placement.py) |
-| Source lines | 101 |
+| Source lines | 100 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `placement_status(vault: Annotated[Path, typer.Option('--vault', help='Vault root (read-only).')], json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/placement.py), line 34) — Whether placement serves, and every open assumed-known LO with its check date.
-- `placement_eval(vault: Annotated[Path, typer.Option('--vault', help='Explicit vault copy; read-only, no model calls.')], output_dir: Annotated[Path, typer.Option('--output', '--output-dir', help='Aggregate-only report destination.')]=Path('fixtures-local/reports'), json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/placement.py), line 76) — Report 3: first-review miss rate by source, returns to learning, minutes saved.
+- `placement_eval(vault: Annotated[Path, typer.Option('--vault', help='Explicit vault copy; read-only, no model calls.')], output_dir: Annotated[Path, typer.Option('--output', '--output-dir', help='Aggregate-only report destination.')]=Path('fixtures-local/reports'), json_output: Annotated[bool, typer.Option('--json')]=False) -> None` ([source](../../../../../../src/learnloop/cli/placement.py), line 75) — Report 3: first-review miss rate by source, returns to learning, minutes saved.
 
 ## Internal implementation anchors
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `placement_report`, `write_placement_report`; calls `placement_report`, `write_placement_report`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `assumption_summary`, `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_active`; calls `assumption_summary`, `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_active`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `assumption_summary`, `load_placement_state_from_connection`, `placement_active`; calls `assumption_summary`, `load_placement_state_from_connection`, `placement_active`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 

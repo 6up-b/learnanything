@@ -1631,6 +1631,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ingest_runner_helpers.py](../../../../../../tests/ingest_runner_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../../tests/km3_projections_helpers.py) — direct import
 - [tests/learner_report_superseded_helpers.py](../../../../../../tests/learner_report_superseded_helpers.py) — direct import
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
@@ -2211,7 +2212,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
-  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
@@ -2234,14 +2234,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forwarding_happens_only_with_an_open_factor`
   - `test_not_same_mistake_needs_a_validated_citation_and_lands_in_the_ledger`
   - `test_repairs_first_displayed_on_the_card_are_debited_once`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_joint_reads_are_untouched_by_the_overlay`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
-  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_b2_license_cannot_be_reused_for_a_different_b1_corpus`
   - `test_blind_realism_matcher_abstains_on_small_corpus_and_rejects_separable`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
@@ -2591,6 +2588,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_without_families_has_no_fingerprint_rows`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
   - `test_resolver_uses_posterior_only_when_enabled`
+- [tests/test_joint_grading_builder.py](../../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_receipts_store_labels_and_unlabelled_calls_work_below_175`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import

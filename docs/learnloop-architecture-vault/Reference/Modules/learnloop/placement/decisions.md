@@ -47,47 +47,47 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py) |
-| Source lines | 753 |
+| Source lines | 752 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PlacementInactive(RuntimeError)` ([source](../../../../../../src/learnloop/placement/decisions.py), line 73) — Placement is off (pre-mvp-0.11 vault or ``placement.enabled = false``).
-- `record_self_report(vault: LoadedVault, repository: Repository, *, learning_object_ids: Iterable[str], report: str, trigger_ref: str | None=None, checkpoint: tuple[str, str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 198) — "I know this" / "too easy" (assume known) or "I don't know this" (return).
-- `fast_track_inputs(answers: Sequence[AnswerFacts], blocking: Sequence[str], *, min_correct: int, q: float, known: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 310)
-- `reconcile_fast_track(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 322) — Mark LOs assumed whose first answers pass the fast-track rule.
-- `reconcile_predictor_assumptions(vault: LoadedVault, repository: Repository, predictor: LearnerPredictor, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 443) — The ``predictor`` source: confident before any attempt.
-- `quick_check_split(vault: LoadedVault, predictor: LearnerPredictor, *, scope: Sequence[str], answers_by_lo: Mapping[str, Sequence[AnswerFacts]], blocking: Mapping[str, Sequence[str]], state: PlacementState) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 492) — Per-LO quick-check verdict: ``assumed``, ``learning`` or ``undecided``.
-- `quick_check_window_end(calibration: ProbeCalibrationSessionRecord) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 534) — The check's boundary: its budget's end, or its stop/expiry if earlier.
-- `quick_check_presentations(connection: Any, calibration_session_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 546)
-- `bind_quick_check_answers(connection: Any, record: Mapping[str, Any], *, window_end: str) -> int` ([source](../../../../../../src/learnloop/placement/decisions.py), line 555) — Associate each presentation with its submission, once.
-- `quick_check_answers(connection: Any, *, calibration_session_id: str, scope: Sequence[str]) -> dict[str, tuple[AnswerFacts, ...]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 584) — The check's own answers: the submissions bound to its presentations, with their independence facts (the same window as fast-track's).
-- `quick_check_record(repository: Repository, calibration_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 620)
-- `finish_quick_check_split(vault: LoadedVault, repository: Repository, *, calibration_session_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 625) — Feed a finished quick check's results into the assumed/learning split.
-- `finalize_stale_quick_checks(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 721) — Feed the results of quick checks that ended while nobody was looking.
+- `class PlacementInactive(RuntimeError)` ([source](../../../../../../src/learnloop/placement/decisions.py), line 72) — Placement is off (pre-mvp-0.11 vault or ``placement.enabled = false``).
+- `record_self_report(vault: LoadedVault, repository: Repository, *, learning_object_ids: Iterable[str], report: str, trigger_ref: str | None=None, checkpoint: tuple[str, str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 197) — "I know this" / "too easy" (assume known) or "I don't know this" (return).
+- `fast_track_inputs(answers: Sequence[AnswerFacts], blocking: Sequence[str], *, min_correct: int, q: float, known: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 309)
+- `reconcile_fast_track(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 321) — Mark LOs assumed whose first answers pass the fast-track rule.
+- `reconcile_predictor_assumptions(vault: LoadedVault, repository: Repository, predictor: LearnerPredictor, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 442) — The ``predictor`` source: confident before any attempt.
+- `quick_check_split(vault: LoadedVault, predictor: LearnerPredictor, *, scope: Sequence[str], answers_by_lo: Mapping[str, Sequence[AnswerFacts]], blocking: Mapping[str, Sequence[str]], state: PlacementState) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 491) — Per-LO quick-check verdict: ``assumed``, ``learning`` or ``undecided``.
+- `quick_check_window_end(calibration: ProbeCalibrationSessionRecord) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 533) — The check's boundary: its budget's end, or its stop/expiry if earlier.
+- `quick_check_presentations(connection: Any, calibration_session_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 545)
+- `bind_quick_check_answers(connection: Any, record: Mapping[str, Any], *, window_end: str) -> int` ([source](../../../../../../src/learnloop/placement/decisions.py), line 554) — Associate each presentation with its submission, once.
+- `quick_check_answers(connection: Any, *, calibration_session_id: str, scope: Sequence[str]) -> dict[str, tuple[AnswerFacts, ...]]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 583) — The check's own answers: the submissions bound to its presentations, with their independence facts (the same window as fast-track's).
+- `quick_check_record(repository: Repository, calibration_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 619)
+- `finish_quick_check_split(vault: LoadedVault, repository: Repository, *, calibration_session_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 624) — Feed a finished quick check's results into the assumed/learning split.
+- `finalize_stale_quick_checks(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 720) — Feed the results of quick checks that ended while nobody was looking.
 
 ### Module constants
 
-- `SELF_REPORTS` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 66)
-- `RETURN_REPORTS` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 67)
-- `PLACEMENT_OVERRIDE_TASK` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 69)
-- `PLACEMENT_OVERRIDE_VERSION` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 70)
+- `SELF_REPORTS` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 65)
+- `RETURN_REPORTS` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 66)
+- `PLACEMENT_OVERRIDE_TASK` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 68)
+- `PLACEMENT_OVERRIDE_VERSION` ([src/learnloop/placement/decisions.py](../../../../../../src/learnloop/placement/decisions.py), line 69)
 
 ## Internal implementation anchors
 
-- `_config(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 77)
-- `_due(now_iso: str, days: int) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 85)
-- `_region_dict(region: RegionEstimate | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 91)
-- `_decision_row(vault: LoadedVault, predictor: LearnerPredictor, *, learning_object_id: str, source: str, trigger_kind: str, trigger_ref: str | None, region: RegionEstimate | None, inputs: Mapping[str, Any], now_iso: str, quick_check_session_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 97)
-- `_open_assumption_id(connection: Any, vault: LoadedVault, learning_object_id: str, *, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 134)
-- `_latest_override_id(connection: Any, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 142)
-- `_append_override(connection: Any, vault: LoadedVault, *, learning_object_id: str, report: str, status: str, trigger_ref: str | None, receipt_table: str | None, receipt_id: str | None, now_iso: str) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 151) — The learner's placement verdict as an owner judgment (Slice A §3 rule 3).
-- `_quick_check_scopes(connection: Any) -> set[str]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 300)
-- `_fast_track_receipt(vault: LoadedVault, connection: Any, lo: str, answers: Sequence[AnswerFacts], region: RegionEstimate | None, verdict: Any, *, now_iso: str, blocking: Sequence[str], predecessor_blocking: Sequence[str]) -> None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 414) — RW2d: the old rule's verdict on the predecessor's blocking signals, beside this one's.
-- `_bind_finished_window(repository: Repository, record: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 601)
-- `_quick_check_record(connection: Any, calibration_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 610)
+- `_config(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 76)
+- `_due(now_iso: str, days: int) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 84)
+- `_region_dict(region: RegionEstimate | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 90)
+- `_decision_row(vault: LoadedVault, predictor: LearnerPredictor, *, learning_object_id: str, source: str, trigger_kind: str, trigger_ref: str | None, region: RegionEstimate | None, inputs: Mapping[str, Any], now_iso: str, quick_check_session_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 96)
+- `_open_assumption_id(connection: Any, vault: LoadedVault, learning_object_id: str, *, now_iso: str) -> str | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 133)
+- `_latest_override_id(connection: Any, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 141)
+- `_append_override(connection: Any, vault: LoadedVault, *, learning_object_id: str, report: str, status: str, trigger_ref: str | None, receipt_table: str | None, receipt_id: str | None, now_iso: str) -> str` ([source](../../../../../../src/learnloop/placement/decisions.py), line 150) — The learner's placement verdict as an owner judgment (Slice A §3 rule 3).
+- `_quick_check_scopes(connection: Any) -> set[str]` ([source](../../../../../../src/learnloop/placement/decisions.py), line 299)
+- `_fast_track_receipt(vault: LoadedVault, connection: Any, lo: str, answers: Sequence[AnswerFacts], region: RegionEstimate | None, verdict: Any, *, now_iso: str, blocking: Sequence[str], predecessor_blocking: Sequence[str]) -> None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 413) — RW2d: the old rule's verdict on the predecessor's blocking signals, beside this one's.
+- `_bind_finished_window(repository: Repository, record: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 600)
+- `_quick_check_record(connection: Any, calibration_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/placement/decisions.py), line 609)
 
 ## Who imports or calls it
 
@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `active_predictor`; calls `active_predictor`
 - [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] — imports `AnswerFacts`, `RULES_VERSION`, `fast_track_verdict`, `interval_80`, `known_probability`, `theta_known`; calls `fast_track_verdict`, `interval_80`, `known_probability`, `theta_known`
 - [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] — imports `blocking_with_predecessor`; calls `blocking_with_predecessor`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `INTENT_MAINTENANCE`, `PlacementState`, `diagnosis_can_arrive`, `evaluate_independence`, `load_answers`, `load_placement_state_from_connection`, `placement_active`; calls `diagnosis_can_arrive`, `evaluate_independence`, `load_answers`, `load_placement_state_from_connection`, `placement_active`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `INTENT_MAINTENANCE`, `PlacementState`, `evaluate_independence`, `load_answers`, `load_placement_state_from_connection`, `placement_active`; calls `evaluate_independence`, `load_answers`, `load_placement_state_from_connection`, `placement_active`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies

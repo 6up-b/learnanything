@@ -155,6 +155,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/test_required_method_round3_review.py](../../../../../../tests/test_required_method_round3_review.py) — direct import
   - `test_f4_the_teach_back_author_reads_the_task_as_it_was_set`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import

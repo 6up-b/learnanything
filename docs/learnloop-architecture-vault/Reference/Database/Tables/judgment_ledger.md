@@ -183,6 +183,7 @@ None found by exact static reference scan.
 - `tests/figure_rich_job_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/identity_pins_helpers.py`
+- `tests/joint_grading_helpers.py`
 - `tests/passage_cue_fakes.py`
 - `tests/pf_generation_helpers.py`
 - `tests/reader_followups_round4_helpers.py`
@@ -194,7 +195,6 @@ None found by exact static reference scan.
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_fix_round5.py`
 - `tests/test_ad1_fix_round6.py`
-- `tests/test_ad1_fix_round9.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

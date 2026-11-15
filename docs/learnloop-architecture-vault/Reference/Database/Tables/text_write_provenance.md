@@ -102,10 +102,9 @@ None found by exact static reference scan.
 - `tests/diagnosis_input_provenance_helpers.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
-- `tests/test_diagnosis_input_provenance_landing.py`
-- `tests/test_diagnostic_augmentation.py`
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_hint_feedback_texts.py`
+- `tests/test_joint_grading_builder.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_notes_c2b_review5.py`
 - `tests/test_reader_formative_texts.py`

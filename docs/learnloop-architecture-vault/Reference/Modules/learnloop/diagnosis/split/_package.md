@@ -89,8 +89,8 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 19 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 15 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 13 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 8 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 7 static module edges
@@ -125,8 +125,8 @@ flowchart LR
     n_learnloop_diagnosis_offline_review["learnloop.diagnosis.offline_review"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_diagnosis_recurrence["learnloop.diagnosis.recurrence"]
     n_learnloop_cli["learnloop.cli"]
@@ -137,8 +137,8 @@ flowchart LR
     center -->|6| n_learnloop_diagnosis_offline_review
     center -->|17| n_learnloop_ai
     center -->|15| n_learnloop_vault
-    center -->|14| n_learnloop_attempts
     center -->|14| n_learnloop_db_stores
+    center -->|13| n_learnloop_attempts
     center -->|13| n_learnloop_db
     n_learnloop_diagnosis_recurrence -->|8| center
     center -->|5| n_learnloop_diagnosis_recurrence

@@ -1069,7 +1069,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
-  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_deliverable_codex_review.py](../../../../../../tests/test_deliverable_codex_review.py) — direct import
   - `test_f13_the_check_dates_follow_the_vaults_dl2_parameters`
@@ -1131,18 +1130,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_records_the_contract_a_mid_attempt_question_is_about`
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_a_method_explicit_question_records_the_contract_it_was_presented_with`
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
   - `test_rule_4_and_identity_bound_marks_reach_rule_c_through_learner_protection`
   - `test_the_release_switch_defaults_off_and_the_default_source_is_the_narrow_rule`
-- [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
-  - `test_kill_switch_holds_queued_live_diagnoses`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_replay_makes_zero_model_and_embedding_calls`
 - [tests/test_diagnosis_reports.py](../../../../../../tests/test_diagnosis_reports.py) — direct import
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
-  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_b2_license_cannot_be_reused_for_a_different_b1_corpus`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
   - `test_commissioning_rejects_same_family_before_persona_generation`
@@ -1915,7 +1910,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_grader_taxonomy_emits_mechanism_vocabulary`
   - `test_promotion_on_independent_surface`
-  - `test_taxonomy_regrade_check_no_attribution_regressions`
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
@@ -2241,9 +2235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_criterion_without_targets_shares_its_facets_with_the_assessed_one`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_joint_fixture_replays_through_the_unchanged_path`
-  - `test_joint_grades_replay_untouched_beside_blind_unverified_ones`
 - [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
-  - `test_no_diagnosis_can_arrive_falls_back_to_todays_rule`
   - `test_the_kill_switch_ignores_diagnosis_decided_outcomes`
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
@@ -3224,7 +3216,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
-  - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
@@ -3317,7 +3308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
   - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
-  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
   - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`
@@ -3435,6 +3426,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together`
   - `test_f5_historical_feedback_shows_the_frozen_question_answer_key_and_rubric`
   - `test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_question_changed`
+  - `test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_of_the_later_maximum`
   - `test_the_bundle_carries_the_question_as_it_was_given`
   - `test_the_practice_feedback_switch_defaults_to_simple_and_reaches_the_app`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import

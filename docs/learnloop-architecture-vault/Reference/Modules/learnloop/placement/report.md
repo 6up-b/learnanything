@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py) |
-| Source lines | 396 |
+| Source lines | 395 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `placement_report(connection: Any, vault: Any, *, now_iso: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 81) — Report 3 over one read-only snapshot, as of ``now_iso`` (default: now).
-- `write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 348)
+- `placement_report(connection: Any, vault: Any, *, now_iso: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 80) — Report 3 over one read-only snapshot, as of ``now_iso`` (default: now).
+- `write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 347)
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 28)
-- `OBLIGATION_OUTCOMES` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 30)
-- `SOURCES` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 37)
-- `DEFAULT_MINUTES_PER_ITEM` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 39)
-- `CONFOUNDS` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 41)
+- `REPORT_VERSION` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 27)
+- `OBLIGATION_OUTCOMES` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 29)
+- `SOURCES` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 36)
+- `DEFAULT_MINUTES_PER_ITEM` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 38)
+- `CONFOUNDS` ([src/learnloop/placement/report.py](../../../../../../src/learnloop/placement/report.py), line 40)
 
 ## Internal implementation anchors
 
-- `_wilson(failures: int, n: int) -> list[float] | None` ([source](../../../../../../src/learnloop/placement/report.py), line 60)
-- `_minutes_per_item(connection: Any) -> tuple[float, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 69)
-- `_full_marks_misses(rows: Any) -> int` ([source](../../../../../../src/learnloop/placement/report.py), line 313) — Resolved first reviews whose answer fell short of clean full marks: returned to learning, or kept by the diagnosis (an unassessed PF-c answer is no failure evidence, so it is not one).
-- `_maintenance_outcomes(state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 325) — Misses on LOs in maintenance, by how the diagnosis decided them.
+- `_wilson(failures: int, n: int) -> list[float] | None` ([source](../../../../../../src/learnloop/placement/report.py), line 59)
+- `_minutes_per_item(connection: Any) -> tuple[float, str]` ([source](../../../../../../src/learnloop/placement/report.py), line 68)
+- `_full_marks_misses(rows: Any) -> int` ([source](../../../../../../src/learnloop/placement/report.py), line 312) — Resolved first reviews whose answer fell short of clean full marks: returned to learning, or kept by the diagnosis (an unassessed PF-c answer is no failure evidence, so it is not one).
+- `_maintenance_outcomes(state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/placement/report.py), line 324) — Misses on LOs in maintenance, by how the diagnosis decided them.
 
 ## Who imports or calls it
 
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `PLACEMENT_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/placement/rules|learnloop.placement.rules]] — imports `RULES_VERSION`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `INTENT_ASSUMED`, `INTENT_MAINTENANCE`, `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_tables_present`; calls `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_tables_present`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `INTENT_ASSUMED`, `INTENT_MAINTENANCE`, `load_placement_state_from_connection`, `placement_tables_present`; calls `load_placement_state_from_connection`, `placement_tables_present`
 
 ### Platform and third-party dependencies
 
@@ -109,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_diagnosis_decides.py](../../../../../../tests/test_placement_diagnosis_decides.py) — direct import
   - `test_report3_counts_first_review_outcomes_by_reason`
   - `test_report3_keeps_the_raw_full_marks_miss_rate`
+  - `test_stored_misses_read_as_with_the_split_on`
 - [tests/test_placement_report.py](../../../../../../tests/test_placement_report.py) — direct import
 
 ## Modification guidance

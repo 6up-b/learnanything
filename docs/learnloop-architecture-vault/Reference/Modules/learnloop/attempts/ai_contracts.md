@@ -108,18 +108,17 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `ClarificationRequest`, `CriterionEvidence`, `DiscriminationProfileMatch`, `ErrorAttribution`, `ErrorHuntReport`, `ExercisedFacetObservation`, `FacetContrast`, `FirstDivergence`, `GradingContext`, `GradingProposal`, `RepairSuggestion`, `RepairVerificationRequest`, `RepairedTrace`; statically calls `ErrorAttribution`, `GradingProposal`, `RepairSuggestion`, `RepairedTrace`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt`, `grading_prompt_version`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`, `grading_prompt_version`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `ClarificationRequest`, `CriterionEvidence`, `DiscriminationProfileMatch`, `ErrorHuntReport`, `ExercisedFacetObservation`
-- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GRADING_PROMPT_VERSION`, `StuckGradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
+- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `GRADING_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`, `grading_prompt_version`; statically calls `grading_prompt_version`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `GRADING_PROMPT_VERSION`, `GradingContext`, `GradingProposal`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `GRADING_PROMPT_VERSION`, `GradingProposal`, `grading_prompt`; statically calls `grading_prompt`
 - [[Reference/Modules/learnloop/diagnosis/split/contract|learnloop.diagnosis.split.contract]] — imports `ELICITING_REVEAL_BUDGET_DEFAULT`, `PostdictiveClaim`, `RepairVerificationRequest`
 - [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] — imports `GradingProposal`
-- [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`; statically calls `CriterionEvidence`, `GradingContext`, `GradingProposal`
 
 ## Dependencies
@@ -142,7 +141,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -150,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/diagnosis_fakes.py](../../../../../../tests/diagnosis_fakes.py) — direct import
 - [tests/diagnostic_augmentation_helpers.py](../../../../../../tests/diagnostic_augmentation_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/route_rules_in_grader_helpers.py](../../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
@@ -204,6 +204,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_clean_solution_false_positive_writes_a_candidate_not_a_facet_failure`
   - `test_repeats_on_one_solution_stay_one_observation_and_do_not_promote`
   - `test_the_repair_is_required_not_the_flag`
+- [tests/test_joint_grading_builder.py](../../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_km4_taxonomy.py](../../../../../../tests/test_km4_taxonomy.py) — direct import
   - `test_grader_prompt_version_bumped`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
@@ -214,7 +215,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
-  - `test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`
+  - `test_an_ordinary_grading_context_carries_no_stuck_field`
+- [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
+  - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_repaired_answer_is_composed_from_verbatim_prefix_and_regenerated_work`
   - `test_repaired_answer_without_regenerated_work_still_requires_exact_prefix`

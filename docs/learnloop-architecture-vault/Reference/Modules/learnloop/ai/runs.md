@@ -102,6 +102,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_finish_agent_run_without_a_client_leaves_cost_untouched`
 

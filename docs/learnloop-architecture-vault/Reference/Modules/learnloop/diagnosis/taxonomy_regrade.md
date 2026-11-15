@@ -47,19 +47,18 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/taxonomy_regrade.py](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py) |
-| Source lines | 120 |
+| Source lines | 115 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `run_taxonomy_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=20) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 37) — Re-grade a sample of graded attempts and report attribution regressions.
+- `run_taxonomy_regrade_checks(vault: LoadedVault, repository: Repository, client: Any, *, limit: int=20) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 36) — Re-grade a sample of graded attempts and report attribution regressions.
 
 ## Internal implementation anchors
 
-- `_mechanisms(error_types: list[str | None]) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 29)
-- `_grading_prompt_version(vault: LoadedVault) -> str` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 118)
+- `_mechanisms(error_types: list[str | None]) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/taxonomy_regrade.py), line 28)
 
 ## Who imports or calls it
 
@@ -72,8 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `GRADING_PROMPT_VERSION`
-- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADING_PROMPT_VERSION`, `split_grading_active`; calls `split_grading_active`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`; calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] — imports `map_legacy_error_type`; calls `map_legacy_error_type`

@@ -114,8 +114,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/joint_grading_helpers.py`
 - `tests/test_curriculum_c1_fix_round3.py`
 - `tests/test_curriculum_c1_fix_round4.py`
+- `tests/test_diagnosis_async_router.py`
 - `tests/test_diagnosis_embeddings.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_pipeline.py`
@@ -126,7 +128,6 @@ None found by exact static reference scan.
 - `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
-- `tests/test_reader_guidance.py`
 - `tests/test_sg_slip_vs_gap.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

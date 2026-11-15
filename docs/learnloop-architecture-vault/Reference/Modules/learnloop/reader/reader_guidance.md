@@ -155,7 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dont_bring_this_back_suppresses_the_exact_reviewed_placement`
   - `test_guide_plan_writes_nothing`
   - `test_joint_guide_plan_is_unchanged_by_the_overlay_read`
-  - `test_joint_guide_plan_never_waits_on_a_shadow_diagnosis`
   - `test_legacy_placement_uses_only_its_reviewed_familiar_exemplar`
   - `test_reviewed_boundary_placement_connects_question_to_active_goal`
   - `test_split_guide_falls_back_to_the_error_type_when_the_diagnosis_failed`

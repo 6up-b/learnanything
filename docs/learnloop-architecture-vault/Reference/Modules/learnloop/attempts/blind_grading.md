@@ -47,35 +47,34 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py) |
-| Source lines | 779 |
+| Source lines | 766 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `split_grading_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 74) — Does this vault grade NEW practice attempts blind (spec §6.2)?
-- `class BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 116) — Today's grading context WITHOUT ``diagnostic_history`` (§4.1).
-- `blind_context_payload(context: 'BlindGradingContext') -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 151) — The context as rendered and hashed; an absent policy or prompt is omitted.
-- `class BlindRepairedTrace(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 162) — A minimal edit of THIS answer, with an id the diagnoser's repairs cite.
-  - `validate_minimal_edit(self) -> 'BlindRepairedTrace'` (line 176; public)
-- `class BlindErrorAttribution(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 184) — Localization of one failure, without any causal claim (§4.2 "G" rows).
-  - `validate_abstention(self) -> 'BlindErrorAttribution'` (line 202; public)
-- `class BlindGradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 208) — §4.2 output.
-- `class StuckBlindGradingProposal(BlindGradingProposal)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 228) — The blind wire model for a stuck answer: the shared fields, then the grader's :class:`StuckReading` LAST (it never moves a criterion).
-  - `as_blind_proposal(self) -> BlindGradingProposal` (line 234; public)
-- `blind_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None, verifier_observations: list[dict[str, Any]] | None=None, clarification_exchange: dict[str, str] | None=None) -> BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 240) — Build the blind context from the item contract and this answer only.
-- `blind_context_from_grading_context(context: GradingContext, *, verifier_observations: list[dict[str, Any]] | None=None, clarification_exchange: dict[str, str] | None=None, reference_policy: dict[str, Any] | None=None, answer_prompt: dict[str, Any] | None=None) -> BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 273) — Copy every item-side field; ``diagnostic_history`` has nowhere to go.
-- `blind_grading_context_hash(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 315) — Content address of exactly what the blind grader was shown.
-- `blind_prompt_version(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 421) — mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one, plus ``+own-route-v1`` when the policy carries the own-route rules (mvp-0.20) or ``+own-route-v2`` when it carries the method-explicit successor's; any of them with the ``+stuck-v1`` suffix when the answer came from "I…
-- `blind_grading_prompt(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 445) — Render the blind grading request (§4.3; PF-c rules when a policy is set, and the own-route rules when it carries them; the stuck-prompt rules when the answer came from "I'm stuck").
-- `request_blind_grading_proposal(client: OperationClient, context: BlindGradingContext) -> BlindGradingProposal` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 467) — Run the blind grading operation on a structured provider.
-- `taxonomy_misconception_prior(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 515) — O2: at grade time ``is_misconception`` is the taxonomy prior only.
-- `to_grading_proposal(proposal: BlindGradingProposal, *, vault: LoadedVault | None=None) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 522) — The §4.2 mapping onto the joint shape, with every causal field empty.
-- `class ValidatedBlindGrade` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 598) — A validated blind grade plus the blind-only fields the joint shape lacks.
-  - `attributions(self) -> list[dict[str, Any]]` (line 613; public) — Grader-owned attribution fields only; no causal field exists here.
-  - `as_record(self) -> dict[str, Any]` (line 648; public) — The persisted blind-grade record the diagnosis context reads.
-- `validate_blind_grading_proposal(proposal: BlindGradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedBlindGrade` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 683) — Validate through the joint validator, minus causal fields (§3).
+- `class BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 104) — Today's grading context WITHOUT ``diagnostic_history`` (§4.1).
+- `blind_context_payload(context: 'BlindGradingContext') -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 139) — The context as rendered and hashed; an absent policy or prompt is omitted.
+- `class BlindRepairedTrace(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 150) — A minimal edit of THIS answer, with an id the diagnoser's repairs cite.
+  - `validate_minimal_edit(self) -> 'BlindRepairedTrace'` (line 164; public)
+- `class BlindErrorAttribution(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 172) — Localization of one failure, without any causal claim (§4.2 "G" rows).
+  - `validate_abstention(self) -> 'BlindErrorAttribution'` (line 190; public)
+- `class BlindGradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 196) — §4.2 output.
+- `class StuckBlindGradingProposal(BlindGradingProposal)` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 216) — The blind wire model for a stuck answer: the shared fields, then the grader's :class:`StuckReading` LAST (it never moves a criterion).
+  - `as_blind_proposal(self) -> BlindGradingProposal` (line 222; public)
+- `blind_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None, verifier_observations: list[dict[str, Any]] | None=None, clarification_exchange: dict[str, str] | None=None) -> BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 228) — Build the blind context from the item contract and this answer only.
+- `blind_context_from_grading_context(context: GradingContext, *, verifier_observations: list[dict[str, Any]] | None=None, clarification_exchange: dict[str, str] | None=None, reference_policy: dict[str, Any] | None=None, answer_prompt: dict[str, Any] | None=None) -> BlindGradingContext` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 261) — Copy every item-side field; ``diagnostic_history`` has nowhere to go.
+- `blind_grading_context_hash(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 303) — Content address of exactly what the blind grader was shown.
+- `blind_prompt_version(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 409) — mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one, plus ``+own-route-v1`` when the policy carries the own-route rules (mvp-0.20) or ``+own-route-v2`` when it carries the method-explicit successor's; any of them with the ``+stuck-v1`` suffix when the answer came from "I…
+- `blind_grading_prompt(context: BlindGradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 433) — Render the blind grading request (§4.3; PF-c rules when a policy is set, and the own-route rules when it carries them; the stuck-prompt rules when the answer came from "I'm stuck").
+- `request_blind_grading_proposal(client: OperationClient, context: BlindGradingContext) -> BlindGradingProposal` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 455) — Run the blind grading operation on a structured provider.
+- `taxonomy_misconception_prior(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 503) — O2: at grade time ``is_misconception`` is the taxonomy prior only.
+- `to_grading_proposal(proposal: BlindGradingProposal, *, vault: LoadedVault | None=None) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 510) — The §4.2 mapping onto the joint shape, with every causal field empty.
+- `class ValidatedBlindGrade` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 586) — A validated blind grade plus the blind-only fields the joint shape lacks.
+  - `attributions(self) -> list[dict[str, Any]]` (line 601; public) — Grader-owned attribution fields only; no causal field exists here.
+  - `as_record(self) -> dict[str, Any]` (line 636; public) — The persisted blind-grade record the diagnosis context reads.
+- `validate_blind_grading_proposal(proposal: BlindGradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedBlindGrade` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 671) — Validate through the joint validator, minus causal fields (§3).
 
 ### Module constants
 
@@ -83,10 +82,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `BLIND_CALIBRATION_PROMPT_VERSION` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 69)
 - `BLIND_GRADER_OUTPUT_SCHEMA_VERSION` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 70)
 - `GRADER_MODE_BLIND` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 72)
-- `VALIDITY_SCOPES` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 94)
-- `_SCOPE_FOR_VALIDITY` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 105)
-- `_BLIND_REPAIR_PRACTICE_MODE` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 112)
-- `_BLIND_TASK` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 324)
+- `VALIDITY_SCOPES` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 82)
+- `_SCOPE_FOR_VALIDITY` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 93)
+- `_BLIND_REPAIR_PRACTICE_MODE` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 100)
+- `_BLIND_TASK` ([src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py), line 312)
 
 ### Explicit exports
 
@@ -110,32 +109,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `blind_grading_prompt`
 - `blind_prompt_version`
 - `request_blind_grading_proposal`
-- `split_grading_active`
 - `taxonomy_misconception_prior`
 - `to_grading_proposal`
 - `validate_blind_grading_proposal`
 
 ## Internal implementation anchors
 
-- `_cause_scope_for(validity_scope: str) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 511)
+- `_cause_scope_for(validity_scope: str) -> str` ([source](../../../../../../src/learnloop/attempts/blind_grading.py), line 499)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `split_grading_active`, `to_grading_proposal`, `validate_blind_grading_proposal`; statically calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `split_grading_active`, `to_grading_proposal`, `validate_blind_grading_proposal`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `split_grading_active`, `to_grading_proposal`; statically calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `split_grading_active`, `to_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `to_grading_proposal`, `validate_blind_grading_proposal`; statically calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `to_grading_proposal`, `validate_blind_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `to_grading_proposal`; statically calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `to_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `BlindErrorAttribution`, `BlindGradingContext`, `BlindGradingProposal`, `BlindRepairedTrace`, `StuckBlindGradingProposal`, `blind_grading_prompt`, `blind_prompt_version`, `validate_blind_grading_proposal`; statically calls `blind_grading_prompt`, `blind_prompt_version`, `validate_blind_grading_proposal`
-- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `split_grading_active`, `validate_blind_grading_proposal`; statically calls `split_grading_active`, `validate_blind_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `validate_blind_grading_proposal`; statically calls `validate_blind_grading_proposal`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `BlindGradingContext`, `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`; statically calls `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `blind_prompt_version`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`
-- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `split_grading_active`; statically calls `split_grading_active`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `BlindGradingContext`, `blind_context_from_grading_context`, `blind_grading_prompt`, `blind_prompt_version`; statically calls `blind_context_from_grading_context`, `blind_grading_prompt`, `blind_prompt_version`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `BLIND_GRADING_PROMPT_VERSION`, `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`; statically calls `blind_grading_context`, `blind_grading_context_hash`, `blind_grading_prompt`, `request_blind_grading_proposal`, `validate_blind_grading_proposal`
-- [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `split_grading_active`; statically calls `split_grading_active`
 - [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `GRADER_MODE_BLIND`
 - [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] — imports `BLIND_GRADING_PROMPT_VERSION`, `blind_grading_context`, `blind_grading_prompt`, `validate_blind_grading_proposal`; statically calls `blind_grading_context`, `blind_grading_prompt`, `validate_blind_grading_proposal`
-- [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `BLIND_GRADING_PROMPT_VERSION`, `split_grading_active`; statically calls `split_grading_active`
+- [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `BLIND_GRADING_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `BLIND_GRADING_PROMPT_VERSION`, `BlindGradingProposal`, `blind_grading_context`, `blind_grading_prompt`; statically calls `blind_grading_context`, `blind_grading_prompt`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `BlindGradingProposal`; statically calls `BlindGradingProposal`
 
@@ -163,7 +159,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -211,20 +207,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_a_located_error_beside_an_unverified_criterion_still_counts`
 - [tests/test_placement_split_grades.py](../../../../../../tests/test_placement_split_grades.py) — direct import
-- [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
-  - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
   - `test_a_quoted_wrong_step_in_the_method_still_counts`
   - `test_the_prompt_carries_the_required_method_and_names_v2`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_the_prompt_carries_the_rules_and_names_them`
-- [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
-  - `test_a_split_vault_grades_the_simulated_teach_back_blind`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_te0_confidence_events.py](../../../../../../tests/test_teacher_te0_confidence_events.py) — direct import
   - `test_the_blind_grader_never_reads_a_tap_or_a_hedge_read`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
-  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
   - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`

@@ -178,8 +178,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_curriculum_migration.py](../../../../../../tests/test_deliverable_curriculum_migration.py) — direct import
   - `test_228_is_c0bs_migration_classified_with_no_derived_table`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`

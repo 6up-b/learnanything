@@ -458,6 +458,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/method_explicit_landing_helpers.py](../../../../../../tests/method_explicit_landing_helpers.py) — direct import
 - [tests/passage_cue_fakes.py](../../../../../../tests/passage_cue_fakes.py) — direct import
 - [tests/pf_fakes.py](../../../../../../tests/pf_fakes.py) — direct import

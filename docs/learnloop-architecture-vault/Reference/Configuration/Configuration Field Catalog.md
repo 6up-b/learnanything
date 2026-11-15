@@ -10,8 +10,8 @@ aliases:
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 76
-field_count: 1173
-field_status_counts: {"ACTIVE": 1153, "COMPAT": 1, "DORMANT": 15, "LEGACY": 4}
+field_count: 1171
+field_status_counts: {"ACTIVE": 1151, "COMPAT": 1, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -32,17 +32,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 1173 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 1171 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1153 | Canonical typed input to current behavior. |
+| `ACTIVE` | 1151 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 1 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1173-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 1171-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -92,7 +92,7 @@ Every one of the 1173 effective leaves has a semantic Function, a runtime/refact
 | [[Config - fitting|`fitting`]] | 6 | Runtime configuration |
 | [[Config - trace_evidence|`trace_evidence`]] | 2 | Runtime configuration |
 | [[Config - diagnostic_augmentation|`diagnostic_augmentation`]] | 3 | Runtime configuration |
-| [[Config - diagnosis|`diagnosis`]] | 24 | Runtime configuration |
+| [[Config - diagnosis|`diagnosis`]] | 22 | Runtime configuration |
 | [[Config - recurrence|`recurrence`]] | 8 | Runtime configuration |
 | [[Config - hints|`hints`]] | 13 | Runtime configuration |
 | [[Config - learner_text_gaps|`learner_text_gaps`]] | 17 | Runtime configuration |

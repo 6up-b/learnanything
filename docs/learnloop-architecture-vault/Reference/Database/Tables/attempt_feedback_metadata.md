@@ -24,7 +24,6 @@ source_paths:
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/attempts/post_attempt.py"
-  - "src/learnloop/diagnosis/split/jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -108,7 +107,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -122,6 +120,7 @@ Indexes and uniqueness:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_codex_transport_retired.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_joint_grading_builder.py`
 - `tests/test_migrations.py`
 - `tests/test_sim_teach_back.py`
 - `tests/test_causal_attribution_p1.py`

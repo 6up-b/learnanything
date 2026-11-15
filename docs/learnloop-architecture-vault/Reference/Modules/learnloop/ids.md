@@ -281,6 +281,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/normalize_helpers.py](../../../../../tests/normalize_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../tests/notes_fixtures.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../tests/p2_acceptance_helpers.py) — direct import

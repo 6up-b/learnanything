@@ -497,8 +497,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answered_on_the_phone_a_check_measures_its_objective`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_reads_are_untouched_by_the_overlay`
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
@@ -853,7 +851,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_writer_commits_while_the_watcher_is_open_and_the_watcher_never_writes`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_proof_item_is_graded_in_exactly_one_model_call`
-  - `test_f5_a_joint_regrade_supersedes_a_route_verdict`
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_g4_restraint.py](../../../../../../tests/test_router_g4_restraint.py) — direct import
   - `test_an_inserted_follow_up_is_bound_to_its_own_decision_by_its_presentation`
@@ -945,12 +942,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
   - `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
-  - `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`
   - `test_a_regrade_appends_a_superseding_stuck_judgment`
   - `test_a_stuck_attempt_without_confusion_writes_no_signal`
   - `test_an_empty_stuck_answer_scores_zero_without_a_model_call`
   - `test_cli_subscription_grading_counts_calls_without_a_token_bound`
-  - `test_confusion_is_read_and_signalled_in_both_grading_modes`
+  - `test_confusion_is_read_and_signalled`
   - `test_confusion_text_is_marked_and_becomes_a_fast_track_blocking_signal`
   - `test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger`
   - `test_sidecar_dont_know_records_an_empty_stuck_answer_in_an_active_vault`

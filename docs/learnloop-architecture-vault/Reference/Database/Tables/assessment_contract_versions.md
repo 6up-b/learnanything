@@ -146,7 +146,7 @@ Indexes and uniqueness:
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_round3_final_verify.py`
 - `tests/test_voi_forecasts.py`
-- `tests/test_assessment_contracts.py`
+- `tests/joint_grading_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
