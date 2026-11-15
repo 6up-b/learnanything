@@ -4032,6 +4032,8 @@ class DurableIngestJobs:
         self._worker_thread: threading.Thread | None = None
         self._quick_check_threads: list[threading.Thread] = []
         self._stop = threading.Event()
+        #: Set by :meth:`halt` until the next :meth:`bind`.
+        self._halted = False
         self._work_available = threading.Event()
         self._quick_check_work_available = threading.Event()
         # Demand-paged reader synthesis: the same worker thread drains queued
@@ -4102,6 +4104,10 @@ class DurableIngestJobs:
         """
 
         with self._lock:
+            if self._halted:
+                # The vault is served again (``halt``): this host's loops may run once more.
+                self._halted = False
+                self._stop.clear()
             self._reader_synth_client_factory = reader_synth_client_factory
             self._reader_client = None
             self._reader_client_checked = False
@@ -4697,6 +4703,23 @@ class DurableIngestJobs:
             and job["id"] not in self._reloaded
             and effective_ingest_job_status(job) == "completed"
         ]
+
+    def halt(self) -> None:
+        """The host stopped serving the bound vault (``SidecarContext``'s refusal): let go of its runner and stop
+        every loop, without joining (this runs on the request thread that met the refusal, and a join there waits
+        for whatever provider call a job is in). The runner's own :meth:`IngestRunner.halt` fences a job in flight;
+        the loops see ``_stop`` at their next turn and end. Nothing is written. The next :meth:`bind` (a load that
+        succeeded) binds a new runner and lets the loops start again."""
+
+        with self._lock:
+            runner, self._runner = self._runner, None
+            self._halted = True
+            self._stop.set()
+        if runner is not None:
+            runner.halt()
+        self._work_available.set()
+        self._quick_check_work_available.set()
+        self._reading_sweep_wake.set()
 
     def shutdown(self) -> None:
         self._stop.set()
@@ -5513,6 +5536,8 @@ class DurableIngestJobs:
             self.drain_foreground()
             return
         with self._lock:
+            if self._halted:  # only a bind starts a halted host again
+                return
             self._stop.clear()
             # A host stopped and started again gets its reading sweep back.
             self._ensure_reading_sweep()
@@ -5645,18 +5670,22 @@ class DurableIngestJobs:
         infrastructure); the next kick re-probes. Bounded per cycle so a large
         backlog cannot starve ingest jobs between polls."""
 
-        if not runner.repo.has_queued_reader_requests():
+        if runner.halted.is_set() or not runner.repo.has_queued_reader_requests():
             return 0
         client = self._resolve_reader_client(runner)
         if client is None:
             return 0
-        result = RR.drain_requests(
-            runner.repo,
-            worker_id=f"sidecar-{os.getpid()}",
-            synthesize=RR.model_synthesis(client, source_sets=lambda: _reader_source_sets(runner.vault_root)),
-            limit=3,
-        )
-        return len(result["completed"]) + len(result["failed"]) + len(result["partial"])
+        synthesize = RR.model_synthesis(client, source_sets=lambda: _reader_source_sets(runner.vault_root))
+        ran = 0
+        # One claim at a time, so a halt (``IngestRunner.halt``) stops the next claim; the request in flight then
+        # records its answer, the one write a halt does not stop.
+        for turn in range(3):
+            if runner.halted.is_set() or (turn and not runner.repo.has_queued_reader_requests()):
+                break
+            result = RR.drain_requests(runner.repo, worker_id=f"sidecar-{os.getpid()}", synthesize=synthesize,
+                                       limit=1)
+            ran += len(result["completed"]) + len(result["failed"]) + len(result["partial"])
+        return ran
 
     def _resolve_reader_client(self, runner: IngestRunner) -> Any:
         with self._lock:

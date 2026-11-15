@@ -9,6 +9,7 @@ requires a ready AI provider.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from learnloop.ids import new_ulid
@@ -181,8 +182,10 @@ def _grade_and_record_exam_answer(
     session_id: str,
     practice_item_id: str,
     answer_md: str,
+    serving: Callable[[], bool] | None = None,
 ) -> None:
-    """Resolve one persisted answer and attach its grade idempotently."""
+    """Resolve one persisted answer and attach its grade idempotently. ``serving`` (a background grading's context)
+    is asked again after the model call, which can outlast the vault being served: a refused vault gets no grade."""
 
     existing = repository.exam_answer(session_id, practice_item_id)
     if existing is not None and existing.get("grade") is not None:
@@ -207,6 +210,8 @@ def _grade_and_record_exam_answer(
         learner_answer_md=answer_md,
     )
     resolved = resolved_codex_grade(validated, agent_run_id=None, clock=None)
+    if serving is not None and not serving():
+        raise ExamSessionError("The vault stopped being served while this answer was graded; it is graded again later")
     record_exam_answer(
         vault,
         repository,
@@ -242,6 +247,7 @@ def _schedule_exam_answer_grading(
             session_id=session_id,
             practice_item_id=practice_item_id,
             answer_md=answer_md,
+            serving=ctx.serving,
         )
 
     ctx.exam_grading.submit(

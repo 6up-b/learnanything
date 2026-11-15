@@ -23,8 +23,13 @@ class _JobGuard:
     path: Path
     job_id: str
     owner: JobOwner
+    #: True once the host stopped serving this vault: the job still owns its lease, but the database may be another
+    #: process's mid-upgrade, so nothing more is published to it.
+    halted: Any = None
 
     def check(self, connection):
+        if self.halted is not None and self.halted():
+            raise JobOwnershipLost(f'Job {self.job_id}: its vault is no longer served by this process')
         if not owns_ingest_job(connection, self.job_id, self.owner):
             raise JobOwnershipLost(
                 f'Job {self.job_id} no longer owns attempt {self.owner.attempt_count}'
@@ -79,11 +84,12 @@ def allow_late_model_records():
 
 
 @contextmanager
-def guard_ingest_writes(path, job_id, worker_id, attempt_count):
-    """Fence all repositories for this database on the current worker thread."""
+def guard_ingest_writes(path, job_id, worker_id, attempt_count, *, halted=None):
+    """Fence all repositories for this database on the current worker thread (``halted``: a predicate that ends
+    publication too, whatever the lease says)."""
     from learnloop.vault_lock import guard_vault_mutations
 
-    guard = _JobGuard(Path(path).resolve(), job_id, JobOwner(worker_id, attempt_count))
+    guard = _JobGuard(Path(path).resolve(), job_id, JobOwner(worker_id, attempt_count), halted)
     token = _job_guard.set(guard)
 
     def check_vault(_root):

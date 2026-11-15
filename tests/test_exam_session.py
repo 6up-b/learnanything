@@ -321,3 +321,29 @@ def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_pat
             (attempt_id,),
         ).fetchall()
     assert [tuple(row) for row in stamped] == [identity]
+
+
+def test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served(tmp_path):
+    """The grade comes back after the vault stopped being served (another process's upgrade journal, a floor
+    refusal): nothing is recorded, and the answer stays ungraded for a later resume to grade again."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.substrate.state_sync import sync_vault_state
+    from learnloop_sidecar.handlers.exams import _grade_and_record_exam_answer
+    from tests.diagnosis_fakes import ReviewFakeClient
+
+    paths = create_basic_vault(tmp_path / "vault")
+    _add_item(paths.root, "pi_exam_a", facets=["recall"], difficulty=0.5)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    reserve_exam_pool(vault, repository, vault.goals[0], item_count=1, clock=FrozenClock(NOW))
+    session = start_exam(vault, repository, GOAL_ID, clock=FrozenClock(NOW))
+    client = ReviewFakeClient()
+    item = session["item_order"][0]
+
+    with pytest.raises(ExamSessionError, match="stopped being served"):
+        _grade_and_record_exam_answer(vault, repository, client, session_id=session["session_id"],
+                                      practice_item_id=item, answer_md="Answer.", serving=lambda: False)
+    assert len(client.calls) == 1
+    assert (repository.exam_answer(session["session_id"], item) or {}).get("grade") is None

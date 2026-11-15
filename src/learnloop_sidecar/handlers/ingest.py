@@ -233,9 +233,17 @@ def start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any
     return versioned(job)
 
 
+def _served_jobs(ctx: SidecarContext) -> Any:
+    """The ingest host, for a handler that reaches nothing else: refused, like every handler, while the vault is
+    unservable (the host lets go of its runner then, and its error would say only that it is unbound)."""
+
+    ctx.require_vault()
+    return ctx.ingest_jobs
+
+
 @method("get_ingest_job", IngestJobInput)
 def get_ingest_job(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]:
-    job = ctx.ingest_jobs.get(params.job_id)
+    job = _served_jobs(ctx).get(params.job_id)
     if job is None:
         raise SidecarError("ingest_job_not_found", f"Ingest job '{params.job_id}' was not found.")
     _reload_completed_jobs(ctx, [job])
@@ -244,14 +252,14 @@ def get_ingest_job(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any
 
 @method("get_ingest_jobs")
 def get_ingest_jobs(ctx: SidecarContext, _params) -> dict[str, Any]:
-    jobs = ctx.ingest_jobs.list()
+    jobs = _served_jobs(ctx).list()
     _reload_completed_jobs(ctx, jobs)
     return versioned({"jobs": ctx.ingest_jobs.list()})
 
 
 @method("cancel_ingest", IngestJobInput)
 def cancel_ingest(ctx: SidecarContext, params: IngestJobInput) -> dict[str, Any]:
-    job = ctx.ingest_jobs.cancel(params.job_id)
+    job = _served_jobs(ctx).cancel(params.job_id)
     if job is None:
         raise SidecarError("ingest_job_not_found", f"Ingest job '{params.job_id}' was not found.")
     return versioned(job)
@@ -363,7 +371,7 @@ def _parse_page_selection(raw: str) -> list[int]:
 
 @method("get_ingest_batch", IngestBatchInput)
 def get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]:
-    batch = ctx.ingest_jobs.get_batch(params.batch_id)
+    batch = _served_jobs(ctx).get_batch(params.batch_id)
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
     _reload_applied_batches(ctx, [batch])
@@ -376,7 +384,7 @@ def get_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str,
 
 @method("list_ingest_batches", ListIngestBatchesInput)
 def list_ingest_batches(ctx: SidecarContext, params: ListIngestBatchesInput) -> dict[str, Any]:
-    batches = ctx.ingest_jobs.list_batches(limit=params.limit)
+    batches = _served_jobs(ctx).list_batches(limit=params.limit)
     _reload_applied_batches(ctx, batches)
     return versioned({"batches": batches})
 
@@ -407,7 +415,7 @@ def _reload_applied_batches(ctx: SidecarContext, batches: list[dict[str, Any]]) 
 
 @method("cancel_ingest_batch", IngestBatchInput)
 def cancel_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]:
-    batch = ctx.ingest_jobs.cancel_batch(params.batch_id)
+    batch = _served_jobs(ctx).cancel_batch(params.batch_id)
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
     return versioned(batch)
@@ -415,7 +423,7 @@ def cancel_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[s
 
 @method("resume_ingest_batch", IngestBatchInput)
 def resume_ingest_batch(ctx: SidecarContext, params: IngestBatchInput) -> dict[str, Any]:
-    batch = ctx.ingest_jobs.resume_batch(params.batch_id)
+    batch = _served_jobs(ctx).resume_batch(params.batch_id)
     if batch is None:
         raise SidecarError("ingest_batch_not_found", f"Batch '{params.batch_id}' was not found.")
     return versioned(batch)
@@ -446,7 +454,7 @@ def retry_synthesis(ctx: SidecarContext, params: RetrySynthesisInput) -> dict[st
         if params.synthesis_output_tokens is not None:
             budgets["synthesis_output_tokens"] = params.synthesis_output_tokens
     try:
-        batch = ctx.ingest_jobs.retry_synthesis(
+        batch = _served_jobs(ctx).retry_synthesis(
             params.batch_id,
             synthesis_budgets=budgets or None,
             reuse_candidate=params.reuse_candidate,
