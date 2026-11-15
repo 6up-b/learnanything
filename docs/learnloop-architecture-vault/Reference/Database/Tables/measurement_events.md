@@ -85,6 +85,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.append_measurement_event()`
+- `Repository.grade_head_review()`
 - `Repository.measurement_events_for_administration()`
 - `Repository.open_administration_atomic()`
 - `Repository.write_administration_lineage_atomic()`

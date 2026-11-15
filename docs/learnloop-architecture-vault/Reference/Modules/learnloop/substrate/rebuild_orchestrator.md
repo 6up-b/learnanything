@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py) |
-| Source lines | 804 |
+| Source lines | 810 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `derived_table_owners(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 224) — Return all declared owners, retaining duplicates for validation.
 - `validate_replayer_registry(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 236) — Require exact, unique DERIVED ownership and valid dependency order.
 - `rebuild_all_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, require_complete_attempt_coverage: bool=True) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 672) — Run all registered replayers and append exactly one rebuild receipt.
-- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 761) — Rebuild a vault's live database, then truncate the WAL it grew.
+- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 767) — Rebuild a vault's live database, then truncate the WAL it grew.
 
 ### Module constants
 
@@ -137,7 +137,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`
 - [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `checkpoint_wal`; calls `checkpoint_wal`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `REBUILD_STAMPED_TABLES`, `Repository`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `atomic_repository_call`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `rebuild_source_block_fts`; calls `rebuild_source_block_fts`
 - [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TableRole`, `tables_for_role`; calls `tables_for_role`
@@ -306,8 +306,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live`
 - [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_a_contest_flag_survives_rebuilds`
+  - `test_a_projection_version_change_reinterprets_once`
+  - `test_a_regrade_appends_its_grade_once_and_rebuilds_add_nothing`
   - `test_a_second_rebuild_appends_no_history_row`
-  - `test_an_adjudication_survives_a_rebuild`
+  - `test_an_adjudication_survives_rebuilds`
+  - `test_an_adjudication_that_flips_the_grade_is_not_taken_for_a_regrade`
+  - `test_off_or_at_the_floor_every_rebuild_re_mints_each_answers_chain`
+  - `test_the_first_rebuild_of_a_vault_written_at_the_head_appends_no_grade_channel_row`
+  - `test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan`
   - `test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`

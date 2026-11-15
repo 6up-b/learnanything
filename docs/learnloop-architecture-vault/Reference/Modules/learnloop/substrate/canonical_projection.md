@@ -287,7 +287,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_a_bounded_fold_equals_the_fold_live_left_and_reconciles_no_factor`
 - [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
-  - `test_an_adjudication_survives_a_rebuild`
+  - `test_an_adjudication_survives_rebuilds`
+  - `test_an_adjudication_that_flips_the_grade_is_not_taken_for_a_regrade`
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_per_observation_itemization_sums_to_banked_credit`
   - `test_ready_derivation_matches_canonical_recall_slices`

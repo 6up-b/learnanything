@@ -172,6 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_link_recorded_at_main_mvp020_or_mvp021_has_no_decider_authority`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
+- [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_the_kill_switch_takes_effect_at_vault_open_with_groups_already_populated`
 - [tests/test_recurrence_groups.py](../../../../../../tests/test_recurrence_groups.py) — direct import

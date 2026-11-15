@@ -781,9 +781,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_never_reads_the_switch`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
 - [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
+  - `test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given`
   - `test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_rebuild_makes_no_model_call_and_is_a_fixed_point`

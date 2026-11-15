@@ -100,6 +100,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.active_interpretation_for_observation()`
+- `Repository.grade_head_review()`
 - `Repository.grade_interpretation()`
 - `Repository.grade_interpretations_for_observation()`
 - `Repository.insert_grade_interpretation()`
