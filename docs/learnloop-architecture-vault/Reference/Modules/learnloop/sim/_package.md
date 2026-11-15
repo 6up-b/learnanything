@@ -55,7 +55,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]] | [[Reference/Modules/learnloop/sim/__init__#^module-purpose|purpose]] | `EVALUATION` | 0 | 0 |
 | [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] | [[Reference/Modules/learnloop/sim/ad_gates#^module-purpose|purpose]] | `EVALUATION` | 0 | 2 |
 | [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] | [[Reference/Modules/learnloop/sim/ad_synthetic#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
-| [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] | [[Reference/Modules/learnloop/sim/diagnostic_validation#^module-purpose|purpose]] | `EVALUATION` | 1 | 2 |
+| [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] | [[Reference/Modules/learnloop/sim/diagnostic_validation#^module-purpose|purpose]] | `EVALUATION` | 1 | 4 |
 | [[Reference/Modules/learnloop/sim/grader_confusion|learnloop.sim.grader_confusion]] | [[Reference/Modules/learnloop/sim/grader_confusion#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]] | [[Reference/Modules/learnloop/sim/kinship_admission#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
 | [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] | [[Reference/Modules/learnloop/sim/metrics#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |

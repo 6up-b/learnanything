@@ -2815,6 +2815,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_the_objective_off`
 - [tests/test_ro6_tail_data.py](../../../../../../tests/test_ro6_tail_data.py) — direct import
   - `test_refitting_on_a_later_version_does_not_change_version_ks_evaluation`
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode`
 - [tests/test_rofu_learning.py](../../../../../../tests/test_rofu_learning.py) — direct import
   - `test_the_combiner_is_fitted_on_trace_outcomes_at_the_tag_and_the_trace_names_it`
 - [tests/test_rofu_successor.py](../../../../../../tests/test_rofu_successor.py) — direct import

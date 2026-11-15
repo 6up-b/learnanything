@@ -333,6 +333,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_gate.py](../../../../../../tests/test_ro0_gate.py) — direct import
   - `test_rebuild_leaves_the_receipts_alone`
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`
