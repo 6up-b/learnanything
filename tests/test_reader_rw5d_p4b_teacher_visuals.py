@@ -16,6 +16,7 @@ import pytest
 
 from tests.teacher_fakes import pin_default_tag
 from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
+from learnloop.content.sources import exam_material as EM
 from learnloop.figures import service as FS
 from learnloop.teacher import service as S
 from learnloop.teacher import visuals as V
@@ -279,15 +280,15 @@ def test_held_out_inputs_are_refused_before_any_call(tmp_path, monkeypatch):
     author = AuthorFake([_spec()])
     fake = TeacherFake([visual_turn])
     held = []
-    original = FS.keys_withheld
+    original = EM.spans_withheld
 
-    def withheld(vault, repo, keys):
+    def withheld(vault, repo, extraction_id, span_ids):
         # The anchor's passage became held-out material between the brief and the build.
-        if any(tuple(key) in held for key in keys):
+        if any((str(extraction_id), str(span)) in held for span in span_ids):
             return "That passage is kept for your exam."
-        return original(vault, repo, keys)
+        return original(vault, repo, extraction_id, span_ids)
 
-    monkeypatch.setattr(FS, "keys_withheld", withheld)
+    monkeypatch.setattr(EM, "spans_withheld", withheld)
     vault = load_vault(paths.root)
     calls = []
     build = _builder(paths, repository, author, calls=calls)
@@ -307,7 +308,8 @@ def test_held_out_inputs_are_refused_before_any_call(tmp_path, monkeypatch):
 def test_a_shown_figure_held_out_since_is_no_longer_shown(tmp_path, monkeypatch):
     paths, repository, fake, author, view, _ = _open(tmp_path, [visual_turn])
     assert [e["status"] for e in view["feed"] if e["kind"] == "figure"] == [V.SHOWN]
-    monkeypatch.setattr(FS, "figure_withheld", lambda vault, repo, figure_id: True)
+    # Every passage it was built from is held out now (the exam predicate, which every recheck asks).
+    monkeypatch.setattr(EM, "spans_withheld", lambda vault, repo, extraction_id, span_ids: "held out")
     again = S.view_lesson(load_vault(paths.root), repository, view["lesson_id"])
     assert [(e["status"], e["figure"]) for e in again["feed"] if e["kind"] == "figure"] == [(V.WITHHELD, None)]
 

@@ -203,7 +203,7 @@ def _all_candidates() -> list[PF.Candidate]:
 
 def test_protection_exclusions_are_counted_by_rule_with_ten_keys(tmp_path, monkeypatch):
     _paths, repository, vault = make_vault(tmp_path, two=True)
-    monkeypatch.setattr(FS, "item_passages", lambda *args, **kwargs: (frozenset(), frozenset({EXTRACTION, TWO})))
+    monkeypatch.setattr(PF, "item_protection", lambda env: PF.ItemProtection(frozenset(), frozenset({EXTRACTION, TWO})))
     found = _all_candidates()
     found.append(found[0])  # a duplicate in the same pass
     assert PF.filter_candidates(env_for(vault, repository), found, open_keys=set()) == []
@@ -218,7 +218,7 @@ def test_protection_exclusions_are_counted_by_rule_with_ten_keys(tmp_path, monke
 
 def test_unreadable_protection_cuts_the_whole_pass_and_says_so(tmp_path, monkeypatch):
     _paths, repository, vault = make_vault(tmp_path)
-    monkeypatch.setattr(FS, "item_passages", lambda *args, **kwargs: None)
+    monkeypatch.setattr(PF, "item_protection", lambda env: PF.ItemProtection(available=False))
     found = _all_candidates()[:3]
     assert PF.filter_candidates(env_for(vault, repository), found, open_keys=set()) == []
     (record,) = records(repository, FR.KIND_FILTER)
@@ -372,7 +372,7 @@ def _run(tmp_path: Path, monkeypatch: Any, *, broken: bool) -> tuple[Any, list[s
         monkeypatch.setattr(FR.FilterLog, "record", boom)
         monkeypatch.setattr(FR.AuthorAttempts, "records", boom)
     # One pass: a later pass would read the first's author receipts, whose wall-clock durations feed W.
-    monkeypatch.setattr(FS, "item_passages", lambda *args, **kwargs: (frozenset(), frozenset({TWO})))
+    monkeypatch.setattr(PF, "item_protection", lambda env: PF.ItemProtection(frozenset(), frozenset({TWO})))
     author = AuthorFake(["{not json", flagship(), half_density(), half_density()])
     env = env_for(vault, repository, author=author, seed=7)
     PF.run_trigger(env, PF.Trigger("offer", "tutor:a", blocks=((EXTRACTION, "p3"), (EXTRACTION, "p5"),
