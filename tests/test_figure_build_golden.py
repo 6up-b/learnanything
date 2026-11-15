@@ -48,7 +48,7 @@ from tests.figure_fixtures import (
 )
 from tests.rw5c_fixtures import build_check_vault
 
-#: Twenty-five cases, each run twice in a vault of its own: about 45 s serial.
+#: Thirty cases, each run twice in a vault of its own: about 45 s serial.
 pytestmark = pytest.mark.slow
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figure_build_golden.json"
@@ -71,6 +71,8 @@ class Press:
             self.paths, self.repository = build_figure_vault(root, sketch=sketch, rich=rich)
         else:
             self.paths, self.repository = build_check_vault(root, book)
+            if rich:
+                RF.configure(self.paths, rich_tiers_enabled=True)
         self.extraction = extraction
         if rich:
             set_config(self.paths, "figures", manim_opt_in="standing")
@@ -115,6 +117,19 @@ def case_grammar_refused_then_accepted(tmp_path, monkeypatch, sandbox):
 
 def case_model_failed_twice(tmp_path, monkeypatch, sandbox):
     return _pressed(tmp_path, monkeypatch, sandbox, [RuntimeError("down"), RuntimeError("still down")])
+
+
+def case_capped_before_the_second_attempt(tmp_path, monkeypatch, sandbox):
+    from learnloop.ai.spend import SpendLimitExceeded
+
+    return _pressed(tmp_path, monkeypatch, sandbox, [half_density(), SpendLimitExceeded("the day's figure envelope")])
+
+
+def case_route_unavailable_for_the_second_attempt(tmp_path, monkeypatch, sandbox):
+    from learnloop.figures.routes import FigureUnavailable
+
+    return _pressed(tmp_path, monkeypatch, sandbox,
+                    [half_density(), FigureUnavailable("unavailable", "the plan is not answering")])
 
 
 def case_label_text_repaired(tmp_path, monkeypatch, sandbox):
@@ -177,6 +192,22 @@ def case_spec_with_the_sketch_tier_on(tmp_path, monkeypatch, sandbox):
     return _pressed(tmp_path, monkeypatch, sandbox, [flagship()], sketch=True)
 
 
+class OffMenuStatusAuthor(AuthorFake):
+    """A V2 answer (sketch tier on) whose status names no tier, with a spec that stands on its own."""
+
+    def complete(self, request: Any) -> Any:
+        assert request.purpose == "figure_author"
+        self._record(request)
+        return request.result_model.model_validate({
+            "status": "drawing", "spec_json": json.dumps(flagship()), "sketch_json": "", "why_not_spec": "",
+            "unsupported_kind": "", "unsupported_reason": ""})
+
+
+def case_sketch_tier_status_off_the_menu(tmp_path, monkeypatch, sandbox):
+    press = Press(tmp_path / "vault", monkeypatch, [], sketch=True, author=OffMenuStatusAuthor())
+    return press.record(sandbox, result=build(press.ctx, dict(PRESS)))
+
+
 # -- the rich tier (V3) -------------------------------------------------------------------------------------------
 
 
@@ -196,17 +227,37 @@ def case_v3_quick_spec_dropped(tmp_path, monkeypatch, sandbox):
 class QuickSketchAuthor(AuthorFake):
     """A V3 answer whose quick figure is a sketch (``AuthorFake``'s rich answer carries a quick spec only)."""
 
+    def __init__(self, program: dict[str, Any] | None = None) -> None:
+        super().__init__()
+        self.program = program if program is not None else F.walk()
+
     def complete(self, request: Any) -> Any:
         assert request.purpose == "figure_author"
         self._record(request)
         return request.result_model.model_validate({
-            "status": "manim", "why_this_tier": WHY, "spec_json": "", "sketch_json": json.dumps(F.walk()),
+            "status": "manim", "why_this_tier": WHY, "spec_json": "", "sketch_json": json.dumps(self.program),
             "rich_json": json.dumps(RF.brief()), "unsupported_kind": "", "unsupported_reason": ""})
 
 
 def case_v3_quick_sketch(tmp_path, monkeypatch, sandbox):
     press = Press(tmp_path / "vault", monkeypatch, [], sketch=True, rich=True, author=QuickSketchAuthor())
     return press.record(sandbox, result=build(press.ctx, dict(PRESS)))
+
+
+def case_v3_quick_sketch_fails_in_the_engine(tmp_path, monkeypatch, sandbox):
+    author = QuickSketchAuthor(F.planted()[0][1])  # the claim off by a constant: dropped, the video carries on
+    press = Press(tmp_path / "vault", monkeypatch, [], sketch=True, rich=True, author=author)
+    return press.record(sandbox, result=build(press.ctx, dict(PRESS)))
+
+
+def case_v3_quick_spec_differs_from_the_book(tmp_path, monkeypatch, sandbox):
+    from tests.rw5c_fixtures import EXTRACTION as BOOK, FLAGSHIP_TEX, HALF_EXPR, PARAMETERS, plot
+
+    sandbox.verdicts[:] = ["different"]
+    quick = plot(HALF_EXPR, parameters=PARAMETERS, low=-3, high=3, stated="f(x)", span="s1")
+    press = Press(tmp_path / "vault", monkeypatch, [("rich", "manim", RF.brief(), WHY, quick)], rich=True,
+                  extraction=BOOK, book=[("s1", "Text", f"The density is $${FLAGSHIP_TEX}$$ for a mixture.")])
+    return press.record(sandbox, result=build(press.ctx, {"extractionId": BOOK, "spanIds": ["s1"]}))
 
 
 def case_v3_tier_reason_missing_then_given(tmp_path, monkeypatch, sandbox):
