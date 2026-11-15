@@ -1,4 +1,4 @@
-# Refactor D7, batch 1, parts 1 to 3: kill switches at or below the floor (grading, attempts, eligibility)
+# Refactor D7, batch 1, parts 1 to 4: kill switches at or below the floor (grading, attempts, eligibility, the diagnosis split)
 
 Step D7 batch 1 of arc D (`docs/specs/refactor_strategy_v3.md` §2.6), on branch `refactor/d7a-switches-grading-replay`, based on main `b4c8fbad98` (D6 part 2 landed). The rule is ADR-019's (owner, Nov 12; L7): when every live vault is at or past a tag, its gates and kill switches go, except a short kept-because list. The precondition holds: on Nov 14 the owner ran `scripts/vault_report.py` on the three live vaults (all at `mvp-0.58`) and the five retired ones, and no vault sets any tagged switch. Structure track: for every vault the owner has, each switch removed here is at its default, so removing it with its off-branch changes nothing that vault computes.
 
@@ -550,3 +550,209 @@ No new bug was found.
 3. **`RoutineDisplayCovered` keeps one message**; its `decision` stays optional (a test raises it without one).
 4. **The plan-revalidation record test patches the plan's two holds** instead of deleting the test: its subject (the plan's own revalidation leaves a record) had no other test.
 5. **Stopping before the split pair.** Every reader of the split switch is classified in §21; the miss-verdict reader and `m2_report` read stored rows or report on them and ask the switch. On the three copies that reader's switch-dependent case has no row (§23), so the constant `true` would read the same there; the call to go on is the orchestrator's.
+
+# Part 4
+
+Branch `refactor/d7d-diagnosis-split`, based on `1d122fee33` (part 3's tip merged with main). Same rule, precondition and conventions as parts 1 to 3. This landing removes `diagnosis.split_enabled` and `diagnosis.shadow`, on the orchestrator's decision on part 3's finding (§21): the miss-verdict reader reads as with the split on, the switch's default on every vault that opens, and `m2_report` stops printing the switch. Line numbers are the base's (`1d122fee33`) unless a line says otherwise.
+
+## 28. Step 0, finished: every reader, and every test file
+
+### Readers of the two switches
+
+The split switch was read through `attempts/blind_grading.split_grading_active` (`blind_grading.py:74`, getattr default **True**, the schema default) and `placement/state.diagnosis_can_arrive` (`state.py:135`, the same); the shadow switch directly. Nothing in `apps/` reads either.
+
+| reader (base line) | kind | with the switch gone |
+|---|---|---|
+| `attempts/attempts.py:704`, `:1050` (the practice door, fallback and required) | new answer | **goes with the switch**: always `_blind_grading_plan`; `_complete_joint_graded_attempt`, `_augmented_grading_context`, `_joint_sample_count`, `_run_augmented_diagnosis`, `_record_diagnostic_augmentation` deleted; `_grading_run_identity` takes the blind plan only |
+| `attempts/attempts.py:978` (`plan_grading_calls`, the CLI dry run) | new answer | **goes**: always `kind="blind"`; `grading.joint_grading_prompt_tokens` (its one caller) deleted |
+| `attempts/regrade.py:216` | new grade of a stored attempt | **goes** (the conjunct): a practice attempt with no blind record is regraded blind, as with the split on; the vault-door arm stays for teach-back, and its `StuckGradingProposal` branch goes (the blind door returns `to_grading_proposal`'s `GradingProposal`, never a stuck one: only the joint grader returned one) |
+| `attempts/grading.py:128`, `:145`, `:174` (the vault door: teach-back, exams, the probe audit, the taxonomy check, teacher checks and probes) | new answer | **goes**: the blind contract and identities only; `vault_grading_run_identity(context)` and `vault_grading_calibration_identity()` lose the `vault` they no longer read (7 call sites, an exact-pattern script edit) |
+| `diagnosis/taxonomy_regrade.py:120` | new answer (the check's own calls) | **goes**: `BLIND_GRADING_PROMPT_VERSION` |
+| `diagnosis/split/jobs.py:314`, `:716`, `:1559` (lease, run, plan) | new work | **goes**: the hold, the `split_disabled` release, `SPLIT_OFF_RECHECK_SECONDS`, `hold:split_disabled`; `Repository.hold_queued_live_diagnoses` (`db/stores/diagnoses.py:885`) deleted |
+| `scheduling/scheduler.py:1502` (a serving build stamping the hold) | new work | **goes** |
+| `daily_plan/engine.py:1124` (`_open_problems`) | serving | **goes**: always the open-diagnosis rule. `lanes.classify_item`'s recency arm stays (§33) |
+| `diagnosis/split/jobs.py:147` and `attempts/post_attempt.py:185`, `:255-256` (`diagnosis.shadow`) | new work | **goes**: an attempt with no blind record is never diagnosed (`enqueue_diagnosis` returns at the missing record, as it did with the shadow off) |
+| `placement/state.py:951` via `load_miss_verdicts(diagnosis_live=)`, `load_placement_state_from_connection(diagnosis_live=)`, fed by `state.py:1444`, `placement/decisions.py:136`, `:235`, `:346`, `:466`, `:651`, `diagnosis/quick_check.py:354`, `placement/report.py:99`, `diagnosis/text_gaps/report.py:108`, `cli/placement.py:53` | **reader of stored rows (decided)** | reads as with the split on: a queued live job not yet stamped is pending. `diagnosis_can_arrive` and the parameter go from all eleven sites |
+| `diagnosis/split/reports.py:269`, `:309` (`m2_report`) | **report (decided)** | the manifest's `split_enabled` key goes; the Markdown manifest line was `- algorithm A, history mode H, split enabled True, embedding model E` and is `- algorithm A, history mode H, embedding model E`. No test or document compares that text |
+| `placement/state.py:873` (the stored `split_held_at` stamp) | reader of stored rows | none: it reads the stamp, never the switch; stays |
+| replay (`attempts.py:1509`), `replay_grader_identity`, `joint_grade_record`, the feedback bundle, doctor | reader of stored rows | none: each reads the attempt's recorded mode |
+
+No reader of stored rows other than the two decided ones asks either switch (searched `src/`, `scripts/`, `apps/`, the vault's `_scripts/` for both predicates, both field names and `diagnosis_live`).
+
+**Where the joint rule lives.** Joint history is recognized by the missing blind record, never by config: `placement/state.py:831` on the branch (`if latest_record is None:` → `FALLBACK_NOT_BLIND_GRADED`, with a comment saying so), `attempts/attempts.py:1560` (`replay_grader_identity`: no blind record and no blind stamp is the joint identity, `None`), and `diagnosis/split/live.py:483` (the grader mode a diagnosis context reads).
+
+**A regrade of a jointly graded attempt at the head.** With the split on (every owner vault), `regrade_attempt` built the blind plan for any practice attempt without a blind record: it grades blind in an isolated turn, appends a first blind record (`regrade: true`, no `supersedes_id`) and queues the diagnosis in the publication. That is exactly what the branch does (the condition lost only its switch conjunct): `test_diagnosis_pipeline::test_a_joint_attempt_regraded_in_a_split_vault_is_graded_blind_and_isolated` asserts it at the ports commit (switch present) and after the removal. A jointly graded teach-back is regraded through the vault door, blind, under the blind calibration pair, as with the split on (`test_teach_back::test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`).
+
+### The test files, by reading
+
+| file | sort | tests |
+|---|---|---|
+| `test_active_errors_overlay` | builder | `test_overlaid_read_equals_the_raw_read_on_a_joint_vault` (now `…_on_joint_history`): the shadow diagnosis it also drained goes with `diagnosis.shadow` |
+| `test_attempt_completion` | builder | `test_pipeline_keeps_one_hypothesis_version_with_grader_provenance` (2 cases), `test_block_closing_diagnostic_answer_keeps_grader_provenance` (2 cases): the post-attempt pipeline over a stored joint grade, its subject |
+| `test_daily_plan_owner_decisions` | delete | `test_repair_falls_back_to_recent_error_only_while_the_split_is_off`: the plan's repair lane with the split off |
+| `test_deferred_regrade` | delete | `test_deferred_regrade_validates_repaired_trace_against_learner_answer`: a joint regrade's repair suggestion validated against the answer (a blind grade carries none) |
+| `test_diagnosis_async_router` | blind | `test_no_wait_and_no_receipt_without_a_pending_diagnosis`: a right answer, whose blind grade queues no diagnosis |
+| `test_diagnosis_card` | builder | `test_joint_vault_feedback_carries_no_diagnosis_status` (now `test_a_jointly_graded_attempts_feedback_carries_no_diagnosis_status`): the feedback of a stored joint attempt; the submit response of a new joint answer and the worker's not starting go |
+| `test_diagnosis_input_provenance_landing` | delete | `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`: the joint door's in-transaction Phase-C receipt on a coordinator-upgraded vault, and its rollback (the blind door writes its receipt as telemetry, so the subject has no blind form) |
+| `test_diagnosis_pipeline` | delete 3 + tail, builder 1 | delete `test_kill_switch_restores_joint_grading` (new answers graded jointly), `test_kill_switch_holds_queued_live_diagnoses` (the worker's hold and release), `test_shadow_diagnosis_on_a_joint_vault_changes_nothing_live` (`diagnosis.shadow`), and the joint tail of `test_non_practice_graders_use_the_blind_contract_in_an_isolated_turn` (the vault door's joint branch); builder: `test_a_joint_attempt_regraded_in_a_split_vault_is_graded_blind_and_isolated` |
+| `test_diagnostic_augmentation` | delete | `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`: the joint door's transaction |
+| `test_exam_session` | delete a case | `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity[mvp-0.9]`: a new exam answer graded jointly |
+| `test_km4_taxonomy` | blind | `test_taxonomy_regrade_check_no_attribution_regressions`: its canned grader also answers the blind contract (`JointGraderAlsoBlind`); the mechanisms compared are the same |
+| `test_learner_text_gaps_review` | blind | `test_f8_a_stuck_answer_is_queued_at_recording_without_a_diagnosis`, and `_created_and_checked` (three f11/f13 tests): self-graded attempts, the switch incidental |
+| `test_pfc_unverified_unassessed` | builder | `test_joint_grades_replay_untouched_beside_blind_unverified_ones` |
+| `test_placement_diagnosis_decides` | builder 1, stamp builder 2, delete a case + 1, changed 1, new 1 | builder: `test_a_joint_grade_falls_back_to_todays_rule`; stamp: `test_turning_the_split_back_on_does_not_reopen_held_misses` (now `test_a_held_miss_stays_decided_at_its_hold`), `test_a_miss_decided_before_the_hold_keeps_its_diagnosis`; delete: the `split-disabled` case of `test_no_diagnosis_can_arrive_falls_back_to_todays_rule` (an unstamped queued job read with the switch off) and `test_the_first_serving_build_with_the_split_off_records_the_hold` (the scheduler's stamp writer); changed: `test_the_state_loader_requires_the_split_reading_and_the_time` (§30); new: `test_stored_misses_read_as_with_the_split_on` |
+| `test_reader_guidance` | builder 1, delete 1 | builder: `test_joint_guide_plan_is_unchanged_by_the_overlay_read` (its shadow assertion goes); delete `test_joint_guide_plan_never_waits_on_a_shadow_diagnosis` (`diagnosis.shadow`'s queued job) |
+| `test_regrade_contract_successor` (+ `regrade_contract_successor_helpers.JOINT`) | joint-regrade builder | `test_an_unrecorded_joint_regrade_keeps_the_correctness_it_carries_and_never_fails_a_rebuild`, `test_a_held_unrecorded_grade_is_no_evidence` (its control vault's switch was incidental) |
+| `test_route_rules_in_grader` | delete | `test_f5_a_joint_regrade_supersedes_a_route_verdict`: a new joint regrade's verdict write (its docstring: "no shipped door reaches this today") |
+| `test_stuck_prompt` | delete 2 + a case, keep a half | delete the `joint` case of `test_confusion_is_read_and_signalled_in_both_grading_modes` (now `test_confusion_is_read_and_signalled`), `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`, and the joint-answer half of `test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`; its context half stays as `test_an_ordinary_grading_context_carries_no_stuck_field` (`grading_prompt` and `grading_context_hash` stay, for the offline review's joint baseline and the builder) |
+| `test_stuck_prompt_replay` | builder | `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call` |
+| `test_teach_back` | vault-door builder | `test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identity[mvp-0.9-identity1]`, `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds` |
+| `test_teacher_te2_landing_r1` | vault-door builder | `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration` (now `…_graded_jointly_then_regraded_blind_…`) |
+| `test_ux_phase4_feedback` | joint-regrade builder | `test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_of_the_later_maximum[joint]` |
+| `test_voi_stopping` | builder | `test_a_joint_vault_lane_is_unchanged` (now `test_a_joint_attempts_lane_is_unchanged`; its shadow drain goes) |
+| `test_followup_codex_review` | delete | `test_f6_a_shadow_vault_has_its_workflows_job_at_once`: with `diagnosis.shadow` on, the workflow's job queues at once (it patched `post_attempt._shadow_diagnosis_enabled`, which is gone) |
+| `test_field_split_outcomes` | builder (a bug, D7-8) | `test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract`: its "joint" vault was blind since D2a |
+| `test_sim_teach_back`, `test_reading_step_switch`, `test_teacher_te2_review_fixes` | assertion | each asserted `split_grading_active(...)`; the predicate is gone |
+| `test_kill_switches`, `test_retired_config_identities`, the effective-defaults golden | config | the two kept-because lines; nothing (`SWITCHES_TOML` and `_pre_arc_c_shape` already carried both); two lines |
+| `diagnostic_augmentation_helpers`, `test_attempt_completion`, `test_tui_feedback` | helper | `fail_after_the_joint_grade_commits` patched `_complete_joint_graded_attempt` and `_complete_blind_graded_attempt`; it is `fail_after_the_model_grade_commits`, the blind door's only |
+
+`tests/successor_switches.py` names neither switch (its table holds only router-objective successors), so neither it nor its test changes.
+
+## 29. The builders, and their proof
+
+`tests/joint_grading_helpers.py` (commits `131489e468`, `a718d77679`) writes joint history as stored data, with no model call:
+- `write_joint_graded_attempt(vault, repository, draft, proposal, ...)`: the practice door's joint arm. The draft resolved as submit would (`validate_attempt_draft`), the joint context (the item or its frozen contract, the stuck prompt for a stuck answer, the C2 verifier observations, the C4 history: a copy of `diagnostic_history_context`'s selection, which left production with the joint arm), the grading run with the joint identity, then in one transaction the attempt (`complete_codex_graded_attempt`), a stuck answer's reading, the Phase-C receipt (k = 1, no grader mode) and the `joint_grader` grading record, then the run completed. `proposal` is a `GradingProposal`, a `StuckGradingProposal`, or a function of the joint context (`joint_proposal_of(client)` gives a `ReviewFakeClient`-style fake's joint grade; `write_joint_answer` is `split_live_helpers.submit` for a joint grade).
+- `write_joint_regrade(vault, repository, attempt_id, proposal, ...)`: `regrade_attempt`'s joint arm for a practice attempt with no blind record (it calls the regrade's own `_publish_regrade` with no blind record and the joint identity `None`, then the route verdict `not_checked` and a stuck reading).
+- `joint_vault_door(monkeypatch)`: inside it, the shared vault door's three functions are their joint bodies (`request_grading_proposal`, the joint run identity, the identity `None`), patched in every module that took them by name, so teach-back, exams, teacher checks and probes write what they wrote with the split off.
+- `hold_queued_live_diagnoses(repository, clock=)`: the kill switch's write-once `split_held_at` stamp, the same SQL as the deleted repository method.
+
+**Proof, at the base with the switch present** (`tests/test_joint_grading_builder.py` at `131489e468` and `a718d77679`): the same history written twice in vaults built alike, once through the door and once through the builder, every table compared row by row in insertion order (rowid), with ULIDs, UUIDs, ISO stamps and hex digests replaced by tokens in order of first appearance (so equal rows name the same ids in the same places):
+- practice door and regrade: four answers (two wrong, one stuck with a reading, one right) graded through `complete_attempt_with_ai_required` with the split off and the sync pipeline after each, then a self-graded answer, the first joint answer and the stuck one regraded through `regrade_attempt`; against the builders: **every table equal** (the four receipts, the stuck readings, three regrade runs, every derived row the pipeline and the regrades' replays wrote);
+- the vault door: a teach-back finished and regraded on a vault with the split off, against the same on a split vault inside `joint_vault_door`: **every table equal**; without the patch the split vault grades blind (the negative control: the fake has no blind answer and the run fails);
+- the hold: two queued live diagnoses stamped by `Repository.hold_queued_live_diagnoses` and by the builder, twice (write-once: 2 rows, then 0): **every table equal**.
+These comparisons are deleted with the doors in the removal commit (`4d59c0a826`). What stays is `test_the_builders_rows_match_their_golden`: the practice and regrade builders' grading-record rows (`agent_runs`, `practice_attempts`, `grading_evidence`, `raw_grade_events`, `attempt_feedback_metadata`, `diagnostic_augmentation_receipts`, `judgment_ledger`, `text_write_provenance`, `content_events`; tokenized as above) against `tests/goldens/joint_grading_builder.json`, recorded at the builder commit with the split off and unchanged after the removal on a split vault (the switch's absence changes nothing the builders write). Not covered by the comparison: a joint regrade reading a frozen assessment contract (`reads_contract`), and the vault door's other users (exams, teacher checks and probes; the teacher probe test asserts the joint identity the switch-off path stamped).
+
+## 30. What went, and every assertion changed
+
+| commit | what |
+|---|---|
+| `131489e468` | the builders of joint grades, joint regrades and the vault door's joint grading, with the two door comparisons and the golden (§29) |
+| `a718d77679` | the hold builder with its comparison; `joint_proposal_of`, `write_joint_answer` |
+| `d680c601dd` | the ports (§28), and `test_stored_misses_read_as_with_the_split_on` with its golden `tests/goldens/placement_stored_misses.json`, all passing with the switch present (1,353 tests in the 44 touched and nearby files) |
+| `4d59c0a826` | the removal (§28's table), `RETIRED_FIELDS`, the kill-switch rows and kept-because lines, the effective-defaults golden, the tag's comment, the deleted tests, the builder comparisons deleted |
+| `0297e17ba3` | `serve_presentation` loses its unread `vault` keyword, and the probe-validation sim stops passing it (part 3's open item) |
+| `5c5df7e0db` | the structure golden lowered (comments naming a stage artifact 2,377 to 2,374) |
+| `0b4ef8c198` | the vault's references regenerated |
+
+**Fields:** `RetiredField("DiagnosisConfig", ("split_enabled",), bool, True, "D7")` and `("shadow",), bool, False`; `DiagnosisConfig` now keeps retired fields. No registry rule named either (`params/parameter_registry.py`), and the vault generator described them generically. No desktop or phone code reads either (searched `apps/`).
+
+**Deletion proof** (strategy §2.1): `split_grading_active`, `diagnosis_can_arrive`, `diagnosis_live`, `hold_queued_live_diagnoses`, `SPLIT_OFF_RECHECK_SECONDS`, `_complete_joint_graded_attempt`, `_augmented_grading_context`, `_joint_sample_count`, `_run_augmented_diagnosis`, `_record_diagnostic_augmentation`, `joint_grading_prompt_tokens`, `augment_grading_context`, `diagnostic_history_context`, `record_phase_c_receipt`, `DEFAULT_HISTORY_LIMIT`, `_shadow_diagnosis_enabled` searched over `src/`, `scripts/`, `tests/`, `apps/` and the vault's `_scripts/` as names and strings: no function-local or `importlib` import, no registry, Typer or `MODULE_INVENTORY` entry left; the tests that named them are in §28. `run_diagnosis_samples`, `request_grading_proposal`, `grading_prompt`, `grading_context_hash`, `joint_grade_record`, the Phase-C constants and `FALLBACK_SPLIT_DISABLED` stay (the planted-eval harness, the offline review's joint baseline, the blind receipt, stored joint history, stored holds).
+
+**Every assertion changed, and why:**
+
+| test | before | after | why |
+|---|---|---|---|
+| `test_diagnosis_pipeline::test_a_joint_attempt_regraded_…` | `client.calls == ["grading", "blind_grading"]`, `isolated == [False, True]` | `["blind_grading"]`, `[True]` | the joint grade is the builder's, not the client's; the regrade's call is unchanged |
+| `test_active_errors_overlay::…_on_joint_history`, `test_reader_guidance::test_joint_guide_plan_is_unchanged_…`, `test_voi_stopping::test_a_joint_attempts_lane_is_unchanged` | a shadow diagnosis drained (and, in the Guide test, asserted present) | no shadow diagnosis | `diagnosis.shadow` is gone; the overlay, plan and lane assertions stand |
+| `test_diagnosis_card::test_a_jointly_graded_attempts_feedback_…` | the submit response and `get_feedback` carry no `diagnosisStatus`; the worker does not start | `get_feedback` carries none | a new joint answer and its submit response are gone; the feedback of stored joint history is the subject |
+| `test_placement_diagnosis_decides::test_a_held_miss_stays_decided_at_its_hold` | the worker's release wrote `last_error = split_disabled`; the outcome read with the switch off, then on | the stamp is built; the outcome read once | the writers are gone; every read of the stamp (held, decided at the stamp, not reopened by a later release or a landed slip) stands |
+| `test_placement_diagnosis_decides::test_the_state_loader_requires_the_time` | `TypeError` without `diagnosis_live`, and without `now_iso` | `TypeError` without `now_iso` | the parameter is gone |
+| `test_exam_session::test_an_exam_answer_is_stamped_…` | parametrized over a joint and a blind vault | the blind case | the joint case graded a new answer jointly |
+| `test_stuck_prompt::test_confusion_is_read_and_signalled` | parametrized over both modes | the blind case | twin |
+| `test_stuck_prompt::test_an_ordinary_grading_context_carries_no_stuck_field` | also graded a joint answer and checked its prompt | the context, prompt and hash only | the joint answer is gone |
+| `test_teach_back`, `test_teacher_te2_landing_r1` (joint cases) | the vault set `split_enabled = false`, then back on | the grading inside `joint_vault_door`; vaults at `mvp-0.10` | stored history, built; every identity, lookup and rebuild assertion stands |
+| `test_regrade_contract_successor` (two tests) | the predecessor's regrade with the split off; the control vault also off | `write_joint_regrade`; the control vault at the default | stored history; the control's switch never mattered (it applies a held grade and rebuilds) |
+| `test_ux_phase4_feedback::test_f9f_…[joint]` | the sidecar's regrade with the split off | `write_joint_regrade` with `_SixPointGrader`'s joint grade | stored history; the bundle assertions stand |
+| `test_field_split_outcomes::test_blind_grades_…` | a second blind vault named "joint" | a jointly graded attempt, asserted to have no blind record | D7-8 |
+| `test_sim_teach_back`, `test_reading_step_switch`, `test_teacher_te2_review_fixes` | `split_grading_active(...)` | removed | the predicate is gone |
+| `test_km4_taxonomy`, `test_learner_text_gaps_review`, `test_diagnosis_async_router` | the split off | blind (the grader fake answers both contracts; self-grades; a right answer) | the joint rows were incidental |
+| `test_diagnosis_pipeline::test_no_door_calls_the_joint_grading_operation` (was `test_only_the_joint_doors_…`) | `grading.py` "and the vault door's joint branch"; `diagnostic_augmentation.py` "joint practice grading" | the definition; `run_diagnosis_samples` (the planted-eval harness) | comments of an unchanged set |
+
+Edits made by a script rather than the Edit tool: most source and test edits were exact-pattern replacements in Python one-offs that assert each pattern occurs exactly once (or a block cut between two unique markers); the seven call sites of the two vault-door identities and the eleven `diagnosis_live=diagnosis_can_arrive(...)` arguments by a mechanical replace (one replace clipped two function-local import lines' indentation, fixed before the commit); `ruff check --fix --select F401` removed the imports deleted tests left unused.
+
+## 31. Proof
+
+**The retired-config identities, with each entry removed.** `RETIRED_FIELDS` without the `split_enabled` line, then without the `shadow` line (mutations, not committed): `test_retired_config_identities.py` fails four tests each time (`test_the_config_identity_reproduces_both_recorded_digests`, `test_an_embedding_compare_report_is_named_as_before_arc_c`, both cases of `test_a_config_setting_the_removed_switches_keeps_every_identity`; the `switched` case fails too here, because `DiagnosisConfig` survives and only the retired field puts the value back). Restored: 16 passed. `SWITCHES_TOML` already set `split_enabled = false` and `shadow = true`, and `_pre_arc_c_shape` already carried both, so the test needed no line; `test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing` loads a vault that sets both.
+
+**P-shadow** (base `1d122fee33` from a `git archive` of `src/` and `migrations/` on `PYTHONPATH`, against this branch at `0297e17ba3`; fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp058`; counts only; copies deleted):
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `learnloop upgrade`, both | `mvp-0.58 -> mvp-0.59` | same | same |
+| shadow facet / mastery / schedule changed | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| `schedule_effects` due dates moved (items, cards) | 0, 0 (99 rows) | 0, 0 (77) | 0, 0 (32) |
+| the two shadow reports, marker id, `as_of` and hashes aside | equal | equal | equal |
+| every table of the two upgraded copies, row by row | 402 tables, 19,442 rows: none differ | 402, 10,426: none | 402, 23,877: none |
+| the same after the shadow | none differ | none | none |
+| the same after a real `rebuild-derived-state` on each side | 19,749 rows: none differ | 10,498: none | 23,719: none |
+| feedback bundles of the first three jointly graded attempts (no regrade) | `01KY50X5FB4AP8466KH344TWKN`, `01KY513P8Q4369EQ66530N9AC9`, `01KY51X1SSHB6AN7Y8CDA452NJ`: byte-equal | `01KZ53Q6EXP6JQ8ZC7KTWEXWXD`, `01KZ54VPYRZX2Q661XAKX2Z4YN` (its only two): byte-equal | none graded jointly |
+| Report 3, placement state, `m2_report` (JSON and Markdown), `doctor --json`, on the rebuilt copies | equal, but for the `m2_report` manifest line that drops `split enabled True, ` (and the manifest's `split_enabled` key and its `config_hash`, a provenance hash over the live model dump, which the two removed fields change); doctor equal with the copies' directory names aside | same | same |
+| grading history (after the rebuild, both sides alike) | 70 attempts; 29 AI-graded, all jointly; 11 joint receipts; no diagnose job; no hold stamp | 3; 3 AI-graded, 2 jointly, 1 blind; 2 joint and 1 blind receipt; 1 diagnose job `live:done`; no stamp | 3; none AI-graded |
+
+**Stored rows read as with the split on.** `test_placement_diagnosis_decides::test_stored_misses_read_as_with_the_split_on` builds a blind miss whose diagnosis landed (a slip: passed, maintenance), a blind miss whose live diagnosis is queued and not held (open, awaiting it, assumed) and a jointly graded miss with no blind record (failed, `no_diagnosis`, `not_blind_graded`, learning), and reads placement's state, Report 3 and `placement status --json` against a golden recorded at the ports commit with the switch present and on; it passes unchanged after the removal. With `split_enabled = false` appended at the ports commit it fails (the queued miss reads `split_disabled`), so it measures the switch.
+
+**Old rows at the floor and the head** (`fixtures/mvp017_route_check_replay`, retagged to `mvp-0.58` and `mvp-0.59`, two live rebuilds per code): every table equal row by row after each rebuild at both tags except the one `attempt_debug_payloads` row of `att_02_svd_fail`, equal once replay's minted ids, stamps and digests are normalized (the diagnosis receipt's id hashed from the minted hypothesis id), as in parts 1 to 3.
+
+**Goldens.** The effective-defaults golden lost exactly two lines (`diagnosis.shadow = false`, `diagnosis.split_enabled = true`) and gained none. The CLI snapshot did not change (no CLI parameter names either switch; `learnloop attempt --dry-run` keeps its contract and only ever plans `blind` now). The grade-application, due-queue and figure goldens ran unchanged in the sweep (§32). `tests/test_identity_pins.py`: unmoved, nothing written; no pin names a joint identity (the grading door's identities were pinned at their split-on values, which they keep).
+
+**The owner lane** (`-m owner_vaults`, 31 files, copies made with the gate's `owner_copy_make.py` under `fixtures-local/owner-lane-d7d`, deleted after): 92 passed, 8 skipped, as at part 3. No owner-lane test was edited.
+
+## 32. Gates run
+
+All under the empty-home wrapper in 5 GB scopes.
+- The builder commits: `tests/test_joint_grading_builder.py` (the comparisons and the golden) with `test_identity_pins` and `test_test_layout`. The ports commit: the 44 test files it and the removal touch or that name the grading doors, placement's readers, the dry run or the reports, with the identity, retired-config, architecture, layout, effective-defaults, CLI-snapshot, structure, kill-switch and successor-switch tests, at the ports commit and again on the removal: 1,353 passed, 2 xfailed. The `serve_presentation` commit: the 16 files that name it or the probe-validation sim (284 passed, 2 skipped).
+- **The sweep:** `scripts/affected_tests.py --base 1d122fee33` selects 1,353 test files (with the standard files, 1,354); all ran in 14 chunks of 100 at `-n 4 -m "not arc_close"` behind `flock /tmp/learnloop-fullsuite.lock`, on `0b4ef8c198`: **29,015 passed, 101 skipped, 12 xfailed, no failure or error**, first time through. The grade-application, due-queue and figure goldens ran in it unchanged.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,970 collected, landing 30,905 + arc_close 65. `tests/test_structure_ratchets.py`: golden lowered (`5c5df7e0db`).
+- Vault: references regenerated once after the source commits (`0b4ef8c198`; the two hand-written leaf counts 1,173 to 1,171); a second `generate_all.py` changed nothing. Validators: `db_validate_reference`, `desktop_validate`, `module_validate`, `validate_vault` all pass.
+- The owner lane: §31.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, the arc-close lane, vitest, `cargo check` (no frontend file changed).
+
+## 33. The census and the measures
+
+**The census** (parts 1 to 3's scratch plugin around `version_floor.may_open_below_floor`), over the 31 test files this part edited, base code and tests (a `git archive` of `1d122fee33`) against this branch: **357 test cases opened a vault below the floor at the base, 347 now (-10)**, in 20 files then and 17 now. The 2 cases the branch has and the base lacks are the same tests renamed or unparametrized (§28). The cases gone are the deleted tests and the ports that no longer pin `mvp-0.9` for a joint vault (`test_active_errors_overlay`, `test_diagnosis_card`, `test_diagnosis_async_router`, `test_reader_guidance`, `test_voi_stopping`'s), and one `test_sim_teach_back` case whose module fixture the plugin attributes to whichever test first uses it. The 347 left (`test_pfc_unverified_unassessed` 189, `test_regrade_contract_successor` 36, `test_learner_text_gaps_review` 29, `test_voi_stopping` 28, `test_route_rules_in_grader` 21, `test_ux_phase4_feedback` 10, seven others 34) are tests whose vaults sit at an old tag for their own setup (the pre-D2a basic vault, `mvp-0.20`, `mvp-0.25`, the regrade-contract predecessor): they wait on the re-tagging step, not on a switch. (The base run had one unrelated failure, `test_ux_phase4_feedback::test_f1g_the_screen_and_the_ledger_share_one_exposure_contract`, because the base extract carries no `apps/`.)
+
+**Measures** (`scripts/refactor_measures.py`, base `1d122fee33` from a `git archive` committed to a scratch repository, against this branch):
+
+| measure | base | this part |
+|---|---|---|
+| ADR-019's kept-because list | 84 | 82 |
+| tagged switches in `TAGGED_SWITCHES` | 86 | 84 |
+| `mvp-0.N` literals: code / docstring / comment | 270 / 315 / 580 | 268 / 311 / 577 |
+| `config/schema.py` lines | 4,974 | 4,970 |
+| raw lines; code lines (all four packages) | 614,757; 432,362 | 614,219; 431,970 |
+| functions over 100 lines; over 200 | 475; 73 | 474; 73 |
+| `src/` lines (diff) | | +196, -734 |
+| test lines (diff, goldens aside) | | +947, -621 (the builders and their test 470 of the added) |
+| goldens (diff) | | +1,851, -5 (the builder golden and the stored-misses golden) |
+| comments naming a stage artifact | 2,377 | 2,374 |
+| effective config leaves | 1,181 | 1,179 (the measures count; the vault's catalog counts 1,171) |
+
+## 34. Bug ledger
+
+- **D7-1:** the split pair was not read by replay (§31's real rebuilds are equal); what is left is `replay.ledger_bounded` and `mastery.claim_fixes_enabled`.
+- **D7-3:** the split's two predicates read a missing field as on, the schema default (not this row's kind); both went.
+- **D7-5:** nothing of it belonged to the split pair.
+- **D7-8 (new, fixed):** a test's "joint" vault was blind since D2a (§30).
+- **D7-9 (new, open):** `diagnostic_augmentation.history_limit` is read by nothing now.
+
+## 35. What remains, and judgment calls
+
+**Not removed here:** `replay.ledger_bounded` and `mastery.claim_fixes_enabled` (the batch's replay-read pair, each alone, not started); `diagnostic_augmentation.history_limit` (D7-9).
+
+**Judgment calls:**
+1. **The builders call production's writers, not copies of them**, except the C4 history selection (copied, because its only production caller went with the joint arm). The regrade builder calls `regrade._publish_regrade` and `_disagreement_summary` (private names of the module that still owns every regrade write), so a joint regrade written today goes through the same publication a blind one does; the golden would move with any change to them, as a real regrade's rows would.
+2. **The vault-door builder is a patch** (`joint_vault_door`): the shared door's three functions replaced by their joint bodies in the modules that took them by name, proven equal to the switch-off path on a teach-back finish and regrade; its other users (exams, teacher checks and probes) are covered by construction, not by a comparison.
+3. **The hold builder exists** because placement still reads stored `split_held_at` stamps; no owner copy holds one (§31), so the reader is kept for history any vault could carry, with two tests on built stamps.
+4. **The vault door's identities lose their `vault` parameter** (`vault_grading_run_identity(context)`, `vault_grading_calibration_identity()`), rather than keeping one nothing reads; seven call sites changed, none in a file a parallel step edits.
+5. **`lanes.classify_item`'s recency arm stays.** The plan always passes a reading of open problems now, so production never takes it; `classify_item` and `classify_pool` keep their `None` default (a test calls `classify_item` without one, `test_daily_plan_review_regressions::test_f1_repair_needs_a_recent_error_not_any_active_one`) and the why-copy for "a recent error" stays with it. Removing it is a lanes change for a later step.
+6. **Two tests went rather than moving to blind:** `test_deferred_regrade_validates_repaired_trace_…` (a blind grade carries no repair suggestion, so its subject has no blind form) and `test_q14_…` (the blind receipt is telemetry outside the grade's transaction, so the rollback it tested has no blind form). Part 3's reading had listed both as "move to blind".
+7. **`test_stuck_prompt`'s context half stays** as its own test: `grading_prompt` and `grading_context_hash` stay for the offline review's joint baseline and the builder.
+8. **`test_field_split_outcomes` was fixed, not left** (D7-8): its subject is the joint/blind comparison the builder can now make honestly.
+9. **`m2_report`'s `config_hash` changes** (a provenance hash over the live model dump, which loses the two fields), as it did with every earlier removal; nothing compares it.
+10. **The optional `serve_presentation` commit was made** (part 3's open item), as its own commit.
+
+## 36. Docs
+
+- ADR-019: the kept-because list went to 82 with this part, and how joint history is read and built. ADR-016: the switch was the kill switch; D7 removed it with the joint doors and `diagnosis.shadow`; a regrade of a joint attempt grades it blind.
+- `Concepts/Algorithm Versions and Reproducibility` (mvp-0.10's row) and `Maps/LearnLoop Pipeline Map` (the provenance writers) follow. `Concepts/Attempt Processing` and `Concepts/Learning System` name neither switch and are unchanged.
+- Ledger rows D7-1, D7-3, D7-5 updated; D7-8 and D7-9 added.
