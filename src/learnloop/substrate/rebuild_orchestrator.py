@@ -19,7 +19,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.checkpoint import checkpoint_wal
-from learnloop.db.repositories import Repository
+from learnloop.db.repositories import REBUILD_STAMPED_TABLES, Repository
 from learnloop.db.scopes import atomic_repository_call
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
@@ -698,6 +698,11 @@ def rebuild_all_derived_state(
         if not requested or str(attempt.get("learning_object_id")) in requested
     }
     context = _ReplayContext(vault, repository, learning_object_ids, clock)
+    # The replayers clear these tables and learner replay walks the canonical
+    # cache through earlier states, so every cell is rewritten; a cell that
+    # ends as it was keeps the stamps it had (a stamp says when a value last
+    # changed). Stale rows still go with the clears.
+    stamps = repository.rebuild_stamp_snapshot(REBUILD_STAMPED_TABLES)
     results = _run_replayers(context)
     # Rebuild-equivalence Codex review F3: the recurrence groups are rebuilt
     # before learner replay (its normalization reads them), but learner replay
@@ -712,6 +717,7 @@ def rebuild_all_derived_state(
         results = _run_replayers(context)
     else:
         _reconcile_recurrence_groups(context)
+    repository.keep_unchanged_rebuild_stamps(stamps)
 
     accounted = {
         attempt_id

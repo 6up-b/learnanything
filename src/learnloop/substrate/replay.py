@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, FrozenClock, parse_utc
-from learnloop.db.repositories import Repository
+from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
 from learnloop.attempts.attempts import AttemptResult, GradeAttribution, replay_existing_attempt
 from learnloop.learner import mastery as learner_mastery
 from learnloop.vault.models import LoadedVault
@@ -340,6 +340,13 @@ def _replay_learning_object(
     inactive_item_ids = repository.inactive_practice_item_ids(
         {str(attempt["practice_item_id"]) for attempt in attempts}
     )
+    # The canonical cells as this replay found them: its bounded folds rewrite
+    # cells on the way to the closing projection, and a cell that ends as it
+    # was keeps the stamps it had (the umbrella keeps its own, around every
+    # replayer, when it suppresses this projection).
+    canonical_stamps = (
+        repository.rebuild_stamp_snapshot(CANONICAL_STAMPED_TABLES) if project_canonical_state else None
+    )
     repository.reset_learning_object_derived_state(learning_object_id)
     # LP-min (a), the claim-fixes successor: claims enter the attempt stream at
     # their own time. Off, or below the tag: None, and the first attempt seeds
@@ -416,6 +423,7 @@ def _replay_learning_object(
         # once after every LO has replayed; direct callers refresh per LO by
         # default.
         project_canonical_facet_state(vault, repository, clock=clock)
+        repository.keep_unchanged_rebuild_stamps(canonical_stamps or {})
     return ReplayResult(
         learning_object_id=learning_object_id,
         replayed_attempts=len(replayed),

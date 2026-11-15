@@ -476,10 +476,6 @@ def test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt(tmp_pat
     assert missing_activity_rows == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ledger D-35: the canonical facet rows' stamps differ between the direct replay and the umbrella rebuild",
-)
 def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear(
     tmp_path,
 ):
@@ -488,6 +484,11 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
     repository = Repository(root / "state.sqlite")
     derived = set(tables_for_role(TableRole.DERIVED))
 
+    # The recurrence groups, which learner replay reads, through their direct
+    # API (the umbrella rebuilds them first).
+    from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
+
+    refresh_recurrence_groups(vault, repository, force=True)
     # The established direct replay is the independent golden producer.  It
     # runs once before the umbrella-under-test and writes no rebuild receipt.
     rebuild_derived_state(
@@ -496,6 +497,9 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
         clock=CLOCK,
         record_receipt=False,
     )
+    # Learner replay appends recurrence inputs (causal-hypothesis versions);
+    # the groups are refreshed on them, as the umbrella reconciles them.
+    refresh_recurrence_groups(vault, repository)
     # The field is an independent, read-only projection, not part of the
     # learning-state writer. Produce its golden cache through its direct API.
     from learnloop.field.outcomes import rebuild_outcome_view
@@ -508,6 +512,17 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
 
     rebuild_ad_state(vault, repository)
     rebuild_ad_scores(vault, repository)
+    # The pre-practice identifiability watermark per subject, from the
+    # identifiability report over the canonical state just projected.
+    from learnloop.learner.identifiability import graph_identifiability_report
+
+    report = graph_identifiability_report(vault, repository, schedule_probes=False, clock=CLOCK)
+    for subject in report["subjects"]:
+        if subject.get("subject_id") is not None:
+            repository.upsert_identifiability_watermark(
+                subject_id=str(subject["subject_id"]), registry_hash=str(subject["registry_hash"]),
+                finding_count=int(subject["counts"]["findings"]), clock=CLOCK,
+            )
     expected = _projection_snapshot(repository, derived)
     with connect(repository.sqlite_path, read_only=True) as connection:
         receipts_before = int(
@@ -576,6 +591,34 @@ def test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_g
     stamps = _canonical_stamps(repository)
     assert _iso(frozen) in stamps
     assert stamps - attempt_times - {_iso(frozen)} == set()
+
+
+def _rebuild(path: str, vault, repository, clock: FrozenClock) -> None:
+    if path == "umbrella":
+        rebuild_all_derived_state(vault, repository, clock=clock)
+    else:
+        rebuild_derived_state(vault, repository, clock=clock)
+
+
+@pytest.mark.parametrize("path", ["direct", "umbrella"])
+def test_a_rebuild_that_changes_no_value_re_stamps_no_cell(tmp_path, path):
+    """A stamp says when its cell's value last changed: a rebuild that changes
+    no value leaves every canonical cell as it found it, stamps included, on
+    either path and whatever its clock (ledger D-35). The replay's bounded folds
+    walk the cache through earlier states on the way; that is not a change."""
+
+    from tests.rebuild_equivalence_helpers import _answer, _vault
+
+    _paths, vault, repository = _vault(tmp_path)
+    for minutes, item in ((10, "pi_eig_easy"), (70, "pi_svd_define_001"), (130, "pi_diag_easy"), (190, "pi_eig_mid")):
+        _answer(vault, repository, item, minutes=minutes, points=3.0)
+    tables = {*CANONICAL_TABLES, "subject_identifiability_watermarks"}
+    _rebuild(path, vault, repository, FrozenClock(datetime(2026, 6, 18, 12, 0, tzinfo=UTC)))
+    first = _projection_snapshot(repository, tables)
+
+    _rebuild(path, vault, repository, FrozenClock(datetime(2026, 7, 1, 12, 0, tzinfo=UTC)))
+
+    assert _projection_snapshot(repository, tables) == first
 
 
 def test_same_version_full_rebuild_is_semantically_idempotent_on_golden_fixture(

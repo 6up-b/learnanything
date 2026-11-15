@@ -204,6 +204,42 @@ _CAPABILITY_RESIDUAL_PROJECTION = _ProjectionTable(
 )
 
 
+@dataclass(frozen=True)
+class _RebuildStamps:
+    """A derived table whose stamps a rebuild keeps on the cells it leaves as
+    they were: ``compared`` says what a cell is (a projected stamp included),
+    ``stamps`` say when it last changed."""
+
+    key: tuple[str, ...]
+    compared: tuple[str, ...]
+    stamps: tuple[str, ...]
+
+
+#: A recall row's ``created_at`` is projected (its first observation), so it is
+#: compared; a capability or residual row's is when the cell first appeared.
+_REBUILD_STAMPED_TABLES: dict[str, _RebuildStamps] = {
+    "facet_recall_state": _RebuildStamps(
+        _FACET_RECALL_PROJECTION.key, (*_FACET_RECALL_PROJECTION.values, "created_at"), ("updated_at",)
+    ),
+    "facet_capability_evidence": _RebuildStamps(
+        _FACET_CAPABILITY_PROJECTION.key, _FACET_CAPABILITY_PROJECTION.values, ("created_at", "updated_at")
+    ),
+    "capability_residual_state": _RebuildStamps(
+        _CAPABILITY_RESIDUAL_PROJECTION.key, _CAPABILITY_RESIDUAL_PROJECTION.values, ("created_at", "updated_at")
+    ),
+    "subject_identifiability_watermarks": _RebuildStamps(
+        ("subject_id",), ("registry_hash", "finding_count"), ("checked_at",)
+    ),
+}
+#: The canonical belief cache: what a learning object's replay walks through
+#: earlier states (its bounded folds) before its closing projection.
+CANONICAL_STAMPED_TABLES: tuple[str, ...] = (
+    "facet_recall_state", "facet_capability_evidence", "capability_residual_state",
+)
+#: Everything the umbrella rebuild re-derives that carries such stamps.
+REBUILD_STAMPED_TABLES: tuple[str, ...] = (*CANONICAL_STAMPED_TABLES, "subject_identifiability_watermarks")
+
+
 @dataclass
 class _ProjectionChanges:
     vanished: list[int] = field(default_factory=list)
@@ -6520,6 +6556,56 @@ class Repository(
                 ),
                 now=now,
             )
+
+    def rebuild_stamp_snapshot(self, tables: Iterable[str]) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]:
+        """The cells of these derived tables as a rebuild found them (see
+        :meth:`keep_unchanged_rebuild_stamps`)."""
+
+        snapshot: dict[str, dict[tuple[Any, ...], dict[str, Any]]] = {}
+        with self.connection() as connection:
+            for table in tables:
+                spec = _REBUILD_STAMPED_TABLES[table]
+                columns = ", ".join(dict.fromkeys((*spec.key, *spec.compared, *spec.stamps)))
+                snapshot[table] = {
+                    tuple(row[column] for column in spec.key): dict(row)
+                    for row in connection.execute(f"SELECT {columns} FROM {table}")
+                }
+        return snapshot
+
+    def keep_unchanged_rebuild_stamps(
+        self, snapshot: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]
+    ) -> int:
+        """Give each cell a rebuild left as it found it the stamps it had then.
+
+        A stamp says when its cell last changed, so a rebuild that changes no
+        value must change no stamp (and a second rebuild then changes nothing).
+        A rebuild cannot get there by writing on change alone: a learning
+        object's replay folds the cache through each attempt's position (the
+        state its live write read) before its closing projection, and the
+        umbrella clears a table before re-deriving it, so an unchanged cell is
+        rewritten, or deleted and re-inserted, on the way. Cells that changed,
+        appeared or vanished keep what the rebuild wrote. Returns the number of
+        cells whose stamps were put back."""
+
+        restored = 0
+        with self.connection() as connection:
+            for table, before in snapshot.items():
+                spec = _REBUILD_STAMPED_TABLES[table]
+                columns = ", ".join(dict.fromkeys((*spec.key, *spec.compared, *spec.stamps)))
+                updates = []
+                for row in connection.execute(f"SELECT rowid AS stored_rowid, {columns} FROM {table}"):
+                    found = before.get(tuple(row[column] for column in spec.key))
+                    if found is None or any(row[column] != found[column] for column in spec.compared):
+                        continue
+                    if all(row[column] == found[column] for column in spec.stamps):
+                        continue
+                    updates.append((*(found[column] for column in spec.stamps), int(row["stored_rowid"])))
+                if updates:
+                    assignments = ", ".join(f"{column} = ?" for column in spec.stamps)
+                    connection.executemany(f"UPDATE {table} SET {assignments} WHERE rowid = ?", updates)
+                    restored += len(updates)
+            connection.commit()
+        return restored
 
     # -- capability residual activation (§4.2, KM5; DEFAULT OFF) -----------------
 
