@@ -1204,12 +1204,7 @@ class RoutineDisplayCovered(Exception):
     attempt; only an attempt absorbs it). The name is kept from round 6."""
 
     def __init__(self, practice_item_id: str, *, decision: object | None = None) -> None:
-        super().__init__(
-            f"{practice_item_id}: its answer was shown, so it cannot test the learner yet"
-            if decision is not None
-            # mvp-0.26's message (the predecessor, or the switch off).
-            else f"{practice_item_id}: its answer was shown within the routine-display coverage"
-        )
+        super().__init__(f"{practice_item_id}: its answer was shown, so it cannot test the learner yet")
         self.practice_item_id = practice_item_id
         self.decision = decision
 
@@ -1222,7 +1217,7 @@ PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
 def probe_eligibility(repository: Repository, practice_item_id: str, *, clock: Clock | None = None):
     """The one eligibility decision for a probe or placement presentation of
     the item now (``serve_eligibility``, request ``PROBE``). The successor's
-    reading (``mvp-0.27``); the guards below ask it only there."""
+    reading (``mvp-0.27``), which the guards below ask."""
 
     from learnloop import serve_eligibility
 
@@ -1237,20 +1232,11 @@ def routine_display_covers_item(
     practice_item_id: str,
     *,
     clock: Clock | None = None,
-    vault: LoadedVault | None = None,
 ) -> bool:
     """Was the item's answer shown, so that no probe may test it now? The name
-    is kept from round 6. At ``mvp-0.27`` with ``eligibility.enabled`` (read
-    from ``vault``) the question is the one eligibility decision's: a routine
-    display covering it, or a reveal submit would count. Otherwise (or with no
-    vault) it is mvp-0.26's: a routine display covering it."""
+    is kept from round 6; the question is the one eligibility decision's: a
+    routine display covering it, or a reveal submit would count."""
 
-    from learnloop import serve_eligibility
-
-    if not serve_eligibility.decision_active(vault):
-        from learnloop.reveal_coverage import routine_displays_covering
-
-        return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
     return not probe_eligibility(repository, practice_item_id, clock=clock).serves
 
 
@@ -1259,19 +1245,13 @@ def refuse_routine_display_covered(
     practice_item_id: str,
     *,
     clock: Clock | None = None,
-    vault: LoadedVault | None = None,
 ) -> None:
     """Raise :class:`RoutineDisplayCovered` when a probe of the item cannot
-    test the learner now: the one guard every presentation commit (and serve)
-    passes through. At the successor, when the one eligibility decision
-    refuses it; otherwise mvp-0.26's guard (a routine display covering it)."""
+    test the learner now (the one eligibility decision refuses it): the one
+    guard every presentation commit (and serve) passes through."""
 
     from learnloop import serve_eligibility
 
-    if not serve_eligibility.decision_active(vault):
-        if routine_display_covers_item(repository, practice_item_id, clock=clock):
-            raise RoutineDisplayCovered(practice_item_id)
-        return
     decision = probe_eligibility(repository, practice_item_id, clock=clock)
     if not decision.serves:
         serve_eligibility.log_decision(decision, path="probe_commit")
@@ -1409,7 +1389,7 @@ def presentation_commit_payload(
     raises :class:`RoutineDisplayCovered` before any row exists.
     """
 
-    refuse_routine_display_covered(repository, eligible.item.id, clock=clock, vault=vault)
+    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     if episode.status != "in_progress":
         raise ValueError(f"episode {episode.id} is {episode.status}; cannot commit a presentation")
     if episode.active_state_segment_id is None:
@@ -1521,12 +1501,14 @@ def serve_presentation(
     the only path to ``served``. A presentation committed before its item's
     answer was shown on a routine display that still covers now is ended
     (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
-    Phase 4 round 7)."""
+    Phase 4 round 7). ``vault`` is read by nothing: the guard needs only the
+    repository, and the probe-validation sim still passes it."""
 
+    del vault
     presentation = repository.probe_presentation(presentation_id)
     if presentation is not None:
         try:
-            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock, vault=vault)
+            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock)
         except RoutineDisplayCovered:
             repository.end_probe_presentation(presentation_id, end_reason="invalidated", clock=clock)
             raise
@@ -1650,7 +1632,7 @@ def commit_item_presentation(
             extra_selection_components=extra_selection_components,
             clock=clock,
         )
-        serve_presentation(repository, presentation.id, clock=clock, vault=vault)
+        serve_presentation(repository, presentation.id, clock=clock)
     except RoutineDisplayCovered:
         # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7).
         return None
@@ -1689,7 +1671,7 @@ def plan_precommitted_block(
     # the block's size and indices are its real members'.
     candidates = [
         entry for entry in candidates
-        if not routine_display_covers_item(repository, entry.item.id, clock=clock, vault=vault)
+        if not routine_display_covers_item(repository, entry.item.id, clock=clock)
     ]
     if not candidates:
         return []
@@ -3459,29 +3441,46 @@ def _value_of_information_stop(
 # --- Learner controls (§3, §12.1) -----------------------------------------------------
 
 
+@dataclass(frozen=True)
+class StoppedCheck:
+    """What `Stop diagnosing and teach me` did: the typed transition decision it
+    persisted, and the block's committed answers' feedback it released."""
+
+    decision: dict[str, Any]
+    released_feedback: list[dict[str, Any]]
+
+
 def stop_diagnosing_and_teach(
     vault: LoadedVault,
     repository: Repository,
     learning_object_id: str,
     *,
     clock: Clock | None = None,
-) -> dict[str, Any] | None:
-    """`Stop diagnosing and teach me`: end measurement, open a post-intervention
-    state segment, and persist a typed transition decision (§12.1)."""
+) -> StoppedCheck | None:
+    """`Stop diagnosing and teach me`: settle the block's committed answers, end
+    measurement, open a post-intervention state segment, and persist a typed
+    transition decision (§12.1)."""
 
     episode = repository.open_probe_episode(learning_object_id)
     if episode is None:
         return None
-    posterior = episode_posterior(vault, repository, episode)
-    active = repository.active_probe_presentation(episode.id)
-    if active is not None:
-        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
 
     from learnloop.diagnosis.probe_blocks import (
         _first_error_from_block,
         block_observation_rows,
         build_typed_transition_decision,
+        settle_block_answers,
     )
+
+    # The attempt pipeline deferred these answers' normalization, diagnosis and
+    # feedback to a block end that the conversion below means never runs. No
+    # model client, as the attempt step's block end: normalization then asks no
+    # model. Before the posterior, which the block end also reads after it.
+    released_feedback, _ = settle_block_answers(vault, repository, episode, ai_client=None, clock=clock)
+    posterior = episode_posterior(vault, repository, episode)
+    active = repository.active_probe_presentation(episode.id)
+    if active is not None:
+        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
 
     decision = build_typed_transition_decision(
         vault,
@@ -3506,7 +3505,7 @@ def stop_diagnosing_and_teach(
         reason="tutoring_transition",
         clock=clock,
     )
-    return decision
+    return StoppedCheck(decision=decision, released_feedback=released_feedback)
 
 
 def close_diagnostic_segment(

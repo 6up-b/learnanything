@@ -6,9 +6,8 @@ check is accepted as one, and an item submit would prime is never served as a
 cold check: it is served as ordinary practice and its cold check, which it can
 no longer take cold, is withdrawn with its typed disposition (Codex review F2,
 F3), never left due to walk into a refusal or re-timed into a check that cannot
-be cold. The successor is ``mvp-0.27`` behind ``eligibility.enabled`` (F4):
-these tests run their vaults there; ``tests/test_serve_eligibility_review.py``
-covers the predecessor and the switch. Fakes only; no network, no paid call.
+be cold. The successor is ``mvp-0.27`` (F4): these tests run their vaults
+there. Fakes only; no network, no paid call.
 """
 
 from __future__ import annotations

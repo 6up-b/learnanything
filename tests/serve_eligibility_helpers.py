@@ -19,45 +19,43 @@ def _iso(moment: datetime) -> str:
     return utc_now_iso(FrozenClock(moment))
 
 
-def _at_version(root, version: str = SUCCESSOR, *, enabled: bool = True) -> None:
+def _at_version(root, version: str = SUCCESSOR) -> None:
     """Pin a test vault's ``algorithm_version`` (the basic vault is mvp-0.6,
-    the daily-plan vault mvp-0.14) and, optionally, turn the switch off."""
+    the daily-plan vault mvp-0.14)."""
 
     import re
 
     toml = root / "learnloop.toml"
     text, count = re.subn(r'algorithm_version = "[^"]+"', f'algorithm_version = "{version}"', toml.read_text(), count=1)
     assert count == 1
-    if not enabled:
-        text += "\n[eligibility]\nenabled = false\n"
     toml.write_text(text)
     if is_below_floor(version):
         allow_below_floor(root)
 
 
-def _repair(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
+def _repair(tmp_path, version: str = SUCCESSOR):
     """``test_remediation_cold_retry._setup`` at ``version``."""
 
     from learnloop.vault.loader import load_vault
     from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
-    _at_version(vault.root, version, enabled=enabled)
+    _at_version(vault.root, version)
     return load_vault(vault.root), repository, misconception_id
 
 
-def _basic(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
+def _basic(tmp_path, version: str = SUCCESSOR):
     from tests.helpers import create_basic_vault, seed_due_item
 
     paths = create_basic_vault(tmp_path / "vault")
     seed_due_item(paths)
-    _at_version(paths.root, version, enabled=enabled)
+    _at_version(paths.root, version)
     return paths
 
 
 def _one_cold_item_plan(
     tmp_path, *, reveal_kind: str = "tutor_answer", reveal_ago=timedelta(hours=26), start=START,
-    version: str = SUCCESSOR, enabled: bool = True,
+    version: str = SUCCESSOR,
 ):
     """§12.9's reproduction (``test_f1k_a_non_routine_reveal_never_starves_the_plan``'s
     setup): one eligible item, a cold retry created a day ago and due for an
@@ -67,7 +65,7 @@ def _one_cold_item_plan(
     from tests.helpers import create_daily_plan_vault
 
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
-    _at_version(paths.root, version, enabled=enabled)
+    _at_version(paths.root, version)
     clock = MovableClock(start)
     env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
                    clock=clock, session_id="s_one")

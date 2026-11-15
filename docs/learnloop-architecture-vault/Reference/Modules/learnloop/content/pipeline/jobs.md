@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py) |
-| Source lines | 5896 |
+| Source lines | 5904 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -102,68 +102,68 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `__init__(self) -> None` (line 4026; internal)
   - `reading_lock(self) -> threading.RLock` (line 4077; public)
   - `bind(self, repository: Repository, vault_root: Path, *, clock: Clock | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15, poll_interval_seconds: float=1.0, background: bool | None=None, reader_synth_client_factory: Any=None, sweep_abandoned_synthesis: bool=True) -> None` (line 4082; public) — Attach the wrapper to a loaded vault.
-  - `_require_runner(self) -> IngestRunner` (line 4166; internal)
-  - `repository(self) -> Repository` (line 4172; public)
-  - `vault_root(self) -> Path` (line 4176; public)
-  - `enqueue_add_source(self, source: str, *, source_id: str | None=None, options: Any=None, auto_build: bool=True) -> str` (line 4181; public) — Enqueue an Add: the import, then the automatic build planner that depends on it (``learnloop.content.pipeline.add_source``).
-  - `enqueue_auto_build(self, source_id: str, *, approved: bool=False, chapter_ids: Sequence[str] | None=None, start_unit_id: str | None=None, answers_revision: int | None=None) -> str | None` (line 4236; public) — Plan another automatic build for an already-readable source.
-  - `reading_now(self) -> datetime` (line 4285; public) — The instant the reading sweep and a failed request's backoff use.
-  - `reading_advance_pending(self, extraction_id: str) -> bool` (line 4290; public) — Whether the book's reading request failed and is not settled: the Reader's next report asks again instead of being coalesced.
-  - `wake_reading_retries(self) -> None` (line 4297; public) — Bring the reading sweep's next pass forward (a background host; a foreground host calls :meth:`sweep_reading_requests` itself).
-  - `wake_blocking_work(self) -> None` (line 4314; public) — A request waits behind its book's queued or running work: make sure the ingest worker runs it (after a restart nothing else may start it, Codex finish-verify F1).
-  - `resume_contextual_index(self, *, now: datetime | None=None) -> str | None` (line 4322; public) — Wake a deferred local index obligation (Codex review F4).
-  - `refresh_fusion_posteriors(self, *, now: datetime | None=None) -> bool` (line 4379; public) — Refit ``retrieval_fusion_posteriors`` from the feedback receipts (spec §9.2: "a nightly job, or one at sidecar start"; Codex review F11): only while a new embedding space is on, only when receipts arrived since the stored fit, and at most once per ``feedback.REFIT_EVERY_HOURS``…
-  - `resume_book_preparation(self) -> bool` (line 4409; public) — Start the ingest worker when a book's automatic preparation (an Add, a build planner, a planner's build) is queued, the worker could run it, and no worker is running.
-  - `sweep_reading_requests(self, *, now: datetime | None=None) -> 'ReadingSweep'` (line 4456; public) — One pass of the reading sweep at ``now`` (default :meth:`reading_now`): one query over the books' pending requests, and an act on each one due (``retry_at`` passed, or none) whose book's work is done (:func:`~learnloop.content.pipeline.add_source.act_on_reading_request`).
-  - `retry_reading_advances(self, *, now: datetime | None=None) -> int` (line 4497; public) — One sweep pass (tests and foreground hosts call it directly): returns how many requests settled (one still waiting on its book's work does not count).
-  - `_ensure_reading_sweep(self) -> None` (line 4504; internal)
-  - `_reading_sweep_delay(self, sweep: 'ReadingSweep') -> float` (line 4516; internal) — Until the next pass: the sweep's pace, sooner when a request's retry time comes first.
-  - `_reading_sweep_loop(self) -> None` (line 4525; internal) — The reading sweep, run on the calling thread (the sweep thread runs :func:`_run_reading_sweep`): a pass every :attr:`READING_SWEEP_SECONDS` (or at the next retry time, or when woken) for as long as this host runs in the background.
-  - `_reading_sweep_pass(self, failures: int) -> tuple[int, float] | None` (line 4538; internal) — One pass of the sweep thread: ``None`` when this host stopped (or runs in the foreground now), else the failures in a row and the wait until the next pass.
-  - `_settle_reading_with_cancel(self, runner: IngestRunner, batch_id: str) -> Callable[[], object]` (line 4596; internal) — A cancel answers the reading requests of the books whose work it stops: each is settled at the revision it has now (reading-hardening, part 1).
-  - `start(self, vault_root: Path, source: str, subject_id: str, mode: Literal['canonical', 'exam'], pdf_engine: str | None=None) -> dict[str, Any]` (line 4611; public)
-  - `get(self, job_id: str) -> dict[str, Any] | None` (line 4655; public)
-  - `list(self) -> list[dict[str, Any]]` (line 4660; public)
-  - `cancel(self, job_id: str) -> dict[str, Any] | None` (line 4665; public)
-  - `needs_reload(self, job_id: str) -> bool` (line 4675; public)
-  - `mark_reloaded(self, job_id: str) -> None` (line 4684; public)
-  - `completed_jobs_awaiting_reload(self, job_types: frozenset[str], *, limit: int) -> list[str]` (line 4687; public) — Recent completed jobs of ``job_types`` this process has not reloaded for.
-  - `halt(self) -> None` (line 4707; public) — The host stopped serving the bound vault (``SidecarContext``'s refusal): let go of its runner and stop every loop, without joining (this runs on the request thread that met the refusal, and a join there waits for whatever provider call a job is in).
-  - `shutdown(self) -> None` (line 4724; public)
-  - `enqueue_import(self, sources: list[str], *, subject_id: str | None=None, inventory: bool=False, estimate: dict[str, Any] | None=None, page_selection: list[int] | None=None, page_selections: dict[str, list[int]] | None=None, reader_disabled_sources: set[str] | frozenset[str] | None=None, pdf_engine: str | None=None, priority: int=0) -> str` (line 4741; public) — Enqueue an Import (or Import & inventory) batch (§6.1).
-  - `enqueue_extraction_repair(self, *, revision_id: str, pages: list, repair_options: dict[str, Any] | None, consent: dict[str, Any], parent_extraction_id: str | None=None, subject_id: str | None=None) -> str` (line 4785; public) — Enqueue a consent-gated extraction-repair batch (§2.5).
-  - `enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str` (line 4817; public) — Enqueue one section's quick-check authoring (reader producer slice).
-  - `enqueue_reader_inquiry_check(self, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str]) -> str` (line 4834; public) — Enqueue the reconnect line's passage-scoped quick check (RW1a).
-  - `enqueue_reader_selection_check(self, *, extraction_id: str, anchor_span_ids: list[str], question_style: str) -> str` (line 4867; public) — Enqueue one active-reading question on a selection (RW1b).
-  - `enqueue_reader_exercise_import(self, *, extraction_id: str, raw_selection: dict[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None) -> str` (line 4900; public) — Enqueue authoring of the learner's selected textbook exercise(s).
-  - `enqueue_source_exercise_import(self, *, import_id: str, extraction_id: str, span_ids: list[str], proposal_id: str | None=None, label: str | None=None, learning_object_hint: str | None=None, request: dict[str, Any] | None=None) -> str` (line 4937; public) — Enqueue the import of a picked textbook exercise (canonical sources S1).
-  - `enqueue_practice_expansion(self, *, learning_object_ids: list[str], subject_id: str | None=None, reason: str | None=None, source_refs: list[dict[str, Any]] | None=None, ad_commission_id: str | None=None) -> str` (line 4968; public) — Enqueue per-LO practice generation (reader-first progressive seeding).
-  - `enqueue_goal_population(self, *, goal_id: str) -> str` (line 5023; public) — Enqueue durable goal-scoped practice authoring from the wizard.
-  - `enqueue_rung_variant(self, *, request_id: str, subject_id: str | None=None) -> str` (line 5035; public) — Enqueue one learner-requested variant authoring (interactive band — the learner is waiting on it, like a quick-add build).
-  - `enqueue_question_promotion(self, *, event_id: str, subject_id: str | None=None) -> str` (line 5049; public) — Enqueue a durable Open-question analysis/authoring request.
-  - `enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None=None) -> str` (line 5067; public) — Enqueue one explainer-animation generation (interactive band — the learner clicked generate and is watching the status).
-  - `enqueue_figure_rich(self, *, payload: Mapping[str, Any], grant: Any=None, origin: str | None=None) -> str` (line 5081; public) — Enqueue one rich figure build (Reader RW5d P2b; interactive band: the learner pressed "show me" and the quick figure, if any, is on the page).
-  - `retry_figure_rich(self, job_id: str, *, error_code: str) -> bool` (line 5111; public) — Requeue a rich figure job that failed with ``error_code`` (the plan wait), unless it was cancelled (Reader RW5d P2b).
-  - `enqueue_inventory(self, *, extraction_id: str, units: list[dict[str, Any]], subject_id: str | None=None, source_set_id: str | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=0) -> str` (line 5124; public) — Enqueue a role-aware unit-inventory batch (§7).
-  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY, batch_id: str | None=None) -> str` (line 5157; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
-  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5215; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
-  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5286; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
-  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 5357; public) — Retry only a failed synthesis stage with revised execution ceilings.
-  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5432; public)
-  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 5439; public)
-  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5467; public)
-  - `_cancel_batch(self, runner: IngestRunner, batch_id: str) -> None` (line 5474; internal) — Cancel, and settle the reading requests of the books whose work this was, in one transaction (reading-hardening, part 1: a cancel answers the request, so the sweep never re-plans the work the learner just stopped; review F1: both commit or neither does).
-  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 5484; public) — Interrupt one live Codex call while keeping the sidecar process alive.
-  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5519; public)
-  - `drain_foreground(self) -> int` (line 5529; public) — Drain the queue synchronously (tests + CLI-less contexts).
-  - `_ensure_worker(self) -> None` (line 5534; internal)
-  - `_worker_loop(self) -> None` (line 5566; internal)
-  - `_quick_check_worker_loop(self) -> None` (line 5609; internal) — Drain independent quick checks beside the serialized vault writer.
-  - `kick_reader_drain(self) -> None` (line 5643; public) — Ensure queued demand-paged reader requests get drained.
-  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 5666; internal) — Drain queued reader requests with a real synthesize client.
-  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 5690; internal)
-  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 5719; internal) — The synthesis job the frontend polls (the batch also holds an import job).
-  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 5728; internal)
+  - `_require_runner(self) -> IngestRunner` (line 4172; internal)
+  - `repository(self) -> Repository` (line 4178; public)
+  - `vault_root(self) -> Path` (line 4182; public)
+  - `enqueue_add_source(self, source: str, *, source_id: str | None=None, options: Any=None, auto_build: bool=True) -> str` (line 4187; public) — Enqueue an Add: the import, then the automatic build planner that depends on it (``learnloop.content.pipeline.add_source``).
+  - `enqueue_auto_build(self, source_id: str, *, approved: bool=False, chapter_ids: Sequence[str] | None=None, start_unit_id: str | None=None, answers_revision: int | None=None) -> str | None` (line 4242; public) — Plan another automatic build for an already-readable source.
+  - `reading_now(self) -> datetime` (line 4291; public) — The instant the reading sweep and a failed request's backoff use.
+  - `reading_advance_pending(self, extraction_id: str) -> bool` (line 4296; public) — Whether the book's reading request failed and is not settled: the Reader's next report asks again instead of being coalesced.
+  - `wake_reading_retries(self) -> None` (line 4303; public) — Bring the reading sweep's next pass forward (a background host; a foreground host calls :meth:`sweep_reading_requests` itself).
+  - `wake_blocking_work(self) -> None` (line 4320; public) — A request waits behind its book's queued or running work: make sure the ingest worker runs it (after a restart nothing else may start it, Codex finish-verify F1).
+  - `resume_contextual_index(self, *, now: datetime | None=None) -> str | None` (line 4328; public) — Wake a deferred local index obligation (Codex review F4).
+  - `refresh_fusion_posteriors(self, *, now: datetime | None=None) -> bool` (line 4385; public) — Refit ``retrieval_fusion_posteriors`` from the feedback receipts (spec §9.2: "a nightly job, or one at sidecar start"; Codex review F11): only while a new embedding space is on, only when receipts arrived since the stored fit, and at most once per ``feedback.REFIT_EVERY_HOURS``…
+  - `resume_book_preparation(self) -> bool` (line 4415; public) — Start the ingest worker when a book's automatic preparation (an Add, a build planner, a planner's build) is queued, the worker could run it, and no worker is running.
+  - `sweep_reading_requests(self, *, now: datetime | None=None) -> 'ReadingSweep'` (line 4462; public) — One pass of the reading sweep at ``now`` (default :meth:`reading_now`): one query over the books' pending requests, and an act on each one due (``retry_at`` passed, or none) whose book's work is done (:func:`~learnloop.content.pipeline.add_source.act_on_reading_request`).
+  - `retry_reading_advances(self, *, now: datetime | None=None) -> int` (line 4503; public) — One sweep pass (tests and foreground hosts call it directly): returns how many requests settled (one still waiting on its book's work does not count).
+  - `_ensure_reading_sweep(self) -> None` (line 4510; internal)
+  - `_reading_sweep_delay(self, sweep: 'ReadingSweep') -> float` (line 4522; internal) — Until the next pass: the sweep's pace, sooner when a request's retry time comes first.
+  - `_reading_sweep_loop(self) -> None` (line 4531; internal) — The reading sweep, run on the calling thread (the sweep thread runs :func:`_run_reading_sweep`): a pass every :attr:`READING_SWEEP_SECONDS` (or at the next retry time, or when woken) for as long as this host runs in the background.
+  - `_reading_sweep_pass(self, failures: int) -> tuple[int, float] | None` (line 4544; internal) — One pass of the sweep thread: ``None`` when this host stopped (or runs in the foreground now), else the failures in a row and the wait until the next pass.
+  - `_settle_reading_with_cancel(self, runner: IngestRunner, batch_id: str) -> Callable[[], object]` (line 4602; internal) — A cancel answers the reading requests of the books whose work it stops: each is settled at the revision it has now (reading-hardening, part 1).
+  - `start(self, vault_root: Path, source: str, subject_id: str, mode: Literal['canonical', 'exam'], pdf_engine: str | None=None) -> dict[str, Any]` (line 4617; public)
+  - `get(self, job_id: str) -> dict[str, Any] | None` (line 4661; public)
+  - `list(self) -> list[dict[str, Any]]` (line 4666; public)
+  - `cancel(self, job_id: str) -> dict[str, Any] | None` (line 4671; public)
+  - `needs_reload(self, job_id: str) -> bool` (line 4681; public)
+  - `mark_reloaded(self, job_id: str) -> None` (line 4690; public)
+  - `completed_jobs_awaiting_reload(self, job_types: frozenset[str], *, limit: int) -> list[str]` (line 4693; public) — Recent completed jobs of ``job_types`` this process has not reloaded for.
+  - `halt(self) -> None` (line 4713; public) — The host stopped serving the bound vault (``SidecarContext``'s refusal): let go of its runner and stop every loop, without joining (this runs on the request thread that met the refusal, and a join there waits for whatever provider call a job is in).
+  - `shutdown(self) -> None` (line 4730; public)
+  - `enqueue_import(self, sources: list[str], *, subject_id: str | None=None, inventory: bool=False, estimate: dict[str, Any] | None=None, page_selection: list[int] | None=None, page_selections: dict[str, list[int]] | None=None, reader_disabled_sources: set[str] | frozenset[str] | None=None, pdf_engine: str | None=None, priority: int=0) -> str` (line 4747; public) — Enqueue an Import (or Import & inventory) batch (§6.1).
+  - `enqueue_extraction_repair(self, *, revision_id: str, pages: list, repair_options: dict[str, Any] | None, consent: dict[str, Any], parent_extraction_id: str | None=None, subject_id: str | None=None) -> str` (line 4791; public) — Enqueue a consent-gated extraction-repair batch (§2.5).
+  - `enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str` (line 4823; public) — Enqueue one section's quick-check authoring (reader producer slice).
+  - `enqueue_reader_inquiry_check(self, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str]) -> str` (line 4840; public) — Enqueue the reconnect line's passage-scoped quick check (RW1a).
+  - `enqueue_reader_selection_check(self, *, extraction_id: str, anchor_span_ids: list[str], question_style: str) -> str` (line 4873; public) — Enqueue one active-reading question on a selection (RW1b).
+  - `enqueue_reader_exercise_import(self, *, extraction_id: str, raw_selection: dict[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None) -> str` (line 4906; public) — Enqueue authoring of the learner's selected textbook exercise(s).
+  - `enqueue_source_exercise_import(self, *, import_id: str, extraction_id: str, span_ids: list[str], proposal_id: str | None=None, label: str | None=None, learning_object_hint: str | None=None, request: dict[str, Any] | None=None) -> str` (line 4943; public) — Enqueue the import of a picked textbook exercise (canonical sources S1).
+  - `enqueue_practice_expansion(self, *, learning_object_ids: list[str], subject_id: str | None=None, reason: str | None=None, source_refs: list[dict[str, Any]] | None=None, ad_commission_id: str | None=None) -> str` (line 4974; public) — Enqueue per-LO practice generation (reader-first progressive seeding).
+  - `enqueue_goal_population(self, *, goal_id: str) -> str` (line 5029; public) — Enqueue durable goal-scoped practice authoring from the wizard.
+  - `enqueue_rung_variant(self, *, request_id: str, subject_id: str | None=None) -> str` (line 5041; public) — Enqueue one learner-requested variant authoring (interactive band — the learner is waiting on it, like a quick-add build).
+  - `enqueue_question_promotion(self, *, event_id: str, subject_id: str | None=None) -> str` (line 5055; public) — Enqueue a durable Open-question analysis/authoring request.
+  - `enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None=None) -> str` (line 5073; public) — Enqueue one explainer-animation generation (interactive band — the learner clicked generate and is watching the status).
+  - `enqueue_figure_rich(self, *, payload: Mapping[str, Any], grant: Any=None, origin: str | None=None) -> str` (line 5087; public) — Enqueue one rich figure build (Reader RW5d P2b; interactive band: the learner pressed "show me" and the quick figure, if any, is on the page).
+  - `retry_figure_rich(self, job_id: str, *, error_code: str) -> bool` (line 5117; public) — Requeue a rich figure job that failed with ``error_code`` (the plan wait), unless it was cancelled (Reader RW5d P2b).
+  - `enqueue_inventory(self, *, extraction_id: str, units: list[dict[str, Any]], subject_id: str | None=None, source_set_id: str | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=0) -> str` (line 5130; public) — Enqueue a role-aware unit-inventory batch (§7).
+  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY, batch_id: str | None=None) -> str` (line 5163; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
+  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, create_goal: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5221; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
+  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 5292; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
+  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 5363; public) — Retry only a failed synthesis stage with revised execution ceilings.
+  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5438; public)
+  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 5445; public)
+  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5473; public)
+  - `_cancel_batch(self, runner: IngestRunner, batch_id: str) -> None` (line 5480; internal) — Cancel, and settle the reading requests of the books whose work this was, in one transaction (reading-hardening, part 1: a cancel answers the request, so the sweep never re-plans the work the learner just stopped; review F1: both commit or neither does).
+  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 5490; public) — Interrupt one live Codex call while keeping the sidecar process alive.
+  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 5525; public)
+  - `drain_foreground(self) -> int` (line 5535; public) — Drain the queue synchronously (tests + CLI-less contexts).
+  - `_ensure_worker(self) -> None` (line 5540; internal)
+  - `_worker_loop(self) -> None` (line 5572; internal)
+  - `_quick_check_worker_loop(self) -> None` (line 5617; internal) — Drain independent quick checks beside the serialized vault writer.
+  - `kick_reader_drain(self) -> None` (line 5651; public) — Ensure queued demand-paged reader requests get drained.
+  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 5674; internal) — Drain queued reader requests with a real synthesize client.
+  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 5698; internal)
+  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 5727; internal) — The synthesis job the frontend polls (the batch also holds an import job).
+  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 5736; internal)
 
 ### Module constants
 
@@ -195,7 +195,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `QUICK_ADD_PRIORITY` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3958)
 - `_PARALLEL_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3959)
 - `_QUICK_CHECK_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3960)
-- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5747)
+- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5755)
 
 ## Internal implementation anchors
 
@@ -273,12 +273,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3436) — One item at an open AD commission's point, through the ordinary generation path and its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4).
 - `_run_reading_sweep(host: 'weakref.ref[DurableIngestJobs]') -> None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3976) — The reading sweep thread.
 - `_reading_due_at(retry_at: str | None) -> datetime | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 4003) — When a pending reading request is due: its retry time, or ``None`` (due now) when it has none or one that does not parse or convert to UTC (``0001-01-01T00:00:00+01:00`` overflows, reading-hardening verify N2), so no stored value can keep a request from ever being due.
-- `_iso(moment: datetime | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5735) — ``moment`` (default: now) as the ISO UTC text reading requests store.
-- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5754) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
-- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5814)
-- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5854)
-- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5865) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
-- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5872)
+- `_iso(moment: datetime | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5743) — ``moment`` (default: now) as the ISO UTC text reading requests store.
+- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5762) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
+- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5822)
+- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5862)
+- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5873) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
+- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 5880)
 
 ## Who imports or calls it
 

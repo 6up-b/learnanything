@@ -432,16 +432,12 @@ def revalidate_cold_check(vault, repository, practice_item_id: str):
     was set) is withdrawn with its typed disposition. Both persisted, so the
     serve opens no cold administration and the answer is an ordinary one,
     accepted. Nothing is refused. Returns the decision when it is not a plain
-    serve, else None; below ``mvp-0.27`` (or with ``eligibility.enabled``
-    off) the revalidation is mvp-0.26's routine-display hold and returns None,
-    so the detail carries no ``eligibility`` key, as before."""
+    serve, else None."""
 
     from learnloop import serve_eligibility
     from learnloop.scheduling.scheduler import cold_check_serve_decision
 
     decision = cold_check_serve_decision(vault, repository, practice_item_id)
-    if not serve_eligibility.decision_active(vault):
-        return None
     return None if decision.verdict == serve_eligibility.SERVE else decision
 
 

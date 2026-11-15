@@ -325,6 +325,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_import_without_metadata_falls_back_to_url`
 - [tests/test_ingest_transcripts.py](../../../../../../../tests/test_ingest_transcripts.py) — direct import
   - `test_default_extract_routes_caption_text_to_transcript_ir`
+- [tests/test_ingest_vault_switch.py](../../../../../../../tests/test_ingest_vault_switch.py) — direct import
+  - `test_a_vault_switch_drains_the_new_vault_and_claims_nothing_more_in_the_old`
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_parallel_inventory_drains_checkpoints_and_stops_new_units_after_failure`
 - [tests/test_inventory_merge_parallel.py](../../../../../../../tests/test_inventory_merge_parallel.py) — direct import

@@ -128,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_post_attempt_worker.py`
 - `tests/test_reader_guidance.py`
 - `tests/test_sg_slip_vs_gap.py`
+- `tests/test_teach_handoff_stop_settles.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

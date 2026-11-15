@@ -326,6 +326,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt.py](../../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed`
   - `test_an_empty_stuck_answer_scores_zero_without_a_model_call`
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_a_mid_check_stop_queues_the_blind_answers_diagnosis`
 
 ## Modification guidance
 

@@ -16,7 +16,10 @@ in-block diagnostic attempts). At block end, one hook runs in order:
 Every modality funnels here: dialogue blocks end through
 ``end_dialogue_block`` (probe_dialogue.py), sequential and precommitted
 microprobe blocks end from ``record_episode_evidence`` once the block's
-observation target is reached (probe_episodes.py).
+observation target is reached (probe_episodes.py). Steps 1 and 2 are
+``settle_block_answers``, which "Stop diagnosing and teach me"
+(``stop_diagnosing_and_teach``) also runs, since a stopped block never
+reaches its block end.
 """
 
 from __future__ import annotations
@@ -311,26 +314,26 @@ def _first_error_from_block(rows: list[dict[str, Any]]) -> str | None:
     return None
 
 
-def end_diagnostic_block(
+def settle_block_answers(
     vault: LoadedVault,
     repository: Repository,
-    episode: ProbeEpisodeRecord | str,
+    episode: ProbeEpisodeRecord,
     *,
     ai_client: object | None = None,
     clock: Clock | None = None,
-) -> dict[str, Any]:
-    """The §5.7 block-end hook. Runs the ordered sequence and returns what the
-    client needs to reveal feedback and route the learner."""
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """What the attempt pipeline deferred for the active block's committed answers:
+    their withheld feedback (claim-checked), their normalization or blind diagnosis
+    job, and their causal hooks. Returns the released feedback and the touched
+    misconception ids.
+
+    The block end runs it, and so does a mid-check stop, which converts the
+    episode so that no block end ever runs for that block: without it those
+    answers would stay un-normalized, undiagnosed and unseen. It neither routes
+    nor ends the episode.
+    """
 
     from learnloop.diagnosis.misconceptions import normalize_and_resolve_attempt
-
-    if isinstance(episode, str):
-        fetched = repository.probe_episode(episode)
-        if fetched is None:
-            return {}
-        episode = fetched
-    if episode.status != "in_progress":
-        return {"episode_id": episode.id, "status": episode.status, "route": None}
 
     rows = block_observation_rows(repository, episode)
 
@@ -382,10 +385,10 @@ def end_diagnostic_block(
     # review surface had no repair recommendation to read. Runs AFTER
     # normalization so factors/hypotheses/durable records are settled, and
     # before the claim-checked render below so it reads the recorded receipts.
-    # Idempotent on a repeated block-end call: a terminal episode returns
-    # early above, a continuing one opened a fresh segment (so this block's
-    # rows are no longer the active segment's), and the consultation itself
-    # skips factors that already carry a common-repair receipt.
+    # Runs once per block: the block end and the stop each act only on an open
+    # episode and leave it terminal or in a fresh segment (so this block's rows
+    # are no longer the active segment's), and the consultation itself skips
+    # factors that already carry a common-repair receipt.
     from learnloop.diagnosis.followups import (
         common_repair_recommendation,
         run_deferred_block_repair_hooks,
@@ -435,6 +438,33 @@ def end_diagnostic_block(
         released["guided_redo_available"] = guided_redo_available(
             repository, attempt_id
         )
+
+    return released_feedback, normalized_misconception_ids
+
+
+def end_diagnostic_block(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord | str,
+    *,
+    ai_client: object | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """The §5.7 block-end hook. Runs the ordered sequence and returns what the
+    client needs to reveal feedback and route the learner."""
+
+    if isinstance(episode, str):
+        fetched = repository.probe_episode(episode)
+        if fetched is None:
+            return {}
+        episode = fetched
+    if episode.status != "in_progress":
+        return {"episode_id": episode.id, "status": episode.status, "route": None}
+
+    rows = block_observation_rows(repository, episode)
+    released_feedback, normalized_misconception_ids = settle_block_answers(
+        vault, repository, episode, ai_client=ai_client, clock=clock
+    )
 
     # 3+4. Open-set trigger and completion policy run on the
     # post-normalization posterior.

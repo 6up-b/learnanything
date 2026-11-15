@@ -359,9 +359,9 @@ REGRADE_CONTRACT_ALGORITHM_VERSION = "mvp-0.26"
 # exactly (any primed draft is refused a cold check). It changes what is
 # SERVED and which new seeded or simulated attempts are primed, not the
 # projection, so it is another successor tag on the mvp-0.8 namespace; replay
-# reads every recorded flag as written. Kill switch: ``eligibility.enabled``
-# (off: every path serves and admits exactly as mvp-0.26). The branch built it
-# without a tag; the Codex review (F4) required this one.
+# reads every recorded flag as written. Its kill switch went once every vault
+# was past the tag. The branch built it without a tag; the Codex review (F4)
+# required this one.
 ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
 
 # mvp-0.29 (daily-loop DL2, intent; docs/reviews/daily-loop-dl2.md and its

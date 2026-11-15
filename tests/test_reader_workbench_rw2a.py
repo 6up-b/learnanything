@@ -21,7 +21,7 @@ import pytest
 
 from learnloop import serve_eligibility
 from learnloop.attempts import salience_firewall as SF
-from learnloop.clock import FrozenClock, utc_now_iso
+from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.table_roles import TableRole, tables_for_role
@@ -584,16 +584,6 @@ def test_the_grader_reads_the_composed_answer_only(tmp_path, grader):
 # -- the one eligibility decision (mvp-0.27) ---------------------------------------------------------
 
 
-def _due_cold_check(repository: Repository, item: str = ITEM):
-    now = datetime.now(UTC)
-    return repository.create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref="ep_wb",
-        not_before=utc_now_iso(FrozenClock(now - timedelta(days=1))),
-        expires_at=utc_now_iso(FrozenClock(now + timedelta(days=29))),
-        selected_item_id=item, clock=FrozenClock(now - timedelta(days=2)),
-    )
-
-
 def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(tmp_path, grader, monkeypatch):
     # Built before the spy: at the head the vault's seeded history is applied through the submit decision too
     # (below its tag the seeding asked none), and only the two submits below are compared.
@@ -621,17 +611,6 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
     assert {(inputs.practice_item_id, inputs.hints_used, inputs.attempt_type) for inputs in workbench} == {
         (ITEM, 1, "hinted_attempt")
     }
-
-
-def test_with_the_eligibility_switch_off_the_old_cold_guard_still_refuses_the_book(tmp_path, grader):
-    paths, repository = _vault(tmp_path, config="[eligibility]\nenabled = false")
-    _due_cold_check(repository)
-    ctx = _context(paths.root)
-    session = _open(ctx)
-    _step(ctx, session["sessionId"], "a", bodyMd="A = U Sigma V^T")
-    with pytest.raises(SidecarError) as refused:
-        _submit(ctx, session["sessionId"])
-    assert "unassisted" in refused.value.message
 
 
 # -- reads: for an attempt, an item, a source (RW6a's recap) -------------------------------------------

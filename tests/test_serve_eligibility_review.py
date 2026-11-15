@@ -8,8 +8,8 @@
 * F3: nothing is anchored to a queue build: a delayed open or a delayed submit
   after a withdrawing build is plain practice, and a cold check is never served
   on an item practised since the check was set.
-* F4: the successor ``mvp-0.27`` and its kill switch ``eligibility.enabled``;
-  below the tag, or off, every path serves and admits exactly as ``mvp-0.26``.
+* F4: the successor ``mvp-0.27`` (its kill switch went once every vault was
+  past the tag).
 
 Fakes only; no network, no paid call.
 """
@@ -29,14 +29,10 @@ from learnloop.attempts.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.clock import FrozenClock, utc_now_iso
-from tests.serve_eligibility_helpers import SUCCESSOR, _at_version, _basic, _one_cold_item_plan, _repair
+from tests.serve_eligibility_helpers import _at_version, _basic, _repair
 
 ITEM = "pi_svd_define_001"
 T0 = datetime(2026, 10, 12, 10, 0, 0, tzinfo=UTC)
-#: The predecessor (mvp-0.26's serving): the successor's switch off, whose off-branch is its code. Below the tag no
-#: vault opens any more.
-PREDECESSORS = [(SUCCESSOR, False)]
-PREDECESSOR_IDS = ["switch_off"]
 
 
 def _iso(moment: datetime) -> str:
@@ -72,18 +68,16 @@ def _routine_display_lapsing_at(repository, release: datetime) -> None:
     )
 
 
-@pytest.mark.parametrize(("version", "enabled"), [(SUCCESSOR, True), *PREDECESSORS],
-                         ids=["successor", *PREDECESSOR_IDS])
-def test_f1_an_auto_primed_draft_is_refused_when_its_cold_task_falls_due_during_grading(tmp_path, version, enabled):
+def test_f1_an_auto_primed_draft_is_refused_when_its_cold_task_falls_due_during_grading(tmp_path):
     """Codex F1's transition: a routine display covers the item until 10:00:01,
     when its deferred cold task becomes due. An ordinary answer starts grading
     at 10:00:00 and is auto-primed; grading finishes at 10:02, when the ledger
     no longer primes it and the task is due. The draft is still primed, so it
-    is refused the cold task (the base guard, kept); at the successor the
-    refusal says why. Fail-first: the branch accepted it and let the primed
+    is refused the cold task (the base guard, kept), and the refusal says
+    why. Fail-first: the branch accepted it and let the primed
     answer consume the cold task."""
 
-    vault, repository, _misconception = _repair(tmp_path, version, enabled=enabled)
+    vault, repository, _misconception = _repair(tmp_path)
     _routine_display_lapsing_at(repository, T0 + timedelta(seconds=1))
     task = _cold_task(repository, not_before=T0 + timedelta(seconds=1), created=T0 - timedelta(days=2))
 
@@ -93,10 +87,7 @@ def test_f1_an_auto_primed_draft_is_refused_when_its_cold_task_falls_due_during_
     assert draft.primed and draft.auto_primed_reveal_total == total
     with pytest.raises(AttemptValidationError, match="a cold retry must be unassisted and unprimed") as refused:
         _self_grade(vault, repository, draft, T0 + timedelta(minutes=2))
-    if enabled and version == SUCCESSOR:
-        assert "still shown when this answer was started" in str(refused.value)
-    else:
-        assert str(refused.value) == "a cold retry must be unassisted and unprimed"
+    assert "still shown when this answer was started" in str(refused.value)
     after = repository.followup_task(task["id"])
     assert after["status"] in {"pending", "served"} and after["consumed_attempt_id"] is None
 
@@ -287,19 +278,7 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     assert SUCCESSOR_CHAIN[17] == REGRADE_CONTRACT_ALGORITHM_VERSION
 
 
-def test_f4_the_gate_reads_the_version_and_the_switch(tmp_path):
-    from learnloop.vault.loader import load_vault
-
-    paths = _basic(tmp_path)
-    assert se.decision_active(load_vault(paths.root))
-    _at_version(paths.root, SUCCESSOR, enabled=False)
-    assert not se.decision_active(load_vault(paths.root))
-    _at_version(paths.root, "mvp-0.26")
-    assert not se.decision_active(load_vault(paths.root))
-    assert not se.decision_active(None)
-
-
-def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
+def test_f4_new_vaults_start_at_the_successor(tmp_path):
     from learnloop.bootstrap import init_vault
     from learnloop.vault.loader import load_vault
 
@@ -309,72 +288,15 @@ def test_f4_new_vaults_start_at_the_successor_with_the_switch_on(tmp_path):
     # mvp-0.34, LP-min (a)'s mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
     # which keeps this one.
     assert fresh.config.algorithms.algorithm_version == "mvp-0.59"
-    assert fresh.config.eligibility.enabled
-    assert se.decision_active(fresh)
 
 
-@pytest.mark.parametrize(("version", "enabled"), PREDECESSORS, ids=PREDECESSOR_IDS)
-def test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026(tmp_path, version, enabled):
-    """The predecessor exactly: the queue's cold lane serves the cold retry
-    (the reveal predates the task), submit then refuses the primed answer with
-    the bare message, the task stays open, and no disposition is written."""
-
-    from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_decision
-    from learnloop_sidecar.handlers.queue import revalidate_cold_check
-    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
-
-    vault, repository, misconception_id = _repair(tmp_path, version, enabled=enabled)
-    _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
-    (task,) = repository.open_followup_tasks_for_item(cold_item)
-    repository.insert_reveal_event(
-        {"practice_item_id": cold_item, "learning_object_id": vault.practice_items[cold_item].learning_object_id,
-         "source_kind": "tutor_answer", "amount": 1.0, "basis": "tutor_answer"},
-        clock=FrozenClock(NOW - timedelta(hours=2)),
-    )
-    moment = NOW + timedelta(days=1, hours=1)
-
-    queue = build_due_queue(vault, repository, clock=FrozenClock(moment))
-    served = cold_check_serve_decision(vault, repository, cold_item, clock=FrozenClock(moment))
-
-    assert cold_item in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
-    assert (served.verdict, served.reason) == (se.SERVE, se.ELIGIBLE)
-    assert revalidate_cold_check(vault, repository, cold_item) is None
-    with pytest.raises(AttemptValidationError) as refused:
-        _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"), moment)
-    assert str(refused.value) == "a cold retry must be unassisted and unprimed"
-    assert repository.followup_task(task["id"])["status"] in {"pending", "served"}
-    assert repository.causal_cold_outcomes() == []
-
-
-@pytest.mark.parametrize(("version", "enabled"), PREDECESSORS, ids=PREDECESSOR_IDS)
-def test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served(tmp_path, version, enabled):
-    """F3's withdrawal is the successor's: below it the cold retry is served
-    after a practice attempt, as before."""
-
-    from learnloop.scheduling.scheduler import build_due_queue
-    from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
-
-    vault, repository, misconception_id = _repair(tmp_path, version, enabled=enabled)
-    _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
-    due = NOW + timedelta(days=1)
-    _self_grade(vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"),
-                due - timedelta(seconds=30))
-
-    queue = build_due_queue(vault, repository, clock=FrozenClock(due + timedelta(seconds=30)))
-
-    assert cold_item in [item.practice_item_id for item in queue if item.followup_kind == "cold_retry"]
-    assert repository.causal_cold_outcomes() == []
-
-
-@pytest.mark.parametrize(("version", "enabled"), [(SUCCESSOR, True), *PREDECESSORS],
-                         ids=["successor", *PREDECESSOR_IDS])
-def test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor(tmp_path, version, enabled):
+def test_f4_a_probe_of_an_item_submit_would_prime_is_refused(tmp_path):
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
     from learnloop.vault.loader import load_vault
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     root, loaded, repository = _setup(tmp_path)
-    _at_version(root, version, enabled=enabled)
+    _at_version(root)
     loaded = load_vault(root)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     repository.insert_reveal_event(
@@ -388,21 +310,18 @@ def test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_success
         clock=CLOCK,
     )
 
-    assert (presentation is None) is (version == SUCCESSOR and enabled)
+    assert presentation is None
 
 
-@pytest.mark.parametrize(("version", "enabled"), [(SUCCESSOR, True), *PREDECESSORS],
-                         ids=["successor", *PREDECESSOR_IDS])
-def test_f4_q33s_bounded_window_is_the_successors(tmp_path, version, enabled):
-    """A seeded exam answer before a later tutor answer: unprimed at the
-    successor (Q33), primed below it or with the switch off (as before)."""
+def test_f4_q33s_bounded_window(tmp_path):
+    """A seeded exam answer before a later tutor answer: unprimed (Q33)."""
 
     from learnloop.goals.exam_seeding import seed_exam_attempts
     from learnloop.vault.loader import load_vault
     from tests.exam_seeding_helpers import LIVE_NOW, _exam_vault, _outcomes
 
     root, _loaded, repository = _exam_vault(tmp_path)
-    _at_version(root, version, enabled=enabled)
+    _at_version(root)
     loaded = load_vault(root)
     repository.insert_reveal_event(
         {"practice_item_id": "pi_exam_q1", "learning_object_id": "lo_svd_definition",
@@ -413,24 +332,7 @@ def test_f4_q33s_bounded_window_is_the_successors(tmp_path, version, enabled):
     seed_exam_attempts(loaded, repository, outcomes=_outcomes())
 
     by_item = {row["practice_item_id"]: row for row in repository.list_attempts_by_learning_object("lo_svd_definition")}
-    assert bool(by_item["pi_exam_q1"]["primed"]) is not (version == SUCCESSOR and enabled)
-
-
-def test_f4_the_plan_serves_the_12_9_case_as_mvp_026_with_the_switch_off(tmp_path):
-    """The plan's serve with the switch off: the cold check is served (no
-    eligibility on the step), and submit refuses the primed answer, as before."""
-
-    from learnloop.daily_plan.engine import advance, get_or_create_today
-
-    env, clock, task = _one_cold_item_plan(tmp_path, enabled=False)
-    get_or_create_today(env)
-    _record, step = advance(env, serve=True)
-
-    assert step.get("practice_item_id") == "pi_cold" and "eligibility" not in step
-    with pytest.raises(AttemptValidationError, match="^a cold retry must be unassisted and unprimed$"):
-        _self_grade(env.vault, env.repository, AttemptDraft(practice_item_id="pi_cold", learner_answer_md="x"),
-                    clock.instant)
-    assert env.repository.followup_task(task["id"])["status"] in {"pending", "served"}
+    assert not by_item["pi_exam_q1"]["primed"]
 
 
 # -- the direct opens at the successor (the landing test's successor half) -------------------------

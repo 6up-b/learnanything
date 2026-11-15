@@ -449,7 +449,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `SystemClock`; statically calls `SystemClock`
-- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -1519,6 +1519,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_leakage.py](../../../../../tests/test_practice_leakage.py) — direct import
 - [tests/test_predictive_eig.py](../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
+- [tests/test_primed_sibling_clock.py](../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probe_attempt_updates.py](../../../../../tests/test_probe_attempt_updates.py) — direct import
   - `test_attempt_service_never_writes_legacy_probe_state`
   - `test_record_probe_attempt_completes_on_convergence`
@@ -1895,11 +1897,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_cold_check_is_never_served_on_an_item_practised_since_it_was_set`
   - `test_f3_a_cold_check_served_unpractised_is_still_served`
   - `test_f3_a_delayed_open_and_submit_after_a_withdrawing_build_are_plain_practice`
-  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused_only_at_the_successor`
-  - `test_f4_below_the_tag_or_switched_off_a_practised_cold_check_is_served`
-  - `test_f4_below_the_tag_or_switched_off_the_12_9_case_is_served_as_on_mvp_026`
-  - `test_f4_new_vaults_start_at_the_successor_with_the_switch_on`
-  - `test_f4_q33s_bounded_window_is_the_successors`
+  - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused`
+  - `test_f4_new_vaults_start_at_the_successor`
+  - `test_f4_q33s_bounded_window`
   - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
 - [tests/test_shadow_components.py](../../../../../tests/test_shadow_components.py) — direct import
 - [tests/test_show.py](../../../../../tests/test_show.py) — direct import

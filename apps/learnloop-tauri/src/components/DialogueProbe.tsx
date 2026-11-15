@@ -186,8 +186,9 @@ export function DialogueProbePanel({
     [phase, turn, answer, confidence, stuck, sessionId, advance, endBlock, onError]
   );
 
-  // §3: Stop diagnosing and teach me — convert the episode, then close the block so unsubmitted presentations are
-  // invalidated and the committed turns are released and normalized, then hand the topic to a lesson.
+  // §3: Stop diagnosing and teach me — the stop releases and normalizes the committed turns and converts the episode;
+  // closing the dialogue then invalidates its unsubmitted presentations (its block end returns nothing for a
+  // converted episode), and the topic goes to a lesson.
   const stopAndTeach = useCallback(async () => {
     if (turn == null) {
       void endBlock();

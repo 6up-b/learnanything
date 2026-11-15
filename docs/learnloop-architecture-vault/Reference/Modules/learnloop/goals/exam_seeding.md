@@ -138,7 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
-  - `test_f4_q33s_bounded_window_is_the_successors`
+  - `test_f4_q33s_bounded_window`
 
 ## Modification guidance
 

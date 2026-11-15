@@ -457,6 +457,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_batch_completion_triggers_one_vault_reload`
 - [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — direct import
   - `test_synthetic_markdown_import_reaches_ready_library_and_outline`
+- [tests/test_ingest_vault_switch.py](../../../../../tests/test_ingest_vault_switch.py) — direct import
+  - `test_a_vault_switch_drains_the_new_vault_and_claims_nothing_more_in_the_old`
 - [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
 - [tests/test_integration_daily_loop_field.py](../../../../../tests/test_integration_daily_loop_field.py) — direct import
   - `test_adopted_reader_card_is_untested_on_the_map_with_no_outcome_row`

@@ -1403,6 +1403,8 @@ export interface StopProbeResultDto {
   /** The episode the stop converted (null when nothing was open), so the lesson opened next can name it. */
   episodeId?: string | null;
   learningObjectId?: string;
+  /** The block's committed answers, settled by the stop (their block end never runs), in the block end's shape. */
+  releasedFeedback?: ProbeBlockEndDto["releasedFeedback"];
 }
 
 /** §5.7 block continuity: the item that would continue this LO's open episode,
@@ -1983,8 +1985,9 @@ export type CausalRepairStatusState =
   | "blocked_pending_review";
 
 /** Action ids the orchestrator offers. The backend is authoritative about
- *  *which* are offered: after "Not now" the state stays `needs_disambiguation`
- *  with `probeOffered: false` and only `teach_me_now` comes back. */
+ *  *which* are offered: after "Not now" (or an offer withheld for burden or
+ *  budget) the state stays `needs_disambiguation` with `probeOffered: false`
+ *  and only `teach_me_now` comes back. */
 export type CausalRepairActionId = "take_quick_check" | "teach_me_now" | "not_now";
 
 export interface CausalRepairActionDto {
@@ -2003,8 +2006,10 @@ export interface CausalRepairStatusDto {
   factorId: string | null;
   learningObjectId: string | null;
   attemptId: string | null;
-  /** False once the learner has deferred: the causes still diverge, only the
-   *  offer is withdrawn. Never re-offer the quick check on false. */
+  /** False when the offer is withheld: the causes still diverge, only the offer
+   *  is withdrawn. `reason` says why: "defer_learner_preference" (the learner's
+   *  own "Not now"), "defer_recent_burden" or "defer_session_budget" (neither
+   *  asked for by the learner). Never re-offer the quick check on false. */
   probeOffered: boolean;
   probeDecision: string | null;
   probeDecisionReason: string | null;

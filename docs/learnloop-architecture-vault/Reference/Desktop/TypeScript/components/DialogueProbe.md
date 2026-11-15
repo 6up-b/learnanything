@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/DialogueProbe.tsx](../../../../../../apps/learnloop-tauri/src/components/DialogueProbe.tsx) |
-| Source lines | 390 |
+| Source lines | 391 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -74,11 +74,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const started = useRef(false)` — const, line 127
 - `const submitTurn = useCallback( async ()` — const, line 144
 - `const recorded = await api.recordProbeDialogueTurn(dialogueState.current, turn.presentationId)` — const, line 164
-- `const stopAndTeach = useCallback(async ()` — const, line 191
-- `const practiceItemId = turn.practiceItemId` — const, line 196
-- `let stopped: StopProbeResultDto | null = null` — let, line 197
-- `let ended: ProbeBlockEndDto | null = null` — let, line 208
-- `const onKey = (event: KeyboardEvent)` — const, line 226
+- `const stopAndTeach = useCallback(async ()` — const, line 192
+- `const practiceItemId = turn.practiceItemId` — const, line 197
+- `let stopped: StopProbeResultDto | null = null` — let, line 198
+- `let ended: ProbeBlockEndDto | null = null` — let, line 209
+- `const onKey = (event: KeyboardEvent)` — const, line 227
 
 ## Who imports or calls it
 
