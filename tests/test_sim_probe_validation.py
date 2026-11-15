@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import pytest
 
+from learnloop.diagnosis.robust_composition import ABSTENTION_BUDGET_FRACTION
 from learnloop.sim.diagnostic_validation import ValidationReport, run_probe_validation
 
 from tests.sim_probe_validation_helpers import _vault_with_confusable
@@ -32,8 +33,9 @@ def test_planted_confuses_with_is_diagnosed_within_budget(validation_report):
             assert result.diagnosed_action == "contrastive_repair"
 
 
-@pytest.mark.xfail(strict=True, reason="refactor bug ledger D-39: on the robust probe path the planted surface_only "
-                                       "type is diagnosed 2 times in 5, under the gate's 0.6")
+@pytest.mark.xfail(strict=True, reason="refactor bug ledger D-39: the robust completion gate ends every unstable "
+                                       "episode at its first check on a fragile pick, so surface_only is named from two "
+                                       "answers, 2 times in 5, under the gate's 0.6")
 def test_planted_types_pass_the_checkpoint_gate(validation_report):
     """Checkpoint 4 entry gate: every planted type classified at or above the
     configured accuracy within the observation budget, with matching actions."""
@@ -49,3 +51,20 @@ def test_planted_types_pass_the_checkpoint_gate(validation_report):
     for result in report.results:
         assert result.completed
         assert result.observations_used <= 4
+
+
+@pytest.mark.xfail(strict=True, reason="refactor bug ledger D-39: the robust completion gate abstains whenever its pick "
+                                       "is fragile, even while the next observation pays, so most planted episodes abstain")
+def test_planted_episodes_abstain_within_the_abstention_budget(validation_report):
+    """U-021 (spec_p0_measurement_correctness §4.2): the diagnostician abstains
+    in at most ABSTENTION_BUDGET_FRACTION of episodes, and the planted-learner
+    suite is where that budget is met. Every planted type here has an
+    instrument that separates it, so an abstention is a stop rule's failure,
+    not the learner's."""
+
+    results = validation_report.results
+    assert results
+    abstained = [result for result in results if result.completion_reason == "couldnt_reliably_distinguish"]
+    assert len(abstained) / len(results) <= ABSTENTION_BUDGET_FRACTION, [
+        (result.planted, result.seed, result.observations_used) for result in abstained
+    ]
