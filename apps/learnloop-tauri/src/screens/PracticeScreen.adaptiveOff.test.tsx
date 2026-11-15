@@ -5,7 +5,9 @@
 // written by THIS test run against that base's PracticeScreen, before H2b
 // changed anything, and are compared byte for byte here: the plain card and
 // the classic card, an item with authored hints and one with none, before
-// and after Ctrl+H (twice). The hint RPCs of H2a are never called.
+// and after Ctrl+H (twice). The hint RPCs of H2a are never called. They were
+// rewritten once since, when the stuck prompt's kill switch went: every card
+// now shows "I'm stuck" and its ^d key, the only difference in each frame.
 import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -15,7 +17,7 @@ import { PracticeScreen } from "./PracticeScreen";
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
-  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), submitDontKnow: vi.fn(), stopProbeDiagnosing: vi.fn(),
+  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), stopProbeDiagnosing: vi.fn(),
   recordSelfGradeDisclosure: vi.fn(), recordHintReveal: vi.fn(),
   requestHint: vi.fn(), hintJob: vi.fn(), cancelHint: vi.fn(), answerDiscriminating: vi.fn(), setHelpStyle: vi.fn()
 } }));

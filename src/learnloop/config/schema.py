@@ -2122,20 +2122,6 @@ class RecurrenceConfig(BaseModel):
         return self
 
 
-class StuckPromptConfig(BaseModel):
-    """"Write what you can" replaces "I don't know".
-
-    Dormant below ``mvp-0.13``: the algorithm version, not this section,
-    decides whether the learner's surfaces offer "I'm stuck". ``enabled`` is
-    the kill switch: off, an ``mvp-0.13`` vault shows "I don't know" and
-    records ``dont_know`` at its configured mass exactly as the predecessor does.
-    Already-recorded stuck answers keep their meaning (``declared_stuck`` is
-    persisted per attempt and replay never reads this switch).
-    """
-
-    enabled: bool = True
-
-
 class HintsMapsConfig(BaseModel):
     """Adaptive hints: approach maps.
 
@@ -4757,7 +4743,6 @@ class LearnLoopConfig(KeepsRetiredFields):
     )
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
-    stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
     hints: HintsConfig = Field(default_factory=HintsConfig)
     learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)

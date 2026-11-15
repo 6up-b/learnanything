@@ -55,8 +55,8 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("LearnLoopConfig", ("locks", "facet_lock_mass"), float, 2.0, "C3"),
     RetiredField("LearnLoopConfig", ("locks", "facet_surface_groups"), int, 2, "C3"),
     RetiredField("AIConfig", ("agent_harness_opt_in",), bool, False, "C4"),
-    # Kill switches the version floor passed (ADR-019). ``[teacher.weight]``, ``[proof_check]`` and
-    # ``[required_method]``: each section whole.
+    # Kill switches the version floor passed (ADR-019). ``[teacher.weight]``, ``[proof_check]``,
+    # ``[required_method]`` and ``[stuck_prompt]``: each section whole.
     RetiredField("TeacherConfig", ("weight", "learned"), bool, True, "D7"),
     RetiredField("TeacherConfig", ("weight", "source"), Literal["pool", "parametric"], "pool", "D7"),
     RetiredField("LearnLoopConfig", ("proof_check", "enabled"), bool, True, "D7"),
@@ -65,6 +65,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("HintsConfig", ("fold_follows_attach",), bool, True, "D7"),
     RetiredField("PracticeConfig", ("reschedule_cold_after_assist",), bool, True, "D7"),
     RetiredField("AskConfig", ("cold_help_converts",), bool, True, "D7"),
+    RetiredField("LearnLoopConfig", ("stuck_prompt", "enabled"), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

@@ -20,10 +20,9 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_codex_fallback,
     complete_attempt_with_codex_required,
     complete_empty_stuck_attempt,
-    complete_self_graded_attempt,
 )
 from learnloop.attempts.hint_fold import ServerHintFold, read_fold
-from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
+from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.attempts.post_attempt import (
     CompletionRouteUnknown,
     probe_route,
@@ -246,6 +245,8 @@ class DontKnowInput(ParamsModel):
     book_counted: bool | None = None
     latency_seconds: int | None = None
     active_seconds: int | None = Field(default=None, ge=0)
+    #: Read by nothing: the answer is an empty stuck answer, scored 0 with no
+    #: self-grade. Kept so a client that still sends one is not refused.
     self_grade: SelfGradeInputDto | None = None
     probe_presentation_id: str | None = None
     answer_confidence: int | None = None
@@ -1391,36 +1392,7 @@ def submit_attempt_on(
     # Fix round 2, item 2: a stale draft's carried help is not this attempt's.
     params, stale = _without_stale_help(repository, params, successor=successor)
     hint_window_fold = hint_window_fold or stale
-    declared_stuck = params.declared_stuck and stuck_prompt_active(vault)
-    if params.declared_stuck and not declared_stuck and not params.answer_md.strip() and not (
-        params.explanation_md or ""
-    ).strip():
-        # A stuck answer from a surface drawn before stuck_prompt was turned
-        # off is recorded exactly as that switch says today: an empty one is
-        # "I don't know" (and a non-empty one the ordinary attempt below).
-        return submit_dont_know_on(
-            ctx,
-            DontKnowInput(
-                session_id=params.session_id,
-                practice_item_id=params.practice_item_id,
-                hints_used=params.hints_used,
-                # Fix round 12, item 4: every optional count field goes along.
-                authored_hints=params.authored_hints,
-                book_counted=params.book_counted,
-                latency_seconds=params.latency_seconds,
-                active_seconds=params.active_seconds,
-                probe_presentation_id=params.probe_presentation_id,
-                answer_confidence=params.answer_confidence,
-                assessment_contract_version_id=params.assessment_contract_version_id,
-                submission_id=params.submission_id,
-                scheduler_candidate_id=params.scheduler_candidate_id,
-                plan_presentation_id=params.plan_presentation_id,
-                difficulty_rating=params.difficulty_rating,
-                first_hint_progress=params.first_hint_progress,
-            ),
-            entry_surface=entry_surface,
-            hint_window_fold=hint_window_fold,
-        )
+    declared_stuck = params.declared_stuck
     # Mobile PR-4: ownership is checked at acceptance; a submit accepted
     # before a handoff completes normally.
     require_owned_session(ctx, repository, params.session_id)
@@ -1619,8 +1591,11 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
 
 def submit_dont_know_on(
     ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = DESKTOP_PRACTICE,
-    hint_window_fold: bool = False,
 ) -> dict[str, Any]:
+    """"I don't know" from a client that still sends it: since mvp-0.13 it
+    records what "I'm stuck" with an empty box records, an ordinary attempt
+    scored 0 at the standard mass (never ``dont_know``). The RPC stays for
+    those clients and the phone's allowlist."""
     vault, repository = ctx.require_vault()
     bind_surface = None if entry_surface == DESKTOP_PRACTICE else entry_surface
     submission_id, successor = answering_key(repository, submission_key(params), params.session_id,
@@ -1632,7 +1607,7 @@ def submit_dont_know_on(
         return cached
     # Fix round 2, item 2, as in ``submit_attempt_on``.
     params, stale = _without_stale_help(repository, params, successor=successor)
-    hint_window_fold = hint_window_fold or stale
+    hint_window_fold = stale
     require_owned_session(ctx, repository, params.session_id)  # mobile PR-4: checked at acceptance
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
@@ -1645,12 +1620,11 @@ def submit_dont_know_on(
     # (spec §14 Q5); the clamp applies to the total the server's rows join.
     # An empty stuck answer's attempt type follows the count (the attempt's
     # transaction takes the fold again with the same rule, review round 2, V1).
-    stuck = stuck_prompt_active(vault)
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
         base_hints=hints_used,
         max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
-        stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
+        stuck_types=tuple(item.attempt_types_allowed or ()),
         stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
         held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=0, attempt_types=False,
                           authored_hints=params.authored_hints, client_book=params.book_counted),
@@ -1663,41 +1637,10 @@ def submit_dont_know_on(
     _stamp_window_hints(repository, hint_fold, hint_submitted_at)
     # Fix round 4, F12: the admission time goes with the fold (see above).
     hint_fold = _dataclass_replace(hint_fold, submitted_at=hint_submitted_at)
-    if stuck:
-        # mvp-0.13: "I don't know" no longer records `dont_know`. A client
-        # still sending it gets what "I'm stuck" with an empty box records:
-        # an ordinary attempt scored 0 at the standard mass.
-        draft = AttemptDraft(
-            practice_item_id=params.practice_item_id,
-            learner_answer_md="",
-            attempt_type=hint_fold.attempt_type("independent_attempt"),
-            hints_used=hints_used,
-            latency_seconds=params.latency_seconds,
-            active_seconds=params.active_seconds,
-            session_id=params.session_id,
-            primed=server_primed,
-            probe_presentation_id=params.probe_presentation_id,
-            plan_presentation_id=_plan_presentation(repository, params),
-            answer_confidence=params.answer_confidence,
-            assessment_contract_version_id=params.assessment_contract_version_id,
-            submission_id=submission_id,
-            scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=bind_surface),
-            entry_surface=entry_surface,
-            evidence_origin="human",
-            declared_stuck=True,
-            server_hint_fold=hint_fold,
-            difficulty_rating=params.difficulty_rating,
-            first_hint_progress=params.first_hint_progress,
-        )
-        return _record_empty_stuck(
-            ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
-        )
-    grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=bind_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
-        attempt_type="diagnostic_probe" if params.probe_presentation_id else "dont_know",
+        attempt_type=hint_fold.attempt_type("independent_attempt"),
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         active_seconds=params.active_seconds,
@@ -1708,43 +1651,17 @@ def submit_dont_know_on(
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
-        scheduler_candidate_id=scheduler_candidate_id,
+        scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=bind_surface),
         entry_surface=entry_surface,
         evidence_origin="human",
-        declared_dont_know=True,
+        declared_stuck=True,
         server_hint_fold=hint_fold,
         difficulty_rating=params.difficulty_rating,
         first_hint_progress=params.first_hint_progress,
     )
-    try:
-        result = complete_self_graded_attempt(vault, repository, draft, grade)
-    except (AttemptValidationError, ValueError) as exc:
-        raise SidecarError("validation_error", str(exc)) from exc
-    except sqlite3.IntegrityError:
-        # A concurrent request with the same submission id committed first;
-        # the unique submission index rejected this one. Answer with the
-        # winner's attempt.
-        winner = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
-        if winner is None:
-            raise
-        return winner
-    run_post_attempt_pipeline(
-        vault,
-        repository,
-        result=result,
-        session_id=params.session_id,
-        followup_surface=followup_surface(ctx),
+    return _record_empty_stuck(
+        ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
     )
-    # Client acknowledgment owns checkpoint removal; see submit_attempt.
-    _log_attempt_recorded(repository, params.session_id, "", result)
-    _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
-    payload = _attempt_result(result, repository, vault)
-    _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
-    _attach_hint_reveals(
-        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
-        latency_seconds=params.latency_seconds,
-    )
-    return payload
 
 
 def _record_empty_stuck(

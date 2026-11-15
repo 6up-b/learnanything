@@ -96,7 +96,6 @@ from learnloop.attempts.stuck import (
     is_empty_stuck,
     record_stuck_reading_judgment,
     stuck_answer_prompt,
-    stuck_prompt_active,
     verified_stuck_reading,
 )
 from learnloop.learner.assessment_contracts import (
@@ -1426,7 +1425,7 @@ def replay_existing_attempt(
         submission_id=attempt.get("submission_id"),
         declared_dont_know=bool(attempt.get("declared_dont_know")),
         # mvp-0.13: what the learner sent was a stuck answer (persisted, never
-        # read from today's stuck_prompt switch).
+        # inferred from an empty answer).
         declared_stuck=bool(attempt.get("declared_stuck")),
         # AD1: what was recorded (logged only; nothing replay derives reads it).
         difficulty_rating=attempt.get("difficulty_rating"),
@@ -2859,10 +2858,6 @@ def _resolve_attempt_target(
         raise AttemptValidationError("first_hint_progress must be no_draft or draft_started")
     if draft.declared_stuck and (draft.attempt_type == "dont_know" or draft.declared_dont_know):
         raise AttemptValidationError("a stuck answer is an ordinary attempt, never dont_know")
-    if draft.declared_stuck and not replay and not stuck_prompt_active(vault):
-        raise AttemptValidationError(
-            "this vault does not offer \"I'm stuck\" (mvp-0.13 with stuck_prompt.enabled)"
-        )
     if not replay:
         # Force priming from the reveal ledger BEFORE the cold guard below. The
         # order is the point: a learner who was just shown the answer and then

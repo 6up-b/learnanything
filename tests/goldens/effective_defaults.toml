@@ -1115,7 +1115,6 @@ source_service.tutor_tools = true
 source_service.unverified_imports = true
 source_service.verify_timeout_seconds = 90.0
 storage.sqlite_path = "state.sqlite"
-stuck_prompt.enabled = true
 teach_back.max_followups = 4
 teach_back.session_cap = 1
 teach_back.transfer_evidence_multiplier = 0.5

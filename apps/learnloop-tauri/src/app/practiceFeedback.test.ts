@@ -16,7 +16,7 @@ afterEach(() => setAlgoConfig(undefined));
 it("is simple by default, before the first snapshot and against an older sidecar", () => {
   setAlgoConfig(undefined);
   expect(simplePracticeFeedback()).toBe(true);
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  setAlgoConfig({});
   expect(simplePracticeFeedback()).toBe(true);
 });
 

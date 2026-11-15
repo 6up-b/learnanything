@@ -14,7 +14,7 @@ import pytest
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.ai import transport as transport_module
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.attempts.stuck import stuck_answers, stuck_prompt_active
+from learnloop.attempts.stuck import stuck_answers
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
@@ -126,20 +126,6 @@ def test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call(tmp_path, mo
         ).fetchone()[0] == 3
 
 
-def test_the_kill_switch_never_changes_how_stuck_answers_replay(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
-    _grade(vault, repository, StuckFake(), _draft(""), when=21)
-    tables = {*tables_for_role(TableRole.DERIVED), *REWRITTEN}
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    on = _snapshot(repository, tables)
-    with open(paths.root / "learnloop.toml", "a", encoding="utf-8") as handle:
-        handle.write("\n[stuck_prompt]\nenabled = false\n")
-    vault = load_vault(paths.root)
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    assert _snapshot(repository, tables) == on
-
-
 def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path):
     """A vault whose dont_know history an older tag (mvp-0.12) recorded keeps its attempt rows through a rebuild at the head,
     reads them as the ordinary dont_know attempts they were (no stuck declaration), and the learner field gives them
@@ -182,14 +168,13 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
 
 
 #: A tag before the successor. No vault that opens is below it, so the tag no longer decides whether "I'm stuck" is
-#: offered (``stuck_prompt.enabled`` does); replay under it still runs the older tag's remaining paths.
+#: offered (every surface offers it); replay under it still runs the older tag's remaining paths.
 BEFORE_STUCK_PROMPT = "mvp-0.12"
 
 
-def test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_prompt_off(tmp_path):
-    """Replay reconstructs the stored declaration (``declared_stuck`` on the ledger row); the switch decides only whether a
-    NEW stuck answer is accepted, so a vault that stops offering the prompt, and replays under an older tag, keeps its
-    stuck history."""
+def test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag(tmp_path):
+    """Replay reconstructs the stored declaration (``declared_stuck`` on the ledger row), so a vault that replays under
+    an older tag keeps its stuck history."""
 
     paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     confused = StuckFake(
@@ -207,10 +192,8 @@ def test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag_with_the_pr
     assert any(factors == [1.0] for factors in live_factors.values())  # the empty stuck answer counts as engaged
 
     set_algorithm_version(paths, BEFORE_STUCK_PROMPT)
-    with open(paths.root / "learnloop.toml", "a", encoding="utf-8") as handle:
-        handle.write("\n[stuck_prompt]\nenabled = false\n")
     older = load_vault(paths.root)
-    assert older.config.algorithms.algorithm_version == BEFORE_STUCK_PROMPT and not stuck_prompt_active(older)
+    assert older.config.algorithms.algorithm_version == BEFORE_STUCK_PROMPT
     rebuild_all_derived_state(older, repository, clock=CLOCK)
     rebuild_all_derived_state(older, repository, clock=CLOCK)
     with connect(repository.sqlite_path, read_only=True) as connection:
@@ -241,7 +224,6 @@ def test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_
 
     set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     head = load_vault(paths.root)
-    assert stuck_prompt_active(head)
     rebuild_all_derived_state(head, repository, clock=CLOCK)
     with connect(repository.sqlite_path, read_only=True) as connection:
         assert [tuple(row) for row in connection.execute("SELECT * FROM practice_attempts ORDER BY id")] == before

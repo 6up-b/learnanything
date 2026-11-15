@@ -84,7 +84,7 @@ function expectPlain() {
 }
 
 beforeEach(() => {
-  setAlgoConfig({ ui: { practiceFeedback: "simple" }, practice: { stuckPrompt: true } });
+  setAlgoConfig({ ui: { practiceFeedback: "simple" } });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   api.getPracticeItem.mockResolvedValue(ITEM);
   api.getProbeContract.mockResolvedValue({ version: 1, active: false });

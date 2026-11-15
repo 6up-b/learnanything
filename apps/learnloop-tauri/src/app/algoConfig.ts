@@ -13,10 +13,6 @@ export interface AlgoDisplayConfig {
   tauFollowupNats: number;
   /** Operating point of the continuous follow-up gate score. */
   gateScoreThreshold: number;
-  /** mvp-0.13: the answer surfaces offer "I'm stuck" (write what you can)
-   *  instead of "I don't know". The sidecar decides (algorithm version +
-   *  the `stuck_prompt.enabled` kill switch); false until it says so. */
-  stuckPrompt: boolean;
   /** UX Phase 4's kill switch (`[ui] practice_feedback`, display only): the
    *  simple practice card, feedback, short-check results, repair step and
    *  session finish, or "classic" for the screens exactly as they were. */
@@ -105,7 +101,6 @@ const DEFAULTS: AlgoDisplayConfig = {
   masteryDevelopingThreshold: 0.35,
   tauFollowupNats: 0.05,
   gateScoreThreshold: 0.5,
-  stuckPrompt: false,
   practiceFeedback: "simple",
   shell: "simple",
   workbench: false,
@@ -130,7 +125,6 @@ export function setAlgoConfig(config: unknown): void {
   const root = (config ?? {}) as {
     mastery?: { displayStrongThreshold?: unknown; displayDevelopingThreshold?: unknown };
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
-    practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown; shell?: unknown };
     workbench?: { enabled?: unknown; openItem?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown; examples?: unknown; compareMethods?: unknown; passageDraw?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
@@ -144,7 +138,6 @@ export function setAlgoConfig(config: unknown): void {
     masteryDevelopingThreshold: asNumber(root.mastery?.displayDevelopingThreshold, DEFAULTS.masteryDevelopingThreshold),
     tauFollowupNats: asNumber(root.scheduler?.followup?.tauFollowupNats, DEFAULTS.tauFollowupNats),
     gateScoreThreshold: asNumber(root.scheduler?.followup?.gateScoreThreshold, DEFAULTS.gateScoreThreshold),
-    stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
     shell: root.ui?.shell === "classic" ? "classic" : "simple",

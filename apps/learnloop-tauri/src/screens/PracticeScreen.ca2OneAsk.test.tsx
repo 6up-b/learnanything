@@ -18,7 +18,7 @@ const { api } = vi.hoisted(() => ({ api: {
   getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
   getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), getLearnerTextGap: vi.fn(), setHelpStyle: vi.fn(),
   recordHintReveal: vi.fn(),
-  placementSelfReport: vi.fn(), submitDontKnow: vi.fn(),
+  placementSelfReport: vi.fn(),
   workbenchForItem: vi.fn(), workbenchOpen: vi.fn(), workbenchGet: vi.fn(), workbenchReopen: vi.fn(),
   workbenchSaveStep: vi.fn(), workbenchLeave: vi.fn(), workbenchAbandon: vi.fn(), workbenchSubmit: vi.fn(),
   workbenchSetBook: vi.fn(), workbenchRefreshImport: vi.fn(), workbenchBind: vi.fn(), workbenchRetryImport: vi.fn(),

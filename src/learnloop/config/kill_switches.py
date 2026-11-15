@@ -44,7 +44,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     # Grading, attempts, replay
     KillSwitch("diagnosis.split_enabled", "mvp-0.10", True),
     KillSwitch("diagnosis.shadow", "mvp-0.10", False),
-    KillSwitch("stuck_prompt.enabled", "mvp-0.13", True),
     KillSwitch("mastery.claim_fixes_enabled", "mvp-0.33", True),
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
     KillSwitch("eligibility.enabled", "mvp-0.27", True),

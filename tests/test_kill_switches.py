@@ -40,7 +40,6 @@ NOT_A_TABLED_SWITCH = {
 _STANDING_WHEN_THE_TABLE_LANDED = (
     "diagnosis.split_enabled",
     "diagnosis.shadow",
-    "stuck_prompt.enabled",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
     "eligibility.enabled",

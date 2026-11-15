@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const { api } = vi.hoisted(() => ({ api: {
   beginProbeDialogue: vi.fn(), nextProbeDialogueTurn: vi.fn(), recordProbeDialogueTurn: vi.fn(),
-  endProbeDialogue: vi.fn(), submitAttempt: vi.fn(), submitDontKnow: vi.fn(), stopProbeDiagnosing: vi.fn()
+  endProbeDialogue: vi.fn(), submitAttempt: vi.fn(), stopProbeDiagnosing: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
@@ -25,7 +25,6 @@ beforeEach(() => {
   api.recordProbeDialogueTurn.mockResolvedValue({ dialogueState: "s2", blockComplete: true });
   api.endProbeDialogue.mockResolvedValue({ blockEnd: null });
   api.submitAttempt.mockResolvedValue({ attemptId: "att" });
-  api.submitDontKnow.mockResolvedValue({ attemptId: "att" });
 });
 afterEach(() => { cleanup(); setAlgoConfig(undefined); });
 
@@ -36,7 +35,6 @@ function renderPanel() {
 }
 
 it("turns Don't know into I'm stuck: one tap, then an empty answer may be committed", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
   renderPanel();
   const box = await screen.findByPlaceholderText("Commit to a short answer…");
   expect(screen.queryByRole("button", { name: "Don't know" })).toBeNull();
@@ -52,16 +50,6 @@ it("turns Don't know into I'm stuck: one tap, then an empty answer may be commit
     answerMd: "", attemptType: "diagnostic_probe", probePresentationId: "pres-1", declaredStuck: true
   }));
   expect(Number.isInteger(api.submitAttempt.mock.calls[0][0].activeSeconds)).toBe(true);
-  expect(api.submitDontKnow).not.toHaveBeenCalled();
-});
-
-it("keeps Don't know where the vault does not offer I'm stuck", async () => {
-  renderPanel();
-  await screen.findByPlaceholderText("Commit to a short answer…");
-  expect(screen.queryByRole("button", { name: "I'm stuck" })).toBeNull();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Don't know" })); });
-  await waitFor(() => expect(api.submitDontKnow).toHaveBeenCalledOnce());
-  expect(api.submitAttempt).not.toHaveBeenCalled();
 });
 
 it("\"Stop diagnosing and teach me\" ends the block and hands the topic to a lesson with the check's episode (TH-1)", async () => {

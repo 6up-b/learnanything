@@ -282,7 +282,7 @@ def _grading_fake(monkeypatch):
     return client, runtime
 
 
-@pytest.mark.parametrize("retry", ["auto_grade", "dont_know"])
+@pytest.mark.parametrize("retry", ["auto_grade", "empty_stuck"])
 def test_tui_retry_resumes_a_committed_grade_instead_of_recording_another(tmp_path, monkeypatch, retry):
     client, runtime = _grading_fake(monkeypatch)
     vault_root = tmp_path / "vault"
@@ -299,8 +299,11 @@ def test_tui_retry_resumes_a_committed_grade_instead_of_recording_another(tmp_pa
             practice = app.screen
             practice.set_answer("A = U Sigma")
             _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch)
-            if retry == "dont_know":
-                return practice.dont_know()
+            if retry == "empty_stuck":
+                # "I'm stuck" with the box emptied: the door that replaced "I don't know".
+                practice.press_stuck()
+                practice.set_answer("")
+                return await practice.submit_stuck_empty()
             # A fresh feedback screen rebuilds the draft from the practice screen.
             feedback = await practice.open_feedback()
             await pilot.pause()

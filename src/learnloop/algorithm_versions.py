@@ -89,8 +89,8 @@ RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.12"
 # historical ``dont_know`` rows keep their meaning, and the projection
 # namespace is unchanged. The branch built it as mvp-0.11 and it was relabelled
 # mvp-0.13 when it merged after placement (mvp-0.11) and recurrence groups
-# (mvp-0.12). Kill switch: ``stuck_prompt.enabled``. New vaults started here
-# until mvp-0.14 merged.
+# (mvp-0.12). Its kill switch went once every vault was past the tag. New
+# vaults started here until mvp-0.14 merged.
 STUCK_PROMPT_ALGORITHM_VERSION = "mvp-0.13"
 
 # mvp-0.14 (daily-loop DL1, ``daily_plan_v1`` in spec_daily_loop_v1.md §11): the

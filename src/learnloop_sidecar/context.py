@@ -14,7 +14,6 @@ from learnloop import activation_journal
 from learnloop.ai.routing import (
     is_embedding_profile, is_generation_profile, ready_client_for_task, route_names, runtime_for_provider,
 )
-from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations, schema_is_current
 from learnloop.db.repositories import Repository
@@ -1040,9 +1039,6 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "schema_version": config.schema_version,
             "algorithm_version": config.algorithms.algorithm_version,
             "storage": {"sqlite_path": config.storage.sqlite_path},
-            # mvp-0.13: the answer surfaces offer "I'm stuck" (write what you
-            # can) instead of "I don't know" when this is true.
-            "practice": {"stuck_prompt": stuck_prompt_active(vault)},
             # Teacher TE1's kill switch (and its successor's tag): "Teach me this" shows only while
             # lessons may open; absent otherwise, so with it off the snapshot is what it was. TE1b's
             # ``suggestions`` (Today's suggestion card) rides inside it, present only while on.

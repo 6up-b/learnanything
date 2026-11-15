@@ -28,7 +28,6 @@ from learnloop.attempts.stuck import (
     StuckReading,
     stuck_answers,
     stuck_attempt_type,
-    stuck_prompt_active,
     verified_stuck_reading,
 )
 from learnloop.clock import FrozenClock
@@ -71,20 +70,7 @@ def _field_row(vault, repository, attempt_id):
 # -- the gate -------------------------------------------------------------------
 
 
-def test_the_control_is_offered_and_the_switch_restores_it(tmp_path):
-    _paths, vault, _repository = _stuck_vault(tmp_path / "b")
-    assert stuck_prompt_active(vault)
-    _paths, vault, _repository = _stuck_vault(tmp_path / "c", config="[stuck_prompt]\nenabled = false")
-    assert not stuck_prompt_active(vault)
-
-
-def test_a_stuck_draft_is_refused_where_the_control_is_not_offered(tmp_path):
-    for version, config in (("mvp-0.13", "[stuck_prompt]\nenabled = false"),):
-        _paths, vault, repository = split_vault(tmp_path / version, version=version, config=config)
-        with pytest.raises(AttemptValidationError, match="I'm stuck"):
-            complete_attempt_with_ai_required(
-                vault, repository, _draft(""), runtime=ReadyRuntime(), ai_client=RefusingClient()
-            )
+def test_a_stuck_draft_is_never_dont_know(tmp_path):
     _paths, vault, repository = _stuck_vault(tmp_path / "dk")
     with pytest.raises(AttemptValidationError, match="never dont_know"):
         complete_attempt_with_ai_required(
@@ -359,7 +345,8 @@ def _sidecar(root):
 def test_sidecar_empty_stuck_submission_is_instant_and_routes_to_feedback(tmp_path):
     paths, _vault, repository = _stuck_vault(tmp_path)
     ctx, session_id = _sidecar(paths.root)
-    assert ctx.app_snapshot()["config"]["practice"]["stuckPrompt"] is True
+    # Every surface offers the control: the snapshot no longer says so.
+    assert "practice" not in ctx.app_snapshot()["config"]
 
     payload = _call(ctx, "submit_attempt", {
         "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "",
@@ -388,50 +375,6 @@ def test_sidecar_dont_know_records_an_empty_stuck_answer_in_an_active_vault(tmp_
         assert connection.execute(
             "SELECT COUNT(*) FROM practice_attempts WHERE attempt_type = 'dont_know'"
         ).fetchone()[0] == 0
-
-
-def _dont_know_shape(repository, attempt_id):
-    attempt = repository.fetch_practice_attempt(attempt_id)
-    evidence = repository.fetch_grading_evidence(attempt_id)
-    return {
-        "attempt_type": attempt["attempt_type"],
-        "declared_stuck": attempt["declared_stuck"],
-        "declared_dont_know": attempt["declared_dont_know"],
-        "rubric_score": attempt["rubric_score"],
-        "correctness": attempt["correctness"],
-        "error_type": attempt["error_type"],
-        "manual_review_reason": attempt["manual_review_reason"],
-        "evidence": sorted((row.criterion_id, row.points_awarded, row.grader_tier) for row in evidence),
-    }
-
-
-def test_kill_switch_restores_dont_know_exactly(tmp_path):
-    """Switch off in mvp-0.13 == mvp-0.12, for the button, a stale stuck
-    submission and the scoring (attempt shape, field mass). The predecessor is
-    served through the switch alone: no vault that opens is below the tag."""
-
-    shapes, masses = {}, {}
-    for label, version, config in (
-        ("previous", "mvp-0.12", "[stuck_prompt]\nenabled = false"),
-        ("switched_off", "mvp-0.13", "[stuck_prompt]\nenabled = false"),
-    ):
-        paths, vault, repository = split_vault(tmp_path / label, version=version, config=config)
-        ctx, session_id = _sidecar(paths.root)
-        assert ctx.app_snapshot()["config"]["practice"]["stuckPrompt"] is False
-        button = _call(ctx, "submit_dont_know", {"sessionId": session_id, "practiceItemId": ITEM})
-        # A surface drawn before the switch flipped still sends "stuck, empty".
-        stale = _call(ctx, "submit_attempt", {
-            "sessionId": session_id, "practiceItemId": "pi_svd_compute_002", "answerMd": "",
-            "attemptType": "independent_attempt", "declaredStuck": True,
-        })
-        shapes[label] = [_dont_know_shape(repository, button["attemptId"]), _dont_know_shape(repository, stale["attemptId"])]
-        masses[label] = [
-            round(_field_row(load_vault(paths.root), repository, payload["attemptId"]).effective_mass, 9)
-            for payload in (button, stale)
-        ]
-    assert shapes["switched_off"] == shapes["previous"]
-    assert masses["switched_off"] == masses["previous"]
-    assert {shape["attempt_type"] for shape in shapes["previous"]} == {"dont_know"}
 
 
 def test_sidecar_text_stuck_answer_is_graded_like_any_answer(tmp_path, monkeypatch):
@@ -475,18 +418,6 @@ def test_cli_attempt_stuck_and_dont_know_conversion(tmp_path):
     assert attempt["attempt_type"] == "independent_attempt" and attempt["declared_stuck"] is True
 
 
-def test_cli_refuses_stuck_where_it_is_not_offered(tmp_path):
-    from learnloop.cli.app import app
-
-    # Not offered: below mvp-0.13 or with `stuck_prompt.enabled` off. The head with the switch off is
-    # the case D2b keeps (it relied on split_vault's old default tag); it goes with the switch in D7.
-    paths, _vault, _repository = split_vault(tmp_path, config="[stuck_prompt]\nenabled = false")
-    result = CliRunner().invoke(app, [
-        "attempt", ITEM, "--stuck", "--answer", "", "--vault", str(paths.root), "--ai-provider", "manual",
-    ])
-    assert result.exit_code == 1
-
-
 def test_tui_ctrl_d_opens_the_stuck_prompt_and_an_empty_submit_records_it(tmp_path):
     pytest.importorskip("textual")  # the TUI needs the optional `tui` extra
     import asyncio
@@ -508,7 +439,7 @@ def test_tui_ctrl_d_opens_the_stuck_prompt_and_an_empty_submit_records_it(tmp_pa
             await pilot.pause()
             screen = app.screen
             assert isinstance(screen, PracticeScreen)
-            assert screen.stuck_prompt is True and screen.stuck is False
+            assert screen.stuck is False
             await pilot.press("ctrl+d")
             await pilot.pause()
             assert screen.stuck is True and screen.has_class("-stuck")

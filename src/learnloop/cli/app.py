@@ -3442,7 +3442,7 @@ def attempt(
     from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
     from learnloop.attempts.attempts import plan_grading_calls
     from learnloop.attempts.grading_admission import estimated_prompt_tokens, grading_admission
-    from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
+    from learnloop.attempts.stuck import stuck_attempt_type
     from learnloop.diagnosis.offline_review.spend import ReviewSpend
 
     vault_root = _root(vault)
@@ -3457,16 +3457,10 @@ def attempt(
     if item is None:
         typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
         raise typer.Exit(code=1)
-    stuck_active = stuck_prompt_active(loaded)
-    if stuck and not stuck_active:
-        typer.echo(
-            "This vault does not offer \"I'm stuck\" (mvp-0.13 with stuck_prompt.enabled).", err=True
-        )
-        raise typer.Exit(code=1)
     stuck_note = None
-    if attempt_type == "dont_know" and stuck_active:
+    if attempt_type == "dont_know":
         # mvp-0.13: "I don't know" is an empty stuck answer now, with no
-        # separate weight; the same switch that restores it restores this.
+        # separate weight.
         stuck, attempt_type, answer = True, None, ""
         stuck_note = "\"I don't know\" is \"I'm stuck\" in this vault: recorded as an empty stuck answer."
     rubric = loaded.rubric_for_item(item)

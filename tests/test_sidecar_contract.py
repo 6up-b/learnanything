@@ -1604,13 +1604,12 @@ def test_sidecar_feedback_exposes_probe_intervention_need(tmp_path):
 
 def test_sidecar_counts_queued_intervention_followups_in_session_summary(tmp_path):
     vault_root = tmp_path / "vault"
-    # The predecessors' "I don't know": an error-tagged negative surprise that queues the intervention
-    # follow-up. From mvp-0.13 an empty stuck answer carries no error tag and no surprise
-    # (`stuck_prompt.enabled`), and from mvp-0.45 a miss's follow-up is the follow-up workflow's
-    # (`followup.generate_and_serve`); from mvp-0.21 the follow-up must pay for its minutes
-    # (`voi_stopping.enabled`). All three off serve the predecessors exactly; goes with them in D7.
+    # An error-tagged miss (a self-graded zero tagged retrieval_failure, as the predecessors' "I don't know"
+    # was tagged): a negative surprise that queues the intervention follow-up. From mvp-0.45 a miss's
+    # follow-up is the follow-up workflow's (`followup.generate_and_serve`); from mvp-0.21 the follow-up
+    # must pay for its minutes (`voi_stopping.enabled`). Both off serve the predecessors exactly; goes
+    # with them in D7.
     paths = create_basic_vault(vault_root)
-    set_config_switch(vault_root, "stuck_prompt.enabled", False)
     set_config_switch(vault_root, "followup.generate_and_serve", False)
     set_config_switch(vault_root, "voi_stopping.enabled", False)
     add_followup_item(vault_root)
@@ -1634,8 +1633,10 @@ def test_sidecar_counts_queued_intervention_followups_in_session_summary(tmp_pat
             {
                 "jsonrpc": "2.0",
                 "id": 2,
-                "method": "submit_dont_know",
-                "params": {"sessionId": session_id, "practiceItemId": "pi_svd_define_001"},
+                "method": "submit_attempt",
+                "params": {"sessionId": session_id, "practiceItemId": "pi_svd_define_001", "answerMd": "",
+                           "attemptType": "independent_attempt",
+                           "selfGrade": {"criterionPoints": {}, "confidence": 3, "errorType": "retrieval_failure"}},
             },
         ]
     )[1]["result"]
