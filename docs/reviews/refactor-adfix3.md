@@ -158,7 +158,7 @@ Same branch, continued from `201e3ce999`. The orchestrator decided the design ab
 
 ## D-36, D-52: what replay does now (`cf96a8c566`)
 
-`attempts._dual_write_grade_channel`, on replay with the switch on, takes `Repository.observation_by_attempt` (the newest, the ledger's order) and calls `grade_resolution.record_replayed_grade` (fail-safe like `record_grade_dual_write`); with no observation, or switched off, or below the tag, it calls `record_grade_dual_write` as before. `resolve_grade` is split into `read_grade` (classification, calibration, posterior, certainty, LCB: no writes but the outcome schema's) and its appends, in the same write order; its output is unchanged (the grade-application goldens and identity pins pass).
+`attempts._dual_write_grade_channel`, on replay with the switch on, takes `Repository.observation_by_attempt` (the newest, the ledger's order) and calls `grade_resolution.record_replayed_grade` (fail-safe like `record_grade_dual_write`); with no observation, or switched off, or below the tag, it calls `record_grade_dual_write` as before. `resolve_grade` is split into `read_grade` (classification, calibration, posterior, certainty, LCB: no writes but the outcome schema's) and its appends, in the same write order; its output is unchanged (the identity pins pass; the grade-application golden's applications are unchanged, but its row record moves with the fix: step c, "The grade-application golden").
 
 - The comparison basis is the raw event the head interprets. **Regraded** when any of the raw event's columns but its ids, stamp and `agent_run_id` differ (`_RAW_GRADE_COLUMNS`; the run id names the live model run, which replay does not carry). Then a raw event, its two measurement events, an interpretation and `grade_interpreted` are appended to the observation, whatever the head.
 - Otherwise an interpretation is appended only when it differs from the head on `_INTERPRETATION_COLUMNS`, and never when a review wrote the head: `Repository.grade_head_review` names an adjudication's result, a quarantined head, or a head an `interpretation_activated` event activated (the contest flag).
@@ -310,3 +310,13 @@ Since `mvp-0.8` (commit `02c3e6e10f`, 2026-07-21, which added the grade channel'
 ## The rest of the step
 
 See the gates below.
+
+## The grade-application golden
+
+Step b's record said the grade-application golden passed; it was not in step b's targeted run, and the sweep below found it moved. `tests/goldens/grade_application/history.json` pins every `AttemptApplication` of one graded history (live and in a rebuild) and every row each phase adds or removes, table by table, with ids numbered in order of first appearance. With the fix:
+
+- **The applications are unchanged**: live, byte for byte; the rebuild's 18, byte for byte once ids are compared by place (fewer ids are minted, so every later `<ulid:n>` and `<uuid:n>` number shifts; that renumbering is also the whole difference in `judgment_ledger` and every other table not named here).
+- **The grade channel's rows** are what the fix changes. Live (the history includes a regrade, which replays its learning object): `activity_observations` 26 → 11 added, `raw_grade_events` and `grade_interpretations` 26 → 12 (one per answer and the regrade's new grade), `measurement_events` 104 → 47. In the rebuild: 18 / 18 / 18 / 72 re-minted rows → 1 raw grade event, 1 interpretation and 3 measurement events, for the one answer whose grade an adjudication's correction revised without an adjudication head (`self`: `raw_output_json` and `criterion_observed_classes_json` differ, a changed grade by the rule), and that observation's row rewritten (its head repointed, a remove-and-add in the record).
+- **The canonical facet rows** are rewritten fewer times (live 3 → 2 and 9 → 6, rebuild 4 → 1 and 11 → 2 remove-and-add pairs), by D-35's rule; the net change of their values in each phase is identical.
+
+Regenerated deliberately (`GRADE_APPLICATION_GOLDEN_WRITE=1`) in `<golden commit>`, as the test's own docstring says a change meant to change what is written does. The due-queue and figure goldens and the identity pins do not move.
