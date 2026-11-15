@@ -409,10 +409,93 @@ def test_a_config_setting_the_removed_switches_keeps_every_identity(tmp_path, ca
     assert create_predictor("lo_general", config=config.mastery).version_hash == expected["lo_general"]
 
 
+#: The third removal batch's switches (Today: the plan, the router frame, reading paths, intent, capture), each away
+#: from its default, as :data:`SWITCHES_TOML` is for the first batch.
+TODAY_SWITCHES_TOML = """\
+[plan]
+enabled = false
+
+[router]
+enabled = false
+probe_tie_admission = false
+restraint = false
+
+[router.lesson_suggestions]
+enabled = false
+in_objective = false
+
+[reading_paths]
+plan_uses_path = false
+
+[curriculum]
+plan_uses_path = false
+
+[followups]
+enabled = false
+
+[intent]
+enabled = false
+recall_targets_enabled = false
+
+[data_capture]
+serving = false
+
+[teacher]
+probes = false
+
+[adaptive_difficulty]
+generation_contract = false
+"""
+
+#: Recorded at ``250b0e16fe`` (the third batch's switches all present), on the same inputs: ``content_key`` of the
+#: whole identity dump, and the sha256 of each section's identity dump that held one of the batch's switches.
+TODAY_SWITCHES_BASE_IDENTITIES = {
+    "default": {
+        "config": "04d7f6544c6541a1e47b94a7d6496f0e1fff6d75b3120a08961f9487f7158e7a",
+        "plan": "e0febd72d8f343654ab77cc5054eca899891de7f4c29481ed8d68ea3337af10e",
+        "router": "f610b41929aa7427b602e8facf313f96f0663aef76f8f96ca1e818913af54b82",
+        "reading_paths": "10f7e3d4eaada9d3c31e7266fc55808b0a00e445893a1a3006f00562fce74208",
+        "curriculum": "262cde9cd36ef4da4ffd1c56f53bdd67febd840ffbc1506bf01a8ff65ab7f338",
+        "followups": "425bbf3f8e249ebe9c408011a1b26c3d22429cdbb83a2b981bb4150caebd7571",
+        "intent": "f3ffb5106671ed3dfba8728cf4f3895d020b4595e1855ca094ba621c606aeb84",
+        "data_capture": "eebbd28351b9d7dd915087fee2093c0ed4e1491fa07ab71fe330c0bcfc4cc010",
+        "teacher": "3d4d81b96a45c8cfa3e3d6a71af396b325a2af585e999dd519b4f5e2b00bb8a1",
+        "adaptive_difficulty": "7ad0b3f5a78ef01e8b77a91ec01eadae19a8919854bf99c10ba2105fed2d0c62",
+    },
+    "switched": {
+        "config": "a3c5b9d76325362d398311c6b573c3cdd470fdefaa247a602e2cb73fdf870e8d",
+        "plan": "1a8796871b16c45c5a35ac85d9c86201b81c5e13805e53b60f077b1febbf22e2",
+        "router": "0202fb6c79e51ac0d07ade597cc35d4fad457db3fb008a741e8f4ee63fcab1da",
+        "reading_paths": "fdcc8d3751c9d1709822e25ea6b130fcf7afb3bfb441a80cb8b1993fc32baeec",
+        "curriculum": "154b62f7d12996e37f331299e11e4f2032e505f6fe23daae8de3304bea895f13",
+        "followups": "acb16896962663ae034bc5a3747bc7324566d0573bdb59d1c1c40eb0a24ceacd",
+        "intent": "d0816e99d91d0c30fd2462960e649843e45b04dec8c6e4ec2b9afb837c0b7618",
+        "data_capture": "147bbf5ae55da96726ea6e314ec10f214eec39855877a33950ff11d605bd576b",
+        "teacher": "a93dfdbf1b1414834fed2248b5c857593ba1dd271fbbec3181d0c7e6d233c91a",
+        "adaptive_difficulty": "b8037e36c98b9f5a9873ba2ead1a578cd838c22fa097487f11e7851eab8b1007",
+    },
+}
+
+
+@pytest.mark.parametrize("case", ["default", "switched"])
+def test_a_config_setting_todays_removed_switches_keeps_every_identity(tmp_path, case):
+    from learnloop.config.retired import identity_dump
+
+    path = tmp_path / "switches.toml"
+    path.write_text(TODAY_SWITCHES_TOML, encoding="utf-8")
+    config = LearnLoopConfig() if case == "default" else load_config(path, load_environment=False)
+    expected = TODAY_SWITCHES_BASE_IDENTITIES[case]
+    dump = identity_dump(config)
+    assert content_key(dump) == expected["config"]
+    for section, digest in expected.items():
+        if section != "config":
+            assert _sha256(dump[section]) == digest, section
+
+
 def test_every_removed_switch_is_in_the_switches_config_away_from_its_default():
     import tomllib
 
-    given = tomllib.loads(SWITCHES_TOML)
+    given = tomllib.loads(SWITCHES_TOML + "\n" + TODAY_SWITCHES_TOML)
     for field in _removed_switches():
         node = given
         for key in (*_section_of(field), *field.path):
@@ -447,7 +530,7 @@ def test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_not
     from tests.helpers import create_basic_vault
 
     paths = create_basic_vault(tmp_path / "vault")
-    append_config_toml(paths.root, SWITCHES_TOML)
+    append_config_toml(paths.root, SWITCHES_TOML + "\n" + TODAY_SWITCHES_TOML)
     config = load_vault(paths.root).config
     dump = identity_dump(config)
     for field in _removed_switches():
