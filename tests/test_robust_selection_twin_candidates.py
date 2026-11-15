@@ -15,8 +15,6 @@ robust gate fixes (mvp-0.59) the selectors rank distinct instruments
 
 from __future__ import annotations
 
-import pytest
-
 from learnloop.diagnosis import robust_composition as rc
 
 _POSTERIOR = {"h1": 0.4, "h2": 0.35, "h3": 0.25}
