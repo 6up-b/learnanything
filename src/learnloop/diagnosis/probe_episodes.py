@@ -2427,8 +2427,9 @@ def dual_write_regraded_probe_grade(
 
     A probe answer's raw grade event and interpretation are written once, by the submission's probe path
     (:func:`dual_write_presentationless_probe_grade` for a lesson probe, :func:`_record_presentation_observation` for
-    FG1's presentation path), and replay never re-mints them (an ordinary practice answer's are re-minted by
-    ``attempts._dual_write_grade_channel`` on every application). So a regrade that only replays would leave the
+    FG1's presentation path), and replay never re-mints them (an ordinary practice answer's are written by
+    ``attempts._dual_write_grade_channel`` on every application: a changed grade appended to its observation under
+    ``replay.grade_channel_fixes``, a fresh chain without). So a regrade that only replays would leave the
     attempt's active interpretation on the original grader's identity and calibration (Codex's final verify, F7
     reopened). The regrade's publication calls this before its replay: the same dual-write the submission made,
     with the replacement grade's (prompt, schema) identity, appended and activated; replay reads it back.

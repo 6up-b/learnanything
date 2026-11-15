@@ -15049,6 +15049,34 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def grade_head_review(self, observation_id: str, interpretation_id: str) -> dict[str, Any] | None:
+        """How a review made this interpretation the observation's head, or None
+        when the grade pipeline wrote it: ``{"kind": "adjudication",
+        "adjudication_id": ...}`` for an adjudication's result, ``{"kind":
+        "quarantine"}`` for a quarantined head, ``{"kind": "review_flag"}`` for a
+        head a review request activated (``interpretation_activated``)."""
+
+        with self.connection() as connection:
+            adjudication = connection.execute(
+                "SELECT id FROM grade_adjudications WHERE resulting_interpretation_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (interpretation_id,),
+            ).fetchone()
+            if adjudication is not None:
+                return {"kind": "adjudication", "adjudication_id": str(adjudication[0])}
+            state = connection.execute(
+                "SELECT quarantine_state FROM grade_interpretations WHERE id = ?", (interpretation_id,)
+            ).fetchone()
+            if state is not None and state[0] == "quarantined":
+                return {"kind": "quarantine"}
+            activated = connection.execute(
+                "SELECT 1 FROM measurement_events WHERE observation_id = ? "
+                "AND kind IN ('interpretation_activated', 'grade_quarantined') "
+                "AND json_extract(payload_json, '$.interpretation_id') = ? LIMIT 1",
+                (observation_id, interpretation_id),
+            ).fetchone()
+        return {"kind": "review_flag"} if activated is not None else None
+
     def pending_grade_reviews(self) -> list[dict[str, Any]]:
         """Active-head grade interpretations flagged for review or quarantined
         (§4.4, §5). Joined to the observation + administration so the CLI can order

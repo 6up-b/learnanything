@@ -638,7 +638,8 @@ def _publish_regrade(
     # TE2 landing ruling R1: a probe answer's grade event and interpretation are written by its submission only
     # (replay never re-mints them), so the regrade publishes the replacement grade's own, under the identity that
     # produced it (the new blind record's calibration identity, else the joint door's), before the replay below
-    # reads it. An ordinary practice answer's are re-minted by its replay under that same identity.
+    # reads it. An ordinary practice answer's new grade is appended by its replay under that same identity (to its
+    # observation under the grade channel fixes, on a fresh one without them).
     from learnloop.attempts.attempts import publish_regraded_probe_grade
     from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION as _BLIND_SCHEMA
     from learnloop.outcome_contract import grade_held_for_review

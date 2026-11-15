@@ -2897,7 +2897,12 @@ def _dual_write_grade_channel(
 
     Fail-safe: never raises into the legacy path (§7.3). Ordinary practice attempts
     only -- diagnostic-probe attempts (record_probe_update) and exam attempts are
-    dual-written by their own entry points (probe_episodes / exam_session)."""
+    dual-written by their own entry points (probe_episodes / exam_session).
+
+    On replay under the grade channel fixes the answer's newest observation is
+    kept and only a changed grade or interpretation is appended to it
+    (``grade_resolution.record_replayed_grade``); otherwise each application
+    mints a fresh observation and chain."""
 
     try:
         attempt_type = attempt.draft.attempt_type
@@ -2929,11 +2934,18 @@ def _dual_write_grade_channel(
             criterion_points = {
                 cid: points for cid, points in criterion_points.items() if cid not in unassessed
             }
-        from learnloop.attempts.grade_resolution import record_grade_dual_write
+        from learnloop.attempts.grade_resolution import (
+            grade_channel_fixes_on,
+            record_grade_dual_write,
+            record_replayed_grade,
+        )
 
-        record_grade_dual_write(
-            vault,
-            repository,
+        observation = None
+        if attempt.replace_existing and grade_channel_fixes_on(vault.config):
+            # A rebuild re-applies every answer: the observation the ledger
+            # reads is kept, and only what changed is appended to it.
+            observation = repository.observation_by_attempt(application.result.attempt_id)
+        grade_channel = dict(
             item=item,
             purpose="practice",
             grading_source=attempt.grading_source or application.result.grading_source,
@@ -2956,6 +2968,10 @@ def _dual_write_grade_channel(
             ),
             clock=clock,
         )
+        if observation is not None:
+            record_replayed_grade(vault, repository, observation=observation, **grade_channel)
+        else:
+            record_grade_dual_write(vault, repository, **grade_channel)
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
         # record_grade_dual_write anchors its own degradation telemetry; this outer
         # guard only catches failures BEFORE it is reached (item/rubric lookup).

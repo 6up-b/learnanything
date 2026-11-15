@@ -115,9 +115,6 @@ def resolve_grade(
     every existing caller stamps exactly what it did; the blind grader passes
     its own pair so calibration never pools joint and blind graders."""
 
-    prompt_identity = grading_prompt_version or gc.GRADING_PROMPT_VERSION
-    schema_identity = grader_output_schema_version or gc.GRADER_OUTPUT_SCHEMA_VERSION
-
     # Step 1-2: resolve (or reuse) an administration + observation for this response.
     if administration_id is None or observation_id is None or surface_id is None:
         surface_id, administration_id, observation_id = ensure_administration_identity(
@@ -129,6 +126,126 @@ def resolve_grade(
             feedback_condition=feedback_condition,
             clock=clock,
         )
+
+    reading = read_grade(
+        repository,
+        purpose=purpose,
+        grading_source=grading_source,
+        attempt_id=attempt_id,
+        response_text=response_text,
+        rubric_score=rubric_score,
+        max_points=max_points,
+        grader_confidence=grader_confidence,
+        has_fatal=has_fatal,
+        signature_matched=signature_matched,
+        criterion_points=criterion_points,
+        criterion_max=criterion_max,
+        raw_output=raw_output,
+        criterion_evidence=criterion_evidence,
+        agent_run_id=agent_run_id,
+        role=role,
+        domain=domain,
+        declared_length_bucket=declared_length_bucket,
+        outcome_schema_slug=outcome_schema_slug,
+        observed_class_override=observed_class_override,
+        grader_model_revision=grader_model_revision,
+        grading_prompt_version=grading_prompt_version,
+        grader_output_schema_version=grader_output_schema_version,
+        clock=clock,
+    )
+    # Step 3: append the raw grade event (no posterior touched).
+    raw_event_id = _append_raw_grade_event(
+        repository, reading, administration_id=administration_id, observation_id=observation_id, clock=clock
+    )
+    # Step 7: review + influence checks (§4.4): two graders of this response
+    # that disagree on its class also send it to review.
+    prior_events = repository.raw_grade_events_for_observation(observation_id)
+    coarse_seen = {ev["observed_class"] for ev in prior_events}
+    review_flag = reading.review_flag or len(coarse_seen) > 1
+    interpretation_id = _append_interpretation(
+        repository,
+        reading,
+        raw_event_id=raw_event_id,
+        observation_id=observation_id,
+        administration_id=administration_id,
+        review_flag=review_flag,
+        clock=clock,
+    )
+    return GradeResolution(
+        administration_id=administration_id,
+        observation_id=observation_id,
+        raw_grade_event_id=raw_event_id,
+        interpretation_id=interpretation_id,
+        observed_class=reading.observed_class,
+        confidence_bucket=reading.confidence_bucket,
+        posterior=reading.posterior,
+        certainty=reading.certainty,
+        credible_interval=reading.interval,
+        calibration_model_id=reading.resolved_model.model_id,
+        calibration_model_hash=reading.resolved_model.model_hash,
+        review_flag=review_flag,
+        influence_flag=reading.influence_flag,
+        fallback_reason=reading.resolved_model.fallback_reason,
+        unclassifiable=reading.unclassifiable,
+    )
+
+
+@dataclass(frozen=True)
+class GradeReading:
+    """What one graded response reads as before anything is written (§4.1 steps 4-7).
+
+    ``raw_values`` are the raw grade event's columns but its administration and
+    observation; ``review_flag`` is the response's own review signal
+    (unclassifiable, or a grader confidence under the threshold), before any
+    disagreement between graders of one observation is added."""
+
+    raw_values: dict[str, Any]
+    observed_class: str
+    unclassifiable: bool
+    confidence_bucket: str
+    schema_id: str
+    schema_version: int
+    resolved_model: gc.ResolvedModel
+    posterior: dict[str, float]
+    interval: dict[str, float]
+    certainty: float
+    shared_lcb: float
+    review_flag: bool
+    influence_flag: bool
+
+
+def read_grade(
+    repository: Repository,
+    *,
+    purpose: str,
+    grading_source: str,
+    attempt_id: str,
+    response_text: str | None,
+    rubric_score: int | None,
+    max_points: int,
+    grader_confidence: float | None = None,
+    has_fatal: bool = False,
+    signature_matched: bool = False,
+    criterion_points: Mapping[str, float] | None = None,
+    criterion_max: Mapping[str, float] | None = None,
+    raw_output: Mapping[str, Any] | None = None,
+    criterion_evidence: Any = None,
+    agent_run_id: str | None = None,
+    role: str = "primary",
+    domain: str | None = None,
+    declared_length_bucket: str | None = None,
+    outcome_schema_slug: str = COARSE_RESPONSE_SLUG,
+    observed_class_override: str | None = None,
+    grader_model_revision: str | None = None,
+    grading_prompt_version: str | None = None,
+    grader_output_schema_version: str | None = None,
+    clock: Clock | None = None,
+) -> GradeReading:
+    """Classify one graded response and interpret it under the current
+    calibration, writing nothing but what resolving the outcome schema writes."""
+
+    prompt_identity = grading_prompt_version or gc.GRADING_PROMPT_VERSION
+    schema_identity = grader_output_schema_version or gc.GRADER_OUTPUT_SCHEMA_VERSION
 
     # Outcome schema shape + G classification (step 4).
     schema_id, schema_version = resolve_schema_id(repository, outcome_schema_slug, clock=clock)
@@ -178,56 +295,35 @@ def resolve_grade(
         "purpose": purpose,
     }
 
-    # Step 3: append the raw grade event (no posterior touched).
+    # Step 3's row: the raw grade event's columns (no posterior touched).
     raw_output_payload = dict(raw_output) if raw_output is not None else {
         "rubric_score": rubric_score,
         "max_points": max_points,
         "grader_confidence": grader_confidence,
         "grading_source": grading_source,
     }
-    raw_event_id = repository.insert_raw_grade_event(
-        values={
-            "administration_id": administration_id,
-            "observation_id": observation_id,
-            "attempt_id": attempt_id,
-            "response_ref": attempt_id,
-            "role": role,
-            "grader_provider": grading_source,
-            "grader_model_revision": grader_model_revision,
-            "grading_prompt_version": prompt_identity,
-            "grader_output_schema_version": schema_identity,
-            "grader_identity_hash": gih,
-            "agent_run_id": agent_run_id,
-            "raw_output_json": canonical_json(raw_output_payload),
-            "criterion_evidence_json": canonical_json(criterion_evidence) if criterion_evidence is not None else None,
-            "observed_class": observed_class,
-            "model_confidence": grader_confidence,
-            "confidence_bucket": confidence_bucket,
-            "criterion_observed_classes_json": canonical_json(criterion_classes) if criterion_classes else None,
-            "response_classifier_version": RESPONSE_CLASSIFIER_VERSION,
-            "criterion_classifier_version": CRITERION_CLASSIFIER_VERSION if criterion_classes else None,
-            "context_features_json": canonical_json(context_features),
-            "exact_word_count": word_count,
-            "declared_length_bucket": declared_bucket,
-        },
-        clock=clock,
-    )
-    repository.append_measurement_event(
-        administration_id=administration_id,
-        kind="raw_grade_appended",
-        algorithm_version=PROJECTION_ALGORITHM_VERSION,
-        observation_id=observation_id,
-        payload_json=canonical_json({"raw_grade_event_id": raw_event_id, "role": role}),
-        clock=clock,
-    )
-    repository.append_measurement_event(
-        administration_id=administration_id,
-        kind="grade_classified",
-        algorithm_version=RESPONSE_CLASSIFIER_VERSION,
-        observation_id=observation_id,
-        payload_json=canonical_json({"observed_class": observed_class, "unclassifiable": unclassifiable}),
-        clock=clock,
-    )
+    raw_values = {
+        "attempt_id": attempt_id,
+        "response_ref": attempt_id,
+        "role": role,
+        "grader_provider": grading_source,
+        "grader_model_revision": grader_model_revision,
+        "grading_prompt_version": prompt_identity,
+        "grader_output_schema_version": schema_identity,
+        "grader_identity_hash": gih,
+        "agent_run_id": agent_run_id,
+        "raw_output_json": canonical_json(raw_output_payload),
+        "criterion_evidence_json": canonical_json(criterion_evidence) if criterion_evidence is not None else None,
+        "observed_class": observed_class,
+        "model_confidence": grader_confidence,
+        "confidence_bucket": confidence_bucket,
+        "criterion_observed_classes_json": canonical_json(criterion_classes) if criterion_classes else None,
+        "response_classifier_version": RESPONSE_CLASSIFIER_VERSION,
+        "criterion_classifier_version": CRITERION_CLASSIFIER_VERSION if criterion_classes else None,
+        "context_features_json": canonical_json(context_features),
+        "exact_word_count": word_count,
+        "declared_length_bucket": declared_bucket,
+    }
 
     # Step 5: resolve the calibration model + parent mixture.
     resolved_model = gc.resolve_calibration_model(
@@ -262,40 +358,115 @@ def resolve_grade(
         quantile=resolve_grader_channel_prior(repository).lcb_quantile,
     )
 
-    # Step 7: review + influence checks (§4.4).
+    # Step 7's own part (§4.4): the response's review signal and influence.
     review_flag = unclassifiable
     if grader_confidence is not None and grader_confidence < REVIEW_CONFIDENCE_THRESHOLD:
         review_flag = True
-    prior_events = repository.raw_grade_events_for_observation(observation_id)
-    coarse_seen = {ev["observed_class"] for ev in prior_events}
-    if len(coarse_seen) > 1:
-        review_flag = True
-    influence_flag = certainty < INFLUENCE_CERTAINTY_FLOOR
+    return GradeReading(
+        raw_values=raw_values,
+        observed_class=observed_class,
+        unclassifiable=unclassifiable,
+        confidence_bucket=confidence_bucket,
+        schema_id=schema_id,
+        schema_version=schema_version,
+        resolved_model=resolved_model,
+        posterior=posterior,
+        interval=interval,
+        certainty=certainty,
+        shared_lcb=shared_lcb,
+        review_flag=review_flag,
+        influence_flag=certainty < INFLUENCE_CERTAINTY_FLOOR,
+    )
 
-    interpretation_id = repository.insert_grade_interpretation(
-        values={
-            "raw_grade_event_id": raw_event_id,
-            "observation_id": observation_id,
-            "administration_id": administration_id,
-            "calibration_model_id": resolved_model.model_id or _persist_fallback_model(
-                repository, resolved_model, schema_id, schema_version, clock=clock
-            ),
-            "calibration_model_hash": resolved_model.model_hash,
-            "projection_algorithm_version": PROJECTION_ALGORITHM_VERSION,
-            "channel_posterior_snapshot_id": resolved_model.model_hash,
-            "response_posterior_json": canonical_json(posterior),
-            "criterion_posteriors_json": None,
-            "reference_prior_ids_json": canonical_json(resolved_model.contributing_model_ids),
-            "certainty_discount": certainty,
-            "shared_certainty_lcb": shared_lcb,
-            "credible_interval_json": canonical_json(interval),
-            "review_flag": review_flag,
-            "influence_flag": influence_flag,
-            "quarantine_state": "active",
-            "fallback_reason": resolved_model.fallback_reason,
-        },
+
+def _append_raw_grade_event(
+    repository: Repository,
+    reading: GradeReading,
+    *,
+    administration_id: str,
+    observation_id: str,
+    clock: Clock | None,
+) -> str:
+    """Step 3: the raw grade event and its two measurement events."""
+
+    raw_event_id = repository.insert_raw_grade_event(
+        values={"administration_id": administration_id, "observation_id": observation_id, **reading.raw_values},
         clock=clock,
     )
+    repository.append_measurement_event(
+        administration_id=administration_id,
+        kind="raw_grade_appended",
+        algorithm_version=PROJECTION_ALGORITHM_VERSION,
+        observation_id=observation_id,
+        payload_json=canonical_json({"raw_grade_event_id": raw_event_id, "role": reading.raw_values["role"]}),
+        clock=clock,
+    )
+    repository.append_measurement_event(
+        administration_id=administration_id,
+        kind="grade_classified",
+        algorithm_version=RESPONSE_CLASSIFIER_VERSION,
+        observation_id=observation_id,
+        payload_json=canonical_json(
+            {"observed_class": reading.observed_class, "unclassifiable": reading.unclassifiable}
+        ),
+        clock=clock,
+    )
+    return raw_event_id
+
+
+def _interpretation_values(
+    repository: Repository,
+    reading: GradeReading,
+    *,
+    raw_event_id: str,
+    observation_id: str,
+    administration_id: str,
+    review_flag: bool,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    resolved_model = reading.resolved_model
+    return {
+        "raw_grade_event_id": raw_event_id,
+        "observation_id": observation_id,
+        "administration_id": administration_id,
+        "calibration_model_id": resolved_model.model_id or _persist_fallback_model(
+            repository, resolved_model, reading.schema_id, reading.schema_version, clock=clock
+        ),
+        "calibration_model_hash": resolved_model.model_hash,
+        "projection_algorithm_version": PROJECTION_ALGORITHM_VERSION,
+        "channel_posterior_snapshot_id": resolved_model.model_hash,
+        "response_posterior_json": canonical_json(reading.posterior),
+        "criterion_posteriors_json": None,
+        "reference_prior_ids_json": canonical_json(resolved_model.contributing_model_ids),
+        "certainty_discount": reading.certainty,
+        "shared_certainty_lcb": reading.shared_lcb,
+        "credible_interval_json": canonical_json(reading.interval),
+        "review_flag": review_flag,
+        "influence_flag": reading.influence_flag,
+        "quarantine_state": "active",
+        "fallback_reason": resolved_model.fallback_reason,
+    }
+
+
+def _append_interpretation(
+    repository: Repository,
+    reading: GradeReading,
+    *,
+    raw_event_id: str,
+    observation_id: str,
+    administration_id: str,
+    review_flag: bool,
+    clock: Clock | None,
+    values: Mapping[str, Any] | None = None,
+) -> str:
+    """Steps 8-9: the calibrated interpretation, made the observation's head."""
+
+    if values is None:
+        values = _interpretation_values(
+            repository, reading, raw_event_id=raw_event_id, observation_id=observation_id,
+            administration_id=administration_id, review_flag=review_flag, clock=clock,
+        )
+    interpretation_id = repository.insert_grade_interpretation(values=values, clock=clock)
     repository.set_active_interpretation(
         observation_id=observation_id, interpretation_id=interpretation_id
     )
@@ -307,31 +478,156 @@ def resolve_grade(
         payload_json=canonical_json(
             {
                 "interpretation_id": interpretation_id,
-                "calibration_model_hash": resolved_model.model_hash,
+                "calibration_model_hash": reading.resolved_model.model_hash,
                 "review_flag": review_flag,
-                "fallback_reason": resolved_model.fallback_reason,
+                "fallback_reason": reading.resolved_model.fallback_reason,
             }
         ),
         clock=clock,
     )
+    return interpretation_id
 
-    return GradeResolution(
-        administration_id=administration_id,
-        observation_id=observation_id,
-        raw_grade_event_id=raw_event_id,
-        interpretation_id=interpretation_id,
-        observed_class=observed_class,
-        confidence_bucket=confidence_bucket,
-        posterior=posterior,
-        certainty=certainty,
-        credible_interval=interval,
-        calibration_model_id=resolved_model.model_id,
-        calibration_model_hash=resolved_model.model_hash,
-        review_flag=review_flag,
-        influence_flag=influence_flag,
-        fallback_reason=resolved_model.fallback_reason,
-        unclassifiable=unclassifiable,
+
+def grade_channel_fixes_on(config: Any) -> bool:
+    """The grade channel fixes (mvp-0.59, ``replay.grade_channel_fixes``): replay
+    keeps each practice answer's observation and appends only what changed.
+    Their only reader, so the tag lives in one place
+    (``algorithm_versions.GRADE_CHANNEL_FIX_VERSIONS``)."""
+
+    from learnloop.algorithm_versions import GRADE_CHANNEL_FIX_VERSIONS
+
+    algorithms = getattr(config, "algorithms", None)
+    if getattr(algorithms, "algorithm_version", None) not in GRADE_CHANNEL_FIX_VERSIONS:
+        return False
+    return bool(getattr(getattr(config, "replay", None), "grade_channel_fixes", False))
+
+
+#: What a raw grade event says about the grade. ``agent_run_id`` is left out: it
+#: names the live model run, and replay re-applies a grade without one, so a
+#: live AI grade would otherwise read as regraded at its first rebuild.
+_RAW_GRADE_COLUMNS = (
+    "role", "grader_provider", "grader_model_revision", "grading_prompt_version",
+    "grader_output_schema_version", "grader_identity_hash", "raw_output_json", "criterion_evidence_json",
+    "observed_class", "model_confidence", "confidence_bucket", "criterion_observed_classes_json",
+    "response_classifier_version", "criterion_classifier_version", "context_features_json",
+    "exact_word_count", "declared_length_bucket",
+)
+#: What an interpretation says (its ids and stamp aside).
+_INTERPRETATION_COLUMNS = (
+    "calibration_model_id", "calibration_model_hash", "projection_algorithm_version",
+    "channel_posterior_snapshot_id", "response_posterior_json", "criterion_posteriors_json",
+    "reference_prior_ids_json", "certainty_discount", "shared_certainty_lcb", "credible_interval_json",
+    "review_flag", "influence_flag", "quarantine_state", "fallback_reason",
+)
+_FLAG_COLUMNS = frozenset({"review_flag", "influence_flag"})
+
+
+def _same_columns(stored: Mapping[str, Any], values: Mapping[str, Any], columns: Sequence[str]) -> bool:
+    for column in columns:
+        left, right = stored.get(column), values.get(column)
+        if column in _FLAG_COLUMNS:
+            left, right = bool(left), bool(right)
+        if left != right:
+            return False
+    return True
+
+
+def record_replayed_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    observation: Mapping[str, Any],
+    **kwargs: Any,
+) -> None:
+    """Replay's grade channel for an answer that already has an observation
+    (the grade channel fixes; fail-safe like :func:`record_grade_dual_write`).
+
+    A rebuild re-applies every answer; minting a fresh observation each time
+    grew history by one chain per answer per rebuild and moved the projection
+    off the copy an owner had adjudicated or flagged. Here the observation the
+    ledger reads (the attempt's newest) is kept, and only what changed is
+    appended to it:
+
+    - a raw grade event and its interpretation when the grade differs from the
+      one the head interprets (a regrade), whatever the head is;
+    - otherwise an interpretation alone when it differs from the head (another
+      calibration model or projection version), unless a review wrote the head
+      (an adjudication, a review flag or a quarantine), which a re-reading of
+      the same grade must not undo;
+    - nothing else, and measurement events only beside an append.
+
+    An adjudication that flipped the answer's direction also revised its grade,
+    so its own revision is not taken for a regrade of the grade it settled.
+    The review flag is the response's own, as on a fresh observation: the
+    observation's earlier raw events are grades this one replaced, not a second
+    grader disagreeing with it."""
+
+    administration_id = str(observation["administration_id"])
+    try:
+        _replay_grade(vault, repository, observation=observation, **kwargs)
+    except Exception as exc:  # noqa: BLE001 - fail-safe by design (§7.3)
+        _record_dual_write_degradation(repository, {**kwargs, "administration_id": administration_id}, exc)
+
+
+def _replay_grade(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    observation: Mapping[str, Any],
+    item: PracticeItem,
+    clock: Clock | None = None,
+    **kwargs: Any,
+) -> None:
+    del vault, item  # the observation names the administration and surface already
+    for key in ("administration_id", "observation_id", "surface_id", "feedback_condition"):
+        kwargs.pop(key, None)
+    reading = read_grade(repository, clock=clock, **kwargs)
+    observation_id = str(observation["id"])
+    administration_id = str(observation["administration_id"])
+    head = repository.active_interpretation_for_observation(observation_id)
+    if head is not None:
+        basis = repository.raw_grade_event(str(head["raw_grade_event_id"]))
+    else:
+        events = repository.raw_grade_events_for_observation(observation_id)
+        basis = events[-1] if events else None
+    review = repository.grade_head_review(observation_id, str(head["id"])) if head is not None else None
+    regraded = basis is None or not _same_columns(basis, reading.raw_values, _RAW_GRADE_COLUMNS)
+    if regraded and review is not None and review.get("adjudication_id") is not None:
+        regraded = not _adjudication_wrote_the_grade(
+            repository, str(kwargs["attempt_id"]), str(review["adjudication_id"])
+        )
+    if regraded:
+        raw_event_id = _append_raw_grade_event(
+            repository, reading, administration_id=administration_id, observation_id=observation_id, clock=clock
+        )
+        _append_interpretation(
+            repository, reading, raw_event_id=raw_event_id, observation_id=observation_id,
+            administration_id=administration_id, review_flag=reading.review_flag, clock=clock,
+        )
+        return
+    if review is not None:
+        return
+    values = _interpretation_values(
+        repository, reading, raw_event_id=str(basis["id"]), observation_id=observation_id,
+        administration_id=administration_id, review_flag=reading.review_flag, clock=clock,
     )
+    if head is not None and _same_columns(head, values, _INTERPRETATION_COLUMNS):
+        return
+    _append_interpretation(
+        repository, reading, raw_event_id=str(basis["id"]), observation_id=observation_id,
+        administration_id=administration_id, review_flag=reading.review_flag, clock=clock, values=values,
+    )
+
+
+def _adjudication_wrote_the_grade(repository: Repository, attempt_id: str, adjudication_id: str) -> bool:
+    """Whether the attempt's current grading epoch is the revision this
+    adjudication wrote (``append_adjudication_evidence_revision``)."""
+
+    from learnloop.grading_epochs import current_epoch
+
+    epoch = current_epoch(repository.fetch_grading_evidence(attempt_id))
+    marker = f"adjudicated:{adjudication_id}"
+    return epoch is not None and any(getattr(row, "evidence", None) == marker for row in epoch.rows)
 
 
 def response_certainty_lcb(

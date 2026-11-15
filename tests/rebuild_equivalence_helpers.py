@@ -23,8 +23,8 @@ def _at(minutes: float) -> FrozenClock:
     return FrozenClock(NOW + timedelta(minutes=minutes))
 
 
-def _vault(tmp_path, *, claims=()):
-    paths = create_placement_vault(tmp_path / "vault", version=LATEST_ALGORITHM_VERSION)
+def _vault(tmp_path, *, claims=(), version=LATEST_ALGORITHM_VERSION):
+    paths = create_placement_vault(tmp_path / "vault", version=version)
     add_followup_item(paths.root)
     repository = Repository(paths.sqlite_path)
     # A claim made before the vault's first sync is in force at the LO's
