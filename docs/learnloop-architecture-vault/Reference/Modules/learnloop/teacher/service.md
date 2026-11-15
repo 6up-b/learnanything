@@ -333,7 +333,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switched_off_no_lesson_opens`
   - `test_the_minted_check_item_is_held_to_its_lesson`
   - `test_while_a_check_is_open_its_solution_is_never_shown`
-  - `test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f10_deferred_read_results_are_kept_until_a_turn_consumes_them`
   - `test_f11_an_opening_failure_carries_the_saved_lesson_and_resume_runs_it`

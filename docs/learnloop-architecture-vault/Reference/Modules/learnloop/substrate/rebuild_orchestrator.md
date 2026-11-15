@@ -336,7 +336,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`
-  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+  - `test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict`
   - `test_live_an_adjudication_releases_a_hold_on_replay`
   - `test_live_nothing_located_and_nothing_validated_is_held`
   - `test_replay_reproduces_ruled_grades_without_a_model`

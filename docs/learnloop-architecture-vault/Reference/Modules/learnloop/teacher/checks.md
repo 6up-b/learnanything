@@ -47,31 +47,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py) |
-| Source lines | 318 |
+| Source lines | 314 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CheckError(ValueError)` ([source](../../../../../../src/learnloop/teacher/checks.py), line 45)
-  - `__init__(self, code: str, message: str) -> None` (line 46; internal)
-- `check_item_id(lesson_id: str, check_ref: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 51)
-- `render_prompt(check: CheckV1) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 55) — The item's prompt: the question, and its options for a choices check.
-- `mint_check_item(root: Path, *, lesson_id: str, check_ref: str, check: CheckV1, learning_object_id: str, book: SourceBook, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 64) — Write the check's held item (vault YAML) and return its id.
-- `lesson_item(item: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/checks.py), line 105)
-- `cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str, exclude: Sequence[str], lesson_item_ids: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 113) — The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker, excluding the lesson's own and shown items and their lineage), its IRT parameters (the…
-- `check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None, correctness: float, item: Any, as_of: str, p_teacher_retained: float | None, family: str, reference: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 136) — The mass this check enters mastery at, with every input (``weight_inputs``).
-- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 198) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
-- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, attempt_id: str, answer: str, grade: Any, grading_run_id: str, grading_source: str, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 260) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
-- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 294)
+- `class CheckError(ValueError)` ([source](../../../../../../src/learnloop/teacher/checks.py), line 44)
+  - `__init__(self, code: str, message: str) -> None` (line 45; internal)
+- `check_item_id(lesson_id: str, check_ref: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 50)
+- `render_prompt(check: CheckV1) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 54) — The item's prompt: the question, and its options for a choices check.
+- `mint_check_item(root: Path, *, lesson_id: str, check_ref: str, check: CheckV1, learning_object_id: str, book: SourceBook, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 63) — Write the check's held item (vault YAML) and return its id.
+- `lesson_item(item: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/checks.py), line 104)
+- `cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str, exclude: Sequence[str], lesson_item_ids: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 112) — The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker, excluding the lesson's own and shown items and their lineage), its IRT parameters (the…
+- `check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None, correctness: float, item: Any, as_of: str, p_teacher_retained: float | None, family: str, reference: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 135) — The mass this check enters mastery at, with every input (``weight_inputs``).
+- `grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str, runtime: Any=None, clock: Clock | None=None) -> tuple[Any, str]` ([source](../../../../../../src/learnloop/teacher/checks.py), line 194) — The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id.
+- `record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, attempt_id: str, answer: str, grade: Any, grading_run_id: str, grading_source: str, tap: int | None, mass: Mapping[str, Any], created_at: str, forecast_correct_key: str | None, forecast_retained_key: str | None, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/teacher/checks.py), line 256) — One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt.
+- `withdraw_check(repository: Any, *, lesson_id: str, node_id: str, check_ref: str, item: Any, overlap: float, created_at: str) -> str` ([source](../../../../../../src/learnloop/teacher/checks.py), line 290)
 
 ### Module constants
 
-- `LESSON_MECHANISM` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 39)
-- `CHECK_ATTEMPT_TYPE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 40)
-- `ENTRY_SURFACE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 41)
-- `EVIDENCE_ORIGIN` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 42)
+- `LESSON_MECHANISM` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 38)
+- `CHECK_ATTEMPT_TYPE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 39)
+- `ENTRY_SURFACE` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 40)
+- `EVIDENCE_ORIGIN` ([src/learnloop/teacher/checks.py](../../../../../../src/learnloop/teacher/checks.py), line 41)
 
 ### Explicit exports
 

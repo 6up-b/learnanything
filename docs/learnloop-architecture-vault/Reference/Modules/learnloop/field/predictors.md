@@ -202,6 +202,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probability_arms.py](../../../../../../tests/test_probability_arms.py) — direct import
   - `test_arms_are_off_by_default_and_can_never_be_active`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_a_config_setting_the_removed_switches_keeps_every_identity`
   - `test_predictor_version_hashes_are_the_ones_recorded_before_arc_c`
 - [tests/test_success_head.py](../../../../../../tests/test_success_head.py) — direct import
   - `test_t8_arms_are_never_activatable`

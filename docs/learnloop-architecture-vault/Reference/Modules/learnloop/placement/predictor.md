@@ -130,6 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f12_the_production_valuer_composes_the_attempt_familiarity_discount`
   - `test_f9_a_formative_only_retention_question_reaches_a_valuation_problem`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_a_config_setting_the_removed_switches_keeps_every_identity`
   - `test_predictor_version_hashes_are_the_ones_recorded_before_arc_c`
 
 ## Modification guidance

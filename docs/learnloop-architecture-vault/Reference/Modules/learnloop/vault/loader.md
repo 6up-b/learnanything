@@ -660,9 +660,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_before_a_retiring_sync_keeps_the_item_closed`
   - `test_an_attempt_graded_before_an_editing_sync_keeps_the_edited_hash`
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
-  - `test_switched_off_the_retiring_sync_is_still_undone_as_the_predecessor`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
-  - `test_the_gate_is_its_switch`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -1731,7 +1729,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_authored_reveal_keeps_the_draft`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_a_rebuild_changes_no_attempt_and_a_shadow_rebuild_is_zero`
-  - `test_the_fold_is_gated_by_the_switch`
 - [tests/test_help_outcomes.py](../../../../../../tests/test_help_outcomes.py) — direct import
   - `test_f6_a_hold_released_after_as_of_still_held_then`
   - `test_f6_a_later_regrade_never_changes_what_as_of_said`
@@ -2299,7 +2296,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
-  - `test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row`
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_batch_dry_runs_never_migrate_an_older_rollback_database`
   - `test_cli_eval_dry_run_find_coverage_status_and_tool_spec`
@@ -2744,6 +2740,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_curriculum_snapshot_names_the_concept_edges`
 - [tests/test_residual_diagnostics.py](../../../../../../tests/test_residual_diagnostics.py) — direct import
   - `test_positive_residual_dependence_flags_missing_factor`
+- [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing`
 - [tests/test_retired_config_keys_load.py](../../../../../../tests/test_retired_config_keys_load.py) — direct import
   - `test_an_old_config_setting_every_removed_key_loads_as_if_it_did_not`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
@@ -2832,7 +2830,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_retired_proof_check_route_is_ignored_and_reported`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
-  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+  - `test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
@@ -3256,7 +3254,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switched_off_no_lesson_opens`
   - `test_the_minted_check_item_is_held_to_its_lesson`
   - `test_while_a_check_is_open_its_solution_is_never_shown`
-  - `test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f11_an_opening_failure_carries_the_saved_lesson_and_resume_runs_it`
   - `test_f13_a_withdrawn_check_censors_its_forecast`
