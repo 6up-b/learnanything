@@ -1472,13 +1472,19 @@ def test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_o
     contract), so the bundle says the question changed since it was graded and
     carries no key or criteria of the later item, and never its maximum. A
     blind regrade (this vault's default) recorded its maximum, 8, in its blind
-    record; a joint one (the kill switch) recorded none."""
+    record; a joint one (stored history: no door regrades jointly now)
+    recorded none."""
 
     if grading == "joint":
-        from tests.split_live_helpers import append_config
+        from tests.joint_grading_helpers import joint_proposal_of, write_joint_regrade
 
-        append_config(ctx.paths.root, "[diagnosis]\nsplit_enabled = false")
-    attempt_id, _bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, "regrade")
+        attempt_id = _contract_answer(ctx, points={"correctness": 2})
+        _call(ctx, "get_feedback", {"attemptId": attempt_id})
+        _correct_the_item(ctx)
+        _vault, repository = ctx.require_vault()
+        write_joint_regrade(load_vault(ctx.paths.root), repository, attempt_id, joint_proposal_of(_SixPointGrader()))
+    else:
+        attempt_id, _bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, "regrade")
     # An ordinary regrade before regrade contracts (mvp-0.26), which no vault that opens writes now: built.
     vault, repository = ctx.require_vault()
     as_regraded_before_contracts(repository, attempt_id)

@@ -24,6 +24,7 @@ from learnloop.attempts.blind_grading import BLIND_CALIBRATION_PROMPT_VERSION, B
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
+from tests.joint_grading_helpers import joint_vault_door
 from tests.split_live_helpers import ReadyRuntime
 from tests.teacher_fakes import close_turn
 from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
@@ -71,17 +72,18 @@ def _regrade(vault, repository, attempt_id, clock):
                            grading_source="ai", clock=clock)
 
 
-def test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration(tmp_path):
-    lesson = _Lesson(tmp_path, [probe_turn], config={("diagnosis", "split_enabled"): False})
+def test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration(tmp_path, monkeypatch):
+    lesson = _Lesson(tmp_path, [probe_turn])
     lesson.generate()
     lesson.look()
     probe = _probe(lesson)
     joint_gih, joint_model = _identity_model(lesson.repository, prompt=gc.GRADING_PROMPT_VERSION,
                                              schema=gc.GRADER_OUTPUT_SCHEMA_VERSION, tag="joint")
-    lesson.act("answer_probe", {"answer": "(1, 0) by three"}, turns=[close_turn()])
+    # The probe answer graded jointly (stored history: no door grades jointly now).
+    with joint_vault_door(monkeypatch):
+        lesson.act("answer_probe", {"answer": "(1, 0) by three"}, turns=[close_turn()])
     assert _active(lesson.repository, probe.attempt_id)[:3] == (
         gc.GRADING_PROMPT_VERSION, gc.GRADER_OUTPUT_SCHEMA_VERSION, joint_gih)
-    set_config(lesson.paths.root, {("diagnosis", "split_enabled"): True})
     vault = load_vault(lesson.paths.root)
     prompt = _regrade_identity(vault)
     blind_gih, blind_model = _identity_model(lesson.repository, prompt=prompt, schema=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,

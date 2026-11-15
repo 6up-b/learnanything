@@ -6,7 +6,7 @@ No LLM: all grader payloads are canned; deterministic.
 
 from __future__ import annotations
 
-from tests.structured_ai import StructuredClientFake
+from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 
 from learnloop.clock import FrozenClock
@@ -24,7 +24,7 @@ from learnloop.diagnosis.probe_instance_generation import ensure_instrument_card
 from learnloop.diagnosis.taxonomy_regrade import run_taxonomy_regrade_checks
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault, pin_old_basic_vault, set_algorithm_version
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, pin_old_basic_vault, set_algorithm_version
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -176,8 +176,9 @@ def test_config_error_impacts_resolve_through_map(tmp_path):
 # -- §16 regrade-check ---------------------------------------------------------
 
 
-class _CannedGrader(StructuredClientFake):
-    """Returns a fixed attribution echoing the context's ids (no LLM)."""
+class _CannedGrader(JointGraderAlsoBlind, StructuredClientFake):
+    """Returns a fixed attribution echoing the context's ids (no LLM); the
+    blind grader's answer is the same attribution without its causal fields."""
 
     def __init__(self, error_type: str, *, is_misconception: bool = True):
         self._error_type = error_type
@@ -211,11 +212,8 @@ class _CannedGrader(StructuredClientFake):
 def test_taxonomy_regrade_check_no_attribution_regressions(tmp_path):
     # A graded attempt attributed the legacy `conceptual_slip`; the bumped grader
     # now emits the mechanism `conceptual_schema_error`. Both resolve to the same
-    # mechanism, so there is NO attribution regression. The canned grader is a
-    # joint one: the split's kill switch (no vault that opens is below its tag).
+    # mechanism, so there is NO attribution regression.
     vault, repository = _mvp06(tmp_path)
-    append_config_toml(vault.root, "[diagnosis]\nsplit_enabled = false")
-    vault = load_vault(vault.root)
     _insert_attempt(repository, attempt_id="att1")
     _insert_mc_event(
         repository,

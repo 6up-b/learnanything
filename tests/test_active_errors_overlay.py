@@ -19,6 +19,7 @@ from learnloop.diagnosis.split import jobs as jobs_module
 from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
 
 from tests.helpers import NOW_ISO
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import drain_jobs, split_vault, submit
 from tests.active_errors_overlay_helpers import _DIAGNOSED, _StatementFake
 
@@ -92,14 +93,11 @@ def test_overlaid_read_keeps_events_of_other_attempts_and_without_an_attempt(tmp
         assert overlaid[event_id] == raw[event_id]
 
 
-def test_overlaid_read_equals_the_raw_read_on_a_joint_vault(tmp_path):
-    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-    _paths, vault, repository = split_vault(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false"
-    )
-    client = _StatementFake()
-    submit(vault, repository, client)
-    drain_jobs(vault, repository, client)
+def test_overlaid_read_equals_the_raw_read_on_joint_history(tmp_path):
+    # A jointly graded attempt (no door grades jointly now: written as stored history).
+    _paths, vault, repository = split_vault(tmp_path)
+    write_joint_answer(vault, repository)
+    drain_jobs(vault, repository, _StatementFake())
 
     for learning_object_id in vault.learning_objects:
         assert repository.active_errors_by_learning_object_overlaid(

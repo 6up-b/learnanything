@@ -29,6 +29,7 @@ from learnloop.vault.loader import load_vault
 
 from tests import probe_block_end_helpers as block_setup
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
+from tests.joint_grading_helpers import write_joint_graded_attempt
 from tests.diagnostic_augmentation_helpers import (
     _proposal,
     _SequenceDiagnostician,
@@ -41,18 +42,20 @@ READY = AIRuntimeReport(
 )
 
 
-#: Joint grading (the split's kill switch off): the diagnostician grades and
-#: diagnoses in one call. No vault that opens is below the split's tag, so the
-#: switch is the only way to grade jointly.
-JOINT = "\n[diagnosis]\nsplit_enabled = false\n"
+def _joint(vault, repository, draft, proposal, *, clock=None):
+    """The diagnostician's joint grade (grades and diagnoses in one call), as
+    stored history: no door grades jointly now."""
+
+    return write_joint_graded_attempt(
+        vault, repository, draft, proposal, provider="diagnostician", provider_type="fake", model="claude-4",
+        clock=clock,
+    )
 
 
-def _vault(tmp_path, algorithm_version: str | None = None, *, joint: bool = False):
+def _vault(tmp_path, algorithm_version: str | None = None):
     paths = create_basic_vault(tmp_path / "vault")
     if algorithm_version is not None:
         set_algorithm_version(paths, algorithm_version)
-    if joint:
-        append_config_toml(paths.root, JOINT)
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
     sync_vault_state(vault, repository)
     return paths, vault, repository
@@ -74,20 +77,14 @@ def _self_graded(vault, repository, *, submission_id: str | None = None, **draft
 
 @pytest.mark.parametrize("with_repairs", [True, False])
 def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, with_repairs):
-    _paths, vault, repository = _vault(tmp_path, "mvp-0.7", joint=True)
+    _paths, vault, repository = _vault(tmp_path, "mvp-0.7")
 
     def proposal(context):
         graded = _proposal(context.attempt_id)
         return graded if with_repairs else graded.model_copy(update={"repair_suggestions": []})
 
-    client = _SequenceDiagnostician([proposal])
-    result = complete_attempt_with_ai_fallback(
-        vault, repository,
-        AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="A = U Sigma"),
-        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
-        runtime=READY, ai_client=client,
-    )
-    run_post_attempt_pipeline(vault, repository, result=result, ai_client=client)
+    result = _joint(vault, repository, AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="A = U Sigma"), proposal)
+    run_post_attempt_pipeline(vault, repository, result=result, ai_client=_SequenceDiagnostician([]))
 
     with repository.connection() as connection:
         hypotheses = connection.execute(
@@ -104,7 +101,7 @@ def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, 
 def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_repairs):
     vault, repository = block_setup._setup(tmp_path)
     # The block closes on its count: value of information's switch off (below mvp-0.21 it was off by the tag).
-    append_config_toml(vault.root, JOINT + "\n[voi_stopping]\nenabled = false\n")
+    append_config_toml(vault.root, "\n[voi_stopping]\nenabled = false\n")
     vault = load_vault(vault.root)
     clock = block_setup.CLOCK
 
@@ -116,17 +113,15 @@ def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_
     results = []
     for item_id in (block_setup.ITEM_ID, block_setup.ITEM_2):
         presentation = block_setup._commit(vault, repository, episode, item_id=item_id)
-        client = _SequenceDiagnostician([proposal])
-        result = complete_attempt_with_ai_fallback(
+        result = _joint(
             vault, repository,
             AttemptDraft(
                 practice_item_id=item_id, learner_answer_md="A = U Sigma",
                 attempt_type="diagnostic_probe", probe_presentation_id=presentation.id,
             ),
-            SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
-            runtime=READY, ai_client=client, clock=clock,
+            proposal, clock=clock,
         )
-        run_post_attempt_pipeline(vault, repository, result=result, ai_client=client, clock=clock)
+        run_post_attempt_pipeline(vault, repository, result=result, ai_client=_SequenceDiagnostician([]), clock=clock)
         results.append(result)
     assert results[-1].probe_block_end is not None
 

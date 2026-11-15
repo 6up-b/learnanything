@@ -45,7 +45,8 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
-from tests.split_live_helpers import ReadyRuntime, append_config, drain_jobs, split_vault, submit
+from tests.joint_grading_helpers import write_joint_answer
+from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
 from tests.field_split_outcomes_helpers import _ZeroEverythingWithoutAttribution
 from tests.helpers import MIGRATION_HEAD_FIXTURE
 from tests.pfc_unverified_unassessed_helpers import (
@@ -311,15 +312,14 @@ def test_split_vault_replay_and_rebuild_keep_unverified_criteria_unassessed(tmp_
 
 
 def test_joint_grades_replay_untouched_beside_blind_unverified_ones(tmp_path):
-    """Kill switch off after a blind unverified grade: the joint grade that
-    follows (on a wrong answer, a real failure) replays exactly as graded,
-    while the blind one keeps its assessed grade."""
+    """A joint grade after a blind unverified one (on a wrong answer, a real
+    failure) replays exactly as graded, while the blind one keeps its assessed
+    grade."""
 
-    paths, vault, repository = split_vault(tmp_path)
+    _paths, vault, repository = split_vault(tmp_path)
     blind = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER)
-    append_config(paths.root, "[diagnosis]\nsplit_enabled = false")
-    vault = load_vault(paths.root)
-    joint = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope")
+    # Graded jointly (no door grades jointly now: written as stored history).
+    joint = write_joint_answer(vault, repository, item_id="pi_svd_compute_002", answer="B = U Sigma V nope")
     assert repository.latest_blind_grade_record(joint.attempt_id) is None
     joint_rows = [
         (row.criterion_id, row.points_awarded, row.attribution_json)

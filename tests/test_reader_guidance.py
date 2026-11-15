@@ -11,6 +11,7 @@ from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.reader import reader_dialogue as RD
 
 from tests.helpers import ALGORITHM_VERSION, NOW_ISO
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import drain_jobs, submit
 from tests.reader_guidance_helpers import (
     _DIAGNOSED,
@@ -168,19 +169,13 @@ def test_split_guide_falls_back_to_the_error_type_when_the_diagnosis_failed(tmp_
 
 
 def test_joint_guide_plan_is_unchanged_by_the_overlay_read(tmp_path, monkeypatch):
-    """mvp-0.9 parity: the overlaid read returns the raw rows, so the plan is byte-identical.
+    """Joint history: the overlaid read returns the raw rows of a jointly
+    graded attempt (stored history: no door grades jointly now), so the plan
+    is byte-identical."""
 
-    A shadow diagnosis runs too: it stores no causal view, so it must never
-    reach the Guide.
-    """
-
-    _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.9", config=JOINT_SHADOW,
-    )
-    client = _StatementFake()
-    result = submit(vault, repository, client)
-    drain_jobs(vault, repository, client)
-    assert repository.latest_attempt_diagnosis(result.attempt_id, mode="shadow") is not None
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version=ALGORITHM_VERSION)
+    result = write_joint_answer(vault, repository)
+    drain_jobs(vault, repository, _StatementFake())
     joint_statement = repository.raw_error_events_for_attempt(result.attempt_id)[0]["misconception_statement"]
     assert joint_statement
 

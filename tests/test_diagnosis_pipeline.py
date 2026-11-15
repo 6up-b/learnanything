@@ -22,6 +22,7 @@ from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault, submit
 
 
@@ -467,32 +468,23 @@ def test_regrade_replay_never_reads_the_superseded_diagnosis(tmp_path, monkeypat
     assert seen == [(None, True, ["queued"])]
 
 
-def _enable_split(paths):
-    path = paths.root / "learnloop.toml"
-    text = path.read_text(encoding="utf-8")
-    assert "split_enabled = false" in text
-    path.write_text(text.replace("split_enabled = false", "split_enabled = true"), encoding="utf-8")
-    return load_vault(paths.root)
-
-
 def test_a_joint_attempt_regraded_in_a_split_vault_is_graded_blind_and_isolated(tmp_path):
     """Review F2: a new grading execution in a split vault is blind and
     isolated, even for an attempt first graded jointly; the attempt then
     carries a blind record (replay reads its mode from that ledger) and its
     diagnosis is queued in the same publication."""
 
-    paths, vault, repository = split_vault(tmp_path, config="[diagnosis]\nsplit_enabled = false")
-    client = ReviewFakeClient()
-    result = submit(vault, repository, client)
-    assert client.calls == ["grading"]
+    _paths, vault, repository = split_vault(tmp_path)
+    # Graded jointly (no door grades jointly now: written as stored history).
+    result = write_joint_answer(vault, repository)
     assert repository.latest_blind_grade_record(result.attempt_id) is None
-    vault = _enable_split(paths)
+    client = ReviewFakeClient()
 
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
 
-    assert client.calls == ["grading", "blind_grading"]
-    assert client.isolated == [False, True]
+    assert client.calls == ["blind_grading"]
+    assert client.isolated == [True]
     record = repository.latest_blind_grade_record(result.attempt_id)
     assert record is not None and record["supersedes_id"] is None and record["record"]["regrade"] is True
     assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING

@@ -43,6 +43,7 @@ from tests.helpers import (
     add_followup_item,
     create_basic_vault,
 )
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import drain_jobs, split_vault, submit
 from tests.active_errors_overlay_helpers import _StatementFake
 from tests.voi_stopping_helpers import (
@@ -1051,17 +1052,14 @@ def test_a_pending_diagnosis_holds_the_event_out_of_the_lane(tmp_path, reads, pe
     assert bool(prior_labels & labels) is (not held_out)
 
 
-def test_a_joint_vault_lane_is_unchanged(tmp_path):
-    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-    _paths, vault, repository = split_vault(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false",
-    )
-    client = _StatementFake(causal_class="transient_execution")
-    submit(vault, repository, client)
-    drain_jobs(vault, repository, client)
+def test_a_joint_attempts_lane_is_unchanged(tmp_path):
+    # A jointly graded attempt (stored history: no door grades jointly now).
+    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.20")
+    write_joint_answer(vault, repository)
+    drain_jobs(vault, repository, _StatementFake(causal_class="transient_execution"))
     before = _lane_labels(vault, repository)
     vault.config.algorithms.algorithm_version = "mvp-0.21"
-    # The overlay changes only blind-graded events: a joint vault at the
+    # The overlay changes only blind-graded events: joint history at the
     # successor reads exactly what it read.
     assert _lane_labels(vault, repository) == before
 

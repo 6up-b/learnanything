@@ -6,6 +6,7 @@ import pytest
 
 from learnloop.db.repositories import Repository
 
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import CitingFake, ReadyRuntime, at, split_vault, submit
 
 
@@ -211,17 +212,13 @@ def test_card_kill_switch_hides_the_card_but_its_repairs_still_debit_once(tmp_pa
         ).fetchone()[0] == 1
 
 
-def test_joint_vault_feedback_carries_no_diagnosis_status(tmp_path, monkeypatch):
-    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false")
-    client = CitingFake()
-    sidecar = _Sidecar(paths.root, client, monkeypatch)
-    session_id = sidecar.result("start_session", {})["sessionId"]
-    submitted = sidecar.submit(session_id)
+def test_a_jointly_graded_attempts_feedback_carries_no_diagnosis_status(tmp_path, monkeypatch):
+    # A jointly graded attempt (no door grades jointly now: written as stored history).
+    paths, vault, repository = split_vault(tmp_path)
+    attempt_id = write_joint_answer(vault, repository).attempt_id
+    sidecar = _Sidecar(paths.root, CitingFake(), monkeypatch)
 
-    assert "diagnosisStatus" not in submitted
-    assert "diagnosisStatus" not in sidecar.result("get_feedback", {"attemptId": submitted["attemptId"]})
-    assert sidecar.ctx.post_attempt_worker.running is False
+    assert "diagnosisStatus" not in sidecar.result("get_feedback", {"attemptId": attempt_id})
 
 
 def test_card_summary_names_earlier_answers_by_date_not_id(tmp_path):

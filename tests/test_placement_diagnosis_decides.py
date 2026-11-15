@@ -22,6 +22,10 @@ Real grading door and job drain with the M1/M2 fakes; no network.
 
 from __future__ import annotations
 
+import os
+import re
+from pathlib import Path
+
 import pytest
 
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
@@ -43,7 +47,8 @@ from learnloop.vault.loader import load_vault
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
 from tests.split_live_helpers import append_config, drain_jobs, split_vault, submit
-from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO, READ_AT, _Diagnosed, _iso, _miss, _state
+from tests.joint_grading_helpers import hold_queued_live_diagnoses, write_joint_answer
+from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO, READ_AT, WRONG, _Diagnosed, _iso, _miss, _state
 
 CORRECT = "B = U Sigma V^T"
 
@@ -198,14 +203,65 @@ def test_no_diagnosis_can_arrive_falls_back_to_todays_rule(tmp_path, config, cli
 
 
 def test_a_joint_grade_falls_back_to_todays_rule(tmp_path):
-    """With the split off from the start the attempt is graded jointly: no
-    diagnosis can ever arrive for it."""
+    """A jointly graded attempt (stored history: no door grades jointly now):
+    no diagnosis can ever arrive for it."""
 
-    _paths, vault, repository = _assumed(tmp_path, config="[diagnosis]\nsplit_enabled = false")
-    miss = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"))
+    _paths, vault, repository = _assumed(tmp_path)
+    miss = write_joint_answer(vault, repository, answer=WRONG, when=at(DUE_HOURS + 1))
+    drain_jobs(vault, repository, _Diagnosed(causal_class="transient_execution"), clock=FrozenClock(at(DUE_HOURS + 1)))
     assert repository.latest_blind_grade_record(miss.attempt_id) is None
     assumption, _intent = _state(vault, repository)
     assert (assumption.status, assumption.resolution.fallback) == ("failed", "not_blind_graded")
+
+
+#: The three readings below, recorded with the split on (``LEARNLOOP_WRITE_GOLDEN=1`` rewrites it).
+STORED_MISSES_GOLDEN = Path(__file__).parent / "goldens" / "placement_stored_misses.json"
+
+
+def test_stored_misses_read_as_with_the_split_on(tmp_path):
+    """A blind miss whose diagnosis landed, a blind miss whose live diagnosis is
+    still queued and not held, and a jointly graded miss (no blind record:
+    stored history, no door grades jointly now). Placement's state, Report 3
+    and ``placement status`` read each as every vault read it with the split
+    on, its kill switch's default, which no vault set off."""
+
+    import json
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    paths, vault, repository = _assumed(tmp_path, los=(LO, "lo_transpose", "lo_eigen"))
+    landed = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), item="pi_transpose_001")
+    queued = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), hours=DUE_HOURS + 2, drain=False)
+    joint = write_joint_answer(vault, repository, item_id="pi_eigen_001", answer=WRONG, when=at(DUE_HOURS + 3))
+    assert repository.post_attempt_jobs(attempt_id=queued.attempt_id, kind="diagnose", states=("queued",))
+    assert repository.latest_blind_grade_record(joint.attempt_id) is None
+
+    state = load_placement_state(vault, repository, now_iso=READ_AT)
+    read = {
+        a.learning_object_id: (
+            a.status, a.resolution_reason, a.resolution.fallback if a.resolution else None,
+            a.awaiting_diagnosis_attempt_id, state.intent_by_lo[a.learning_object_id].intent,
+        )
+        for a in state.assumptions
+    }
+    with repository.connection() as connection:
+        report = placement_report(connection, vault, now_iso=READ_AT)
+    status = json.loads(CliRunner().invoke(app, ["placement", "status", "--json", "--vault", str(paths.root)]).output)
+    ids = {landed.attempt_id: "<landed>", queued.attempt_id: "<queued>", joint.attempt_id: "<joint>"}
+    seen = re.sub(
+        r"\b[0-9A-HJKMNP-TV-Z]{26}\b", lambda m: ids.get(m.group(0), "<id>"),
+        json.dumps({"state": read, "report": report, "status": status["resolved_by_reason"]}, sort_keys=True),
+    )
+    assert read == {
+        "lo_transpose": ("passed", "slip", None, None, "maintenance"),
+        "lo_svd_compute": ("open", None, None, queued.attempt_id, "assumed"),
+        "lo_eigen": ("failed", "no_diagnosis", "not_blind_graded", None, "learning"),
+    }
+    if os.environ.get("LEARNLOOP_WRITE_GOLDEN") == "1":
+        STORED_MISSES_GOLDEN.write_text(seen + "\n", encoding="utf-8")
+    assert seen == STORED_MISSES_GOLDEN.read_text(encoding="utf-8").strip()
 
 
 def test_learner_side_help_is_not_a_grading_question():
@@ -464,19 +520,18 @@ def _switch_split(paths, enabled: bool):
     return load_vault(paths.root)
 
 
-def test_turning_the_split_back_on_does_not_reopen_held_misses(tmp_path):
-    """F4, re-review F3: while the switch is off the worker releases the held
-    job ``split_disabled`` and records the hold (write-once): today's rule,
-    decided at the hold. Switching it back on, the next drain releasing the job
-    ``provider_not_ready`` (overwriting ``last_error``), and the diagnosis
-    landing as a slip afterwards all leave it decided."""
+def test_a_held_miss_stays_decided_at_its_hold(tmp_path):
+    """F4, re-review F3: the kill switch held the miss's queued diagnosis
+    (``payload.split_held_at``, write-once: stored history, the switch is gone):
+    today's rule, decided at the hold. The next drain releasing the job
+    ``provider_not_ready``, and the diagnosis landing as a slip afterwards,
+    leave it decided."""
 
-    paths, vault, repository = _assumed(tmp_path)
+    _paths, vault, repository = _assumed(tmp_path)
     miss = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), drain=False)
-    off = _switch_split(paths, False)
-    drain_jobs(off, repository, _Diagnosed(), clock=FrozenClock(at(DUE_HOURS + 2)))
+    assert hold_queued_live_diagnoses(repository, clock=FrozenClock(at(DUE_HOURS + 2))) == 1
     (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
-    assert (job["last_error"], job["payload"]["split_held_at"]) == ("split_disabled", _iso(DUE_HOURS + 2))
+    assert job["payload"]["split_held_at"] == _iso(DUE_HOURS + 2)
     held = ("failed", "no_diagnosis", "split_disabled", _iso(DUE_HOURS + 2), "learning")
 
     def outcome(v):
@@ -484,25 +539,22 @@ def test_turning_the_split_back_on_does_not_reopen_held_misses(tmp_path):
         return (assumption.status, assumption.resolution_reason, assumption.resolution.fallback,
                 assumption.resolution.decided_at, intent.intent)
 
-    assert outcome(off) == held
-
-    on = _switch_split(paths, True)
-    assert outcome(on) == held
+    assert outcome(vault) == held
     # The provider is not ready (Codex is out): the drain re-releases the job.
-    drain_jobs(on, repository, None, clock=FrozenClock(at(DUE_HOURS + 4)))
+    drain_jobs(vault, repository, None, clock=FrozenClock(at(DUE_HOURS + 4)))
     (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
     assert (job["state"], job["last_error"], job["payload"]["split_held_at"]) == (
         "queued", "provider_not_ready", _iso(DUE_HOURS + 2),
     )
-    assert outcome(on) == held
-    state = load_placement_state(on, repository, now_iso=READ_AT)
+    assert outcome(vault) == held
+    state = load_placement_state(vault, repository, now_iso=READ_AT)
     assert state.awaiting_diagnosis_learning_object_ids == frozenset()
     # The provider comes back and the diagnosis reads a slip: decided already.
-    drain_jobs(on, repository, _Diagnosed(causal_class="transient_execution"), clock=FrozenClock(at(DUE_HOURS + 6)))
+    drain_jobs(vault, repository, _Diagnosed(causal_class="transient_execution"), clock=FrozenClock(at(DUE_HOURS + 6)))
     assert repository.current_live_diagnosis(miss.attempt_id)["status"] == "completed"
     (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
     assert (job["state"], job["payload"]["split_held_at"]) == ("done", _iso(DUE_HOURS + 2))
-    assert outcome(on) == held
+    assert outcome(vault) == held
 
 
 def test_the_first_serving_build_with_the_split_off_records_the_hold(tmp_path):
@@ -545,19 +597,18 @@ def test_the_first_serving_build_with_the_split_off_records_the_hold(tmp_path):
 
 def test_a_miss_decided_before_the_hold_keeps_its_diagnosis(tmp_path):
     """Re-review F3: the hold decides only a miss nothing decided before it. A
-    slip that landed before the switch went off stays kept when a later
-    re-diagnosis is held."""
+    slip that landed before a later re-diagnosis was held (stored history: the
+    switch that held it is gone) stays kept."""
 
     from learnloop.diagnosis.split.jobs import enqueue_diagnosis
 
-    paths, vault, repository = _assumed(tmp_path)
+    _paths, vault, repository = _assumed(tmp_path)
     miss = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"))
     assert enqueue_diagnosis(vault, repository, attempt_id=miss.attempt_id, rediagnose=True,
                              clock=FrozenClock(at(DUE_HOURS + 30)))
-    off = _switch_split(paths, False)
-    drain_jobs(off, repository, _Diagnosed(), clock=FrozenClock(at(DUE_HOURS + 31)))
+    assert hold_queued_live_diagnoses(repository, clock=FrozenClock(at(DUE_HOURS + 31))) == 1
     assert any("split_held_at" in job["payload"] for job in repository.post_attempt_jobs(attempt_id=miss.attempt_id))
-    assumption, intent = _state(off, repository)
+    assumption, intent = _state(vault, repository)
     assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
 
 
