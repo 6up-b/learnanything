@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_episodes.py](../../../../../../src/learnloop/diagnosis/probe_episodes.py) |
-| Source lines | 3645 |
+| Source lines | 3662 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -99,11 +99,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `episode_maximum_binds(vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3088) — Does ``probe.episode.maximum_observations`` (stamped on the episode at entry) end the episode by count?
 - `robust_gate_counterfactual(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: Mapping[str, float]) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3147) — The robust completion gate's verdict for a value CONTINUE receipt (the multi-family EVSI study's rank 1): ``(applies, verdict)``.
 - `robust_gate_completion(decision: Any, *, stop_only: bool) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3261) — The completion the robust gate's decision asks for: ``couldnt_reliably_distinguish`` or None.
-- `stop_diagnosing_and_teach(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3441) — `Stop diagnosing and teach me`: end measurement, open a post-intervention state segment, and persist a typed transition decision (§12.1).
-- `close_diagnostic_segment(repository: Repository, episode_id: str, *, reason: str='converted_to_tutoring', clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3491) — Close a still-open diagnostic episode when instruction/repair begins (P0 invariant 7 / §12.2 "starting instruction closes the measurement segment").
-- `abandon_episode(repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3543)
-- `episode_contract(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3567) — The probe UX contract for one LO, or None when no episode is active.
-- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3602) — The item that would be served next for this LO's open episode, or None.
+- `class StoppedCheck` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3442) — What `Stop diagnosing and teach me` did: the typed transition decision it persisted, and the block's committed answers' feedback it released.
+- `stop_diagnosing_and_teach(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> StoppedCheck | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3450) — `Stop diagnosing and teach me`: settle the block's committed answers, end measurement, open a post-intervention state segment, and persist a typed transition decision (§12.1).
+- `close_diagnostic_segment(repository: Repository, episode_id: str, *, reason: str='converted_to_tutoring', clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3508) — Close a still-open diagnostic episode when instruction/repair begins (P0 invariant 7 / §12.2 "starting instruction closes the measurement segment").
+- `abandon_episode(repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3560)
+- `episode_contract(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3584) — The probe UX contract for one LO, or None when no episode is active.
+- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3619) — The item that would be served next for this LO's open episode, or None.
 
 ### Module constants
 
@@ -146,7 +147,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_complete(repository: Repository, episode: ProbeEpisodeRecord, reason: str, *, posterior: EpisodePosterior | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3341)
 - `_complete_on_value_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, value_stop: Mapping[str, Any], *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3369) — Complete the episode on its value stop (the decision kept in ``completion_detail_json``) and log that stop as a forecast (``probe_episode_value_decision``, once per episode; EVSI calibration's ``voi_forecasts`` behind ``evsi.forecast_logging``, logging only).
 - `_value_of_information_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, qualifying: list[dict[str, Any]], candidates: list[EligibleInstrument], *, gate_counterfactual: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3400) — mvp-0.21 (voi_stopping, site ``probe_episode``): the logged stop decision when the episode's next observation no longer pays for its minutes, or None (keep asking, or the site is off).
-- `_set_target_decision(repository: Repository, episode_id: str, decision: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3529)
+- `_set_target_decision(repository: Repository, episode_id: str, decision: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_episodes.py), line 3546)
 
 ## Who imports or calls it
 
@@ -189,7 +190,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `near_clone_from_selection_components`; calls `near_clone_from_selection_components`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `lock_causal_hypothesis_set`; calls `lock_causal_hypothesis_set`
 - [[Reference/Modules/learnloop/diagnosis/longform_trace|learnloop.diagnosis.longform_trace]] — imports `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`; calls `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`
-- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`; calls `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`
+- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`, `settle_block_answers`; calls `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`, `settle_block_answers`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `APPROVED_DIAGNOSTIC_GRADING_SOURCES`, `CompiledInstrument`, `InstrumentCard`, `ProbeFamilyTemplate`, `SELECTION_POLICY_VERSION`, `classify_outcome`, `ensure_builtin_families`, `information_rate`, `instrument_expected_information_gain`, `instrument_observation_likelihoods`, `instrument_predictive_information_gain`, `map_episode_labels_to_slots`, `record_real_observation_counts`, `shrunk_item_calibration_counts`, `validate_and_compile_card`; calls `CompiledInstrument`, `classify_outcome`, `ensure_builtin_families`, `information_rate`, `instrument_expected_information_gain`, `instrument_observation_likelihoods`, `instrument_predictive_information_gain`, `map_episode_labels_to_slots`, `record_real_observation_counts`, `shrunk_item_calibration_counts`, `validate_and_compile_card`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `H_OTHER`, `build_episode_hypothesis_set`, `generic_bucket_marginals`, `item_observation_context`, `strong_prior_claim`, `triage_reason_for_label`; calls `build_episode_hypothesis_set`, `generic_bucket_marginals`, `item_observation_context`, `strong_prior_claim`, `triage_reason_for_label`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `applicable_families`, `generate_instances_for_episode`; calls `applicable_families`, `generate_instances_for_episode`
@@ -408,6 +409,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_preview_tutor_opening_after_stop_diagnosing`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_an_empty_stuck_probe_answer_is_the_unanswered_observation`
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_a_mid_check_stop_normalizes_joint_answers_and_releases_their_feedback`
+  - `test_a_mid_check_stop_queues_the_blind_answers_diagnosis`
+  - `test_a_stop_with_nothing_committed_settles_nothing`
+  - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
 - [tests/test_teacher_from_check.py](../../../../../../tests/test_teacher_from_check.py) — direct import
   - `test_the_stop_reports_its_episode_and_a_real_decision_reads_as_topic_words`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import

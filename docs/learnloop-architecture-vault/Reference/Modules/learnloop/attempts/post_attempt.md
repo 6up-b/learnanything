@@ -175,6 +175,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
   - `test_a_joint_stuck_reading_survives_rebuild_with_no_model_call`
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_a_mid_check_stop_queues_the_blind_answers_diagnosis`
+  - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
 
 ## Modification guidance
 
