@@ -71,18 +71,6 @@ BLIND_GRADER_OUTPUT_SCHEMA_VERSION = "blind_grading_proposal_v1"
 #: §10: the grader-mode label a blind grade's receipts carry.
 GRADER_MODE_BLIND = "blind"
 
-def split_grading_active(vault: LoadedVault) -> bool:
-    """Does this vault grade NEW practice attempts blind (spec §6.2)?
-
-    ``diagnosis.split_enabled`` is the split's kill switch. It is read only
-    when an attempt is graded: replay and every later read go by the
-    attempt's persisted grader mode (a blind grade record exists or it does
-    not), never by today's config.
-    """
-
-    diagnosis = getattr(vault.config, "diagnosis", None)
-    return bool(getattr(diagnosis, "split_enabled", True))
-
 
 ValidityScope = Literal[
     "valid_measurement",
@@ -772,7 +760,6 @@ __all__ = [
     "blind_grading_prompt",
     "blind_prompt_version",
     "request_blind_grading_proposal",
-    "split_grading_active",
     "taxonomy_misconception_prior",
     "to_grading_proposal",
     "validate_blind_grading_proposal",

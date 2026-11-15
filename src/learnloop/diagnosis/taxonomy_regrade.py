@@ -19,8 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
-from learnloop.attempts.blind_grading import BLIND_GRADING_PROMPT_VERSION, split_grading_active
+from learnloop.attempts.blind_grading import BLIND_GRADING_PROMPT_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
 from learnloop.vault.models import LoadedVault
@@ -105,7 +104,8 @@ def run_taxonomy_regrade_checks(
                     }
                 )
     return {
-        "prompt_version": _grading_prompt_version(vault),
+        # Slice 1 §4.1: the check regrades through the vault door, with the blind prompt.
+        "prompt_version": BLIND_GRADING_PROMPT_VERSION,
         "attempted": attempted,
         "checked": checked,
         "failed": failed,
@@ -113,8 +113,3 @@ def run_taxonomy_regrade_checks(
         "regression_count": len(regressions),
         "no_regressions": not regressions,
     }
-
-
-def _grading_prompt_version(vault: LoadedVault) -> str:
-    # Slice 1 §4.1: a split vault regrades with the blind prompt.
-    return BLIND_GRADING_PROMPT_VERSION if split_grading_active(vault) else GRADING_PROMPT_VERSION

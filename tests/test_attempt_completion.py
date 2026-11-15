@@ -33,7 +33,7 @@ from tests.joint_grading_helpers import write_joint_graded_attempt
 from tests.diagnostic_augmentation_helpers import (
     _proposal,
     _SequenceDiagnostician,
-    fail_after_the_joint_grade_commits,
+    fail_after_the_model_grade_commits,
 )
 
 ITEM_ID = "pi_svd_define_001"
@@ -137,7 +137,7 @@ def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_
 def test_committed_model_grade_keeps_its_provenance_through_recovery(tmp_path, monkeypatch):
     _paths, vault, repository = _vault(tmp_path)
 
-    fail_after_the_joint_grade_commits(monkeypatch)
+    fail_after_the_model_grade_commits(monkeypatch)
     with pytest.raises(ValueError, match="after the grade committed"):
         complete_attempt_with_ai_fallback(
             vault, repository,

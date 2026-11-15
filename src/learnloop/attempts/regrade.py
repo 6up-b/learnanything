@@ -30,7 +30,6 @@ from learnloop.attempts.grading import (
     vault_grading_calibration_identity,
     vault_grading_run_identity,
 )
-from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.diagnosis.error_taxonomy import persist_unknown_error_type_proposals
 from learnloop.substrate.replay import replay_learning_object
 from learnloop.tutor.teach_back import (
@@ -199,22 +198,18 @@ def regrade_attempt(
         if not graded_criteria:
             graded_criteria = core_criteria(rubric)
         context = restrict_grading_context_to_criteria(context, item, rubric, graded_criteria)
-    # Slice 1 §4.1/§6.3: every NEW grading execution in a split vault is
-    # learner-blind and runs as an isolated turn (review F2). A practice
-    # attempt is regraded through the practice door's blind contract: its new
-    # grade appends a blind record (superseding the previous one, if any) and
-    # queues its diagnosis in the publication transaction, so a joint or
-    # self-graded attempt regraded after the upgrade becomes blind-graded
-    # (replay reads the mode from that ledger, never from config). An attempt
-    # already graded blind keeps its mode even with the kill switch off.
-    # Teach-back, like its first grading, uses the non-practice door (blind
-    # and isolated in a split vault, no blind record: it is never diagnosed).
-    # A joint vault, or the kill switch, regrades jointly exactly as before.
+    # Slice 1 §4.1/§6.3: every NEW grading execution is learner-blind and
+    # runs as an isolated turn (review F2). A practice attempt is regraded
+    # through the practice door's blind contract: its new grade appends a
+    # blind record (superseding the previous one, if any) and queues its
+    # diagnosis in the publication transaction, so a joint or self-graded
+    # attempt regraded becomes blind-graded (replay reads the mode from that
+    # ledger, never from config). Teach-back, like its first grading, uses the
+    # non-practice door (blind and isolated, no blind record: it is never
+    # diagnosed).
     prior_blind = repository.latest_blind_grade_record(attempt["id"])
     blind_plan = None
-    if prior_blind is not None or (
-        split_grading_active(vault) and attempt.get("attempt_type") != TEACH_BACK_ATTEMPT_TYPE
-    ):
+    if prior_blind is not None or attempt.get("attempt_type") != TEACH_BACK_ATTEMPT_TYPE:
         from learnloop.attempts.attempts import _blind_grading_plan
 
         # mvp-0.13: a stuck answer is regraded under the same stuck rules, so
@@ -227,8 +222,8 @@ def regrade_attempt(
             required_method=graded_contract.required_method if graded_contract is not None else None,
         )
     if blind_plan is None and attempt.get("declared_stuck"):
-        # mvp-0.13 (review F3): a joint regrade of a stuck answer re-reads it
-        # under the same stuck rules, as its first joint grade did.
+        # mvp-0.13 (review F3): a stuck answer is regraded under the stuck
+        # rules outside the practice door too.
         from learnloop.attempts.stuck import stuck_answer_prompt
 
         context = replace(context, answer_prompt=stuck_answer_prompt())
@@ -239,7 +234,7 @@ def regrade_attempt(
             "output_schema": "BlindGradingProposal",
         }
     else:
-        identity = vault_grading_run_identity(vault, context)
+        identity = vault_grading_run_identity(context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -336,20 +331,6 @@ def regrade_attempt(
                 )
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
-            from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
-
-            if isinstance(proposal, StuckGradingProposal):
-                from learnloop.attempts.grading import grading_context_hash
-                from learnloop.attempts.stuck import verified_stuck_reading
-
-                stuck_judgment = {
-                    "marker": verified_stuck_reading(
-                        proposal.stuck_reading, attempt.get("learner_answer_md") or ""
-                    ),
-                    "prompt_version": grading_prompt_version(context),
-                    "input_hash": grading_context_hash(context),
-                }
-                proposal = proposal.as_grading_proposal()
             validated = validate_codex_grading_proposal(
                 proposal,
                 attempt_id=attempt["id"],
@@ -479,7 +460,7 @@ def regrade_attempt(
                 grader_identity_overrides=(
                     None
                     if blind_plan is not None
-                    else {attempt["id"]: vault_grading_calibration_identity(vault)}
+                    else {attempt["id"]: vault_grading_calibration_identity()}
                 ),
                 clock=clock,
                 grading_source=grading_source,
@@ -488,9 +469,9 @@ def regrade_attempt(
 
             # mvp-0.20 (review F4): the regrade's route verdict supersedes
             # the attempt's current one, in the publication transaction.
-            # Review F5: every successful regrade calls it, blind or joint, so
-            # a grade the rule did not run over (kill switch, PF-c off, a
-            # joint grade) supersedes a current verdict as not checked.
+            # Review F5: every successful regrade calls it, so a grade the
+            # rule did not run over (PF-c off, a teach-back's vault-door
+            # grade) supersedes a current verdict as not checked.
             record_route_rule_judgment(
                 repository.connection(),
                 attempt_id=attempt["id"],
@@ -637,7 +618,7 @@ def _publish_regrade(
         )
     # TE2 landing ruling R1: a probe answer's grade event and interpretation are written by its submission only
     # (replay never re-mints them), so the regrade publishes the replacement grade's own, under the identity that
-    # produced it (the new blind record's calibration identity, else the joint door's), before the replay below
+    # produced it (the new blind record's calibration identity, else the vault door's), before the replay below
     # reads it. An ordinary practice answer's are re-minted by its replay under that same identity.
     from learnloop.attempts.attempts import publish_regraded_probe_grade
     from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION as _BLIND_SCHEMA
@@ -651,7 +632,7 @@ def _publish_regrade(
         grader_identity=(
             (str(blind_record["calibration_prompt_version"]), _BLIND_SCHEMA)
             if blind_record is not None
-            else vault_grading_calibration_identity(vault)
+            else vault_grading_calibration_identity()
         ),
         fired_error_types=[attribution.error_type for attribution in validated.error_attributions],
         held=blind_record is not None and grade_held_for_review(blind_record.get("grading_support") or {}),

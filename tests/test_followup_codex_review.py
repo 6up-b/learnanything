@@ -565,18 +565,6 @@ def test_f6_a_job_that_ended_with_its_workflow_pending_says_it_failed(journey):
     assert row["state"] == wf.FAILED and row["release_reason"] == wf.RELEASE_GENERATION_FAILED
 
 
-def test_f6_a_shadow_vault_has_its_workflows_job_at_once(tmp_path, monkeypatch):
-    from learnloop.attempts import post_attempt
-    from tests.causal_p2_acceptance_helpers import _divergent_failure
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    monkeypatch.setattr(post_attempt, "_shadow_diagnosis_enabled", lambda _vault: True)
-    monkeypatch.setattr(post_attempt, "enqueue_post_attempt_diagnosis", lambda *_a, **_k: None)
-    result = _divergent_failure(vault, repository, attempt_id="att_shadow")
-    outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)
-    assert _job(repository, outcome.workflow_id)["state"] == "queued"
-
-
 # -- F7: the switch off, with a probe already prepared --------------------------------------------
 
 

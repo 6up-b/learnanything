@@ -219,7 +219,7 @@ def _grade_and_record_exam_answer(
         practice_item_id,
         answer_md=answer_md,
         resolved_grade=resolved,
-        grader_identity=vault_grading_calibration_identity(vault),
+        grader_identity=vault_grading_calibration_identity(),
     )
 
 

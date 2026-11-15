@@ -233,14 +233,12 @@ def test_runner_completes_session_with_teach_back_item(
 
 
 def test_a_split_vault_grades_the_simulated_teach_back_blind(teach_runs) -> None:
-    from learnloop.attempts.blind_grading import split_grading_active
     from learnloop.db.repositories import Repository
 
     run_root, report = teach_runs[0]
     # The module's runs are copies of an mvp-0.7 vault, registered in the test that built them.
     allow_below_floor(run_root)
     vault = load_vault(run_root)
-    assert split_grading_active(vault)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     with repository.connection() as connection:
         schemas = {

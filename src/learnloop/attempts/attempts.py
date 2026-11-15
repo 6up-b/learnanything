@@ -48,7 +48,6 @@ from learnloop.attempts.grading import (
     build_grading_context,
     confidence_to_grader_confidence,
     enforce_passed_target_firewall,
-    grading_context_hash,
     resolved_rubric,
     validate_codex_grading_proposal,
 )
@@ -83,7 +82,6 @@ from learnloop.db.stores.source_service import reference_status_for_item
 from learnloop.attempts.blind_grading import (
     BLIND_CALIBRATION_PROMPT_VERSION,
     BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
-    split_grading_active,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop import serve_eligibility
@@ -696,20 +694,10 @@ def _complete_attempt_with_agent_fallback(
         rubric=rubric,
         assessment_contract=contract,
     )
-    blind = (
-        _blind_grading_plan(
-            vault, item, context, stuck=draft.declared_stuck,
-            required_method=_graded_required_method(item, contract),
-        )
-        if split_grading_active(vault)
-        else None
+    blind = _blind_grading_plan(
+        vault, item, context, stuck=draft.declared_stuck,
+        required_method=_graded_required_method(item, contract),
     )
-    if blind is None:
-        if draft.declared_stuck:
-            # mvp-0.13 (review F3): the joint grader (split switched off)
-            # reads a stuck answer under the same stuck rules.
-            context = replace(context, answer_prompt=stuck_answer_prompt())
-        context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -717,37 +705,24 @@ def _complete_attempt_with_agent_fallback(
             "purpose": "grading",
             **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
-            **_grading_run_identity(context, blind),
+            **_grading_run_identity(blind),
             "started_at": now,
             "status": "running",
         }
     )
     try:
-        if blind is not None:
-            result = _complete_blind_graded_attempt(
-                vault,
-                repository,
-                draft,
-                blind,
-                rubric=rubric,
-                ai_client=ai_client,
-                attempt_id=attempt_id,
-                agent_run_id=agent_run_id,
-                grading_source=grading_source,
-                clock=clock,
-            )
-        else:
-            result = _complete_joint_graded_attempt(
-                vault,
-                repository,
-                draft,
-                context,
-                ai_client=ai_client,
-                attempt_id=attempt_id,
-                agent_run_id=agent_run_id,
-                grading_source=grading_source,
-                clock=clock,
-            )
+        result = _complete_blind_graded_attempt(
+            vault,
+            repository,
+            draft,
+            blind,
+            rubric=rubric,
+            ai_client=ai_client,
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_source=grading_source,
+            clock=clock,
+        )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
         raise
@@ -919,8 +894,8 @@ class GradingCallPlan:
 
     Review F5: the paid command door (``learnloop attempt``) estimates and
     admits these calls before sending them. ``kind`` is ``empty_stuck`` or
-    ``deterministic`` (no call), ``blind`` or ``joint`` (``calls`` samples,
-    each about ``estimated_input_tokens_per_call`` input tokens).
+    ``deterministic`` (no call), or ``blind`` (``calls`` samples, each about
+    ``estimated_input_tokens_per_call`` input tokens).
     """
 
     kind: str
@@ -949,9 +924,8 @@ def plan_grading_calls(
 
     The same decisions as the completion doors, in the same order: an empty
     stuck answer and an unambiguous option letter make no call; otherwise the
-    blind (split) or joint prompt is assembled exactly as it would be sent and
-    its input tokens estimated, once per sample. Raises like the doors on an
-    invalid draft.
+    blind prompt is assembled exactly as it would be sent and its input tokens
+    estimated, once per sample. Raises like the doors on an invalid draft.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
@@ -975,32 +949,19 @@ def plan_grading_calls(
         rubric=rubric,
         assessment_contract=contract,
     )
-    if split_grading_active(vault):
-        from learnloop.attempts.blind_grading import blind_grading_prompt
+    from learnloop.attempts.blind_grading import blind_grading_prompt
 
-        blind = _blind_grading_plan(
-            vault, item, context, stuck=draft.declared_stuck,
-            required_method=_graded_required_method(item, contract),
-        )
-        return GradingCallPlan(
-            kind="blind",
-            calls=_blind_sample_count(vault),
-            prompt_version=blind.prompt_version,
-            estimated_input_tokens_per_call=estimated_prompt_tokens(
-                blind_grading_prompt(blind.context)
-            ),
-        )
-    from learnloop.attempts.ai_contracts import grading_prompt_version
-    from learnloop.attempts.grading import joint_grading_prompt_tokens
-
-    if draft.declared_stuck:
-        context = replace(context, answer_prompt=stuck_answer_prompt())
-    context = _augmented_grading_context(vault, repository, item, context)
+    blind = _blind_grading_plan(
+        vault, item, context, stuck=draft.declared_stuck,
+        required_method=_graded_required_method(item, contract),
+    )
     return GradingCallPlan(
-        kind="joint",
-        calls=_joint_sample_count(vault),
-        prompt_version=grading_prompt_version(context),
-        estimated_input_tokens_per_call=joint_grading_prompt_tokens(context),
+        kind="blind",
+        calls=_blind_sample_count(vault),
+        prompt_version=blind.prompt_version,
+        estimated_input_tokens_per_call=estimated_prompt_tokens(
+            blind_grading_prompt(blind.context)
+        ),
     )
 
 
@@ -1042,20 +1003,10 @@ def _complete_attempt_with_agent_required(
         rubric=rubric,
         assessment_contract=contract,
     )
-    blind = (
-        _blind_grading_plan(
-            vault, item, context, stuck=draft.declared_stuck,
-            required_method=_graded_required_method(item, contract),
-        )
-        if split_grading_active(vault)
-        else None
+    blind = _blind_grading_plan(
+        vault, item, context, stuck=draft.declared_stuck,
+        required_method=_graded_required_method(item, contract),
     )
-    if blind is None:
-        if draft.declared_stuck:
-            # mvp-0.13 (review F3): the joint grader (split switched off)
-            # reads a stuck answer under the same stuck rules.
-            context = replace(context, answer_prompt=stuck_answer_prompt())
-        context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -1063,37 +1014,24 @@ def _complete_attempt_with_agent_required(
             "purpose": "grading",
             **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
-            **_grading_run_identity(context, blind),
+            **_grading_run_identity(blind),
             "started_at": now,
             "status": "running",
         }
     )
     try:
-        if blind is not None:
-            result = _complete_blind_graded_attempt(
-                vault,
-                repository,
-                draft,
-                blind,
-                rubric=rubric,
-                ai_client=ai_client,
-                attempt_id=attempt_id,
-                agent_run_id=agent_run_id,
-                grading_source=grading_source,
-                clock=clock,
-            )
-        else:
-            result = _complete_joint_graded_attempt(
-                vault,
-                repository,
-                draft,
-                context,
-                ai_client=ai_client,
-                attempt_id=attempt_id,
-                agent_run_id=agent_run_id,
-                grading_source=grading_source,
-                clock=clock,
-            )
+        result = _complete_blind_graded_attempt(
+            vault,
+            repository,
+            draft,
+            blind,
+            rubric=rubric,
+            ai_client=ai_client,
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_source=grading_source,
+            clock=clock,
+        )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
         raise
@@ -1626,10 +1564,11 @@ def replay_grader_identity(
 
     A practice attempt graded blind carries it in its blind record. Graders
     outside the practice door (teach-back, exams) write no blind record, but
-    in a split vault they grade blind too: their raw grade event carries the
-    blind identity they were calibrated under, so replay reads it there
-    (review F11). Anything else is the joint grader's (None), so joint vaults
-    replay exactly as before.
+    they grade blind too: their raw grade event carries the blind identity
+    they were calibrated under, so replay reads it there (review F11).
+    Anything else was graded jointly (None), so joint history replays exactly
+    as it was graded: it is recognized by the missing blind record and blind
+    stamp, never by config.
     """
 
     if blind_record is not None:
@@ -1694,37 +1633,9 @@ def _diagnostic_augmentation_setting(
         return int(default)
 
 
-def _augmented_grading_context(
-    vault: LoadedVault,
-    repository: Repository,
-    item: PracticeItem,
-    context: Any,
-) -> Any:
-    from learnloop.diagnosis.diagnostic_augmentation import (
-        DEFAULT_HISTORY_LIMIT,
-        augment_grading_context,
-    )
-
-    history_limit = max(
-        0,
-        int(
-            _diagnostic_augmentation_setting(
-                vault, "history_limit", DEFAULT_HISTORY_LIMIT
-            )
-        ),
-    )
-    return augment_grading_context(
-        vault,
-        repository,
-        item,
-        context,
-        history_limit=history_limit,
-    )
-
-
 @dataclass(frozen=True)
 class _BlindGradingPlan:
-    """What a split vault's practice grading call is shown (§4.1, PF-c)."""
+    """What a practice grading call is shown (§4.1, PF-c)."""
 
     context: Any  # BlindGradingContext
     prompt_version: str
@@ -2192,98 +2103,12 @@ def _blind_grading_plan(
     )
 
 
-def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict[str, str]:
-    if blind is None:
-        from learnloop.attempts.ai_contracts import grading_prompt_version
-
-        return {
-            "prompt_version": grading_prompt_version(context),
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
-        }
+def _grading_run_identity(blind: _BlindGradingPlan) -> dict[str, str]:
     return {
         "prompt_version": blind.prompt_version,
         "input_context_hash": blind.context_hash,
         "output_schema": "BlindGradingProposal",
     }
-
-
-def _complete_joint_graded_attempt(
-    vault: LoadedVault,
-    repository: Repository,
-    draft: AttemptDraft,
-    context: Any,
-    *,
-    ai_client: AIProviderClient,
-    attempt_id: str,
-    agent_run_id: str,
-    grading_source: str,
-    clock: Clock | None = None,
-) -> AttemptResult:
-    """Grade jointly (split off), apply it, and record its augmentation receipt.
-
-    A stuck answer's joint grade carries the grader's reading (mvp-0.13,
-    review F3): it is verified against the answer and appended to
-    ``judgment_ledger`` in the transaction that records the grade, so the
-    confusion signal and :func:`learnloop.attempts.stuck.stuck_answers` read
-    it in either grading mode. The applied proposal is the ordinary joint one.
-
-    Q14 (diagnosis input provenance): the Phase-C receipt (with the C4 history
-    the grader was shown) and the grading's write-time record are written in
-    the transaction that records the grade, so a grade never commits without
-    them and a missing receipt reliably means "not augmented". A receipt that
-    cannot be written fails the grading (nothing commits), never the reverse.
-    """
-
-    from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
-    from learnloop.attempts.grading import grading_context_hash
-    from learnloop.db.stores.write_provenance import grading_in_progress, record_grading
-
-    consensus = _run_augmented_diagnosis(vault, ai_client, context)
-    proposal = consensus.proposal
-    marker = None
-    if isinstance(proposal, StuckGradingProposal):
-        marker = verified_stuck_reading(proposal.stuck_reading, draft.learner_answer_md)
-        proposal = proposal.as_grading_proposal()
-    shown = [row.get("attempt_id") for row in getattr(context, "diagnostic_history", None) or ()]
-    with repository.atomic(), grading_in_progress(attempt_id, shown_history=shown):
-        result = complete_codex_graded_attempt(
-            vault,
-            repository,
-            draft,
-            proposal,
-            attempt_id=attempt_id,
-            agent_run_id=agent_run_id,
-            grading_source=grading_source,
-            diagnostic_sample_support=consensus.agreement_support,
-            clock=clock,
-        )
-        if marker is not None:
-            record_stuck_reading_judgment(
-                repository.connection(),
-                attempt_id=attempt_id,
-                marker=marker,
-                judge_model=_client_model(ai_client),
-                prompt_version=grading_prompt_version(context),
-                input_hash=grading_context_hash(context),
-                created_at=utc_now_iso(clock),
-            )
-        _record_diagnostic_augmentation(
-            repository,
-            attempt_id=attempt_id,
-            context=context,
-            consensus=consensus,
-            client=ai_client,
-            clock=clock,
-        )
-        record_grading(
-            repository.connection(),
-            attempt_id=result.attempt_id,
-            writer="joint_grader",
-            shown_history=shown,
-            clock=clock,
-        )
-    return result
 
 
 def _complete_blind_graded_attempt(
@@ -2301,8 +2126,8 @@ def _complete_blind_graded_attempt(
 ) -> AttemptResult:
     """Grade blind, apply the grade and its blind record in one transaction.
 
-    Raises like the joint path (provider unavailable, invalid output), so both
-    doors keep their fallback/required semantics. The diagnosis is NOT run
+    Raises on an unavailable provider or an invalid output, so both doors
+    keep their fallback/required semantics. The diagnosis is NOT run
     here: the post-attempt pipeline enqueues it (§11).
     """
 
@@ -2510,64 +2335,6 @@ def _blind_sample_count(vault: LoadedVault) -> int:
     if not bool(_diagnostic_augmentation_setting(vault, "sampling_enabled", True)):
         return 1
     return max(1, int(_diagnostic_augmentation_setting(vault, "sample_count", 1)))
-
-
-def _joint_sample_count(vault: LoadedVault) -> int:
-    """Joint grading (C3) samples per answer."""
-
-    from learnloop.diagnosis.diagnostic_augmentation import DEFAULT_DIAGNOSIS_SAMPLES
-
-    enabled = bool(
-        _diagnostic_augmentation_setting(vault, "sampling_enabled", True)
-    )
-    return (
-        max(
-            1,
-            int(
-                _diagnostic_augmentation_setting(
-                    vault, "sample_count", DEFAULT_DIAGNOSIS_SAMPLES
-                )
-            ),
-        )
-        if enabled
-        else 1
-    )
-
-
-def _run_augmented_diagnosis(
-    vault: LoadedVault,
-    client: AIProviderClient,
-    context: Any,
-) -> Any:
-    from learnloop.diagnosis.diagnostic_augmentation import run_diagnosis_samples
-
-    return run_diagnosis_samples(client, context, sample_count=_joint_sample_count(vault))
-
-
-def _record_diagnostic_augmentation(
-    repository: Repository,
-    *,
-    attempt_id: str,
-    context: Any,
-    consensus: Any,
-    client: AIProviderClient,
-    clock: Clock | None,
-) -> None:
-    """The Phase-C receipt, written in the grading transaction (Q14): a
-    failure propagates and rolls the grade back, so a committed joint grade
-    always has its receipt and a missing one means "not augmented"."""
-
-    from learnloop.diagnosis.diagnostic_augmentation import record_phase_c_receipt
-
-    record_phase_c_receipt(
-        repository,
-        attempt_id=attempt_id,
-        context=context,
-        consensus=consensus,
-        grader_provider=getattr(client, "provider_name", None),
-        grader_model=getattr(client, "model", None),
-        clock=clock,
-    )
 
 
 def _assessment_contract(

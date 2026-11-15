@@ -1967,17 +1967,15 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
-class DiagnosisConfig(BaseModel):
+class DiagnosisConfig(KeepsRetiredFields):
     """The live blind grader + asynchronous history-aware diagnoser.
 
-    Dormant below ``mvp-0.10``: the algorithm version, not this section, decides
-    whether a vault grades split. ``split_enabled`` is the kill switch: off, an
-    ``mvp-0.10`` (or later) vault grades NEW attempts jointly as the
-    predecessor did; already-blind attempts keep their records and replay from
-    them (an attempt's grader mode is persisted, never read from this switch).
+    Every vault grades new practice attempts blind (``mvp-0.10``): its kill
+    switch ``split_enabled`` and the joint vault's ``shadow`` diagnosis went
+    once every vault was past the tag (ADR-019, ``config.retired``). Jointly
+    graded attempts keep their stored mode (no blind record) and replay from it.
     """
 
-    split_enabled: bool = True
     history_mode: Literal["exact", "full", "snapshot", "hybrid"] = "full"
     full_history_token_budget: int = Field(default=100_000, ge=1_000)
     exact_history_token_budget: int = Field(default=12_000, ge=1_000)
@@ -1987,8 +1985,6 @@ class DiagnosisConfig(BaseModel):
     # per attempt, so only 1 is accepted rather than ignored.
     sample_count: int = Field(default=1, ge=1, le=1)
     correct_answer_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
-    # Joint vaults only: run the diagnoser in shadow next to the joint grader.
-    shadow: bool = False
     next_item_wait_seconds: float = Field(default=10.0, ge=0.0, le=120.0)
     max_attempts: int = Field(default=5, ge=1, le=20)
     # Per-turn deadline for a Codex diagnoser turn. The diagnosis is async (no

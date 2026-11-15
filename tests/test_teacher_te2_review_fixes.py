@@ -71,12 +71,10 @@ def test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity(tmp_
     from learnloop.attempts.blind_grading import (
         BLIND_CALIBRATION_PROMPT_VERSION,
         BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
-        split_grading_active,
     )
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
     lesson, probe = _served(tmp_path)
-    assert split_grading_active(lesson.vault())  # the blind grader grades this vault's probe answers
     blind_gih, blind_model = _identity_model(lesson.repository, prompt=BLIND_CALIBRATION_PROMPT_VERSION,
                                              schema=BLIND_GRADER_OUTPUT_SCHEMA_VERSION, tag="blind")
     joint_gih, joint_model = _identity_model(lesson.repository, prompt=gc.GRADING_PROMPT_VERSION,
@@ -178,7 +176,7 @@ def _half_recorded(lesson, probe):
                            attempt_type=PR.ATTEMPT_TYPE, entry_surface=PR.ENTRY_SURFACE,
                            evidence_origin=PR.EVIDENCE_ORIGIN, awaits_completion=False),
         attempt_id=probe.attempt_id, grade=grade, grading_source="ai", grading_agent_run_id=run_id,
-        grader_identity=vault_grading_calibration_identity(vault)))
+        grader_identity=vault_grading_calibration_identity()))
 
 
 def test_f3_an_answer_already_recorded_is_finished_without_a_second_grade(tmp_path):

@@ -216,13 +216,13 @@ def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path,
     from tests.diagnostic_augmentation_helpers import (
         _proposal,
         _SequenceDiagnostician,
-        fail_after_the_joint_grade_commits,
+        fail_after_the_model_grade_commits,
     )
 
     client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)] * 2)
     runtime = AIRuntimeReport(status="ready", active_provider="diagnostician", provider_type="openai_chat", model="claude-4")
     monkeypatch.setattr(FeedbackScreen, "_grading_provider", lambda self: ("diagnostician", runtime, client))
-    fail_after_the_joint_grade_commits(monkeypatch)
+    fail_after_the_model_grade_commits(monkeypatch)
 
     async def scenario():
         vault_root = tmp_path / "vault"
@@ -261,10 +261,10 @@ def _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch):
     """
 
     from learnloop.attempts.attempts import complete_attempt_with_ai_required
-    from tests.diagnostic_augmentation_helpers import fail_after_the_joint_grade_commits
+    from tests.diagnostic_augmentation_helpers import fail_after_the_model_grade_commits
 
     with monkeypatch.context() as patch:
-        fail_after_the_joint_grade_commits(patch)
+        fail_after_the_model_grade_commits(patch)
         with pytest.raises(ValueError, match="after the grade committed"):
             complete_attempt_with_ai_required(
                 practice.state.vault, practice.state.repository, practice._draft(),

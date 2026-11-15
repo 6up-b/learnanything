@@ -40,6 +40,8 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # under, replay reads every record as it was written (a pre-rule record keeps
 # its grader-sum grade and its M2 evidence), and a regrade rewrites a pre-rule
 # record under the rule (canonical_projection.unassessed_evidence_row).
+# Its kill switch (and the joint vault's shadow diagnosis) went once every vault
+# was past the tag; jointly graded history replays as it was recorded.
 DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 
 # mvp-0.11 (Slice A Phase 6, learner field F2): starting new material without

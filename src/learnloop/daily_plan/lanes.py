@@ -10,10 +10,10 @@ matches, in this order:
    open diagnosed problem (owner decision 2026-10-12): an unresolved causal
    hypothesis or an open unresolved-cause factor from Slice 1 M2 and Slice 2
    T1 (:func:`learnloop.db.stores.daily_plans.open_diagnosed_problem_learning_object_ids`).
-   A recent error alone is not repair. Only while the diagnosis split is off
-   (a vault below ``mvp-0.10``, or ``diagnosis.split_enabled = false``) does
-   the lane fall back to DL1's recency rule: the scheduler's ``recent_error``
-   at or above :data:`REPAIR_MIN_RECENT_ERROR`. A never-attempted item is new
+   A recent error alone is not repair. Only a caller that passes no reading
+   of open problems (the plan always passes one) gets DL1's recency rule: the
+   scheduler's ``recent_error`` at or above :data:`REPAIR_MIN_RECENT_ERROR`.
+   A never-attempted item is new
    material even on such an LO, so it stays under §6.3's admission, out of
    re-entry and off with ``plan.new_admission_enabled`` (review F1);
 3. **new**: never-attempted items (Phase 6's order), including never-attempted
@@ -54,10 +54,9 @@ _EPS = 1e-9
 #: Scheduler components that mark a follow-up (``_insert_pending_followups``).
 FOLLOWUP_COMPONENTS = ("intervention_followup", "negative_surprise_followup")
 
-#: The repair lane's recency bound (review F1), now ONLY the fallback while
-#: the diagnosis split is off (a vault below mvp-0.10, or
-#: ``diagnosis.split_enabled = false``): with the split on, repair means an
-#: open diagnosed problem (owner decision 2026-10-12; :data:`REPAIR_RULE_DIAGNOSIS`).
+#: The repair lane's recency bound (review F1), now ONLY the rule for a caller
+#: that passes no reading of open problems: the plan's repair means an open
+#: diagnosed problem (owner decision 2026-10-12; :data:`REPAIR_RULE_DIAGNOSIS`).
 #: The scheduler's ``recent_error`` is ``severity x exp(-days / 7)`` over every
 #: active learner error on the LO, so it never reaches zero however old the
 #: error. In the fallback an item is repair only at or above exp(-2): a
@@ -208,8 +207,8 @@ def classify_item(
     decision continues (its value pays for its minutes), whatever the count.
 
     ``open_problem`` says whether the item's LO has an open diagnosed problem
-    (owner decision 2026-10-12). ``None`` means the diagnosis split is off and
-    the repair lane falls back to the recency rule (:data:`REPAIR_MIN_RECENT_ERROR`).
+    (owner decision 2026-10-12). ``None`` (no reading passed) gives the
+    recency rule (:data:`REPAIR_MIN_RECENT_ERROR`).
     """
 
     components = getattr(scheduled, "components", {}) or {}
@@ -316,8 +315,8 @@ def classify_pool(
     """Classify the scheduler's ranked list, in rank order (§6.1).
 
     ``open_problem_learning_object_ids`` are the LOs with an open diagnosed
-    problem (the repair lane, owner decision 2026-10-12); ``None`` while the
-    diagnosis split is off, when repair falls back to the recency rule.
+    problem (the repair lane, owner decision 2026-10-12); ``None`` (the
+    plan never passes it) gives the recency rule.
 
     ``project_probe_admission`` (mvp-0.21, ``voi_stopping``) values today's
     due project probes together: ``[(scheduled item, its estimated minutes)]``

@@ -67,6 +67,8 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("AskConfig", ("cold_help_converts",), bool, True, "D7"),
     RetiredField("LearnLoopConfig", ("stuck_prompt", "enabled"), bool, True, "D7"),
     RetiredField("LearnLoopConfig", ("eligibility", "enabled"), bool, True, "D7"),
+    RetiredField("DiagnosisConfig", ("split_enabled",), bool, True, "D7"),
+    RetiredField("DiagnosisConfig", ("shadow",), bool, False, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

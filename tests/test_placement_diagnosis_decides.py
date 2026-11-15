@@ -41,7 +41,7 @@ from learnloop.placement.rules import (
     diagnosis_reason,
 )
 from learnloop.placement.state import load_placement_state
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue, read_due_queue
+from learnloop.scheduling.scheduler import SchedulerSession, read_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
@@ -179,21 +179,15 @@ def test_i_dont_know_this_does_not_wait_on_a_pending_diagnosis(tmp_path):
 @pytest.mark.parametrize(
     ("config", "client_kwargs", "fallback"),
     [
-        ("", {}, "split_disabled"),
         ("[diagnosis]\nmax_attempts = 1", {"fail_purposes": ("diagnosis",)}, "diagnosis_failed"),
         ("[diagnosis]\nmax_calls_per_day = 0", {}, "diagnosis_budget_skipped"),
     ],
-    ids=["split-disabled", "diagnoser-failed", "budget-skipped"],
+    ids=["diagnoser-failed", "budget-skipped"],
 )
 def test_no_diagnosis_can_arrive_falls_back_to_todays_rule(tmp_path, config, client_kwargs, fallback):
-    paths, vault, repository = _assumed(tmp_path, config=config)
+    _paths, vault, repository = _assumed(tmp_path, config=config)
     client = _Diagnosed(causal_class="transient_execution", **client_kwargs)
-    miss = _miss(vault, repository, client, drain=fallback != "split_disabled")
-    if fallback == "split_disabled":
-        # A queued diagnosis never runs with the kill switch off.
-        append_config(paths.root, "[diagnosis]\nsplit_enabled = false")
-        vault = load_vault(paths.root)
-        assert repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose", states=("queued",))
+    _miss(vault, repository, client)
 
     assumption, intent = _state(vault, repository)
     assert (assumption.status, assumption.resolution_reason, assumption.resolution.fallback) == (
@@ -508,18 +502,6 @@ def test_a_decided_miss_is_not_reopened_by_a_regrade(tmp_path):
     assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
 
 
-def _switch_split(paths, enabled: bool):
-    config = paths.root / "learnloop.toml"
-    text = config.read_text()
-    if "split_enabled" not in text:
-        append_config(paths.root, f"[diagnosis]\nsplit_enabled = {'true' if enabled else 'false'}")
-    else:
-        config.write_text(text.replace(
-            f"split_enabled = {'false' if enabled else 'true'}", f"split_enabled = {'true' if enabled else 'false'}",
-        ))
-    return load_vault(paths.root)
-
-
 def test_a_held_miss_stays_decided_at_its_hold(tmp_path):
     """F4, re-review F3: the kill switch held the miss's queued diagnosis
     (``payload.split_held_at``, write-once: stored history, the switch is gone):
@@ -555,44 +537,6 @@ def test_a_held_miss_stays_decided_at_its_hold(tmp_path):
     (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
     assert (job["state"], job["payload"]["split_held_at"]) == ("done", _iso(DUE_HOURS + 2))
     assert outcome(vault) == held
-
-
-def test_the_first_serving_build_with_the_split_off_records_the_hold(tmp_path):
-    """Re-review F3: the switch applies at once, and the first serving build
-    that sees it off records the hold on every queued live diagnosis (the
-    head of the line and those behind it), so switching it back on before any
-    worker pass does not reopen what that build served on. A read-only view
-    records nothing."""
-
-    paths, vault, repository = _assumed(tmp_path, los=(LO, "lo_transpose"))
-    first = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), drain=False)
-    second = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), item="pi_transpose_001",
-                   hours=DUE_HOURS + 1.5, drain=False)
-    off = _switch_split(paths, False)
-    for lo in (LO, "lo_transpose"):
-        assumption, intent = _state(off, repository, lo)
-        # Today's rule at once, as of the read: nothing has recorded the hold.
-        assert (assumption.status, assumption.resolution.fallback, intent.intent) == (
-            "failed", "split_disabled", "learning",
-        )
-        assert assumption.resolution.decided_at == READ_AT
-    read_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 2)))
-    assert not any("split_held_at" in job["payload"] for job in repository.post_attempt_jobs(kind="diagnose"))
-
-    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 3)))
-    jobs = {job["attempt_id"]: job for job in repository.post_attempt_jobs(kind="diagnose")}
-    assert {jobs[a.attempt_id]["payload"]["split_held_at"] for a in (first, second)} == {_iso(DUE_HOURS + 3)}
-
-    on = _switch_split(paths, True)
-    for lo in (LO, "lo_transpose"):
-        assumption, intent = _state(on, repository, lo)
-        assert (assumption.status, assumption.resolution.fallback, assumption.resolution.decided_at, intent.intent) == (
-            "failed", "split_disabled", _iso(DUE_HOURS + 3), "learning",
-        )
-    # A later serving build does not move the hold.
-    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 5)))
-    jobs = {job["attempt_id"]: job for job in repository.post_attempt_jobs(kind="diagnose")}
-    assert {jobs[a.attempt_id]["payload"]["split_held_at"] for a in (first, second)} == {_iso(DUE_HOURS + 3)}
 
 
 def test_a_miss_decided_before_the_hold_keeps_its_diagnosis(tmp_path):
@@ -775,9 +719,9 @@ def test_learner_side_help_in_maintenance_does_not_wait_on_a_pending_lapse(tmp_p
     )
 
 
-def test_the_state_loader_requires_the_split_reading_and_the_time(tmp_path):
+def test_the_state_loader_requires_the_time(tmp_path):
     """F9: a caller (DL1, or any new one) cannot silently default to waiting
-    on held jobs, or to waiting forever."""
+    forever."""
 
     from learnloop.placement.state import load_placement_state_from_connection
 
@@ -785,7 +729,5 @@ def test_the_state_loader_requires_the_split_reading_and_the_time(tmp_path):
     with repository.connection() as connection:
         with pytest.raises(TypeError):
             load_placement_state_from_connection(connection, active=True)
-        with pytest.raises(TypeError):
-            load_placement_state_from_connection(connection, active=True, diagnosis_live=True)
-        state = load_placement_state_from_connection(connection, active=True, diagnosis_live=True, now_iso=READ_AT)
+        state = load_placement_state_from_connection(connection, active=True, now_iso=READ_AT)
     assert LO in state.open_by_lo

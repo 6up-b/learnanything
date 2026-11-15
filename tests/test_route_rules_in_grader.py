@@ -831,35 +831,6 @@ def test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict(tmp_path):
     assert len(_route_judgments(repository, held.attempt_id)) == 3
 
 
-def test_f5_a_joint_regrade_supersedes_a_route_verdict(tmp_path):
-    """No shipped door reaches this today: a verdict is written only beside a
-    blind record, and an attempt with a blind record always regrades blind.
-    The regrade calls the writer on every success anyway, so the ledger's
-    current verdict never depends on that."""
-    from learnloop.db.stores.judgments import append_judgment
-
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[diagnosis]\nsplit_enabled = false")
-    result = submit(vault, repository, ReviewFakeClient(), answer=ALTERNATIVE, when=SUBMITTED)
-    assert repository.latest_blind_grade_record(result.attempt_id) is None
-    with connect(repository.sqlite_path) as connection:
-        seeded = append_judgment(
-            connection, task="own_route_rule", left_kind="attempt", left_id=result.attempt_id,
-            judge="llm", judge_model="fake-model", prompt_version="seeded", input_hash="seeded",
-            verdict=json.dumps({"status": "checked", "held_for_review": True}), rationale="seeded",
-            created_at=(SUBMITTED + timedelta(minutes=1)).isoformat(),  # between the grade and the regrade
-        )
-        connection.commit()
-    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
-                    runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai", clock=CLOCK)
-    assert repository.latest_blind_grade_record(result.attempt_id) is None  # a joint regrade
-    rows = _route_judgments(repository, result.attempt_id)
-    assert [row["id"] for row in rows][0] == seeded and len(rows) == 2
-    assert rows[1]["supersedes_id"] == seeded
-    assert json.loads(rows[1]["verdict"]) == {"status": "not_checked"}
-    prompt_version, input_hash = _latest_regrade_run(repository)
-    assert (rows[1]["prompt_version"], rows[1]["input_hash"]) == (prompt_version, input_hash)
-
-
 MVP017_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "mvp017_route_check_replay"
 
 

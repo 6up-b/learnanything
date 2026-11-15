@@ -19,11 +19,10 @@ from learnloop.diagnosis.split.jobs import (
     diagnosis_status,
 )
 from learnloop.ops.doctor import run_doctor
-from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.joint_grading_helpers import write_joint_answer
-from tests.split_live_helpers import ReadyRuntime, append_config, at, drain_jobs, split_vault, submit
+from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault, submit
 
 
 def _causal_keys(event):
@@ -202,33 +201,6 @@ def test_completion_resume_enqueues_the_diagnosis_once(tmp_path):
     assert len(repository.post_attempt_jobs(attempt_id=result.attempt_id)) == 1
 
 
-def test_kill_switch_restores_joint_grading(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, config="[diagnosis]\nsplit_enabled = false")
-    client = ReviewFakeClient()
-    result = submit(vault, repository, client)
-
-    assert client.calls == ["grading"]
-    assert repository.latest_blind_grade_record(result.attempt_id) is None
-    assert repository.post_attempt_jobs(attempt_id=result.attempt_id) == []
-    receipt = repository.diagnostic_augmentation_receipt_for_attempt(result.attempt_id)
-    assert receipt["grader_mode"] is None  # null reads as joint (§10)
-    assert repository.causal_hypotheses_for_attempt(result.attempt_id)
-
-
-def test_kill_switch_holds_queued_live_diagnoses(tmp_path):
-    paths, vault, repository = split_vault(tmp_path)
-    client = ReviewFakeClient()
-    result = submit(vault, repository, client)
-    append_config(paths.root, "[diagnosis]\nsplit_enabled = false")
-    vault = load_vault(paths.root)
-
-    outcomes = drain_jobs(vault, repository, client)
-
-    assert [(o.state, o.error) for o in outcomes] == [("released", "split_disabled")]
-    assert client.calls == ["blind_grading"]
-    assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING
-
-
 class _RegistryFake(ReviewFakeClient):
     """Diagnoses every event as the first durable registry belief it is offered."""
 
@@ -264,25 +236,6 @@ def test_registry_match_links_a_durable_belief_without_misconception_match(tmp_p
     assert "misconception_match" not in client.calls
     linked = {event["misconception_id"] for event in repository.raw_error_events_for_attempt(result.attempt_id)}
     assert linked == {misconception_id}
-
-
-def test_shadow_diagnosis_on_a_joint_vault_changes_nothing_live(tmp_path):
-    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-    _paths, vault, repository = split_vault(
-        tmp_path, version="mvp-0.9", config="[diagnosis]\nshadow = true\nsplit_enabled = false",
-    )
-    client = ReviewFakeClient()
-    result = submit(vault, repository, client)
-    hypotheses_before = repository.causal_hypotheses_for_attempt(result.attempt_id)
-    events_before = repository.error_events_for_attempt(result.attempt_id)
-
-    drain_jobs(vault, repository, client)
-
-    shadow = repository.latest_attempt_diagnosis(result.attempt_id, mode="shadow")
-    assert shadow is not None and shadow["status"] == "completed" and shadow["causal_view"] is None
-    assert repository.error_events_for_attempt(result.attempt_id) == events_before
-    assert repository.causal_hypotheses_for_attempt(result.attempt_id) == hypotheses_before
-    assert diagnosis_status(repository, result.attempt_id)["status"] == NOT_NEEDED
 
 
 def test_blind_regrade_supersedes_the_record_and_rediagnoses(tmp_path):
@@ -534,17 +487,9 @@ def test_non_practice_graders_use_the_blind_contract_in_an_isolated_turn(tmp_pat
     assert report["checked"] >= 1 and report["prompt_version"] == "mvp-2.0-blind-local-grader"
     assert set(client.calls) == {"blind_grading"} and all(client.isolated)
 
-    # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-    joint_paths, joint_vault, _joint_repository = split_vault(
-        tmp_path / "joint", version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false",
-    )
-    joint_client = ReviewFakeClient()
-    request_vault_grading_proposal(joint_vault, joint_client, context)
-    assert joint_client.calls == ["grading"]
 
-
-def test_only_the_joint_doors_call_the_joint_grading_operation():
-    """Review F2 guard: every other grader goes through the vault door."""
+def test_no_door_calls_the_joint_grading_operation():
+    """Review F2 guard: no door grades jointly; every grader goes through the blind doors."""
 
     import re
     from pathlib import Path
@@ -556,8 +501,8 @@ def test_only_the_joint_doors_call_the_joint_grading_operation():
         if re.search(r"\brequest_grading_proposal\(", path.read_text(encoding="utf-8"))
     }
     assert callers == {
-        "learnloop/attempts/grading.py",  # the definition and the vault door's joint branch
-        "learnloop/diagnosis/diagnostic_augmentation.py",  # joint practice grading (split inactive)
+        "learnloop/attempts/grading.py",  # the definition
+        "learnloop/diagnosis/diagnostic_augmentation.py",  # run_diagnosis_samples, the planted-eval harness's
         "learnloop/diagnosis/offline_review/runner.py",  # M1's joint baseline, on a scratch copy
     }
     # Nor may anything build the joint prompt itself and call around the door

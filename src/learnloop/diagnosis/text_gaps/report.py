@@ -98,14 +98,13 @@ def _first_checks(vault: LoadedVault, repository: Repository, gaps: list[dict[st
 
     from learnloop.placement.state import (
         LEARNER_TEXT_GAP_SOURCE,
-        diagnosis_can_arrive,
         load_placement_state_from_connection,
         placement_active,
     )
 
     with repository.connection() as connection:
         state = load_placement_state_from_connection(
-            connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+            connection, active=placement_active(vault),
             now_iso=utc_now_iso(), gap_commitments=True,
         )
     by_gap = {str(row["id"]): row for row in gaps}

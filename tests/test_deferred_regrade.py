@@ -22,7 +22,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, configure_codex_http, create_basic_vault, set_config_switch, write_facets
+from tests.helpers import NOW, configure_codex_http, create_basic_vault, write_facets
 from tests.http_provider_double import serve_structured
 
 import pytest
@@ -70,45 +70,6 @@ def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
     assert regraded_attempt["rubric_score"] == 4
     assert after_mastery.evidence_count == before_mastery.evidence_count
     assert after_mastery.logit_mean > before_mastery.logit_mean
-
-
-def test_deferred_regrade_validates_repaired_trace_against_learner_answer(tmp_path):
-    vault_root = tmp_path / "vault"
-    # The joint grader's repair suggestion and its repaired trace. A split vault's (mvp-0.10 on) blind
-    # grade carries no repair suggestions (repairs are the diagnoser's); `diagnosis.split_enabled` off
-    # restores joint grading for new attempts. Goes with that switch in D7.
-    paths = create_basic_vault(vault_root)
-    set_config_switch(vault_root, "diagnosis.split_enabled", False)
-    vault = load_vault(vault_root)
-    repository = Repository(paths.sqlite_path)
-    clock = FrozenClock(NOW)
-    sync_vault_state(vault, repository, clock=clock)
-    attempt = complete_self_graded_attempt(
-        vault,
-        repository,
-        AttemptDraft(
-            practice_item_id="pi_svd_define_001",
-            learner_answer_md="SVD uses U, Sigma, and V transpose.",
-        ),
-        SelfGradeInput(criterion_points={"correctness": 2}, confidence=3),
-        clock=clock,
-    )
-
-    result = run_deferred_regrades(
-        vault,
-        repository,
-        runtime=_ready_runtime(),
-        codex_client=_RepairingRegradeClient(score=4, points=4),
-        clock=clock,
-    )
-
-    assert result.as_dict() == {
-        "attempted": 1,
-        "regraded": 1,
-        "failed": 0,
-        "skipped_reason": None,
-    }
-    assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
 
 
 def test_deferred_regrade_replays_attempt_derived_state(tmp_path):

@@ -42,8 +42,6 @@ OUTSIDE_LEARNLOOP_TOML: tuple[str, ...] = ("phone_probes (mvp-0.54), in the phon
 
 TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     # Grading, attempts, replay
-    KillSwitch("diagnosis.split_enabled", "mvp-0.10", True),
-    KillSwitch("diagnosis.shadow", "mvp-0.10", False),
     KillSwitch("mastery.claim_fixes_enabled", "mvp-0.33", True),
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
     # Placement, recurrence, learner-text gaps, sources, value of information, the Decider

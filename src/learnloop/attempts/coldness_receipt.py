@@ -1294,8 +1294,8 @@ def _context_blinding(
     Answered from the Phase-C receipt (migration 144), which records what the
     grading call was actually handed: the grader provider/model, the prompt
     version, and the prior-attempt ids whose raw traces were attached as C4
-    history. ``augment_grading_context`` attaches those traces WITHOUT their
-    diagnoses by contract, so a receipt naming no prior attempt from this repair
+    history. The joint grader was handed those traces WITHOUT their diagnoses
+    by contract, so a receipt naming no prior attempt from this repair
     chain is positive evidence of blinding. No receipt (self-graded, manual, or
     a pre-Stage-7 attempt) is ``unknown``, never a pass.
     """

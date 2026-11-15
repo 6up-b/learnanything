@@ -51,7 +51,6 @@ from learnloop.daily_plan.chooser import CHOOSER_NAME, LaneQuotaChooser
 from learnloop.daily_plan.estimates import Estimator, load_duration_evidence
 from learnloop.daily_plan.lanes import (
     REPAIR_RULE_DIAGNOSIS,
-    REPAIR_RULE_RECENT_ERROR,
     LegacyLanesSource,
     PoolItem,
     SOURCE_NAME,
@@ -1109,20 +1108,11 @@ class _Pool:
     prefilter: Any = None
 
 
-def _open_problems(env: PlanEnv) -> tuple[frozenset[str] | None, str]:
-    """The repair lane's LOs (owner decision 2026-10-12) and the rule used.
+def _open_problems(env: PlanEnv) -> tuple[frozenset[str], str]:
+    """The repair lane's LOs (owner decision 2026-10-12) and the rule used:
+    an open diagnosed problem (an unresolved hypothesis or an open
+    unresolved-cause factor)."""
 
-    With the diagnosis split on, repair means an open diagnosed problem (an
-    unresolved hypothesis or an open unresolved-cause factor). While the split
-    is off (a vault below mvp-0.10, or ``diagnosis.split_enabled = false``)
-    there is no live diagnosis to read, and the lane falls back to DL1's
-    recency rule (``lanes.REPAIR_MIN_RECENT_ERROR``).
-    """
-
-    from learnloop.attempts.blind_grading import split_grading_active
-
-    if not split_grading_active(env.vault):
-        return None, REPAIR_RULE_RECENT_ERROR
     with env.repository.connection() as connection:
         return store.open_diagnosed_problem_learning_object_ids(connection), REPAIR_RULE_DIAGNOSIS
 

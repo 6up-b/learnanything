@@ -38,8 +38,6 @@ NOT_A_TABLED_SWITCH = {
 #: in one commit; a line left behind fails ``test_the_kept_because_list_names_only_live_switches_at_or_below_the_floor``.
 #: A switch that stays after D7 keeps its line with the reason it stays, and the list is the short one the rule asks for.
 _STANDING_WHEN_THE_TABLE_LANDED = (
-    "diagnosis.split_enabled",
-    "diagnosis.shadow",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
     "placement.enabled",

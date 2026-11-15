@@ -40,7 +40,6 @@ def placement_status(
     from learnloop.clock import utc_now_iso
     from learnloop.placement.state import (
         assumption_summary,
-        diagnosis_can_arrive,
         load_placement_state_from_connection,
         placement_active,
     )
@@ -50,7 +49,7 @@ def placement_status(
         with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
             connection.execute("BEGIN")
             state = load_placement_state_from_connection(
-                connection, active=placement_active(loaded), diagnosis_live=diagnosis_can_arrive(loaded),
+                connection, active=placement_active(loaded),
                 now_iso=utc_now_iso(),
             )
         payload = {
