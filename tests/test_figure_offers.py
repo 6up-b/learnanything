@@ -28,6 +28,7 @@ from learnloop.ai.execution import model_call
 from learnloop.figure_admission import FiguresChanged, FiguresGate, explorable_yes, offerable
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.tutor import ai_contracts as C
 from learnloop.tutor import reader_modes
@@ -321,8 +322,8 @@ def test_offers_off_the_contract_has_none_and_the_press_is_refused(tmp_path):
                                             "offerRef": ask_id})
     assert caught.value.code == "offers_disabled"
     # The service refuses it too (not only the RPC).
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.check_request(load_vault(paths.root), repository, FS.FigureRequest(
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FQ.check_request(load_vault(paths.root), repository, FQ.FigureRequest(
             extraction_id=EXTRACTION, span_ids=["p3"], origin="library"))
     assert refused.value.code == "offers_disabled"
     # A selection is unaffected.
@@ -335,7 +336,7 @@ def test_offers_off_the_contract_has_none_and_the_press_is_refused(tmp_path):
 def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(tmp_path):
     paths, repository = _vault(tmp_path)
     vault = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="library")
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="library")
     author = GatedAuthor()
     # The switch flips between the build's start and its first physical request.
     original = R.FigureRoute.ask
@@ -347,7 +348,7 @@ def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(
     import unittest.mock as mock
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        with pytest.raises(FS.FigureRefused) as caught:
+        with pytest.raises(FQ.FigureRefused) as caught:
             FS.build_figure(vault, repository, request, author_client=author)
     assert caught.value.code == "figures_changed"
     assert author.calls == 0
@@ -367,7 +368,7 @@ def test_a_selection_build_does_not_stop_for_the_offers_switch(tmp_path):
     import unittest.mock as mock
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        outcome = FS.build_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+        outcome = FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                                   author_client=author)
     assert outcome.view["origin"] == "selection" and author.calls == 1
 
@@ -385,8 +386,8 @@ def test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build(tmp_p
     import unittest.mock as mock
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        with pytest.raises(FS.FigureRefused) as caught:
-            FS.build_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+        with pytest.raises(FQ.FigureRefused) as caught:
+            FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                             author_client=author)
     assert caught.value.code == "figures_changed" and author.calls == 0
 
@@ -394,15 +395,15 @@ def test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build(tmp_p
 def test_the_gate_key_of_an_offered_build_includes_the_offers_switch(tmp_path):
     paths, _repository = _vault(tmp_path)
     vault = load_vault(paths.root)
-    offered = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor")
-    revision = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor", supersedes_id="fig_x")
-    assert FS.key_for(offered) is FS.offer_build_key
-    assert FS.key_for(revision) is FS.build_key  # a "not right?" version is a revision
-    gate = FiguresGate(vault, FS.key_for(offered), live_vault=lambda: vault)
+    offered = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor")
+    revision = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor", supersedes_id="fig_x")
+    assert FQ.key_for(offered) is FQ.offer_build_key
+    assert FQ.key_for(revision) is FQ.build_key  # a "not right?" version is a revision
+    gate = FiguresGate(vault, FQ.key_for(offered), live_vault=lambda: vault)
     gate.check()
     set_config(paths, "figures", offers_enabled=False)
     later = load_vault(paths.root)
-    gate = FiguresGate(vault, FS.key_for(offered), live_vault=lambda: later)
+    gate = FiguresGate(vault, FQ.key_for(offered), live_vault=lambda: later)
     with pytest.raises(FiguresChanged):
         gate.check()
 

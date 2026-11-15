@@ -29,6 +29,7 @@ from learnloop.content.pipeline.runner import IngestRunner
 from learnloop.db.stores import figures as store
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
 from tests.figure_rich_job_helpers import WHY, _ledger, _Rig
@@ -177,7 +178,7 @@ def test_a_failed_enqueue_is_not_swallowed_and_is_recovered(tmp_path, monkeypatc
         raise RuntimeError("queue busy")
 
     vault = rig.vault
-    outcome = FS.build_figure(vault, rig.repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    outcome = FS.build_figure(vault, rig.repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                               author_client=rig.author, spawn_rich=broken)
     assert outcome.view["verification"] == "illustrative"
     assert any("could not start the rich job" in record.getMessage() for record in caplog.records)
@@ -227,7 +228,7 @@ def test_a_cancelled_rich_only_build_leaves_no_line_and_cannot_be_retried(tmp_pa
     rig.ingest.cancel_batch(rig.batches[-1])
     rig.ingest.drain()
     assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
-    with pytest.raises(FS.FigureRefused) as refused:
+    with pytest.raises(FQ.FigureRefused) as refused:
         FS.retry_rich_job(rig.vault, rig.repository, outcome.rich["rich_job_id"])
     assert refused.value.code == "not_failed"
 
@@ -339,11 +340,11 @@ def test_a_revision_needs_the_manim_tier_on_this_computer(tmp_path, monkeypatch)
     rig.ingest.drain()
     (first,) = rig.listed()
     RF.configure(rig.paths, manim_opt_in="declined")
-    with pytest.raises(FS.FigureRefused) as refused:
+    with pytest.raises(FQ.FigureRefused) as refused:
         rig.build(FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
     assert refused.value.code == "manim_unavailable"
     RF.configure(rig.paths, rich_tiers_enabled=False)
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.check_request(rig.vault, rig.repository,
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FQ.check_request(rig.vault, rig.repository,
                          FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
     assert refused.value.code == "rich_disabled"

@@ -210,7 +210,7 @@ def test_e_the_lesson_envelope_refusing_a_visual_still_closes_the_lesson_with_bu
 
 def test_e_the_visual_builder_decides_by_the_lesson_gate_alone():
     from learnloop.ai.spend import SpendLimitExceeded
-    from learnloop.figures.service import FigureRefused
+    from learnloop.figures.request import FigureRefused
     from learnloop.teacher import visuals as V
 
     try:

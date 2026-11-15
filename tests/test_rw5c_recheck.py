@@ -14,6 +14,7 @@ from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
@@ -230,7 +231,7 @@ def test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild(tmp_p
     assert listed["sourceCheck"]["rebuild"] is True and listed["specJson"] is None
     assert rows(repository, "interactive_figures")[0]["verification"] == "illustrative"
     # Predictions and an attempt's open refuse it too.
-    with pytest.raises(FS.FigureRefused):
+    with pytest.raises(FQ.FigureRefused):
         FS.shown_figure(load_vault(paths.root), repository, figure["figureId"])
 
 
@@ -284,13 +285,13 @@ def test_rebuild_of_a_figure_with_no_difference_is_refused(tmp_path, monkeypatch
 
 def test_the_reuse_key_is_unchanged_without_a_source_check_id():
     context_ = FS.SourceContext(passage=[{"span_id": "a", "type": "Text", "text": "x"}])
-    plain = FS.FigureRequest(extraction_id="e", span_ids=["a"])
-    rebuilt = FS.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
-    other = FS.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")
+    plain = FQ.FigureRequest(extraction_id="e", span_ids=["a"])
+    rebuilt = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
+    other = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")
     hashes = {FS.request_hash(request, context_, None) for request in (plain, rebuilt, other)}
     assert len(hashes) == 3
     # initial_problems are the answer to the check row: they never key a request by themselves.
-    assert FS.request_hash(FS.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
+    assert FS.request_hash(FQ.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
         == FS.request_hash(plain, context_, None)
 
 
@@ -302,7 +303,7 @@ def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_pat
     set_switch(paths, False)
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     try:
-        outcome = FS.build_prefetch_figure(load_vault(paths.root), repository, FS.FigureRequest(
+        outcome = FS.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
             extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
     finally:
         P.set_power_reader(None)

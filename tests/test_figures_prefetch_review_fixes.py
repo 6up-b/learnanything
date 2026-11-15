@@ -42,6 +42,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
@@ -65,8 +66,8 @@ def _held(monkeypatch, spans: set[str]) -> None:
                         lambda v, r, e, found: "held out" if spans & set(found) else real(v, r, e, found))
 
 
-def _prefetch_request(spans=("p3",), **fields) -> FS.FigureRequest:
-    return FS.FigureRequest(extraction_id=EXTRACTION, span_ids=list(spans), origin="prefetch", **fields)
+def _prefetch_request(spans=("p3",), **fields) -> FQ.FigureRequest:
+    return FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=list(spans), origin="prefetch", **fields)
 
 
 def _rich_rig(tmp_path, monkeypatch, answers, rich_answers=None) -> _Rig:
@@ -126,7 +127,7 @@ def test_f2_a_quick_prebuild_on_a_metered_author_route_sends_nothing(tmp_path):
     set_config(paths, "figures", price_per_million=2.0)
     vault = load_vault(paths.root)
     author = AuthorFake(provider_type="openrouter")
-    with pytest.raises(FS.FigureRefused) as refused:
+    with pytest.raises(FQ.FigureRefused) as refused:
         FS.build_prefetch_figure(vault, repository, _prefetch_request(), author_client=author)
     assert refused.value.code == "figures_changed" and author.calls == 0
     assert FS.PREFETCH_AUTHOR_NOT_PLAN in refused.value.message
@@ -301,7 +302,7 @@ def test_f7_a_quick_prebuild_stops_before_its_request_while_the_learner_works(tm
     _paths, repository, vault = make_vault(tmp_path)
     author = AuthorFake()
     with FG.foreground("tutor"):
-        with pytest.raises(FS.FigureRefused) as refused:
+        with pytest.raises(FQ.FigureRefused) as refused:
             FS.build_prefetch_figure(vault, repository, _prefetch_request(), author_client=author)
     assert refused.value.code == "figures_changed" and author.calls == 0
     assert P.YIELDED in refused.value.message
@@ -847,7 +848,7 @@ def test_r1_a_pressed_fuller_keeps_its_pending_line_and_is_not_speculative(tmp_p
     def lost(payload):
         raise RuntimeError("the sidecar stopped before the enqueue")
 
-    FS.build_figure(rig.vault, rig.repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    FS.build_figure(rig.vault, rig.repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                     author_client=rig.author, spawn_rich=lost)
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
     fuller = FV.fuller_state(rig.vault, rig.repository, _quick_row(rig))

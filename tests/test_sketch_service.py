@@ -23,6 +23,7 @@ import pytest
 
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.figures import sketch as K
 from learnloop_sidecar.errors import SidecarError
@@ -140,7 +141,7 @@ def test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
     assert _ledger(repository, "figure_tier") == []
     (row,) = rows(repository, "interactive_figures")
     assert row["prompt_version"] == R.author_prompt_version(advanced=True) == R.ADVANCED_PROMPT_VERSION
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context_ = FS.SourceContext()
     assert FS.request_hash(request, context_, None) == FS.request_hash(request, context_, None, sketch=False)
     assert FS.request_hash(request, context_, None) != FS.request_hash(request, context_, None, sketch=True)

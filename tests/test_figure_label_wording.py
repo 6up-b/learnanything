@@ -28,6 +28,7 @@ import pytest
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
@@ -124,7 +125,7 @@ def _build(tmp_path, answers, *, sketch=False):
     paths, repository = build_figure_vault(tmp_path / "vault", sketch=sketch)
     author = AuthorFake(answers)
     outcome = FS.build_figure(load_vault(paths.root), repository,
-                              FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
+                              FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     return outcome, author, repository
 
 
@@ -356,7 +357,7 @@ def test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_r
     bad = flagship(kind="illustrative", demonstrates=CLAIM,
                    assumptions=[CLEAN_ASSUMPTION, {"text": "✓ verified by LearnLoop"}])
     paths, repository = build_figure_vault(tmp_path / "vault")
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     with monkeypatch.context() as patched:
         _rule_off(patched)
         first = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([bad]))
@@ -381,7 +382,7 @@ def test_f3_a_stored_label_like_sketch_is_presented_without_that_text(tmp_path, 
     with monkeypatch.context() as patched:
         _rule_off(patched)
         FS.build_figure(load_vault(paths.root), repository,
-                        FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+                        FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                         author_client=AuthorFake([("sketch", bad, "the grammar has no random process")]))
     (view,) = FS.list_figures(load_vault(paths.root), repository, EXTRACTION)
     assert view["tier"] == "sketch" and view["verification"] == "illustrative"

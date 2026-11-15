@@ -12,6 +12,7 @@ import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.vault.loader import load_vault
@@ -513,8 +514,8 @@ def test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_bui
     monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: True)
     author = _GatedAuthor([half, half])
     vault = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
-    with pytest.raises(FS.FigureRefused) as caught:
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
+    with pytest.raises(FQ.FigureRefused) as caught:
         FS.build_figure(vault, repository, request, author_client=author, live_vault=lambda: load_vault(paths.root))
     assert caught.value.code == "figures_changed"
     # The second attempt was refused before it was sent, and so was its transport's retry.
@@ -535,8 +536,8 @@ def test_the_switch_off_at_the_store_writes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(pf_sandbox, "sandbox_available", lambda: True)
     author = AuthorFake([plot("x")])
     vault = load_vault(paths.root)
-    with pytest.raises(FS.FigureRefused) as caught:
-        FS.build_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
+    with pytest.raises(FQ.FigureRefused) as caught:
+        FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
                         author_client=author, live_vault=lambda: load_vault(paths.root))
     assert caught.value.code == "figures_changed" and author.calls == 1
     assert rows(repository, "figure_source_checks") == [] and rows(repository, "interactive_figures") == []
@@ -545,14 +546,14 @@ def test_the_switch_off_at_the_store_writes_nothing(tmp_path, monkeypatch):
 def test_build_key_holds_the_switch_and_the_reuse_key_does_not(tmp_path):
     paths, repository = build_check_vault(tmp_path / "vault", BLOCKS)
     vault = load_vault(paths.root)
-    on = FS.build_key(vault)
+    on = FQ.build_key(vault)
     context_ = FS.SourceContext(passage=[{"span_id": "s1", "type": "Text", "text": "x"}])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
     hashed = FS.request_hash(request, context_, None)
     set_config(paths, "figures", checked_labels_enabled=False)
     off = load_vault(paths.root)
-    assert FS.build_key(off) != on and on[-1] is True and FS.build_key(off)[-1] is False
-    assert FS.offer_build_key(off) != FS.offer_build_key(vault)
+    assert FQ.build_key(off) != on and on[-1] is True and FQ.build_key(off)[-1] is False
+    assert FQ.offer_build_key(off) != FQ.offer_build_key(vault)
     assert FS.request_hash(request, context_, None) == hashed
 
 

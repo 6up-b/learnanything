@@ -83,6 +83,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.figures.protection import ATTEMPT_HOST_REFS, figure_withheld
 from learnloop.figures.sketch import sketch_ready
@@ -161,7 +162,7 @@ def _require(ctx: SidecarContext):
     return vault, repository
 
 
-def _refused(exc: FS.FigureRefused) -> SidecarError:
+def _refused(exc: FQ.FigureRefused) -> SidecarError:
     return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped", FS.STORAGE_BUSY))
 
 
@@ -251,7 +252,7 @@ def _rich_spawner(ctx: SidecarContext, vault: Any, *, granted: bool = True) -> A
     return spawn
 
 
-def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str, Any] | None = None
+def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str, Any] | None = None
            ) -> dict[str, Any]:
     from learnloop_sidecar.handlers.library_ask import _job_payload
 
@@ -281,7 +282,7 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
                 outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
                                           live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn,
                                           cancelled=cancelled)
-        except FS.FigureRefused as exc:
+        except FQ.FigureRefused as exc:
             raise _refused(exc) from exc
         result: dict[str, Any] = {"figure": outcome.view, "reused": outcome.reused}
         if outcome.rich is not None:
@@ -450,7 +451,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
                          span_ids=[*span_ids, (region or {}).get("span_id")], reading_span_keys=span_keys)
     if reading_at and reading_at.get("extraction_id"):
         require_identity(repository, extraction_id=str(reading_at["extraction_id"]), span_ids=[reading_at.get("span_id")])
-    if origin in FS.SERVICE_ORIGINS:
+    if origin in FQ.SERVICE_ORIGINS:
         # RW5d P4b: a lesson's figure is the lesson service's (lesson.turn); the
         # prefetch service's is in-process only. No RPC names either origin.
         raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
@@ -510,11 +511,11 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     if policy != "reading":
         raise SidecarError("validation_error", "Figures on practice, feedback or lessons come in a later version.")
     try:
-        request = FS.check_request(vault, repository, FS.FigureRequest(
+        request = FQ.check_request(vault, repository, FQ.FigureRequest(
             extraction_id=str(extraction_id or home), span_ids=list(span_ids), region=region, origin=origin,
             goal_text=goal, goal_author=goal_author, reading_at=reading_at, host_ref=host_ref, caller=caller,
             grounding_keys=keys))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_requested", {"extraction_id": request.extraction_id,
                                             "span_count": len(request.span_ids), "via": origin},
@@ -522,7 +523,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     if request.goal_text is not None:
         # RW5d (salience only): never the words, only that they were given and with what.
         _event(repository, "show_me_requested", {"extraction_id": request.extraction_id, "via": origin,
-                                                 "anchored": FS.anchored(request),
+                                                 "anchored": FQ.anchored(request),
                                                  "goal_author": request.goal_author},
                extraction_id=request.extraction_id)
     if request.region is not None:
@@ -648,7 +649,7 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
         revision = FS.rebuild_request(vault, repository, base) if params.rebuild else \
             FS.revision_request(repository, base, params.note)
         revision.different_kind = bool(params.different_kind)
-        if current or FS.attempt_hosted(revision):
+        if current or FQ.attempt_hosted(revision):
             # RW5d P3: a figure open on an attempt host is revised there, under
             # the host as it stands now (submitted since: free; cold: its take
             # step), and the new version is the same figure for the count.
@@ -670,8 +671,8 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
                                                        "help: take the step first.")
             revision.host_ref = host.ref()
             attempt = host.record()
-        request = FS.check_request(vault, repository, revision)
-    except FS.FigureRefused as exc:
+        request = FQ.check_request(vault, repository, revision)
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_revision_requested", {"extraction_id": base["extraction_id"],
                                                      "figure_id": base["id"]}, extraction_id=base["extraction_id"])
@@ -862,13 +863,13 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
                                       author_client=getattr(ctx, "figure_author_client", None),
                                       live_vault=ctx.loaded_vault, find=getattr(ctx, "figure_find_sources", None),
                                       spawn_rich=_rich_spawner(ctx, vault))
-        except FS.FigureRefused as exc:
+        except FQ.FigureRefused as exc:
             raise _refused(exc) from exc
         started = (outcome.rich or {}).get("rich_job_id") or params.rich_job_id
         return versioned({"rich_job_id": started, "state": "pending"})
     try:
         code = FS.retry_rich_job(vault, repository, params.rich_job_id)
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     jobs = getattr(ctx, "ingest_jobs", None)
     if jobs is None or not hasattr(jobs, "retry_figure_rich") or not jobs.retry_figure_rich(
@@ -927,7 +928,7 @@ def reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> di
         found = FS.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer,
                                      on_queued=_wake_gap_worker(ctx), assist_id=_prediction_assist(vault, repository,
                                                                                                    params.figure_id))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_predicted", {"figure_id": params.figure_id, "extraction_id": found.get("extraction_id"),
                                             "status": "matched" if found.get("matched") else "missed"},
@@ -962,7 +963,7 @@ def reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> di
     try:
         found = FS.record_explanation(vault, repository, params.prediction_id, params.text,
                                       on_queued=_wake_gap_worker(ctx))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "figure_explained", {"figure_id": found.get("figure_id"),
                                             "extraction_id": found.get("extraction_id")},
@@ -1283,10 +1284,10 @@ def _request_attempt_figure(ctx: SidecarContext, vault: Any, repository: Any, *,
         raise SidecarError(TAKE_STEP_REQUIRED, "On a check on your own, a figure makes this practice with help: "
                                                "take the step first.")
     try:
-        request = FS.check_request(vault, repository, FS.FigureRequest(
+        request = FQ.check_request(vault, repository, FQ.FigureRequest(
             extraction_id=None, span_ids=[], origin="ask", goal_text=goal, goal_author="learner",
             host_ref=host.ref(), caller=caller))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _event(repository, "show_me_requested", {"extraction_id": None, "via": "ask", "anchored": False,
                                              "goal_author": "learner", "host": host.kind}, extraction_id=None)
@@ -1525,7 +1526,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
     _refuse_rich(stored)
     try:
         row, _compiled = FS.shown_figure(vault, repository, figure_id)
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _refuse_own_blocks(vault, repository, host.item_id, row)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:

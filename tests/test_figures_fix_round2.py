@@ -30,6 +30,7 @@ from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import sweep_backlog
 from learnloop.figures import grammar as G
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures import spec as S
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
@@ -200,7 +201,7 @@ def test_pmf_supports_past_the_safe_integers_are_refused():
 def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_path, monkeypatch):
     paths, repository = build_figure_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     first = FS.build_figure(vault, repository, request, author_client=AuthorFake([flagship(kind="illustrative")]))
     assert first.reused is False
     # The interleaving: this build's first `reusable` read ran before the

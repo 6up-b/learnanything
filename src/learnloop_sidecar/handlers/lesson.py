@@ -178,7 +178,7 @@ def _figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
         from learnloop.figures import service as FS
 
         # Every request is admitted against the vault loaded NOW (the build's FiguresGate); no rich
-        # spawner: a lesson host is grammar and sketch only (FS.LESSON_TIERS).
+        # spawner: a lesson host is grammar and sketch only (``figures.request.LESSON_TIERS``).
         return FS.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
                                live_vault=getattr(ctx, "loaded_vault", None),
                                find=getattr(ctx, "figure_find_sources", None),

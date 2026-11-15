@@ -42,6 +42,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import records as FR
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build_figure_vault, set_config
 from tests.helpers import set_algorithm_version
@@ -73,12 +74,12 @@ def ledger(tmp_path: Any, **figures: Any) -> tuple[Any, Any, Any, str, str]:
     if figures:
         set_config(paths, "figures.prefetch", **figures)
     vault = load_vault(paths.root)
-    FS.build_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                     author_client=AuthorFake())
     with repository.connection() as connection:
         pressed = {row[0] for row in connection.execute(
             "SELECT owner_id FROM model_call_receipts WHERE purpose = 'figure_author'")}
-    FS.build_prefetch_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p2"],
+    FS.build_prefetch_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p2"],
                                                                  origin="prefetch"), author_client=AuthorFake())
     with repository.connection() as connection:
         owners = {row[0] for row in connection.execute(

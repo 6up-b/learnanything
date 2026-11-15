@@ -970,7 +970,7 @@ FIGURE_LEARNER = {"topics": [{"learning_object_id": "lo_pin_svd", "title": "Two-
 
 
 def _figure_request(**changes: Any) -> Any:
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     return FigureRequest(**{"extraction_id": "ext_pin", "span_ids": ["s3"], **changes})
 
@@ -1031,7 +1031,7 @@ def _request_fields() -> Any:
     """The FigureRequest fields the reuse key reads, with their defaults: a request built without one hashes its
     default, so a renamed field or a changed default moves every key built from such requests."""
 
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     read = ("extraction_id", "span_ids", "region", "supersedes_id", "revision_note", "source_check_id",
             "different_kind", "goal_text", "goal_author")

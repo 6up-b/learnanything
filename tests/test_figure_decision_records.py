@@ -38,6 +38,7 @@ from learnloop.figures import prefetch_model as PM
 from learnloop.figures import records as FR
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from tests.figure_fixtures import (
     DENSITY_TEXT,
     EQUATION_TEXT,
@@ -249,7 +250,7 @@ def test_a_queue_stopped_by_foreground_work_records_what_waits(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("raised, rule, status", [
-    (FS.FigureRefused("capped", "Today's figure budget is used."), FR.STOP_BUILD_REFUSED, "refused"),
+    (FQ.FigureRefused("capped", "Today's figure budget is used."), FR.STOP_BUILD_REFUSED, "refused"),
     (RuntimeError("the build blew up"), FR.STOP_BUILD_FAILED, "failed"),
 ])
 def test_a_refused_or_failed_prebuild_is_a_stop_record(tmp_path, monkeypatch, raised, rule, status):
@@ -341,9 +342,9 @@ def test_a_refused_build_leaves_a_refused_record(tmp_path, monkeypatch):
 
     monkeypatch.setattr(R.FigureRoute, "problem",
                         lambda self: R.FigureUnavailable("capped", "Today's figure budget is used."))
-    with provenance.trace_scope("TRACE_REFUSED"), pytest.raises(FS.FigureRefused):
+    with provenance.trace_scope("TRACE_REFUSED"), pytest.raises(FQ.FigureRefused):
         FS.build_figure(load_vault(paths.root), repository,
-                        FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=AuthorFake())
+                        FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=AuthorFake())
     (record,) = why(paths.root, "TRACE_REFUSED")["records"]
     assert (record["kind"], record["status"], record["rule"]) == (FR.KIND_AUTHOR, "refused", "capped")
     assert record["facts"]["attempt"] == 0 and record["facts"]["outcome"] == "capped"

@@ -30,6 +30,7 @@ from mcp import Client
 from learnloop.figures import protection as FP
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.figures.learner_state import RECENT_ANSWERS, learner_state, read_learner_state, state_hash
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows, \
@@ -110,7 +111,7 @@ def test_the_learner_state_reaches_the_author_and_protected_work_never_does(tmp_
     assert row["prompt_version"] == R.author_prompt_version(advanced=True, learner=True)
     assert row["prompt_version"].endswith("+learner-v1")
     vault = load_vault(world.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context_ = FS.source_context(vault, world.repository, request)
     assert row["input_hash"] == FS.request_hash(request, context_, None, advanced=True, learner_state=state)
     assert row["input_hash"] != FS.request_hash(request, context_, None, advanced=True)
@@ -227,7 +228,7 @@ def test_switched_off_the_payload_prompt_and_key_are_the_predecessors_byte_for_b
     (empty_row,) = rows(repository, "interactive_figures")
     assert off_row["prompt_version"] == empty_row["prompt_version"] == R.ADVANCED_PROMPT_VERSION
     vault = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     predecessor = FS.request_hash(request, FS.source_context(vault, repository, request), None, advanced=True)
     assert off_row["input_hash"] == empty_row["input_hash"] == predecessor
 
@@ -249,7 +250,7 @@ def test_no_state_keeps_todays_key_so_the_switch_reuses_todays_figure(tmp_path, 
 
 
 def test_the_reuse_key_and_prompt_version_name_the_state_only_when_non_empty():
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context_ = FS.SourceContext()
     base = FS.request_hash(request, context_, None)
     assert FS.request_hash(request, context_, None, learner_state=None) == base
@@ -272,7 +273,7 @@ def test_the_rich_author_receives_what_the_figure_author_received():
     """The rich job's author context is the figure author's (``_author_context``):
     with state, its learner_state goes with it; without, nothing is added."""
 
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     plain = FS._author_context(request, FS.SourceContext(), None, None, (), request_id="r")
     assert "learner_state" not in plain
     request.learner_state = {"topics": [{"topic": "t", "status": "learning"}]}
@@ -423,9 +424,9 @@ def test_a_saved_learner_state_with_no_record_of_its_inputs_is_never_sent(tmp_pa
 
 def test_the_switch_is_in_the_build_and_rich_keys(tmp_path):
     paths, _repository = _plain_vault(tmp_path, switch=True)
-    on = FS.build_key(load_vault(paths.root))
+    on = FQ.build_key(load_vault(paths.root))
     _switch_off(paths)
-    assert FS.build_key(load_vault(paths.root)) != on
+    assert FQ.build_key(load_vault(paths.root)) != on
 
 
 # ---------------------------------------------------------------------------

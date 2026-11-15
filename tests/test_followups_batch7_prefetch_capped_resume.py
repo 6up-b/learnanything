@@ -27,6 +27,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.ops.settings_store import apply_config_updates
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
@@ -239,7 +240,7 @@ def test_the_highest_sampled_eu_of_a_capped_batch_goes_first(tmp_path):
 
 def test_a_figure_the_learner_pressed_for_meanwhile_is_not_counted_as_the_prebuilds(tmp_path):
     paths, repository, vault, author, capped = _capped_section(tmp_path)
-    pressed = FS.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="selection")
+    pressed = FQ.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="selection")
     FS.build_figure(vault, repository, pressed, author_client=author, clock=_clock(DAY_ONE + timedelta(hours=1)))
     assert author.calls == 2
     requests = count(repository, "figure_requests")
@@ -422,7 +423,7 @@ def test_close_horizons_itself_links_first(tmp_path, monkeypatch):
 def _orphan_request(repository: Any, decision_id: str, when: datetime) -> str:
     """A rich-only build's request whose job never started (the enqueue failed, or the sidecar stopped)."""
 
-    asked = FS._request_row(FS.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
+    asked = FS._request_row(FQ.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
                                              prefetch_decision_id=decision_id),
                             FS.Grounding("anchor"), figure_id=None, clock=_clock(when))
     with repository.atomic():

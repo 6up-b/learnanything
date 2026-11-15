@@ -23,6 +23,7 @@ import pytest
 from learnloop.ai.execution import model_call
 from learnloop.db.stores import figures as figure_store
 from learnloop.figures import service as FS
+from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
@@ -80,9 +81,9 @@ def test_f1_switching_off_during_grounding_stops_its_calls_and_the_author(tmp_pa
     paths, repository = _vault(tmp_path)
     find = GatedFind([("ext_book", "s2")], calls=2, after=after, flip=lambda: FLIPS[flip](paths))
     author = AuthorFake([flagship(kind="illustrative")])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,
                                goal_author="learner", reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
-    with pytest.raises(FS.FigureRefused) as caught:
+    with pytest.raises(FQ.FigureRefused) as caught:
         FS.build_figure(load_vault(paths.root), repository, request, author_client=author, find=find)
     assert caught.value.code == "figures_changed"
     # Switched off after the first call: the second is never admitted. After
@@ -95,7 +96,7 @@ def test_f1_the_control_admits_every_grounding_call(tmp_path):
     paths, repository = _vault(tmp_path)
     find = GatedFind([("ext_book", "s2")], calls=2, after=99, flip=lambda: None)
     author = AuthorFake([flagship(kind="illustrative")])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,
                                goal_author="learner", reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
     outcome = FS.build_figure(load_vault(paths.root), repository, request, author_client=author, find=find)
     assert find.admitted == 2 and author.calls == 1 and outcome.view["grounding"] == "retrieved"
@@ -105,12 +106,12 @@ def test_f1_a_reuse_after_show_me_is_switched_off_is_refused(tmp_path):
     paths, repository = _vault(tmp_path)
     find = FindFake([("ext_book", "s2")])
     author = AuthorFake([flagship(kind="illustrative")])
-    request = lambda: FS.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,  # noqa: E731
+    request = lambda: FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me", goal_text=GOAL,  # noqa: E731
                                        goal_author="learner", reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
     FS.build_figure(load_vault(paths.root), repository, request(), author_client=author, find=find)
     flipping = GatedFind([("ext_book", "s2")], calls=1, after=1,
                          flip=lambda: set_config(paths, "figures", show_me_enabled=False))
-    with pytest.raises(FS.FigureRefused) as caught:
+    with pytest.raises(FQ.FigureRefused) as caught:
         FS.build_figure(load_vault(paths.root), repository, request(), author_client=author, find=flipping)
     assert caught.value.code == "figures_changed"
     assert len(_requests(repository)) == 1 and author.calls == 1

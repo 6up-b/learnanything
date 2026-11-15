@@ -330,9 +330,10 @@ def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
     paragraphs around it (``service.source_context``, the anchored build's own context)."""
 
     from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
 
     try:
-        context = FS.source_context(env.vault, env.repository, FS.FigureRequest(
+        context = FS.source_context(env.vault, env.repository, FQ.FigureRequest(
             extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids)))
     except Exception:  # noqa: BLE001 - a context that can't be read: its passage only
         return list(candidate.span_ids)
@@ -1344,6 +1345,7 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
     with the switch on and today's caps with room (rechecked on the vault as configured now)."""
 
     from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
 
     ids = [str(row["id"]) for row, _candidate in queue]
 
@@ -1409,13 +1411,13 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
             # Landing ruling R5: the lesson step's own request (no passage, its grounding keys);
             # a lesson host is grammar and sketch only, so no rich job (the input hash is the step's).
             spawn = None
-            request = FS.FigureRequest(extraction_id=None, span_ids=[], origin="prefetch",
+            request = FQ.FigureRequest(extraction_id=None, span_ids=[], origin="prefetch",
                                        goal_text=candidate.goal_text, goal_author="teacher",
                                        grounding_keys=[tuple(key) for key in candidate.grounding_keys],
                                        prefetch_decision_id=str(row["id"]))
         else:
             spawn = _rich_spawn(env)
-            request = FS.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
+            request = FQ.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
                                        origin="prefetch", goal_text=candidate.goal_text,
                                        goal_author=candidate.goal_author if candidate.goal_text else None,
                                        prefetch_decision_id=str(row["id"]))
@@ -1424,7 +1426,7 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
                 FS.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
                                          clock=env.clock, live_vault=env.live_vault, find=env.find,
                                          spawn_rich=spawn)
-            except FS.FigureRefused as exc:
+            except FQ.FigureRefused as exc:
                 result.notes.append(f"{row['id']}: {exc.code}")
                 stop(position, FR.STOP_BUILD_REFUSED, "refused", rest=False, refusal=exc.code)
                 continue

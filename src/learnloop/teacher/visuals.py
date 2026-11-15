@@ -13,7 +13,7 @@ figure), a teacher turn may carry a ``visual`` and ``write_plan`` nodes a planne
 * grounding: the delivered passages the teacher named, as fixed keys (no retrieval). The figure
   service refuses the whole request when any of them is exam or held-out material now, before
   any call (the one predicate); a lesson figure has no home in the Reader;
-* tiers: grammar and sketch (:data:`learnloop.figures.service.LESSON_TIERS`): the turn waits on
+* tiers: grammar and sketch (:data:`learnloop.figures.request.LESSON_TIERS`): the turn waits on
   its figure, so no rich (queued, minutes-long) tier is offered in a lesson.
 
 The figure renders in the turn. **Its own predictions are suppressed in a lesson** (the teacher
@@ -204,7 +204,7 @@ def figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> A
     the lesson's caller context (:func:`learnloop.teacher.actions.caller_for`, passed in by the service,
     so this module never imports the read actions, which reach the notes' code)."""
 
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     keys = []
     for alias in resolved["anchors"]:
@@ -251,12 +251,12 @@ def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], 
     """Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend
     refusal of the lesson's envelope propagates, so the lesson closes with ``budget``)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
 
     base = _base(resolved)
     try:
         outcome = builder(figure_request(state, resolved, caller=caller))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         if _budget_refused(state, exc):
             raise
         status = WITHHELD if exc.code == "exam_material" else (
