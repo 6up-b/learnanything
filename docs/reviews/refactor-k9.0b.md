@@ -106,7 +106,8 @@ Fresh backup-API copies of `learnanything-ad1/fixtures-local/owner-copies-mvp058
 
 ## 7. Gates
 
-- Targeted: `scripts/affected_tests.py --base ed96d1b9d0` names 1,315 files (the schema and `algorithm_versions` are imported nearly everywhere); run in 14 chunks of up to 100 at `-n 4 -m "not arc_close"`, behind the full-suite lock, in a 5 GB scope through the empty-home wrapper: see the report for the totals. The forty-seed file (arc close) ran separately: 5 passed.
+- Targeted: `scripts/affected_tests.py --base ed96d1b9d0` names 1,315 files (the schema and `algorithm_versions` are imported nearly everywhere); run in 14 chunks of up to 100 at `-n 4 -m "not arc_close"`, behind the full-suite lock, in a 5 GB scope through the empty-home wrapper, on the source tip `1026d8e109`: **28,550 passed, 101 skipped, 12 xfailed, 0 failed**. The forty-seed file (arc close) ran separately: 5 passed.
+- Vault: references regenerated once after the source commits (`6e564dbd1e`); a second `generate_all.py` on the clean tree changed nothing. `db_validate_reference.py` asked for the prose leaf count (1183, `7ea30730b6`) and then passed; `module_validate.py` and `validate_vault.py` pass; `desktop_validate.py` fails as it does at the base (it hard-codes 324 TypeScript files at `:196`, the tree has 326; nothing under `apps/` or the Desktop notes changed here). `scripts/check_gate_partition.py`: 30,898 collected, landing 30,833 + arc_close 65.
 - `test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets`, `test_kill_switches`, `test_registry_audit`, `test_upgrades`, `test_facet_belief_successor` and the two step files: 378 passed. No pin moved, no ratchet rose.
 - `ruff check` clean; `lint-imports --no-cache` 42 kept, 0 broken.
 
