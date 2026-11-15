@@ -282,6 +282,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_image_request_is_refused_by_a_transport_that_cannot_read_images`
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_without_a_grant_a_plan_down_job_waits_and_asks_nothing`
+- [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
 - [tests/test_figure_rich_review_fixes.py](../../../../../../tests/test_figure_rich_review_fixes.py) — direct import
   - `test_a_rich_only_tier_judgment_is_receipted_once_against_its_request`
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import

@@ -142,6 +142,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/sketch_parity_corpus.py](../../../../../../tests/sketch_parity_corpus.py) — direct import
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
   - `test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes`
 - [tests/test_sketch_hostile.py](../../../../../../tests/test_sketch_hostile.py) — direct import

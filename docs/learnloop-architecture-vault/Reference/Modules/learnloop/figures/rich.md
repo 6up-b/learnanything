@@ -245,6 +245,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/followups_batch6_prefetch_plan_wait_helpers.py](../../../../../../tests/followups_batch6_prefetch_plan_wait_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
   - `test_the_vocabulary_comes_from_the_code_owned_labels`
@@ -257,6 +258,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_the_quick_figure_shows_first_and_the_fuller_one_lands_under_it`
   - `test_without_a_grant_a_plan_down_job_waits_and_asks_nothing`
+- [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
+  - `test_every_stop_code_has_a_case`
 - [tests/test_figure_rich_review_fixes.py](../../../../../../tests/test_figure_rich_review_fixes.py) — direct import
   - `test_a_cancel_raised_inside_the_render_repair_propagates`
   - `test_a_crash_rerun_keeps_the_generation_and_the_rich_prompt`

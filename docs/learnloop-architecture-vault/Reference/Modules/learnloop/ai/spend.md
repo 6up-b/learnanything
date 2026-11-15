@@ -344,6 +344,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unknown_price_fails_closed_even_with_high_cap`
   - `test_unusable_verdict_without_retry_budget_is_ledgered_and_reasked`
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
+- [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`
   - `test_e_the_visual_builder_decides_by_the_lesson_gate_alone`

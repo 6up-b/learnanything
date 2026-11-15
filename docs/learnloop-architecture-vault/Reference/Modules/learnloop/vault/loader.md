@@ -1434,6 +1434,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
   - `test_practice_screen_payload_marks_help_before_work`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import

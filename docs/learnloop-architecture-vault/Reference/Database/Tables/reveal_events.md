@@ -141,6 +141,7 @@ Database triggers:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/ad23_fakes.py`
+- `tests/figure_build_golden_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/ro2_history_protection_helpers.py`
 - `tests/router_outcomes_helpers.py`
@@ -158,7 +159,6 @@ Database triggers:
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_intent_orchestrator_rulings.py`
-- `tests/test_mcp_tools.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

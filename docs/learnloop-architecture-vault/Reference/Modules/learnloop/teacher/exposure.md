@@ -114,9 +114,9 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 
 ## Modification guidance
 

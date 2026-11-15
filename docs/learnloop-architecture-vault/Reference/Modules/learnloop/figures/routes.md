@@ -191,10 +191,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_batch3_landing.py](../../../../../../tests/test_batch3_landing.py) — direct import
   - `test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under_the_cap`
 - [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
   - `test_both_prompts_spell_the_shape_out_under_new_versions`
+- [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_refused_build_leaves_a_refused_record`
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import

@@ -117,6 +117,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/figure_build_golden_helpers.py`
 - `tests/figures_migration_helpers.py`
 - `tests/help_assist_figures_migration_helpers.py`
 - `tests/test_architecture.py`

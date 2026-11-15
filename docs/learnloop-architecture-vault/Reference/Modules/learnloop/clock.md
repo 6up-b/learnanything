@@ -524,6 +524,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_identity_helpers.py](../../../../../tests/facet_identity_helpers.py) — direct import
 - [tests/facet_reword_confirm_helpers.py](../../../../../tests/facet_reword_confirm_helpers.py) — direct import
 - [tests/facet_rewords_helpers.py](../../../../../tests/facet_rewords_helpers.py) — direct import
+- [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
 - [tests/followups_helpers.py](../../../../../tests/followups_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../tests/forecast_receipts_helpers.py) — direct import

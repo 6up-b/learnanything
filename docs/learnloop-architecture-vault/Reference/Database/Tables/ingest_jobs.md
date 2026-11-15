@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 - `tests/ad23_fakes.py`
 - `tests/background_owners.py`
+- `tests/figure_build_golden_helpers.py`
 - `tests/figure_rich_rpc_helpers.py`
 - `tests/reading_request_sweep_helpers.py`
 - `tests/reread_safety_helpers.py`
@@ -124,14 +125,13 @@ None found by exact static reference scan.
 - `tests/test_capture_route_recovery.py`
 - `tests/test_collection_append_units.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_figure_build_golden.py`
 - `tests/test_figure_rich_failed_correction_durable.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_review_fixes.py`
 - `tests/test_figure_rich_rpc.py`
 - `tests/test_figures_help_codex_review.py`
 - `tests/test_figures_prefetch_review_fixes.py`
-- `tests/test_followups_batch6_prefetch_plan_wait.py`
-- `tests/test_followups_batch6_review_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
