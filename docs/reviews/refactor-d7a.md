@@ -181,3 +181,182 @@ No new bug was found.
 - ADR-019 says what a removed switch's field becomes, what the kept-because list is for, and that this batch began the removals (94 to 87).
 - `Concepts/Algorithm Versions and Reproducibility` and `Maps/LearnLoop Pipeline Map` say the own-route and method switches went with the floor; `Concepts/Attempt Processing` and `Concepts/Learning System` name none of the seven and are unchanged. The playbook's two dated records (route-check-in-grader, method-explicit items) are history and are left as written.
 - Ledger rows D7-1, D7-3 and D7-5 say what this landing settles (§7).
+
+# Part 2
+
+Branch `refactor/d7b-switches-rest`, based on part 1's tip `b391ed7cc2`. Same rule, precondition and conventions as part 1 (§1-§9 above). This landing removes two more of the batch's switches, `ask.cold_help_converts` and `stuck_prompt.enabled`, and stops at the boundary the brief allows after them: `eligibility.enabled` is blocked on a file this step was told to stay out of (§14), and the two replay-read switches are not started. Line numbers are the base's (`b391ed7cc2`).
+
+## 10. Step 0, per switch
+
+### `ask.cold_help_converts` (mvp-0.35)
+
+- **Reads:** one predicate, `serve_eligibility.help_converts_active` (`serve_eligibility.py:956`, getattr default **False**: a vault without the section, or no vault, read as the predecessor), and its callers: submit (`attempts/attempts.py:2894`, as `submit_decision(help_converts=)`, `:2753`, into `EligibilityInputs.help_converts`, `serve_eligibility.py:403`, read at `:689`); the Reader's unbound cold Ask (`reader/reader_dialogue.py:769`, `:870-871`); the bound Ask (`sidecar/handlers/reader_tutor.py:245`, `BoundAsk.cold_counts_every_question`); a workbench question on a cold item (`sidecar/handlers/tutor_qa.py:446`, `PanelAsk.count_every_question` into `tutor_qa.ask_question(count_every_question=)`); the check's served view (`intent/checks.py:185`, `:209`); the cold-retry reschedule's predicate (`diagnosis/remediation.py:1124`); the sidecar snapshot (`sidecar/context.py:1111`), which the desktop parsed into `ask.coldHelpConverts` and no non-test code read (ledger D7-5).
+- **Off code:** submit's refusal of a hinted cold check (`serve_eligibility.py:697-702`); the L6 rule in the three Ask paths (every cold question counts); `served_check`'s `cold_followup` duty (the measured view for a due cold follow-up); `cold_followup_view`'s `None`. With the switch gone: `EligibilityInputs.help_converts`, `submit_decision`'s parameter, `BoundAsk.cold_counts_every_question` and `BoundAsk.cold` (read only by `hint_equivalent`, which is now the ordinary classification whatever the binding), `PanelAsk.count_every_question` and `ask_question`'s `count_every_question`, `_record_cold_hint_equivalent`'s defaults (one caller, which now always passes both), `reschedule_cold_after_assist_active` (its "no vault" answer stays as `_reschedule_assisted_cold_retry`'s own `vault is None` guard), the snapshot key and the desktop flag. `COLD_CHECK_ASSISTED` stays: a declared-primed cold check is still refused with it, and logged decisions name it.
+- **What else reaches the off code:** nothing. Every caller passed a loaded vault (the reschedule's no-vault callers, replay and a regrade, keep their guard). Submit's `eligibility.enabled = false` arm (the bare guard, `attempts.py:2897-2903`) refuses a hinted cold retry by itself; it belongs to the eligibility switch and is untouched here.
+- **Replay:** none. Replay reads each attempt's stored flags; the rule changes what submit admits and how a new question is counted.
+- **Identity:** the whole-config digest only (`RETIRED_FIELDS`). No receipt or `projection_switches` stores it; the snapshot key was live UI state.
+- **Tests:** off-only and predecessor tests (§12); none reached a predecessor through `tests/successor_switches.py` (its `SWITCHES_BY_TAG` names none of this part's switches, so neither it nor its test changes).
+
+### `stuck_prompt.enabled` (mvp-0.13)
+
+- **Reads:** `attempts/stuck.py:69` (`stuck_prompt_active`, default True) and its seven callers: submit's refusal of a stuck draft (`attempts/attempts.py:2864`), the CLI (`cli/app.py:3460`), the terminal app (`tui/screens/practice.py:92`), the sidecar snapshot (`sidecar/context.py:1051`, the desktop's `practice.stuckPrompt`), `submit_attempt_on` (`sidecar/handlers/practice.py:1394`) and `submit_dont_know_on` (`:1648`). The desktop read the snapshot in `algoConfig.ts` and `PracticeScreen.tsx` and `DialogueProbe.tsx`.
+- **What the learner sees today with it on (every owner vault), per surface, and after:**
+  - *Desktop practice card:* an "I'm stuck" control (plain and classic cards), ^d labelled "I'm stuck" and opening the prompt; the same Submit sends the stuck answer. Unchanged: the off arms ("don't know" label, the `submitDontKnow` call) are gone.
+  - *Desktop dialogue probe:* an "I'm stuck" button and an empty answer allowed once pressed. Unchanged; the "Don't know" button and its `submitDontKnow` branch are gone.
+  - *Terminal app:* ^d opens the stuck prompt; an empty submit records an empty stuck answer (`submit_stuck_empty`). Unchanged; the `dont_know` door (a `dont_know` attempt), reached only with the switch off, is gone, and the binding is named for what it does (`stuck`).
+  - *CLI:* `--stuck` accepted; `--attempt-type dont_know` recorded as an empty stuck answer with a note. Unchanged; the refusal of `--stuck` is gone.
+  - *Phone:* the phone never read the switch. Its question screen always offers "I'm stuck" and sends `declaredStuck` through `submit_attempt` (`apps/learnloop-mobile/src/practice/QuestionScreen.tsx`); it never calls `submit_dont_know` (allowlisted only). Unchanged.
+  - *A client that still calls `submit_dont_know`:* an empty stuck answer, as today.
+- **The non-stuck tail of `submit_dont_know` (`practice.py:1695-1748`).** Reached only when `stuck` was false, and `stuck` was the predicate of the vault alone: no item type, probe or surface reached it (a probe takes the stuck branch with `stuck_probe`, an item whose types lack `independent_attempt` takes `hint_fold.attempt_type`). So it is dead and goes; the RPC stays. `DontKnowInput.self_grade` stays, read by nothing, because the params model forbids extra keys and an older client may still send it. `submit_attempt_on`'s route of a stale empty stuck answer to `submit_dont_know_on` (`:1395-1423`) was the switch's own off arm, and with it `submit_dont_know_on`'s `hint_window_fold` parameter (its only non-default caller). `client.submitDontKnow` in the desktop has no caller left and goes.
+- **Replay:** reads the stored `declared_stuck` (`attempts.py:1429`), never the switch.
+- **Identity:** the whole-config digest only. Nothing stores the snapshot key.
+- **Tests:** §12.
+
+### `eligibility.enabled` (mvp-0.27): not removed, see §14.
+
+## 11. What went
+
+| commit | switch | what |
+|---|---|---|
+| `d38e44156f` | `ask.cold_help_converts` | Reader CA2's one help rule is the only rule; the predicate and everything that carried it go (§10); the desktop's dead `coldHelpConverts` goes (D7-5) |
+| `f756285e51` | `stuck_prompt.enabled` | every surface offers "I'm stuck"; the predicate, the desktop's "don't know" paths, the terminal app's `dont_know` door, the CLI refusal and `submit_dont_know`'s non-stuck tail go; `[stuck_prompt]` retired whole |
+
+In each: the field into `RETIRED_FIELDS` (`removed_by` `D7`; `AskConfig` now keeps retired fields; `[stuck_prompt]` is retired whole on `LearnLoopConfig`), the kill-switch table row and its kept-because line, the registry rule (`ask.cold_help_converts`; `stuck_prompt.enabled` had no rule of its own in `params/parameter_registry.py`), the vault generator's descriptions (`stuck_prompt`), the tag's comment in `algorithm_versions.py`, the effective-defaults golden (one line each), and the desktop in the same commit (typecheck and vitest). Kept-because list: 87 to 85.
+
+**Deletion proof:** `help_converts_active`, `help_converts`, `count_every_question`, `cold_counts_every_question`, `reschedule_cold_after_assist_active`, `_cold_help_converts`, `coldHelpConverts`, `stuck_prompt_active`, `stuckPrompt`, `submitDontKnow`, `dont_know` (the TUI method and `action_dont_know`) searched over `src/`, `scripts/`, `tests/`, `apps/` and the vault's `_scripts/` as names and strings: no function-local or `importlib` import, no registry, Typer or `MODULE_INVENTORY` entry left. The sidecar's `submit_dont_know` RPC, `DontKnowInput` and the phone's allowlist entry stay.
+
+## 12. Tests
+
+**Deleted** (each with its subject):
+- `test_reader_ca2_one_ask::test_the_rule_is_live_only_with_its_switch` (the predicate); `::test_switched_off_a_hinted_cold_retry_is_refused_as_before` (off refuses help on a cold retry); the off arm of `::test_a_due_cold_follow_up_is_served_with_the_take_step`.
+- `test_cold_retry_reschedule::test_the_gate_is_ca2s_rule` (2 cases: the predicate and its no-vault answer, which the replay test still covers: replay schedules nothing).
+- `test_intent_fix_round4::test_f15_a_check_with_a_cold_follow_up_is_served_under_that_duty` (the measured view of a due cold follow-up, DL2 as at its tag with CA2 off).
+- `test_reader_rw1c_review::test_a_cold_bound_ask_is_a_hint_whatever_its_type_and_its_cold_row` (4 cases: the L6 rule; its comment said it goes with the switch).
+- `test_reader_workbench_rw2a::test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay` (submit's refusal of help on a cold check, as at mvp-0.27 with CA2 off).
+- `test_serve_eligibility::test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting` (the same refusal through the CLI).
+- `test_stuck_prompt::test_the_control_is_offered_and_the_switch_restores_it` (the predicate), `::test_kill_switch_restores_dont_know_exactly` (off equals mvp-0.12), `::test_cli_refuses_stuck_where_it_is_not_offered` (the CLI refusal), and the switched-off half of `::test_a_stuck_draft_is_refused_where_the_control_is_not_offered` (now `test_a_stuck_draft_is_never_dont_know`, the other half).
+- `test_stuck_prompt_replay::test_the_kill_switch_never_changes_how_stuck_answers_replay` (on and off rebuild alike: the twin's on side is two rebuilds, which the file's other tests cover).
+- `test_tui_practice::test_practice_screen_dont_know_runs_shared_post_attempt_pipeline` (the terminal app's `dont_know` door).
+- vitest: `PracticeScreen.test.tsx` "keeps today's don't know control and call when the vault does not offer I'm stuck" and "never restores stuck mode where the vault does not offer it"; `DialogueProbe.test.tsx` "keeps Don't know where the vault does not offer I'm stuck".
+
+**Every assertion changed, and why:**
+
+| test | before | after | why |
+|---|---|---|---|
+| `test_reader_ca2_one_ask::test_the_successor_is_one_constant_after_rebuild_equivalence` | `AskConfig().cold_help_converts is True`, its registry rule | removed (`panel_enabled`'s stay) | the field and rule are gone |
+| `test_reader_ca2_one_ask::test_a_hinted_cold_check_converts` (was `…_the_predecessor_refuses_…_and_the_successor_converts_it`) | refused with `help_converts=False`, converted with `True` | converted | twin: the on side |
+| `test_reader_ca2_one_ask::test_the_bound_cold_ask_follows_the_rule` | `substantive or cold_every` | `substantive` (one parameter) | twin; `BoundAsk` has no cold rule now |
+| `test_reader_ca2_one_ask::test_the_readers_cold_paths_count_only_a_substantive_question` (was `…_count_a_clarification_only_under_the_predecessor`) | counts `not converts or mechanism`; stored type `other` when off | counts `mechanism`; stored type the tutor's | twin: the on side |
+| `test_reader_ca2_one_ask::test_the_snapshot_carries_the_panel` | the snapshot's `ask` has `coldHelpConverts: True` | not listed | the key is gone |
+| `test_reader_ca2_codex_review` (workbench question on a cold item; worked help taken first) | parametrized on the switch; off refuses / counts every question | the on side only | twins |
+| `test_reader_ca2_codex_review::test_the_answer_box_on_a_cold_item_…` | ran with the switch off | runs at the default | its assertion (a clarification is free) holds either way |
+| `test_intent_fix_round4::test_f15_the_serve_chooses_the_variant_server_side_and_one_completion_satisfies_both` | the serve carries `duty: cold_followup`, the measured banner, no help header | no duty, not the measured banner, the help header, `cold` | it reached DL2's F15 duty through CA2's switch; at the head a due cold follow-up is served with the ladder (CA2 §15 Q4). "One completion satisfies both" is asserted unchanged |
+| `test_curriculum_c0b_landing::test_iii_…` | `reschedule_cold_after_assist_active(vault) is True` | removed | the predicate is gone; the reschedule's behaviour assertions stand |
+| `test_stuck_prompt::test_sidecar_empty_stuck_submission_is_instant_and_routes_to_feedback` | snapshot `practice.stuckPrompt is True` | the snapshot has no `practice` key | the key is gone |
+| `test_stuck_prompt::test_tui_ctrl_d_…` | `screen.stuck_prompt is True` | removed | the attribute is gone |
+| `test_stuck_prompt_replay::test_a_recorded_stuck_answer_replays_as_stuck_under_an_older_tag` (was `…_with_the_prompt_off`) | wrote `[stuck_prompt] enabled = false`, asserted the predicate false | neither | the key is ignored and the predicate gone; every replay assertion stands |
+| `test_stuck_prompt_replay::test_an_attempt_an_older_tag_wrote_…` | `stuck_prompt_active(head)` | removed | the predicate is gone |
+| `test_reading_step_switch` | `stuck_prompt_active(switched_off)` | removed | the predicate is gone |
+| vitest `PracticeScreen.test.tsx`, `DialogueProbe.test.tsx` | `submitDontKnow` not called | removed | the client method is gone |
+| vitest `PracticeScreen.adaptiveOff.test.tsx` (4 file snapshots) | the card as the base rendered it with `stuckPrompt` false | the same card with the "I'm stuck" control and the `^d I'm stuck` key | the snapshots were written with the switch's off value (the test set no `practice` key); a token diff of every frame shows exactly those two differences and nothing else. The test's comment says so |
+
+**Same subject, other route:**
+- `test_sidecar_contract::test_sidecar_counts_queued_intervention_followups_in_session_summary`: it made its error-tagged miss with a `dont_know` attempt, reached by turning `stuck_prompt.enabled` off. It now submits a self-graded zero tagged `retrieval_failure` (the tag `dont_know` carried); every assertion stands (the follow-up queued, the triggered action, the summary's count). It still turns `followup.generate_and_serve` and `voi_stopping.enabled` off, for later batches.
+- `test_tui_feedback::test_tui_retry_resumes_a_committed_grade_instead_of_recording_another`: its `dont_know` case is now `empty_stuck` (press "I'm stuck", empty box, `submit_stuck_empty`): the retry still resumes the committed grade.
+
+Edits made by a script rather than the Edit tool: most source and test edits were exact-pattern replacements in Python one-offs that assert each pattern occurs exactly once (or a block cut between two unique markers); the desktop's test mocks lost `coldHelpConverts: true`, `practice: { stuckPrompt: true }` and `submitDontKnow: vi.fn()` by a mechanical replace over the files that named them; `ruff check --fix --select F401` removed the imports deleted tests left unused.
+
+## 13. Proof
+
+**The retired-config identities, with each entry removed.** For each of the nine `removed_by = "D7"` entries (part 1's seven and this part's two), `RETIRED_FIELDS` without that one line (a mutation, not committed) makes `test_a_config_setting_the_removed_switches_keeps_every_identity` fail: both cases for a field of a kept model (`TeacherConfig`'s two, `PracticeConfig`'s two, `HintsConfig`, `AskConfig`), the `default` case for a section retired whole (`[proof_check]`, `[required_method]`, `[stuck_prompt]`; the `switched` case passes, because the file's table survives on `LearnLoopConfig` as an unread extra and dumps the same bytes). Restored after each run.
+
+**P-shadow**, as part 1's (§5), base `b391ed7cc2` against this branch at `f756285e51` (counts only; copies deleted):
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `learnloop upgrade`, both | `mvp-0.58 -> mvp-0.59` | same | same |
+| shadow facet / mastery / schedule changed | 0 / 0 / 0 (80 / 21 / 99 unchanged) | 0 / 0 / 0 (3 / 18 / 77) | 0 / 0 / 0 (7 / 34 / 32) |
+| `schedule_effects` due dates moved (items, cards) | 0, 0 | 0, 0 | 0, 0 |
+| the two shadow reports, marker id, `as_of` and hashes aside | equal | equal | equal |
+| every table of the two upgraded copies, row by row | 402 tables, 19,442 rows: none differ | 402, 10,426: none | 402, 23,877: none |
+| the same after the shadow | none differ | none | none |
+| the same after a real rebuild on each side | 19,749 rows: none differ | 10,498: none | 23,719: none |
+
+**Old rows at the floor and the head** (`fixtures/mvp017_route_check_replay`, retagged to `mvp-0.58` and `mvp-0.59`, two live rebuilds per code): every table equal row by row after each rebuild at both tags except the one `attempt_debug_payloads` row of `att_02_svd_fail`; with replay's minted hypothesis ULIDs normalized in its dictionary keys too, the only differing field is the diagnosis receipt's id (hashed from that ULID), as in part 1.
+
+**Goldens.** The effective-defaults golden lost exactly two lines (`ask.cold_help_converts`, `stuck_prompt.enabled`) and gained none. The CLI snapshot did not change (no CLI parameter names either switch; `--stuck` keeps its contract). The grade-application and due-queue goldens: see §15.
+
+## 14. `eligibility.enabled`: step 0, and why it stops here
+
+**Every reader of the old lane** (base line numbers), as the inventory's hazard asks, before anything is deleted:
+- the predicate `serve_eligibility.decision_active` (`serve_eligibility.py:968`, getattr default **False**: no vault, or a config without the section, reads as mvp-0.26);
+- the scheduler: the cold lane (`scheduling/scheduler.py:1924`, off arm `_predecessor_defer_revealed_cold_followups`, `:2039-2179`), and the three hold callers `cold_check_hold_until` (`:2218`), `cold_check_serve_hold` (`:2303`) and `cold_check_serve_decision` (`:2327`), whose off arms call `_predecessor_cold_check_hold_until` (`:2226-2283`), which alone calls `reveal_coverage.routine_displays_covering` (`reveal_coverage.py:124`) from the scheduler;
+- serving exclusions and doors that reach those holds: the daily plan (`daily_plan/engine.py:2306`, `:4100`, `:5872`), the terminal app's serve (`tui/screens/practice.py:98`), the sidecar's queue (`sidecar/handlers/queue.py:443`, and `deferred_cold_followups` at `:229`, which reads `_cold_task_reveals` with no switch and stays), the CLI's serve (`cli/app.py:3487`), the quick check (`diagnosis/quick_check.py:203`);
+- submit: the bare cold guard (`attempts/attempts.py:2878`, off arm `:2897-2903`) and the auto-prime window (`:3253`);
+- the probe guard: `diagnosis/probe_episodes.py:1250` (`routine_display_covers_item`, whose off arm is `routine_displays_covering`'s other caller) and `:1271` (`refuse_routine_display_covered`);
+- doctor and reports: none read the switch or the old lane.
+
+**Why it stops.** Two of those readers are in `diagnosis/probe_episodes.py`, which this step was told to stay out of (it has just changed on main). And there the predecessor is reachable without the switch: both functions take `vault: LoadedVault | None = None`, so a caller that omits the vault gets mvp-0.26's guard through `decision_active(None)` (ledger D7-3). Every production caller found passes one (`probe_episodes.py:1412`, `:1529`, `:1692`; `causal_orchestrator.py:2033`; `sidecar/handlers/practice.py:646`), and `refuse_routine_display_covered`'s own off arm calls `routine_display_covers_item` without one. Removing the field while leaving those two arms would make `decision_active` read the missing field as off for every vault, which serves the predecessor everywhere; making it a constant while the arms stay would leave dead code in a file this step may not touch. So the switch, its predicate, the scheduler's predecessor functions and `routine_displays_covering` are all left for a landing that may edit `probe_episodes.py` (after K9.0b is on main), with the `vault=None` defaults made required or the off arms deleted in the same commit. About 255 source lines in 9 files; the tests that turn it off: `test_serve_eligibility.py`, `test_serve_eligibility_review.py`, `test_reader_workbench_rw2a.py`, `test_forced_withdrawal_records.py`, `test_device_eligibility.py`, `test_mobile_rpc.py`, `test_ux_phase4_feedback.py`, `test_ux_phase4_landing.py`, and the helper `serve_eligibility_helpers.py`.
+
+`replay.ledger_bounded` and `mastery.claim_fixes_enabled` were not started: this landing hands back at the boundary the brief allows after the small switches, and each of those goes alone with its own rebuild proof.
+
+## 15. Gates run
+
+All under the empty-home wrapper in 5 GB scopes.
+- Each commit: the tests naming its predicate, module or surface, with the identity, retired-config, kill-switch, effective-defaults, CLI-snapshot, test-layout, architecture and structure tests: 113 files for `ask.cold_help_converts` (3,331 passed, 2 skipped), 185 files for `stuck_prompt.enabled` in two chunks behind the lock (4,715 passed; one collection error, `test_reading_step_switch.py` still importing `stuck_prompt_active`, fixed in that commit and rerun: 5 passed). Desktop, in each commit: `tsc --noEmit` clean; vitest over every touched test file and `src/screens`, `src/components`, `src/app` (switch 2: 278 files, 2,799 passed).
+- **The sweep:** `scripts/affected_tests.py --base b391ed7cc2` selects 1,336 test files; all ran in 14 chunks of 100 at `-n 4 -m "not arc_close"` behind `flock /tmp/learnloop-fullsuite.lock`, on `5374ead19c`: **29,085 passed, 101 skipped, 13 xfailed, 3 errors**. The three errors are teardown thread-guard reports in `test_followup_next_matrix.py` (a background carry thread still draining after the 2 s grace); the file passed whole on a rerun (71 passed). Ledger D7-7. The grade-application and due-queue goldens ran in it unchanged.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,833 collected, landing 30,773 + arc_close 60. `tests/test_structure_ratchets.py`: golden lowered (`c6bc1e17dc`: functions over 200 lines 74 to 73, `submit_attempt_on` no longer one; stage-naming comments 2,381 to 2,378).
+- Vault: references regenerated once after the source commits (`5374ead19c`), `Config - stuck_prompt` deleted by hand and the two hand-written leaf counts changed (1,175 to 1,173 leaves, 78 to 77 sections); a second `generate_all.py` changed nothing. Validators: `db_validate_reference`, `module_validate`, `validate_vault` pass; `desktop_validate` fails on its hard-coded source count (expects 324 TypeScript files, finds 326), its activation audit and its lifecycle count, with no TypeScript file added or removed by this branch (the same counts at the base; part 1 recorded the last two).
+- The owner lane: §16.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, the arc-close lane, the full vitest suite (`npm test`), `cargo check`, `npm run frontend:build`.
+
+## 16. The owner lane, the census and the measures
+
+**The owner lane** (`-m owner_vaults`, 31 files, copies made with the gate's `owner_copy_make.py` under `fixtures-local/owner-lane-d7b`, deleted after): 92 passed, 8 skipped, as at part 1. No owner-lane test was edited.
+
+**The census** (part 1's scratch plugin around `version_floor.may_open_below_floor`), over the 17 test files this part edited, base code and tests against this branch: **68 test cases opened a vault below the floor at the base, 59 now (-9)**, in 9 files then and 8 now. The 4 cases the branch has and the base lacks are the same tests renamed or unparametrized (§12) at their old tags. The 59 left (`test_intent_fix_round4` 18, `test_serve_eligibility` 16, `test_reader_ca2_one_ask` 15, the stuck-prompt files 6, four others 4) are successor tests whose vaults sit at their own tag for their chain and upgrade assertions, and `test_serve_eligibility`'s also wait on `eligibility.enabled`; none waits on a switch this part removed. (The base run had two unrelated failures, `test_mobile_allowlist::test_the_clients_retry_policy_is_the_allowlists` and `test_reader_rw1c_review::test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold`, because the base extract carries no `apps/`.)
+
+**Measures** (`scripts/refactor_measures.py`; the base column is part 1's run at `debed5c3e6`, whose `src/` and `tests/` differ from `b391ed7cc2` only in the structure golden):
+
+| measure | part 1 | this part |
+|---|---|---|
+| ADR-019's kept-because list | 87 | 85 |
+| tagged switches in `TAGGED_SWITCHES` | 88 | 86 |
+| `mvp-0.N` literals: code / docstring / comment | 272 / 335 / 592 | 268 / 330 / 582 |
+| `config/schema.py` lines | 5,015 | 4,989 |
+| raw lines; code lines (all four packages) | 614,906; 432,488 | 614,626; 432,306 |
+| functions over 200 lines | 74 | 73 |
+| `src/` lines (diff from `b391ed7cc2`) | | +116, -396 |
+| Python test lines (diff) | | +75, -346 |
+| desktop lines (diff, `apps/`) | | +87, -231 |
+| comments naming a stage artifact | 2,381 | 2,378 |
+
+## 17. Bug ledger
+
+- **D7-1:** unchanged in substance; neither switch here is read by replay. The row says what is left (the two replay-read switches, not started).
+- **D7-3:** `help_converts_active`'s getattr default of False went with its switch (a fifth such read the row did not name). `decision_active(None)` stays with `eligibility.enabled`, and is reachable through the probe guard's `vault=None` defaults (§14).
+- **D7-5:** the desktop's `ask.coldHelpConverts` and the snapshot key that fed it are deleted.
+- **D7-7 (new):** the sweep's teardown errors in `test_followup_next_matrix.py` (§15).
+
+## 18. What remains, and judgment calls
+
+**Not removed here:** `eligibility.enabled` with the pre-eligibility cold lane and hold (§14: needs `diagnosis/probe_episodes.py`); `replay.ledger_bounded` and `mastery.claim_fixes_enabled` (not started; each alone, with a real rebuild on every copy and the mvp-0.17 fixture after one and two rebuilds); `diagnosis.split_enabled` and `.shadow` (held by D-32, not this part's).
+
+**Judgment calls:**
+1. **The landing stops after two switches.** The third, `eligibility.enabled`, cannot be removed without editing `diagnosis/probe_episodes.py`, which this step was told to leave alone; a removal that left its two off arms would serve the predecessor to every vault (the predicate reads a missing field as off). The replay-read switches each go alone, so they were not started behind a blocked one.
+2. **`BoundAsk.cold` goes with `cold_counts_every_question`**: under the one help rule nothing reads the binding's cold status (`hint_equivalent` is the ordinary classification either way).
+3. **`served_check` no longer computes the cold-follow-up duty** it then discarded; the measured view is reached only by a caller's stricter duty (`diagnostic`).
+4. **`submit_dont_know` stays as an RPC** (an older desktop build, the phone's allowlist, the retry policy name it) and records an empty stuck answer, as it did; its `self_grade` field stays and is read by nothing, because the params model forbids extra keys.
+5. **The desktop's `client.submitDontKnow` is deleted**: no caller is left, and the phone has its own client.
+6. **The terminal app's ctrl+d binding is renamed from `dont_know` to `stuck`**, the action it now always runs.
+7. **The adaptive-off file snapshots are rewritten**, not deleted: their subject is "adaptive hints off changes nothing", and the only difference is the stuck control the switch's off value used to hide (a token diff of every frame).
+8. **The session-summary follow-up test keeps its subject through a tagged self-graded zero** rather than going with the stuck switch: the summary's count of queued follow-ups had no other positive test.
+9. **No `tests/successor_switches.py` change:** neither switch is in its table.
+
+## 19. Docs
+
+- ADR-019: the kept-because list went to 85 with this part.
+- `Concepts/Algorithm Versions and Reproducibility`: mvp-0.13's row says its kill switch went with the floor. `Concepts/Attempt Processing` and `Concepts/Learning System` name neither switch and are unchanged.
+- Ledger rows D7-1, D7-3, D7-5 updated; D7-7 added.
+
+Rule exceptions: `npm ci --offline` (to give the worktree a `node_modules` for typecheck and vitest) ran with the real `HOME` so npm could read its package cache; it ran no install scripts (`--ignore-scripts`) and nothing else ran outside the wrapper.
