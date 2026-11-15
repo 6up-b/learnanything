@@ -88,4 +88,7 @@ A load that succeeds (`load`, a full `refresh_vault_files`) binds ingest (a new 
 
 ## Gates
 
-See the report: the targeted test selection (`affected_tests.py --depth 0` on the source files, since `repositories.py` makes the default selection the whole suite, plus the rules' fixed list and every edited test file), `lint-imports`, `ruff`, the four vault validators, `check_gate_partition.py`, and the vault references regenerated once.
+- Tests: `affected_tests.py` chose the whole suite (`tests/conftest.py` imports `repositories.py`); `--depth 0` on the other source files chose 520 files, and with the rules' fixed list and every edited test file 527, run in 6 chunks of up to 100 at `-n 4 -m "not arc_close"` behind the lock: 9,400 passed, 47 skipped, 2 xfailed, 0 failed. No identity pin, ratchet or golden moved.
+- `lint-imports --no-cache`: 42 kept, 0 broken. `ruff check`: clean. `check_gate_partition.py`: 30,904 collected, landing 30,839 + arc_close 65.
+- Vault: references regenerated once (`70a8999376`); a second run changed nothing. `validate_vault.py`, `module_validate.py` and `db_validate_reference.py` pass. `desktop_validate.py` fails, and it fails at the base too: it expects 324 TypeScript files and the tree has 326 (this branch touches nothing under `apps/` or `_scripts/`).
+- Two test additions went in by script rather than the Edit tool (the appended tests in `tests/test_exam_session.py` and `tests/test_commitment_arcs.py`); the diff is the same.
