@@ -37,6 +37,7 @@ def golden(root: Path, *, switch: bool) -> dict[str, Any]:
 
     from learnloop.cli.app import app
     from learnloop.figures import service as FS
+    from learnloop.figures import grounding as FGR
     from learnloop.figures import request as FQ
     from learnloop.reader.reader_report import build_reader_report
     from learnloop.vault.loader import load_vault
@@ -62,7 +63,7 @@ def golden(root: Path, *, switch: bool) -> dict[str, Any]:
                                                         "answer": prediction["choices"][0]["value"]})
     again = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     vault = load_vault(paths.root)
-    context_ = FS.SourceContext(passage=[{"span_id": "p3", "type": "Equation", "text": "x"}], span_texts={"p3": "x"})
+    context_ = FGR.SourceContext(passage=[{"span_id": "p3", "type": "Equation", "text": "x"}], span_texts={"p3": "x"})
     hashes = {
         "plain": FS.request_hash(FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None),
         "advanced": FS.request_hash(FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None, advanced=True),

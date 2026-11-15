@@ -976,7 +976,7 @@ def _figure_request(**changes: Any) -> Any:
 
 
 def _figure_context() -> Any:
-    from learnloop.figures.service import SourceContext
+    from learnloop.figures.grounding import SourceContext
 
     return SourceContext(passage=copy.deepcopy(FIGURE_PASSAGE), around=copy.deepcopy(FIGURE_AROUND),
                          span_texts={item["span_id"]: item["text"] for item in FIGURE_PASSAGE + FIGURE_AROUND})
@@ -993,7 +993,7 @@ def _reuse_key(request: dict[str, Any] | None = None, *, image: str | None = Non
 
 
 def _grounding(mode: str) -> Any:
-    from learnloop.figures.service import Grounding
+    from learnloop.figures.grounding import Grounding
 
     keys = [("ext_pin", "s3"), ("ext_two", "q1")] if mode == "retrieved" else []
     return Grounding(mode, keys=keys)

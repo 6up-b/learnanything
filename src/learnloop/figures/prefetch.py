@@ -327,13 +327,13 @@ def item_protection(env: PrefetchEnv) -> ItemProtection:
 
 def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
     """The spans the figure author would be sent for this candidate: its passage and the
-    paragraphs around it (``service.source_context``, the anchored build's own context)."""
+    paragraphs around it (``grounding.source_context``, the anchored build's own context)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import grounding as FGR
     from learnloop.figures import request as FQ
 
     try:
-        context = FS.source_context(env.vault, env.repository, FQ.FigureRequest(
+        context = FGR.source_context(env.vault, env.repository, FQ.FigureRequest(
             extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids)))
     except Exception:  # noqa: BLE001 - a context that can't be read: its passage only
         return list(candidate.span_ids)

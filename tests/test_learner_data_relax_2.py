@@ -30,6 +30,7 @@ from mcp import Client
 from learnloop.figures import protection as FP
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures.learner_state import RECENT_ANSWERS, learner_state, read_learner_state, state_hash
 from learnloop.vault.loader import load_vault
@@ -112,7 +113,7 @@ def test_the_learner_state_reaches_the_author_and_protected_work_never_does(tmp_
     assert row["prompt_version"].endswith("+learner-v1")
     vault = load_vault(world.root)
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    context_ = FS.source_context(vault, world.repository, request)
+    context_ = FGR.source_context(vault, world.repository, request)
     assert row["input_hash"] == FS.request_hash(request, context_, None, advanced=True, learner_state=state)
     assert row["input_hash"] != FS.request_hash(request, context_, None, advanced=True)
     # Figures stay help: no learner-state table gained a row.
@@ -229,7 +230,7 @@ def test_switched_off_the_payload_prompt_and_key_are_the_predecessors_byte_for_b
     assert off_row["prompt_version"] == empty_row["prompt_version"] == R.ADVANCED_PROMPT_VERSION
     vault = load_vault(paths.root)
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    predecessor = FS.request_hash(request, FS.source_context(vault, repository, request), None, advanced=True)
+    predecessor = FS.request_hash(request, FGR.source_context(vault, repository, request), None, advanced=True)
     assert off_row["input_hash"] == empty_row["input_hash"] == predecessor
 
 
@@ -251,7 +252,7 @@ def test_no_state_keeps_todays_key_so_the_switch_reuses_todays_figure(tmp_path, 
 
 def test_the_reuse_key_and_prompt_version_name_the_state_only_when_non_empty():
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    context_ = FS.SourceContext()
+    context_ = FGR.SourceContext()
     base = FS.request_hash(request, context_, None)
     assert FS.request_hash(request, context_, None, learner_state=None) == base
     assert FS.request_hash(request, context_, None, learner_state={}) == base
@@ -274,10 +275,10 @@ def test_the_rich_author_receives_what_the_figure_author_received():
     with state, its learner_state goes with it; without, nothing is added."""
 
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    plain = FS._author_context(request, FS.SourceContext(), None, None, (), request_id="r")
+    plain = FS._author_context(request, FGR.SourceContext(), None, None, (), request_id="r")
     assert "learner_state" not in plain
     request.learner_state = {"topics": [{"topic": "t", "status": "learning"}]}
-    with_state = FS._author_context(request, FS.SourceContext(), None, None, (), request_id="r")
+    with_state = FS._author_context(request, FGR.SourceContext(), None, None, (), request_id="r")
     assert with_state == {**plain, "learner_state": request.learner_state}
 
 

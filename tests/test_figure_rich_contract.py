@@ -19,6 +19,7 @@ import pytest
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
@@ -87,13 +88,13 @@ def test_with_no_rich_tier_on_the_menu_the_contract_is_v2s_byte_for_byte(tiers):
         assert R.author_prompt_version(sketch=sketch, tiers=tiers) == R.author_prompt_version(sketch=sketch)
         assert R.output_model(sketch=sketch, tiers=tiers) is R.output_model(sketch=sketch)
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    context = FS.SourceContext()
+    context = FGR.SourceContext()
     assert FS.request_hash(request, context, None, tiers=tiers) == FS.request_hash(request, context, None)
 
 
 def test_the_reuse_key_names_the_menu_and_the_rich_versions():
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    context = FS.SourceContext()
+    context = FGR.SourceContext()
     plain = FS.request_hash(request, context, None)
     rich = FS.request_hash(request, context, None, tiers=("grammar", "manim"), rich_runtime="manim 0.19; v1")
     assert rich != plain

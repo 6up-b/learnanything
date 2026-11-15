@@ -15,6 +15,7 @@ no model, Manim or bubblewrap runs.
 from __future__ import annotations
 
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
 from tests.figure_rich_job_helpers import WHY, _Rig
@@ -28,7 +29,7 @@ def test_a_different_kind_hashes_apart_from_the_ordinary_correction(tmp_path, mo
     first = _first_animation(rig)
     ordinary = _revision(rig, first["figure_id"], "red")
     other = _revision(rig, first["figure_id"], "red", different_kind=True)
-    context = FS.source_context(rig.vault, rig.repository, ordinary)
+    context = FGR.source_context(rig.vault, rig.repository, ordinary)
     assert FS.request_hash(ordinary, context, None) != FS.request_hash(other, context, None)
     # Every request without the flag hashes exactly as before it existed (stored figures stay reusable).
     from learnloop.ai.execution import content_key

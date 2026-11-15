@@ -27,6 +27,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.ops.settings_store import apply_config_updates
 from learnloop.substrate.activities import log_interaction_event
@@ -425,7 +426,7 @@ def _orphan_request(repository: Any, decision_id: str, when: datetime) -> str:
 
     asked = FS._request_row(FQ.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
                                              prefetch_decision_id=decision_id),
-                            FS.Grounding("anchor"), figure_id=None, clock=_clock(when))
+                            FGR.Grounding("anchor"), figure_id=None, clock=_clock(when))
     with repository.atomic():
         figure_store.insert_request(repository.connection(), asked)
     return str(asked["id"])

@@ -12,6 +12,7 @@ import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
@@ -547,7 +548,7 @@ def test_build_key_holds_the_switch_and_the_reuse_key_does_not(tmp_path):
     paths, repository = build_check_vault(tmp_path / "vault", BLOCKS)
     vault = load_vault(paths.root)
     on = FQ.build_key(vault)
-    context_ = FS.SourceContext(passage=[{"span_id": "s1", "type": "Text", "text": "x"}])
+    context_ = FGR.SourceContext(passage=[{"span_id": "s1", "type": "Text", "text": "x"}])
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
     hashed = FS.request_hash(request, context_, None)
     set_config(paths, "figures", checked_labels_enabled=False)

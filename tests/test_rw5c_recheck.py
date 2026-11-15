@@ -14,6 +14,7 @@ from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
 from learnloop.figures import view as FV
@@ -284,7 +285,7 @@ def test_rebuild_of_a_figure_with_no_difference_is_refused(tmp_path, monkeypatch
 
 
 def test_the_reuse_key_is_unchanged_without_a_source_check_id():
-    context_ = FS.SourceContext(passage=[{"span_id": "a", "type": "Text", "text": "x"}])
+    context_ = FGR.SourceContext(passage=[{"span_id": "a", "type": "Text", "text": "x"}])
     plain = FQ.FigureRequest(extraction_id="e", span_ids=["a"])
     rebuilt = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
     other = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")

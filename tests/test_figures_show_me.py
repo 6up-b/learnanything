@@ -32,7 +32,7 @@ import pytest
 from learnloop.ai import plan_fallback as PF
 from learnloop.ai.execution import content_key
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
 from learnloop.figures import view as FV
 from learnloop.figures import spec as S
 from learnloop_sidecar.errors import SidecarError
@@ -136,7 +136,7 @@ def test_a_goal_alone_is_grounded_in_the_books_and_lands_where_the_learner_was(t
     # The sources service's verified retrieval, intent explain, at most three passages.
     (asked,) = find.calls
     assert asked["query"] == GOAL and asked["intent"] == "explain" and asked["verify"] is True
-    assert asked["limit"] == FS.GROUNDING_PASSAGES == 3 and asked["caller"].kind == "reader"
+    assert asked["limit"] == FGR.GROUNDING_PASSAGES == 3 and asked["caller"].kind == "reader"
     sent = author.contexts[0]
     assert sent["learner_request"] == {"text": GOAL, "written_by": "learner"}
     assert sent["grounding"] == "retrieved"
