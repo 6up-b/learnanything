@@ -1495,16 +1495,13 @@ def serve_presentation(
     presentation_id: str,
     *,
     clock: Clock | None = None,
-    vault: LoadedVault | None = None,
 ) -> None:
     """Mark a committed presentation served: the administration itself, and
     the only path to ``served``. A presentation committed before its item's
     answer was shown on a routine display that still covers now is ended
     (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
-    Phase 4 round 7). ``vault`` is read by nothing: the guard needs only the
-    repository, and the probe-validation sim still passes it."""
+    Phase 4 round 7)."""
 
-    del vault
     presentation = repository.probe_presentation(presentation_id)
     if presentation is not None:
         try:
