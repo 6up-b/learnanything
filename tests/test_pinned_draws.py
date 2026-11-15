@@ -23,6 +23,7 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 
 from tests import pinned_draws
 from tests.helpers import create_daily_plan_vault
+from tests.router_mixture_helpers import join_carried_valuations
 
 DAY = datetime(2026, 10, 12, 9, 0, tzinfo=UTC)
 LEARNING_OBJECTS = {f"lo_draw_{index}": [(f"pi_draw_{index}_{n}", 2.0) for n in range(2)] for index in range(3)}
@@ -71,6 +72,9 @@ def _vault(tmp_path: Path, name: str):
 
 @pytest.mark.slow  # two journeys on the objective path, about 10 s each
 def test_the_same_scenario_built_twice_draws_the_same_choices(tmp_path, request, monkeypatch):
+    # Each serve waits for the carried valuation it started: on a loaded machine the last one outlives the test and
+    # fails its teardown (``tests/thread_guard.py``), and both journeys then read every earlier carry.
+    join_carried_valuations(monkeypatch)
     first, first_seeds = _journey(_vault(tmp_path, "first").root, monkeypatch)
     # What the next run of this test starts from: the same key, the counts at zero.
     pinned_draws.begin(request.node.nodeid)
