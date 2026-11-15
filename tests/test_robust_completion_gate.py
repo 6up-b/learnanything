@@ -21,6 +21,7 @@ from learnloop.config.schema import LearnLoopConfig, ProbeEpisodeConfig
 from learnloop.diagnosis.probe_episodes import robust_gate_completion
 from learnloop.diagnosis.probe_robust import robust_gate_fixes_on
 from learnloop.diagnosis.robust_composition import RobustDecision
+from learnloop.instructional.valuation import CandidateInput, ValuationProblem, value_problem
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.sim.diagnostic_validation import run_probe_validation
 from learnloop.vault.loader import load_vault
@@ -128,3 +129,55 @@ def test_with_the_switch_off_the_episode_is_the_floors_exactly(tmp_path):
         return [(e["observations_so_far"], e["verdict"], e["abstained"], e["should_stop"]) for e in gate]
 
     assert decisions(off_gate) == decisions(floor_gate)
+
+
+# -- fix 2: the robust selection ranks distinct instruments ---------------------------------------------------------
+
+_SLOTS = ("mastered", "misconception:m1", "unfamiliar")
+
+
+def _twin_inputs():
+    table = {slot: ({"hit": 0.95, "miss": 0.05} if slot == "misconception:m1" else {"hit": 0.05, "miss": 0.95})
+             for slot in _SLOTS}
+    return [CandidateInput(ref=ref, kind="item", members=tuple([table] * 3), outcome_alphabet=("hit", "miss"),
+                           regime="item_point", likelihood_basis="estimated_row", expected_minutes=1.0,
+                           construction="item_point:3") for ref in ("item_a", "item_b")]
+
+
+def _twin_problem():
+    return ValuationProblem(key="lo:x", space_kind="hypothesis_set", slots=_SLOTS,
+                            prior={slot: 1 / 3 for slot in _SLOTS}, prior_basis="hypothesis_set", state_hash="h")
+
+
+def test_the_valuation_licenses_a_card_whose_second_item_is_beside_it():
+    report = value_problem(_twin_problem(), _twin_inputs(), distinct_instruments=True)
+    alone = value_problem(_twin_problem(), _twin_inputs()[:1])
+    assert report["verdict"] == "act" and report["checks"][0] == alone["checks"][0]
+    # The second item is then valued as what it is to the model, a further independent answer given the first's
+    # outcome, and is kept only while that clears the stop.
+    assert [check["ref"] for check in report["checks"]] == ["item_a", "item_b"]
+
+
+def test_without_the_fix_the_valuation_abstains_on_the_twin():
+    report = value_problem(_twin_problem(), _twin_inputs())
+    assert (report["verdict"], report["reason"], report["checks"]) == ("abstain", "couldnt_reliably_distinguish", [])
+
+
+def test_the_gate_no_longer_reads_a_cards_second_item_as_its_rival(tmp_path):
+    """schema_without_transfer, seed 11: after two answers the gate's winner is perturbation and its only fragility
+    was the card's second perturbation item (the agreement gate passes); with distinct instruments it acts."""
+
+    result, gate = _planted_run(tmp_path, version=TAG, planted="schema_without_transfer", seed=11)
+    first = gate[0]
+    assert first["observations_so_far"] == 2
+    assert (first["verdict"], first["abstained"]) == ("act", False)
+    assert first["lcb_advantage_over_runner_up"] > 0.0
+
+
+def test_at_the_floor_the_twin_still_makes_the_pick_fragile(tmp_path):
+    result, gate = _planted_run(tmp_path, version=OLD, planted="schema_without_transfer", seed=11)
+    first = gate[0]
+    assert (first["observations_so_far"], first["verdict"], first["lcb_advantage_over_runner_up"]) == (
+        2, "couldnt_reliably_distinguish", 0.0
+    )
+    assert (result.completion_reason, result.observations_used) == ("couldnt_reliably_distinguish", 2)

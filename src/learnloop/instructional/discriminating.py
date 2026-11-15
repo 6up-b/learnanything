@@ -19,6 +19,7 @@ from typing import Any
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_service import VERIFIED_STATUSES, effective_key_status, exercise_import_ids
+from learnloop.diagnosis.probe_robust import robust_gate_fixes_on
 from learnloop.instructional.exposure import apply_dominance, independent_check_eligibility
 from learnloop.instructional.screen import screen_exercises
 from learnloop.instructional.valuation import (
@@ -151,7 +152,7 @@ def value_request(vault: LoadedVault, repository: Repository, constraints: Any, 
         inputs[problem.key] = entries
     chosen_kept = [ref for ref in dict.fromkeys(str(r) for r in already_chosen) if ref in set(kept_items)]
     receipt = value_candidates(problems, inputs, caller_kind=caller_kind, system_initiated=system_initiated,
-                               unavailable=unavailable,
+                               unavailable=unavailable, distinct_instruments=robust_gate_fixes_on(vault.config),
                                **({"already_chosen": chosen_kept} if already_chosen else {}))
     receipt["intent"] = intent
     receipt["eligibility"] = eligibility

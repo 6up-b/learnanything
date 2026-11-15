@@ -358,6 +358,23 @@ def robust_eig_per_second(
     return robust_quantile(_ensemble_eig_per_second(ensemble, posterior, expected_seconds), q)
 
 
+def _distinct_ranked(ranked: list, members_of) -> list:
+    """``ranked`` (best first) with every candidate dropped whose members equal an earlier candidate's.
+
+    A probe card's items share their instrument rows and decision context, so their ensembles are identical
+    member for member: as each other's runner-up the winner's per-draw advantage is exactly zero, so it can never
+    be a robust winner, and the twin splits nothing the first item does not. Keeping the first occurrence keeps the
+    best-ranked copy (with equal members, the one with fewer expected seconds), so the winner never changes."""
+
+    kept: list = []
+    for entry in ranked:
+        members = members_of(entry)
+        if any(members == members_of(other) for other in kept):
+            continue
+        kept.append(entry)
+    return kept
+
+
 def evaluate_selection(
     *,
     candidates: Sequence[tuple[str, Ensemble, float]],
@@ -366,6 +383,7 @@ def evaluate_selection(
     burden_cost: float = BURDEN_COST,
     value_per_nat_minutes: float = VALUE_PER_NAT_MINUTES,
     agreement_threshold: float = ENSEMBLE_ACTION_AGREEMENT_THRESHOLD,
+    distinct_instruments: bool = False,
 ) -> RobustDecision:
     """Robust selection over candidate instruments (§3.1/§3.2).
 
@@ -373,7 +391,11 @@ def evaluate_selection(
     top robust EIG/sec candidate, tests its 10th-pct advantage over the runner-up,
     applies the stop rule ``LCB(EVSI) <= lambda_time*expected_seconds + burden_cost``
     (EVSI proxied by robust EIG), and the >=90% ensemble action-agreement gate. When
-    the winner is not robust the selector abstains with 'couldnt_reliably_distinguish'."""
+    the winner is not robust the selector abstains with 'couldnt_reliably_distinguish'.
+
+    ``distinct_instruments`` (the robust gate fixes, mvp-0.59): candidates whose
+    ensembles are identical are one instrument, kept once at its best rank, before
+    the runner-up is taken and agreement counted (:func:`_distinct_ranked`)."""
 
     if not candidates:
         return RobustDecision(None, 0.0, 0.0, 0.0, True, False, "stop")
@@ -389,6 +411,8 @@ def evaluate_selection(
         for slot, ens, secs in candidates
     ]
     scored.sort(key=lambda t: t[1], reverse=True)
+    if distinct_instruments:
+        scored = _distinct_ranked(scored, lambda entry: entry[2].members)
     best_slot, best_score, best_ens, best_secs = scored[0]
 
     # Per-draw advantage of the winner over the runner-up (per-second).
@@ -460,6 +484,7 @@ def evaluate_series_selection(
     burden_cost: float = BURDEN_COST,
     value_per_nat_minutes: float = VALUE_PER_NAT_MINUTES,
     agreement_threshold: float = ENSEMBLE_ACTION_AGREEMENT_THRESHOLD,
+    distinct_instruments: bool = False,
 ) -> RobustDecision:
     """The robust selection rule over independent credible sets (canonical sources S2a, §8.3.4).
 
@@ -473,6 +498,10 @@ def evaluate_series_selection(
     winner); the stop rule and verdicts are :func:`evaluate_selection`'s, on
     the winner's own members (``winner_eig_nats`` overrides them for a
     conditional, branch-averaged series). No sampling: comparisons only.
+    ``distinct_instruments``: candidates with identical series are one instrument,
+    as in :func:`evaluate_selection` (every pair of two identical sets differs by
+    as much below zero as above, so the lower quantile of the margin is never
+    positive).
     """
 
     if not candidates:
@@ -484,6 +513,8 @@ def evaluate_series_selection(
         per_second.append((ref, values, float(seconds), list(series)))
     scored = sorted(((ref, robust_quantile(values, quantile), values, secs, nats)
                      for ref, values, secs, nats in per_second), key=lambda t: t[1], reverse=True)
+    if distinct_instruments:
+        scored = _distinct_ranked(scored, lambda entry: entry[4])
     best_ref, best_score, best_values, best_secs, best_nats = scored[0]
     if len(scored) >= 2:
         runner_values = scored[1][2]
@@ -529,6 +560,7 @@ def evaluate_selection_credible_sets(
     burden_cost: float = BURDEN_COST,
     value_per_nat_minutes: float = VALUE_PER_NAT_MINUTES,
     agreement_threshold: float = ENSEMBLE_ACTION_AGREEMENT_THRESHOLD,
+    distinct_instruments: bool = False,
 ) -> RobustDecision:
     """:func:`evaluate_selection` for candidates whose credible sets differ in size
     or construction (canonical sources S2a, §8.3.4). Each candidate's members
@@ -540,6 +572,7 @@ def evaluate_selection_credible_sets(
     return evaluate_series_selection(
         candidates=series, quantile=quantile, lambda_time=lambda_time, burden_cost=burden_cost,
         value_per_nat_minutes=value_per_nat_minutes, agreement_threshold=agreement_threshold,
+        distinct_instruments=distinct_instruments,
     )
 
 

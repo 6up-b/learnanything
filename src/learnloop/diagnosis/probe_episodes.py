@@ -3268,14 +3268,15 @@ def _robust_gate_verdict(
         )
         for candidate in candidates
     ]
+    fixes_on = robust_gate_fixes_on(vault.config)
     decision = robust_selection(
-        channel, robust_candidates, belief, episode_id=episode.id
+        channel, robust_candidates, belief, episode_id=episode.id, distinct_instruments=fixes_on
     )
     if record_forecast:
         _record_robust_selection_forecast(
             vault, repository, episode, channel, decision, robust_candidates, belief, qualifying
         )
-    return robust_gate_completion(decision, stop_only=robust_gate_fixes_on(vault.config))
+    return robust_gate_completion(decision, stop_only=fixes_on)
 
 
 def robust_gate_completion(decision: Any, *, stop_only: bool) -> str | None:

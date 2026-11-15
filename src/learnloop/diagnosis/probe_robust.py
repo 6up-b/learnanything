@@ -284,6 +284,7 @@ def robust_selection(
     posterior: Mapping[str, float],
     *,
     episode_id: str | None,
+    distinct_instruments: bool = False,
 ) -> rc.RobustDecision:
     """Robust candidate ranking + stop rule + agreement gate + abstention (§4.2).
 
@@ -291,6 +292,8 @@ def robust_selection(
     :class:`robust_composition.RobustDecision` -- ``verdict`` is ``'act'``,
     ``'stop'`` (decision resolved / nothing worth running) or
     ``'couldnt_reliably_distinguish'`` (the explicit abstention outcome).
+    ``distinct_instruments``: :func:`robust_gate_fixes_on` (a card's second item is
+    not its first item's rival).
     """
 
     triples: list[tuple[str, rc.Ensemble, float]] = []
@@ -299,4 +302,6 @@ def robust_selection(
             channel, candidate.instrument, candidate.slot_map, posterior, episode_id=episode_id
         )
         triples.append((candidate.identifier, ensemble, candidate.expected_seconds))
-    return rc.evaluate_selection(candidates=triples, posterior=dict(posterior))
+    return rc.evaluate_selection(
+        candidates=triples, posterior=dict(posterior), distinct_instruments=distinct_instruments
+    )
