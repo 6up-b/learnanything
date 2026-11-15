@@ -4103,6 +4103,7 @@ class DurableIngestJobs:
         executing alone. The default keeps the primary's behaviour.
         """
 
+        previous: IngestRunner | None = None
         with self._lock:
             if self._halted:
                 # The vault is served again (``halt``): this host's loops may run once more.
@@ -4138,7 +4139,7 @@ class DurableIngestJobs:
                     lease_ttl_seconds=lease_ttl_seconds,
                     heartbeat_interval_seconds=heartbeat_interval_seconds,
                 )
-                self._runner = runner
+                previous, self._runner = self._runner, runner
             # A same-vault SidecarContext.reload() must not silently replace an
             # explicitly foreground-bound test/CLI host with a background
             # thread. Omitted means "preserve" on rebind and "background" on
@@ -4146,6 +4147,11 @@ class DurableIngestJobs:
             if not same_vault or background is not None:
                 self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
+        if previous is not None:
+            # A vault switch. The running loops move to the new runner at their next turn, and the previous vault's
+            # runner stops as at a refusal: it claims nothing more and fences its job in flight (whose lease then
+            # expires and is requeued when that vault is opened again). Not joined: this is the request thread.
+            previous.halt()
         if self._background:
             # The reading sweep runs for as long as this host does.
             self._ensure_reading_sweep()
@@ -5564,11 +5570,13 @@ class DurableIngestJobs:
                 quick_thread.start()
 
     def _worker_loop(self) -> None:
-        runner = self._runner
-        if runner is None:
-            return
         idle_rounds = 0
         while not self._stop.is_set():
+            # The host's runner each turn: after a vault switch an enqueue finds this thread alive and starts no
+            # other, so a runner kept from the start would go on draining the previous vault.
+            runner = self._runner
+            if runner is None:
+                return
             self._work_available.clear()
             try:
                 ran = runner.drain(
@@ -5614,11 +5622,11 @@ class DurableIngestJobs:
         never mutate vault YAML, which keeps the single-writer invariant intact.
         """
 
-        runner = self._runner
-        if runner is None:
-            return
         idle_rounds = 0
         while not self._stop.is_set():
+            runner = self._runner  # the host's each turn, as in the drain loop (a vault switch)
+            if runner is None:
+                return
             self._quick_check_work_available.clear()
             try:
                 ran = runner.drain(
