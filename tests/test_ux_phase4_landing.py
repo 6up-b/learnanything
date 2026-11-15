@@ -256,67 +256,6 @@ def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_cover
         assert question_record(connection, "q_after_disclosure").inputs.solution_items == frozenset({"pi_key"})
 
 
-def test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it(ctx):
-    """Round 6 (ruling 2) withdrew round 5's typed refusal: nothing raises
-    ``cold_check_unavailable`` any more. On the direct opens, a due cold retry
-    after a NON-routine reveal (a tutor answer after the item's last attempt,
-    before the task was created) is served exactly as on main: no error, the
-    task is not deferred, the session serve opens the cold administration, and
-    submit then primes the answer (main's own handling of a primed cold retry).
-    Only routine-display coverage defers it (``revalidate_cold_check``):
-    ``open_queue_item`` then opens no administration and the task stops being
-    due until the coverage ends."""
-
-    # The predecessor's cold retry after a non-routine reveal, served cold "as on main". From mvp-0.27
-    # (the one eligibility decision) such a reveal primes the item and the check is withdrawn and
-    # served as ordinary practice; `eligibility.enabled` off serves the predecessor exactly. Goes with
-    # that switch in D7 (the round-6 scenario is the point, so it is not re-staged).
-    from tests.helpers import set_config_switch
-
-    set_config_switch(ctx.paths.root, "eligibility.enabled", False)
-    ctx.load(ctx.paths.root)
-
-    from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
-    from learnloop.attempts.reveal_ledger import record_reveal
-    from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.ux_phase4_feedback_helpers import (
-        ITEM,
-        _administration_receipts,
-        _due_cold_task,
-        _exposure,
-        _feedback_answer,
-        _later,
-    )
-
-    def call(method: str, params: dict):
-        spec = METHOD_REGISTRY[method]
-        return spec.handler(ctx, spec.params_model.model_validate(params))
-
-    _vault, repository = ctx.require_vault()
-    answered = _feedback_answer(ctx, then=_later(days=-2))
-    record_reveal(repository, practice_item_id=ITEM, source_kind="tutor_answer", amount=1.0,
-                  clock=_later(days=-1, hours=-12))
-    task = _due_cold_task(ctx, case_ref="ep_landing")
-    session_id = call("start_session", {"availableMinutes": 20})["sessionId"]
-
-    # A non-routine reveal: served as on main, on both direct opens.
-    assert call("get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})["id"] == ITEM
-    assert call("open_queue_item", {"practiceItemId": ITEM})["id"] == ITEM
-    assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
-    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is not None
-    assert _administration_receipts(repository) >= 1
-    assert reveal_total_for_submission(repository, ITEM) >= AUTO_PRIME_REVEAL_THRESHOLD
-
-    # A routine display now covers the item: the next open defers the task
-    # (persisted) and opens no further administration.
-    before = _administration_receipts(repository)
-    _exposure(ctx, answered, "display_landing_open", clock=_later(minutes=-1))
-    assert call("open_queue_item", {"practiceItemId": ITEM})["id"] == ITEM
-    assert _administration_receipts(repository) == before
-    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
-    assert repository.followup_task(task["id"])["not_before"] > task["not_before"]
-
-
 def test_a_waiting_plan_writes_nothing_and_the_served_item_binds_its_presentation(tmp_path):
     """Round 7's PlanWaiting against the plan's receipts (router R2a's
     ``plan_presentations``, the ``router_decisions`` ledger, the block events):

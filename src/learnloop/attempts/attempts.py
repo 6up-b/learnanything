@@ -2865,37 +2865,22 @@ def _resolve_attempt_target(
         # as if it were clean — the guard has to see the forced value and
         # reject. On replay the recorded attempt is authoritative and the
         # ledger window has already moved past it, so this is skipped.
-        # The one eligibility decision is the successor's (mvp-0.27, kill
-        # switch ``eligibility.enabled``); below it, or off, submit is
-        # mvp-0.26's exactly: an unbounded window and the bare guard.
-        eligibility = serve_eligibility.decision_active(vault)
-        draft, _reveal_total = auto_primed_draft(
-            repository, draft, clock=clock, window_bounded=window_bounded and eligibility
-        )
+        draft, _reveal_total = auto_primed_draft(repository, draft, clock=clock, window_bounded=window_bounded)
         # Both delayed lanes are COLD by definition: the repair-scoped
         # `cold_retry` (§6.2) and the §5.7 certification probe, whose whole claim
         # is "unassisted performance on a held-out surface two-to-three weeks
         # later". A primed or hinted attempt cannot make that claim, so the guard
-        # is on the lane class, not on one kind.
-        if eligibility:
-            # The question is the one every serve path asks first
-            # (``serve_eligibility``), so an item served as a cold check is
-            # refused here only when its state changed since the serve, and
-            # the refusal names the change.
-            decision = submit_decision(
-                repository, draft, clock=clock, learning_object_id=learning_object.id, retimed=retimed_tasks,
-                window_bounded=window_bounded,
-            )
-            if decision.verdict == serve_eligibility.REFUSE:
-                serve_eligibility.log_decision(decision, path="submit")
-                raise AttemptValidationError(decision.message or serve_eligibility.COLD_CHECK_REFUSAL)
-        else:
-            cold_task = repository.active_followup_task_for_item(
-                draft.practice_item_id, at=utc_now_iso(clock)
-            )
-            if cold_task is not None and cold_task.get("kind") in COLD_FOLLOWUP_TASK_KINDS:
-                if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
-                    raise AttemptValidationError("a cold retry must be unassisted and unprimed")
+        # is on the lane class, not on one kind. The question is the one every
+        # serve path asks first (``serve_eligibility``), so an item served as a
+        # cold check is refused here only when its state changed since the
+        # serve, and the refusal names the change.
+        decision = submit_decision(
+            repository, draft, clock=clock, learning_object_id=learning_object.id, retimed=retimed_tasks,
+            window_bounded=window_bounded,
+        )
+        if decision.verdict == serve_eligibility.REFUSE:
+            serve_eligibility.log_decision(decision, path="submit")
+            raise AttemptValidationError(decision.message or serve_eligibility.COLD_CHECK_REFUSAL)
     return item, learning_object, rubric, draft
 
 
@@ -3239,11 +3224,7 @@ def _apply_attempt_in_transaction(
     # authoritative and the ledger window has already moved past it.
     if not attempt.replace_existing:
         normalized_draft, _reveal_total = auto_primed_draft(
-            repository, attempt.draft, clock=clock,
-            # Q33's bounded window is the eligibility successor's (mvp-0.27,
-            # ``eligibility.enabled``); below it a historical writer reads as
-            # it did.
-            window_bounded=attempt.reveal_window_bounded and serve_eligibility.decision_active(vault),
+            repository, attempt.draft, clock=clock, window_bounded=attempt.reveal_window_bounded,
         )
         if normalized_draft is not attempt.draft:
             attempt = replace(attempt, draft=normalized_draft)

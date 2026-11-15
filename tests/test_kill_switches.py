@@ -42,7 +42,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "diagnosis.shadow",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
-    "eligibility.enabled",
     "placement.enabled",
     "placement.initial_probes",
     "placement.unevidenced_return",

@@ -413,7 +413,6 @@ digest.max_daily_cost_usd = 0.25
 digest.narrative_enabled = true
 digest.narrative_quotes_inquiry = true
 # digest.price_per_million = null
-eligibility.enabled = true
 embedding.backfill_enabled = false
 embedding.backfill_sources_on_extract = true
 embedding.dimensions = 4096
