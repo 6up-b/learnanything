@@ -219,22 +219,17 @@ def reading_path_plan_active(vault: Any) -> bool:
 
 def deliverable_plan_active(vault: Any) -> bool:
     """Curriculum C1 (spec_deliverable_curriculum_v1 §7.6, §8.1): the plan's reading block
-    follows the nearest active deliverable's fresh path across books, with its kill switch
-    ``curriculum.plan_uses_path``
-    and ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
+    follows the nearest active deliverable's fresh path across books, with
+    ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
     follows a path the learner cannot see) and RW7b's own gate on (C1 is RW7b's first
     branch, :func:`_reading_on_path`; the slice lives in the Guide's path card, shown
     only with ``reading_paths.enabled``). A successor: it changes what is served through
-    labels a model judged. Off, or with any of those off, every plan build
-    is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
+    labels a model judged; its own kill switch went once every vault was past its tag. With
+    any of those off, every plan build is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
     while that reading is unstarted (:func:`_reading_path_switched_off`)."""
 
     section = getattr(vault.config, "curriculum", None)
-    return (
-        reading_path_plan_active(vault)
-        and bool(getattr(section, "enabled", False))
-        and bool(getattr(section, "plan_uses_path", False))
-    )
+    return reading_path_plan_active(vault) and bool(getattr(section, "enabled", False))
 
 
 #: The version of RW7b's receipt (``split_json["reading_path"]``).
@@ -4379,8 +4374,7 @@ def _reading_follows_fresh_choice(
     reading_paths = env.vault.config.reading_paths
     curriculum = getattr(env.vault.config, "curriculum", None)
     switch = {"enabled": bool(getattr(reading_paths, "enabled", False)),
-              "curriculum": {"plan_uses_path": bool(getattr(curriculum, "plan_uses_path", False)),
-                             "enabled": bool(getattr(curriculum, "enabled", False))}}
+              "curriculum": {"enabled": bool(getattr(curriculum, "enabled", False))}}
     if deliverable_plan_active(env.vault):
         reason = DELIVERABLE_PATH_MOVED
     elif reading_path_plan_active(env.vault):

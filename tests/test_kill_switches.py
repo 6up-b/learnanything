@@ -70,7 +70,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "router.restraint",
     "router.lesson_suggestions.enabled",
     "router.lesson_suggestions.in_objective",
-    "curriculum.plan_uses_path",
     "curriculum.enabled",
     "data_capture.serving",
     "followup.generate_and_serve",

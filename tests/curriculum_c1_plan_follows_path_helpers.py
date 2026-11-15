@@ -20,7 +20,6 @@ from tests.reading_path_fixtures import FixedClock, PathJudgeFake, call, context
 
 
 TAG = LATEST_ALGORITHM_VERSION
-C1_OFF = "[curriculum]\nplan_uses_path = false\n"
 CURRICULUM_OFF = "[curriculum]\nenabled = false\n"
 GUIDE_OFF = "[reading_paths]\nenabled = false\n"
 #: The deliverable's path: Determinants (a prerequisite) in the notes, then

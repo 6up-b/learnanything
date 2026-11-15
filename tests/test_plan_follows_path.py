@@ -1,7 +1,7 @@
 """Reader workbench RW7b: the plan follows the reading path (spec_reader_workbench_v1 §10.2; G47).
 
-* **What changes.** At RW7b's tag, with ``reading_paths.plan_uses_path`` and
-  the Guide's paths on, DL1's reading block opens the next unfinished
+* **What changes.** With the Guide's paths on (RW7b's own kill switch went
+  once every vault was past its tag), DL1's reading block opens the next unfinished
   **core** or **prerequisite** section of the source's path instead of the
   next section in the predecessor's order; enrichment, already shown,
   assumed and a "skip it" are never planned; "read it anyway" makes a section

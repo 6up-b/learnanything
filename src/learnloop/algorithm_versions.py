@@ -621,9 +621,9 @@ READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
 # ``reading_allowed`` still run first on each candidate. That changes what is
 # served through labels a model judged (RW7b's F3 reasoning), never evidence,
 # FSRS, the projection or replay (replay never reads a plan's reading), so it
-# is a successor by the 2026-10-17 eligibility rule. Kill switches:
-# ``curriculum.plan_uses_path`` and ``curriculum.enabled`` (off, or below the
-# tag: RW7b's plans byte for byte, gate G-C4).
+# is a successor by the 2026-10-17 eligibility rule. Its kill switch
+# (curriculum.plan_uses_path) went once every vault was past the tag; with
+# ``curriculum.enabled`` off: RW7b's plans byte for byte, gate G-C4.
 DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 
 # mvp-0.41 (teacher TE1, the first good lesson, with curriculum C4 folded in;

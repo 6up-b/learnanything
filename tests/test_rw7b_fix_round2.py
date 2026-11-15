@@ -2,8 +2,7 @@
 
 * **Medium (F1 for auto-completed plans)** When the path excluded every
   remaining reading and no practice was left, the plan closed by itself
-  (``complete``). Turning ``reading_paths.plan_uses_path`` or
-  ``reading_paths.enabled`` off must reopen it and put the predecessor's
+  (``complete``). Turning ``reading_paths.enabled`` off must reopen it and put the predecessor's
   reading back (G47 for existing plans), recorded on the receipt's
   transition. A plan the learner ended ("Done for today") or one with a
   reading started or ended stays as it is.

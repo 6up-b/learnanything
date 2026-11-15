@@ -35,7 +35,7 @@ from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
 from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ended
 from tests.curriculum_c1_plan_follows_path_helpers import (
-    C1_OFF,
+    CURRICULUM_OFF,
     GUIDE_OFF,
     PRIMARIES,
     _at,
@@ -70,7 +70,7 @@ def test_m1_auto_completed_after_c1_off_then_rw7b_off_reopens_with_the_orders_re
     assert built["reading_path"]["predecessor"] is None
     assert _at(built["reading_path"]["rw7b"]["predecessor"]) == ("ext_book", "ch_eigen")
     # C1 off: the fresh choice is RW7b's, which is no reading; the staged block is withdrawn.
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     ctx = context(c1.paths.root)
     assert _skip_to_done(ctx, session_id)["kind"] == "done"
     assert _ended(c1.repository, staged["blockId"]) == [
@@ -99,7 +99,7 @@ def test_m1_a_plan_the_learner_ended_stays_ended(tmp_path, monkeypatch):
     call(ctx, "plan_keep_going", {"sessionId": session_id, "stop": True})
     ended, before = _plan_row(c1.repository), _split(c1.repository)
     assert ended["stop_reason"] == "learner_stopped"
-    append_config_toml(c1.paths.root, C1_OFF + GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
+    append_config_toml(c1.paths.root, CURRICULUM_OFF + GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     step = call(context(c1.paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert step["kind"] == "done"
     assert _plan_row(c1.repository) == ended and _split(c1.repository) == before
@@ -323,7 +323,7 @@ def test_l6_the_fingerprint_moves_with_a_judgment_a_switch_and_the_date(tmp_path
     assert dated != first
     _judge(c1)  # stale after the day: a new judgment row
     assert E._fresh_reading_fingerprint(env) != dated
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     off = E.PlanEnv(load_vault(c1.paths.root), c1.repository)
     assert E._fresh_reading_fingerprint(off) != E._fresh_reading_fingerprint(env)
 

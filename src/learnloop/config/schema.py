@@ -2962,7 +2962,7 @@ class ReadingPathsConfig(KeepsRetiredFields):
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
 
 
-class CurriculumConfig(BaseModel):
+class CurriculumConfig(KeepsRetiredFields):
     """Deliverable curriculum: section coverage and ``reader.correspondents``.
 
     One judged row per (section, learning object): for each LO, its candidate
@@ -2992,15 +2992,15 @@ class CurriculumConfig(BaseModel):
     is the Guide and its per-source reading paths exactly. The three routes
     share ``max_daily_cost_usd``. Display only: no successor.
 
-    ``plan_uses_path``: the kill switch of
-    ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later, with it,
-    ``enabled`` and the reading-path gate on (``reading_paths.enabled``: the
-    plan never follows a path the learner cannot see): the plan's reading block opens the next unfinished
-    core or prerequisite section in the nearest active deliverable's path
-    order, in whichever book it is, when that path is fresh; a stale path is
-    re-judged quietly once a day (plan only) and is not followed meanwhile.
-    Off, or below the tag: the per-source reading-path plans byte for byte.
-    Replay never reads it.
+    ``DELIVERABLE_PLAN_ALGORITHM_VERSION`` (its own kill switch went once
+    every vault was past the tag): with ``enabled`` and the reading-path gate
+    on (``reading_paths.enabled``: the plan never follows a path the learner
+    cannot see), the plan's reading block opens the next unfinished core or
+    prerequisite section in the nearest active deliverable's path order, in
+    whichever book it is, when that path is fresh; a stale path is re-judged
+    quietly once a day (plan only) and is not followed meanwhile. With
+    ``enabled`` off: the per-source reading-path plans byte for byte. Replay
+    never reads it.
 
     The ``syllabus`` source role (scope input only:
     never taught from, never practice, never protected) and
@@ -3021,9 +3021,6 @@ class CurriculumConfig(BaseModel):
     # never an OpenRouter offer; coalesced per LO, a fresh state pays
     # nothing). Off: coverage changes only when pressed or owner-run.
     coverage_on_extract: bool = True
-    # The plan's reading block follows the nearest active deliverable's
-    # fresh path across books (a successor; off: per-source path plans).
-    plan_uses_path: bool = True
     # Practice-available exam and problem-set units' LO mappings (ids only)
     # are a scope-resolution input (off: the predecessor's prompt).
     exam_units_in_scope: bool = True

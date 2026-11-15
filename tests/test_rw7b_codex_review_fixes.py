@@ -3,8 +3,7 @@
 * **F1** The kill switch reaches plans already built: a plan whose reading
   the path chose, with that reading not yet started, goes back to the
   predecessor's reading (the receipt's ``predecessor``) when
-  ``reading_paths.plan_uses_path`` or ``reading_paths.enabled`` is turned
-  off; a staged, unstarted path reading block is ended unread
+  ``reading_paths.enabled`` is turned off; a staged, unstarted path reading block is ended unread
   (``reading_path_off``, no minutes counted); the minutes are recomputed and
   the transition is recorded on the receipt. A started reading is kept.
 * **F2** A path judged for an older learner state (a changed goal, LO status

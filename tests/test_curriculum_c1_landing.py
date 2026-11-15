@@ -27,7 +27,7 @@ from learnloop.curriculum import commitments as C
 from learnloop.instructional import reader_followups as RF
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, _at, _c1, _split
+from tests.curriculum_c1_plan_follows_path_helpers import CURRICULUM_OFF, _at, _c1, _split
 
 C1 = DELIVERABLE_PLAN_ALGORITHM_VERSION
 RW6B = READER_FOLLOWUPS_ALGORITHM_VERSION
@@ -82,7 +82,7 @@ def test_i_a_served_follow_up_is_a_planned_check_next_to_c1s_reading(tmp_path, m
     assert {k: v for k, v in split["reading_path"].items()} == without["reading_path"]
     # C1's switch moves the reading, never the checks.
     _reset(c1)
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     off = _plan(c1)
     assert off["checks"] == split["checks"] and _at(off["reading"]) == ("ext_book", "ch_eigen")
 

@@ -367,7 +367,6 @@ curriculum.enabled = true
 curriculum.exam_units_in_scope = true
 curriculum.max_daily_cost_usd = 0.5
 curriculum.max_prompt_tokens = 24000
-curriculum.plan_uses_path = true
 data_capture.receipts = true
 data_capture.serving = true
 decider_routes.ad_feature_audit = true

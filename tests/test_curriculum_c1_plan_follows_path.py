@@ -1,7 +1,7 @@
 """Curriculum C1: the plan follows the deliverable (spec_deliverable_curriculum_v1 §7.6, §8.1; G-C4).
 
-* **What changes.** At C1's tag, with ``curriculum.plan_uses_path`` and
-  ``curriculum.enabled`` on (and RW7b's gate), the plan's reading block opens
+* **What changes.** With ``curriculum.enabled`` on (and RW7b's gate; C1's own
+  kill switch went once every vault was past its tag), the plan's reading block opens
   the next unfinished **core** or **prerequisite** section in the nearest
   active deliverable's path order, **in whichever book it is**. The
   predecessor's front-matter rule, the exam filter and DL2's
@@ -30,7 +30,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-import pytest
 
 from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
@@ -46,7 +45,6 @@ from tests.helpers import append_config_toml, create_placement_vault
 from tests.reading_path_fixtures import call, context
 from tests.plan_follows_path_helpers import HEAD, _fixture_copy, _plan_state
 from tests.curriculum_c1_plan_follows_path_helpers import (
-    C1_OFF,
     CURRICULUM_OFF,
     GUIDE_OFF,
     PRIMARIES,
@@ -86,16 +84,10 @@ def test_the_successor_is_one_constant_after_rw6bs_followups():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(DELIVERABLE_PLAN_ALGORITHM_VERSION) + 1:] == ("mvp-0.41", "mvp-0.42", "mvp-0.43", "mvp-0.44", "mvp-0.45", "mvp-0.46", "mvp-0.47", "mvp-0.48", "mvp-0.49", "mvp-0.50", "mvp-0.51", "mvp-0.52", "mvp-0.53", "mvp-0.54", "mvp-0.55", "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59")
 
 
-def test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b(tmp_path):
-    from learnloop.config.schema import CurriculumConfig
-    from learnloop.params.parameter_registry import classify_config_path
-
-    assert CurriculumConfig().plan_uses_path is True
-    rule = classify_config_path("curriculum.plan_uses_path")
-    assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
+def test_the_plan_follows_the_deliverable_only_with_the_curriculum_the_guide_and_the_plan_on(tmp_path):
     paths = create_placement_vault(tmp_path / "v", version=TAG)
     assert E.deliverable_plan_active(load_vault(paths.root))
-    for index, fragment in enumerate((C1_OFF, CURRICULUM_OFF, GUIDE_OFF, "[plan]\nenabled = false\n")):
+    for index, fragment in enumerate((CURRICULUM_OFF, GUIDE_OFF, "[plan]\nenabled = false\n")):
         other = create_placement_vault(tmp_path / f"off{index}", version=TAG)
         append_config_toml(other.root, fragment)
         assert not E.deliverable_plan_active(load_vault(other.root)), fragment
@@ -331,7 +323,7 @@ def test_the_refresh_job_is_quiet_and_only_judges_a_stale_path(tmp_path, monkeyp
     assert DP.refresh_for_plan(c1.vault, c1.repository, client=fake)["status"] == "fresh" and fake.calls == 0
     c1.clock.advance(days=1)
     assert DP.refresh_for_plan(c1.vault, c1.repository, client=fake)["status"] == "ready" and fake.calls == 1
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     c1.clock.advance(days=1)
     assert DP.refresh_for_plan(c1.vault, c1.repository, client=fake)["status"] == "switched_off"
     assert fake.calls == 1
@@ -357,7 +349,7 @@ def test_a_plan_built_on_a_stale_path_takes_the_refreshed_step_while_unstarted(t
     call(ctx, "get_daily_plan", {})
     assert _split(c1.repository) == split
     # The switch still reaches it afterwards: RW7b's reading comes back (no reading history).
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     assert _at(after["reading"]) == ("ext_book", "ch_eigen")
@@ -365,22 +357,18 @@ def test_a_plan_built_on_a_stale_path_takes_the_refreshed_step_while_unstarted(t
     assert after["reading_path"]["moves"][0] == move and after["reading_path"]["move_count"] == 2
 
 
-# -- G-C4: off is RW7b's plans byte for byte -----------------------------------------------------------
+# -- G-C4: with the curriculum off, RW7b's plans ------------------------------------------------------
 
 
 _BOOK_PATH = {"ch_eigen": "core", "ch_det": "enrichment", "ch_orth": "core"}
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "curriculum_off"])
-def test_gc4_off_every_plan_build_is_rw7bs(tmp_path, monkeypatch, variant):
-    # RW7b's plans: the predecessor's tag with C1's switch off (the switch's off-branch is the predecessor's code).
-    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, book_path=_BOOK_PATH, config=C1_OFF)
+def test_gc4_with_the_curriculum_off_every_plan_build_is_rw7bs(tmp_path, monkeypatch):
     off = _c1(tmp_path, monkeypatch, "off", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, book_path=_BOOK_PATH,
-              config=C1_OFF if variant == "switch_off" else CURRICULUM_OFF)
-    baseline = _plan_state(base.paths)
+              config=CURRICULUM_OFF)
+    baseline = _plan_state(off.paths)
     stored = json.dumps(baseline["stored"]["daily_plans"])
     assert "reading_path_plan_v1" in stored and "reading_path_plan_v2" not in stored
-    assert _plan_state(off.paths) == baseline
     # The same vault with the successor on is not (the test can see the change).
     on = _c1(tmp_path, monkeypatch, "on", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, book_path=_BOOK_PATH)
     assert _plan_state(on.paths) != baseline
@@ -399,7 +387,7 @@ def test_the_receipts_predecessor_is_rw7bs_choice_with_its_own_receipt_kept(tmp_
 
 
 def test_with_no_deliverable_in_play_the_plan_is_rw7bs_byte_for_byte(tmp_path, monkeypatch):
-    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, judge=False, book_path=_BOOK_PATH, config=C1_OFF)
+    base = _c1(tmp_path, monkeypatch, "base", version=PREDECESSOR, judge=False, book_path=_BOOK_PATH, config=CURRICULUM_OFF)
     on = _c1(tmp_path, monkeypatch, "on", version=DELIVERABLE_PLAN_ALGORITHM_VERSION, judge=False, book_path=_BOOK_PATH)
     assert _plan_state(on.paths) == _plan_state(base.paths)
 
@@ -412,14 +400,14 @@ def test_switching_both_paths_off_after_the_build_puts_the_orders_reading_back(t
     # RW7b's own path skips Chapter 5 (enrichment) and opens Determinants too, as core.
     assert _at(built["reading_path"]["predecessor"]) == ("ext_book", "ch_det")
     assert built["reading_path"]["predecessor"]["path_label"] == "core" and built["reading_path"]["same_as_predecessor"]
-    append_config_toml(c1.paths.root, C1_OFF + GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
+    append_config_toml(c1.paths.root, CURRICULUM_OFF + GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     # Both paths off: the order's choice (what a build now gives), recorded in one move.
     assert _at(after["reading"]) == ("ext_book", "ch_eigen") and "path_label" not in after["reading"]
     [move] = after["reading_path"]["moves"]
     assert move["reason"] == "reading_path_off"
-    assert move["switch"] == {"enabled": False, "curriculum": {"plan_uses_path": False, "enabled": True}}
+    assert move["switch"] == {"enabled": False, "curriculum": {"enabled": False}}
     assert after["reading_path"]["deliverable"] is None and after["reading_path"]["rw7b"] is None
     call(context(c1.paths.root), "get_daily_plan", {})
     assert _split(c1.repository) == after
@@ -428,7 +416,7 @@ def test_switching_both_paths_off_after_the_build_puts_the_orders_reading_back(t
 def test_switching_c1_off_on_the_same_section_restores_rw7bs_label(tmp_path, monkeypatch):
     c1 = _c1(tmp_path, monkeypatch, book_path={"ch_eigen": "enrichment"})
     call(context(c1.paths.root), "get_daily_plan", {})
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     # RW7b's plan exactly: the same section, under RW7b's own label.
@@ -440,13 +428,13 @@ def test_switching_c1_off_with_rw7b_on_puts_rw7bs_choice_back(tmp_path, monkeypa
     c1 = _c1(tmp_path, monkeypatch)
     call(context(c1.paths.root), "get_daily_plan", {})
     assert _at(_split(c1.repository)["reading"]) == ("ext_book", "ch_det")
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     after = _split(c1.repository)
     assert _at(after["reading"]) == ("ext_book", "ch_eigen") and "path_label" not in after["reading"]
     move = after["reading_path"]["moves"][-1]
     assert move["reason"] == "deliverable_path_off"
-    assert move["switch"]["curriculum"] == {"plan_uses_path": False, "enabled": True}
+    assert move["switch"]["curriculum"] == {"enabled": False}
 
 
 def test_gc4_on_the_head_fixture_copy_on_and_off_are_rw7bs(tmp_path, monkeypatch):
@@ -456,7 +444,7 @@ def test_gc4_on_the_head_fixture_copy_on_and_off_are_rw7bs(tmp_path, monkeypatch
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: datetime(2026, 10, 31, 9, 30, tzinfo=UTC))
     baseline = _plan_state(_fixture_copy(tmp_path, HEAD, "base", version=PREDECESSOR))
-    for name, toml in (("off", C1_OFF), ("curriculum_off", CURRICULUM_OFF), ("on", None)):
+    for name, toml in (("curriculum_off", CURRICULUM_OFF), ("on", None)):
         assert _plan_state(_fixture_copy(tmp_path, HEAD, name, version=DELIVERABLE_PLAN_ALGORITHM_VERSION, toml=toml)) == baseline, name
 
 

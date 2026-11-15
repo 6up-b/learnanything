@@ -268,6 +268,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["intent"].update(enabled=True, recall_targets_enabled=True)
     shaped["followups"]["enabled"] = True
     shaped["reading_paths"]["plan_uses_path"] = True
+    shaped["curriculum"]["plan_uses_path"] = True
     return shaped
 
 
