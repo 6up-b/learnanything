@@ -9,14 +9,16 @@ No door writes one now, so a test that needs one as history builds it here: the
 same rows the joint door wrote, from a given grading proposal, without a model
 call. ``tests/test_joint_grading_builder.py`` pins the rows this module writes.
 
-Three builders, one per joint writer that is gone:
+Four builders, one per writer of joint history that is gone:
 
 - :func:`write_joint_graded_attempt`, the practice door's joint arm;
 - :func:`write_joint_regrade`, a regrade of a practice attempt with no blind
   record, which graded jointly with the split off;
 - :func:`joint_vault_door`, the door every grader outside the practice door
   shares (teach-back, exams, teacher checks and probes), which graded with the
-  joint prompt and recorded the joint (``None``) calibration identity.
+  joint prompt and recorded the joint (``None``) calibration identity;
+- :func:`hold_queued_live_diagnoses`, the kill switch's hold on a queued live
+  diagnosis (``payload.split_held_at``), which placement still reads.
 """
 
 from __future__ import annotations
@@ -343,6 +345,79 @@ def write_joint_regrade(
             )
     finish_agent_run(repository, agent_run_id, usage=usage or TokenUsage(), clock=clock)
     return validated
+
+
+def joint_proposal_of(client: Any) -> Callable[[Any], GradingProposal]:
+    """What ``client``, a ``tests.diagnosis_fakes.ReviewFakeClient`` (or a
+    subclass), answered as the joint grader: it reads the context from the
+    joint prompt it is sent."""
+
+    from learnloop.attempts.ai_contracts import grading_prompt
+
+    from tests.diagnosis_fakes import prompt_payload
+
+    def proposal(context: Any) -> GradingProposal:
+        return client._grading(None, prompt_payload(grading_prompt(context)).get("context") or {})
+
+    return proposal
+
+
+def review_fake_joint_proposal(context: Any) -> GradingProposal:
+    """``ReviewFakeClient``'s joint grade for ``context``."""
+
+    from tests.diagnosis_fakes import ReviewFakeClient
+
+    return joint_proposal_of(ReviewFakeClient())(context)
+
+
+def write_joint_answer(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    item_id: str = "pi_svd_compute_001",
+    answer: str = "A = U Sigma V wrong",
+    proposal: Proposal = review_fake_joint_proposal,
+    when: Any = None,
+    session_id: str | None = None,
+    pipeline: bool = True,
+) -> AttemptResult:
+    """``tests.split_live_helpers.submit`` for a jointly graded answer: one
+    independent attempt written by :func:`write_joint_graded_attempt` (by
+    default with ``ReviewFakeClient``'s joint grade), then the sync pipeline."""
+
+    from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+    from learnloop.clock import FrozenClock
+
+    clock = FrozenClock(when) if when is not None else None
+    draft = AttemptDraft(
+        practice_item_id=item_id, learner_answer_md=answer, attempt_type="independent_attempt", session_id=session_id,
+    )
+    result = write_joint_graded_attempt(vault, repository, draft, proposal, clock=clock)
+    if pipeline:
+        run_post_attempt_pipeline(vault, repository, result=result, session_id=session_id, clock=clock)
+    return result
+
+
+def hold_queued_live_diagnoses(repository: Repository, *, clock: Clock | None = None) -> int:
+    """The split's kill switch holding every queued live diagnosis, as stored
+    history: each queued live diagnose job not yet stamped gets
+    ``payload.split_held_at`` = now, write-once (the worker and every serving
+    build stamped them while the switch was off). Placement decides a held miss
+    at its first stamp. Returns the rows stamped."""
+
+    unheld = (
+        "kind = 'diagnose' AND state = 'queued' "
+        "AND COALESCE(json_extract(payload_json, '$.mode'), 'live') = 'live' "
+        "AND json_extract(payload_json, '$.split_held_at') IS NULL"
+    )
+    with repository.connection() as connection:
+        cursor = connection.execute(
+            "UPDATE post_attempt_jobs SET payload_json = json_set(COALESCE(payload_json, '{}'), '$.split_held_at', ?) "
+            f"WHERE {unheld}",
+            (utc_now_iso(clock),),
+        )
+        connection.commit()
+        return cursor.rowcount
 
 
 @contextmanager

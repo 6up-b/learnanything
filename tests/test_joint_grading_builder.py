@@ -319,6 +319,32 @@ def test_the_joint_vault_door_writes_what_the_switched_off_door_wrote(tmp_path, 
     assert sum(1 for row in door["agent_runs"] if "GradingProposal" in row) == 2
 
 
+def _held(tmp_path, hold):
+    """Two misses whose live diagnoses are queued, then the hold, twice."""
+
+    from tests.split_live_helpers import submit
+    from tests.diagnosis_fakes import ReviewFakeClient
+
+    _paths, vault, repository = split_vault(tmp_path)
+    for minute, item_id in enumerate(("pi_svd_compute_001", "pi_svd_compute_002")):
+        submit(vault, repository, ReviewFakeClient(), item_id=item_id, when=at(20 + minute))
+    assert hold(repository, clock=FrozenClock(at(25))) == 2
+    assert hold(repository, clock=FrozenClock(at(26))) == 0  # write-once
+    return repository
+
+
+def test_the_hold_builder_writes_what_the_kill_switch_wrote(tmp_path):
+    from tests.joint_grading_helpers import hold_queued_live_diagnoses
+
+    door = _tables(_held(tmp_path / "door", Repository.hold_queued_live_diagnoses))
+    built = _tables(_held(tmp_path / "built", hold_queued_live_diagnoses))
+
+    assert sorted(built) == sorted(door)
+    for name in door:
+        assert built[name] == door[name], _first_difference(name, built[name], door[name])
+    assert sum("split_held_at" in str(row) for row in door["post_attempt_jobs"]) == 2
+
+
 #: What the golden pins: the grading record the builders write (the attempt's
 #: application and everything the pipeline derives are the code under test's).
 GOLDEN_TABLES = (
