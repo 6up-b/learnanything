@@ -9,20 +9,29 @@ and the selector are the predecessor's exactly. Fakes and plain values only; no 
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
     ROBUST_GATE_FIX_VERSIONS,
 )
+from learnloop.clock import FrozenClock
 from learnloop.config.kill_switches import TAGGED_SWITCHES
 from learnloop.config.schema import LearnLoopConfig, ProbeEpisodeConfig
 from learnloop.diagnosis.probe_episodes import robust_gate_completion
 from learnloop.diagnosis.probe_robust import robust_gate_fixes_on
 from learnloop.diagnosis.robust_composition import RobustDecision
 from learnloop.instructional.valuation import CandidateInput, ValuationProblem, value_problem
+from learnloop.ops.upgrades import upgrade
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.sim.diagnostic_validation import run_probe_validation
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import vault_repository
 
+from tests.helpers import NOW
 from tests.sim_probe_validation_helpers import _vault_with_confusable, run_records
 
 TAG = FACET_BELIEF_FIX_ALGORITHM_VERSION
@@ -170,3 +179,39 @@ def test_at_the_floor_the_twin_still_makes_the_pick_fragile(tmp_path):
         2, "couldnt_reliably_distinguish", 0.0
     )
     assert (result.completion_reason, result.observations_used) == ("couldnt_reliably_distinguish", 2)
+
+
+# -- history: an episode completed before the fix keeps its completion --------------------------------------------
+
+_RECORDED = (
+    ("probe_episodes", "SELECT * FROM probe_episodes ORDER BY id"),
+    ("probe_observations", "SELECT * FROM probe_observations ORDER BY id"),
+    ("probe_presentations", "SELECT * FROM probe_presentations ORDER BY id"),
+    ("voi_forecasts", "SELECT * FROM voi_forecasts ORDER BY id"),
+)
+
+
+def _recorded(run_root):
+    vault = load_vault(run_root)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
+    with repository.connection() as connection:
+        return {name: [tuple(row) for row in connection.execute(sql).fetchall()] for name, sql in _RECORDED}
+
+
+def test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode(tmp_path):
+    """surface_only seed 12 abstained after two answers at mvp-0.58 (a fragile pick). The upgrade to mvp-0.59, a
+    whole-vault rebuild with the fixes on, replays the learner state but not the episode: its completion, its
+    observations and presentations and the gate's logged forecast are the rows the floor wrote."""
+
+    result, _gate = _planted_run(tmp_path, version=OLD)
+    assert result.completion_reason == "couldnt_reliably_distinguish"
+    run_root = tmp_path / "runs" / "run_surface_only_12"
+    before = _recorded(run_root)
+    outcome = upgrade(run_root, to=TAG, clock=FrozenClock(NOW + timedelta(days=1)))
+    assert outcome.upgraded and not outcome.problems, outcome
+    vault = load_vault(run_root)
+    assert vault.config.algorithms.algorithm_version == TAG and robust_gate_fixes_on(vault.config)
+    assert _recorded(run_root) == before
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
+    rebuild_all_derived_state(vault, repository, clock=FrozenClock(NOW + timedelta(days=2)))
+    assert _recorded(run_root) == before
