@@ -31,7 +31,6 @@ from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, interval_for_retent
 from learnloop.scheduling.scheduler import read_due_queue
 from tests.owner_vaults import owner_vault, working_vault_params
 from tests.daily_plan_fakes import iso
-from tests.helpers import append_config_toml
 from tests.intent_fakes import NOW, make_intent_vault
 
 # The owner's working vaults: backup-API copies in the owner_vaults lane (S0).
@@ -112,14 +111,11 @@ def test_a_primed_retry_and_a_diagnostic_between_reviews_leave_the_effective_due
     assert moved.due != first.due
 
 
-def test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off(tmp_path):
+def test_identity_at_090_uncommitted_items_are_served_exactly_as_with_no_commitment(tmp_path):
     on = make_intent_vault(tmp_path / "on")
-    off = make_intent_vault(tmp_path / "off")
-    append_config_toml(off.root, "[intent]\nenabled = false\n")
-    off.reload()
-    for iv in (on, off):
-        iv.choose("learning_object", "lo_b", "light_touch", NOW)
-        iv.choose("learning_object", "lo_c", "pause", NOW + timedelta(seconds=1))
+    off = make_intent_vault(tmp_path / "off")  # no commitment: intent changes nothing (the predecessor's serve)
+    on.choose("learning_object", "lo_b", "light_touch", NOW)
+    on.choose("learning_object", "lo_c", "pause", NOW + timedelta(seconds=1))
     at = NOW + timedelta(minutes=5)
     with_intent = {s.practice_item_id: (s.priority, s.components) for s in read_due_queue(
         on.vault, on.repository, clock=FrozenClock(at))}
@@ -136,7 +132,7 @@ def test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off
             assert serving.effective(item_id, states[item_id]).due == parse_utc(states[item_id].due_at)
 
 
-def test_the_kill_switches(tmp_path):
+def test_a_master_target_brings_a_review_forward_and_a_pause_excludes(tmp_path):
     iv = make_intent_vault(tmp_path / "vault", reviewed_days_ago=2)
     # Reviewed two days ago, due tomorrow at 0.90: a Master target (0.92)
     # brings it forward, Light touch (0.80) pushes it out.
@@ -152,15 +148,6 @@ def test_the_kill_switches(tmp_path):
     serving = iv.serving(at)
     assert serving.due("pi_a1", iv.repository.practice_item_states()["pi_a1"])
     assert "pi_a1" in iv.queue(at)
-    append_config_toml(iv.root, "[intent]\nrecall_targets_enabled = false\n")
-    iv.reload()
-    assert not iv.serving(at).due("pi_a1", iv.repository.practice_item_states()["pi_a1"])
-    assert "pi_b1" not in iv.queue(at)  # exclusion stays
-    toml = iv.root / "learnloop.toml"
-    toml.write_text(toml.read_text().replace("recall_targets_enabled = false", "recall_targets_enabled = false\nenabled = false"))
-    iv.reload()
-    assert iv.serving(at) is None
-    assert "pi_b1" in iv.queue(at)
 
 
 def test_stored_due_at_never_changes(tmp_path):

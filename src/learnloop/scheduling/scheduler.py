@@ -332,10 +332,9 @@ def _due_queue(
     # requested-items reorder floor must see the same set — a fresh sibling has
     # no attempts, stability, or due_at, so without the eligibility floor it
     # zeroes out at the priority filter and the reorder floor never sees it.
-    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled):
-    # None when intent changes nothing (below the tag, switch off, or no
-    # commitment covers an item), and every branch below is then exactly the
-    # predecessor's.
+    # Daily-loop DL2 (intent; the successor mvp-0.29): None when intent
+    # changes nothing (no commitment covers an item), and every branch below is
+    # then exactly the predecessor's.
     intent_view = _intent_serving(vault, repository, now)
     if intent_view is None:
         requested_item_ids = repository.requested_practice_item_ids()

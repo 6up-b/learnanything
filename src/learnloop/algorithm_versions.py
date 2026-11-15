@@ -381,9 +381,9 @@ ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
 # the recall targets, push, admission, re-entry and reading by intent. It
 # changes which items are served as measurements (the 2026-10-17 rule), not
 # the projection: due_at, FSRS state, evidence and replay never read it, so
-# it is another successor tag on the mvp-0.8 namespace. Kill switch:
-# ``intent.enabled`` (off: every serve path and plan as the predecessor;
-# the desktop control answers ``enabled: false``).
+# it is another successor tag on the mvp-0.8 namespace. Its kill switches
+# (intent.enabled, intent.recall_targets_enabled) went once every vault was
+# past the tag.
 INTENT_ALGORITHM_VERSION = "mvp-0.29"
 
 # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;

@@ -74,8 +74,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "curriculum.plan_uses_path",
     "curriculum.enabled",
     "followups.enabled",
-    "intent.enabled",
-    "intent.recall_targets_enabled",
     "data_capture.serving",
     "followup.generate_and_serve",
     "workbench.field_signals_enabled",

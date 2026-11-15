@@ -3797,24 +3797,17 @@ DEFAULT_RECALL_TARGETS: dict[str, float] = {
 }
 
 
-class IntentConfig(BaseModel):
+class IntentConfig(KeepsRetiredFields):
     """Daily loop: intent.
 
-    The successor ``mvp-0.29`` behind its kill switches (intent changes which
-    items are served as measurements): intent is read only when serving, and
-    ``due_at``, FSRS state, evidence and every projection are unchanged.
-    Below the tag these keys are inert.
-
-    ``enabled`` off restores serving exactly as the predecessor: commitments
-    are read only for requested items (and staged-owned runs). With it on and
-    no commitment, serving is the predecessor's too (every item uncommitted, target 0.90,
-    whose ratio is exactly 1). ``recall_targets_enabled`` off keeps the
-    resolution (exclusion, "Check once", push, admission, re-entry) but serves
-    every item at its stored ``due_at``.
+    The successor ``mvp-0.29`` (intent changes which items are served as
+    measurements): intent is read only when serving, and ``due_at``, FSRS
+    state, evidence and every projection are unchanged. Its kill switches went
+    once every vault was past the tag. With no commitment, serving is the
+    predecessor's (every item uncommitted, target 0.90, whose ratio is exactly
+    1).
     """
 
-    enabled: bool = True
-    recall_targets_enabled: bool = True
     recall_targets: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_RECALL_TARGETS))
 
     @model_validator(mode="after")

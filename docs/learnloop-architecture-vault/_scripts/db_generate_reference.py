@@ -1367,16 +1367,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "the successor) the derivation, Phase 6 serving and every plan build run as the predecessor and no "
         "workbench table is read."
     ),
-    "intent.enabled": (
-        "Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, "
-        "serving reads the learner's intent: Pause, Reference, Let go and an answered \"Check once\" "
-        "keep items out of the queue, requests, follow-up insertion and plans already built; a "
-        "\"Check once\" is served cold only when the one eligibility decision allows it and answered "
-        "only by an attempt it would have served cold; effective dues at the recall targets, push, "
-        "admission, re-entry and reading by intent; the desktop intent control. Off (or below the "
-        "successor) every serve path and plan run the predecessor's code and the control answers "
-        "enabled: false. Replay never reads it."
-    ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "
         "turning it off changes nothing the scheduler serves."

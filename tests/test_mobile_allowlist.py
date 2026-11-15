@@ -195,7 +195,7 @@ def test_the_pinned_daily_plan_rpcs_are_all_of_them():
     assert set(DAILY_PLAN_RPCS) == set(registered)
 
 
-# Daily-loop DL2 (intent; a live change behind intent.enabled): the single
+# Daily-loop DL2 (intent): the single
 # control and deadlines are desktop-only. DL2 also extends the practice serve
 # (a due "Check once" carries its cold banner and help header), the feedback
 # read (the answered check and its way back) and the Today queue (intent's

@@ -2800,15 +2800,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
-    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled and
-    # intent.recall_targets_enabled, Codex re-review F2): the per-intent recall
+    # Daily-loop DL2 (intent; the successor mvp-0.29, Codex re-review F2): the per-intent recall
     # targets (Q8, owner defaults accepted 2026-10-12, checkpoint open) scale
     # an effective due at serving time only; due_at is still written at 0.90
     # and nothing reaches evidence. The "Check once" delay is a timing default.
     _ConfigRule(_prefix("intent.recall_targets."), "decision", "threshold",
                 "per-intent recall target (spec_daily_loop_v1 §5.3, Q8): when an item is served, as "
                 "effective_due = anchor + (due_at - anchor) x ratio(target); serving only, never "
-                "persisted state or evidence; kill switch intent.recall_targets_enabled."),
+                "persisted state or evidence."),
     _ConfigRule(_exact("capture.test_me_later_days"), "decision", "threshold",
                 "how long a \"Check once\" waits before its one cold check when its commitment names no "
                 "due_hint (spec_daily_loop_v1 §5.2); a serving date, never evidence."),

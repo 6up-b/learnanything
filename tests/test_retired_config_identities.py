@@ -265,6 +265,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["teacher"]["weight"] = {"learned": True, "source": "pool"}
     shaped["adaptive_difficulty"]["generation_contract"] = True
     shaped["router"]["probe_tie_admission"] = True
+    shaped["intent"].update(enabled=True, recall_targets_enabled=True)
     return shaped
 
 

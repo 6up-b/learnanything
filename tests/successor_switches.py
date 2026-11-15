@@ -36,7 +36,6 @@ from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    INTENT_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
     LESSON_OFFERS_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
@@ -54,7 +53,6 @@ from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 
 #: Successor tag -> the config values that serve its predecessor (dotted key -> value).
 SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
-    INTENT_ALGORITHM_VERSION: {"intent.enabled": False},
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION: {"adaptive_difficulty.enabled": False},
     TEACHER_ALGORITHM_VERSION: {"teacher.enabled": False},
     LESSON_SUGGESTIONS_ALGORITHM_VERSION: {"router.lesson_suggestions.enabled": False},
