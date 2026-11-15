@@ -215,10 +215,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_reading_step_acts_wherever_the_plan_acts_behind_its_switch`
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
   - `test_a_quoted_wrong_step_in_the_method_still_counts`
-  - `test_off_the_prompt_is_the_predecessors_byte_for_byte`
   - `test_the_prompt_carries_the_required_method_and_names_v2`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_the_prompt_carries_the_rules_and_names_them_only_when_on`
+  - `test_the_prompt_carries_the_rules_and_names_them`
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
   - `test_a_split_vault_grades_the_simulated_teach_back_blind`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
