@@ -15,7 +15,16 @@ The planted responder is behavioral, not sampled from the card conditionals:
 each planted type reacts to what an instrument actually elicits (a shifted
 surface breaks a surface-bound learner; a counterexample request breaks a
 schema-without-transfer learner), so a policy that probes the wrong capability
-fails the validation even though every family passed its own gate.
+fails the validation even though every family passed its own gate. It is
+deliberately noisier than the cards' own rows (a surface-only learner answers a
+contrast fully 20% of the time where the card's row says under 10%): a learner
+who answered exactly from the instruments' model would make the simulation
+circular, since the episode would then be checked against the very likelihoods
+it updates with, and could not show where those likelihoods are wrong.
+
+Each episode's robust ensembles seed on its episode id, a fresh ULID per run,
+so a seed fixes the planted learner's answers but not the ensembles' draws: two
+runs of one seed can differ where a robust decision is close to its threshold.
 """
 
 from __future__ import annotations

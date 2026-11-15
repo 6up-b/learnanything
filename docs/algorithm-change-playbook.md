@@ -71,6 +71,16 @@ amendment is recorded beside the version and in
 Any other in-place amendment takes its own owner decision; by default a change
 to persisted meaning mints a new tag.
 
+Recorded amendments of `mvp-0.59`, 2026-11-13 and 2026-11-14, made while the
+owner's vault report showed every live vault at `mvp-0.58`: the corrections to
+the facet-belief fixes, under the tag's own switch
+(`docs/reviews/refactor-phase-1-fixes-successor.md`), and the robust
+completion gate fixes (refactor bug ledger D-39), under their own switch
+`probe.episode.robust_gate_fixes` (`docs/reviews/refactor-k9.0b.md`). Each is
+gated by one predicate over one tag set, so if a vault reaches `mvp-0.59`
+before an amendment lands, the amendment becomes `mvp-0.60` by changing that
+set, with its own upgrade row; each record says which lines.
+
 Recorded owner decision, 2026-10-13 (route-check-in-grader): mvp-0.17's
 separate proofs route check was removed from serving. Its kill switch already
 defined that state (`proof_check.enabled = false` grades new answers as

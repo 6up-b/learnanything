@@ -1791,6 +1791,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro2_history_resolve.py](../../../../../tests/test_ro2_history_resolve.py) — direct import
   - `test_the_permuted_run_sends_another_presentations_history`
 - [tests/test_ro5_picks.py](../../../../../tests/test_ro5_picks.py) — direct import
+- [tests/test_robust_completion_gate.py](../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode`
 - [tests/test_rospeed_join.py](../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`

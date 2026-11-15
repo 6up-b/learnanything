@@ -112,6 +112,7 @@ BASE_CONFIG_CONTENT_KEY = {
 ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
     ("ingest", "budgets", "append_input_ceiling"),  # refactor K3.4: the append call's input ceiling
     ("facet_diagnostic", "canonical_belief_fixes"),  # arc D fixes part 1: the facet-belief successor's kill switch
+    ("probe", "episode", "robust_gate_fixes"),  # K9.0b: the robust completion gate fixes' kill switch (mvp-0.59)
 )
 
 

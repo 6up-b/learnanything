@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py) |
-| Source lines | 1202 |
+| Source lines | 1213 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -79,10 +79,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `discount_members(members: Sequence[Mapping[str, Mapping[str, float]]], prior: Mapping[str, float], discount: float) -> tuple[dict[str, dict[str, float]], ...]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 785) — Each member's ``P(E|H)`` with an observation worth ``discount`` of an independent one: ``d * P(E|H) + (1 - d) * P(E)``, where ``P(E)`` is the member's prior predictive (the same for every hypothesis, so that share carries no information).
 - `exercise_input(problem: ValuationProblem, exercise: Mapping[str, Any], screen: Mapping[str, Any] | None, *, estimator: Callable[..., Any] | None=None) -> CandidateInput` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 808) — An unimported exercise: a complete screen is a noiseless partition (a bound); anything else is structural (§8.4).
 - `entropy_nats(prior: Mapping[str, float]) -> float` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 846)
-- `value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *, caller_kind: str='learner', system_initiated: bool=False, already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 875) — Groups, verdicts and stops for one hypothesis space.
-- `rank_listener(listener: Callable[..., Any]) -> Iterator[None]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1049) — Call ``listener(problem=, result=, candidates=, loss_table=)`` for each ``rank_feasible`` decision a valuation in this context makes.
-- `value_candidates(problems: Sequence[ValuationProblem], inputs_by_problem: Mapping[str, Sequence[CandidateInput]], *, caller_kind: str='learner', system_initiated: bool=False, unavailable: Sequence[Mapping[str, Any]]=(), already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1137) — The valuation receipt: one section per problem, nothing summed across them.
-- `refuse_mixed_decision(problems: Sequence[ValuationProblem], action_by_slot: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1162) — A pending decision belongs to one space; one naming slots of several is refused.
+- `value_problem(problem: ValuationProblem, inputs: Sequence[CandidateInput], *, caller_kind: str='learner', system_initiated: bool=False, already_chosen: Sequence[str]=(), distinct_instruments: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 875) — Groups, verdicts and stops for one hypothesis space.
+- `rank_listener(listener: Callable[..., Any]) -> Iterator[None]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1058) — Call ``listener(problem=, result=, candidates=, loss_table=)`` for each ``rank_feasible`` decision a valuation in this context makes.
+- `value_candidates(problems: Sequence[ValuationProblem], inputs_by_problem: Mapping[str, Sequence[CandidateInput]], *, caller_kind: str='learner', system_initiated: bool=False, unavailable: Sequence[Mapping[str, Any]]=(), already_chosen: Sequence[str]=(), distinct_instruments: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1146) — The valuation receipt: one section per problem, nothing summed across them.
+- `refuse_mixed_decision(problems: Sequence[ValuationProblem], action_by_slot: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1173) — A pending decision belongs to one space; one naming slots of several is refused.
 
 ### Module constants
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `BRANCH_MASS_FLOOR` ([src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py), line 73)
 - `MAX_BRANCHES` ([src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py), line 74)
 - `NAMED_GAPS_MODULE` ([src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py), line 388)
-- `_RANK_LISTENER` ([src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py), line 1045)
+- `_RANK_LISTENER` ([src/learnloop/instructional/valuation.py](../../../../../../src/learnloop/instructional/valuation.py), line 1054)
 
 ### Explicit exports
 
@@ -148,11 +148,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_ensemble(candidate: CandidateInput, problem: ValuationProblem) -> RC.Ensemble` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 839)
 - `_branches(picks: Sequence[CandidateInput], prior: Mapping[str, float]) -> list[tuple[float, dict[str, float]]]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 850) — The predicted-outcome branches of the picks so far, on each pick's member 0.
 - `_conditional_series(candidate: CandidateInput, branches: Sequence[tuple[float, Mapping[str, float]]]) -> list[float]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 870)
-- `_member0(candidate: CandidateInput) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1020) — The point-estimate ``P(E|H)`` table, persisted so S5 can replay the posterior movement an observation implies (§11.4 item 2; re-review F11).
-- `_predicted(candidate: CandidateInput, prior: Mapping[str, float] | None) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1030) — P(E) = sum_H P(H) P(E|H) on member 0 (S5 logs it beside the observed bucket).
-- `_decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], report: dict[str, Any], by_ref: Mapping[str, CandidateInput], *, system_initiated: bool, already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1060)
-- `_decision_actions(candidate: CandidateInput, problem: ValuationProblem, loss_table: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1123)
-- `_evpi(problem: ValuationProblem, loss_table: Any) -> float` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1131)
+- `_member0(candidate: CandidateInput) -> dict[str, dict[str, float]] | None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1029) — The point-estimate ``P(E|H)`` table, persisted so S5 can replay the posterior movement an observation implies (§11.4 item 2; re-review F11).
+- `_predicted(candidate: CandidateInput, prior: Mapping[str, float] | None) -> dict[str, float] | None` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1039) — P(E) = sum_H P(H) P(E|H) on member 0 (S5 logs it beside the observed bucket).
+- `_decision_mode(problem: ValuationProblem, inputs: Sequence[CandidateInput], report: dict[str, Any], by_ref: Mapping[str, CandidateInput], *, system_initiated: bool, already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1069)
+- `_decision_actions(candidate: CandidateInput, problem: ValuationProblem, loss_table: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1132)
+- `_evpi(problem: ValuationProblem, loss_table: Any) -> float` ([source](../../../../../../src/learnloop/instructional/valuation.py), line 1140)
 
 ## Who imports or calls it
 
@@ -221,6 +221,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f12_a_familiar_sibling_counts_for_less_than_its_undiscounted_value`
 - [tests/test_reader_followups_round3.py](../../../../../../tests/test_reader_followups_round3.py) — direct import
   - `test_a_live_check_seeds_the_greedy_selection_and_is_never_a_new_check`
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+  - `test_the_valuation_licenses_a_card_whose_second_item_is_beside_it`
+  - `test_without_the_fix_the_valuation_abstains_on_the_twin`
 - [tests/test_sources_merge_composition.py](../../../../../../tests/test_sources_merge_composition.py) — direct import
   - `test_a_decision_mode_valuation_records_its_forecast_when_logging_is_on`
   - `test_a_held_success_neither_poses_nor_suppresses_retention`

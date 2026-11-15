@@ -124,10 +124,12 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/identity_pins_helpers.py`
+- `tests/sim_probe_validation_helpers.py`
 - `tests/test_architecture.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_facet_rewords_migration.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_robust_completion_gate.py`
 - `tests/test_sources_merge_composition.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`

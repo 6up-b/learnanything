@@ -47,20 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/instructional/discriminating.py](../../../../../../src/learnloop/instructional/discriminating.py) |
-| Source lines | 230 |
+| Source lines | 231 |
 | Owning package | [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `make_valuer(*, estimator: Callable[..., Any] | None=None, screen_client: Any | None=None, judge_client: Any | None=None, channel_resolver: Callable[..., Any] | None=None) -> Callable[..., dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 43) — A valuer for ``find_practice(valuer=...)``.
-- `value_request(vault: LoadedVault, repository: Repository, constraints: Any, *, items: Sequence[str], exercises: Sequence[Mapping[str, Any]], caller_kind: str='learner', system_initiated: bool=False, estimator: Callable[..., Any] | None=None, screen_client: Any | None=None, judge_client: Any | None=None, channel_resolver: Callable[..., Any] | None=None, pending_decision: Mapping[str, Any] | None=None, familiarity: bool=False, eligibility: Callable[..., dict[str, Any]] | None=None, already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 63) — One request's valuation receipt.
-- `presentation_order(receipt: Mapping[str, Any], eligibility: Mapping[str, Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 204) — Checks that clear the stop (check order), then each problem's valued group in value order under the reading-exposure dominance rule (§5.4), then the bounded and the unvalued.
+- `make_valuer(*, estimator: Callable[..., Any] | None=None, screen_client: Any | None=None, judge_client: Any | None=None, channel_resolver: Callable[..., Any] | None=None) -> Callable[..., dict[str, Any]]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 44) — A valuer for ``find_practice(valuer=...)``.
+- `value_request(vault: LoadedVault, repository: Repository, constraints: Any, *, items: Sequence[str], exercises: Sequence[Mapping[str, Any]], caller_kind: str='learner', system_initiated: bool=False, estimator: Callable[..., Any] | None=None, screen_client: Any | None=None, judge_client: Any | None=None, channel_resolver: Callable[..., Any] | None=None, pending_decision: Mapping[str, Any] | None=None, familiarity: bool=False, eligibility: Callable[..., dict[str, Any]] | None=None, already_chosen: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 64) — One request's valuation receipt.
+- `presentation_order(receipt: Mapping[str, Any], eligibility: Mapping[str, Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 205) — Checks that clear the stop (check order), then each problem's valued group in value order under the reading-exposure dominance rule (§5.4), then the bounded and the unvalued.
 
 ### Module constants
 
-- `TRANSLATION` ([src/learnloop/instructional/discriminating.py](../../../../../../src/learnloop/instructional/discriminating.py), line 34)
+- `TRANSLATION` ([src/learnloop/instructional/discriminating.py](../../../../../../src/learnloop/instructional/discriminating.py), line 35)
 
 ### Explicit exports
 
@@ -73,8 +73,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_discount_familiar(vault: LoadedVault, repository: Repository, problem: Any, entry: Any, cache: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 171) — Compose the item's attempt-familiarity discount into its members (G35).
-- `_key_statuses(vault: LoadedVault, repository: Repository, item_ids: Sequence[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 193) — Each imported item's effective key status for its CURRENT content (§7.3a).
+- `_discount_familiar(vault: LoadedVault, repository: Repository, problem: Any, entry: Any, cache: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 172) — Compose the item's attempt-familiarity discount into its members (G35).
+- `_key_statuses(vault: LoadedVault, repository: Repository, item_ids: Sequence[str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/instructional/discriminating.py), line 194) — Each imported item's effective key status for its CURRENT content (§7.3a).
 
 ## Who imports or calls it
 
@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `VERIFIED_STATUSES`, `effective_key_status`, `exercise_import_ids`; calls `effective_key_status`, `exercise_import_ids`
+- [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `robust_gate_fixes_on`; calls `robust_gate_fixes_on`
 - [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] — imports `apply_dominance`, `independent_check_eligibility`; calls `apply_dominance`, `independent_check_eligibility`
 - [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] — imports `screen_exercises`; calls `screen_exercises`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `discount_members`, `exercise_input`, `item_input`, `open_hypotheses`, `value_candidates`; calls `discount_members`, `exercise_input`, `item_input`, `open_hypotheses`, `value_candidates`

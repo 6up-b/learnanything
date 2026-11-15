@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py) |
-| Source lines | 498 |
+| Source lines | 507 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
@@ -56,30 +56,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Public API
 
-- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 96)
-- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 120) — Behavioral response of one planted student to one instrument.
-- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 181)
-  - `as_dict(self) -> dict[str, Any]` (line 196; public)
-- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 215)
-  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 218; public)
-  - `as_dict(self) -> dict[str, Any]` (line 234; public)
-  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 246; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
-- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 276) — Run the planted-type episode validation against copies of one vault.
+- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 105)
+- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 129) — Behavioral response of one planted student to one instrument.
+- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 190)
+  - `as_dict(self) -> dict[str, Any]` (line 205; public)
+- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 224)
+  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 227; public)
+  - `as_dict(self) -> dict[str, Any]` (line 243; public)
+  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 255; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
+- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 285) — Run the planted-type episode validation against copies of one vault.
 
 ### Module constants
 
-- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 60)
-- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 62)
-- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 70)
-- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 82)
+- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 69)
+- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 71)
+- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 79)
+- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 91)
 
 ## Internal implementation anchors
 
-- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 102)
-- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 258)
-- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 266)
-- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 313)
-- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 437)
+- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 111)
+- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 267)
+- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 275)
+- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 322)
+- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 446)
 
 ## Who imports or calls it
 
@@ -122,8 +122,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
+- [tests/test_sim_planted_types_forty_seeds.py](../../../../../../tests/test_sim_planted_types_forty_seeds.py) — direct import
+  - `test_each_planted_type_is_named_in_at_least_26_of_40_episodes_within_the_abstention_budget`
 - [tests/test_sim_probe_validation.py](../../../../../../tests/test_sim_probe_validation.py) — direct import
+  - `test_every_planted_episode_completes_within_its_budget`
   - `test_planted_confuses_with_is_diagnosed_within_budget`
+  - `test_where_value_decides_each_stop_is_the_one_its_numbers_claim`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
 
