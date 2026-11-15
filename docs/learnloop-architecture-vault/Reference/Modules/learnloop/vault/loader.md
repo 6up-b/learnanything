@@ -2337,6 +2337,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
 - [tests/test_predictor_interface.py](../../../../../../tests/test_predictor_interface.py) — direct import
   - `test_incumbent_uses_explicit_vault_config_without_reading_store`
+- [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
   - `test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context`
 - [tests/test_probe_attempt_updates.py](../../../../../../tests/test_probe_attempt_updates.py) — direct import
@@ -3228,6 +3230,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
+- [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
+  - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_reserved_question_split_between_message_and_check_is_withheld`
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`

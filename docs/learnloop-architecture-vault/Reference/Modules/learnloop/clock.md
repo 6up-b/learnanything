@@ -448,7 +448,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `SystemClock`; statically calls `SystemClock`
-- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -1517,6 +1517,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_leakage.py](../../../../../tests/test_practice_leakage.py) — direct import
 - [tests/test_predictive_eig.py](../../../../../tests/test_predictive_eig.py) — direct import
   - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
+- [tests/test_primed_sibling_clock.py](../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probe_attempt_updates.py](../../../../../tests/test_probe_attempt_updates.py) — direct import
   - `test_attempt_service_never_writes_legacy_probe_state`
   - `test_record_probe_attempt_completes_on_convergence`

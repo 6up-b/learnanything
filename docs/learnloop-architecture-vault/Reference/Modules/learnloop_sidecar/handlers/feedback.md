@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/feedback.py](../../../../../../src/learnloop_sidecar/handlers/feedback.py) |
-| Source lines | 1267 |
+| Source lines | 1271 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -78,10 +78,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `trigger_followup(ctx: SidecarContext, params: TriggerFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 850) — Manually force a diagnostic follow-up for one attempt.
 - `class StartPrimedRetryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 921)
 - `start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 926) — Serve a sibling item for a primed retry from the source-review panel.
-- `class StartGuidedRedoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1171)
-- `start_guided_redo_handler(ctx: SidecarContext, params: StartGuidedRedoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1176) — Guided partial redo (Fix 3): serve the preserved-prefix redo context.
-- `rate_followup(ctx: SidecarContext, params: RateFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1215) — One-tap "was this follow-up useful?" label from the feedback screen.
-- `add_error_event(ctx: SidecarContext, params: AddErrorEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1246)
+- `class StartGuidedRedoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1175)
+- `start_guided_redo_handler(ctx: SidecarContext, params: StartGuidedRedoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1180) — Guided partial redo (Fix 3): serve the preserved-prefix redo context.
+- `rate_followup(ctx: SidecarContext, params: RateFollowupInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1219) — One-tap "was this follow-up useful?" label from the feedback screen.
+- `add_error_event(ctx: SidecarContext, params: AddErrorEventInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1250)
 
 ### Module constants
 
@@ -105,8 +105,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_kept_contest_reason(payload: Any) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 797)
 - `_source_first(ctx: SidecarContext, vault: Any, repository: Any, need: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1028) — S2b's step in the primed-retry adapter; None when it is not active.
 - `_record_need_served(vault: Any, repository: Any, need: dict[str, Any], outcome: dict[str, Any], attempt: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1041) — S5: a need fulfilled from the sources and served (best effort).
-- `_pick_primed_sibling(vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None) -> tuple[Any | None, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1056) — Sibling items on the same LO, best-first.
-- `_primed_retry_unavailable(params: StartPrimedRetryInput, attempt: dict[str, Any], reason: str, *, unservable_skips: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1140)
+- `_pick_primed_sibling(vault, repository, attempt: dict[str, Any], need: dict[str, Any] | None, *, clock: Clock | None=None) -> tuple[Any | None, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1056) — Sibling items on the same LO, best-first.
+- `_primed_retry_unavailable(params: StartPrimedRetryInput, attempt: dict[str, Any], reason: str, *, unservable_skips: list[dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/feedback.py), line 1144)
 
 ## Who imports or calls it
 
@@ -125,7 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `regrade_attempt`; calls `regrade_attempt`
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `DisplayNotRecorded`, `record_feedback_answer_display_reveal`, `record_repair_display_reveals`; calls `record_feedback_answer_display_reveal`, `record_repair_display_reveals`
 - [[Reference/Modules/learnloop/attempts/trace_evidence|learnloop.attempts.trace_evidence]] — imports `elicitation_reward`; calls `elicitation_reward`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `generate_diagnostic_practice_proposal`, `generate_post_probe_practice_proposal`; calls `generate_diagnostic_practice_proposal`, `generate_post_probe_practice_proposal`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`; calls `accept_items`
@@ -182,6 +182,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_door_of_the_handler_goes_through_the_hold`
 - [tests/test_mobile_v2_followup.py](../../../../../../tests/test_mobile_v2_followup.py) — direct import
   - `test_f3_a_door_bundle_on_the_phone_keeps_the_hold`
+- [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_repair_display_budget_debits_the_ledger_once_per_attempt`
 - [tests/test_source_first_needs.py](../../../../../../tests/test_source_first_needs.py) — direct import

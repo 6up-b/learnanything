@@ -2780,6 +2780,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import
   - `test_feedback_resolves_current_ingest_span_and_filename`
   - `test_missing_note_resolves_youtube_ingest_identity`
+- [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
+  - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
   - `test_only_target_overlap_is_evidence_and_other_same_lo_work_is_context`
   - `test_rate_limits_retry_within_caps_and_malformed_answers_fail_closed`
