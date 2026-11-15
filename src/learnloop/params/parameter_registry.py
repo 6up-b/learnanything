@@ -2032,12 +2032,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "UTC day of the relevance and exposure calls made for follow-ups (the owner's spending authority; "
         "subscription calls are estimated_only); no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
-        "followups.enabled",
         "followups.formative_questions_enabled",
         "followups.generate_when_nothing_fits",
     ), "structural", "operational",
-        "kill switches for cold follow-ups (followups.enabled is the kill switch of the successor mvp-0.39; "
-        "off, or below the tag, the predecessor's plan) / formative records adding questions / background "
+        "switches for cold follow-ups: formative records adding questions / background "
         "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
     # Reader workbench RW6b part 2 (spec §9.2): the session narrative (one
     # background call per reader session, salience only, never evidence) and

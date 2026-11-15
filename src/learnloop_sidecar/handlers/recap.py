@@ -103,7 +103,7 @@ def _coming_up(vault, repository, extraction_id: str, now: datetime) -> dict[str
     "Since last time" (``checks_retired``), so only the pending ones here."""
 
     timeline = RF.coming_up(vault, repository, extraction_id=extraction_id, now=now)
-    return {key: timeline[key] for key in ("next", "later", "undo_all", "scale", "enabled")}
+    return {key: timeline[key] for key in ("next", "later", "undo_all", "scale")}
 
 
 class ReaderRecapEventInput(ParamsModel):

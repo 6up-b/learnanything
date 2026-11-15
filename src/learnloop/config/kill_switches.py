@@ -79,7 +79,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("reading_paths.plan_uses_path", "mvp-0.32", True),
     KillSwitch("curriculum.plan_uses_path", "mvp-0.40", True),
     KillSwitch("curriculum.enabled", "mvp-0.40", True),
-    KillSwitch("followups.enabled", "mvp-0.39", True),
     KillSwitch("data_capture.serving", "mvp-0.44", True),
     KillSwitch("followup.generate_and_serve", "mvp-0.45", True),
     KillSwitch("workbench.field_signals_enabled", "mvp-0.31", True),

@@ -31,7 +31,6 @@ import pytest
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.curriculum import commitments as C
 from learnloop.db.repositories import PracticeItemState
-from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_followups as RF
 from learnloop.reader import reader_sessions as RS
 from learnloop.scheduling import fsrs as F
@@ -289,17 +288,6 @@ def test_the_spend_envelopes_are_the_followups_and_the_services(tmp_path):
     with RF.followup_spend(vault, repo):
         names = {envelope.name for envelope in active_envelopes()}
     assert RF.ENVELOPE in names and len(names) == 2
-
-
-def test_the_kill_switch_creates_nothing_and_runs_no_revaluation(tmp_path):
-    vault, repo, session = _seeded(tmp_path, config="[followups]\nenabled = false\n")
-    search = FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)])
-    assert _plan(vault, repo, session, search) is None and search.calls == []
-    assert RF.sessions_to_plan(vault, repo, now=_now()) == []
-    assert RF.revalue_pending(vault, repo, now=_now(), valuer=lambda *_a: {})["skipped"]
-    with repo.connection() as connection:
-        assert RDG.digests(connection) == []
-        assert connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0] == 0
 
 
 def test_only_ended_sessions_wait_for_planning(tmp_path):

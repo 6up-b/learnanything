@@ -147,7 +147,6 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
         logging.getLogger(__name__).warning("data capture: measurement states were not settled", exc_info=True)
     # Reader RW6b: re-value the pending cold follow-ups before the day's plan
     # (no model call) and plan any ended reader session in the background.
-    # A no-op with followups.enabled off.
     prepare_followups(ctx, vault, repository)
     _wait_for_session_diagnoses(ctx, vault, repository, session_id)
 

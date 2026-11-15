@@ -594,8 +594,8 @@ COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 # spec_reader_workbench_v1 §9.3 "Why no successor", whose fallback the Codex
 # review of docs/reviews/reader-rw6b-p1-followups.md invoked, F4), on top of
 # mvp-0.38 (the cold-retry reschedule; the chain stays linear: mvp-0.39 means
-# everything mvp-0.38 means PLUS this). From the tag on, with
-# ``followups.enabled`` on, an ended reader session's open questions are
+# everything mvp-0.38 means PLUS this). From the tag on, an ended reader
+# session's open questions are
 # valued (``value_candidates``) and each check that clears the stop becomes an
 # automatic ``test_me_later`` commitment dated by purpose, re-valued before
 # each day's plan; DL2 serves it as a "Check once", gated at serve by the full
@@ -603,9 +603,8 @@ COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 # That changes which dated requests the maintain lane holds and serves, never
 # evidence, FSRS, the projection or replay (replay passes no vault and plans
 # nothing; ``reader_session_digests`` is workflow state), so it is a
-# successor by the 2026-10-17 eligibility rule. Kill switch:
-# ``followups.enabled`` (off, or below the tag: nothing is planned or
-# re-valued, exactly the predecessor's plan).
+# successor by the 2026-10-17 eligibility rule. Its kill switch
+# (followups.enabled) went once every vault was past the tag.
 READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
 # mvp-0.40 (curriculum C1, the plan follows the deliverable;
 # docs/specs/spec_deliverable_curriculum_v1.md §7.6, §8.1;

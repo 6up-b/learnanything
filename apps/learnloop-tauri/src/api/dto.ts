@@ -8864,7 +8864,6 @@ export interface ReaderComingUpDto {
   later: ReaderFollowupLineDto[];
   undoAll: Array<{ digestId: string }>;
   scale: string;
-  enabled: boolean;
 }
 
 export interface ReaderFollowupsDto extends ReaderComingUpDto {

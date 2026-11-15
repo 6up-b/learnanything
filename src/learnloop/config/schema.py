@@ -2404,7 +2404,7 @@ class RecapConfig(BaseModel):
     wrap_up_enabled: bool = True
 
 
-class FollowupsConfig(BaseModel):
+class FollowupsConfig(KeepsRetiredFields):
     """Reader workbench: cold follow-ups, a "short unfamiliar problem" after
     reading.
 
@@ -2420,12 +2420,9 @@ class FollowupsConfig(BaseModel):
     day's plan the pending ones are re-valued and those whose question was
     answered since are retired with their reason. Automatic dated requests
     change what the maintain lane holds and serves, so they are the successor
-    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39): below
-    the tag the section is inert. Never evidence; replay never reads it.
+    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39; its kill switch went
+    once every vault was past the tag). Never evidence; replay never reads it.
 
-    * ``enabled``: the kill switch. Off, or below the tag, no follow-up is
-      created and no re-valuation runs (the predecessor's plan); existing
-      ones stay the learner's commitments and can be undone.
     * ``formative_questions_enabled``: formative records (a missed
       prediction, a "still unclear", ...) add questions; they never change a
       prior's number.
@@ -2439,7 +2436,6 @@ class FollowupsConfig(BaseModel):
       them). Subscription calls are ``estimated_only``.
     """
 
-    enabled: bool = True
     formative_questions_enabled: bool = True
     generate_when_nothing_fits: bool = False
     max_wait_days: int = Field(default=14, ge=1, le=365)
@@ -2451,8 +2447,7 @@ class DigestConfig(BaseModel):
     section.
 
     * ``narrative_enabled``: after a reader session the follow-ups planned (its digest
-      row; with follow-ups not live, a summary-only row written for the
-      narrative), one background call (route ``reader_digest``) writes at most 120
+      row), one background call (route ``reader_digest``) writes at most 120
       words from the session's typed summary only, citing the summary's event
       ids. Code validates the citations and the word bound: an invalid
       narrative is dropped and why is recorded (``judgment_ledger``, task

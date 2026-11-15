@@ -27,7 +27,7 @@ function timeline(count: number): ReaderComingUpDto {
   const days = ["2026-10-14", "2026-10-15", "2026-10-19", "2026-10-21", "2026-11-09"];
   const lines = days.slice(0, count).map((day, index) => line(`c${index + 1}`, day));
   return { next: lines.slice(0, 3), later: lines.slice(3), undoAll: [{ digestId: "rsd_1" }],
-           scale: "LearnLoop's estimate; its scale is not yet calibrated", enabled: true };
+           scale: "LearnLoop's estimate; its scale is not yet calibrated" };
 }
 
 it("shows each check as a dated line with its purpose and minutes, never a count", () => {

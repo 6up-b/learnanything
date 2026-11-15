@@ -73,6 +73,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("RouterConfig", ("probe_tie_admission",), bool, True, "D7"),
     RetiredField("IntentConfig", ("enabled",), bool, True, "D7"),
     RetiredField("IntentConfig", ("recall_targets_enabled",), bool, True, "D7"),
+    RetiredField("FollowupsConfig", ("enabled",), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

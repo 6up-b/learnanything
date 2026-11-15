@@ -73,7 +73,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "reading_paths.plan_uses_path",
     "curriculum.plan_uses_path",
     "curriculum.enabled",
-    "followups.enabled",
     "data_capture.serving",
     "followup.generate_and_serve",
     "workbench.field_signals_enabled",

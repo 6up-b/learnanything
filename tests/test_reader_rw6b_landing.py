@@ -5,8 +5,8 @@ the mvp-0.38 cold-retry reschedule and Reader CA5a's peek
 (i) C0b's *Check me later* and *Am I ready?* Check once commitments and RW6b's
     automatic follow-ups coexist in the maintain lane: DL2 serves both, and
     RW6b's serve-time gate touches only ``via: reader_followup`` commitments
-    (a C0b check exposed since its creation is served exactly as with
-    ``followups.enabled`` off).
+    (a C0b check exposed since its creation is still served: the gate never
+    reads it).
 (ii) The mvp-0.38 reschedule's fresh cold retry (help taken on a due repair
     cold retry withdraws it and schedules one fresh retry for the same repair)
     still owns the claim: no retention follow-up is planned for it, and an

@@ -538,7 +538,6 @@ fitting.fsrs.min_relative_improvement = 0.01
 fitting.fsrs.min_reviews = 50
 followup.generate_and_serve = true
 followup.hypothesis_marks = true
-followups.enabled = true
 followups.formative_questions_enabled = true
 followups.generate_when_nothing_fits = false
 followups.max_daily_cost_usd = 0.5
