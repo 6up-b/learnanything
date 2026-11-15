@@ -741,7 +741,6 @@ plan.reentry_max_items = 8
 plan.reentry_minutes = 15
 plan.repair_max_share = 0.3
 practice.as_printed.enabled = true
-practice.attempt_keeps_content_state = true
 practice.device_eligibility_enabled = true
 practice_generation.difficulty_floor = 0.15
 practice_generation.min_band_width = 0.1

@@ -1355,15 +1355,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
         "recorded primed flag, never this switch."
     ),
-    "practice.attempt_keeps_content_state": (
-        "Kill switch for mobile PR-4's successor (mvp-0.37). On, a "
-        "live attempt's write to its item's existing practice_item_state row takes only the scheduling "
-        "columns and the last-attempt time: active can only close (a diagnostic probe's single use still "
-        "lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync "
-        "closed (one committed while the answer was graded, or a parked, superseded or deactivated item). "
-        "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
-        "Dormant below the successor; replay never reads it."
-    ),
     "practice.device_eligibility_enabled": (
         "Kill switch for the phone's device rules (mobile PR-6, spec_mobile_tailnet_v1 §6.4; "
         "learnloop.scheduling.device_eligibility). On, a request with a phone origin never gets an item that "

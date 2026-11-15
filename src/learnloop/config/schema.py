@@ -2914,19 +2914,6 @@ class PracticeConfig(KeepsRetiredFields):
 
     ``as_printed``: the problem-as-printed display switches.
 
-    ``attempt_keeps_content_state`` is the kill switch of
-    ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION``. At that tag
-    or later, with it on: a live attempt's write to its item's existing
-    ``practice_item_state`` row takes only the scheduling columns and the
-    last-attempt time; ``active`` can only close (a diagnostic probe's single
-    use still lands) and ``content_hash`` is content sync's alone. So an
-    attempt never reopens a row content sync closed, whether that sync ran
-    while the answer was graded (another process) or before it (a parked,
-    superseded or deactivated item stays out of serving until the sync rule
-    reopens it). Off, or below the tag: the attempt writes the whole row from
-    the vault it graded against, exactly as the predecessor. Replay never
-    reads it (replay rebuilds the whole row and re-closes what was closed).
-
     ``device_eligibility_enabled`` is the kill switch of the phone's device
     rules, which name no algorithm tag: only a request with a phone origin reads it,
     and no such request exists below the mobile host. Off: a phone request
@@ -2936,7 +2923,6 @@ class PracticeConfig(KeepsRetiredFields):
     """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
-    attempt_keeps_content_state: bool = True
     device_eligibility_enabled: bool = True
 
 

@@ -1378,16 +1378,6 @@ def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
     return bool(getattr(replay_config, "ledger_bounded", True))
 
 
-def attempt_keeps_content_state(vault: LoadedVault) -> bool:
-    """Whether a live attempt writes only its item row's scheduling columns
-    (mobile PR-4, the kill switch ``practice.attempt_keeps_content_state``).
-    Off, the attempt writes the whole row as the predecessor did. Replay never
-    asks."""
-
-    practice_config = getattr(vault.config, "practice", None)
-    return bool(getattr(practice_config, "attempt_keeps_content_state", True))
-
-
 def replay_existing_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -3303,7 +3293,6 @@ def _apply_attempt_in_transaction(
         application,
         replace_existing=attempt.replace_existing,
         write_facet_uncertainty=canonical_facet_uncertainty_on(vault),
-        keep_content_state=attempt_keeps_content_state(vault),
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
     # Teacher TE2: a lesson probe's class and interpretation, before the projection below reads them.
@@ -3914,7 +3903,6 @@ def _persist_attempt_application(
     *,
     replace_existing: bool,
     write_facet_uncertainty: bool = False,
-    keep_content_state: bool = False,
 ) -> None:
     # The per-LO facet recall updates are computed (surprise/breadth/debug read
     # them in memory) but never persisted: the canonical projection owns facet
@@ -3947,7 +3935,6 @@ def _persist_attempt_application(
             ability_transition=application.ability_transition,
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
-            keep_content_state=keep_content_state,
         )
 
 

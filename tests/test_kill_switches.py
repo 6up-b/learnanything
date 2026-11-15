@@ -46,7 +46,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "hints.fold_follows_attach",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
-    "practice.attempt_keeps_content_state",
     "ask.cold_help_converts",
     "eligibility.enabled",
     "placement.enabled",

@@ -566,9 +566,8 @@ SUPERSEDED_CLAIMS_ALGORITHM_VERSION = "mvp-0.36"
 # next sync. (b) changes which items are SERVED (``inactive_state``), so it is
 # a successor (the 2026-10-17 eligibility rule), never evidence, FSRS, the
 # projection or replay: replay keeps the full upsert and re-closes what was
-# closed outside the ledger. Kill switch: ``practice.attempt_keeps_content_state``
-# (off, or below the tag: the attempt writes the whole row exactly as the
-# predecessor).
+# closed outside the ledger. Its kill switch went once every vault was past
+# the tag.
 ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 
 # mvp-0.38 (a fresh cold retry after help on a cold follow-up; owner decision
