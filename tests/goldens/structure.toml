@@ -11,7 +11,7 @@ first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
 functions_over_200_lines = 73
-comment_lines_naming_a_stage_artifact = 2377
+comment_lines_naming_a_stage_artifact = 2374
 test_files_named_for_a_stage = 184
 
 [members]
@@ -543,7 +543,7 @@ stage_test_files = [
 "src/learnloop/ai/spend.py" = 1
 "src/learnloop/algorithm_versions.py" = 40
 "src/learnloop/attempts/ai_contracts.py" = 1
-"src/learnloop/attempts/attempts.py" = 22
+"src/learnloop/attempts/attempts.py" = 20
 "src/learnloop/attempts/clarification.py" = 2
 "src/learnloop/attempts/grade_resolution.py" = 4
 "src/learnloop/attempts/grading.py" = 3
@@ -861,7 +861,7 @@ stage_test_files = [
 "src/learnloop/scheduling/intent/followup_gate.py" = 3
 "src/learnloop/scheduling/intent/serving.py" = 22
 "src/learnloop/scheduling/review_log.py" = 1
-"src/learnloop/scheduling/scheduler.py" = 22
+"src/learnloop/scheduling/scheduler.py" = 21
 "src/learnloop/scheduling/staged_policy.py" = 1
 "src/learnloop/scheduling/voi_forecasts.py" = 6
 "src/learnloop/section_map.py" = 1
