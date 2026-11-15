@@ -129,11 +129,11 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_causal_cold_outcomes.py`
-- `tests/test_cold_retry_reschedule.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_guided_redo.py`
 - `tests/test_serve_eligibility.py`
 - `tests/test_serve_eligibility_review.py`
+- `tests/test_cold_retry_reschedule.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_pfc_unassessed_readers.py`

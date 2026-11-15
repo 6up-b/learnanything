@@ -224,13 +224,12 @@ def _cold_lane(repository) -> tuple[Any, ...]:
     return tuple(tasks), assisted
 
 
-def _with_checks(root, *, switch: bool):
+def _with_checks(root):
     from learnloop.substrate.state_sync import sync_vault_state
 
     paths, repository = build_deliverable_vault(root)
     set_config(paths.root, {("algorithms", "algorithm_version"): COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION,
-                            ("ask", "cold_help_converts"): True,
-                            ("practice", "reschedule_cold_after_assist"): switch})
+                            ("ask", "cold_help_converts"): True})
     clock = FrozenClock(NOW)
     # Synced at the tag, as tests/test_cold_retry_reschedule.py builds its rebuild-equivalent vault.
     sync_vault_state(load_vault(paths.root), repository, clock=clock)
@@ -268,29 +267,25 @@ def _help_on_each_check(paths, repository, created) -> None:
 
 
 def test_iii_check_once_commitments_are_never_touched_by_the_cold_retry_reschedule(tmp_path):
-    states = {}
-    for switch in (True, False):
-        paths, repository, later, created = _with_checks(tmp_path / f"vault_{switch}", switch=switch)
-        assert reschedule_cold_after_assist_active(load_vault(paths.root)) is switch
-        assert later["commitment_id"] and len(created) == 2 and all(entry["item_id"] for entry in created)
-        before = _checks(repository)
-        assert [row[0] for row in before] == ["test_me_later"] * 3
-        assert {row[6] for row in before} == {"deliverable_path", "deliverable_ready"}
-        _help_on_each_check(paths, repository, created)
-        after = _checks(repository)
-        # Nothing on the cold-retry lane: no cold retry, no assisted reschedule opportunity.
-        tasks, assisted = _cold_lane(repository)
-        assert not [task for task in tasks if task[0] == "cold_retry"] and assisted == 0
-        # The checks keep their targets, action and dates (only DL2's own rule may answer them).
-        assert [row[:2] + row[4:8] for row in after] == [row[:2] + row[4:8] for row in before]
-        states[switch] = (after, tasks)
-    assert states[True] == states[False]  # the reschedule on is exactly the reschedule off
+    paths, repository, later, created = _with_checks(tmp_path / "vault")
+    assert reschedule_cold_after_assist_active(load_vault(paths.root)) is True
+    assert later["commitment_id"] and len(created) == 2 and all(entry["item_id"] for entry in created)
+    before = _checks(repository)
+    assert [row[0] for row in before] == ["test_me_later"] * 3
+    assert {row[6] for row in before} == {"deliverable_path", "deliverable_ready"}
+    _help_on_each_check(paths, repository, created)
+    after = _checks(repository)
+    # Nothing on the cold-retry lane: no cold retry, no assisted reschedule opportunity.
+    tasks, assisted = _cold_lane(repository)
+    assert not [task for task in tasks if task[0] == "cold_retry"] and assisted == 0
+    # The checks keep their targets, action and dates (only DL2's own rule may answer them).
+    assert [row[:2] + row[4:8] for row in after] == [row[:2] + row[4:8] for row in before]
 
 
 def test_iii_a_shadow_rebuild_is_zero_with_the_checks_present(tmp_path):
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    paths, repository, _later, created = _with_checks(tmp_path / "vault", switch=True)
+    paths, repository, _later, created = _with_checks(tmp_path / "vault")
     for stage in ("checks", "help_taken"):
         if stage == "help_taken":
             _help_on_each_check(paths, repository, created)

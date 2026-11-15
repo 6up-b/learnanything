@@ -41,14 +41,9 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "diagnosis.split_enabled",
     "diagnosis.shadow",
     "stuck_prompt.enabled",
-    "proof_check.enabled",
-    "required_method.enabled",
-    "hints.fold_follows_attach",
     "mastery.claim_fixes_enabled",
     "replay.ledger_bounded",
-    "practice.attempt_keeps_content_state",
     "ask.cold_help_converts",
-    "practice.reschedule_cold_after_assist",
     "eligibility.enabled",
     "placement.enabled",
     "placement.initial_probes",
@@ -91,8 +86,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "followup.generate_and_serve",
     "workbench.field_signals_enabled",
     "teacher.enabled",
-    "teacher.weight.learned",
-    "teacher.weight.source",
     "teacher.probes",
     "adaptive_difficulty.enabled",
     "adaptive_difficulty.selection",
@@ -246,7 +239,7 @@ def test_every_switch_the_schema_or_a_tags_comment_names_is_in_the_table() -> No
 
 #: Sections whose every boolean and mode is a switch that restores a predecessor (checked when the table landed). A new
 #: boolean here is a new switch, whatever its comment says.
-SECTIONS_OF_SWITCHES = ("router_objective", "decider_routes", "voi_stopping", "teacher", "teacher.weight",
+SECTIONS_OF_SWITCHES = ("router_objective", "decider_routes", "voi_stopping", "teacher",
                         "router.lesson_suggestions", "placement", "intent")
 
 

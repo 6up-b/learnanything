@@ -37,12 +37,9 @@ from learnloop.attempts.grading_support import (
     REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
     REQUIRED_METHOD_RULES,
     ROUTE_RULES,
-    ROUTE_RULES_SUFFIX,
     ROUTE_RULES_V2,
     apply_route_rule,
     apply_valid_alternative_gate,
-    method_rules_active,
-    route_rules_active,
 )
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.db.connection import connect
@@ -69,7 +66,6 @@ from tests.required_method_grading_helpers import (
 #: The immediate predecessor: its grading is mvp-0.20's own-route rules.
 PREDECESSOR = ROUTER_MIXTURE_ALGORITHM_VERSION
 SUBMITTED = CLOCK.now() - timedelta(hours=1)  # before CLOCK's regrades (see test_route_rules_in_grader)
-KILL_SWITCH = "[required_method]\nenabled = false"
 
 
 # -- the version and the switch ---------------------------------------------------------
@@ -80,18 +76,6 @@ def test_the_method_explicit_successor_is_the_latest_after_the_route_rules():
     assert VERSION == "mvp-0.25"
     assert LATEST_ALGORITHM_VERSION == "mvp-0.59"
     assert PREDECESSOR == "mvp-0.24"
-
-
-def test_active_only_with_both_switches_on(tmp_path):
-    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
-    assert method_rules_active(vault) and route_rules_active(vault)
-    _paths, off, _repository = split_vault(tmp_path / "off", version=VERSION, config=KILL_SWITCH, seed=False)
-    assert route_rules_active(off) and not method_rules_active(off)
-    # The required-method rules extend the own-route rules: off with them.
-    _paths, rules_off, _repository = split_vault(
-        tmp_path / "rules_off", version=VERSION, config="[proof_check]\nenabled = false", seed=False,
-    )
-    assert not route_rules_active(rules_off) and not method_rules_active(rules_off)
 
 
 # -- the deterministic rules (pure) ------------------------------------------------------
@@ -238,25 +222,6 @@ def test_the_grader_reads_the_frozen_field_never_the_answered_statement(tmp_path
     assert frozen["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
 
 
-def test_off_the_prompt_is_the_predecessors_byte_for_byte(tmp_path):
-    """The kill switch shows the own-route-v1 rules and no required method,
-    even on a method item: the same prompt, context hash and identity as an
-    mvp-0.24 vault (mvp-0.20's rules). The baseline is mvp-0.24 served through
-    the same switch: no vault that opens is below the successor's tag."""
-
-    _paths, vault, _repository = _method_vault(tmp_path / "a", config=KILL_SWITCH, seed=False)
-    _paths, baseline, _repository = _method_vault(tmp_path / "b", version=PREDECESSOR, config=KILL_SWITCH,
-                                                  seed=False)
-    plan, reference = _blind_plan(vault), _blind_plan(baseline)
-    assert plan.context.reference_policy["route_rules"] == "own-route-v1"
-    assert "required_method" not in plan.context.reference_policy
-    assert blind_grading_prompt(plan.context) == blind_grading_prompt(reference.context)
-    assert REQUIRED_METHOD_RULES not in blind_grading_prompt(plan.context)
-    assert (plan.prompt_version, plan.context_hash, plan.calibration_prompt_version) == (
-        reference.prompt_version, reference.context_hash, reference.calibration_prompt_version)
-    assert plan.prompt_version.endswith(ROUTE_RULES_SUFFIX)
-
-
 # -- live grades -----------------------------------------------------------------------------
 
 
@@ -301,38 +266,6 @@ def test_live_the_same_mathematics_without_a_required_method_keeps_mvp020s_rule(
     assert unassessed_evidence_row(rows["setup"].attribution_json)
 
 
-def test_the_kill_switch_grades_exactly_as_the_predecessor(tmp_path):
-    """Off the method item grades as mvp-0.24 does: the same columns, evidence
-    rows, record, prompt and identity (the baseline is mvp-0.24 served through
-    the same switch)."""
-
-    _paths, vault, repository = _method_vault(tmp_path / "a", config=KILL_SWITCH)
-    _paths, baseline, baseline_repository = _method_vault(tmp_path / "b", version=PREDECESSOR, config=KILL_SWITCH)
-    grader, reference_grader = DivergentGrader(), DivergentGrader()
-    result = submit(vault, repository, grader, answer=ALTERNATIVE, when=CLOCK.now())
-    reference = submit(baseline, baseline_repository, reference_grader, answer=ALTERNATIVE, when=CLOCK.now())
-    assert grader.calls == reference_grader.calls == ["blind_grading"]
-    # The same prompt, attempt ids aside.
-    assert grader.prompts[0].replace(result.attempt_id, "ATTEMPT") == reference_grader.prompts[0].replace(
-        reference.attempt_id, "ATTEMPT")
-    attempt = repository.fetch_practice_attempt(result.attempt_id)
-    expected = baseline_repository.fetch_practice_attempt(reference.attempt_id)
-    for column in ("rubric_score", "correctness", "manual_review_reason", "error_type"):
-        assert attempt[column] == expected[column], column
-    rows = [(r.criterion_id, r.points_awarded, r.attribution_json) for r in repository.fetch_grading_evidence(result.attempt_id)]
-    ref = [(r.criterion_id, r.points_awarded, r.attribution_json)
-           for r in baseline_repository.fetch_grading_evidence(reference.attempt_id)]
-    assert rows == ref
-    record = repository.latest_blind_grade_record(result.attempt_id)["record"]
-    ref_record = baseline_repository.latest_blind_grade_record(reference.attempt_id)["record"]
-    assert record["grading_support"] == ref_record["grading_support"]
-    assert record["calibration_prompt_version"] == ref_record["calibration_prompt_version"] == (
-        f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}")
-    # The predecessor's (mvp-0.20's rules) outcome: the method criterion's
-    # unquoted mark-down is unassessed.
-    assert record["grading_support"]["proof_route_check"]["unlocated_criterion_ids"] == ["setup"]
-
-
 def test_a_regrade_at_the_successor_keeps_the_method_rule_and_a_full_credit_regrade_clears_it(tmp_path):
     _paths, vault, repository = _method_vault(tmp_path)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE, when=SUBMITTED)
@@ -363,13 +296,14 @@ def test_replay_reproduces_method_grades_without_a_model(tmp_path, monkeypatch):
 def test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor(tmp_path):
     """Existing grades keep their meaning: an mvp-0.24 grade of a method item
     (the method criterion unassessed) replays identically once the vault is at
-    the successor; nothing is regraded or rewritten. The predecessor's grade is
-    written through the kill switch (no vault that opens is below the tag), and
-    the vault then moves to the successor with the switch back on."""
+    the successor; nothing is regraded or rewritten. No writer grades a method
+    item under mvp-0.20's rules any more, so the grade is built: the item is
+    graded before it has a required method (mvp-0.20's outcome, the criterion
+    unassessed), then gains one, as an accepted repair would give it."""
 
     from tests.helpers import set_algorithm_version
 
-    paths, vault, repository = _method_vault(tmp_path, version=PREDECESSOR, config=KILL_SWITCH)
+    paths, vault, repository = split_vault(tmp_path, version=PREDECESSOR)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     project_canonical_facet_state(vault, repository)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -378,12 +312,9 @@ def test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor(tm
         tables = {table: connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall()
                   for table in ("practice_attempts", "grading_evidence", "blind_grade_records", "judgment_ledger")}
     set_algorithm_version(paths, VERSION)
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    assert text.count(KILL_SWITCH) == 1
-    config.write_text(text.replace(KILL_SWITCH, "[required_method]\nenabled = true"), encoding="utf-8")
+    _require_method(paths)
     vault = load_vault(paths.root)
-    assert method_rules_active(vault)
+    assert vault.practice_items[ITEM].required_method is not None
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _projection(repository) == before
     with connect(repository.sqlite_path, read_only=True) as connection:
@@ -552,18 +483,13 @@ def test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with(tm
     assert _projection(repository) == before
 
 
-@pytest.mark.parametrize("setup", ["kill_switch", "no_method"])
-def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path, setup):
-    """Outside method-explicit items (and with the kill switch off) a regrade
-    is unchanged: it reads the item as it is now (canonical sources §7.3a),
+def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path):
+    """Outside method-explicit items a regrade is unchanged: it reads the item as it is now (canonical sources §7.3a),
     so its rows cite a snapshot of the edited item, never the contract the
     answer was graded under (regrade contracts, mvp-0.26: below that tag they
     cited none)."""
 
-    if setup == "kill_switch":
-        paths, vault, repository = _method_vault(tmp_path, config=KILL_SWITCH)
-    else:
-        paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path, version=VERSION)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     graded = _evidence_ids(repository, result.attempt_id)
     answered = _contract_versions(repository, result.attempt_id)

@@ -650,6 +650,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_show.py](../../../../../../tests/test_show.py) — direct import
   - `test_show_adds_imported_source_name_without_replacing_ref_id`
   - `test_show_missing_id_returns_not_found`
+- [tests/test_sim_probe_validation_cli.py](../../../../../../tests/test_sim_probe_validation_cli.py) — direct import
+  - `test_the_command_on_a_default_vault_fails_and_says_what_it_could_not_run`
+  - `test_with_the_named_switches_off_the_command_runs`
 - [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
   - `test_why_names_the_rule_that_kept_an_item_off_the_slate`
 - [tests/test_source_exercise_rpcs.py](../../../../../../tests/test_source_exercise_rpcs.py) — direct import

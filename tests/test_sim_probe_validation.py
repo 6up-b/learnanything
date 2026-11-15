@@ -10,6 +10,9 @@ label accuracy needs a sample that can fail: forty seeds per type, in
 from __future__ import annotations
 
 import copy
+import json
+import re
+
 import pytest
 
 from learnloop.diagnosis.robust_composition import ABSTENTION_BUDGET_FRACTION
@@ -48,7 +51,8 @@ def test_planted_confuses_with_is_diagnosed_within_budget(validation_report):
 
 
 def test_every_planted_episode_completes_within_its_budget(validation_report):
-    # An empty report passes vacuously (D2a: it was empty at the head, which runs no opening episode).
+    # Every requested run opened its episode (a run that opens none is listed, not judged).
+    assert validation_report.refusal is None and validation_report.not_run == []
     assert len(validation_report.results) == len(PLANTED_TYPES) * len(SEEDS)
     # Selection, stopping, and accounting: every episode completed within its
     # observation budget through qualifying observations only.
@@ -88,6 +92,30 @@ def test_the_gate_ends_no_episode_whose_next_probe_pays(validation_runs):
         if result.completion_reason == "couldnt_reliably_distinguish":
             assert gate[-1]["abstained"] and gate[-1]["should_stop"], (result.planted, result.seed)
     assert checked >= len(report.results)
+
+
+_ULID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
+
+
+@pytest.mark.parametrize("value_of_information", [False, True], ids=["gate_decides", "value_decides"])
+def test_a_seed_fixes_the_run(tmp_path, value_of_information):
+    """Two runs of one (type, seed) store the same episode, for every planted type: the robust ensembles seed on the
+    episode id, so the episodes the sim opens must take their ids from a stream its seed fixes. Compared with ids
+    masked first (the ensembles' numbers), then whole."""
+
+    vault_root = _vault_with_confusable(tmp_path, value_of_information=value_of_information)
+    runs = []
+    for name in ("first", "second"):
+        report = run_probe_validation(vault_root, tmp_path / name, seeds=(11,))
+        assert len(report.results) == len(PLANTED_TYPES)
+        records = {
+            result.planted: run_records(tmp_path / name, result.planted, result.seed) for result in report.results
+        }
+        runs.append((report.results, json.dumps(records, sort_keys=True)))
+    (first, first_records), (second, second_records) = runs
+    assert _ULID.sub("<id>", first_records) == _ULID.sub("<id>", second_records)
+    assert first_records == second_records
+    assert first == second
 
 
 def test_where_value_decides_each_stop_is_the_one_its_numbers_claim(tmp_path):

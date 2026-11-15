@@ -131,8 +131,8 @@ LESSON_CHECK_ATTEMPT_TYPE = "reconstruction_after_walkthrough"
 _IMPLIED_ETA_BOUND = 12.0
 _BISECTION_STEPS = 60
 
-#: The rules a check's mass was applied under (recorded on its row).
-RULE_FIXED = "fixed"
+#: The rules a check's mass was applied under (recorded on its row). A row may also say ``fixed`` (the type's
+#: configured mass, written while that rule could be switched on); no weight update reads such a row.
 RULE_LEARNED = "learned"
 RULE_POOL = "pool"
 
@@ -1066,7 +1066,6 @@ __all__ = [
     "POOL_PRIOR_ALPHA",
     "POOL_PRIOR_BETA",
     "PRIORS_VERSION",
-    "RULE_FIXED",
     "RULE_LEARNED",
     "RULE_POOL",
     "RecordedUpdate",

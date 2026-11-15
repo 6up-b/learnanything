@@ -2,7 +2,7 @@
 
 Interaction (i): the kept replaced claims' replace seam (successor mvp-0.36,
 ``Repository.replace_learner_claim``, atomic with the LO's re-anchor) against
-PR-4's attempt write (successor mvp-0.37, ``practice.attempt_keeps_content_state``)
+PR-4's attempt write (successor mvp-0.37)
 and PR-4's session ownership, in one session on the desktop sidecar:
 
 * the desktop starts a session and answers an item, retires it ``too_easy``
@@ -169,33 +169,3 @@ def test_landing_i_a_too_easy_retirement_during_a_session(tmp_path, monkeypatch)
     assert repository.practice_item_state("pi_eig_easy").active is False
 
     assert _shadow_summary(paths)["summary"] == ZERO
-
-
-def test_landing_i_control_switched_off_the_same_session_reopens_the_retired_row(tmp_path, monkeypatch):
-    """The control: with PR-4's kill switch off (``practice.attempt_keeps_content_state``;
-    no vault that opens is below its tag) the replace seam is the same, but the
-    attempt's whole-row write reopens the row the concurrent retirement closed
-    (PR-2's reverse race, which mvp-0.37 closes)."""
-
-    from learnloop.algorithm_versions import SUPERSEDED_CLAIMS_ALGORITHM_VERSION
-    from learnloop.vault.loader import load_vault as _load
-
-    from tests.helpers import append_config_toml
-
-    paths, _vault_loaded, repository = _vault(tmp_path, version=SUPERSEDED_CLAIMS_ALGORITHM_VERSION)
-    append_config_toml(paths.root, "[practice]\nattempt_keeps_content_state = false")
-    assert _load(paths.root).config.practice.attempt_keeps_content_state is False
-    ctx = SidecarContext()
-    ctx.load_secondary(paths.root)
-    ctx.grading_provider_override = "manual"
-    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
-    _submit(ctx, session_id, "pi_diag_easy", 1.0)
-    _step()
-    _call(ctx, "retire_practice_item", {"practiceItemId": "pi_diag_easy", "reason": "too_easy"})
-    _step()
-    seen = _retire_before_the_attempt_commits(monkeypatch, paths, "pi_diag_mid")
-    _submit(ctx, session_id, "pi_diag_mid", 4.0)
-    assert seen["retired"].active is False
-    first, second = _claims(repository)
-    assert first["superseded_by"] == second["id"] and second["superseded_by"] is None
-    assert repository.practice_item_state("pi_diag_mid").active is True

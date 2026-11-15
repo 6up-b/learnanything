@@ -45,14 +45,9 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("diagnosis.split_enabled", "mvp-0.10", True),
     KillSwitch("diagnosis.shadow", "mvp-0.10", False),
     KillSwitch("stuck_prompt.enabled", "mvp-0.13", True),
-    KillSwitch("proof_check.enabled", "mvp-0.17", True),
-    KillSwitch("required_method.enabled", "mvp-0.25", True),
-    KillSwitch("hints.fold_follows_attach", "mvp-0.42", True),
     KillSwitch("mastery.claim_fixes_enabled", "mvp-0.33", True),
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
-    KillSwitch("practice.attempt_keeps_content_state", "mvp-0.37", True),
     KillSwitch("ask.cold_help_converts", "mvp-0.35", True),
-    KillSwitch("practice.reschedule_cold_after_assist", "mvp-0.38", True),
     KillSwitch("eligibility.enabled", "mvp-0.27", True),
     # Placement, recurrence, learner-text gaps, sources, value of information, the Decider
     KillSwitch("placement.enabled", "mvp-0.11", True),
@@ -98,8 +93,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("workbench.field_signals_enabled", "mvp-0.31", True),
     # The teacher and adaptive difficulty
     KillSwitch("teacher.enabled", "mvp-0.41", True),
-    KillSwitch("teacher.weight.learned", "mvp-0.41", True),
-    KillSwitch("teacher.weight.source", "mvp-0.41", "pool"),
     KillSwitch("teacher.probes", "mvp-0.51", True),
     KillSwitch("adaptive_difficulty.enabled", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.selection", "mvp-0.30", True),

@@ -161,7 +161,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
 - [tests/test_attempt_content_state_race.py](../../../../../../tests/test_attempt_content_state_race.py) — direct import
   - `test_a_probe_attempt_still_closes_its_single_use_surface`
-  - `test_switched_off_the_retiring_sync_is_still_undone_as_the_predecessor`
 - [tests/test_attempt_content_state_successor.py](../../../../../../tests/test_attempt_content_state_successor.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`

@@ -1378,16 +1378,6 @@ def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
     return bool(getattr(replay_config, "ledger_bounded", True))
 
 
-def attempt_keeps_content_state(vault: LoadedVault) -> bool:
-    """Whether a live attempt writes only its item row's scheduling columns
-    (mobile PR-4, the kill switch ``practice.attempt_keeps_content_state``).
-    Off, the attempt writes the whole row as the predecessor did. Replay never
-    asks."""
-
-    practice_config = getattr(vault.config, "practice", None)
-    return bool(getattr(practice_config, "attempt_keeps_content_state", True))
-
-
 def replay_existing_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -2115,22 +2105,16 @@ def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedCo
 def regrade_reads_contract(vault: LoadedVault, item: PracticeItem, graded: GradedContract | None) -> bool:
     """Does a regrade grade the answer under its assessment contract (re-review F1)?
 
-    Only for a method-explicit item while the required-method rules are on
-    (:func:`~learnloop.attempts.grading_support.method_rules_active`): its
-    contract froze a required method, or the item has one now. The method,
+    Only for a method-explicit item: its contract froze a required method, or
+    the item has one now. The method,
     the statement that required it and the rubric whose criteria it lists
     are one contract, so the regrade reads all three from it: mixing the
     frozen method with today's statement would drop a requirement the
     learner was given (or enforce one they never saw). Every other regrade
-    reads the item as it is now, as before (canonical sources §7.3a), and so
-    does every regrade with the kill switch off (mvp-0.20 exactly).
+    reads the item as it is now, as before (canonical sources §7.3a).
     """
 
     if graded is None:
-        return False
-    from learnloop.attempts.grading_support import method_rules_active
-
-    if not method_rules_active(vault):
         return False
     return graded.required_method is not None or getattr(item, "required_method", None) is not None
 
@@ -2151,13 +2135,11 @@ def _blind_grading_plan(
     which restores the mvp-2.0 blind prompt exactly). ``stuck`` (mvp-0.13)
     tells the grader the answer came from "I'm stuck" and asks for its
     reading; an ordinary answer's context is unchanged, and so is the
-    calibration identity (the scoring rules are the same). At mvp-0.20 the
-    policy carries the own-route rules (kill switch ``proof_check.enabled``),
-    which change the scoring rules, so they also name the calibration
-    identity (``+own-route-v1``). At the method-explicit successor they are
-    ``own-route-v2`` (kill switch ``required_method.enabled``) and the policy
-    also carries the ``required_method`` the answer is graded under (review
-    F1): the doors pass the one frozen with its assessment contract
+    calibration identity (the scoring rules are the same). The policy carries
+    the own-route rules (``own-route-v2``, mvp-0.20 and the method-explicit
+    successor), which change the scoring rules, so they also name the
+    calibration identity (``+own-route-v2``), and the ``required_method`` the
+    answer is graded under (review F1): the doors pass the one frozen with its assessment contract
     (:func:`_graded_required_method`); left out, it is the item's current one.
     """
 
@@ -2168,17 +2150,17 @@ def _blind_grading_plan(
     )
     from learnloop.attempts.grading_support import (
         ITEM_REQUIRED_METHOD,
+        METHOD_ROUTE_RULES_VERSION,
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
         reference_policy,
         route_rules_suffix,
-        route_rules_version,
     )
     from learnloop.diagnosis.diagnostic_augmentation import (
         diagnostic_verifier_observations,
     )
 
     support = bool(getattr(getattr(vault.config, "diagnosis", None), "grading_support", True))
-    rules = route_rules_version(vault) if support else None
+    rules = METHOD_ROUTE_RULES_VERSION if support else None
     rubric_ids = [
         str(criterion.get("id"))
         for criterion in (context.rubric or {}).get("criteria") or ()
@@ -3303,7 +3285,6 @@ def _apply_attempt_in_transaction(
         application,
         replace_existing=attempt.replace_existing,
         write_facet_uncertainty=canonical_facet_uncertainty_on(vault),
-        keep_content_state=attempt_keeps_content_state(vault),
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
     # Teacher TE2: a lesson probe's class and interpretation, before the projection below reads them.
@@ -3914,7 +3895,6 @@ def _persist_attempt_application(
     *,
     replace_existing: bool,
     write_facet_uncertainty: bool = False,
-    keep_content_state: bool = False,
 ) -> None:
     # The per-LO facet recall updates are computed (surprise/breadth/debug read
     # them in memory) but never persisted: the canonical projection owns facet
@@ -3947,7 +3927,6 @@ def _persist_attempt_application(
             ability_transition=application.ability_transition,
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
-            keep_content_state=keep_content_state,
         )
 
 

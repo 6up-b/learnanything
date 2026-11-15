@@ -130,7 +130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_each_response_world_simulates_histories_generated_in_that_world`
   - `test_rows_are_distributions_and_the_hand_set_vocabulary_is_read_not_copied`
   - `test_simulation_runs_every_policy_on_common_random_numbers`
-  - `test_the_incumbent_arm_includes_todays_robust_completion_gate`
+  - `test_the_incumbent_arm_includes_the_robust_completion_gate`
   - `test_the_measured_loss_charges_unresolved_minutes_off_the_diagonal`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import
   - `test_each_ablation_puts_back_exactly_one_piece_of_the_successor`

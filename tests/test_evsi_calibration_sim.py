@@ -153,19 +153,23 @@ def _episode_state(scenario, belief, *, observations, identical: bool):
     )
 
 
-def test_the_incumbent_arm_includes_todays_robust_completion_gate(eedi):
+def test_the_incumbent_arm_includes_the_robust_completion_gate(eedi):
     # Review F8: after the minimum independent observations, an unstable
     # posterior whose remaining instruments the robust selector cannot tell
-    # apart ends the live episode (probe_episodes._robust_completion_override).
-    # The incumbent arm does the same; the cap-only comparator keeps checking.
+    # apart ends the live episode under the predecessor gate (mvp-0.58,
+    # probe_episodes._robust_gate_verdict without the fixes). The incumbent arm
+    # with that gate does the same; the cap-only comparator keeps checking.
     scenario = build_scenarios(eedi["bank"], eedi["fit"])[0]
     belief = {h: 1.0 / len(scenario.hypotheses) for h in scenario.hypotheses}  # unstable, not action-equivalent
     minimum = ProbeEpisodeConfig().minimum_independent_observations
-    settings = P.PolicySettings(draw_count=8)
+    settings = P.PolicySettings(draw_count=8, robust_gate_fixes=False)
     gated = _episode_state(scenario, belief, observations=minimum, identical=True)
     incumbent = P.decide("incumbent", gated, settings)
     assert (incumbent.action, incumbent.reason) == ("stop", "couldnt_reliably_distinguish")
     assert P.decide("caps_only", gated, settings).action == "measure"
+    # Today's gate (the default) counts the identical instruments as one, so
+    # they no longer make the pick fragile, and the next probe pays: it goes on.
+    assert P.decide("incumbent", gated, P.PolicySettings(draw_count=8)).action == "measure"
     # Before the minimum the gate does not run, exactly as in serving.
     early = _episode_state(scenario, belief, observations=minimum - 1, identical=True)
     assert P.decide("incumbent", early, settings).action == "measure"
@@ -176,6 +180,64 @@ def test_the_incumbent_arm_includes_todays_robust_completion_gate(eedi):
     verdict = rc.evaluate_selection(
         candidates=[(q, distinct.ensemble_objects[q], 60.0) for q in distinct.remaining], posterior=belief)
     assert P.decide("incumbent", distinct, settings).action == ("stop" if verdict.abstained else "measure")
+
+
+_FRAGILE_HYPOTHESES = ("knows", "mis_b", "mis_c")
+
+
+def _fragile_pick_state(*, observations: int) -> P.EpisodeState:
+    """Two informative instruments a hair apart: the next probe pays (the stop rule says go on) but the robust
+    winner's margin over the runner-up is not positive, so the selector abstains on its pick."""
+
+    from learnloop.diagnosis import robust_composition as rc
+
+    def rows(shift: float) -> dict[str, dict[str, float]]:
+        return {"knows": {"A": 0.85 - shift, "B": 0.05, "C": 0.05 + shift, "D": 0.05},
+                "mis_b": {"A": 0.1, "B": 0.8, "C": 0.05, "D": 0.05},
+                "mis_c": {"A": 0.1, "B": 0.05, "C": 0.8, "D": 0.05}}
+
+    ensembles, objects = {}, {}
+    for index, shift in enumerate((0.0, 0.02)):
+        ensemble = rc.build_ensemble(
+            joint_alpha=P.identity_channel(OPTIONS), instrument_rows=rows(shift), calibration_model_hash="test",
+            decision_context_hash=f"q{index}", draw_count=8, quantile=0.10, perturbation_concentration=40.0,
+        )
+        objects[f"q{index}"] = ensemble
+        ensembles[f"q{index}"] = (ensemble.mean_member, tuple(ensemble.members))
+    return P.EpisodeState(
+        hypotheses=_FRAGILE_HYPOTHESES, belief={h: 1.0 / 3 for h in _FRAGILE_HYPOTHESES}, remaining=sorted(ensembles),
+        observations=observations, loss_table=None, ensembles=ensembles, ensemble_objects=objects,
+        rng=np.random.default_rng(0),
+        actions_by_hypothesis={"knows": "continue", "mis_b": "route:mis_b", "mis_c": "route:mis_c"},
+    )
+
+
+def test_the_incumbent_goes_on_past_a_fragile_pick_as_serving_does():
+    # mvp-0.59 with probe.episode.robust_gate_fixes (the default): the robust gate ends an unstable episode only
+    # on a fragile stop; a fragile pick (abstained while the next probe still pays) goes on measuring.
+    from learnloop.diagnosis import robust_composition as rc
+
+    minimum = ProbeEpisodeConfig().minimum_independent_observations
+    state = _fragile_pick_state(observations=minimum)
+    verdict = rc.evaluate_selection(
+        candidates=[(q, state.ensemble_objects[q], 60.0) for q in state.remaining], posterior=state.belief,
+        distinct_instruments=True,
+    )
+    assert verdict.abstained and not verdict.should_stop
+    settings = P.PolicySettings(draw_count=8)
+    assert settings.robust_gate_fixes
+    assert P.decide("incumbent", state, settings).action == "measure"
+    # The successor and the package's gated ablation stop by the same gate, with the maximum lifted.
+    assert P._incumbent_stop(state, settings, ProbeEpisodeConfig(), budget=False) is None
+
+
+def test_the_predecessor_gate_stops_on_a_fragile_pick():
+    # mvp-0.58 (or the switch off): every abstention ends the episode. What the recorded studies ran.
+    minimum = ProbeEpisodeConfig().minimum_independent_observations
+    state = _fragile_pick_state(observations=minimum)
+    settings = P.PolicySettings(draw_count=8, robust_gate_fixes=False)
+    decision = P.decide("incumbent", state, settings)
+    assert (decision.action, decision.reason) == ("stop", "couldnt_reliably_distinguish")
 
 
 def test_each_response_world_simulates_histories_generated_in_that_world(eedi, monkeypatch):

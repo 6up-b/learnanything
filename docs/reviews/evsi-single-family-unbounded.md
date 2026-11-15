@@ -1,5 +1,7 @@
 # The single-family EVSI study without its count bound
 
+> **Which gate these numbers ran (2026-11-14, ledger D-44).** Every `incumbent` number here, and "today's robust completion gate" wherever it is costed (`S3f`), is the predecessor gate (mvp-0.58: every abstention of the robust selector ends the episode). Serving has since moved to mvp-0.59 (`probe.episode.robust_gate_fixes`: only a fragile stop ends it, identical ensembles counted once), and so has the simulation's default (`PolicySettings.robust_gate_fixes = True`). `robust_gate_fixes = False` selects the gate these runs used; the study was not rerun.
+
 Stage `evsi-single-family-unbounded`, branch `evsi/calibration` (base
 `95d51782`). Owner-approved 2026-10-13: rerun the single-family EVSI
 calibration study ([`evsi-calibration.md`](evsi-calibration.md)) without its

@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/config/_package|learnloop.config]] · Root: [[
 
 ## Why this module exists
 
-`learnloop.config.retired` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: Config fields arc C retired, kept only for the identities that hashed them.
+`learnloop.config.retired` exists within [[Reference/Modules/learnloop/config/_package|learnloop.config]] to own the behavior summarized by its module contract: Config fields that were removed (by arc C, and the kill switches the version floor passed), kept only for the identities that hashed them.
 
 The authoritative system-level explanation remains in [[Configuration]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,25 +47,25 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py) |
-| Source lines | 177 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class RetiredField` ([source](../../../../../../src/learnloop/config/retired.py), line 29) — A removed field: the model class it lived on, its path there (two names for a leaf of a removed section), its type and default there, and the arc C step that removed it.
-- `class KeepsRetiredFields(BaseModel)` ([source](../../../../../../src/learnloop/config/retired.py), line 87) — A config model some of whose fields arc C retired (:data:`RETIRED_FIELDS`).
-  - `_remember_retired_values(cls, data: Any, handler: Any) -> Any` (line 98; internal)
-- `remembering(model: _Model, **values: Any) -> _Model` ([source](../../../../../../src/learnloop/config/retired.py), line 108) — ``model``, remembering ``values`` for its retired fields as if its input had set them: a built-in default that set one at construction before arc C (the ``recall_failure`` impact's ``lo_mastery_delta``).
-- `identity_dump(model: BaseModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 119) — ``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
-- `identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 131) — The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
+- `class RetiredField` ([source](../../../../../../src/learnloop/config/retired.py), line 32) — A removed field: the model class it lived on, its path there (two names for a leaf of a removed section), its type and default there, and the arc C step that removed it.
+- `class KeepsRetiredFields(BaseModel)` ([source](../../../../../../src/learnloop/config/retired.py), line 100) — A config model some of whose fields arc C retired (:data:`RETIRED_FIELDS`).
+  - `_remember_retired_values(cls, data: Any, handler: Any) -> Any` (line 111; internal)
+- `remembering(model: _Model, **values: Any) -> _Model` ([source](../../../../../../src/learnloop/config/retired.py), line 121) — ``model``, remembering ``values`` for its retired fields as if its input had set them: a built-in default that set one at construction before arc C (the ``recall_failure`` impact's ``lo_mastery_delta``).
+- `identity_dump(model: BaseModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 132) — ``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
+- `identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 144) — The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
 
 ### Module constants
 
-- `RETIRED_FIELDS` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 41)
-- `_BY_MODEL` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 56)
-- `_MISSING` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 60)
+- `RETIRED_FIELDS` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 45)
+- `_BY_MODEL` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 69)
+- `_MISSING` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 73)
 
 ### Explicit exports
 
@@ -80,11 +80,11 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 
 ## Internal implementation anchors
 
-- `_adapter(annotation: Any) -> TypeAdapter[Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 65)
-- `_coerce(field: RetiredField, raw: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 69) — ``raw`` as the removed field read it (lax pydantic validation of its old type), JSON-safe.
-- `_given(data: Any, path: tuple[str, ...]) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 79)
-- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 148)
-- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 165)
+- `_adapter(annotation: Any) -> TypeAdapter[Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 78)
+- `_coerce(field: RetiredField, raw: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 82) — ``raw`` as the removed field read it (lax pydantic validation of its old type), JSON-safe.
+- `_given(data: Any, path: tuple[str, ...]) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 92)
+- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 161)
+- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 178)
 
 ## Who imports or calls it
 
@@ -127,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_identity_pins.py](../../../../../../tests/test_identity_pins.py) — direct import
   - `test_an_identity_view_leaves_out_an_added_field_and_refuses_a_removed_one`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
+  - `test_a_config_setting_the_removed_switches_keeps_every_identity`
+  - `test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing`
   - `test_retired_fields_stay_off_the_models_and_out_of_every_other_dump`
   - `test_the_config_identity_reproduces_both_recorded_digests`
 

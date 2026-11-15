@@ -176,17 +176,6 @@ def test_the_pool_mixes_in_the_teachers_forecast_and_learns_from_the_outcome(tmp
     assert state.pool_lambda(families[0]) > 0.2  # the forecast (0.95) predicted the right answer better
 
 
-def test_parametric_source_drops_the_pool(tmp_path):
-    from tests.ux_phase1_support import set_config
-
-    paths, repository = build_teacher_vault(tmp_path / "vault")
-    set_config(paths.root, {("teacher", "weight", "source"): "parametric"})
-    _lesson_with_check(paths, repository, at=T0, retained=0.95)
-    row = _rows(repository, "SELECT mass_applied, mass_learned, json_extract(weight_inputs_json, '$.rule') "
-                            "FROM lesson_checks")[0]
-    assert row[2] == "learned" and row[0] == row[1]
-
-
 def test_the_pool_implied_mass_is_the_parametric_mass_at_lambda_zero():
     sensitivity = LW.CheckSensitivity(mu=0.0, variance=1.0, last_evidence_at=None, item_a=1.0, item_b=0.0,
                                       correctness=1.0, observed_at="2026-11-01T09:00:00Z")

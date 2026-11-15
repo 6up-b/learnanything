@@ -271,22 +271,6 @@ def test_switched_off_no_lesson_opens(tmp_path):
     assert _rows(repository, "SELECT COUNT(*) FROM lessons") == [(0,)]
 
 
-def test_with_the_learned_weight_off_a_check_enters_at_the_types_configured_mass(tmp_path):
-    from tests.ux_phase1_support import set_config
-
-    paths, repository = build_teacher_vault(tmp_path / "vault")
-    set_config(paths.root, {("teacher", "weight", "learned"): False})
-    fake = TeacherFake([plan_turn, check_turn()])
-    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
-                         clients=clients(fake))
-    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
-           clients=clients(fake))
-    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
-           payload={"answer": "det(A - tI) = 0"}, clients=clients(fake))
-    assert _rows(repository, "SELECT mass_applied, json_extract(weight_inputs_json, '$.rule') FROM lesson_checks") \
-        == [(0.5, "fixed")]
-
-
 def test_a_refused_turn_never_defers_the_corrected_turns_reads(tmp_path):
     bad = {"message": "The book says [S99]."}
     reads = {"message": "Let me read.", "requests": [{"action": "read_source", "refs": ["ext_book/ch_det"]}]}

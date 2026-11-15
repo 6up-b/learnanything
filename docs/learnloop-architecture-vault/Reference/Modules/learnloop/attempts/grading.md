@@ -301,6 +301,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro1_projection.py](../../../../../../tests/test_ro1_projection.py) — direct import
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
+- [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`

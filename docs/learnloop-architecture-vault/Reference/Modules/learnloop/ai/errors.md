@@ -397,6 +397,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_retry_after_protection_changed_is_never_sent`
   - `test_f3_a_failed_qwen_query_still_searches_deep`
   - `test_rr_f1_a_retry_after_a_role_changed_on_disk_is_never_sent`
+- [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader`
 - [tests/test_source_retrieval_codex_unavailable.py](../../../../../../tests/test_source_retrieval_codex_unavailable.py) — direct import
 - [tests/test_source_retrieval_rereview_cost.py](../../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
 - [tests/test_source_retrieval_tutor.py](../../../../../../tests/test_source_retrieval_tutor.py) — direct import

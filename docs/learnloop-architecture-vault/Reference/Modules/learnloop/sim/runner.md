@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py) |
-| Source lines | 1080 |
+| Source lines | 1114 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
@@ -56,48 +56,48 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Public API
 
-- `class SimulationError(ValueError)` ([source](../../../../../../src/learnloop/sim/runner.py), line 88)
-- `class SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 93)
-  - `as_dict(self) -> dict[str, Any]` (line 113; public)
-- `class SimDayRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 137)
-  - `as_dict(self) -> dict[str, Any]` (line 146; public)
-- `class SimReport` ([source](../../../../../../src/learnloop/sim/runner.py), line 157)
-  - `as_dict(self) -> dict[str, Any]` (line 169; public)
-  - `deterministic_dict(self) -> dict[str, Any]` (line 184; public) — Report content that must be identical for identical (seed, args).
-- `coerce_override_value(raw: str) -> Any` ([source](../../../../../../src/learnloop/sim/runner.py), line 195)
-- `apply_config_overrides(config: LearnLoopConfig, overrides: Mapping[str, Any] | None) -> LearnLoopConfig` ([source](../../../../../../src/learnloop/sim/runner.py), line 211) — Return a new config with dotted-path overrides merged in-memory.
-- `prepare_run_vault(source: Path, dest: Path, *, reset_state: bool=True) -> Path` ([source](../../../../../../src/learnloop/sim/runner.py), line 244) — Copy a vault into a run directory; by default drop derived SQLite state.
-- `run_simulation(vault_root: Path, profile: StudentProfile, *, days: int=60, items_per_day: int=6, seed: int=42, config_overrides: Mapping[str, Any] | None=None, start: datetime | None=None, primed_retries: bool=False, goal_due_day: int | None=None, grader_confusion: 'Any | None'=None) -> SimReport` ([source](../../../../../../src/learnloop/sim/runner.py), line 284) — Run one synthetic student against the vault at ``vault_root``.
+- `class SimulationError(ValueError)` ([source](../../../../../../src/learnloop/sim/runner.py), line 89)
+- `class SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 94)
+  - `as_dict(self) -> dict[str, Any]` (line 114; public)
+- `class SimDayRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 138)
+  - `as_dict(self) -> dict[str, Any]` (line 147; public)
+- `class SimReport` ([source](../../../../../../src/learnloop/sim/runner.py), line 158)
+  - `as_dict(self) -> dict[str, Any]` (line 170; public)
+  - `deterministic_dict(self) -> dict[str, Any]` (line 185; public) — Report content that must be identical for identical (seed, args).
+- `coerce_override_value(raw: str) -> Any` ([source](../../../../../../src/learnloop/sim/runner.py), line 196)
+- `apply_config_overrides(config: LearnLoopConfig, overrides: Mapping[str, Any] | None) -> LearnLoopConfig` ([source](../../../../../../src/learnloop/sim/runner.py), line 212) — Return a new config with dotted-path overrides merged in-memory.
+- `prepare_run_vault(source: Path, dest: Path, *, reset_state: bool=True) -> Path` ([source](../../../../../../src/learnloop/sim/runner.py), line 245) — Copy a vault into a run directory; by default drop derived SQLite state.
+- `run_simulation(vault_root: Path, profile: StudentProfile, *, days: int=60, items_per_day: int=6, seed: int=42, config_overrides: Mapping[str, Any] | None=None, start: datetime | None=None, primed_retries: bool=False, goal_due_day: int | None=None, grader_confusion: 'Any | None'=None) -> SimReport` ([source](../../../../../../src/learnloop/sim/runner.py), line 285) — Run one synthetic student against the vault at ``vault_root``.
 
 ### Module constants
 
-- `SIM_START` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 73)
-- `_ATTEMPT_SPACING_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 74)
-- `_PRIMED_RETRY_DELAY_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 76)
-- `_PREFERRED_ATTEMPT_TYPES` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 79)
-- `_ULID_RE` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 934)
+- `SIM_START` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 74)
+- `_ATTEMPT_SPACING_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 75)
+- `_PRIMED_RETRY_DELAY_SECONDS` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 77)
+- `_PREFERRED_ATTEMPT_TYPES` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 80)
+- `_ULID_RE` ([src/learnloop/sim/runner.py](../../../../../../src/learnloop/sim/runner.py), line 968)
 
 ## Internal implementation anchors
 
-- `_configured_database_name(vault_root: Path) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 268) — File name of the vault's ``storage.sqlite_path``, read without side effects.
-- `_goal_snapshot_days(vault: LoadedVault, *, start: datetime, days: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 477) — Sim day (end of day) at which each active goal's attainment is measured.
-- `_track_goals_end_of_day(vault: LoadedVault, repository: Repository, student: SyntheticStudent, *, day: int, day_base: datetime, snapshot_days: dict[str, int], tracking: dict[str, dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 497) — Belief-side at-risk counts per goal; truth snapshot on each goal's due day.
-- `_simulate_one_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str, primed: bool=False, grader_confusion: 'Any | None'=None, confusion_rng: 'random.Random | None'=None) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 556)
-- `_primed_retry_sibling(vault: LoadedVault, item: PracticeItem) -> PracticeItem | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 715) — First (deterministic) other non-teach-back item on the same LO.
-- `class _SimTeachBackClient` ([source](../../../../../../src/learnloop/sim/runner.py), line 732) — No-op question generator + synthesized grader for simulated teach-backs.
-- `_simulate_teach_back_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 824) — Run one simulated teach-back conversation as ONE recorded attempt.
-- `_strip_ulids(text: str) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 937) — Replace random ULIDs in free text so reports are seed-deterministic.
-- `_attempt_type_for_item(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 943)
-- `_item_facet_weights(item: PracticeItem) -> dict[str, float]` ([source](../../../../../../src/learnloop/sim/runner.py), line 953)
-- `_lo_facet_weights(vault: LoadedVault) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 959)
-- `_los_for_facets(vault: LoadedVault, facets: list[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 968)
-- `_resolve_auto_misconceptions(vault: LoadedVault, profile: StudentProfile) -> StudentProfile` ([source](../../../../../../src/learnloop/sim/runner.py), line 978)
-- `_retrievability_prior(repository: Repository, item_id: str, clock: FrozenClock) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1000)
-- `_belief_mae(vault: LoadedVault, repository: Repository, student: SyntheticStudent, lo_facet_weights: dict[str, dict[str, float]], *, day_f: float) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1011)
-- `_update_detection_days(vault: LoadedVault, repository: Repository, profile: StudentProfile, planted_facet_los: dict[str, list[str]], detection_days: dict[str, dict[str, Any]], day: int) -> None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1035)
-- `_error_event_types(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/sim/runner.py), line 1067)
-- `_taxonomy_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/sim/runner.py), line 1073)
-- `_taxonomy_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/sim/runner.py), line 1078)
+- `_configured_database_name(vault_root: Path) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 269) — File name of the vault's ``storage.sqlite_path``, read without side effects.
+- `_goal_snapshot_days(vault: LoadedVault, *, start: datetime, days: int) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 478) — Sim day (end of day) at which each active goal's attainment is measured.
+- `_track_goals_end_of_day(vault: LoadedVault, repository: Repository, student: SyntheticStudent, *, day: int, day_base: datetime, snapshot_days: dict[str, int], tracking: dict[str, dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/sim/runner.py), line 498) — Belief-side at-risk counts per goal; truth snapshot on each goal's due day.
+- `_simulate_one_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str, primed: bool=False, grader_confusion: 'Any | None'=None, confusion_rng: 'random.Random | None'=None) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 557)
+- `_primed_retry_sibling(vault: LoadedVault, item: PracticeItem) -> PracticeItem | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 716) — First (deterministic) other non-teach-back item on the same LO.
+- `class _SimTeachBackClient` ([source](../../../../../../src/learnloop/sim/runner.py), line 733) — No-op question generator + synthesized grader for simulated teach-backs.
+- `_simulate_teach_back_attempt(vault: LoadedVault, repository: Repository, student: SyntheticStudent, item: PracticeItem, *, day: int, day_f: float, clock: FrozenClock, session_id: str, source: str) -> SimAttemptRecord` ([source](../../../../../../src/learnloop/sim/runner.py), line 858) — Run one simulated teach-back conversation as ONE recorded attempt.
+- `_strip_ulids(text: str) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 971) — Replace random ULIDs in free text so reports are seed-deterministic.
+- `_attempt_type_for_item(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/sim/runner.py), line 977)
+- `_item_facet_weights(item: PracticeItem) -> dict[str, float]` ([source](../../../../../../src/learnloop/sim/runner.py), line 987)
+- `_lo_facet_weights(vault: LoadedVault) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 993)
+- `_los_for_facets(vault: LoadedVault, facets: list[str]) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/sim/runner.py), line 1002)
+- `_resolve_auto_misconceptions(vault: LoadedVault, profile: StudentProfile) -> StudentProfile` ([source](../../../../../../src/learnloop/sim/runner.py), line 1012)
+- `_retrievability_prior(repository: Repository, item_id: str, clock: FrozenClock) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1034)
+- `_belief_mae(vault: LoadedVault, repository: Repository, student: SyntheticStudent, lo_facet_weights: dict[str, dict[str, float]], *, day_f: float) -> float | None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1045)
+- `_update_detection_days(vault: LoadedVault, repository: Repository, profile: StudentProfile, planted_facet_los: dict[str, list[str]], detection_days: dict[str, dict[str, Any]], day: int) -> None` ([source](../../../../../../src/learnloop/sim/runner.py), line 1069)
+- `_error_event_types(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/sim/runner.py), line 1101)
+- `_taxonomy_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/sim/runner.py), line 1107)
+- `_taxonomy_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/sim/runner.py), line 1112)
 
 ## Who imports or calls it
 
@@ -115,9 +115,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `STRUCTURED_COMPLETION`, `StructuredRequest`
+- [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `ISOLATED_TURN`, `STRUCTURED_COMPLETION`, `StructuredRequest`
 - [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`; calls `CriterionEvidence`, `GradingContext`, `GradingProposal`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`; calls `ApplyAttemptInput`, `AttemptDraft`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`, `calculate_rubric_score`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BlindGradingProposal`; calls `BlindGradingProposal`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`

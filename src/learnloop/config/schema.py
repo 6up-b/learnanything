@@ -1250,8 +1250,7 @@ RETIRED_ROUTES: dict[str, str] = {
     # Its rules are in the grader's own prompt, which uses the grading route.
     "proof_check": (
         "mvp-0.17's separate proofs route check is retired; the grader applies the "
-        "own-route rules in its one call on ai.routing.grading (mvp-0.20, kill switch "
-        "proof_check.enabled)."
+        "own-route rules in its one call on ai.routing.grading (mvp-0.20)."
     ),
 }
 
@@ -2174,7 +2173,7 @@ class HintsMapsConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
 
 
-class HintsConfig(BaseModel):
+class HintsConfig(KeepsRetiredFields):
     """Adaptive hints.
 
     ``telemetry_enabled``: the practice screen records each authored hint it
@@ -2212,17 +2211,6 @@ class HintsConfig(BaseModel):
     only, never the grade, the diagnosis or evidence; it joins the maps'
     envelope ``maps.max_daily_cost_usd``). Neither is read by scoring,
     scheduling, projection or serving, so no successor.
-
-    ``fold_follows_attach``: the kill switch of
-    ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``. At that tag or later, with it on,
-    a keyed submit's fold counts the key's shown server hints in any practice
-    session (the telemetry's attach rule) and the
-    attempt takes the rows it counted in its own write transaction, so a hint
-    shown before the session rolled over is counted (levels 1-3) or primes
-    (levels 4-5) where it attaches. Off, or below the tag: the fold reads the
-    submit's own session only and the attach takes the key's rows after the
-    commit, exactly as the predecessor. Replay never reads it (replay never
-    folds).
     """
 
     telemetry_enabled: bool = True
@@ -2263,7 +2251,6 @@ class HintsConfig(BaseModel):
     outcome_placement_enabled: bool = True
     #: Kill switch of ``HELP_FOLD_ATTACH_ALGORITHM_VERSION``: a keyed fold
     #: counts exactly the help rows that attach (see the class docstring).
-    fold_follows_attach: bool = True
 
 
 class ReaderInquiryConfig(BaseModel):
@@ -2914,34 +2901,10 @@ class AsPrintedConfig(BaseModel):
     enabled: bool = True
 
 
-class PracticeConfig(BaseModel):
+class PracticeConfig(KeepsRetiredFields):
     """The practice surfaces' own switches.
 
     ``as_printed``: the problem-as-printed display switches.
-
-    ``attempt_keeps_content_state`` is the kill switch of
-    ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION``. At that tag
-    or later, with it on: a live attempt's write to its item's existing
-    ``practice_item_state`` row takes only the scheduling columns and the
-    last-attempt time; ``active`` can only close (a diagnostic probe's single
-    use still lands) and ``content_hash`` is content sync's alone. So an
-    attempt never reopens a row content sync closed, whether that sync ran
-    while the answer was graded (another process) or before it (a parked,
-    superseded or deactivated item stays out of serving until the sync rule
-    reopens it). Off, or below the tag: the attempt writes the whole row from
-    the vault it graded against, exactly as the predecessor. Replay never
-    reads it (replay rebuilds the whole row and re-closes what was closed).
-
-    ``reschedule_cold_after_assist`` is the kill switch of
-    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``. At
-    that tag or later, with it on (and ``ask.cold_help_converts`` on, which
-    admits the assisted attempt at all): help taken on a due repair
-    ``cold_retry`` withdraws that retry in the attempt's own step and
-    schedules one fresh cold retry for the same repair on another independent
-    surface, timed by the lane's existing delay; a fresh retry that is itself
-    assisted spawns none. Off, or below the tag: the assisted retry is left to
-    the next serve's withdrawal, exactly as the predecessor. Replay never
-    reads it (replay schedules nothing).
 
     ``device_eligibility_enabled`` is the kill switch of the phone's device
     rules, which name no algorithm tag: only a request with a phone origin reads it,
@@ -2952,8 +2915,6 @@ class PracticeConfig(BaseModel):
     """
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
-    attempt_keeps_content_state: bool = True
-    reschedule_cold_after_assist: bool = True
     device_eligibility_enabled: bool = True
 
 
@@ -3292,44 +3253,6 @@ class EvsiConfig(BaseModel):
     forecast_logging: bool = True
     measured_loss_enabled: bool = False
     unresolved_cost_prior_pseudo_count: float = Field(default=5.0, gt=0.0)
-
-
-class ProofCheckConfig(BaseModel):
-    """The valid-alternative gate for proofs and explanations, in the grader.
-
-    ``enabled`` is the kill switch of ``mvp-0.20``'s own-route rules (the
-    grader grades every criterion on the learner's own route and marks down
-    only by quoting the failing step; a mark-down on a divergent route that
-    quotes nothing is unassessed, and a grade with nothing assessed and
-    nothing validated is held for review). Dormant below ``mvp-0.20``. Off, new
-    answers grade without the own-route rules; there is no separate route
-    check, so an ``mvp-0.17``, ``mvp-0.18`` or ``mvp-0.19`` vault grades as
-    ``mvp-0.16`` did whatever this says. Grades already recorded keep their meaning (the blind
-    record and the evidence rows carry the outcome; replay never reads this
-    switch).
-    """
-
-    enabled: bool = True
-
-
-class RequiredMethodConfig(BaseModel):
-    """Method-explicit items: the grading side.
-
-    ``enabled`` is the kill switch of the method-explicit successor
-    (``mvp-0.25``): the own-route rules grade a criterion tied to an item's
-    ``required_method`` (frozen with the assessment contract: the one
-    authority, never re-derived from the prompt) on use of that method
-    (``own-route-v2``), so another route fails it without a quoted wrong
-    step. Dormant below the successor and whenever the own-route rules
-    themselves are off (``proof_check.enabled``). Off, new answers grade
-    exactly as the predecessor. Grades already recorded keep their meaning (the
-    blind record carries the rules and the method criteria; replay never reads
-    this switch). The generation side (criteria phrased by fact) and the
-    ``criterion:method_phrased`` doctor check are content paths, not gated
-    here.
-    """
-
-    enabled: bool = True
 
 
 class ProjectConfig(BaseModel):
@@ -4476,13 +4399,6 @@ class UiConfig(BaseModel):
     show_router_decisions: bool = True
 
 
-class TeacherWeightConfig(BaseModel):
-    """The lesson-check weight's switches: operational only."""
-
-    learned: bool = True
-    source: Literal["pool", "parametric"] = "pool"
-
-
 class TeacherBriefConfig(BaseModel):
     """What the lesson brief holds: the prerequisite depth (fixed) and the deliverable switch."""
 
@@ -4512,7 +4428,7 @@ class TeacherPlacementConfig(BaseModel):
     max_probes: int = Field(default=8, ge=0, le=8)
 
 
-class TeacherConfig(BaseModel):
+class TeacherConfig(KeepsRetiredFields):
     """Teacher. The learner's confidence tap and the grader's hedge read,
     rendered as events with the outcome (``learnloop.confidence_events``), in
     the router card (``learner_state_card_v2``), the history-aware diagnoser
@@ -4524,15 +4440,13 @@ class TeacherConfig(BaseModel):
     Context only: no scoring, scheduling, projection or serving reads it, at
     any algorithm version (no successor).
 
-    The lessons, the kill switches of ``TEACHER_ALGORITHM_VERSION``:
+    The lessons (``TEACHER_ALGORITHM_VERSION``). A lesson check enters mastery at
+    the learned mass, with the teacher's forecast mixed in by the learned pool
+    weight where the teacher forecast the node (spec_teacher_v1 §12.1, §12.2).
 
-    * ``enabled``: at that tag or later, a lesson the learner starts may open
+    * ``enabled``, the kill switch: at that tag or later, a lesson the learner starts may open
       (``learnloop.teacher``). Off, or below the tag, no lesson opens: nothing
       of the lessons writes and every path is its predecessor's byte for byte.
-    * ``weight.learned``: a lesson check enters mastery at the learned mass;
-      off, at the type's configured mass (0.5).
-    * ``weight.source``: ``pool`` mixes in the teacher's forecast by the
-      learned pool weight; ``parametric`` uses the learned mass alone.
     * ``brief.depth`` and ``context.sources_tokens``: context budgets
       (fixed); ``brief.use_deliverable`` is the deliverable switch (the
       brief's goal and sources from the deliverable and its path, and the
@@ -4577,7 +4491,6 @@ class TeacherConfig(BaseModel):
     confidence_events_enabled: bool = True
     # The lessons' kill switch (off, or below the tag: no lesson opens).
     enabled: bool = True
-    weight: TeacherWeightConfig = Field(default_factory=TeacherWeightConfig)
     brief: TeacherBriefConfig = Field(default_factory=TeacherBriefConfig)
     context: TeacherContextConfig = Field(default_factory=TeacherContextConfig)
     delayed: TeacherDelayedConfig = Field(default_factory=TeacherDelayedConfig)
@@ -4884,11 +4797,9 @@ class LearnLoopConfig(KeepsRetiredFields):
     notes: NotesConfig = Field(default_factory=NotesConfig)
     reader: ReaderConfig = Field(default_factory=ReaderConfig)
     reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
-    proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
-    required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
     eligibility: EligibilityConfig = Field(default_factory=EligibilityConfig)
     replay: ReplayConfig = Field(default_factory=ReplayConfig)

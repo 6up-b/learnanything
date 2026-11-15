@@ -22,17 +22,21 @@ who answered exactly from the instruments' model would make the simulation
 circular, since the episode would then be checked against the very likelihoods
 it updates with, and could not show where those likelihoods are wrong.
 
-Each episode's robust ensembles seed on its episode id, a fresh ULID per run,
-so a seed fixes the planted learner's answers but not the ensembles' draws: two
-runs of one seed can differ where a robust decision is close to its threshold.
+Each episode's robust ensembles seed on its episode id. The sim mints every id
+of a run from a stream the run's seed fixes (:func:`seeded_ulids`), so a seed
+fixes the run: the planted learner's answers, the episode id and with it the
+ensembles' draws.
 """
 
 from __future__ import annotations
 
 import random
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 from learnloop.clock import FrozenClock
@@ -220,9 +224,78 @@ class EpisodeValidationResult:
         }
 
 
+@dataclass(frozen=True)
+class SimulationRefusal:
+    """Why the simulation ran no episode on a vault: switches it cannot run with.
+
+    It drives the opening diagnostic episode state sync opens for a new learning
+    object, served from parametric instances. Placement opens no such episode,
+    and FG1 has a model write the probes instead of minting parametric ones; the
+    simulation calls no model. Both are limits of the simulation, not faults of
+    a vault that serves with them on.
+    """
+
+    switches: tuple[str, ...]
+    reasons: tuple[str, ...]
+
+    @property
+    def message(self) -> str:
+        return (
+            "The planted-type simulation ran no episode: "
+            + "; ".join(self.reasons)
+            + ". This is the simulation's limit, not the vault's: it needs "
+            + ", ".join(f"{switch} = false" for switch in self.switches)
+            + " on its run copies (the vault itself is never written)."
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"switches": list(self.switches), "reasons": list(self.reasons), "message": self.message}
+
+
+@dataclass(frozen=True)
+class NotRun:
+    """A requested (planted, seed) run that produced no episode, and why."""
+
+    planted: str
+    seed: int
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"planted": self.planted, "seed": self.seed, "reason": self.reason}
+
+
+def simulation_refusal(vault) -> SimulationRefusal | None:
+    """The switches on in this (overridden) config that leave the simulation nothing to run, or None."""
+
+    from learnloop.followup_serve.gates import generate_and_serve_on
+    from learnloop.placement.state import initial_probes_enabled
+
+    switches: list[str] = []
+    reasons: list[str] = []
+    if not initial_probes_enabled(vault):
+        switches.append("placement.enabled")
+        reasons.append(
+            "placement is on, so state sync opens no opening diagnostic episode for a new learning object, "
+            "and that episode is what the simulation drives"
+        )
+    if generate_and_serve_on(vault.config):
+        switches.append("followup.generate_and_serve")
+        reasons.append(
+            "FG1 is on, so a model writes the episode's probes and no parametric instance is minted; "
+            "the simulation calls no model, so its episode would have nothing to serve"
+        )
+    if not switches:
+        return None
+    return SimulationRefusal(switches=tuple(switches), reasons=tuple(reasons))
+
+
 @dataclass
 class ValidationReport:
     results: list[EpisodeValidationResult] = field(default_factory=list)
+    #: Set when the simulation could not run on the vault at all (no result).
+    refusal: SimulationRefusal | None = None
+    #: Requested runs that opened no episode, with why.
+    not_run: list[NotRun] = field(default_factory=list)
 
     def by_planted(self) -> dict[str, dict[str, Any]]:
         grouped: dict[str, list[EpisodeValidationResult]] = {}
@@ -250,12 +323,20 @@ class ValidationReport:
             "overall_action_accuracy": sum(1 for r in self.results if r.action_matched) / total,
             "by_planted": by_planted,
             "results": results,
+            "refusal": self.refusal.as_dict() if self.refusal is not None else None,
+            "not_run": [entry.as_dict() for entry in self.not_run],
         }
 
     def passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool:
         """Checkpoint 4 entry gate: every planted type classified at or above
-        threshold within the budget, with matching instructional actions."""
+        threshold within the budget, with matching instructional actions.
 
+        A run that produced no episode is not a pass: the gate is ``all()``
+        over the types that ran, so without this a report with nothing in it
+        (or missing a type) would pass over nothing."""
+
+        if self.refusal is not None or self.not_run or not self.results:
+            return False
         summary = self.by_planted()
         return all(
             entry["label_accuracy"] >= label_accuracy_threshold
@@ -282,6 +363,43 @@ def _action_for_label(label: str | None) -> str | None:
     return DEFAULT_INSTRUCTIONAL_ACTIONS.get(label)
 
 
+@contextmanager
+def seeded_ulids(seed: int, start: datetime) -> Iterator[None]:
+    """Every ULID this process mints inside the block comes from a stream ``seed`` fixes.
+
+    A probe episode's robust ensembles seed on its episode id, which state sync
+    mints with :func:`learnloop.ids.new_ulid` (the wall clock's millisecond and
+    80 system-random bits). Without this, a seed fixes the planted learner's
+    answers but not the ensembles' draws, and two runs of one seed differ
+    wherever a robust decision is near its threshold. Seeding the stream, not
+    the ensemble, leaves what production seeds on as it is: an episode in a
+    vault still seeds on its own id.
+
+    The stream is the module's own (its timestamp pinned to ``start``, its
+    randomness drawn from ``random.Random(seed)``, its monotonic state started
+    afresh), so every id in the run is fixed and they still sort in creation
+    order. The previous clock, randomness and state come back afterwards, so ids
+    minted later in the process sort after those minted before the block. One
+    run at a time: a thread minting ids during the block would draw from this
+    stream and shift it.
+    """
+
+    from learnloop import ids
+
+    stream = SimpleNamespace(randbits=random.Random(f"probe-validation-ids|{seed}").getrandbits)
+    start_ms = int(start.timestamp() * 1000)
+    with ids._ulid_lock:
+        saved = (ids._wall_clock_ms, ids.secrets, ids._last_timestamp_ms, ids._last_randomness)
+        ids._wall_clock_ms = lambda: start_ms
+        ids.secrets = stream
+        ids._last_timestamp_ms, ids._last_randomness = -1, 0
+    try:
+        yield
+    finally:
+        with ids._ulid_lock:
+            ids._wall_clock_ms, ids.secrets, ids._last_timestamp_ms, ids._last_randomness = saved
+
+
 def run_probe_validation(
     source_vault: Path,
     workdir: Path,
@@ -299,6 +417,10 @@ def run_probe_validation(
     at cold start, §6.2), trusted builtin families, and generated instrument
     instances; the run then drives the real selection → presentation → attempt
     → observation → completion loop.
+
+    On a vault whose switches leave it nothing to run (:func:`simulation_refusal`)
+    the report carries the refusal and no result; a run that opens no episode
+    for another reason is listed in ``not_run``. Neither passes.
     """
 
     report = ValidationReport()
@@ -306,16 +428,23 @@ def run_probe_validation(
         for seed in seeds:
             run_root = workdir / f"run_{planted.replace(':', '_')}_{seed}"
             prepare_run_vault(source_vault, run_root, reset_state=True)
-            result = _run_one_episode(
-                run_root,
-                planted=planted,
-                seed=seed,
-                learning_object_id=learning_object_id,
-                claim_level=claim_level,
-                config_overrides=config_overrides,
-            )
-            if result is not None:
-                report.results.append(result)
+            with seeded_ulids(seed, VALIDATION_START):
+                outcome = _run_one_episode(
+                    run_root,
+                    planted=planted,
+                    seed=seed,
+                    learning_object_id=learning_object_id,
+                    claim_level=claim_level,
+                    config_overrides=config_overrides,
+                )
+            if isinstance(outcome, SimulationRefusal):
+                # Every run copies the same vault under the same overrides.
+                report.refusal = outcome
+                return report
+            if isinstance(outcome, str):
+                report.not_run.append(NotRun(planted=planted, seed=seed, reason=outcome))
+            else:
+                report.results.append(outcome)
     return report
 
 
@@ -327,13 +456,18 @@ def _run_one_episode(
     learning_object_id: str | None,
     claim_level: float,
     config_overrides: Mapping[str, Any] | None,
-) -> EpisodeValidationResult | None:
+) -> EpisodeValidationResult | SimulationRefusal | str:
+    """One planted run: its result, the refusal, or why it opened no episode."""
+
     vault = load_vault(vault_root)
     overrides = dict(config_overrides or {})
     # The full template set must be instantiable for the classification to be
     # meaningful; keep every plausible candidate in the locked set.
     overrides.setdefault("probe.hypothesis_set_max_size", 7)
     vault.config = apply_config_overrides(vault.config, overrides)
+    refusal = simulation_refusal(vault)
+    if refusal is not None:
+        return refusal
     repository = vault_repository(VaultPaths(vault.root, vault.config))
     clock = FrozenClock(VALIDATION_START)
     rng = random.Random(seed)
@@ -370,18 +504,21 @@ def _run_one_episode(
     if target_lo is None:
         open_episodes = repository.open_probe_episodes()
         if not open_episodes:
-            return None
+            return (
+                "state sync left no diagnostic episode open (it opens one only on an active learning object "
+                "with a local item and no evidence or earlier episode)"
+            )
         target_lo = sorted(open_episodes)[0]
     episode = repository.open_probe_episode(target_lo)
     if episode is None:
-        return None
+        return f"no diagnostic episode is open on {target_lo}"
     if episode.status == "pending_items":
         generate_instances_for_episode(repository, vault, episode.id, clock=clock, seed=seed)
         vault = load_vault(vault_root)
         vault.config = apply_config_overrides(vault.config, overrides)
         episode = repository.probe_episode(episode.id)
         if episode is None:
-            return None
+            return f"the episode on {target_lo} was gone after instance generation"
 
     steps = 0
     max_steps = episode.maximum_observations + 2

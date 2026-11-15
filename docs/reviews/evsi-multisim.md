@@ -1,5 +1,7 @@
 # EVSI calibration across simulator families (RankCert)
 
+> **Which gate these numbers ran (2026-11-14, ledger D-44).** Every `incumbent`, `voi_successor` and `voi_p_with_gate` number here, and "today's robust completion gate" wherever it is costed, is the predecessor gate (mvp-0.58: every abstention of the robust selector ends the episode). Serving has since moved to mvp-0.59 (`probe.episode.robust_gate_fixes`: only a fragile stop ends it, identical ensembles counted once), and so has the simulation's default (`PolicySettings.robust_gate_fixes = True`). `robust_gate_fixes = False` selects the gate these runs used; the study was not rerun.
+
 Stage `evsi-multisim`, branch `evsi/calibration` (on `2593ee75`). Owner
 decision 2026-10-13: *multiple sim families for EVSI calibration*. The
 single-family study ([`evsi-calibration.md`](evsi-calibration.md)) drew its

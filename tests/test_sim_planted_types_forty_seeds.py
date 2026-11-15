@@ -6,6 +6,11 @@ true rate of 0.6 and 0.50 at 0.5). Forty runs with a threshold of 26 (0.65) tell
 fails with probability 5.4%. In the configuration where the robust completion gate decides (value of information
 off; where value decides, label accuracy is not what the stop maximizes, see test_sim_probe_validation), on the same
 runs as U-021's abstention budget. Each type is its own test so the gate's workers share the runs.
+
+A seed fixes a run (the sim mints each run's ids, the episode id its ensembles seed on among them, from a stream the
+seed fixes), so these are fixed numbers, not a sample of them: named (and acted on) correctly in 39, 37, 32, 30 and 33
+of 40 (robust_initial_grasp, unfamiliar, surface_only, schema_without_transfer, confuses_with), every episode at its
+budget of 4, none abstaining. A change that moves one moved the policy or the planted learner.
 """
 
 from __future__ import annotations
