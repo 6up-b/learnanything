@@ -112,3 +112,11 @@ TH-3, K9-1, K9-2, D-46, D-50 marked fixed with their commits. New: **TH-4** (the
 - D-46 with a real provider call in flight at the switch: the halt's interrupt was exercised only through the code path (the test's handler waits on an event).
 - D-50's landing-gate overshoot reproduced under load: not attempted (no CPU stress); the cause is inferred from the probe.
 - The terminal app's ^t after desktop-committed answers in the same block (read, not run).
+
+## Gates
+
+- Tests: `affected_tests.py --base 5c561264c7` chose 1,058 files (`probe_episodes.py`, `practice.py`, `feedback.py` and `jobs.py` are widely imported); with the rules' fixed list and every edited test file, 1,062 files, run in 11 chunks of up to 100 at `-n 4 --dist worksteal -m "not arc_close"` behind `/tmp/learnloop-fullsuite.lock`: 25,657 passed, 80 skipped, 11 xfailed, 0 failed. No identity pin, ratchet or golden moved.
+- `lint-imports --no-cache`: 42 kept, 0 broken. `ruff check`: clean. `check_gate_partition.py`: 30,881 collected, landing 30,816 + arc_close 65.
+- Desktop: `npm run typecheck` clean; vitest over the touched components and the stop's callers (16 files: `CausalAttribution`, `DialogueProbe`, every `PracticeScreen.*`, `RepairScreen.phase4`, `checkHandoff`): 140 passed. `node_modules` installed offline from the npm cache.
+- Vault: references regenerated once (`27f290bd5e`); a second run changed nothing. `validate_vault.py`, `module_validate.py` and `db_validate_reference.py` pass. `desktop_validate.py` fails as at the base (324 TypeScript files expected, 326 found; recorded in `refactor-adfix1.md`); the new `CausalAttribution.test.tsx` is a test file and moves no count.
+- Mechanical edits by script rather than the Edit tool: the extraction of `settle_block_answers` (a cut and paste of `end_diagnostic_block`'s lines), the virtual-clock edits in `tests/test_chat_total_transport_deadline.py`, two rewrites inside the new test files, and the ledger and strategy line updates; the diffs show each.
