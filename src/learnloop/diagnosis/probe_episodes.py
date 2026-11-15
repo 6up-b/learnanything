@@ -2945,7 +2945,9 @@ def _evaluate_completion(
         # reliably distinguish the hypotheses on the episode-pinned channel. When
         # the winner is fragile (10th-pct advantage <= 0 or the <90% agreement gate
         # fails) the episode completes with the explicit abstention outcome instead
-        # of grinding through non-discriminating instruments (U-021).
+        # of grinding through non-discriminating instruments (U-021); with the
+        # robust gate fixes only where the stop rule also says nothing left pays
+        # (robust_gate_completion).
         # An unstable posterior whose plausible hypotheses all imply the same
         # repair needs no further probing — stop before spending instruments.
         if _action_equivalent():
@@ -3244,6 +3246,7 @@ def _robust_gate_verdict(
     from learnloop.diagnosis.probe_robust import (
         RobustCandidate,
         load_pinned_channel,
+        robust_gate_fixes_on,
         robust_selection,
     )
 
@@ -3272,9 +3275,24 @@ def _robust_gate_verdict(
         _record_robust_selection_forecast(
             vault, repository, episode, channel, decision, robust_candidates, belief, qualifying
         )
-    if decision.abstained:
-        return "couldnt_reliably_distinguish"
-    return None
+    return robust_gate_completion(decision, stop_only=robust_gate_fixes_on(vault.config))
+
+
+def robust_gate_completion(decision: Any, *, stop_only: bool) -> str | None:
+    """The completion the robust gate's decision asks for: ``couldnt_reliably_distinguish`` or None.
+
+    ``stop_only`` (the robust gate fixes, mvp-0.59): only a fragile *stop* ends the episode, i.e. the stop rule
+    fires (nothing left is worth its minutes) and the winner is not robust. A fragile *pick* (``abstained`` while
+    ``should_stop`` is false) means the next probe still pays and the ranking among the probes is uncertain;
+    ending there threw away observations the stop rule priced as worth many times their minutes, and the value
+    path reads the same situation as "keep measuring". Without ``stop_only`` every abstention ends the episode,
+    as mvp-0.58 did."""
+
+    if not decision.abstained:
+        return None
+    if stop_only and not decision.should_stop:
+        return None
+    return "couldnt_reliably_distinguish"
 
 
 def _record_robust_selection_forecast(
