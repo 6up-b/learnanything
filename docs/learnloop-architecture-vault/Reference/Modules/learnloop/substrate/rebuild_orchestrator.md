@@ -305,6 +305,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_reads_no_attempt_recorded_after_the_one_it_recomputes`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live`
+- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_a_second_rebuild_appends_no_history_row`
+  - `test_an_adjudication_survives_a_rebuild`
+  - `test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
   - `test_live_rebuild_completeness_failure_publishes_nothing`

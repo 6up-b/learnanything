@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_rebuild_history_appends.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/certain_grade_helpers.py`

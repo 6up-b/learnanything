@@ -680,6 +680,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
+- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds`
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`

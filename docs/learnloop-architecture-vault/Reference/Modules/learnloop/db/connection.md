@@ -780,6 +780,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
+- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`

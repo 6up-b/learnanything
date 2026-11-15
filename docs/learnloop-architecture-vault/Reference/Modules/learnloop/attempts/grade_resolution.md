@@ -158,6 +158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_mvp08_mastery_reliability_sources_certainty_lcb`
   - `test_ruling_a_superseded_rows_inert_nonsuperseded_rows_authoritative`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
+- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_an_adjudication_survives_a_rebuild`
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_key_based_adjudication_is_bound_like_a_regrade`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
