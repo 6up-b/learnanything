@@ -41,7 +41,6 @@ from learnloop.algorithm_versions import (
     LESSON_OFFERS_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
     LESSON_SUGGESTIONS_ALGORITHM_VERSION,
-    PROBE_TIE_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
@@ -55,7 +54,6 @@ from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 
 #: Successor tag -> the config values that serve its predecessor (dotted key -> value).
 SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
-    PROBE_TIE_ALGORITHM_VERSION: {"router.probe_tie_admission": False},
     INTENT_ALGORITHM_VERSION: {"intent.enabled": False},
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION: {"adaptive_difficulty.enabled": False},
     TEACHER_ALGORITHM_VERSION: {"teacher.enabled": False},

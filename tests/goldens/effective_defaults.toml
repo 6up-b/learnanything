@@ -959,7 +959,6 @@ router.max_daily_cost_usd = 5.0
 router.mode = "mixture"
 router.payload_retention_days = 365
 router.prefetch_timeout_seconds = 45.0
-router.probe_tie_admission = true
 router.restraint = true
 router.sensor_source = "decider"
 router.sensors = true

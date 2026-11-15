@@ -71,7 +71,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("plan.enabled", "mvp-0.14", True),
     KillSwitch("plan.new_admission_enabled", "mvp-0.14", True),
     KillSwitch("plan.reading_blocks", "mvp-0.14", True),
-    KillSwitch("router.probe_tie_admission", "mvp-0.15", True),
     KillSwitch("router.enabled", "mvp-0.23", True),
     KillSwitch("router.mode", "mvp-0.24", "mixture"),
     KillSwitch("router.restraint", "mvp-0.24", True),

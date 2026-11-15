@@ -118,7 +118,8 @@ DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 # probe). It changes what is SERVED (which near-tie leads the offer), not the
 # projection, so it is another successor tag on the mvp-0.8 namespace. The
 # branch built it as mvp-0.12 and it was relabelled mvp-0.15 when it merged
-# after the daily plan (mvp-0.14). Kill switch: ``router.probe_tie_admission``.
+# after the daily plan (mvp-0.14). Its kill switch went once every vault was
+# past the tag.
 # Decision logging (``router.log_decisions``) is not a serving change and runs
 # at every version. New vaults started here until mvp-0.16 merged.
 PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"

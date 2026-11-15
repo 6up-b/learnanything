@@ -65,7 +65,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "plan.enabled",
     "plan.new_admission_enabled",
     "plan.reading_blocks",
-    "router.probe_tie_admission",
     "router.enabled",
     "router.mode",
     "router.restraint",

@@ -3898,16 +3898,15 @@ class RouterLessonSuggestionsConfig(BaseModel):
     in_objective: bool = True
 
 
-class RouterConfig(BaseModel):
+class RouterConfig(KeepsRetiredFields):
     """Action router: decision logging, the staged frame and the model mixture.
 
     ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
     decision and learner pick. It is not a serving change and acts at every
     algorithm version; off stops the rows and nothing else.
-    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor:
-    probe near-ties, teach-back items included,
-    join the Today queue's seeded exploration. Off (or below ``mvp-0.15``)
-    serves exactly as the predecessor.
+    Probe near-ties, teach-back items included, join the Today queue's seeded
+    exploration (the ``mvp-0.15`` successor; its switch went once every vault
+    was past the tag).
 
     ``enabled`` is the router's kill switch (``mvp-0.23``).
     On, Today's plan is composed by the
@@ -3948,7 +3947,6 @@ class RouterConfig(BaseModel):
     """
 
     log_decisions: bool = True
-    probe_tie_admission: bool = True
     enabled: bool = True
     mode: Literal["staged", "mixture"] = "mixture"
     card_token_budget: int = Field(default=16_000, ge=1_000)

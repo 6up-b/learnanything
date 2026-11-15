@@ -1157,21 +1157,6 @@ def _head_probe_presentation(
     return probe_presentation, probe_forecast_context
 
 
-def probe_ties_admitted(config: LearnLoopConfig) -> bool:
-    """Router R1's successor (``mvp-0.15``): probe near-ties join the tie-break.
-
-    True only with the kill switch ``router.probe_tie_admission`` on;
-    otherwise the exploration keeps the predecessor's probe exclusion exactly.
-    """
-
-    router = getattr(config, "router", None)
-    return bool(getattr(router, "probe_tie_admission", False))
-
-
-def _is_probe_intent(item: ScheduledItem) -> bool:
-    return (item.reward_debug or {}).get("intent") == SchedulerIntent.PROBE.value
-
-
 def _exploration_support(
     queue: list[ScheduledItem],
     session: SchedulerSession,
@@ -1181,28 +1166,22 @@ def _exploration_support(
 
     ``None`` means the build is greedy: exploration is off (its rate, or the
     session's ``seeded_exploration``), there is no session to seed it, a single
-    candidate, no alternative within the reward window,
-    or (below the probe-tie successor) a PROBE-intent best. Before ``mvp-0.15``
-    PROBE-intent items (in-episode diagnostic probes and teach-backs) are never
-    displaced and never explored to; at ``mvp-0.15`` with
-    ``router.probe_tie_admission`` they are ordinary near-ties (teach-backs
-    included: owner decision D11, a teach-back dialogue is a high-value probe).
+    candidate, or no alternative within the reward window. PROBE-intent items
+    (in-episode diagnostic probes and teach-backs) are ordinary near-ties
+    (``mvp-0.15``; teach-backs included: owner decision D11, a teach-back
+    dialogue is a high-value probe).
     """
 
     rate = clamp(config.scheduler.selection_exploration_rate)
     if rate <= 0 or session.session_id is None or not session.seeded_exploration or len(queue) < 2:
         return None
-    admit_probes = probe_ties_admitted(config)
     best = queue[0]
-    if not admit_probes and _is_probe_intent(best):
-        return None
     best_reward = best.components.get("selection_reward", 0.0)
     window = max(config.scheduler.selection_exploration_reward_window, 0.0)
     alternatives = [
         item
         for item in queue[1:]
-        if (admit_probes or not _is_probe_intent(item))
-        and best_reward - item.components.get("selection_reward", 0.0) <= window
+        if best_reward - item.components.get("selection_reward", 0.0) <= window
     ]
     if not alternatives:
         return None
@@ -1328,7 +1307,9 @@ def _fill_offer_trace(
         "mechanism": "scheduler_seeded_exploration",
         "rate": rate,
         "reward_window": window,
-        "probe_ties_admitted": probe_ties_admitted(config),
+        # Every vault has admitted probe ties since mvp-0.15; the logged trace keeps the key (the due-queue
+        # goldens hold it).
+        "probe_ties_admitted": True,
         "best_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
         "alternative_item_ids": [],
         "realized_item_id": None,
