@@ -2779,7 +2779,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_prefix("intent.recall_targets."), "decision", "threshold",
                 "per-intent recall target (spec_daily_loop_v1 §5.3, Q8): when an item is served, as "
                 "effective_due = anchor + (due_at - anchor) x ratio(target); serving only, never "
-                "persisted state or evidence."),
+                # Kept byte for byte: the rationale is mirrored into each vault's parameter_registry rows
+                # (a rewording changes them), though the switch it names is gone.
+                "persisted state or evidence; kill switch intent.recall_targets_enabled."),
     _ConfigRule(_exact("capture.test_me_later_days"), "decision", "threshold",
                 "how long a \"Check once\" waits before its one cold check when its commitment names no "
                 "due_hint (spec_daily_loop_v1 §5.2); a serving date, never evidence."),
