@@ -399,7 +399,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_effective_defaults_golden.py](../../../../../../tests/test_effective_defaults_golden.py) — direct import
 - [tests/test_evsi_calibration_sim.py](../../../../../../tests/test_evsi_calibration_sim.py) — direct import
   - `test_simulation_runs_every_policy_on_common_random_numbers`
-  - `test_the_incumbent_arm_includes_todays_robust_completion_gate`
+  - `test_the_incumbent_arm_includes_the_robust_completion_gate`
+  - `test_the_incumbent_goes_on_past_a_fragile_pick_as_serving_does`
+  - `test_the_predecessor_gate_stops_on_a_fragile_pick`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import
   - `test_each_ablation_puts_back_exactly_one_piece_of_the_successor`
   - `test_the_successor_arms_lift_the_episode_maximum_onto_value`

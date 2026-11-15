@@ -3294,6 +3294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_submit_attempt_counts_question_hint_equivalents`
 - [tests/test_signal_quantiles.py](../../../../../../tests/test_signal_quantiles.py) — direct import
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_split_vault_grades_the_simulated_teach_back_blind`
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import

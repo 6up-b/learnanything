@@ -3080,6 +3080,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_promote_tutor_question_gap_rejected_in_library_context`
   - `test_sidecar_save_tutor_answer_note_and_facet_question_counts`
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader`
+  - `test_a_split_vault_grades_the_simulated_teach_back_blind`
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_slate_record.py](../../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — direct import

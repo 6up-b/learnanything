@@ -379,6 +379,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_reader.py](../../../../../../tests/test_sidecar_reader.py) — direct import
   - `test_reader_ask_history_rpc_returns_durable_exchanges`
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
+  - `test_a_split_vault_grades_the_simulated_teach_back_blind`
   - `test_runner_completes_session_with_teach_back_item`
 - [tests/test_source_deletion.py](../../../../../../tests/test_source_deletion.py) — direct import
   - `test_delete_keeps_stored_bytes_another_source_still_shares`

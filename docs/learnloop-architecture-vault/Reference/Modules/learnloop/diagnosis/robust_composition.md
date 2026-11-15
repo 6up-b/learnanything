@@ -149,7 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_evsi.py](../../../../../../tests/test_evsi.py) — direct import
   - `test_no_pze_substitution_uses_composed_pe_given_h`
 - [tests/test_evsi_calibration_sim.py](../../../../../../tests/test_evsi_calibration_sim.py) — direct import
-  - `test_the_incumbent_arm_includes_todays_robust_completion_gate`
+  - `test_the_incumbent_arm_includes_the_robust_completion_gate`
+  - `test_the_incumbent_goes_on_past_a_fragile_pick_as_serving_does`
 - [tests/test_evsi_multisim.py](../../../../../../tests/test_evsi_multisim.py) — direct import
   - `test_the_successor_arm_values_with_the_nat_scale_when_no_decision_is_at_stake`
 - [tests/test_outcome_schema_ids.py](../../../../../../tests/test_outcome_schema_ids.py) — direct import

@@ -158,6 +158,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `INTENT_ASSUMED`, `INTENT_MAINTENANCE`, `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_tables_present`; statically calls `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_tables_present`
 - [[Reference/Modules/learnloop/placement/signals|learnloop.placement.signals]] — imports `load_answers`; statically calls `load_answers`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `choose_check_items`, `diagnosis_can_arrive`, `load_placement_state`, `order_new_material`, `placement_active`, `servable_open_episodes`, `unevidenced_return_active`; statically calls `choose_check_items`, `diagnosis_can_arrive`, `load_placement_state`, `order_new_material`, `placement_active`, `servable_open_episodes`, `unevidenced_return_active`
+- [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `initial_probes_enabled`; statically calls `initial_probes_enabled`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `load_placement_state`; statically calls `load_placement_state`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `initial_probes_enabled`; statically calls `initial_probes_enabled`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `episode_ignored`; statically calls `episode_ignored`
@@ -193,7 +194,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 27 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/placement|learnloop.cli.placement]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
