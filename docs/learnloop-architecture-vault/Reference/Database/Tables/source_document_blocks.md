@@ -142,8 +142,8 @@ Database triggers:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/figures/grounding.py`
 - `src/learnloop/figures/help.py`
-- `src/learnloop/figures/prefetch.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

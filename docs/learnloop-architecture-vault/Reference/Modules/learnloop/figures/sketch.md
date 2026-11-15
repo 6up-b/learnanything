@@ -190,10 +190,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`, `sketch_ready`; statically calls `parse_author_sketch`, `sketch_ready`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `parse_sketch`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `CLAIM_REL_TOL`, `SKETCH_MAX_CLAIM_WORK`, `expression_steps`, `impersonates`; statically calls `expression_steps`, `impersonates`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `module`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `sketch_ready`; statically calls `sketch_ready`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`, `sketch_ready`; statically calls `parse_author_sketch`, `parse_sketch`, `sketch_ready`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`; statically calls `claim_entry_work`, `element_index`, `prediction_step`, `probe_numbers`, `probe_problems`, `read_steps`, `sample_steps`, `scene_problems`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`, `sketch_ready`; statically calls `parse_sketch`, `sketch_ready`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `sketch_ready`; statically calls `sketch_ready`
 
 ## Dependencies
@@ -217,7 +221,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

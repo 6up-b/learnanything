@@ -18,7 +18,7 @@ source_paths:
   - "migrations/094_source_objects.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/figures/service.py"
+  - "src/learnloop/figures/listing.py"
   - "src/learnloop/instructional/sources.py"
   - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/reader/reader_requests.py"

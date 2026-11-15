@@ -114,9 +114,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `background_hold`; statically calls `background_hold`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `power_state`, `prefetch_switch`; statically calls `power_state`, `prefetch_switch`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `background_hold`, `power_state`, `prefetch_switch`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `prefetch_switch`; statically calls `prefetch_switch`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `NOT_ON_MAINS`, `SWITCHED_OFF`, `YIELDED`, `background_hold`; statically calls `background_hold`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `background_hold`, `power_state`, `prefetch_switch`; statically calls `background_hold`, `power_state`, `prefetch_switch`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `power_state`, `prefetch_switch`; statically calls `power_state`, `prefetch_switch`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `prefetch_switch`
 - [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]] — imports `module`; statically calls `prefetch_switch`
 
@@ -138,7 +141,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/prefetch_runtime|learnloop_sidecar.prefetch_runtime]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -187,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stored_request_is_linked_whatever_holds_new_builds_and_its_opening_is_observed`
   - `test_every_background_guard_a_power_deferred_resume_rechecks_holds_a_capped_one`
 - [tests/test_followups_batch7_prefetch_link_served.py](../../../../../../tests/test_followups_batch7_prefetch_link_served.py) — direct import
+- [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
+  - `test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing`
 - [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance

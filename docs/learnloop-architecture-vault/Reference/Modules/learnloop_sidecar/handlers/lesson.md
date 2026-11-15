@@ -102,7 +102,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `SuggestionError`, `respond`, `today_suggestion`; calls `respond`, `today_suggestion`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `build_figure`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; calls `build_figure`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; calls `record_intervals`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; calls `Clients`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
 - [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `module`; calls `on`

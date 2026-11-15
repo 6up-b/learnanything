@@ -91,7 +91,8 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `PolicyRefused`, `derive_policy`; statically calls `derive_policy`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `CallerContext`, `derive_policy`; statically calls `CallerContext`, `derive_policy`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `CallerContext`, `derive_policy`; statically calls `CallerContext`, `derive_policy`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `CallerContext`; statically calls `CallerContext`
 - [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] — imports `CallerContext`; statically calls `CallerContext`
 - [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `derive_policy`; statically calls `derive_policy`
 - [[Reference/Modules/learnloop/instructional/offers|learnloop.instructional.offers]] — imports `ITEM_BOUND_CONTEXTS`
@@ -132,7 +133,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]], [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]], [[Reference/Modules/learnloop/instructional/offers|learnloop.instructional.offers]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]], [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]], [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] and 19 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

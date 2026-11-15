@@ -164,9 +164,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `new_ulid`; statically calls `new_ulid`
@@ -270,7 +271,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 164 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 165 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

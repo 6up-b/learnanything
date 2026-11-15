@@ -258,8 +258,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `source_ref_keys`; statically calls `source_ref_keys`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `spans_withheld`; statically calls `spans_withheld`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `module`; statically calls `exam_material`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `spans_withheld`; statically calls `spans_withheld`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `exposed_items`; statically calls `exposed_items`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `exposed_items`; statically calls `exposed_items`

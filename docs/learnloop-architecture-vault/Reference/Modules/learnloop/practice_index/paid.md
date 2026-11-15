@@ -138,11 +138,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `planning_repository`; statically calls `planning_repository`
 - [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]] — imports `planning_repository`; statically calls `planning_repository`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `FRAMING_TOKENS`, `estimated_call_tokens`, `plan_route`; statically calls `estimated_call_tokens`, `plan_route`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `billing_for`; statically calls `billing_for`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `plan_route`, `resolve_client`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `plan_route`; statically calls `plan_route`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `PaidCalls`, `PaidRoute`, `estimated_call_tokens`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `estimated_call_tokens`, `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `PaidCalls`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/hints/writer|learnloop.hints.writer]] — imports `PaidCalls`, `PaidRoute`, `SUBSCRIPTION_PROFILE_TYPES`, `plan_route`, `resolve_client`; statically calls `PaidCalls`, `plan_route`, `resolve_client`
@@ -203,7 +204,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] and 43 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] and 44 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

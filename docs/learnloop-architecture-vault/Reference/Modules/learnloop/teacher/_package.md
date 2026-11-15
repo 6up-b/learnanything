@@ -91,9 +91,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 4 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
@@ -139,7 +139,7 @@ flowchart LR
     center -->|9| n_learnloop_ai
     center -->|9| n_learnloop_attempts
     n_learnloop_figures -->|3| center
-    center -->|3| n_learnloop_figures
+    center -->|4| n_learnloop_figures
     center -->|6| n_learnloop_learner
     center -->|6| n_learnloop_vault
     center -->|4| n_learnloop_followup_serve

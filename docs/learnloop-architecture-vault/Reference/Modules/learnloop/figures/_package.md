@@ -7,24 +7,28 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/figures/__init__.py"
   - "src/learnloop/figures/book_math.py"
+  - "src/learnloop/figures/build.py"
   - "src/learnloop/figures/display_format.py"
   - "src/learnloop/figures/elements.py"
   - "src/learnloop/figures/foreground.py"
   - "src/learnloop/figures/grammar.py"
+  - "src/learnloop/figures/grounding.py"
   - "src/learnloop/figures/help.py"
   - "src/learnloop/figures/katex_tree.py"
   - "src/learnloop/figures/labels.py"
   - "src/learnloop/figures/learner_state.py"
+  - "src/learnloop/figures/listing.py"
   - "src/learnloop/figures/manim_figure.py"
   - "src/learnloop/figures/power.py"
+  - "src/learnloop/figures/predictions.py"
   - "src/learnloop/figures/prefetch.py"
   - "src/learnloop/figures/prefetch_ledger.py"
   - "src/learnloop/figures/prefetch_model.py"
   - "src/learnloop/figures/protection.py"
   - "src/learnloop/figures/records.py"
+  - "src/learnloop/figures/request.py"
   - "src/learnloop/figures/rich.py"
   - "src/learnloop/figures/routes.py"
-  - "src/learnloop/figures/service.py"
   - "src/learnloop/figures/sketch.py"
   - "src/learnloop/figures/sketch_engine.py"
   - "src/learnloop/figures/sketch_verify.py"
@@ -32,6 +36,7 @@ source_paths:
   - "src/learnloop/figures/source_check_harness.py"
   - "src/learnloop/figures/spec.py"
   - "src/learnloop/figures/verify.py"
+  - "src/learnloop/figures/view.py"
 generated: true
 generated_at: "2026-11-02"
 package: "learnloop.figures"
@@ -70,44 +75,49 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/figures/__init__|learnloop.figures]] | [[Reference/Modules/learnloop/figures/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/figures/book_math|learnloop.figures.book_math]] | [[Reference/Modules/learnloop/figures/book_math#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] | [[Reference/Modules/learnloop/figures/build#^module-purpose|purpose]] | `ACTIVE` | 3 | 30 |
 | [[Reference/Modules/learnloop/figures/display_format|learnloop.figures.display_format]] | [[Reference/Modules/learnloop/figures/display_format#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] | [[Reference/Modules/learnloop/figures/elements#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] | [[Reference/Modules/learnloop/figures/foreground#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] | [[Reference/Modules/learnloop/figures/grammar#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
+| [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] | [[Reference/Modules/learnloop/figures/grounding#^module-purpose|purpose]] | `ACTIVE` | 2 | 12 |
 | [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] | [[Reference/Modules/learnloop/figures/help#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]] | [[Reference/Modules/learnloop/figures/katex_tree#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
-| [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] | [[Reference/Modules/learnloop/figures/labels#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
+| [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] | [[Reference/Modules/learnloop/figures/labels#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] | [[Reference/Modules/learnloop/figures/learner_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
+| [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] | [[Reference/Modules/learnloop/figures/listing#^module-purpose|purpose]] | `ACTIVE` | 5 | 15 |
 | [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] | [[Reference/Modules/learnloop/figures/manim_figure#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
-| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 5 | 13 |
+| [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] | [[Reference/Modules/learnloop/figures/power#^module-purpose|purpose]] | `ACTIVE` | 8 | 14 |
+| [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] | [[Reference/Modules/learnloop/figures/predictions#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 16 |
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
-| [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] | [[Reference/Modules/learnloop/figures/protection#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
+| [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] | [[Reference/Modules/learnloop/figures/protection#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
 | [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] | [[Reference/Modules/learnloop/figures/records#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 4 | 19 |
-| [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 4 | 14 |
-| [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] | [[Reference/Modules/learnloop/figures/service#^module-purpose|purpose]] | `ACTIVE` | 6 | 43 |
-| [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 5 | 7 |
-| [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
-| [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] | [[Reference/Modules/learnloop/figures/sketch_verify#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
-| [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] | [[Reference/Modules/learnloop/figures/source_check#^module-purpose|purpose]] | `ACTIVE` | 3 | 8 |
+| [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] | [[Reference/Modules/learnloop/figures/request#^module-purpose|purpose]] | `ACTIVE` | 7 | 27 |
+| [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 7 | 19 |
+| [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 5 | 14 |
+| [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 9 | 7 |
+| [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 7 | 10 |
+| [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] | [[Reference/Modules/learnloop/figures/sketch_verify#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
+| [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] | [[Reference/Modules/learnloop/figures/source_check#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/figures/source_check_harness|learnloop.figures.source_check_harness]] | [[Reference/Modules/learnloop/figures/source_check_harness#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] | [[Reference/Modules/learnloop/figures/spec#^module-purpose|purpose]] | `ACTIVE` | 9 | 20 |
-| [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] | [[Reference/Modules/learnloop/figures/verify#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
+| [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] | [[Reference/Modules/learnloop/figures/spec#^module-purpose|purpose]] | `ACTIVE` | 12 | 20 |
+| [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] | [[Reference/Modules/learnloop/figures/verify#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
+| [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] | [[Reference/Modules/learnloop/figures/view#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 24 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 10 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 33 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 21 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 7 static module edges
+- [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 5 static module edges
-- [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 2 static module edges
@@ -117,9 +127,9 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 12 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 16 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 3 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
 
@@ -131,26 +141,26 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.figures"]
     n_learnloop["learnloop"]
-    n_learnloop_ai["learnloop.ai"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_teacher["learnloop.teacher"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_practice_index["learnloop.practice_index"]
-    center -->|24| n_learnloop
-    center -->|16| n_learnloop_ai
-    center -->|16| n_learnloop_db_stores
-    center -->|14| n_learnloop_db
-    n_learnloop_sidecar_handlers -->|12| center
-    center -->|10| n_learnloop_source_retrieval
+    n_learnloop_content_authoring["learnloop.content.authoring"]
+    center -->|33| n_learnloop
+    center -->|23| n_learnloop_db
+    center -->|21| n_learnloop_db_stores
+    center -->|17| n_learnloop_ai
+    n_learnloop_sidecar_handlers -->|16| center
+    center -->|11| n_learnloop_source_retrieval
     center -->|7| n_learnloop_reader
-    n_learnloop_teacher -->|3| center
+    n_learnloop_teacher -->|4| center
     center -->|3| n_learnloop_teacher
+    center -->|6| n_learnloop_practice_index
     center -->|5| n_learnloop_content_authoring
-    center -->|5| n_learnloop_practice_index
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -1305,12 +1305,17 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `Repository`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `Repository`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Repository`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `Repository`
@@ -1577,7 +1582,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 388 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 393 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

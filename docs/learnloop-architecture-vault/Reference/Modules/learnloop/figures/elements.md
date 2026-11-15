@@ -121,8 +121,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `rewrite_spec`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `BookLabel`, `element_id`, `element_map`, `to_tex`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `rewrite_spec`
 
 ## Dependencies
 
@@ -145,7 +145,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

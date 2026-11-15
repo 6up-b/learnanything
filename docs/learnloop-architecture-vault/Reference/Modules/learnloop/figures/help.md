@@ -124,8 +124,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `has_tables`, `shown_figures`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `help_kind_enabled`, `show_me_enabled`; calls `figure_home_keys`, `help_kind_enabled`, `show_me_enabled`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `row_withheld`, `show_me_row`; calls `row_withheld`, `show_me_row`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `advanced_off_row`, `drawable_now`, `rich_row`, `sketch_off_row`, `source_rejected`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `SPEC_VERSIONS`, `module`; calls `evaluate_figure`, `parse_spec`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; calls `advanced_off_row`, `drawable_now`, `rich_row`, `sketch_off_row`, `source_rejected`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `extraction_sections`; calls `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_section`; calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `item_exclusions`; calls `item_exclusions`

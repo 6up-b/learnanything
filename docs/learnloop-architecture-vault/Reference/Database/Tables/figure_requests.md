@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/diagnosis/split/figure_trace.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/figure_admission.py"
+  - "src/learnloop/figures/build.py"
   - "src/learnloop/figures/prefetch.py"
   - "src/learnloop/figures/prefetch_ledger.py"
-  - "src/learnloop/figures/rich.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -105,7 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/figure_admission.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/figures/prefetch_ledger.py`
-- `src/learnloop/figures/service.py`
+- `src/learnloop/figures/view.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/why/reconstructed.py`
 

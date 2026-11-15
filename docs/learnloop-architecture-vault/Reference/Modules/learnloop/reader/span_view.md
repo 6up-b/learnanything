@@ -85,7 +85,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `SpanViewError`, `build_span_view`; statically calls `build_span_view`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `build_block_region`; statically calls `build_block_region`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `build_block_region`; statically calls `build_block_region`
 - [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]] — imports `module`; statically calls `_local_pdf_crops`, `_local_pdf_page_label`, `_original_pdf_for`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `SpanViewError`, `build_span_view`; statically calls `build_span_view`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `SpanViewError`, `build_span_view`; statically calls `build_span_view`
@@ -114,7 +114,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]], [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]], [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]], [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]], [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
