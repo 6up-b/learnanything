@@ -97,6 +97,10 @@ def teach_runs(teach_vault, tmp_path_factory):
     runs = []
     for name in ("first", "second"):
         root = prepare_run_vault(teach_vault, directory / name)
+        # A copy of the mvp-0.7 vault: registered here, because the test that first asks for the runs is not
+        # always the one that built the vault (another worker's order builds ``teach_vault`` in an earlier test,
+        # whose allowance has ended by now).
+        allow_below_floor(root)
         runs.append((root, run_simulation(root, _profile(), days=8, items_per_day=7, seed=42)))
     return runs
 
