@@ -171,11 +171,17 @@ from learnloop.figure_admission import (
     checked_labels_enabled,
     figure_home_keys,
     figures_enabled,
+    help_kind_enabled,
     offers_enabled,
+    predictions_enabled,
+    region_enabled,
+    revisions_enabled,
+    rich_tiers_enabled,
+    show_me_enabled,
+    sketch_enabled,
+    teacher_visuals_enabled,
 )
-from learnloop.figure_admission import sketch_enabled as admission_sketch_enabled
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
-from learnloop.figure_admission import show_me_enabled as admission_show_me_enabled
 from learnloop.figures import elements as E
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
@@ -186,6 +192,7 @@ from learnloop.figures import sketch as K
 from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
+from learnloop.figures.sketch import sketch_ready
 from learnloop.ids import new_ulid
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
@@ -364,13 +371,6 @@ def lesson_hosted(request: "FigureRequest") -> bool:
     return request.origin == "teacher"
 
 
-def teacher_visuals_switch(vault: Any) -> bool:
-    """RW5d P4b: ``teacher.visuals`` (the teacher's manipulatives)."""
-
-    teacher = getattr(getattr(vault, "config", vault), "teacher", None)
-    return bool(getattr(teacher, "visuals", False))
-
-
 def prediction_home(row: Mapping[str, Any]) -> str | None:
     """The extraction a figure's prediction is recorded under: its home, or
     (RW5d P3, an attempt host's figure with no home) the first book it was
@@ -396,12 +396,6 @@ def show_me_input(request: "FigureRequest") -> bool:
     return request.goal_text is not None or not anchored(request)
 
 
-def enabled(vault: Any) -> bool:
-    """``figures.enabled``: the one predicate (:func:`learnloop.figure_admission.figures_enabled`)."""
-
-    return figures_enabled(vault)
-
-
 def build_key(vault: Any) -> tuple[Any, ...]:
     """What a build depends on, compared before every request it makes
     (:class:`~learnloop.figure_admission.FiguresGate`): the vault, the switch,
@@ -417,7 +411,7 @@ def build_key(vault: Any) -> tuple[Any, ...]:
     section = getattr(vault.config, "figures", None)
     return (str(vault.root), figures_enabled(vault), plan_route(vault, R.AUTHOR_TASK, None),
             getattr(section, "max_daily_cost_usd", None), getattr(section, "price_per_million", None),
-            advanced_panels_enabled(vault), sketch_switch(vault), RICH.rich_tiers_switch(vault),
+            advanced_panels_enabled(vault), sketch_enabled(vault), RICH.rich_tiers_switch(vault),
             RICH.manim_tier_ready(vault), author_learner_state_enabled(vault), checked_labels_enabled(vault))
 
 
@@ -453,13 +447,13 @@ def key_for(request: "FigureRequest"):
         # RW5d P4b: a lesson's visual is admitted only while the teacher's
         # visuals stay on (switched off since: it asks nothing more).
         base = _key_for(request)
-        return lambda vault: (*base(vault), teacher_visuals_switch(vault))
+        return lambda vault: (*base(vault), teacher_visuals_enabled(vault))
     if attempt_hosted(request):
         # RW5d P3 (Codex review F5): a build on an attempt host is admitted
         # only while figures in attempts stay on (switched off since: it asks
         # nothing more, and its delivery shows nothing).
         base = _key_for(request)
-        return lambda vault: (*base(vault), help_enabled(vault))
+        return lambda vault: (*base(vault), help_kind_enabled(vault))
     return _key_for(request)
 
 
@@ -469,72 +463,6 @@ def _key_for(request: "FigureRequest"):
             return lambda vault: (*offer_build_key(vault), show_me_enabled(vault))
         return show_me_build_key
     return offer_build_key if offered(request) else build_key
-
-
-def _switch(vault: Any, name: str) -> bool:
-    return enabled(vault) and bool(getattr(vault.config.figures, name, False))
-
-
-def predictions_enabled(vault: Any) -> bool:
-    return _switch(vault, "predictions_enabled")
-
-
-def region_enabled(vault: Any) -> bool:
-    return _switch(vault, "region_enabled")
-
-
-def revisions_enabled(vault: Any) -> bool:
-    return _switch(vault, "revisions_enabled")
-
-
-def advanced_enabled(vault: Any) -> bool:
-    """RW5b's panels (``figures.advanced_panels_enabled``)."""
-
-    return advanced_panels_enabled(vault)
-
-
-def figure_offers_enabled(vault: Any) -> bool:
-    """RW5b's offers (``figures.offers_enabled``)."""
-
-    return offers_enabled(vault)
-
-
-def show_me_enabled(vault: Any) -> bool:
-    """RW5d's "show me" (``figures.show_me_enabled``; :func:`learnloop.figure_admission.show_me_enabled`)."""
-
-    return admission_show_me_enabled(vault)
-
-
-def help_enabled(vault: Any) -> bool:
-    """RW5d P3: ``figures.help_kind_enabled`` (:func:`learnloop.figure_admission.help_kind_enabled`)."""
-
-    from learnloop.figure_admission import help_kind_enabled
-
-    return help_kind_enabled(vault)
-
-
-def sketch_switch(vault: Any) -> bool:
-    """RW5d P2's switch (``figures.sketch_enabled`` under ``figures.enabled``)."""
-
-    return admission_sketch_enabled(vault)
-
-
-def sketch_enabled(vault: Any) -> bool:
-    """The sketch tier as offered on this machine: its switch, and the engine
-    present with its pinned digest (spec §7.2: an unavailable tier is left
-    out of the author's menu)."""
-
-    if not sketch_switch(vault):
-        return False
-    from learnloop.figures.sketch_engine import engine_ready
-
-    return engine_ready()
-
-
-def rich_enabled(vault: Any) -> bool:
-    """RW5d P2b's switch (``figures.rich_tiers_enabled`` under ``figures.enabled``)."""
-
-    return RICH.rich_tiers_switch(vault)
 
 
 def rich_row(row: Mapping[str, Any]) -> bool:
@@ -736,7 +664,7 @@ def _unrecorded_occupant(vault: Any, connection: Any, input_hash: str) -> bool:
     keeps no record of what its author's learner state was read from."""
 
     found = store.reusable(connection, input_hash, SPEC_VERSIONS)
-    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
+    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_tiers_enabled(vault) else None
     if rich_only is not None and rich_only.get("fuller_of_id"):
         rich_only = None  # a fuller version is checked through its quick figure's intent
     return any(row is not None and _learner_inputs_unrecorded(row) for row in (found, rich_only))
@@ -1073,7 +1001,7 @@ def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
     iterated map, while ``figures.advanced_panels_enabled`` is off, is the
     unsupported-kind state ("can't draw this yet"); its spec never goes out."""
 
-    if advanced_enabled(vault) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
+    if advanced_panels_enabled(vault) or row.get("verification") not in store.SHOWN or not row.get("spec_json"):
         return row
     try:
         kinds = S.advanced_kinds(json.loads(row["spec_json"]))
@@ -1097,7 +1025,7 @@ def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
     engine can't run here) is the unsupported-kind state ("can't draw this
     yet"); its program never goes out."""
 
-    if not sketch_row(row) or row.get("verification") not in store.SHOWN or sketch_enabled(vault):
+    if not sketch_row(row) or row.get("verification") not in store.SHOWN or sketch_ready(vault):
         return row
     report = dict(row.get("verification_report") or {})
     return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": SKETCH_OFF_KIND, "spec_json": None,
@@ -1109,7 +1037,7 @@ def rich_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
     off is the unsupported-kind state ("can't show this kind here"); its
     program and video never go out."""
 
-    if not rich_row(row) or row.get("verification") not in store.SHOWN or rich_enabled(vault):
+    if not rich_row(row) or row.get("verification") not in store.SHOWN or rich_tiers_enabled(vault):
         return row
     report = dict(row.get("verification_report") or {})
     return {**row, "verification": V.UNSUPPORTED, "unsupported_kind": RICH.RICH_OFF_KIND, "spec_json": None,
@@ -1358,11 +1286,11 @@ def figure_view(vault: Any, repository: Repository, row: Mapping[str, Any], *, v
             "passages": [dict(item) for item in manifest.get("passages") or ()]
             if (row.get("grounding") or "anchor") == "retrieved" else [],
         })
-    if sketch_enabled(vault):
+    if sketch_ready(vault):
         # RW5d P2 (absent while the tier is off, so the view is P1's key for key).
         view["tier"] = "sketch" if sketch_row(row) else "grammar"
         view["sketch"] = None
-    if rich_enabled(vault):
+    if rich_tiers_enabled(vault):
         # RW5d P2b (absent while the rich tiers are off, so the view is P2's key
         # for key): the tier, a Manim figure's video and checks, and on a quick
         # figure the state of its fuller version (one figure line, two versions).
@@ -1575,7 +1503,7 @@ def _presented_row(vault: Any, repository: Repository, row: Mapping[str, Any]) -
     """A stored row as :func:`figure_view` presents it under the switches now."""
 
     row = rich_off_row(vault, sketch_off_row(vault, advanced_off_row(vault, shown_row(row))))
-    if sketch_enabled(vault):
+    if sketch_ready(vault):
         row = sketch_rechecked(row, repository)
     # RW5c: a stated claim proved different is not shown (§6.6, Q4); the row
     # keeps steps 1-2's result, and this state comes from the ledger.
@@ -1795,7 +1723,7 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
         return found
     # RW5d P2b: a rich figure built with no quick figure is this input's own
     # figure (its fuller version is reached through the quick one instead).
-    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_enabled(vault) else None
+    rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_tiers_enabled(vault) else None
     if (rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only)
             and learner_state_withheld(vault, repository, rich_only) is None):
         return rich_only
@@ -1818,7 +1746,7 @@ PREFETCH_GOAL_AUTHORS = ("prefetch", "teacher")
 
 
 def _validated_request(vault: Any, repository: Repository, request: FigureRequest) -> FigureRequest:
-    if not enabled(vault):
+    if not figures_enabled(vault):
         raise FigureRefused("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     prefetch = request.origin == "prefetch" and _PREFETCH_BUILD.get()
     if request.origin in RESERVED_ORIGINS and not prefetch:
@@ -1838,10 +1766,10 @@ def _validated_request(vault: Any, repository: Repository, request: FigureReques
             raise FigureRefused("validation_error", "Figures with origin 'teacher' are made in a lesson only.")
         if request.span_ids or request.region or request.supersedes_id is not None or not request.grounding_keys:
             raise FigureRefused("validation_error", "A lesson's figure rests on the passages the lesson delivered.")
-        if not teacher_visuals_switch(vault):
+        if not teacher_visuals_enabled(vault):
             raise FigureRefused("teacher_visuals_disabled", "The teacher's figures are switched off "
                                                             "(teacher.visuals).")
-    if offered(request) and not figure_offers_enabled(vault):
+    if offered(request) and not offers_enabled(vault):
         raise FigureRefused("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
     goal = " ".join(str(request.goal_text or "").split())[:GOAL_CHARS] or None
     goal_author = request.goal_author if goal is not None else None
@@ -1969,7 +1897,7 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
                                                     "(figures.show_me_enabled).")
         if row_withheld(vault, repository, base) is not None:
             raise FigureRefused("exam_material", "That figure's passage is held out now.")
-        if rich_row(base) and not rich_enabled(vault):
+        if rich_row(base) and not rich_tiers_enabled(vault):
             # RW5d P2b: an animation is revised only with the rich tiers on
             # (it lists as "can't show this kind here" while they are off).
             raise FigureRefused("rich_disabled", "That figure is an animation, and rich figures are switched off "
@@ -1978,12 +1906,12 @@ def check_request(vault: Any, repository: Repository, request: FigureRequest) ->
                 base.get("verification") not in store.SHOWN or not base.get("spec_json")):
             raise FigureRefused("not_found", "That animation is not shown, so there is no version to improve: "
                                              "ask again.")
-        if sketch_row(base) and not sketch_enabled(vault):
+        if sketch_row(base) and not sketch_ready(vault):
             # RW5d P2: a sketch is revised only by the sketch tier (RW5b's
             # contract can't write one back).
             raise FigureRefused("sketch_disabled", "That figure is a simulation, and the sketch tier is switched "
                                                    "off (figures.sketch_enabled).")
-        if not advanced_enabled(vault) and _advanced_kinds(base):
+        if not advanced_panels_enabled(vault) and _advanced_kinds(base):
             # Codex review F4: a figure that uses a panel kind switched off
             # (listed as "can't draw this yet", or a failed attempt at one) is
             # not revised: its spec would be sent under RW5a's prompt, which
@@ -2174,8 +2102,8 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     if clipped is not None and request.region is not None:
         request.region = {**request.region, "bbox": [round(float(value), 2) for value in clipped]}
     digest = hashlib.sha256(image[1]).hexdigest() if image is not None else None
-    advanced = advanced_enabled(vault)
-    sketch = sketch_enabled(vault)
+    advanced = advanced_panels_enabled(vault)
+    sketch = sketch_ready(vault)
     # RW5d P2b: the menu (spec §7.2): a rich tier only with a way to start its job.
     menu = RICH.tiers_allowed(vault, sketch=sketch) if spawn_rich is not None else (
         ("grammar", "sketch") if sketch else ("grammar",))
@@ -2293,7 +2221,7 @@ def _rich_pending(vault: Any, repository: Repository, request: FigureRequest, in
     """A rich-only build of this input still running or waiting (its job is
     pending or waiting for the plan): the request takes its pending line."""
 
-    if not rich_enabled(vault):
+    if not rich_tiers_enabled(vault):
         return None
     job = RICH.rich_job_for(RICH.rich_jobs(repository), input_hash=input_hash)
     if job is None or (job.get("payload") or {}).get("fast_figure_id"):
@@ -2323,7 +2251,7 @@ def retry_rich_job(vault: Any, repository: Repository, job_id: str) -> str:
     payload and request identity), so a paid answer is recovered, not paid
     for again."""
 
-    if not rich_enabled(vault):
+    if not rich_tiers_enabled(vault):
         raise FigureRefused("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
     job = repository.get_ingest_job(job_id)
     if job is None or job.get("job_type") != RICH.RICH_JOB_TYPE:
@@ -2846,7 +2774,7 @@ def resume_rich_intents(vault: Any, repository: Repository, extraction_id: str, 
     job belongs to no action (no grant: it waits for the plan when it is
     down). Returns how many were started."""
 
-    if spawn is None or not enabled(vault) or not rich_enabled(vault):
+    if spawn is None or not figures_enabled(vault) or not rich_tiers_enabled(vault):
         return 0
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not store.has_tables(connection):
@@ -3228,7 +3156,7 @@ def _listed(vault: Any, repository: Repository,
     Codex review F3): per version chain, the pick, the chain's length and its
     placements in this source. Read-only: nothing is verified or written."""
 
-    if not enabled(vault):
+    if not figures_enabled(vault):
         return []
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not store.has_tables(connection):
@@ -3505,7 +3433,7 @@ def prefetch_plan_waits(vault: Any, repository: Repository, extraction_id: str |
     from learnloop.figures.power import power_state, prefetch_switch
     from learnloop.figures.rich import _withheld
 
-    if not rich_enabled(vault) or not prefetch_switch(vault) or not power_state().on_mains:
+    if not rich_tiers_enabled(vault) or not prefetch_switch(vault) or not power_state().on_mains:
         return []
     candidates: list[tuple[str, dict[str, Any]]] = []
     seen: set[str] = set()
@@ -3644,7 +3572,7 @@ def rich_pending(vault: Any, repository: Repository, extraction_id: str) -> list
     and that request's job over the whole queue), not only among the jobs
     the queue's recent window returns."""
 
-    if not enabled(vault) or not rich_enabled(vault):
+    if not figures_enabled(vault) or not rich_tiers_enabled(vault):
         return []
     lines = []
     seen: set[str] = set()
@@ -3750,7 +3678,7 @@ def rich_revision_retry(vault: Any, repository: Repository, job_id: str) -> Figu
     so the rich author is asked anew (never the failed answer's checkpoint).
     None for any other job (:func:`retry_rich_job` decides those)."""
 
-    if not rich_enabled(vault):
+    if not rich_tiers_enabled(vault):
         return None
     job = repository.get_ingest_job(job_id)
     if job is None or job.get("job_type") != RICH.RICH_JOB_TYPE:
@@ -3942,7 +3870,6 @@ __all__ = [
     "rebuild_request",
     "source_rejected",
     "check_request",
-    "enabled",
     "figure_view",
     "figure_homes",
     "figure_withheld",
@@ -3954,31 +3881,24 @@ __all__ = [
     "row_withheld",
     "learner_state_withheld",
     "redelivered_view",
-    "show_me_enabled",
     "show_me_input",
     "fuller_state",
     "ensure_rich_job",
     "resume_rich_intents",
     "retry_rich_job",
-    "rich_enabled",
     "rich_off_row",
     "rich_pending",
     "rich_base_item_protected",
     "rich_base_keys",
     "stored_plan_open_items",
     "rich_row",
-    "sketch_enabled",
     "sketch_off_row",
     "sketch_rechecked",
     "sketch_row",
     "list_figures",
-    "predictions_enabled",
     "record_explanation",
     "record_prediction",
-    "region_enabled",
-    "revisions_enabled",
     "section_figures",
     "shown_figure",
-    "teacher_visuals_switch",
     "withheld_message",
 ]

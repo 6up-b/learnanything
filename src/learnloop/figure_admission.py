@@ -98,6 +98,30 @@ def checked_labels_enabled(vault: Any) -> bool:
     return figures_enabled(config) and bool(getattr(config.figures, "checked_labels_enabled", False))
 
 
+def predictions_enabled(vault: Any) -> bool:
+    """``figures.predictions_enabled`` under ``figures.enabled``: a figure asks
+    the learner to predict before it moves, and the answer is recorded."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "predictions_enabled", False))
+
+
+def region_enabled(vault: Any) -> bool:
+    """``figures.region_enabled`` under ``figures.enabled``: a box drawn over a
+    figure block asks for a figure of that region (only its crop is sent)."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "region_enabled", False))
+
+
+def revisions_enabled(vault: Any) -> bool:
+    """``figures.revisions_enabled`` under ``figures.enabled``: "not right?"
+    asks for a new version of a figure with the learner's note."""
+
+    config = getattr(vault, "config", vault)
+    return figures_enabled(config) and bool(getattr(config.figures, "revisions_enabled", False))
+
+
 def figure_home_keys(connection: Any, figure_id: str) -> list[tuple[str, str]] | None:
     """Reader RW5d (Codex review F3, F4): where a figure built with no passage
     lands, as ``(extraction_id, span_id)``: the reading position of every
@@ -311,6 +335,17 @@ def help_kind_enabled(vault: Any) -> bool:
     return show_me_enabled(config) and bool(getattr(config.figures, "help_kind_enabled", False))
 
 
+def teacher_visuals_enabled(vault: Any) -> bool:
+    """``teacher.visuals``: the teacher's manipulatives in a lesson. The
+    teacher's switch alone, not under ``figures.enabled``: a lesson's visual
+    asks for both (``learnloop.teacher.visuals.active``), and a lesson build's
+    admission key holds this beside the figure keys that already carry the
+    parent."""
+
+    teacher = getattr(getattr(vault, "config", vault), "teacher", None)
+    return bool(getattr(teacher, "visuals", False))
+
+
 def manim_opt_in(vault: Any) -> str | None:
     """Reader RW5d P2b: the learner's standing opt-in for Manim figures
     (``"standing"``), their "not now" (``"declined"``), or None (not asked)."""
@@ -467,7 +502,11 @@ __all__ = [
     "offerable",
     "offerable_blocks",
     "offers_enabled",
+    "predictions_enabled",
+    "region_enabled",
+    "revisions_enabled",
     "rich_tiers_enabled",
+    "teacher_visuals_enabled",
     "text_key",
     "tutor_explorable_judgment_id",
     "tutor_explorable_yes",

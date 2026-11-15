@@ -36,7 +36,7 @@ from typing import Any
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import help_kind_enabled
+from learnloop.figure_admission import help_kind_enabled, show_me_enabled
 
 #: The ladder level a figure's help row is written at (§11.2): one
 #: hint-equivalent in the fold, the level of ``explore_figure`` (§11.4). A
@@ -413,7 +413,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         if FS.rich_row(row):
             # Ruling R1: attempt hosts are grammar and sketch only.
             continue
-        if FS.show_me_row(row) and not FS.show_me_enabled(vault):
+        if FS.show_me_row(row) and not show_me_enabled(vault):
             continue
         if not FS.drawable_now(vault, row) or FS.advanced_off_row(vault, row) is not row \
                 or FS.sketch_off_row(vault, row) is not row:

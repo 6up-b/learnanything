@@ -62,9 +62,9 @@ def active(vault: Any) -> bool:
     """``teacher.visuals``, under ``figures.enabled`` and ``figures.show_me_enabled`` (a teacher's
     figure is a goal, which "show me" governs: spec §7.1)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figure_admission import figures_enabled, show_me_enabled, teacher_visuals_enabled
 
-    return FS.teacher_visuals_switch(vault) and FS.enabled(vault) and FS.show_me_enabled(vault)
+    return teacher_visuals_enabled(vault) and figures_enabled(vault) and show_me_enabled(vault)
 
 
 def on(vault: Any, builder: Builder | None) -> bool:

@@ -71,8 +71,19 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.attempts.salience_firewall import salience_payload
+from learnloop.figure_admission import (
+    figures_enabled,
+    help_kind_enabled,
+    offers_enabled,
+    predictions_enabled,
+    region_enabled,
+    revisions_enabled,
+    rich_tiers_enabled,
+    show_me_enabled,
+)
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures.sketch import sketch_ready
 from learnloop.substrate.activities import log_interaction_event
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.source_identity import require_identity
@@ -104,25 +115,25 @@ def prompt_contract_fields(vault: Any) -> dict[str, Any]:
     RW5b adds ``offers: true`` only while ``figures.offers_enabled`` is on, so
     with it off the contract is RW5a's, key for key."""
 
-    if not FS.enabled(vault):
+    if not figures_enabled(vault):
         return {}
-    figures: dict[str, Any] = {"predictions": FS.predictions_enabled(vault), "region": FS.region_enabled(vault),
-                               "revisions": FS.revisions_enabled(vault)}
-    if FS.figure_offers_enabled(vault):
+    figures: dict[str, Any] = {"predictions": predictions_enabled(vault), "region": region_enabled(vault),
+                               "revisions": revisions_enabled(vault)}
+    if offers_enabled(vault):
         figures["offers"] = True
-    if FS.show_me_enabled(vault):
+    if show_me_enabled(vault):
         # RW5d P1: present only while figures.show_me_enabled is on, so off the
         # contract is RW5b's, key for key.
         figures["show_me"] = True
-    if FS.sketch_enabled(vault):
+    if sketch_ready(vault):
         # RW5d P2: present only while the sketch tier is on (and the engine
         # ready), so off the contract is P1's, key for key.
         figures["sketch"] = True
-    if FS.help_enabled(vault):
+    if help_kind_enabled(vault):
         # RW5d P3: present only while figures in attempts are on, so off the
         # contract is P2b's key for key.
         figures["help"] = True
-    if FS.rich_enabled(vault) and (state := manim_opt_in_state(vault)) != "unavailable":
+    if rich_tiers_enabled(vault) and (state := manim_opt_in_state(vault)) != "unavailable":
         # RW5d P2b: present only while the rich tiers are on and the Manim tier
         # concerns this machine (so off, or where Manim can't run, the contract
         # is P2's key for key), with its opt-in state: "ask" (never asked: the
@@ -143,7 +154,7 @@ def manim_opt_in_state(vault: Any) -> str:
 
 def _require(ctx: SidecarContext):
     vault, repository = ctx.require_vault()
-    if not FS.enabled(vault):
+    if not figures_enabled(vault):
         raise SidecarError("figures_disabled", "Explorable figures are switched off (figures.enabled).")
     return vault, repository
 
@@ -195,7 +206,7 @@ def deliver_figure(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any
         # Codex review F5: with figures in attempts switched off since the
         # build was admitted, nothing of it is delivered (record_attempt_figure
         # rechecks the switch too, for figure.open and the chooser's line).
-        if not FS.help_enabled(vault):
+        if not help_kind_enabled(vault):
             return {"figure": None, "reused": False, "withheld": False, "help": _help_off_line(attempt)}
         help_line = record_attempt_figure(ctx, attempt, str(figure.get("figure_id") or ""))
         if help_line.get("status") == "not_recorded":
@@ -249,7 +260,7 @@ def _start(ctx: SidecarContext, request: FS.FigureRequest, *, attempt: dict[str,
     # RW5d P3 ruling R1: an attempt host's figure is grammar or sketch only (no
     # rich spawner, so no rich tier on the author's menu, no rich job and no
     # fuller version); rich (Manim) figures stay Reader-side.
-    spawn = _rich_spawner(ctx, vault) if FS.rich_enabled(vault) and attempt is None else None
+    spawn = _rich_spawner(ctx, vault) if rich_tiers_enabled(vault) and attempt is None else None
     # The job exists only once ``start`` makes it, and ``on_job`` hands it over
     # before the work runs (inline or on its thread).
     started: list[Any] = []
@@ -442,7 +453,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
         # prefetch service's is in-process only. No RPC names either origin.
         raise SidecarError("validation_error", f"Figures with origin {origin!r} are not made here.")
     goal = " ".join(str(goal_text or "").split()) or None
-    if goal is not None and not FS.show_me_enabled(vault):
+    if goal is not None and not show_me_enabled(vault):
         raise SidecarError("show_me_disabled", "\"Show me\" in your own words is switched off (figures.show_me_enabled).")
     if origin == "ask" or any(host_ref.get(name) for name in FS.ATTEMPT_HOST_REFS):
         # RW5d P3: the Ask panel on practice, feedback and the workbench.
@@ -465,7 +476,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
     if origin == "tutor" and goal is not None:
         # The tutor's goal: only the one its stored answer wrote, grounded in
         # that answer's cited passages; the press is the grant (SM9).
-        if not FS.figure_offers_enabled(vault):
+        if not offers_enabled(vault):
             raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
         stored = tutor_figure_goal(repository, offer_ref)
         if anchored or stored is None or not _same_goal(stored.get("text"), goal):
@@ -474,7 +485,7 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
         keys = [(str(key[0]), str(key[1])) for key in stored.get("span_keys") or () if len(key) == 2]
     elif origin != "selection" and origin != "show_me":
         # RW5b: an offered figure is one block the judgment offered, no region, no goal.
-        if not FS.figure_offers_enabled(vault):
+        if not offers_enabled(vault):
             raise SidecarError("offers_disabled", "Offered figures are switched off (figures.offers_enabled).")
         offered = offered_spans(vault, repository, origin, offer_ref)
         wanted = {(str(extraction_id), str(span)) for span in span_ids}
@@ -737,7 +748,7 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
     offer)."""
 
     vault, repository = _require(ctx)
-    if FS.rich_enabled(vault):
+    if rich_tiers_enabled(vault):
         # Codex review F8: a quick figure whose rich job's intent committed but
         # whose job never started (a stop between the two) starts it now.
         try:
@@ -747,7 +758,7 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
             pass
     figures = FS.list_figures(vault, repository, params.extraction_id)
     payload: dict[str, Any] = {"extraction_id": params.extraction_id, "figures": figures}
-    if FS.rich_enabled(vault):
+    if rich_tiers_enabled(vault):
         pending = FS.rich_pending(vault, repository, params.extraction_id)
         payload["rich_pending"] = pending
         # Codex re-review F17: a speculative prebuild waiting for the plan lists no line
@@ -803,7 +814,7 @@ def figure_rich_cancel(ctx: SidecarContext, params: RichCancelInput) -> dict[str
     call already sent finishes and keeps its receipt; nothing is stored."""
 
     vault, repository = _require(ctx)
-    if not FS.rich_enabled(vault):
+    if not rich_tiers_enabled(vault):
         raise SidecarError("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
     job = repository.get_ingest_job(params.rich_job_id)
     if job is None or job.get("job_type") != "figure_rich":
@@ -880,7 +891,7 @@ def figure_manim_opt_in(ctx: SidecarContext, params: ManimOptInInput) -> dict[st
     from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
 
     vault, _repository = _require(ctx)
-    if not FS.rich_enabled(vault):
+    if not rich_tiers_enabled(vault):
         raise SidecarError("rich_disabled", "Rich figures are switched off (figures.rich_tiers_enabled).")
     value = "standing" if params.choice == "allow" else "declined"
     if value == "standing":
@@ -930,7 +941,7 @@ def _prediction_assist(vault: Any, repository: Any, figure_id: str) -> str | Non
     from learnloop.db.connection import connect
     from learnloop.figures.help import open_assist_for
 
-    if not FS.help_enabled(vault):
+    if not help_kind_enabled(vault):
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return open_assist_for(connection, figure_id)
@@ -1035,7 +1046,7 @@ def _refuse_rich(row: dict[str, Any] | None) -> None:
 
 
 def _help_required(vault: Any) -> None:
-    if not FS.help_enabled(vault):
+    if not help_kind_enabled(vault):
         raise SidecarError("figures_help_disabled", HELP_OFF_MESSAGE)
 
 
@@ -1324,7 +1335,7 @@ def record_attempt_figure(ctx: SidecarContext, attempt: dict[str, Any], figure_i
     host = AttemptHost(**{key: attempt.get(key) for key in (
         "kind", "item_id", "submission_id", "session_id", "workbench_session_id", "attempt_id", "cold",
         "take_step_id")})
-    if not FS.help_enabled(vault):
+    if not help_kind_enabled(vault):
         # Codex review F5: switched off since the request (a delivery, an open,
         # a chooser line): nothing shown, nothing recorded.
         return _help_off_line(attempt)
