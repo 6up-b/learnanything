@@ -15052,7 +15052,14 @@ class Repository(
     def pending_grade_reviews(self) -> list[dict[str, Any]]:
         """Active-head grade interpretations flagged for review or quarantined
         (§4.4, §5). Joined to the observation + administration so the CLI can order
-        by influence. Quarantined first, then influence-flagged, then oldest."""
+        by influence. Quarantined first, then influence-flagged, then oldest.
+
+        An attempt's grade is its newest observation's head, the one the
+        authoritative ledger reads (``observation_ledger``): a vault rebuilt
+        before replay reused observations holds one copy per rebuild, and an
+        older copy's flag is no pending review (an adjudication of it would
+        never reach the projection). An observation with no attempt is listed
+        as before."""
 
         with self.connection() as connection:
             rows = connection.execute(
@@ -15063,7 +15070,12 @@ class Repository(
                        o.evidence_eligibility AS evidence_eligibility
                   FROM grade_interpretations gi
                   JOIN activity_observations o ON o.active_interpretation_id = gi.id
-                 WHERE gi.review_flag = 1 OR gi.quarantine_state = 'quarantined'
+                 WHERE (gi.review_flag = 1 OR gi.quarantine_state = 'quarantined')
+                   AND (o.attempt_id IS NULL OR o.id = (
+                        SELECT newest.id FROM activity_observations AS newest
+                         WHERE newest.attempt_id = o.attempt_id
+                         ORDER BY newest.created_at DESC, newest.id DESC
+                         LIMIT 1))
                  ORDER BY
                    CASE WHEN gi.quarantine_state = 'quarantined' THEN 0 ELSE 1 END,
                    CASE WHEN gi.influence_flag = 1 THEN 0 ELSE 1 END,
@@ -15340,11 +15352,16 @@ class Repository(
         return [_decode_surface(row) for row in rows]
 
     def observation_by_attempt(self, attempt_id: str) -> dict[str, Any] | None:
-        """Idempotency key for backfill step 4: an attempt is replayed at most once."""
+        """The attempt's newest observation (None when it has none): the one the
+        authoritative ledger reads (``observation_ledger``, same order). Also
+        the backfill's idempotency key. A vault rebuilt before replay reused
+        observations holds one per rebuild, so the order is the query's, never
+        an index's."""
 
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
+                "SELECT * FROM activity_observations WHERE attempt_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
                 (attempt_id,),
             ).fetchone()
         return dict(row) if row is not None else None

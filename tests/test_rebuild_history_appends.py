@@ -15,7 +15,8 @@ rebuild, but two readers are not:
   rebuild's fresh observation (unadjudicated) becomes the one the projection
   reads, so the adjudication's evidence is gone after one rebuild.
 
-Each test is a strict xfail until the fix handed back with D-36 lands.
+The two readers read each attempt's newest observation, so a vault already
+rebuilt that way lists a flagged grade once.
 """
 
 from __future__ import annotations
@@ -34,8 +35,9 @@ from learnloop.db.stores.observation_ledger import load_authoritative_observatio
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW
+from tests.helpers import NOW, set_config_switch
 from tests.rebuild_equivalence_helpers import _answer, _vault
 
 D36 = pytest.mark.xfail(
@@ -43,6 +45,7 @@ D36 = pytest.mark.xfail(
     reason="D-36: replay re-mints each practice answer's grade channel at every rebuild (fix handed back)",
 )
 CLOCK = FrozenClock(NOW + timedelta(days=30))
+SWITCH = "replay.grade_channel_fixes"
 #: A short head-written history: graded answers on several items.
 HISTORY = (
     ("pi_svd_define_001", 4.0), ("pi_svd_define_001", 1.0), ("pi_diag_easy", 3.0),
@@ -50,8 +53,11 @@ HISTORY = (
 )
 
 
-def _history(tmp_path):
+def _history(tmp_path, *, grade_channel_fixes: bool = True):
     paths, vault, repository = _vault(tmp_path)
+    if not grade_channel_fixes:
+        set_config_switch(paths.root, SWITCH, False)
+        vault = load_vault(paths.root)
     for index, (item, points) in enumerate(HISTORY):
         _answer(vault, repository, item, minutes=10 + 60 * index, points=points)
     return vault, repository
@@ -86,19 +92,52 @@ def test_a_second_rebuild_appends_no_history_row(tmp_path):
     assert grown == {}
 
 
-@D36
-def test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds(tmp_path):
-    vault, repository = _history(tmp_path)
+def _flag_a_low_confidence_self_grade(vault, repository) -> str:
     # A self-grade at confidence 1 is flagged for review (grader confidence below 0.4).
     draft = AttemptDraft(practice_item_id="pi_diag_hard", learner_answer_md="Not sure.", attempt_type="independent_attempt")
-    complete_self_graded_attempt(
+    result = complete_self_graded_attempt(
         vault, repository, draft, SelfGradeInput(criterion_points={"correctness": 2.0}, confidence=1),
         clock=FrozenClock(NOW + timedelta(days=1)),
     )
+    return str(result.attempt_id)
+
+
+def test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds(tmp_path):
+    # Switched off, every rebuild re-mints the flagged chain on a fresh
+    # observation, as vaults rebuilt before the fixes hold it: the queue still
+    # lists the grade once, on the copy the projection reads.
+    vault, repository = _history(tmp_path, grade_channel_fixes=False)
+    attempt_id = _flag_a_low_confidence_self_grade(vault, repository)
     assert len(repository.pending_grade_reviews()) == 1
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    assert len(repository.pending_grade_reviews()) == 1
+    assert _observation_count(repository, attempt_id) == 3
+    listed = repository.pending_grade_reviews()
+    assert [row["observation_id_join"] for row in listed] == [
+        _ledger_entry(repository, attempt_id)["active_interpretation"]["observation_id"]
+    ]
+
+
+def test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan(tmp_path):
+    # The contest flow, the grading receipt and the calibration streams flag or
+    # read the observation this returns; the projection reads the newest. The
+    # index that happens to return the newest first is dropped here.
+    vault, repository = _history(tmp_path, grade_channel_fixes=False)
+    attempt_id = _flag_a_low_confidence_self_grade(vault, repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    newest = _ledger_entry(repository, attempt_id)["active_interpretation"]["observation_id"]
+    with connect(repository.sqlite_path) as connection:
+        connection.execute("DROP INDEX idx_activity_observations_attempt")
+        connection.commit()
+    assert repository.observation_by_attempt(attempt_id)["id"] == newest
+
+
+def _observation_count(repository, attempt_id: str) -> int:
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return int(connection.execute(
+            "SELECT COUNT(*) FROM activity_observations WHERE attempt_id = ?", (attempt_id,)
+        ).fetchone()[0])
 
 
 def _ledger_entry(repository, attempt_id: str) -> dict:
@@ -145,4 +184,3 @@ def test_an_adjudication_survives_a_rebuild(tmp_path):
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     assert _ledger_entry(repository, str(attempt["id"]))["active_adjudication"] is not None
     assert _facet_values(repository) == adjudicated
-
