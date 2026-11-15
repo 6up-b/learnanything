@@ -28,6 +28,7 @@ import pytest
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
@@ -363,7 +364,7 @@ def test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_r
         first = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([bad]))
     (row,) = rows(repository, "interactive_figures")
     assert json.loads(row["spec_json"])["demonstrates"] == CLAIM  # stored before the rule: as written
-    (listed,) = FS.list_figures(load_vault(paths.root), repository, EXTRACTION)
+    (listed,) = FL.list_figures(load_vault(paths.root), repository, EXTRACTION)
     again = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([]))
     assert again.reused
     for view in (first.view, listed, again.view):
@@ -384,7 +385,7 @@ def test_f3_a_stored_label_like_sketch_is_presented_without_that_text(tmp_path, 
         FS.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                         author_client=AuthorFake([("sketch", bad, "the grammar has no random process")]))
-    (view,) = FS.list_figures(load_vault(paths.root), repository, EXTRACTION)
+    (view,) = FL.list_figures(load_vault(paths.root), repository, EXTRACTION)
     assert view["tier"] == "sketch" and view["verification"] == "illustrative"
     assert view["demonstrates"] in ("", None) and [a["text"] for a in view["assumptions"]] == ["steps of +1 or -1"]
     assert "Verified" not in view["spec_json"] and "(checked)" not in view["spec_json"]

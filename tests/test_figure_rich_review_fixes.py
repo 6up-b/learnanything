@@ -29,6 +29,7 @@ from learnloop.content.pipeline.runner import IngestRunner
 from learnloop.db.stores import figures as store
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
@@ -207,16 +208,16 @@ def test_an_interrupted_rich_only_build_stays_as_a_failed_line_and_can_be_tried_
     job_id = outcome.rich["rich_job_id"]
     _interrupt(rig, job_id)
     assert rig.listed() == []
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "failed" and line["rich_job_id"] == job_id
     assert line["reason"] == "interrupted when LearnLoop stopped" and line["anchor_span_id"] == "p3"
 
     assert FS.retry_rich_job(rig.vault, rig.repository, job_id) == "interrupted"
     assert rig.ingest.requeue_failed_unless_cancelled(rig.job()["batch_id"], error_code="interrupted")
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "pending"
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     (figure,) = rig.listed()
     assert figure["tier"] == "manim" and figure["verification"] == "illustrative"
     assert rig.author.calls == 1  # the same build, never a second author call
@@ -227,7 +228,7 @@ def test_a_cancelled_rich_only_build_leaves_no_line_and_cannot_be_retried(tmp_pa
     outcome = rig.build()
     rig.ingest.cancel_batch(rig.batches[-1])
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     with pytest.raises(FQ.FigureRefused) as refused:
         FS.retry_rich_job(rig.vault, rig.repository, outcome.rich["rich_job_id"])
     assert refused.value.code == "not_failed"
@@ -240,7 +241,7 @@ def test_a_stored_rich_only_failure_lists_once(tmp_path, monkeypatch):
     rig.build()
     rig.ingest.drain()
     assert [line["verification"] for line in rig.listed()] == ["failed"]
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []  # its row lists it, not a second line
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []  # its row lists it, not a second line
 
 
 # --- F10 ----------------------------------------------------------------------

@@ -38,6 +38,7 @@ from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
@@ -424,13 +425,13 @@ def test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service(tmp_p
 def test_a_prebuilt_figure_lists_only_while_on_or_once_pressed(tmp_path):
     paths, repository, vault = make_vault(tmp_path)
     PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
-    assert len(FS.list_figures(vault, repository, EXTRACTION)) == 1
+    assert len(FL.list_figures(vault, repository, EXTRACTION)) == 1
     switch(paths, False)
     off = load_vault(paths.root)
     assert off.config.figures.prefetch_enabled is False
-    assert FS.list_figures(off, repository, EXTRACTION) == []
+    assert FL.list_figures(off, repository, EXTRACTION) == []
     build(context(paths.root, author=AuthorFake()), {"extractionId": EXTRACTION, "spanIds": ["p3"]})
-    assert len(FS.list_figures(off, repository, EXTRACTION)) == 1
+    assert len(FL.list_figures(off, repository, EXTRACTION)) == 1
 
 
 def test_outcomes_close_once_at_the_structural_horizon(tmp_path, monkeypatch):

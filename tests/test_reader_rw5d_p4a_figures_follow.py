@@ -19,9 +19,8 @@ import json
 
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.db.stores import figures as store
-from learnloop.figures import service as FS
-from learnloop.figures import view as FV
 from learnloop.figures import spec as S
+from learnloop.figures import view as FV
 from tests import figure_corpus as FC
 from tests.reading_path_fixtures import call, context
 from tests.section_coverage_fixtures import (
@@ -150,14 +149,15 @@ def test_protection_is_read_again_on_both_sides(tmp_path):
     assert LAY  # the fixture's units (lay_held stays held out throughout)
 
 
-def test_an_unreadable_figure_store_offers_no_figure_and_keeps_the_correspondents(tmp_path, monkeypatch):
+def test_an_unreadable_figure_store_offers_no_figure_and_keeps_the_correspondents(tmp_path):
     _paths, repository, ctx, _judge = _judged(tmp_path)
     _figure(repository, "fig_lay_eigen")
-
-    def broken(*_args, **_kwargs):
-        raise RuntimeError("the figures could not be read")
-
-    monkeypatch.setattr(FS, "section_figures", broken)
+    assert _figure_ids(call(ctx, "reader.correspondents", QUIET)) == {("ext_lay", "lay_eigen"): ["fig_lay_eigen"]}
+    # A stored row the figure store cannot decode: reading the book's figures raises.
+    with repository.connection() as connection:
+        connection.execute("UPDATE interactive_figures SET verification_report_json = '{not json' WHERE id = ?",
+                           ("fig_lay_eigen",))
+        connection.commit()
     view = call(ctx, "reader.correspondents", QUIET)
     assert view["status"] == "judged" and ("ext_lay", "lay_eigen") in _sections(view)
     assert _figure_ids(view) == {}

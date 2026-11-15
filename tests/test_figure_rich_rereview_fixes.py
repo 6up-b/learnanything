@@ -15,6 +15,7 @@ no model, Manim or bubblewrap runs.
 from __future__ import annotations
 
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import grounding as FGR
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
@@ -82,7 +83,7 @@ def test_a_failed_animation_correction_keeps_the_earlier_version_and_says_so(tmp
     rig.ingest.drain()
     (shown,) = rig.listed()
     assert shown["figure_id"] == first["figure_id"]  # the earlier animation stays
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "failed" and line["rich_job_id"] == job_id and line["anchor_span_id"] == "p3"
     assert line["reason"]
     failed = [row for row in rows(rig.repository, "interactive_figures") if row["verification"] == "failed"]
@@ -93,10 +94,10 @@ def test_a_failed_animation_correction_keeps_the_earlier_version_and_says_so(tmp
     assert retry is not None and retry.supersedes_id == first["figure_id"] and retry.revision_note == "red please"
     again = rig.build(retry)
     assert again.rich["state"] == "pending" and again.rich["rich_job_id"] != job_id
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "pending" and line["rich_job_id"] == again.rich["rich_job_id"]
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     (shown,) = rig.listed()
     assert shown["supersedes_id"] == first["figure_id"] and shown["verification"] == "illustrative"
     contexts = rig.rich_author.contexts
@@ -109,9 +110,9 @@ def test_a_later_correction_replaces_the_failed_line(tmp_path, monkeypatch):
     first = _first_animation(rig)
     failed_job = rig.build(_revision(rig, first["figure_id"], "red please")).rich["rich_job_id"]
     rig.ingest.drain()
-    assert [line["state"] for line in FS.rich_pending(rig.vault, rig.repository, EXTRACTION)] == ["failed"]
+    assert [line["state"] for line in FL.rich_pending(rig.vault, rig.repository, EXTRACTION)] == ["failed"]
     newer = rig.build(_revision(rig, first["figure_id"], "blue please"))
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "pending" and line["rich_job_id"] == newer.rich["rich_job_id"] != failed_job
     # A job that is not a failed correction is never retried as one.
     assert FS.rich_revision_retry(rig.vault, rig.repository, newer.rich["rich_job_id"]) is None
@@ -128,5 +129,5 @@ def test_a_failed_correction_of_a_fuller_version_says_so_too(tmp_path, monkeypat
     rig.ingest.drain()
     (line,) = rig.listed()
     assert line["figure_id"] == quick["figure_id"] and line["fuller"]["figure"]["figure_id"] == old_rich
-    (failed,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (failed,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert failed["state"] == "failed" and failed["rich_job_id"] == job_id and failed["reason"]

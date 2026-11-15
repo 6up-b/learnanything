@@ -21,7 +21,7 @@ from learnloop.content.sources import exam_material as EM
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, call, set_config
@@ -166,4 +166,4 @@ def test_the_runtime_wires_the_paced_requeue(tmp_path, monkeypatch):
     env = RT.environment(ctx, None)
     assert env.retry_plan_wait(job["id"]) is True and requeued == [job["id"]]
     assert env.retry_plan_wait(job["id"]) is False and requeued == [job["id"]]  # paced
-    assert FS.prefetch_plan_waits(load_vault(paths.root), repository, None) == [job["id"]]
+    assert FL.prefetch_plan_waits(load_vault(paths.root), repository, None) == [job["id"]]

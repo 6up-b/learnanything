@@ -31,6 +31,7 @@ from types import SimpleNamespace
 from learnloop.db.stores import figures as store
 from learnloop.figures import protection as FP
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows
@@ -90,11 +91,11 @@ def test_a_quick_figure_whose_learner_inputs_became_protected_is_not_presented(t
     figure_id = job["result"]["figure"]["figureId"]
     vault = load_vault(world.root)
     assert not FP.figure_withheld(vault, world.repository, figure_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
     _make_exam_material(SimpleNamespace(paths=world.paths))
     vault = load_vault(world.root)
     assert FP.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
     # The kept build result is not delivered either.
     ctx.load(world.root)
     delivered = call(ctx, "reader.figure_job", {"jobId": job["jobId"]})["result"]
@@ -214,7 +215,7 @@ def test_a_marked_quick_figure_with_no_record_is_withheld(tmp_path, monkeypatch)
     vault = load_vault(world.root)
     assert FP.learner_state_withheld(vault, world.repository, row) == FP.LEARNER_STATE_UNRECORDED
     assert FP.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
 
 
 def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_reading(tmp_path):
@@ -271,7 +272,7 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
     vault = load_vault(world.root)
     assert FP.figure_withheld(vault, world.repository, legacy_id)
     assert not FP.figure_withheld(vault, world.repository, fresh_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
     # The next press of the same input reuses the fresh figure, with no call.
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})

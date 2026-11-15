@@ -83,6 +83,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.figures.protection import ATTEMPT_HOST_REFS, figure_withheld
@@ -759,20 +760,20 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
                                    _rich_spawner(ctx, vault, granted=False))
         except Exception:  # noqa: BLE001 - the fuller line keeps saying it is pending; a later read retries
             pass
-    figures = FS.list_figures(vault, repository, params.extraction_id)
+    figures = FL.list_figures(vault, repository, params.extraction_id)
     payload: dict[str, Any] = {"extraction_id": params.extraction_id, "figures": figures}
     if rich_tiers_enabled(vault):
-        pending = FS.rich_pending(vault, repository, params.extraction_id)
+        pending = FL.rich_pending(vault, repository, params.extraction_id)
         payload["rich_pending"] = pending
         # Codex re-review F17: a speculative prebuild waiting for the plan lists no line
         # (review F10), so it is found apart from the lines and asked again the same way.
         speculative = [{"state": "waiting_for_plan", "rich_job_id": job_id}
-                       for job_id in FS.prefetch_plan_waits(vault, repository, params.extraction_id)]
+                       for job_id in FL.prefetch_plan_waits(vault, repository, params.extraction_id)]
         _retry_plan_waits(ctx, [*(line for line in pending), *((figure.get("fuller") or {}) for figure in figures),
                                 *speculative])
     from learnloop_sidecar.prefetch_runtime import pass_running as prefetch_pass_running
 
-    if P.prefetch_switch(vault) and FS.prefetch_pending(vault, repository, params.extraction_id,
+    if P.prefetch_switch(vault) and FL.prefetch_pending(vault, repository, params.extraction_id,
                                                         pass_running=prefetch_pass_running(ctx)):
         # RW5d P5 (Codex review F11): a prebuild still to come for this source;
         # the Reader reads its figures again, paced, while it is (absent
@@ -1525,7 +1526,7 @@ def figure_open(ctx: SidecarContext, params: FigureOpenInput) -> dict[str, Any]:
     # opened on an attempt host.
     _refuse_rich(stored)
     try:
-        row, _compiled = FS.shown_figure(vault, repository, figure_id)
+        row, _compiled = FL.shown_figure(vault, repository, figure_id)
     except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     _refuse_own_blocks(vault, repository, host.item_id, row)

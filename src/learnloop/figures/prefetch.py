@@ -1705,7 +1705,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     docstring) now retries every such job (every source) under the background guards: called,
     before the pass's own builds, only when the pass itself would build (on mains, the plan neither
     paused nor off the author route), then
-    ``service.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
+    ``listing.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
     mains, the passage not held out). Bounded: only jobs built for a decision whose horizon is
     still open (a closed decision's prebuild is no longer ahead of need), at most
     ``[figures.prefetch] max_daily_builds`` requeues per pass (a paced job is passed over, not
@@ -1720,7 +1720,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     if env.retry_plan_wait is None or env.is_cancelled():
         return
     from learnloop.figures import rich as RICH
-    from learnloop.figures import service as FS
+    from learnloop.figures import listing as FL
 
     current = env.loaded_now()
     if current is None or not enabled(current.vault):
@@ -1737,7 +1737,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
         return
     # Codex review F1: every saved context is checked against the items' own passages now (a live
     # administration, and the stored plan's open items, as ``run_builds`` checks a new build).
-    waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
+    waiting = FL.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
                                      clock=current.clock)
     # Codex review F2: the bound counts requeues, not candidates. A job inside its retry interval
     # declines without a request, so the scan goes on to the next; the least recently asked first,

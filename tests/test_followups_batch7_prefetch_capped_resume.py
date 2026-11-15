@@ -27,6 +27,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.ops.settings_store import apply_config_updates
@@ -332,13 +333,13 @@ def test_a_capped_decision_is_coming_only_while_the_budget_has_room(tmp_path):
                    PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"), (EXTRACTION, "p6"))))
     assert {row["decision"] for row in decisions(repository) if not row["request_id"]} == {"capped"}
     # The day's one build is spent: a read must not poll for work no pass will do today.
-    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
+    assert FL.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
     _caps(paths, max_daily_builds=2)
     raised = load_vault(paths.root)
-    assert FS.prefetch_pending(raised, repository, EXTRACTION, pass_running=True) is True
-    assert FS.prefetch_pending(raised, repository, EXTRACTION) is False  # no pass running: nobody will build it
+    assert FL.prefetch_pending(raised, repository, EXTRACTION, pass_running=True) is True
+    assert FL.prefetch_pending(raised, repository, EXTRACTION) is False  # no pass running: nobody will build it
     _caps(paths, max_daily_render_minutes=0)
-    assert FS.prefetch_pending(load_vault(paths.root), repository, EXTRACTION, pass_running=True) is False
+    assert FL.prefetch_pending(load_vault(paths.root), repository, EXTRACTION, pass_running=True) is False
 
 
 # ---------------------------------------------------------------------------

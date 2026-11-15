@@ -42,6 +42,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.substrate.activities import log_interaction_event
@@ -421,14 +422,14 @@ def test_f10_a_rich_only_prebuild_shows_no_pending_or_failure_line(tmp_path, mon
     outcome = FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
                                        spawn_rich=rig.spawn)
     assert outcome.view is None and outcome.rich is not None
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     RF.configure(rig.paths, prefetch_enabled=False)
-    assert FS.rich_pending(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
     RF.configure(rig.paths, prefetch_enabled=True)
     rig.ingest.drain()
     assert rig.job()["status"] in ("completed", "failed")
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
-    assert FS.list_figures(rig.vault, rig.repository, EXTRACTION) == []  # the failed prebuild lists nothing
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.list_figures(rig.vault, rig.repository, EXTRACTION) == []  # the failed prebuild lists nothing
 
 
 # ---------------------------------------------------------------------------
@@ -462,14 +463,14 @@ def test_f11_unpressed_prebuilt_lines_keep_to_the_cue_budget(tmp_path):
     PF.run_trigger(env_for(vault, repository),
                    PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"), (EXTRACTION, "p6"))))
     assert len(rows(repository, "interactive_figures")) == 2
-    listed = FS.list_figures(vault, repository, EXTRACTION)
+    listed = FL.list_figures(vault, repository, EXTRACTION)
     assert len(listed) == 1
     # Pressed, a prebuilt figure is the learner's like any figure: never cut.
     other = next(row for row in rows(repository, "interactive_figures") if row["id"] != listed[0]["figure_id"])
     build(context(paths.root, author=AuthorFake()), {"extractionId": EXTRACTION, "spanIds": json.loads(other["span_ids_json"])})
-    assert len(FS.list_figures(vault, repository, EXTRACTION)) == 2
+    assert len(FL.list_figures(vault, repository, EXTRACTION)) == 2
     set_config(paths, "cues", enabled=False)
-    assert len(FS.list_figures(load_vault(paths.root), repository, EXTRACTION)) == 1
+    assert len(FL.list_figures(load_vault(paths.root), repository, EXTRACTION)) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -734,8 +735,8 @@ def test_f17_a_speculative_prebuilds_plan_wait_is_retried_by_the_reader_read(tmp
                              spawn_rich=_rich_spawner(ctx, ctx.vault, granted=False))
     (job,) = repository.ingest_jobs_by_types(["figure_rich"])
     assert job["status"] == "failed" and job["error"]["code"] == RICH.WAITING_FOR_PLAN
-    assert FS.rich_pending(ctx.vault, repository, EXTRACTION) == []  # still invisible (F10)
-    assert FS.prefetch_plan_waits(ctx.vault, repository, EXTRACTION) == [job["id"]]
+    assert FL.rich_pending(ctx.vault, repository, EXTRACTION) == []  # still invisible (F10)
+    assert FL.prefetch_plan_waits(ctx.vault, repository, EXTRACTION) == [job["id"]]
     listed = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     assert retried == [job["id"]] and listed.get("richPending") == []
     # Paced: a second read inside the interval asks nothing more.
@@ -754,12 +755,12 @@ def test_f17_a_plan_wait_is_not_retried_off_mains_or_switched_off(tmp_path, monk
     rig.ingest.drain()
     job = rig.job()
     assert job["error"]["code"] == RICH.WAITING_FOR_PLAN
-    assert FS.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == [job["id"]]
+    assert FL.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == [job["id"]]
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    assert FS.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.prefetch_plan_waits(rig.vault, rig.repository, EXTRACTION) == []
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     RF.configure(rig.paths, prefetch_enabled=False)
-    assert FS.prefetch_plan_waits(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
+    assert FL.prefetch_plan_waits(load_vault(rig.paths.root), rig.repository, EXTRACTION) == []
 
 
 def test_f18_an_unstarted_decision_is_pending_only_while_a_pass_runs_and_never_on_battery(tmp_path):
@@ -770,10 +771,10 @@ def test_f18_an_unstarted_decision_is_pending_only_while_a_pass_runs_and_never_o
         PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
     (row,) = decisions(repository)
     assert row["decision"] == "build" and row["request_id"] is None
-    assert FS.prefetch_pending(vault, repository, EXTRACTION) is False  # no worker: reads would not resume it
-    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is True
+    assert FL.prefetch_pending(vault, repository, EXTRACTION) is False  # no worker: reads would not resume it
+    assert FL.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is True
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
+    assert FL.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     ctx = context(paths.root, author=AuthorFake())
     assert "prefetchPending" not in call(ctx, "reader.figures", {"extractionId": EXTRACTION})
@@ -789,9 +790,9 @@ def test_f18_a_prebuilds_rich_job_is_pending_on_mains_only(tmp_path, monkeypatch
     rig = _rich_rig(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
     FS.build_prefetch_figure(rig.vault, rig.repository, _prefetch_request(), author_client=rig.author,
                              spawn_rich=rig.spawn)
-    assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is True  # queued: a worker will run it
+    assert FL.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is True  # queued: a worker will run it
     P.set_power_reader(lambda: P.PowerState(False, P.BATTERY, "test"))
-    assert FS.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is False
+    assert FL.prefetch_pending(rig.vault, rig.repository, EXTRACTION) is False
 
 
 # ---------------------------------------------------------------------------

@@ -45,7 +45,7 @@ from typing import Any
 
 from learnloop.router_objective import exposure
 from learnloop.figure_admission import figures_enabled
-from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.source_retrieval import section_coverage as SC
 from learnloop.reader import reader_dialogue as RD
 from learnloop_sidecar.context import SidecarContext
@@ -188,7 +188,7 @@ def _with_figures(ctx: SidecarContext, vault: Any, repository: Any, view: dict[s
     the open section has judged correspondents only when it is not protected,
     a correspondent section is in the protected library only when none of its
     spans is withheld, and a figure is listed only while nothing it was built
-    from (or lands on) is held out now (:func:`FS.section_figures`). Anything
+    from (or lands on) is held out now (:func:`learnloop.figures.listing.section_figures`). Anything
     unreadable lists no figure; the rest of the read stands."""
 
     wanted: dict[str, set[str]] = {}
@@ -211,7 +211,7 @@ def _with_figures(ctx: SidecarContext, vault: Any, repository: Any, view: dict[s
                 section_id = reading.all_spans.get(span_id)
                 return section_id if section_id in reading.sections else None
 
-            for section_id, refs in FS.section_figures(vault, repository, extraction_id, section_of).items():
+            for section_id, refs in FL.section_figures(vault, repository, extraction_id, section_of).items():
                 if section_id in section_ids:
                     found[(extraction_id, section_id)] = refs
     except Exception:  # noqa: BLE001 - fail closed and quiet: no figure rather than no correspondents

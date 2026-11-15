@@ -14,6 +14,7 @@ from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
@@ -233,7 +234,7 @@ def test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild(tmp_p
     assert rows(repository, "interactive_figures")[0]["verification"] == "illustrative"
     # Predictions and an attempt's open refuse it too.
     with pytest.raises(FQ.FigureRefused):
-        FS.shown_figure(load_vault(paths.root), repository, figure["figureId"])
+        FL.shown_figure(load_vault(paths.root), repository, figure["figureId"])
 
 
 @sandboxed
@@ -323,10 +324,10 @@ def test_section_figures_leave_a_rejected_figure_out(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [HALF])
     figure = _stored_before_rw5c(paths, ctx, DENSITY)
     vault = load_vault(paths.root)
-    assert FS.section_figures(vault, repository, EXTRACTION, lambda span: "sec") != {}
+    assert FL.section_figures(vault, repository, EXTRACTION, lambda span: "sec") != {}
     full = store.figure(repository.connection(), figure["figureId"])
     SC.recheck(vault, repository, full)
-    assert FS.section_figures(vault, repository, EXTRACTION, lambda span: "sec") == {}
+    assert FL.section_figures(vault, repository, EXTRACTION, lambda span: "sec") == {}
 
 
 @sandboxed

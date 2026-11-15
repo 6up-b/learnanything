@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 
@@ -45,7 +46,7 @@ class _Rig:
                                find=find)
 
     def listed(self):
-        return FS.list_figures(self.vault, self.repository, EXTRACTION)
+        return FL.list_figures(self.vault, self.repository, EXTRACTION)
 
     def job(self):
         return self.ingest.repo.ingest_jobs_for_batch(self.batches[-1])[0]
