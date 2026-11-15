@@ -588,9 +588,8 @@ ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION = "mvp-0.37"
 # unique index). That changes which cold checks are scheduled and served, never
 # evidence, FSRS, the projection or replay (replay passes no vault and
 # schedules nothing; ``followup_tasks`` is workflow state), so it is a
-# successor by the 2026-10-17 eligibility rule. Kill switch:
-# ``practice.reschedule_cold_after_assist`` (off, or below the tag: exactly
-# the predecessor).
+# successor by the 2026-10-17 eligibility rule. Its kill switch went once
+# every vault was past the tag.
 COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 
 # mvp-0.39 (Reader RW6b part 1: cold follow-ups after a reader session;

@@ -58,6 +58,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     # Kill switches the version floor passed (ADR-019). ``[teacher.weight]``, the whole section.
     RetiredField("TeacherConfig", ("weight", "learned"), bool, True, "D7"),
     RetiredField("TeacherConfig", ("weight", "source"), Literal["pool", "parametric"], "pool", "D7"),
+    RetiredField("PracticeConfig", ("reschedule_cold_after_assist",), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

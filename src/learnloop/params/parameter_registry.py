@@ -1726,20 +1726,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the phone's device rules (mobile PR-6): off, a phone request is served as the desktop is, "
         "with no queue exclusion, no desktop_only refusal and no refusal to adopt around a draft. Never read by "
         "a desktop request or by replay."),
-    # The cold-retry reschedule (mvp-0.38, owner decision 2026-10-25, CA2
-    # follow-up Q4; docs/reviews/cold-retry-after-assist.md): the kill switch
-    # of the successor that schedules one fresh repair cold retry after help
-    # was taken on a due one. A boolean (classified so every new key has a
-    # rule); the fresh retry's timing is the lane's existing delay and its
-    # bound (one per chain) is structural, so no weight, margin or threshold
-    # is added. Off restores the predecessor exactly; replay never reads it.
-    _ConfigRule(_exact(
-        "practice.reschedule_cold_after_assist",
-    ), "structural", "operational",
-        "kill switch for the cold-retry reschedule successor: help taken on a due repair cold retry withdraws it "
-        "and schedules one fresh cold retry on another independent surface at the lane's existing delay (one per "
-        "chain, a structural bound); off, the assisted retry is withdrawn at the next serve as the predecessor "
-        "did. Never read by replay."),
     # Follow-ups Nov 2 (mvp-0.42, renumbered from mvp-0.41 at its landing; Codex review F1; docs/reviews/followups-nov2.md):
     # the kill switch of the successor whose keyed help fold counts exactly the
     # rows that attach. A boolean (classified so every new key has a rule); no

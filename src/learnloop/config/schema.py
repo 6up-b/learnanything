@@ -2909,7 +2909,7 @@ class AsPrintedConfig(BaseModel):
     enabled: bool = True
 
 
-class PracticeConfig(BaseModel):
+class PracticeConfig(KeepsRetiredFields):
     """The practice surfaces' own switches.
 
     ``as_printed``: the problem-as-printed display switches.
@@ -2927,17 +2927,6 @@ class PracticeConfig(BaseModel):
     the vault it graded against, exactly as the predecessor. Replay never
     reads it (replay rebuilds the whole row and re-closes what was closed).
 
-    ``reschedule_cold_after_assist`` is the kill switch of
-    ``COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION``. At
-    that tag or later, with it on (and ``ask.cold_help_converts`` on, which
-    admits the assisted attempt at all): help taken on a due repair
-    ``cold_retry`` withdraws that retry in the attempt's own step and
-    schedules one fresh cold retry for the same repair on another independent
-    surface, timed by the lane's existing delay; a fresh retry that is itself
-    assisted spawns none. Off, or below the tag: the assisted retry is left to
-    the next serve's withdrawal, exactly as the predecessor. Replay never
-    reads it (replay schedules nothing).
-
     ``device_eligibility_enabled`` is the kill switch of the phone's device
     rules, which name no algorithm tag: only a request with a phone origin reads it,
     and no such request exists below the mobile host. Off: a phone request
@@ -2948,7 +2937,6 @@ class PracticeConfig(BaseModel):
 
     as_printed: AsPrintedConfig = Field(default_factory=AsPrintedConfig)
     attempt_keeps_content_state: bool = True
-    reschedule_cold_after_assist: bool = True
     device_eligibility_enabled: bool = True
 
 

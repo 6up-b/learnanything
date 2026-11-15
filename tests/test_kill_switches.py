@@ -48,7 +48,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "replay.ledger_bounded",
     "practice.attempt_keeps_content_state",
     "ask.cold_help_converts",
-    "practice.reschedule_cold_after_assist",
     "eligibility.enabled",
     "placement.enabled",
     "placement.initial_probes",

@@ -1371,17 +1371,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and "
         "the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor."
     ),
-    "practice.reschedule_cold_after_assist": (
-        "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
-        "owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
-        "(with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the "
-        "attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules "
-        "one fresh cold retry for the same repair on another independent surface, due the lane's "
-        "COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself "
-        "assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the "
-        "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
-        "successor; replay never reads it (replay schedules nothing)."
-    ),
     "hints.fold_follows_attach": (
         "Kill switch for follow-ups Nov 2's successor (mvp-0.42; Codex "
         "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "

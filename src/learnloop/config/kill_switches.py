@@ -52,7 +52,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
     KillSwitch("practice.attempt_keeps_content_state", "mvp-0.37", True),
     KillSwitch("ask.cold_help_converts", "mvp-0.35", True),
-    KillSwitch("practice.reschedule_cold_after_assist", "mvp-0.38", True),
     KillSwitch("eligibility.enabled", "mvp-0.27", True),
     # Placement, recurrence, learner-text gaps, sources, value of information, the Decider
     KillSwitch("placement.enabled", "mvp-0.11", True),
