@@ -1027,6 +1027,14 @@ FACET_BELIEF_FIX_VERSIONS: frozenset[str] = successors_from(FACET_BELIEF_FIX_ALG
 # new tag would replace this one line (``diagnosis.probe_robust.robust_gate_fixes_on`` is the only reader).
 ROBUST_GATE_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
 
+# mvp-0.59 also holds the grade channel fixes (refactor bug ledger D-36, D-52; docs/reviews/refactor-adfix3.md),
+# behind ``replay.grade_channel_fixes``: replay reuses each practice answer's newest observation and appends a raw grade
+# event only when the grade changed and an interpretation only when it differs from the head (never over an adjudicated,
+# flagged or quarantined head unless the grade changed), so a rebuild no longer grows history or drops an adjudication.
+# Made before any vault was known to hold mvp-0.59, so they share its tags; were a vault already there, a new tag would
+# replace this one line (``attempts.grade_resolution.grade_channel_fixes_on`` is the only reader).
+GRADE_CHANNEL_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
+
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
 # (``config.template.default_config_text``; owner decision 2026-10-12).

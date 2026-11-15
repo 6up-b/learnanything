@@ -113,6 +113,7 @@ ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
     ("ingest", "budgets", "append_input_ceiling"),  # refactor K3.4: the append call's input ceiling
     ("facet_diagnostic", "canonical_belief_fixes"),  # arc D fixes part 1: the facet-belief successor's kill switch
     ("probe", "episode", "robust_gate_fixes"),  # K9.0b: the robust completion gate fixes' kill switch (mvp-0.59)
+    ("replay", "grade_channel_fixes"),  # arc D close fixes, group 3: the grade channel fixes' kill switch (mvp-0.59)
 )
 
 
@@ -258,7 +259,8 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["required_method"] = {"enabled": True}
     shaped["hints"]["fold_follows_attach"] = True
     shaped["mastery"]["claim_fixes_enabled"] = True
-    shaped["replay"] = {"ledger_bounded": True}
+    # The section outlives its removed switch: the grade channel fixes' switch sits beside it.
+    shaped.setdefault("replay", {})["ledger_bounded"] = True
     shaped["practice"].update(attempt_keeps_content_state=True, reschedule_cold_after_assist=True)
     shaped["ask"]["cold_help_converts"] = True
     shaped["eligibility"] = {"enabled": True}
@@ -375,6 +377,7 @@ SWITCHES_BASE_IDENTITIES = {
 #: compared with the digests above, as ``ADDED_SINCE_BASE`` does for arc C's base. A new default is not a removal.
 ADDED_SINCE_SWITCHES_BASE: tuple[tuple[str, ...], ...] = (
     ("probe", "episode", "robust_gate_fixes"),  # K9.0b: the robust completion gate fixes' kill switch (mvp-0.59)
+    ("replay", "grade_channel_fixes"),  # arc D close fixes, group 3: the grade channel fixes' kill switch (mvp-0.59)
 )
 
 
