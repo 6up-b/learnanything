@@ -66,8 +66,7 @@ answer.
   mark-down of such a criterion stays assessed with no quoted wrong step (the
   route is the evidence): neither PF-c's gate nor the unlocated rule
   unassesses it (the grader's own "cannot verify" still does). Every other
-  criterion keeps the own-route rules. Kill switch ``required_method.enabled``
-  (off: mvp-0.20's grading exactly).
+  criterion keeps the own-route rules.
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -238,41 +237,6 @@ HELD_REVIEW_REASON = GRADE_HELD_FOR_REVIEW
 #: ``final_answer_check`` statuses the rule reads.
 DIFFERS_FROM_REFERENCE = "differs_from_reference"
 MATCHES_REFERENCE = "matches_reference"
-
-
-def route_rules_active(vault: LoadedVault) -> bool:
-    """Does this vault grade NEW blind answers under the own-route rules?
-
-    ``proof_check.enabled`` is the kill switch (off: new answers grade as
-    mvp-0.19 did, whose grading is mvp-0.16's). Read only when an answer is graded
-    or regraded: the reference policy then carries ``route_rules`` and the
-    blind record carries the rule's outcome, which is what replay reads.
-    """
-
-    return bool(getattr(getattr(vault.config, "proof_check", None), "enabled", True))
-
-
-def method_rules_active(vault: LoadedVault) -> bool:
-    """Does this vault grade NEW blind answers under the required-method rules?
-
-    The method-explicit rules on top of the own-route rules
-    (:func:`route_rules_active`); ``required_method.enabled`` is their kill
-    switch (off: mvp-0.20's grading exactly).
-    """
-
-    if not route_rules_active(vault):
-        return False
-    return bool(getattr(getattr(vault.config, "required_method", None), "enabled", True))
-
-
-def route_rules_version(vault: LoadedVault) -> str | None:
-    """The own-route rules version new blind answers are graded under, if any."""
-
-    if method_rules_active(vault):
-        return METHOD_ROUTE_RULES_VERSION
-    if route_rules_active(vault):
-        return ROUTE_RULES_VERSION
-    return None
 
 
 class _ItemRequiredMethod:
@@ -1249,7 +1213,6 @@ __all__ = [
     "family_key",
     "gated_review_reason",
     "grade_uncertainty_signal",
-    "method_rules_active",
     "modal_sample",
     "policy_method_criteria",
     "record_route_rule_judgment",
@@ -1257,9 +1220,7 @@ __all__ = [
     "request_blind_grading_run",
     "required_method_policy",
     "revalidated_support",
-    "route_rules_active",
     "route_rules_suffix",
     "route_rules_text",
-    "route_rules_version",
     "sample_fingerprint",
 ]

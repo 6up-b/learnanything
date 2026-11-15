@@ -6002,13 +6002,9 @@ class Repository(
         ability_transition: Mapping[str, Any] | None = None,
         attempt_debug_payload: Mapping[str, Any] | None = None,
         item_parameter_state: ItemParameterState | None = None,
-        keep_content_state: bool = False,
     ) -> None:
-        """The live attempt's write. ``keep_content_state`` (the successor
-        mvp-0.37 with its kill switch on, decided by
-        the caller): the item row takes only its scheduling columns
-        (:meth:`_record_attempt_practice_item_state`); False writes the whole
-        row, as the predecessor."""
+        """The live attempt's write. The item row takes only its scheduling columns
+        (:meth:`_record_attempt_practice_item_state`): content sync owns the rest."""
 
         with self.connection() as connection:
             self._insert_practice_attempt(connection, attempt)
@@ -6017,10 +6013,7 @@ class Repository(
             for event in error_events:
                 self._insert_error_event(connection, event)
             self._insert_attempt_surprise(connection, surprise)
-            if keep_content_state:
-                self._record_attempt_practice_item_state(connection, practice_item_state)
-            else:
-                self._upsert_practice_item_state_record(connection, practice_item_state)
+            self._record_attempt_practice_item_state(connection, practice_item_state)
             self._upsert_mastery_state_record(connection, mastery_state)
             for state in facet_uncertainty_states:
                 self._upsert_facet_uncertainty_state(connection, state)
@@ -18712,10 +18705,8 @@ class Repository(
         A missing row is inserted whole, as before. Replay keeps the full
         upsert (``replace_attempt_derived_outcome``): it deletes the rows it
         rebuilds first, and re-closes what was closed outside the ledger.
-        From the successor ``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION`` on,
-        with ``practice.attempt_keeps_content_state`` on (Codex review F4:
-        without a concurrent writer it also keeps a closed row closed, which
-        changes serving); below it the predecessor's full upsert runs.
+        Without a concurrent writer it also keeps a closed row closed, which
+        changes serving (``ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION``).
         """
 
         connection.execute(

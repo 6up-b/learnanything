@@ -263,8 +263,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_attempt_links_to_scheduler_slate_and_later_retention_label`
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
-- [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
-  - `test_off_the_assisted_retry_is_left_open_exactly_as_the_predecessor`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_scheduler_excludes_assessment_side_errors`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import

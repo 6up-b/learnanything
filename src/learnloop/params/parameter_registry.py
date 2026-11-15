@@ -1698,18 +1698,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the rebuild-equivalence successor: replay reads the recent-attempt windows and the "
         "canonical facet cache bounded at the replayed attempt, as its live write saw them; off, replay reads "
         "the whole ledger as the predecessor did. Never read by a live write."),
-    # Mobile PR-4 (mvp-0.37, docs/reviews/mobile-pr3-pr4.md, Codex review
-    # F4): the kill switch of the successor whose live attempt writes only its
-    # item row's scheduling columns. A boolean (classified so every new key
-    # has a rule); which columns a write owns is structural, never a weight.
-    # Off restores the predecessor's whole-row upsert exactly; replay never
-    # reads it.
-    _ConfigRule(_exact(
-        "practice.attempt_keeps_content_state",
-    ), "structural", "operational",
-        "kill switch for mobile PR-4's successor: a live attempt writes only its item row's scheduling columns "
-        "(active only closes, content_hash is content sync's), so it never reopens a row a content sync closed; "
-        "off, the attempt upserts the whole row as the predecessor did. Never read by replay."),
     # Router objective RO0 (spec_router_objective_v1 §4): the receipts' kill switch. A boolean
     # (classified so every new key has a rule); it decides no plan, only whether a row is written.
     _ConfigRule(_exact(
@@ -1726,32 +1714,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the phone's device rules (mobile PR-6): off, a phone request is served as the desktop is, "
         "with no queue exclusion, no desktop_only refusal and no refusal to adopt around a draft. Never read by "
         "a desktop request or by replay."),
-    # The cold-retry reschedule (mvp-0.38, owner decision 2026-10-25, CA2
-    # follow-up Q4; docs/reviews/cold-retry-after-assist.md): the kill switch
-    # of the successor that schedules one fresh repair cold retry after help
-    # was taken on a due one. A boolean (classified so every new key has a
-    # rule); the fresh retry's timing is the lane's existing delay and its
-    # bound (one per chain) is structural, so no weight, margin or threshold
-    # is added. Off restores the predecessor exactly; replay never reads it.
-    _ConfigRule(_exact(
-        "practice.reschedule_cold_after_assist",
-    ), "structural", "operational",
-        "kill switch for the cold-retry reschedule successor: help taken on a due repair cold retry withdraws it "
-        "and schedules one fresh cold retry on another independent surface at the lane's existing delay (one per "
-        "chain, a structural bound); off, the assisted retry is withdrawn at the next serve as the predecessor "
-        "did. Never read by replay."),
-    # Follow-ups Nov 2 (mvp-0.42, renumbered from mvp-0.41 at its landing; Codex review F1; docs/reviews/followups-nov2.md):
-    # the kill switch of the successor whose keyed help fold counts exactly the
-    # rows that attach. A boolean (classified so every new key has a rule); no
-    # weight, margin or threshold is added. Off restores the predecessor's fold
-    # exactly; replay never reads it.
-    _ConfigRule(_exact(
-        "hints.fold_follows_attach",
-    ), "structural", "operational",
-        "kill switch for the help-fold successor mvp-0.42: a keyed submit's fold counts the key's shown server "
-        "hints in any practice session and the attempt takes them in its own transaction (a hint shown before the "
-        "session rolled over is counted or primes where it attaches); off, the predecessor's session-only fold and "
-        "H0's attach after the commit. Never read by replay."),
     # Teacher TE0 (spec_teacher_v1 §15.2): the kill switch of the confidence
     # events in model contexts and on the router card. A boolean (classified
     # so every new key has a rule); the events are context, never a weight,
@@ -1938,18 +1900,16 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "repair's effect slope split by the miss's cause (gamma_gap, gamma_slip with seeded priors, gamma_slip's centred "
         "at 0), p_gap calibrated by a learned surprise coefficient with a prior centred at 0, no threshold; off, "
         "mvp-0.56's numeric values."),
-    # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switches
-    # and curriculum C4's brief switch. Booleans and an enum (classified so every
-    # new key has a rule); the lesson-check mass is learned (§12.1, its seeded
-    # priors are the module constants of learner.lesson_weight), so no weight,
-    # margin or threshold is added here. Off restores mvp-0.40 exactly.
+    # Teacher TE1 (mvp-0.41; spec_teacher_v1 §18): the successor's kill switch
+    # and curriculum C4's brief switch (booleans, classified so every new key has
+    # a rule); the lesson-check mass is learned (§12.1, its seeded priors are the
+    # module constants of learner.lesson_weight), so no weight, margin or
+    # threshold is added here. Off restores mvp-0.40 exactly.
     _ConfigRule(_exact(
-        "teacher.enabled", "teacher.weight.learned", "teacher.weight.source", "teacher.brief.use_deliverable",
+        "teacher.enabled", "teacher.brief.use_deliverable",
     ), "structural", "operational",
-        "kill switches for teacher TE1's successor: lessons may open / a lesson check enters mastery at the "
-        "learned mass (off: the type's configured 0.5) / the forecast pool on top of it (parametric: the "
-        "learned mass alone) / curriculum C4's deliverable and notes in the brief. Operational only: the "
-        "learned quantities move with the data, never with these."),
+        "kill switch for teacher TE1's successor: lessons may open / curriculum C4's deliverable and notes in "
+        "the brief. Operational only: the learned quantities move with the data, never with these."),
     # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the successor's kill
     # switch, and the probes one lesson may ask for (keep: a burden guardrail, the teacher decides when to stop).
     _ConfigRule(_exact(

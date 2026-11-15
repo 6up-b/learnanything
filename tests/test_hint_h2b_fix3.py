@@ -16,9 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop_sidecar.handlers import practice
 from learnloop_sidecar.handlers.workbench import WorkbenchOpenInput
-from tests.helpers import set_config_switch
 from tests.hint_fakes import ITEM, WORK, ChooserFake, assists, prefer
 from tests.hint_h2b_review_helpers import (  # noqa: F401 - ``grader`` is a fixture
     _attempt,
@@ -137,44 +135,6 @@ def test_r1_back_on_the_answer_box_it_counts_once_and_a_later_workbench_submit_c
     assert (_record_hints(ctx, first), _record_hints(ctx, second)) == (0, 0)
     _open(ctx, session, "k1", wb=second)
     assert _attempt(paths, _wb_submit(ctx, second, session)["attemptId"])["hints_used"] == 0
-
-
-# -- F10: an interrupted answer-box attach -------------------------------------------------------
-
-
-def test_r1_f10_an_interrupted_answer_box_attach_never_lets_a_problem_take_the_hint(tmp_path, grader, monkeypatch):
-    paths, ctx, session = _sidecar(tmp_path)
-    # The predecessor's keyed attach, after the commit: from mvp-0.42 the attach is in the attempt's own
-    # transaction and cannot be interrupted apart from it; `hints.fold_follows_attach` off serves the
-    # predecessor's fold and attach exactly. Goes with that switch in D7.
-    set_config_switch(paths.root, "hints.fold_follows_attach", False)
-    ctx.load(paths.root)
-    _hint(ctx, session, "k1")
-    first = _open(ctx, session, "k1")["sessionId"]
-    _call(ctx, "workbench.abandon", {"sessionId": first})
-    second = _open(ctx, session, "k1")["sessionId"]
-    _call(ctx, "workbench.leave", {"sessionId": second})
-    # The answer box's attempt commits; the process ends before H0's keyed
-    # attach (the row keeps attempt_id NULL). This vault is below mvp-0.42
-    # (follow-ups Nov 2, Codex review F1): the predecessor's keyed fold, with
-    # no keyed attach in the attempt's own transaction.
-    with monkeypatch.context() as interrupted:
-        interrupted.setattr(practice, "_attach_hint_reveals", lambda *args, **kwargs: None)
-        submitted = _answer_box(ctx, session, "k1")
-    assert _attempt(paths, submitted["attemptId"])["hints_used"] == 1
-    [row] = assists(paths.sqlite_path)
-    assert row["attempt_id"] is None
-    # The committed attempt started the next window: the problem folds 0 rows.
-    _open(ctx, session, "k1", wb=second)
-    assert _record_hints(ctx, second) == 0
-    attempt = _attempt(paths, _wb_submit(ctx, second, session)["attemptId"])
-    assert attempt["hints_used"] == 0
-    [row] = assists(paths.sqlite_path)
-    assert row["attempt_id"] is None
-    # The answer box's recovery (a retry of its key) attaches it to its own attempt.
-    assert _answer_box(ctx, session, "k1")["attemptId"] == submitted["attemptId"]
-    [row] = assists(paths.sqlite_path)
-    assert row["attempt_id"] == submitted["attemptId"]
 
 
 # -- rows outside the window ---------------------------------------------------------------------

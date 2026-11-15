@@ -4,7 +4,7 @@ docs/reviews/cold-retry-after-assist.md).
 Reader CA2 (mvp-0.35, ``ask.cold_help_converts``) made help taken on a cold
 follow-up convert the attempt to practice with help; the measurement was left
 to be withdrawn at the next serve, so the repair ended unmeasurable. From
-mvp-0.38, with ``practice.reschedule_cold_after_assist`` on:
+mvp-0.38:
 
 * help taken on a due repair ``cold_retry`` withdraws it in the attempt's own
   step (the existing typed disposition) and schedules ONE fresh cold retry for
@@ -15,7 +15,6 @@ mvp-0.38, with ``practice.reschedule_cold_after_assist`` on:
   attempt is recorded as the co-intervention it is);
 * a fresh retry that is itself assisted spawns nothing (one per chain);
 * a certification cold probe is never rescheduled (one probe per certificate);
-* off, or below the tag: exactly the predecessor;
 * replay schedules nothing, and a shadow rebuild is 0/0/0 with the fresh
   retries present;
 * the upgrade is the chain's next journalled link.
@@ -51,7 +50,6 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, add_followup_item, create_placement_vault
 from tests.remediation_cold_retry_helpers import _drive_to_cold_scheduled
-from tests.ux_phase1_support import set_config
 from tests.cold_retry_reschedule_helpers import (
     ASSISTED_AT,
     TAG,
@@ -281,51 +279,14 @@ def test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it(tm
     assert [row["id"] for row in probes] == [probe["id"]]
 
 
-# -- the switch: off is the predecessor -----------------------------------------------------------------
+# -- the gate: CA2's rule -------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("version", "switch", "converts", "active"), [
-    (TAG, None, True, True), (TAG, False, True, False), (TAG, None, False, False),
-], ids=["tag", "tag-switch-off", "tag-ca2-off"])
-def test_the_gate_is_its_switch_and_ca2s_rule(tmp_path, version, switch, converts, active):
-    vault, _repository, _episode, _primed, _cold = _repair(tmp_path, version=version, switch=switch,
-                                                           converts=converts)
+@pytest.mark.parametrize(("converts", "active"), [(True, True), (False, False)], ids=["tag", "tag-ca2-off"])
+def test_the_gate_is_ca2s_rule(tmp_path, converts, active):
+    vault, _repository, _episode, _primed, _cold = _repair(tmp_path, converts=converts)
     assert reschedule_cold_after_assist_active(vault) is active
     assert reschedule_cold_after_assist_active(None) is False
-
-
-def _predecessor_state(repository, episode_id):
-    """What the lane holds after the assisted answer, without ids and write times."""
-
-    tasks = [{key: task[key] for key in ("kind", "status", "selected_item_id", "not_before", "expires_at",
-                                         "consumed_attempt_id")} for task in _tasks(repository, episode_id)]
-    episode = repository.remediation_episode(episode_id)
-    outcomes = _table(repository, "SELECT outcome FROM causal_cold_outcomes")
-    decisions = _table(repository, "SELECT decision, reason FROM cold_measurement_opportunity_decisions "
-                                   "ORDER BY created_at, id")
-    return tasks, (episode["state"], episode["cold_item_id"]), outcomes, decisions
-
-
-def test_off_the_assisted_retry_is_left_open_exactly_as_the_predecessor(tmp_path):
-    from learnloop.scheduling.scheduler import apply_eligibility_writes, cold_check_decision
-
-    vault, repository, episode, _primed, cold_item = _repair(tmp_path, version=TAG, switch=False)
-    _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
-    # The predecessor: its tag with the switch off (the switch's off-branch is the predecessor's code).
-    reference_vault, reference, ref_episode, _p, ref_cold = _repair(tmp_path / "ref", version=PREDECESSOR,
-                                                                    switch=False)
-    _answer(reference_vault, reference, ref_cold, ASSISTED_AT, hints=1)
-    assert _predecessor_state(repository, episode["id"]) == _predecessor_state(reference, ref_episode["id"])
-
-    [task] = _tasks(repository, episode["id"])
-    assert task["status"] in {"pending", "served"}
-    assert repository.remediation_episode(episode["id"])["cold_item_id"] == cold_item
-    # ...and the next serve withdraws it as practised since scheduled (the predecessor's rule).
-    later = _iso(ASSISTED_AT + timedelta(minutes=10))
-    decision = cold_check_decision(vault, repository, cold_item, now_iso=later)
-    apply_eligibility_writes(vault, repository, decision, clock=FrozenClock(ASSISTED_AT + timedelta(minutes=10)))
-    assert repository.followup_task(task["id"])["status"] == "expired"
-    assert len(_tasks(repository, episode["id"])) == 1
 
 
 # -- replay and rebuild equivalence -------------------------------------------------------------------
@@ -346,7 +307,7 @@ def test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it(tmp_path):
     assert len(_tasks(repository, episode["id"])) == 2
 
 
-def _equivalent_repair(tmp_path, *, switch: bool):
+def _equivalent_repair(tmp_path):
     """The repair on a rebuild-equivalent vault (the placement vault at the tag,
     synced, as tests/test_rebuild_equivalence.py builds it; the basic vault's
     seeded due item is not rebuild-equivalent at any version)."""
@@ -356,7 +317,6 @@ def _equivalent_repair(tmp_path, *, switch: bool):
     paths = create_placement_vault(tmp_path / "vault", version=TAG)
     add_followup_item(paths.root)
     add_followup_item(paths.root, THIRD_ITEM)
-    set_config(paths.root, {("practice", "reschedule_cold_after_assist"): switch})
     repository = Repository(paths.sqlite_path)
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -369,16 +329,15 @@ def _equivalent_repair(tmp_path, *, switch: bool):
     return paths, vault, repository, episode, cold_item
 
 
-@pytest.mark.parametrize("switch", [True, False], ids=["on", "off"])
-def test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present(tmp_path, switch):
+def test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present(tmp_path):
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    paths, vault, repository, episode, cold_item = _equivalent_repair(tmp_path, switch=switch)
+    paths, vault, repository, episode, cold_item = _equivalent_repair(tmp_path)
     spare = _spare(repository, episode)
     _answer(vault, repository, cold_item, ASSISTED_AT, hints=1)
     _answer(vault, repository, spare, ASSISTED_AT + COLD_RETRIEVAL_DELAY + timedelta(minutes=5))
     statuses = [task["status"] for task in _tasks(repository, episode["id"])]
-    assert statuses == (["expired", "consumed"] if switch else ["pending"])
+    assert statuses == ["expired", "consumed"]
     result = shadow_rebuild(load_vault(paths.root))
     assert result.live_database_unchanged
     assert result.learner_state_diff["summary"] == {"mastery": 0, "facet": 0, "schedule": 0}
@@ -388,13 +347,7 @@ def test_a_shadow_rebuild_is_zero_with_the_fresh_retries_present(tmp_path, switc
 
 
 def test_mvp038_is_one_constant_after_mvp037():
-    from learnloop.config.schema import PracticeConfig
-    from learnloop.params.parameter_registry import classify_config_path
-
     # Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-24:-21] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION) == (
         "mvp-0.36", "mvp-0.37", "mvp-0.38")
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert PracticeConfig().reschedule_cold_after_assist is True
-    rule = classify_config_path("practice.reschedule_cold_after_assist")
-    assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale

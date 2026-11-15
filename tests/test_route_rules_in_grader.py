@@ -38,11 +38,10 @@ from learnloop.attempts.blind_grading import BlindErrorAttribution
 from learnloop.attempts.grading_support import (
     HELD_REVIEW_REASON,
     REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
+    METHOD_ROUTE_RULES_SUFFIX,
     ROUTE_RULES,
-    ROUTE_RULES_SUFFIX,
     UNVERIFIED_REVIEW_REASON,
     apply_route_rule,
-    route_rules_active,
 )
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.clock import FrozenClock
@@ -80,10 +79,9 @@ from tests.helpers import allow_below_floor
 #: the latest by ``created_at``: once the wall clock passed ``CLOCK`` (12:00 UTC on
 #: 2026-11-01) such a regrade sorted before the grade it replaced.
 SUBMITTED = CLOCK.now() - timedelta(hours=1)
-#: The own-route rules alone (``own-route-v1``): the method-explicit rules that
-#: followed them are switched off. No vault that opens is below that
-#: successor's tag, so its kill switch is the only way to grade under v1.
-V1 = "[required_method]\nenabled = false"
+#: Grading without the own-route rules: PF-c's reference policy off (the rules live in it), the one way left once
+#: their own kill switch went.
+NO_POLICY = "[diagnosis]\ngrading_support = false"
 
 
 # -- the version and the switch ---------------------------------------------------------
@@ -98,15 +96,6 @@ def test_the_route_rules_follow_the_route_check_and_value_of_information_stoppin
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
     assert SUCCESSOR_CHAIN[10] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
     assert SUCCESSOR_CHAIN[8] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-
-
-def test_active_only_with_the_switch_on(tmp_path):
-    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
-    assert route_rules_active(vault)
-    _paths, off, _repository = split_vault(
-        tmp_path / "off", version=VERSION, config="[proof_check]\nenabled = false", seed=False,
-    )
-    assert not route_rules_active(off)
 
 
 # -- the deterministic rule (pure) --------------------------------------------------------
@@ -246,24 +235,17 @@ def _blind_plan(vault, answer=ALTERNATIVE, *, stuck=False):
     return _blind_grading_plan(vault, item, context, stuck=stuck)
 
 
-def test_the_prompt_carries_the_rules_and_names_them_only_when_on(tmp_path):
+def test_the_prompt_carries_the_rules_and_names_them(tmp_path):
     from learnloop.attempts.blind_grading import blind_grading_prompt
 
-    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, config=V1, seed=False)
+    _paths, vault, _repository = split_vault(tmp_path / "on", version=VERSION, seed=False)
     plan = _blind_plan(vault)
-    assert plan.context.reference_policy["route_rules"] == "own-route-v1"
+    assert plan.context.reference_policy["route_rules"] == "own-route-v2"
     assert ROUTE_RULES in blind_grading_prompt(plan.context)
-    assert plan.prompt_version == f"mvp-2.1-blind-reference-policy{ROUTE_RULES_SUFFIX}"
-    assert plan.calibration_prompt_version == f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}"
+    assert plan.prompt_version == f"mvp-2.1-blind-reference-policy{METHOD_ROUTE_RULES_SUFFIX}"
+    assert plan.calibration_prompt_version == f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{METHOD_ROUTE_RULES_SUFFIX}"
     stuck = _blind_plan(vault, stuck=True)
-    assert stuck.prompt_version == f"mvp-2.1-blind-reference-policy{ROUTE_RULES_SUFFIX}+stuck-v1"
-    for name, kwargs in (("kill_switch", {"version": VERSION, "config": "[proof_check]\nenabled = false"}),):
-        _paths, other, _repository = split_vault(tmp_path / name, seed=False, **kwargs)
-        plain = _blind_plan(other)
-        assert "route_rules" not in plain.context.reference_policy, name
-        assert ROUTE_RULES not in blind_grading_prompt(plain.context), name
-        assert plain.prompt_version == "mvp-2.1-blind-reference-policy", name
-        assert plain.calibration_prompt_version == REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION, name
+    assert stuck.prompt_version == f"mvp-2.1-blind-reference-policy{METHOD_ROUTE_RULES_SUFFIX}+stuck-v1"
 
 
 # -- live grades -----------------------------------------------------------------------------
@@ -297,12 +279,12 @@ def test_a_proof_item_is_graded_in_exactly_one_model_call(tmp_path, monkeypatch)
 
 
 def test_live_an_unlocated_mark_down_on_a_divergent_route_is_unassessed(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     support = _support(repository, result.attempt_id)
     rule = support["proof_route_check"]
-    assert rule["version"] == "route-rules-in-grader-v1" and rule["rules"] == "own-route-v1"
+    assert rule["version"] == "route-rules-in-grader-v1" and rule["rules"] == "own-route-v2"
     assert rule["divergent_route"] is True and rule["final_answer_status"] == "undecidable"
     assert rule["applied"] is True and rule["unlocated_criterion_ids"] == ["setup"]
     assert rule["held_for_review"] is False
@@ -412,33 +394,6 @@ def test_live_a_wrong_final_answer_is_never_unassessed(tmp_path, config):
         assert rule["final_answer_status"] == "differs_from_reference" and rule["applied"] is False
 
 
-def test_the_kill_switch_grades_exactly_as_mvp016(tmp_path):
-    """Off, one call and the grade is mvp-0.16's: no rules, no record, the
-    base identity. The baseline is mvp-0.16 served through the same switch: no
-    vault that opens is below the rules' tag."""
-
-    _paths, vault, repository = split_vault(tmp_path / "a", version=VERSION,
-                                            config="[proof_check]\nenabled = false")
-    _paths, baseline, baseline_repository = split_vault(tmp_path / "b", version="mvp-0.16",
-                                                        config="[proof_check]\nenabled = false")
-    grader, reference_grader = DivergentGrader(), DivergentGrader()
-    result = submit(vault, repository, grader, answer=ALTERNATIVE, when=CLOCK.now())
-    reference = submit(baseline, baseline_repository, reference_grader, answer=ALTERNATIVE, when=CLOCK.now())
-    assert grader.calls == reference_grader.calls == ["blind_grading"]
-    assert ROUTE_RULES not in grader.prompts[0]
-    attempt = repository.fetch_practice_attempt(result.attempt_id)
-    expected = baseline_repository.fetch_practice_attempt(reference.attempt_id)
-    for column in ("rubric_score", "correctness", "manual_review_reason", "error_type"):
-        assert attempt[column] == expected[column], column
-    assert "proof_route_check" not in _support(repository, result.attempt_id)
-    rows = [(r.criterion_id, r.points_awarded, r.attribution_json) for r in repository.fetch_grading_evidence(result.attempt_id)]
-    ref = [(r.criterion_id, r.points_awarded, r.attribution_json)
-           for r in baseline_repository.fetch_grading_evidence(reference.attempt_id)]
-    assert rows == ref
-    record = repository.latest_blind_grade_record(result.attempt_id)["record"]
-    assert record["calibration_prompt_version"] == REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION
-
-
 def _identity(repository, attempt_id):
     record = repository.latest_blind_grade_record(attempt_id)["record"]
     return record["calibration_prompt_version"], repository.latest_raw_grade_identity(attempt_id)[0]
@@ -447,8 +402,8 @@ def _identity(repository, attempt_id):
 def test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regrade(tmp_path):
     from learnloop.attempts.attempts import replay_grader_identity
 
-    expected = f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{ROUTE_RULES_SUFFIX}"
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
+    expected = f"{REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION}{METHOD_ROUTE_RULES_SUFFIX}"
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     # The identity names the prompt's rules, never a checker: it is the same
     # whatever the rule did to the grade.
     for grader, answer in ((DivergentGrader(), ALTERNATIVE), (ReviewFakeClient(), ALTERNATIVE + " (2)")):
@@ -502,7 +457,7 @@ def test_cli_dry_run_plans_one_grading_call(tmp_path, monkeypatch):
     import learnloop.cli as cli_module
     from learnloop.cli.app import app
 
-    _paths, vault, _repository = split_vault(tmp_path, version=VERSION, config=V1)
+    _paths, vault, _repository = split_vault(tmp_path, version=VERSION)
     grader = DivergentGrader()
     monkeypatch.setattr(cli_module, "_ready_provider_for_task", lambda *_a, **_k: ("fake", ReadyRuntime(), grader))
     result = CliRunner().invoke(app, [
@@ -512,7 +467,7 @@ def test_cli_dry_run_plans_one_grading_call(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     grading = json.loads(result.output)["grading"]
     assert grading["calls"] == 1 and grading["admissible"] is True
-    assert grading["prompt_version"].endswith(ROUTE_RULES_SUFFIX)
+    assert grading["prompt_version"].endswith(METHOD_ROUTE_RULES_SUFFIX)
     assert "proof_check" not in grading and grader.calls == []
 
 
@@ -787,13 +742,13 @@ def _route_judgments(repository, attempt_id):
 
 
 def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=V1)
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     blind = repository.latest_blind_grade_record(result.attempt_id)
     [first] = _route_judgments(repository, result.attempt_id)
     assert first["judge"] == "llm" and first["judge_model"] == "fake-model"
     assert first["prompt_version"] == blind["grading_prompt_version"]
-    assert first["prompt_version"].endswith(ROUTE_RULES_SUFFIX)
+    assert first["prompt_version"].endswith(METHOD_ROUTE_RULES_SUFFIX)
     assert first["input_hash"] == blind["context_hash"] and first["supersedes_id"] is None
     verdict = json.loads(first["verdict"])
     assert verdict["divergent_route"] is True and verdict["held_for_review"] is True
@@ -809,7 +764,7 @@ def test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_s
 
 
 def test_f4_no_route_verdict_without_the_rules(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config="[proof_check]\nenabled = false")
+    _paths, vault, repository = split_vault(tmp_path, version=VERSION, config=NO_POLICY)
     result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE)
     assert _route_judgments(repository, result.attempt_id) == []
 
@@ -842,14 +797,13 @@ def _latest_regrade_run(repository):
         ).fetchone()
 
 
-def test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict(tmp_path):
+def test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict(tmp_path):
     paths, vault, repository = split_vault(tmp_path, version=VERSION)
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
     [first] = _route_judgments(repository, held.attempt_id)
     assert json.loads(first["verdict"])["held_for_review"] is True
-    append_config(paths.root, "[proof_check]\nenabled = false")
+    append_config(paths.root, NO_POLICY)
     vault = load_vault(paths.root)
-    assert not route_rules_active(vault)
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
                     runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
                     clock=FrozenClock(CLOCK.now() + timedelta(days=1)))

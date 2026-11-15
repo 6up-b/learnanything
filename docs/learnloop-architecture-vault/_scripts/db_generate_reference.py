@@ -899,11 +899,9 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "roles": "reader workbench RW4e: instructional roles (definition, theorem, explanation, intuition, worked example, exercise, figure, counterexample, contrast, prerequisite, alternative treatment, application), each with a confidence, proposed per passage by the Reader's own judges (ai.routing.library_organizer, ai.routing.passage_cue_judge) at no extra call and by the owner-run batch labeller (learnloop reader label-roles, ai.routing.role_labeller) and stored as source-object proposals: the judges' kill switch, the kill switch of their positive use (find_sources roles and intent lists, RW3b's contrast list, library grouping labelled the model's; roles never exclude) and the batch labeller's per-run metered cap, checked before each batch call (labels on sources, no successor)",
     "reading_paths": "reader workbench RW7a: reading paths in the Guide: at the depth the learner picks for a book (get the idea, learn to use it, fluency; DL2's Master, Learn, Keep and Light touch on the source preselect it, display-level only), each section core, prerequisite, enrichment, already shown or assumed with a one-line why, read it anyway / skip it, one exercise worth trying per core section and a suggested next line composed without a model; labels from one call per book and depth (ai.routing.reading_path_judge), cached by the depth, the section list and the linked LOs' statuses, already shown and assumed enforced in code: the kill switch and the judge's daily metered cap, checked before the call (display only, no successor)",
     "reader_tutor": "reader workbench RW1c: a tutor that looks things up in the Reader (its own query through the sources service's find_sources with verification under the Reader caller's derived policy, after the selection and its neighbours; three labelled answer modes with a quote-verified From your books excerpt, abstention when the books don't cover it, another way and that didn't help through the service's intents) and the buttons under its answers (the service's practice and tool requests, fetched when the answer lands and shown on press, and Try the next step first): the two kill switches; retrieval is context and the buttons are learner picks (no successor)",
-    "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
     "adaptive_difficulty": "adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them",
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",
-    "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
     "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly), and UX Phase 2's kill switch of the four-place shell, Under the hood, the notices and the palette's > prefix (\"classic\" keeps the ten-tab shell exactly)",
     "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
     "curriculum": "deliverable curriculum C0a (spec_deliverable_curriculum_v1 §6): section coverage, one judged row per (section, learning object) from one listwise call per LO over its candidate sections across the library (provenance, one search per source, the learner's own links; ai.routing.section_coverage_judge, plan-first), and reader.correspondents, the other books' sections that treat the same LOs (no model call; unchecked search hits when none is judged); exam and held-out material never a candidate: the kill switch, the judge's daily metered cap, the owner-run cover batch's cap and the prompt bound (display and retrieval context only, no successor)",
@@ -1259,16 +1257,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "vault shows \"I don't know\" and records dont_know exactly as mvp-0.12. Dormant below "
         "mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch."
     ),
-    "proof_check.enabled": (
-        "Kill switch for mvp-0.20's own-route rules. On, the blind grader's prompt grades every "
-        "criterion on the learner's own route and marks down only by quoting the failing step, and "
-        "a server-side rule leaves a mark-down on a divergent route that quotes nothing from the "
-        "learner's words, an omitted criterion, or one the grader declares it cannot verify "
-        "unassessed (holding the grade for review when nothing is then assessed and nothing "
-        "validated) and appends the verdict to judgment_ledger: one grading call. Off, new answers grade as mvp-0.19 now does (whose grading is "
-        "mvp-0.16's: mvp-0.17's separate route check was removed on 2026-10-13). Dormant below mvp-0.20; "
-        "replay reads the blind record and evidence rows, never this switch."
-    ),
     "ai.routing.tier1_decider": (
         "Selects the decision-model profile (type `decider`) that answers the Tier-1 judgments "
         "`[decider_routes]` moves to the Decider (mvp-0.22) and the facet span-support check; empty uses "
@@ -1331,18 +1319,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "required_method_statement) and reused, so a statement is judged once. Off: the LLM judge on "
         "ai.routing.rubric_phrasing_judge (or ai.active_provider) decides it. Grading never reads it."
     ),
-    "required_method.enabled": (
-        "Kill switch for the method-explicit successor's required-method grading (owner rule "
-        "2026-10-13; mvp-0.25). On, the own-route rules are "
-        "own-route-v2: an item's required_method, frozen with the assessment contract (the one "
-        "authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion "
-        "tied to it is graded on use of that method, so a divergent "
-        "route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule "
-        "unassesses it); every other criterion keeps the own-route rules. Off, new answers grade "
-        "exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; "
-        "replay reads the blind record, never this switch. Generation phrasing criteria by fact and "
-        "doctor's criterion:method_phrased are content paths, not gated here."
-    ),
     "eligibility.enabled": (
         "Kill switch for the one eligibility decision's successor (mvp-0.27; "
         "learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item "
@@ -1355,41 +1331,12 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
         "recorded primed flag, never this switch."
     ),
-    "practice.attempt_keeps_content_state": (
-        "Kill switch for mobile PR-4's successor (mvp-0.37). On, a "
-        "live attempt's write to its item's existing practice_item_state row takes only the scheduling "
-        "columns and the last-attempt time: active can only close (a diagnostic probe's single use still "
-        "lands) and content_hash is content sync's alone, so an attempt never reopens a row a content sync "
-        "closed (one committed while the answer was graded, or a parked, superseded or deactivated item). "
-        "Off, the attempt upserts the whole row from the vault it graded against, exactly as mvp-0.36. "
-        "Dormant below the successor; replay never reads it."
-    ),
     "practice.device_eligibility_enabled": (
         "Kill switch for the phone's device rules (mobile PR-6, spec_mobile_tailnet_v1 §6.4; "
         "learnloop.scheduling.device_eligibility). On, a request with a phone origin never gets an item that "
         "needs a desktop: it is held back in the queue build, refused desktop_only at a by-id door and a probe "
         "contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and "
         "the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor."
-    ),
-    "practice.reschedule_cold_after_assist": (
-        "Kill switch for the cold-retry reschedule's successor (mvp-0.38; "
-        "owner decision 2026-10-25, Reader CA2 follow-up Q4). On "
-        "(with ask.cold_help_converts on), help taken on a due repair cold_retry withdraws it in the "
-        "attempt's own step (unmeasurable_no_held_out_surface, reason cold_check_help_taken) and schedules "
-        "one fresh cold retry for the same repair on another independent surface, due the lane's "
-        "COLD_RETRIEVAL_DELAY after that attempt and open for COLD_RETRY_WINDOW; a fresh retry that is itself "
-        "assisted spawns none (one per chain). A certification cold probe is never rescheduled. Off, the "
-        "assisted retry is left to the next serve's withdrawal, exactly as mvp-0.37. Dormant below the "
-        "successor; replay never reads it (replay schedules nothing)."
-    ),
-    "hints.fold_follows_attach": (
-        "Kill switch for follow-ups Nov 2's successor (mvp-0.42; Codex "
-        "review F1 of docs/reviews/followups-nov2.md). On, a keyed submit's fold counts the key's shown "
-        "server hint rows in any practice session (H0's attach rule) and the attempt takes the rows it counted "
-        "in its own write transaction, so a hint shown before the session rolled over raises hints_used "
-        "(levels 1-3) or primes (levels 4-5) the attempt it attaches to. Off, the fold reads the submit's own "
-        "session only and H0's attach takes the key's rows after the commit, exactly as mvp-0.41. Dormant "
-        "below the successor; replay never reads it (replay never folds)."
     ),
     "teacher.enabled": (
         "Kill switch for teacher TE1's successor (mvp-0.41; spec_teacher_v1 §18.3). "
@@ -1409,15 +1356,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "keep: the anti-nagging ceiling on shown lesson suggestions a day (spec_teacher_v1 §18.4); never learned; a "
         "draw it binds shows no card and is logged with ceiling_bound. The card is drawn at most once a day, so the "
         "default 3 binds only if that rule is relaxed."
-    ),
-    "teacher.weight.learned": (
-        "Operational switch of the learned lesson-check weight (spec_teacher_v1 §12.1): on, a lesson check enters "
-        "mastery at the posterior mean of sigma(eta) as of the check; off, at the type's configured 0.5. Replay "
-        "reads each check's recorded mass, never this switch."
-    ),
-    "teacher.weight.source": (
-        "pool: the learned pool weight mixes the teacher's lesson_step_retained forecast into the mass (spec §12.2); "
-        "parametric: §12.1's mass alone. Operational only; replay reads the recorded mass."
     ),
     "teacher.brief.use_deliverable": (
         "Curriculum C4's switch (spec_deliverable_curriculum_v1 §8.2): the brief's goal and sources from the "

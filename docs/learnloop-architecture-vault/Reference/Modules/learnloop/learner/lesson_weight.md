@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py) |
-| Source lines | 1093 |
+| Source lines | 1092 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -108,7 +108,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LESSON_CHECK_ATTEMPT_TYPE` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 128)
 - `_IMPLIED_ETA_BOUND` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 131)
 - `_BISECTION_STEPS` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 132)
-- `RULE_FIXED` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 135)
 - `RULE_LEARNED` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 136)
 - `RULE_POOL` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 137)
 - `PRIOR_TERMS` ([src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py), line 796)
@@ -129,7 +128,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `POOL_PRIOR_ALPHA`
 - `POOL_PRIOR_BETA`
 - `PRIORS_VERSION`
-- `RULE_FIXED`
 - `RULE_LEARNED`
 - `RULE_POOL`
 - `RecordedUpdate`

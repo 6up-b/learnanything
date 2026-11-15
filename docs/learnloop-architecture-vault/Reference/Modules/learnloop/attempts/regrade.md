@@ -206,7 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`
   - `test_f5_a_joint_regrade_supersedes_a_route_verdict`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
-  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+  - `test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict`
   - `test_live_a_regrade_keeps_a_hold_until_the_grader_validates_the_route`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`

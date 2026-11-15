@@ -796,7 +796,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_an_assisted_certification_probe_is_left_as_the_predecessor_leaves_it`
-  - `test_off_the_assisted_retry_is_left_open_exactly_as_the_predecessor`
   - `test_replay_schedules_nothing_and_leaves_the_lane_as_live_left_it`
   - `test_the_fresh_retry_is_invisible_until_due_then_measures_the_repair_cold`
   - `test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured`
@@ -1799,7 +1798,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
   - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`
   - `test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict`
-  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
+  - `test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict`
   - `test_live_a_regrade_keeps_a_hold_until_the_grader_validates_the_route`
   - `test_live_an_adjudication_releases_a_hold_on_replay`
 - [tests/test_router_coldness_covariates.py](../../../../../tests/test_router_coldness_covariates.py) — direct import

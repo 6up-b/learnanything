@@ -16,8 +16,7 @@ a counted row between the commit and H0's attach.
 
 Replay re-applies the stored ``hints_used`` and never refolds
 (``attempts._refold_server_hints``); only new attempts change. It changes which
-new attempts are primed, so it is the successor mvp-0.42 (built as mvp-0.41) with the kill switch
-``hints.fold_follows_attach`` (Codex review F1; the gate and the upgrade are
+new attempts are primed, so it is the successor mvp-0.42 (built as mvp-0.41; Codex review F1; the upgrade is
 pinned in ``tests/test_help_fold_attach_successor.py``): these tests run at the
 tag. Fakes only.
 """
@@ -143,10 +142,8 @@ def test_every_help_kind_the_keyed_fold_counts_is_exactly_what_the_attempt_attac
                 _row(connection, f"ha_{kind}_{session}_other", kind=kind, session=session, key="k2")
         _row(connection, "ha_worked", kind="hint", session="s_old", key="k1", level=4)
         connection.commit()
-        counted = fold_row_count(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
-                                 any_session=True)
-        hints, primed = server_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
-                                    any_session=True)
+        counted = fold_row_count(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1")
+        hints, primed = server_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1")
         _attempt_row(connection, "att_k1", "s_new", "k1")
         attached = attach_keyed_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
                                      attempt_id="att_k1")
@@ -169,8 +166,5 @@ def test_the_keyless_window_still_reads_its_own_session_only(tmp_path):
         _row(connection, "ha_b", kind="hint", session="s_new", key="k1")
         connection.commit()
         assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id=None) == (1, False, None)
-        assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1",
-                         any_session=True) == (2, False, None)
-        # The predecessor's keyed fold (below the tag or switched off): its session only.
         assert read_fold(connection, practice_item_id=ITEM, session_id="s_new", submission_id="k1") == (
-            1, False, None)
+            2, False, None)

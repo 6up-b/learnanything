@@ -47,70 +47,67 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py) |
-| Source lines | 1265 |
+| Source lines | 1226 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `route_rules_text(version: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 216) — The prompt text of an own-route rules version (``own-route-v1``/``-v2``).
-- `route_rules_suffix(version: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 222) — The prompt and calibration identity suffix of a rules version.
-- `route_rules_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 243) — Does this vault grade NEW blind answers under the own-route rules?
-- `method_rules_active(vault: LoadedVault) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 255) — Does this vault grade NEW blind answers under the required-method rules?
-- `route_rules_version(vault: LoadedVault) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 268) — The own-route rules version new blind answers are graded under, if any.
-- `required_method_policy(item: PracticeItem, rubric_criterion_ids: Sequence[str] | None=None, *, required_method: Mapping[str, Any] | None | Any=ITEM_REQUIRED_METHOD) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 291) — The required method as the grader's policy shows it, or None.
-- `policy_method_criteria(policy: Mapping[str, Any] | None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 329) — The criterion ids a policy's required method grades on use of the method.
-- `class RouteCheck(WireModel)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 338)
-- `class ReferencePolicyBlindGradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 344) — The mvp-2.1 wire model: PF-c fields in generation order around the shared blind fields (solve-first BEFORE the analysis; the route check right after it).
-  - `as_blind_proposal(self) -> BlindGradingProposal` (line 368; public)
-- `class StuckReferencePolicyBlindGradingProposal(ReferencePolicyBlindGradingProposal)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 381) — mvp-2.1 for a stuck answer (``mvp-0.13``): the reading comes LAST.
-- `blind_result_model(context: BlindGradingContext) -> type[WireModel]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 387) — The wire model one blind grading call returns for this context.
-- `reference_policy(item: PracticeItem, learner_answer_md: str, *, route_rules: bool | str=False, rubric_criterion_ids: Sequence[str] | None=None, required_method: Mapping[str, Any] | None | Any=ITEM_REQUIRED_METHOD) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 399) — The PF-c policy block for one answer (item-side + this answer only).
-- `class GateOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 466)
-- `apply_valid_alternative_gate(proposal: BlindGradingProposal, *, rubric: Rubric, learner_answer_md: str, policy: Mapping[str, Any] | None, declared_unverified: Sequence[str]=(), method_criterion_ids: Sequence[str]=()) -> GateOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 477) — Record unlocated failures on a verifying answer as unverified.
-- `class RouteRuleOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 575)
-  - `applied(self) -> bool` (line 599; public)
-- `apply_route_rule(proposal: BlindGradingProposal, *, rubric: Rubric, learner_answer_md: str, final_answer_status: str | None, divergent_route: bool, unverified_before: Sequence[str]=(), declared_unverified: Sequence[str]=(), clarification_answer_md: str | None=None, method_criterion_ids: Sequence[str]=()) -> RouteRuleOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 603) — P1 on the grader's own output: no located error, no mark-down.
-- `record_route_rule_judgment(connection: Any, *, attempt_id: str, grading_support: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 762) — Append the grade's own-route verdict to ``judgment_ledger`` (review F4).
-- `revalidated_support(grading_support: Mapping[str, Any], record: Mapping[str, Any], rubric: Rubric) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 852) — ``assessed_shortfall`` recomputed over the VALIDATED grade (held-grade-evidence F1).
-- `criterion_outcomes(proposal: BlindGradingProposal, rubric: Rubric) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 914)
-- `sample_fingerprint(proposal: BlindGradingProposal, rubric: Rubric) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 925) — §4.4 split-mode fingerprint: (abstained, anchor, criterion outcomes).
-- `modal_sample(proposals: Sequence[BlindGradingProposal], rubric: Rubric) -> tuple[int, dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 938) — (index of the modal sample, the shadow sampling log).
-- `family_key(vault: LoadedVault, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 972) — The family a variant belongs to: PF-a's ``family_id`` once it exists, else the independent-surface group (one code path, augmentation §8).
-- `grade_uncertainty_signal(*, score_fraction: float, grader_confidence: float, prior_fractions: Sequence[float], family: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 982) — Shadow only: never an input to the grader, never read by routing.
-- `class BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1018)
-- `gated_review_reason(run: BlindGradingRun, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str, rubric: Rubric) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1031) — The attempt's manual-review reason when the PF-c gate applied, else None.
-- `request_blind_grading_run(client: OperationClient, context: BlindGradingContext, *, rubric: Rubric, sample_count: int=1) -> BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1077) — k isolated blind grading calls (k=1 by default), modal choice, PF-c gate.
+- `route_rules_text(version: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 215) — The prompt text of an own-route rules version (``own-route-v1``/``-v2``).
+- `route_rules_suffix(version: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 221) — The prompt and calibration identity suffix of a rules version.
+- `required_method_policy(item: PracticeItem, rubric_criterion_ids: Sequence[str] | None=None, *, required_method: Mapping[str, Any] | None | Any=ITEM_REQUIRED_METHOD) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 255) — The required method as the grader's policy shows it, or None.
+- `policy_method_criteria(policy: Mapping[str, Any] | None) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 293) — The criterion ids a policy's required method grades on use of the method.
+- `class RouteCheck(WireModel)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 302)
+- `class ReferencePolicyBlindGradingProposal(WireModel)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 308) — The mvp-2.1 wire model: PF-c fields in generation order around the shared blind fields (solve-first BEFORE the analysis; the route check right after it).
+  - `as_blind_proposal(self) -> BlindGradingProposal` (line 332; public)
+- `class StuckReferencePolicyBlindGradingProposal(ReferencePolicyBlindGradingProposal)` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 345) — mvp-2.1 for a stuck answer (``mvp-0.13``): the reading comes LAST.
+- `blind_result_model(context: BlindGradingContext) -> type[WireModel]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 351) — The wire model one blind grading call returns for this context.
+- `reference_policy(item: PracticeItem, learner_answer_md: str, *, route_rules: bool | str=False, rubric_criterion_ids: Sequence[str] | None=None, required_method: Mapping[str, Any] | None | Any=ITEM_REQUIRED_METHOD) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 363) — The PF-c policy block for one answer (item-side + this answer only).
+- `class GateOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 430)
+- `apply_valid_alternative_gate(proposal: BlindGradingProposal, *, rubric: Rubric, learner_answer_md: str, policy: Mapping[str, Any] | None, declared_unverified: Sequence[str]=(), method_criterion_ids: Sequence[str]=()) -> GateOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 441) — Record unlocated failures on a verifying answer as unverified.
+- `class RouteRuleOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 539)
+  - `applied(self) -> bool` (line 563; public)
+- `apply_route_rule(proposal: BlindGradingProposal, *, rubric: Rubric, learner_answer_md: str, final_answer_status: str | None, divergent_route: bool, unverified_before: Sequence[str]=(), declared_unverified: Sequence[str]=(), clarification_answer_md: str | None=None, method_criterion_ids: Sequence[str]=()) -> RouteRuleOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 567) — P1 on the grader's own output: no located error, no mark-down.
+- `record_route_rule_judgment(connection: Any, *, attempt_id: str, grading_support: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 726) — Append the grade's own-route verdict to ``judgment_ledger`` (review F4).
+- `revalidated_support(grading_support: Mapping[str, Any], record: Mapping[str, Any], rubric: Rubric) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 816) — ``assessed_shortfall`` recomputed over the VALIDATED grade (held-grade-evidence F1).
+- `criterion_outcomes(proposal: BlindGradingProposal, rubric: Rubric) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 878)
+- `sample_fingerprint(proposal: BlindGradingProposal, rubric: Rubric) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 889) — §4.4 split-mode fingerprint: (abstained, anchor, criterion outcomes).
+- `modal_sample(proposals: Sequence[BlindGradingProposal], rubric: Rubric) -> tuple[int, dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 902) — (index of the modal sample, the shadow sampling log).
+- `family_key(vault: LoadedVault, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 936) — The family a variant belongs to: PF-a's ``family_id`` once it exists, else the independent-surface group (one code path, augmentation §8).
+- `grade_uncertainty_signal(*, score_fraction: float, grader_confidence: float, prior_fractions: Sequence[float], family: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 946) — Shadow only: never an input to the grader, never read by routing.
+- `class BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 982)
+- `gated_review_reason(run: BlindGradingRun, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str, rubric: Rubric) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 995) — The attempt's manual-review reason when the PF-c gate applied, else None.
+- `request_blind_grading_run(client: OperationClient, context: BlindGradingContext, *, rubric: Rubric, sample_count: int=1) -> BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1041) — k isolated blind grading calls (k=1 by default), modal choice, PF-c gate.
 
 ### Module constants
 
-- `REFERENCE_POLICY_PROMPT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 126)
-- `REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 127)
-- `GRADING_SUPPORT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 128)
-- `UNVERIFIED_REVIEW_REASON` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 133)
-- `UNASSESSED_CRITERION_LABEL` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 136)
-- `REFERENCE_POLICY_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 138)
-- `ROUTE_RULES_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 167)
-- `ROUTE_RULES_SUFFIX` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 168)
-- `ROUTE_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 169)
-- `METHOD_ROUTE_RULES_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 192)
-- `METHOD_ROUTE_RULES_SUFFIX` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 193)
-- `REQUIRED_METHOD_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 194)
-- `ROUTE_RULES_V2` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 208)
-- `ROUTE_RULES_TEXT` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 210)
-- `ROUTE_RULE_SUPPORT_KEY` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 233)
-- `ROUTE_RULE_RECORD_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 234)
-- `HELD_REVIEW_REASON` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 237)
-- `DIFFERS_FROM_REFERENCE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 239)
-- `MATCHES_REFERENCE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 240)
-- `ITEM_REQUIRED_METHOD` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 288)
-- `_WS` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 441)
-- `_UNLOCATED_NOTE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 570)
-- `_DECLARED_NOTE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 571)
-- `ROUTE_RULE_JUDGMENT_TASK` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 741)
-- `LEGACY_ROUTE_CHECK_JUDGMENT_TASK` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 745)
-- `NOT_CHECKED_VERDICT` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 749)
+- `REFERENCE_POLICY_PROMPT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 125)
+- `REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 126)
+- `GRADING_SUPPORT_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 127)
+- `UNVERIFIED_REVIEW_REASON` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 132)
+- `UNASSESSED_CRITERION_LABEL` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 135)
+- `REFERENCE_POLICY_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 137)
+- `ROUTE_RULES_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 166)
+- `ROUTE_RULES_SUFFIX` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 167)
+- `ROUTE_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 168)
+- `METHOD_ROUTE_RULES_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 191)
+- `METHOD_ROUTE_RULES_SUFFIX` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 192)
+- `REQUIRED_METHOD_RULES` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 193)
+- `ROUTE_RULES_V2` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 207)
+- `ROUTE_RULES_TEXT` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 209)
+- `ROUTE_RULE_SUPPORT_KEY` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 232)
+- `ROUTE_RULE_RECORD_VERSION` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 233)
+- `HELD_REVIEW_REASON` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 236)
+- `DIFFERS_FROM_REFERENCE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 238)
+- `MATCHES_REFERENCE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 239)
+- `ITEM_REQUIRED_METHOD` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 252)
+- `_WS` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 405)
+- `_UNLOCATED_NOTE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 534)
+- `_DECLARED_NOTE` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 535)
+- `ROUTE_RULE_JUDGMENT_TASK` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 705)
+- `LEGACY_ROUTE_CHECK_JUDGMENT_TASK` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 709)
+- `NOT_CHECKED_VERDICT` ([src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py), line 713)
 
 ### Explicit exports
 
@@ -150,7 +147,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `family_key`
 - `gated_review_reason`
 - `grade_uncertainty_signal`
-- `method_rules_active`
 - `modal_sample`
 - `policy_method_criteria`
 - `record_route_rule_judgment`
@@ -158,30 +154,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `request_blind_grading_run`
 - `required_method_policy`
 - `revalidated_support`
-- `route_rules_active`
 - `route_rules_suffix`
 - `route_rules_text`
-- `route_rules_version`
 - `sample_fingerprint`
 
 ## Internal implementation anchors
 
-- `class _ItemRequiredMethod` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 278) — :func:`reference_policy`'s default source: the item's current required method.
-- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 444)
-- `_attribution_criteria(attribution: BlindErrorAttribution) -> set[str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 448)
-- `_located(attribution: BlindErrorAttribution, answer: str) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 459)
-- `_named_criteria(attribution: BlindErrorAttribution, rubric_ids: Sequence[str] | set[str]) -> set[str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 543) — The rubric criteria an attribution names (held-grade-evidence F1).
-- `_located_in_force(attribution: BlindErrorAttribution, texts: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 557) — A concrete error in the learner's words, still in force (P1).
-- `_current_route_judgment(connection: Any, task: str, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 752)
-- `_anchor_key(proposal: BlindGradingProposal) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 892)
-- `_abstained(proposal: BlindGradingProposal) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 909)
+- `class _ItemRequiredMethod` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 242) — :func:`reference_policy`'s default source: the item's current required method.
+- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 408)
+- `_attribution_criteria(attribution: BlindErrorAttribution) -> set[str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 412)
+- `_located(attribution: BlindErrorAttribution, answer: str) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 423)
+- `_named_criteria(attribution: BlindErrorAttribution, rubric_ids: Sequence[str] | set[str]) -> set[str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 507) — The rubric criteria an attribution names (held-grade-evidence F1).
+- `_located_in_force(attribution: BlindErrorAttribution, texts: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 521) — A concrete error in the learner's words, still in force (P1).
+- `_current_route_judgment(connection: Any, task: str, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 716)
+- `_anchor_key(proposal: BlindGradingProposal) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 856)
+- `_abstained(proposal: BlindGradingProposal) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 873)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ITEM_REQUIRED_METHOD`, `REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION`, `family_key`, `gated_review_reason`, `grade_uncertainty_signal`, `method_rules_active`, `record_route_rule_judgment`, `reference_policy`, `request_blind_grading_run`, `revalidated_support`, `route_rules_suffix`, `route_rules_version`; statically calls `family_key`, `gated_review_reason`, `grade_uncertainty_signal`, `method_rules_active`, `record_route_rule_judgment`, `reference_policy`, `request_blind_grading_run`, `revalidated_support`, `route_rules_suffix`, `route_rules_version`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ITEM_REQUIRED_METHOD`, `METHOD_ROUTE_RULES_VERSION`, `REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION`, `family_key`, `gated_review_reason`, `grade_uncertainty_signal`, `record_route_rule_judgment`, `reference_policy`, `request_blind_grading_run`, `revalidated_support`, `route_rules_suffix`; statically calls `family_key`, `gated_review_reason`, `grade_uncertainty_signal`, `record_route_rule_judgment`, `reference_policy`, `request_blind_grading_run`, `revalidated_support`, `route_rules_suffix`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `REFERENCE_POLICY_PROMPT_VERSION`, `REFERENCE_POLICY_RULES`, `blind_result_model`, `route_rules_suffix`, `route_rules_text`; statically calls `blind_result_model`, `route_rules_suffix`, `route_rules_text`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `gated_review_reason`, `record_route_rule_judgment`, `request_blind_grading_run`, `revalidated_support`; statically calls `gated_review_reason`, `record_route_rule_judgment`, `request_blind_grading_run`, `revalidated_support`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `METHOD_ROUTE_RULES_VERSION`, `apply_route_rule`, `apply_valid_alternative_gate`, `blind_result_model`, `policy_method_criteria`, `reference_policy`; statically calls `apply_route_rule`, `apply_valid_alternative_gate`, `blind_result_model`, `policy_method_criteria`, `reference_policy`
@@ -254,24 +248,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grading_reads_only_the_frozen_field`
   - `test_no_grading_entry_point_takes_the_prompt_to_decide`
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
-  - `test_active_only_with_both_switches_on`
-  - `test_grades_recorded_at_the_predecessor_replay_unchanged_at_the_successor`
-  - `test_off_the_prompt_is_the_predecessors_byte_for_byte`
   - `test_pfc_gate_never_unassesses_a_method_criterion_on_a_divergent_route`
-  - `test_the_kill_switch_grades_exactly_as_the_predecessor`
   - `test_the_prompt_carries_the_required_method_and_names_v2`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regrade`
-  - `test_active_only_with_the_switch_on`
   - `test_cli_dry_run_plans_one_grading_call`
   - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`
-  - `test_f5_a_regrade_with_the_rule_switched_off_supersedes_the_held_verdict`
   - `test_live_an_unlocated_mark_down_on_a_divergent_route_is_unassessed`
   - `test_live_nothing_located_and_nothing_validated_is_held`
-  - `test_the_kill_switch_grades_exactly_as_mvp016`
-  - `test_the_prompt_carries_the_rules_and_names_them_only_when_on`
+  - `test_the_prompt_carries_the_rules_and_names_them`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed`
   - `test_an_ordinary_answer_keeps_its_prompt_and_context_exactly`

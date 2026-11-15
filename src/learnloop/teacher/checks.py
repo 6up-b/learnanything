@@ -15,8 +15,7 @@
   enters mastery at and every weight input (§8.3 ``weight_inputs``).
 * **The mass** (:func:`check_mass`): §12.1's learned mass as of the check (the
   posterior mean of σ(η)), the pool-implied mass when the teacher already
-  forecast this node's retention (§12.2), or the type's configured mass with
-  ``teacher.weight.learned`` off.
+  forecast this node's retention (§12.2).
 * **Withdrawn** (:func:`withdraw_check`): help during an open check that gave the
   solution away (overlap at the auto-prime threshold) ends the check with no
   attempt: an answer after the solution was shown is not the learner's effort.
@@ -143,7 +142,6 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     from learnloop.attempts.evidence import attempt_evidence_mass
     from learnloop.learner.mastery import item_irt_params
 
-    config = vault.config.teacher.weight
     fixed = float(attempt_evidence_mass(CHECK_ATTEMPT_TYPE, vault.config.evidence))
     state = LW.replay_state(vault, repository, as_of=as_of)
     z_c, z_source = LW.confidence_term(state, tap, hedge)
@@ -164,9 +162,7 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     sensitivity = LW.CheckSensitivity(mu=mu, variance=var, last_evidence_at=last, item_a=float(a), item_b=float(b),
                                       correctness=float(correctness), observed_at=as_of)
     pool: dict[str, Any] | None = None
-    if not config.learned:
-        rule, applied = LW.RULE_FIXED, fixed
-    elif config.source == "pool" and p_teacher_retained is not None:
+    if p_teacher_retained is not None:
         lam = state.pool_lambda(family)
         ref = dict(reference or {})
         ref_a, ref_b = float(ref.get("a", a)), float(ref.get("b", b))

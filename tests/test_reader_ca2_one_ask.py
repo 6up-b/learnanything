@@ -145,10 +145,7 @@ def _repair_at(tmp_path, *, converts: bool):
     from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
-    # CA2's rule as at its tag: the later cold-retry reschedule (mvp-0.38) off by its switch.
-    set_config(vault.root, {("algorithms", "algorithm_version"): TAG,
-                            ("ask", "cold_help_converts"): converts,
-                            ("practice", "reschedule_cold_after_assist"): False})
+    set_config(vault.root, {("algorithms", "algorithm_version"): TAG, ("ask", "cold_help_converts"): converts})
     return load_vault(vault.root), repository, misconception_id
 
 
@@ -169,8 +166,10 @@ def test_a_hinted_cold_retry_is_practice_with_help_and_never_consumes_the_measur
     attempt = repository.fetch_practice_attempt(result.attempt_id)
     assert attempt["hints_used"] == 1
     assert repository.consumed_followup_task_for_attempt(result.attempt_id, kind="cold_retry") is None
-    assert repository.followup_task(task["id"])["status"] in {"pending", "served"}
-    assert repository.remediation_episode(episode["id"])["state"] == "cold_scheduled"
+    # Withdrawn unconsumed in the attempt's own step (the cold-retry reschedule); this repair has no other
+    # independent surface for a fresh retry, so the episode ends unmeasured.
+    assert repository.followup_task(task["id"])["status"] == "expired"
+    assert repository.remediation_episode(episode["id"])["state"] == "abandoned"
 
 
 def test_switched_off_a_hinted_cold_retry_is_refused_as_before(tmp_path):

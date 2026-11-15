@@ -9,14 +9,12 @@ deactivation replay keeps) used to be reopened by an attempt on it, until the
 next content sync re-decided the flag; with the fix it stays closed, so the
 Today queue no longer serves it in that window. That is a change to which
 items are served (the playbook's 2026-10-17 rule), so it is a successor with a
-kill switch:
+kill switch (gone once every vault was past the tag):
 
-* at the tag with ``practice.attempt_keeps_content_state`` on, the attempt
-  keeps the closed row closed and its content hash as content sync wrote it;
-* off, the attempt writes the whole row exactly as the predecessor (the row
-  reopens and the item is served); no vault that opens is below the tag;
+* the attempt keeps the closed row closed and its content hash as content
+  sync wrote it;
 * replay keeps its full upsert, so a same-version rebuild reproduces the live
-  row at every setting (rebuild equivalence);
+  row (rebuild equivalence);
 * the upgrade is the chain's next journalled link.
 
 Fakes only: self-graded attempts, no model call.
@@ -26,7 +24,6 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pytest
 
 from learnloop.algorithm_versions import (
     ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION,
@@ -38,7 +35,6 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
-    attempt_keeps_content_state,
     complete_self_graded_attempt,
 )
 from learnloop.clock import FrozenClock
@@ -47,7 +43,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, append_config_toml, create_placement_vault
+from tests.helpers import NOW, create_placement_vault
 
 TAG = ATTEMPT_CONTENT_STATE_ALGORITHM_VERSION
 PREDECESSOR = SUPERSEDED_CLAIMS_ALGORITHM_VERSION
@@ -55,11 +51,8 @@ ITEM = "pi_svd_define_001"
 CLOCK = FrozenClock(NOW + timedelta(hours=1))
 
 
-def _vault_at(tmp_path, name, version, *, switch: bool | None = None):
-    paths = create_placement_vault(tmp_path / name, version=version)
-    if switch is not None:
-        append_config_toml(paths.root, f"\n[practice]\nattempt_keeps_content_state = {str(switch).lower()}\n")
-    return paths
+def _vault_at(tmp_path, name, version):
+    return create_placement_vault(tmp_path / name, version=version)
 
 
 def _answer(vault, repository) -> None:
@@ -105,24 +98,10 @@ def _closed_then_answered(paths):
 
 
 def test_mvp037_is_one_constant_after_mvp036():
-    from learnloop.config.schema import PracticeConfig
-    from learnloop.params.parameter_registry import classify_config_path
-
     # Built as mvp-0.36 after mvp-0.35; the kept replaced claims' mvp-0.36 landed first, so the landing renumbered it.
     # The cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-25:-22] == (ONE_ASK_ALGORITHM_VERSION, PREDECESSOR, TAG) == ("mvp-0.35", "mvp-0.36", "mvp-0.37")
     assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert PracticeConfig().attempt_keeps_content_state is True
-    rule = classify_config_path("practice.attempt_keeps_content_state")
-    assert rule is not None and rule.kind == "structural" and "kill switch" in rule.rationale
-
-
-@pytest.mark.parametrize(("version", "switch", "keeps"), [
-    (TAG, None, True), (TAG, False, False),
-], ids=["tag", "tag-switch-off"])
-def test_the_gate_is_its_switch(tmp_path, version, switch, keeps):
-    paths = _vault_at(tmp_path, "v", version, switch=switch)
-    assert attempt_keeps_content_state(load_vault(paths.root)) is keeps
 
 
 # -- serving without a concurrent writer -------------------------------------------------------------
@@ -139,20 +118,8 @@ def test_at_the_tag_an_answer_keeps_a_closed_row_closed_and_out_of_serving(tmp_p
     assert not _served(vault, repository)
 
 
-@pytest.mark.parametrize(("version", "switch"), [(TAG, False)], ids=["tag-switch-off"])
-def test_off_the_answer_reopens_the_row_as_the_predecessor(tmp_path, version, switch):
-    paths = _vault_at(tmp_path, "pred", version, switch=switch)
-    vault, repository, _before = _closed_then_answered(paths)
-
-    state = repository.practice_item_state(ITEM)
-    assert state.active is True  # the predecessor's whole-row upsert
-    assert state.last_attempt_at is not None and state.stability is not None
-    assert _served(vault, repository)
-
-
-@pytest.mark.parametrize(("version", "switch"), [(TAG, None), (TAG, False)], ids=["tag", "tag-switch-off"])
-def test_a_same_version_rebuild_reproduces_the_live_row(tmp_path, version, switch):
-    paths = _vault_at(tmp_path, "rebuild", version, switch=switch)
+def test_a_same_version_rebuild_reproduces_the_live_row(tmp_path):
+    paths = _vault_at(tmp_path, "rebuild", TAG)
     vault, repository, _before = _closed_then_answered(paths)
     live = repository.practice_item_state(ITEM)
 

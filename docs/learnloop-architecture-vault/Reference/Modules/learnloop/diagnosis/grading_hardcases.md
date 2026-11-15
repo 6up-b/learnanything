@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/grading_hardcases.py](../../../../../../src/learnloop/diagnosis/grading_hardcases.py) |
-| Source lines | 930 |
+| Source lines | 928 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,11 +60,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `load_cases(path: Path | None=None) -> tuple[str, list[HardCase]]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 215) — The gold set, validated: labels name real criteria, valid cases none.
 - `gold_set_coverage(cases: Sequence[HardCase]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 295) — Cases and real traces per cell, and what the set can and cannot show.
 - `case_context(vault: LoadedVault, case: HardCase, arm: str=PRODUCTION_ARM) -> BlindGradingContext` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 320) — The blind grading context as the live door builds it at the latest successor (``attempts._blind_grading_plan``): C2 verifier observations and PF-c's reference policy with the own-route rules (``own-route-v2``, with the item's required method; live grading drops the policy only w…
-- `role_output_tokens(vault: LoadedVault, route: str) -> dict[str, int]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 385) — The grader's output budget on ``route`` (a profile name): the policy budget of the production grading route (:data:`HARDCASE_ROUTES`), held to that profile's ``max_tokens``.
-- `judge_outcome(case: HardCase, states: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 476) — What one judge did with one case.
-- `gate_states(case: HardCase, grader_raw: Any, declared_unverified: Sequence[str], *, divergent_route: bool=False) -> tuple[dict[str, str], str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 559) — The production decision path on one case, and what the rule did.
-- `run_hardcases(vault: LoadedVault, *, routes: Sequence[str], caps: SpendCaps, cases_path: Path | None=None, dry_run: bool=False, price_per_million: float | None=None, input_price_per_million: float | None=None, output_price_per_million: float | None=None, clients: Mapping[str, Any] | None=None, cancelled: Callable[[], bool] | None=None, arms: Sequence[str]=(PRODUCTION_ARM,), repeats: int=1) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 629) — Plan (dry run) or run the gold set on each route; aggregate report.
-- `write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 855)
+- `role_output_tokens(vault: LoadedVault, route: str) -> dict[str, int]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 383) — The grader's output budget on ``route`` (a profile name): the policy budget of the production grading route (:data:`HARDCASE_ROUTES`), held to that profile's ``max_tokens``.
+- `judge_outcome(case: HardCase, states: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 474) — What one judge did with one case.
+- `gate_states(case: HardCase, grader_raw: Any, declared_unverified: Sequence[str], *, divergent_route: bool=False) -> tuple[dict[str, str], str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 557) — The production decision path on one case, and what the rule did.
+- `run_hardcases(vault: LoadedVault, *, routes: Sequence[str], caps: SpendCaps, cases_path: Path | None=None, dry_run: bool=False, price_per_million: float | None=None, input_price_per_million: float | None=None, output_price_per_million: float | None=None, clients: Mapping[str, Any] | None=None, cancelled: Callable[[], bool] | None=None, arms: Sequence[str]=(PRODUCTION_ARM,), repeats: int=1) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 627) — Plan (dry run) or run the gold set on each route; aggregate report.
+- `write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 853)
 
 ### Module constants
 
@@ -117,20 +117,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_cell(category: str, final_status: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 202)
-- `_production_policy(case: HardCase) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 355) — PF-c's policy with the production own-route rules and the item's required method.
-- `_split_arm(arm: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 364)
-- `_grader_request(vault: LoadedVault, case: HardCase, arm: str) -> tuple[str, str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 371)
-- `_requests(vault: LoadedVault, case: HardCase, arms: Sequence[str]) -> dict[tuple[str, str], tuple[str, str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 379) — (role, arm) -> (prompt, prompt version, result model).
-- `_planned_entry(vault: LoadedVault, route: str, role: str) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 396)
-- `_resolved_entry(vault: LoadedVault, route: str, role: str, injected: Any | None) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 407)
-- `_repetition_entry(entry: RoleClient, repetition: int) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 437) — Repetition 0 is the plain call (earlier checkpoints stay valid); a later repetition is a separately identified fresh call with its own checkpoint.
-- `_wilson(count: int, n: int) -> list[float] | None` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 449)
-- `_rate(count: int, n: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 458)
-- `_criterion_states(case: HardCase, points: Mapping[str, float], *, unverified: Sequence[str]=()) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 462) — ``full`` | ``short`` | ``unassessed`` per rubric criterion.
-- `_summary(cases: Sequence[HardCase], outcomes: Mapping[str, str | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 514) — The headline rates (cells 1-2 and 3-4, as before) and the method cell's own.
-- `_noise_floor(cases: Sequence[HardCase], by_repetition: Sequence[Mapping[str, str | None]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 542) — How often a judge's outcome on a case changes between fresh repetitions.
-- `_verdict(role: str, case: HardCase, call: CallResult, outcome: str | None) -> tuple[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 598)
-- `_record_judgment(caller: PFCaller, role: str, case: HardCase, call: CallResult, outcome: str | None, *, arm: str, repetition: int) -> str` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 612) — Append one judge's verdict on one case, once (review F7).
+- `_production_policy(case: HardCase) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 353) — PF-c's policy with the production own-route rules and the item's required method.
+- `_split_arm(arm: str) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 362)
+- `_grader_request(vault: LoadedVault, case: HardCase, arm: str) -> tuple[str, str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 369)
+- `_requests(vault: LoadedVault, case: HardCase, arms: Sequence[str]) -> dict[tuple[str, str], tuple[str, str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 377) — (role, arm) -> (prompt, prompt version, result model).
+- `_planned_entry(vault: LoadedVault, route: str, role: str) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 394)
+- `_resolved_entry(vault: LoadedVault, route: str, role: str, injected: Any | None) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 405)
+- `_repetition_entry(entry: RoleClient, repetition: int) -> RoleClient` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 435) — Repetition 0 is the plain call (earlier checkpoints stay valid); a later repetition is a separately identified fresh call with its own checkpoint.
+- `_wilson(count: int, n: int) -> list[float] | None` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 447)
+- `_rate(count: int, n: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 456)
+- `_criterion_states(case: HardCase, points: Mapping[str, float], *, unverified: Sequence[str]=()) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 460) — ``full`` | ``short`` | ``unassessed`` per rubric criterion.
+- `_summary(cases: Sequence[HardCase], outcomes: Mapping[str, str | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 512) — The headline rates (cells 1-2 and 3-4, as before) and the method cell's own.
+- `_noise_floor(cases: Sequence[HardCase], by_repetition: Sequence[Mapping[str, str | None]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 540) — How often a judge's outcome on a case changes between fresh repetitions.
+- `_verdict(role: str, case: HardCase, call: CallResult, outcome: str | None) -> tuple[str, float | None]` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 596)
+- `_record_judgment(caller: PFCaller, role: str, case: HardCase, call: CallResult, outcome: str | None, *, arm: str, repetition: int) -> str` ([source](../../../../../../src/learnloop/diagnosis/grading_hardcases.py), line 610) — Append one judge's verdict on one case, once (review F7).
 
 ## Who imports or calls it
 

@@ -13,7 +13,7 @@ from tests.hint_h2a_review_round2_helpers import ARGMAX, SELF_GRADE, _call, _con
 
 def hint_vault(tmp_path, *, version: str | None = None, **kwargs):
     """The hint vault at the successor's tag (Codex review F1: the fold below is
-    mvp-0.42's, behind ``hints.fold_follows_attach``), or at ``version``."""
+    mvp-0.42's), or at ``version``."""
 
     from learnloop.algorithm_versions import HELP_FOLD_ATTACH_ALGORITHM_VERSION
     from learnloop.ops.upgrades import rewrite_algorithm_version
