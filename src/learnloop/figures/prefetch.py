@@ -60,7 +60,7 @@ batch 7 (A)).
 **Builds** run one at a time (:data:`PREFETCH_CONCURRENT_BUILDS`), each only
 while no foreground work is in flight (:mod:`.foreground`: a pressed figure,
 a lesson turn, a tutor answer, grading), on mains, with the switch on, through
-:func:`learnloop.figures.service.build_prefetch_figure` (origin ``prefetch``,
+:func:`learnloop.figures.build.build_prefetch_figure` (origin ``prefetch``,
 under ``quiet()``; its gate holds on the switch and the power before every
 request). A later press of the same input reuses the figure by its input hash.
 
@@ -1344,7 +1344,7 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
     """The queue, one build at a time: each waits for no foreground work, and starts only on mains,
     with the switch on and today's caps with room (rechecked on the vault as configured now)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import build as FB
     from learnloop.figures import request as FQ
 
     ids = [str(row["id"]) for row, _candidate in queue]
@@ -1423,7 +1423,7 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
                                        prefetch_decision_id=str(row["id"]))
         with _BUILD_SLOTS:
             try:
-                FS.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
+                FB.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
                                          clock=env.clock, live_vault=env.live_vault, find=env.find,
                                          spawn_rich=spawn)
             except FQ.FigureRefused as exc:

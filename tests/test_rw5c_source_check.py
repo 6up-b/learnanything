@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from learnloop.content.authoring import pf_sandbox
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
@@ -517,7 +517,7 @@ def test_the_switch_off_between_the_sandbox_and_the_second_attempt_stops_the_bui
     vault = load_vault(paths.root)
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
     with pytest.raises(FQ.FigureRefused) as caught:
-        FS.build_figure(vault, repository, request, author_client=author, live_vault=lambda: load_vault(paths.root))
+        FB.build_figure(vault, repository, request, author_client=author, live_vault=lambda: load_vault(paths.root))
     assert caught.value.code == "figures_changed"
     # The second attempt was refused before it was sent, and so was its transport's retry.
     assert author.calls == 1 and flip.calls == 1 and author.refused == 2
@@ -538,7 +538,7 @@ def test_the_switch_off_at_the_store_writes_nothing(tmp_path, monkeypatch):
     author = AuthorFake([plot("x")])
     vault = load_vault(paths.root)
     with pytest.raises(FQ.FigureRefused) as caught:
-        FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
+        FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
                         author_client=author, live_vault=lambda: load_vault(paths.root))
     assert caught.value.code == "figures_changed" and author.calls == 1
     assert rows(repository, "figure_source_checks") == [] and rows(repository, "interactive_figures") == []
@@ -550,12 +550,12 @@ def test_build_key_holds_the_switch_and_the_reuse_key_does_not(tmp_path):
     on = FQ.build_key(vault)
     context_ = FGR.SourceContext(passage=[{"span_id": "s1", "type": "Text", "text": "x"}])
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s1"])
-    hashed = FS.request_hash(request, context_, None)
+    hashed = FB.request_hash(request, context_, None)
     set_config(paths, "figures", checked_labels_enabled=False)
     off = load_vault(paths.root)
     assert FQ.build_key(off) != on and on[-1] is True and FQ.build_key(off)[-1] is False
     assert FQ.offer_build_key(off) != FQ.offer_build_key(vault)
-    assert FS.request_hash(request, context_, None) == hashed
+    assert FB.request_hash(request, context_, None) == hashed
 
 
 def test_a_fake_author_sending_sympy_text_or_a_verified_field_changes_nothing(tmp_path):

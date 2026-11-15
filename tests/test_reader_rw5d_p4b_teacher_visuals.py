@@ -17,7 +17,7 @@ import pytest
 from tests.teacher_fakes import pin_default_tag
 from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.content.sources import exam_material as EM
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from learnloop.teacher import service as S
 from learnloop.teacher import visuals as V
@@ -269,7 +269,7 @@ def test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one(t
     state = S.load_state(repository, view["lesson_id"])
     request = V.figure_request(state, {"goal": GOAL, "anchors": ["S1"], "node": None}, caller=caller_for(state))
     with pytest.raises(FQ.FigureRefused) as refused:
-        FS.build_figure(load_vault(paths.root), repository, request, author_client=author)
+        FB.build_figure(load_vault(paths.root), repository, request, author_client=author)
     assert refused.value.code == "teacher_visuals_disabled" and author.calls == 1
 
 
@@ -343,7 +343,7 @@ def test_a_lesson_figure_never_spawns_a_rich_job(tmp_path, monkeypatch):
     from tests.ux_phase1_support import set_config
 
     # Every rich tier ready on this machine: a Reader press with a spawner would put them on the menu.
-    monkeypatch.setattr(FS.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "js_animation",
+    monkeypatch.setattr(FB.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "js_animation",
                                                                                "manim"))
     spawned = []
     paths, repository = build_teacher_vault(tmp_path / "vault")

@@ -1,144 +1,19 @@
-"""Explorable figures: build, reuse, revise, list, predict, explain (spec_reader_workbench_v1 §8; UX §4.7).
+"""Building a figure: reuse it, or ask the author and store what passes (spec_reader_workbench_v1 §8; UX §4.7).
 
-**Build** (:func:`build_figure`): held-out or exam material is refused before
-any model call (the one predicate, ``exam_material(...)``: the selection, the
-figure block and the region's block); the same input under the same spec and
-prompt version is reused from ``interactive_figures`` (``input_hash``) with
-no call; otherwise the author writes a spec (at most two attempts, the second
-told the first's problems), :mod:`.verify` checks it (structure, invariants,
-shaded areas: §8.3 steps 1-2), and one row is written with its verification
-and a ``judgment_ledger`` verdict (task ``figure_verified``, judge
-``verifier``). A figure that fails steps 1-2 is stored ``failed`` (never
-shown); every other figure, a reconstruction included, is stored
-``illustrative``: RW5a makes no "matches the book" claim (owner scope
-decision 2026-10-21; the source match, step 3, is RW5c's).
-
-**Admission.** Every physical request a build makes passes one
-:class:`~learnloop.figure_admission.FiguresGate`: before each one (retries
-included) the switch, the author route, the day's cap and the price are read
-as configured NOW and compared with the build's start; any change stops the
-build with no further call and nothing stored.
-One input builds once at a time in this process (an identical request made
-meanwhile waits and takes that figure, with no call), its request identity
-is the input and its retry generation (so a rerun after a crash recovers a
-paid answer, and a stored failure asks afresh), and the schema keeps one
-shown or unsupported row per input (Codex review F7).
-
-**Held-out material, rechecked.** Each row keeps every span the author was
-sent (``input_span_ids``: the selection, the paragraphs around it, the
-cropped block). Listing, delivery, revisions, predictions and explanations
-refuse a figure any of whose spans is held out now (Codex review F1).
-
-**What a prompt carries.** The selected passage, the paragraphs around it
-(held-out ones left out), the figure's crop when a figure block or a region
-was selected and the route reads images (a region needs it), and, for a "not
-right?" version, the earlier spec and the learner's note. Learner data-relax
-2 (owner principle 2026-11-01: the learner's questions, answers and history
-are not private; include them where they help): with
-``figures.author_learner_state`` on, also ``learner_state``, the learner's
-state on the passage's topics (:mod:`.learner_state`: status in words, open
-misconception and gap statements, at most two recent answers of theirs, read
-through ``learner_protection`` so exam, held-out, reserved and cold-in-flight
-work never shows), under the prompt version's ``+learner-v1``, and the reuse
-key names its hash. Only a non-empty state does any of this: a learner with
-no state (or the switch off) is sent, prompted and keyed exactly as before.
-Figures stay help, never evidence.
-
-**RW5b** (spec §8.7). With ``figures.advanced_panels_enabled`` the author
-is told of heat maps, vector fields, trajectories and iterated maps (its own
-prompt version, so RW5a's reuse keys are unchanged while the panels are off);
-off, it may not emit them, and a stored figure that uses one is shown as
-"can't draw this yet" (:func:`advanced_off_row`). With
-``figures.offers_enabled`` a build may start from an offer (origin
-``library`` | ``tutor``): the same pipeline, its gate also watching the
-offers switch (:func:`offer_build_key`).
-
-**RW5d P1: "show me"** (spec_reader_show_me_figures_v1 §7, §8). A request may
-carry a goal in the learner's words (``goal_text``; ``goal_author`` is set on
-the server only: ``learner`` for the box, ``tutor`` only for a goal the
-tutor's stored answer wrote), with a passage (a joint request: the anchor's
-context exactly as before, plus the goal) or without one. With no passage the
-request is grounded in the learner's books (:func:`ground`: the sources
-service's verified retrieval, ``find_sources_for_caller(intent="explain",
-verify=True)``, at most :data:`GROUNDING_PASSAGES` passages, each with its
-neighbours; exam and held-out material is withheld inside it and every kept
-span is rechecked here) and its home is where the learner was reading
-(``reading_at``). Nothing found: it is built anyway with ``grounding`` none,
-forced an illustration that quotes nothing, and labelled "not from your
-books". A goal and its grounding enter the author's context, its prompt
-version (``+show-me-v1``) and the reuse key; an RW5a/b request (no goal, an
-anchor) is built, prompted and hashed exactly as before. Every request,
-built or reused, appends one ``figure_requests`` row (what was asked, the
-derived policy, the grounding and its manifest). ``figures.show_me_enabled``
-off: a goal is refused and a figure built from one is not listed.
-
-**RW5d P2: the sketch tier** (spec_reader_show_me_figures_v1 §8.4, §9).
-With ``figures.sketch_enabled`` (and the engine ready on this machine:
-:func:`learnloop.figures.sketch_engine.engine_ready`), the author may answer
-``sketch`` with a :class:`~learnloop.figures.sketch.SketchProgramV1` when the
-grammar can't express the idea (its own prompt version and contract,
-:class:`~learnloop.figures.routes.FigureAuthorOutputV2`). The program is
-verified in the sealed engine (:mod:`.sketch_verify`, steps 1-5) and stored
-like any figure (``tier`` sketch, ``spec_version`` sketch-v1, the program in
-``spec_json``, the engine digest it was verified under and its check lines);
-every build with the tier on appends a ``figure_tier`` judgment (the
-author's verdict and its reason) beside ``figure_verified``. A stored sketch
-verified under another engine is verified again, by code, before it is
-shown (:func:`sketch_rechecked`); one that now fails shows "couldn't run
-under this version". Off: the author's contract, prompt and reuse key are
-RW5b's byte for byte, and a stored sketch lists as "can't draw this yet".
-Sketches are illustrations, never "checked against the book".
-
-**RW5d P2b: the rich tiers, the Manim half** (spec_reader_show_me_figures_v1
-§7.2, §8.4, §8.6, §9b.3). The author's menu is :func:`learnloop.figures.rich.tiers_allowed`
-(Manim only with ``figures.rich_tiers_enabled``, Linux with ``bwrap``, Manim
-installed, the standing opt-in, and a way to start its durable job:
-``spawn_rich``); with a rich tier on it the contract is
-:class:`~learnloop.figures.routes.FigureAuthorOutputV3` (the medium chosen by
-what best explains the idea, ``why_this_tier`` receipted as ``figure_tier``)
-under its own prompt version, and the reuse key names the menu and the rich
-tier versions; with none, everything is P2's byte for byte. A rich status
-stores its optional quick figure at once (verified as any spec or sketch)
-and starts the rich job (:func:`learnloop.figures.rich.run_rich_job`) on the
-sidecar's queue; the rich figure lands as a second row under the same
-request (``fuller_of_id`` naming the quick one), listed as the quick
-figure's fuller version (:func:`fuller_state`: one figure line, two
-versions). With no quick figure the request's pending line shows
-(:func:`rich_pending`) and the same input never asks twice while it builds.
-Off: no rich menu entry, no rich keys in a view, and a stored rich figure
-lists as "can't show this kind here" (:func:`rich_off_row`).
-
-**RW5c P1: "matches the book's equation (checked)"** (spec_reader_rw5c_checked_labels_v1).
-With ``figures.checked_labels_enabled`` on, a grammar figure that passed steps
-1-2 goes through step 3 (:mod:`.source_check`, code only, in the sandbox) inside
-the attempt loop: a stated claim proved different is one more problem for the
-second attempt, inside the existing cap, and if it still differs the figure is
-stored but not shown. Each check row commits with its ``figure_source_check``
-judgment. On a figure with a ``book`` element every label is code's
-(:mod:`.elements`, option B): the delivered spec carries element ids and the
-view the element map. Off: nothing reads the ledger and the view, reuse keys
-and prompts are RW5a/RW5d's. A stored figure is rechecked by code when opened
-(:func:`learnloop.figures.source_check.recheck`). The check is not in the reuse
-key, so a prebuilt figure (RW5d P5) keeps its key and arrives checked.
-
-**RW5d P5: figures ahead of need** (spec_reader_show_me_figures_v1 §10b).
-Origin ``prefetch`` is refused from every request except the in-process
-prefetch service's (:func:`build_prefetch_figure`, under ``quiet()``): the
-same pipeline, recorded with ``build_mode`` prefetch and its decision id, its
-gate also holding on ``figures.prefetch_enabled`` and mains power
-(:func:`learnloop.figures.power.background_hold`), so switching it off or
-unplugging stops it before its next request. A press of the same input
-reuses the figure by its input hash (the origin is never in the key). With
-the switch off, a prebuilt figure nobody pressed for is not listed.
-
-**Predictions** (:func:`record_prediction`): formative only (W1, tier 2).
-Code decides ``matched`` from the observed readout before and after the
-prediction's change; a missed one is queued for learner-text gaps as a
-``reader_formative`` text (with its "what changed?" when written; one
-written after that reading started is its own later text), only
-while ``learner_text_gaps.enabled`` and ``reader_formative.enabled``. Nothing
-writes an attempt, evidence, mastery, certification, scheduling, FSRS or
-adaptive-difficulty state.
+:func:`build_figure` runs one request. It repeats :func:`~.request.check_request`, and every model request it makes
+passes one :class:`~learnloop.figure_admission.FiguresGate` over :func:`~.request.key_for` (the switches, the route,
+the day's cap and the price as configured now; a pre-build also holds on power and its switch). The reuse key
+(:func:`request_hash`) names the input: :mod:`.grounding`'s context, the goal, the crop, the prompt version, the tier
+menu and a learner state's hash. A figure stored under it, or under the same input's key for another setting, that
+can be drawn now is reused with no call, and one input builds once at a time in this process. Otherwise the author is
+asked for a spec, a sketch or a rich tier (at most two attempts, the second told the first's problems), the answer is
+verified by code (:mod:`.verify`, the sealed sketch engine, the source check), and one row is stored with its
+``judgment_ledger`` verdicts; every request, built or reused, appends a ``figure_requests`` row. A rich answer stores
+its quick figure and starts the durable rich job, its intent kept with the quick figure so that
+:func:`resume_rich_intents` starts a job a crash lost. Revisions (:func:`revision_request`, :func:`rebuild_request`,
+:func:`rich_revision_retry`, :func:`retry_rich_job`) and the pre-build pass (:func:`build_prefetch_figure`) take the
+same path. How a stored figure is presented, listed and answered afterwards is :mod:`.view`'s, :mod:`.listing`'s and
+:mod:`.predictions`'; this module imports them, and none of them imports it.
 """
 
 from __future__ import annotations

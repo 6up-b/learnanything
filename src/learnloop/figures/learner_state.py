@@ -46,7 +46,7 @@ stores anything (:func:`inputs_withheld`; Codex review F2).
 is nothing to say (no statement, no answer, every topic new): the author's
 payload, prompt version and reuse key are then exactly the predecessor's, so
 a learner with no state keeps today's keys and reuse. With state, the reuse
-key names :func:`state_hash` (``figures.service.request_hash``).
+key names :func:`state_hash` (``figures.build.request_hash``).
 
 Read-only: nothing is written and no model is called. Figures stay help,
 never evidence: nothing here is read by scoring, scheduling, projection or

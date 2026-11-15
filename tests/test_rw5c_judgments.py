@@ -75,7 +75,7 @@ def test_a_failure_between_the_two_inserts_leaves_neither(stored, monkeypatch):
 
 def test_at_build_a_failure_leaves_no_figure_row_and_no_verdict(tmp_path, monkeypatch):
     paths, repository = build_check_vault(tmp_path / "vault", BOOK)
-    from learnloop.figures import service as FS
+    from learnloop.figures import build as FB
     from learnloop.figures import request as FQ
 
     def boom(*_args: Any, **_kwargs: Any) -> None:
@@ -83,7 +83,7 @@ def test_at_build_a_failure_leaves_no_figure_row_and_no_verdict(tmp_path, monkey
 
     monkeypatch.setattr(store, "insert_source_check", boom)
     with pytest.raises(RuntimeError):
-        FS.build_figure(load_vault(paths.root), repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
+        FB.build_figure(load_vault(paths.root), repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["s5"]),
                         author_client=AuthorFake([plot("x")]))
     assert rows(repository, "interactive_figures") == [] and _verdicts(repository) == []
 

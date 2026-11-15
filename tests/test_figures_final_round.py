@@ -19,7 +19,7 @@ import pytest
 
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
@@ -65,7 +65,7 @@ def test_a_provider_that_cannot_isolate_is_refused_before_any_request(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     author = _OptionsAuthor(provider_type="codex_sdk", isolates=False)
     with pytest.raises(FQ.FigureRefused) as caught:
-        FS.build_figure(load_vault(paths.root), repository,
+        FB.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert caught.value.code == "not_isolated"
     assert author.calls == 0 and author.options == []

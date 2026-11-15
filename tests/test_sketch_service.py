@@ -22,7 +22,7 @@ import sqlite3
 import pytest
 
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
@@ -144,8 +144,8 @@ def test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
     assert row["prompt_version"] == R.author_prompt_version(advanced=True) == R.ADVANCED_PROMPT_VERSION
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context_ = FGR.SourceContext()
-    assert FS.request_hash(request, context_, None) == FS.request_hash(request, context_, None, sketch=False)
-    assert FS.request_hash(request, context_, None) != FS.request_hash(request, context_, None, sketch=True)
+    assert FB.request_hash(request, context_, None) == FB.request_hash(request, context_, None, sketch=False)
+    assert FB.request_hash(request, context_, None) != FB.request_hash(request, context_, None, sketch=True)
 
 
 def test_off_a_stored_sketch_lists_as_cant_draw_this_yet(tmp_path):
@@ -274,7 +274,7 @@ def test_not_right_on_a_sketch_sends_the_program_and_the_note(tmp_path):
 def test_a_sketch_built_with_nothing_from_the_books_quotes_nothing(tmp_path):
     program = F.walk(source_claims=[{"span_id": "p2", "quote": "made up"}],
                      assumptions=[{"text": "fair steps", "span_id": "p2", "quote": "made up"}])
-    raw = FS._ungrounded_sketch(json.dumps(program))
+    raw = FB._ungrounded_sketch(json.dumps(program))
     assert raw["source_claims"] == [] and raw["assumptions"][0]["quote"] is None
     compiled = K.parse_sketch(raw)
     assert compiled.program.source_claims == []

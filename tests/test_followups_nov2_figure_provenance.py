@@ -30,7 +30,7 @@ from types import SimpleNamespace
 
 from learnloop.db.stores import figures as store
 from learnloop.figures import protection as FP
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
@@ -112,7 +112,7 @@ def test_a_revision_inherits_its_bases_learner_state_protection(tmp_path, monkey
     base = _quick_row(world.repository)
     _switch_off(world.paths)
     vault = load_vault(world.root)
-    revision = FS.build_figure(vault, world.repository, FS.revision_request(world.repository, base, "bigger axes"),
+    revision = FB.build_figure(vault, world.repository, FB.revision_request(world.repository, base, "bigger axes"),
                                author_client=AuthorFake([flagship(kind="illustrative", title="Bigger")]))
     revised_id = revision.view["figure_id"]
     with world.repository.connection() as connection:
@@ -334,7 +334,7 @@ def _rich_revision_queued(tmp_path, monkeypatch):
     rich = _rich_row(rig.repository)
     assert rich["verification_report"][FP.LEARNER_STATE_INPUTS_KEY]
     _switch_off(rig.paths)
-    outcome = rig.build(FS.revision_request(rig.repository, rich, "red please"))
+    outcome = rig.build(FB.revision_request(rig.repository, rich, "red please"))
     assert outcome.rich["state"] == "pending"
     payload = rig.job()["payload"]
     assert "learner_state" not in payload["author_context"]  # nothing of its own
@@ -392,7 +392,7 @@ def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monk
     (first,) = rig.listed()
     with rig.repository.connection() as connection:
         base = store.figure(connection, first["figure_id"])
-    rig.build(FS.revision_request(rig.repository, base, "red"))
+    rig.build(FB.revision_request(rig.repository, base, "red"))
     assert FP.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]
 
 

@@ -153,7 +153,7 @@ def call_build_modes(connection: Any) -> dict[str, str]:
     same owner kind as a press's).
 
     The figure author's receipts are owned by ``figure:<content_key(input_hash, generation)>``
-    (``service.build_figure``), the generation being how many figures of that input were stored
+    (``build.build_figure``), the generation being how many figures of that input were stored
     before the build (``store.builds_for_input`` over ``spec.ALL_SPEC_VERSIONS``); the rich
     author's by ``figure_rich:<rich.content_key_for(payload)>`` (the input, the quick figure it
     follows, the quick build's generation). So each stored figure names its build's owner, and its

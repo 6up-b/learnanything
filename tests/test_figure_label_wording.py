@@ -27,7 +27,7 @@ import pytest
 
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
@@ -79,7 +79,7 @@ def test_the_vocabulary_comes_from_the_code_owned_labels():
     assert RICH.MANIM_LABEL is L.MANIM_LABEL and RICH.MANIM_UNCHECKED_LABEL is L.MANIM_UNCHECKED_LABEL
     assert RICH.MANIM_NOT_FROM_BOOKS_LABEL is L.MANIM_NOT_FROM_BOOKS_LABEL
     assert RICH.MANIM_NOT_COVERED is L.MANIM_NOT_COVERED
-    assert L.CHECK_LABEL_WORDS == ("checked", FS.store.VERIFIED_RW5C)
+    assert L.CHECK_LABEL_WORDS == ("checked", FB.store.VERIFIED_RW5C)
 
 
 def test_the_desktop_frames_carry_the_same_label_strings():
@@ -125,7 +125,7 @@ def test_strip_json_leaves_out_only_the_label_like_text():
 def _build(tmp_path, answers, *, sketch=False):
     paths, repository = build_figure_vault(tmp_path / "vault", sketch=sketch)
     author = AuthorFake(answers)
-    outcome = FS.build_figure(load_vault(paths.root), repository,
+    outcome = FB.build_figure(load_vault(paths.root), repository,
                               FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     return outcome, author, repository
 
@@ -361,11 +361,11 @@ def test_f3_a_stored_label_like_spec_is_presented_without_that_text_listed_and_r
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     with monkeypatch.context() as patched:
         _rule_off(patched)
-        first = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([bad]))
+        first = FB.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([bad]))
     (row,) = rows(repository, "interactive_figures")
     assert json.loads(row["spec_json"])["demonstrates"] == CLAIM  # stored before the rule: as written
     (listed,) = FL.list_figures(load_vault(paths.root), repository, EXTRACTION)
-    again = FS.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([]))
+    again = FB.build_figure(load_vault(paths.root), repository, request, author_client=AuthorFake([]))
     assert again.reused
     for view in (first.view, listed, again.view):
         assert view["verification"] == "illustrative" and view["demonstrates"] == ""
@@ -382,7 +382,7 @@ def test_f3_a_stored_label_like_sketch_is_presented_without_that_text(tmp_path, 
     paths, repository = build_figure_vault(tmp_path / "vault", sketch=True)
     with monkeypatch.context() as patched:
         _rule_off(patched)
-        FS.build_figure(load_vault(paths.root), repository,
+        FB.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                         author_client=AuthorFake([("sketch", bad, "the grammar has no random process")]))
     (view,) = FL.list_figures(load_vault(paths.root), repository, EXTRACTION)

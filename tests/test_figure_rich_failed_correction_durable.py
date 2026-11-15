@@ -17,7 +17,7 @@ of :func:`learnloop.figures.rich.rich_jobs` (what 500 newer rich jobs do).
 from __future__ import annotations
 
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship
@@ -43,7 +43,7 @@ def test_r1_a_failed_correction_outside_the_job_window_still_says_so(tmp_path, m
     assert line == before
     assert line["state"] == "failed" and line["rich_job_id"] == job_id and line["reason"]
     # "Try again" still works from the line (the job is read by id over the whole queue).
-    retry = FS.rich_revision_retry(rig.vault, rig.repository, job_id)
+    retry = FB.rich_revision_retry(rig.vault, rig.repository, job_id)
     assert retry is not None and retry.supersedes_id == first["figure_id"]
 
 

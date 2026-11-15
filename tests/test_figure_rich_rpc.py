@@ -206,11 +206,11 @@ def test_an_interrupted_rich_only_build_reads_as_failed_and_rich_retry_requeues_
 def test_reading_a_source_starts_a_rich_job_whose_enqueue_never_happened(tmp_path, monkeypatch):
     """Codex review F8 through the sidecar: the read recovers the durable intent, with no grant."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import build as FB
 
     _paths, repository, ctx, _author, rich_author = _ctx(
         tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY, flagship(kind="illustrative"))])
-    monkeypatch.setattr(FS._RichSpawn, "after_quick", lambda self, *args, **kwargs: None)
+    monkeypatch.setattr(FB._RichSpawn, "after_quick", lambda self, *args, **kwargs: None)
     seen = []
     original = ctx.ingest_jobs.enqueue_figure_rich
     monkeypatch.setattr(ctx.ingest_jobs, "enqueue_figure_rich",

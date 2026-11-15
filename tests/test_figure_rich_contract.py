@@ -18,7 +18,7 @@ import pytest
 
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
@@ -89,17 +89,17 @@ def test_with_no_rich_tier_on_the_menu_the_contract_is_v2s_byte_for_byte(tiers):
         assert R.output_model(sketch=sketch, tiers=tiers) is R.output_model(sketch=sketch)
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context = FGR.SourceContext()
-    assert FS.request_hash(request, context, None, tiers=tiers) == FS.request_hash(request, context, None)
+    assert FB.request_hash(request, context, None, tiers=tiers) == FB.request_hash(request, context, None)
 
 
 def test_the_reuse_key_names_the_menu_and_the_rich_versions():
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context = FGR.SourceContext()
-    plain = FS.request_hash(request, context, None)
-    rich = FS.request_hash(request, context, None, tiers=("grammar", "manim"), rich_runtime="manim 0.19; v1")
+    plain = FB.request_hash(request, context, None)
+    rich = FB.request_hash(request, context, None, tiers=("grammar", "manim"), rich_runtime="manim 0.19; v1")
     assert rich != plain
-    assert rich != FS.request_hash(request, context, None, tiers=("grammar", "manim"), rich_runtime="manim 0.20; v1")
-    assert rich != FS.request_hash(request, context, None, tiers=("grammar", "sketch", "manim"),
+    assert rich != FB.request_hash(request, context, None, tiers=("grammar", "manim"), rich_runtime="manim 0.20; v1")
+    assert rich != FB.request_hash(request, context, None, tiers=("grammar", "sketch", "manim"),
                                    rich_runtime="manim 0.19; v1")
 
 
@@ -155,7 +155,7 @@ def test_a_build_with_manim_on_the_menu_sends_v3_and_records_the_menu(tmp_path, 
     RF.ready_manim(monkeypatch)
     author = AuthorFake([flagship(kind="illustrative")])
     spawned: list[dict] = []
-    outcome = FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    outcome = FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                               author_client=author, spawn_rich=lambda payload: spawned.append(payload) or "job")
     assert outcome.view["verification"] == "illustrative" and outcome.view["tier"] == "grammar"
     assert outcome.view["fuller"] is None and spawned == []
@@ -177,7 +177,7 @@ def test_without_a_way_to_start_the_job_no_rich_tier_is_offered(tmp_path, monkey
     paths, repository, vault = _vault(tmp_path)
     RF.ready_manim(monkeypatch)
     author = AuthorFake([flagship(kind="illustrative")])
-    FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                     author_client=author)
     assert "manim" not in author.prompts[0] and "+rich-v1" not in author.prompts[0]
 
@@ -187,7 +187,7 @@ def test_v3_a_status_off_the_menu_or_with_no_reason_gets_the_second_attempt(tmp_
     RF.ready_manim(monkeypatch)
     author = AuthorFake([("rich", "js_animation", RF.brief(tier="js_animation"), "WebGL"),
                          flagship(kind="illustrative")])
-    outcome = FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    outcome = FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                               author_client=author, spawn_rich=lambda payload: "job")
     assert author.calls == 2 and outcome.view["verification"] == "illustrative"
     assert any("not one of the media offered" in problem

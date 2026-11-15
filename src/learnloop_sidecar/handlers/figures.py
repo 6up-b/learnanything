@@ -82,7 +82,7 @@ from learnloop.figure_admission import (
     show_me_enabled,
 )
 from learnloop.figures import power as P
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import predictions as FPR
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
@@ -165,7 +165,7 @@ def _require(ctx: SidecarContext):
 
 
 def _refused(exc: FQ.FigureRefused) -> SidecarError:
-    return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped", FS.STORAGE_BUSY))
+    return SidecarError(exc.code, exc.message, retryable=exc.code in ("unavailable", "capped", FB.STORAGE_BUSY))
 
 
 def _event(repository: Any, event: str, payload: dict[str, Any], *, extraction_id: str | None) -> None:
@@ -281,7 +281,7 @@ def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str,
             # build's FiguresGate), not the one captured here. RW5d P5: a
             # pressed build is foreground work (background prebuilds yield).
             with foreground("figure"):
-                outcome = FS.build_figure(vault, worker_repo, request, author_client=author,
+                outcome = FB.build_figure(vault, worker_repo, request, author_client=author,
                                           live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn,
                                           cancelled=cancelled)
         except FQ.FigureRefused as exc:
@@ -648,8 +648,8 @@ def reader_figure_revise(ctx: SidecarContext, params: FigureReviseInput) -> dict
                                                "workbench).")
     try:
         # RW5d: a show-me figure keeps its goal, home and grounding.
-        revision = FS.rebuild_request(vault, repository, base) if params.rebuild else \
-            FS.revision_request(repository, base, params.note)
+        revision = FB.rebuild_request(vault, repository, base) if params.rebuild else \
+            FB.revision_request(repository, base, params.note)
         revision.different_kind = bool(params.different_kind)
         if current or FQ.attempt_hosted(revision):
             # RW5d P3: a figure open on an attempt host is revised there, under
@@ -757,7 +757,7 @@ def reader_figures(ctx: SidecarContext, params: FiguresInput) -> dict[str, Any]:
         # Codex review F8: a quick figure whose rich job's intent committed but
         # whose job never started (a stop between the two) starts it now.
         try:
-            FS.resume_rich_intents(vault, repository, params.extraction_id,
+            FB.resume_rich_intents(vault, repository, params.extraction_id,
                                    _rich_spawner(ctx, vault, granted=False))
         except Exception:  # noqa: BLE001 - the fuller line keeps saying it is pending; a later read retries
             pass
@@ -858,10 +858,10 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
             and RICH.attempt_hosted_job(repository, job.get("payload") or {}):
         # Ruling R1: an attempt host's rich job (a legacy one) is never asked again.
         raise SidecarError("validation_error", RICH_READER_ONLY)
-    revision = FS.rich_revision_retry(vault, repository, params.rich_job_id)
+    revision = FB.rich_revision_retry(vault, repository, params.rich_job_id)
     if revision is not None:
         try:
-            outcome = FS.build_figure(vault, repository, revision,
+            outcome = FB.build_figure(vault, repository, revision,
                                       author_client=getattr(ctx, "figure_author_client", None),
                                       live_vault=ctx.loaded_vault, find=getattr(ctx, "figure_find_sources", None),
                                       spawn_rich=_rich_spawner(ctx, vault))
@@ -870,7 +870,7 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
         started = (outcome.rich or {}).get("rich_job_id") or params.rich_job_id
         return versioned({"rich_job_id": started, "state": "pending"})
     try:
-        code = FS.retry_rich_job(vault, repository, params.rich_job_id)
+        code = FB.retry_rich_job(vault, repository, params.rich_job_id)
     except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
     jobs = getattr(ctx, "ingest_jobs", None)

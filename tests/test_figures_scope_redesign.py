@@ -25,7 +25,7 @@ import pytest
 
 from learnloop.ai.execution import model_call
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
@@ -211,7 +211,7 @@ def test_the_build_control_makes_every_request(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     counter = _Counter()
     author = _GatedAuthor(list(BUILD_ANSWERS), counter)
-    outcome = FS.build_figure(load_vault(paths.root), repository,
+    outcome = FB.build_figure(load_vault(paths.root), repository,
                               FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert counter.admitted == BUILD_REQUESTS == author.calls
     assert outcome.view["verification"] == "illustrative" and len(rows(repository, "interactive_figures")) == 1
@@ -227,7 +227,7 @@ def test_a_build_makes_no_request_after_its_configuration_changes(tmp_path, flip
     counter = _Counter(lambda: FLIPS[flip](paths.root), after)
     author = _GatedAuthor(list(BUILD_ANSWERS), counter)
     with pytest.raises(FQ.FigureRefused) as caught:
-        FS.build_figure(load_vault(paths.root), repository,
+        FB.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert caught.value.code == "figures_changed"
     assert counter.admitted == after and author.calls == after

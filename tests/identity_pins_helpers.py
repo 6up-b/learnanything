@@ -985,7 +985,7 @@ def _figure_context() -> Any:
 def _reuse_key(request: dict[str, Any] | None = None, *, image: str | None = None, grounding: Any = None,
                **settings: Any) -> Callable[[], Any]:
     def compute() -> Any:
-        from learnloop.figures.service import request_hash
+        from learnloop.figures.build import request_hash
 
         return request_hash(_figure_request(**(request or {})), _figure_context(), image, grounding=grounding,
                             **settings)
@@ -1002,10 +1002,10 @@ def _grounding(mode: str) -> Any:
 def _alternate_keys(*, learner: bool) -> list[str]:
     """The keys a build looks a shown figure up under besides its own: the same input under the other settings of the
     panels, the sketch tier and the rich menu, each followed by its recorded-inputs twin when a learner state was
-    sent. Production assembles this list inline in ``figures.service._build``; the setting tuples are copied from
+    sent. Production assembles this list inline in ``figures.build._build``; the setting tuples are copied from
     there (the panels on, the sketch tier on, the rich menu with Manim: the default build)."""
 
-    from learnloop.figures.service import _recorded_input_key, request_hash
+    from learnloop.figures.build import _recorded_input_key, request_hash
 
     advanced, sketch, tiers = True, True, FIGURE_MENU
     state = FIGURE_LEARNER if learner else None
@@ -1021,7 +1021,7 @@ def _alternate_keys(*, learner: bool) -> list[str]:
 
 
 def _recorded_twin() -> Any:
-    from learnloop.figures.service import _recorded_input_key
+    from learnloop.figures.build import _recorded_input_key
 
     return _recorded_input_key(_reuse_key(advanced=True, sketch=True, tiers=FIGURE_MENU, rich_runtime=FIGURE_RUNTIME,
                                           learner_state=FIGURE_LEARNER)())
@@ -1074,7 +1074,7 @@ def _figure_reuse_keys() -> dict[str, Callable[[], Any]]:
 
 
 def _figure_request_identity(generation: int) -> Callable[[], Any]:
-    """``figures.service._build``'s request identity, assembled there inline: the input and its retry generation."""
+    """``figures.build._build``'s request identity, assembled there inline: the input and its retry generation."""
 
     def compute() -> Any:
         from learnloop.ai.execution import content_key
@@ -1445,15 +1445,15 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         _per_config(_lesson_draw)),
     IdentitySite(
         "K10.4a", "figure reuse key (request_hash) over the build's matrix, its alternates and recorded twins",
-        ("src/learnloop/figures/service.py::request_hash", "src/learnloop/figures/service.py::_build",
-         "src/learnloop/figures/service.py::_recorded_input_key", "src/learnloop/figures/learner_state.py::state_hash"),
+        ("src/learnloop/figures/build.py::request_hash", "src/learnloop/figures/build.py::_build",
+         "src/learnloop/figures/build.py::_recorded_input_key", "src/learnloop/figures/learner_state.py::state_hash"),
         "interactive_figures.input_hash: the reuse index (db/stores/figures.py reusable, latest_for_input) every "
         "press and pre-build looks its figure up by, under its own setting and the five others",
         "every stored figure is orphaned: each later press of the same input pays for a new build",
         _figure_reuse_keys()),
     IdentitySite(
         "K10.4b", "figure request identity (content_key of the input and its retry generation)",
-        ("src/learnloop/figures/service.py::_build",),
+        ("src/learnloop/figures/build.py::_build",),
         "the author route's owner and checkpoints: a build rerun after a crash recovers its paid answers by it",
         "a build interrupted after a paid answer pays for it again",
         {f"generation.{generation}": _figure_request_identity(generation) for generation in (0, 1)}),

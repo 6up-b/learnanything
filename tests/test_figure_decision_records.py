@@ -37,7 +37,7 @@ from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import records as FR
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from tests.figure_fixtures import (
     DENSITY_TEXT,
@@ -259,7 +259,7 @@ def test_a_refused_or_failed_prebuild_is_a_stop_record(tmp_path, monkeypatch, ra
     def refuse(*args, **kwargs):
         raise raised
 
-    monkeypatch.setattr(FS, "build_prefetch_figure", refuse)
+    monkeypatch.setattr(FB, "build_prefetch_figure", refuse)
     result = PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
     (stop,) = records(repository, FR.KIND_BUILD_STOP)
     assert stop["rule"] == rule and stop["status"] == status and stop["subject_id"] == result.decisions[0]["id"]
@@ -343,7 +343,7 @@ def test_a_refused_build_leaves_a_refused_record(tmp_path, monkeypatch):
     monkeypatch.setattr(R.FigureRoute, "problem",
                         lambda self: R.FigureUnavailable("capped", "Today's figure budget is used."))
     with provenance.trace_scope("TRACE_REFUSED"), pytest.raises(FQ.FigureRefused):
-        FS.build_figure(load_vault(paths.root), repository,
+        FB.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=AuthorFake())
     (record,) = why(paths.root, "TRACE_REFUSED")["records"]
     assert (record["kind"], record["status"], record["rule"]) == (FR.KIND_AUTHOR, "refused", "capped")
@@ -405,7 +405,7 @@ def test_a_rich_only_build_names_its_job_and_an_interrupted_build_its_error():
     rich.end(FR.BRIEF_INVALID, problems=2)
     rich.start(2)
     (first, second) = rich.records(request=request, request_id="req_1", model="m",
-                                   outcome=FS.BuildOutcome(None, reused=False, rich={"rich_job_id": "job_1"}))
+                                   outcome=FB.BuildOutcome(None, reused=False, rich={"rich_job_id": "job_1"}))
     assert (first.status, first.rule, first.facts["problems_n"]) == ("discarded", FR.BRIEF_INVALID, 2)
     assert (second.status, second.rule, second.subject_kind, second.subject_id) == ("chosen", FR.ACCEPTED, "job", "job_1")
     assert second.facts["outcome"] == "rich_pending" and first.trace_id == second.trace_id

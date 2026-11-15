@@ -37,7 +37,7 @@ from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.substrate.activities import log_interaction_event
@@ -361,7 +361,7 @@ def test_a_background_build_stops_off_mains_before_any_request(tmp_path):
     author = AuthorFake()
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch")
     with pytest.raises(FQ.FigureRefused) as refused:
-        FS.build_prefetch_figure(vault, repository, request, author_client=author)
+        FB.build_prefetch_figure(vault, repository, request, author_client=author)
     assert refused.value.code == "figures_changed" and author.calls == 0
     assert P.background_hold(vault) == P.NOT_ON_MAINS
 
@@ -417,7 +417,7 @@ def test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service(tmp_p
         call(ctx, "figure.request", {"origin": "prefetch", "anchor": {"extractionId": EXTRACTION, "spanIds": ["p3"]}})
     assert refused.value.code == "validation_error"
     with pytest.raises(FQ.FigureRefused) as direct:
-        FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch"),
+        FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch"),
                         author_client=AuthorFake())
     assert direct.value.code == "validation_error"
 

@@ -27,7 +27,7 @@ import pytest
 from learnloop.ai.execution import model_call
 from learnloop.figure_admission import FiguresChanged, FiguresGate, explorable_yes, offerable
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.tutor import ai_contracts as C
@@ -349,7 +349,7 @@ def test_an_offered_build_stops_when_offers_are_switched_off_before_its_request(
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
         with pytest.raises(FQ.FigureRefused) as caught:
-            FS.build_figure(vault, repository, request, author_client=author)
+            FB.build_figure(vault, repository, request, author_client=author)
     assert caught.value.code == "figures_changed"
     assert author.calls == 0
     assert counts(repository, ["interactive_figures"]) == {"interactive_figures": 0}
@@ -368,7 +368,7 @@ def test_a_selection_build_does_not_stop_for_the_offers_switch(tmp_path):
     import unittest.mock as mock
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
-        outcome = FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+        outcome = FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                                   author_client=author)
     assert outcome.view["origin"] == "selection" and author.calls == 1
 
@@ -387,7 +387,7 @@ def test_a_build_stops_when_the_advanced_panels_are_switched_off_mid_build(tmp_p
 
     with mock.patch.object(R.FigureRoute, "ask", flip_then_ask):
         with pytest.raises(FQ.FigureRefused) as caught:
-            FS.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+            FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                             author_client=author)
     assert caught.value.code == "figures_changed" and author.calls == 0
 

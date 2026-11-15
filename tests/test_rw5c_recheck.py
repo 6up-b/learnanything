@@ -13,7 +13,7 @@ from learnloop.content.authoring import pf_sandbox
 from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
 from learnloop.figures import power as P
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
 from learnloop.figures import grounding as FGR
 from learnloop.figures import request as FQ
@@ -290,11 +290,11 @@ def test_the_reuse_key_is_unchanged_without_a_source_check_id():
     plain = FQ.FigureRequest(extraction_id="e", span_ids=["a"])
     rebuilt = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
     other = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")
-    hashes = {FS.request_hash(request, context_, None) for request in (plain, rebuilt, other)}
+    hashes = {FB.request_hash(request, context_, None) for request in (plain, rebuilt, other)}
     assert len(hashes) == 3
     # initial_problems are the answer to the check row: they never key a request by themselves.
-    assert FS.request_hash(FQ.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
-        == FS.request_hash(plain, context_, None)
+    assert FB.request_hash(FQ.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
+        == FB.request_hash(plain, context_, None)
 
 
 @sandboxed
@@ -305,7 +305,7 @@ def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_pat
     set_switch(paths, False)
     P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
     try:
-        outcome = FS.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
+        outcome = FB.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
             extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
     finally:
         P.set_power_reader(None)
