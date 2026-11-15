@@ -76,7 +76,14 @@ owner's vault report showed every live vault at `mvp-0.58`: the corrections to
 the facet-belief fixes, under the tag's own switch
 (`docs/reviews/refactor-phase-1-fixes-successor.md`), and the robust
 completion gate fixes (refactor bug ledger D-39), under their own switch
-`probe.episode.robust_gate_fixes` (`docs/reviews/refactor-k9.0b.md`). Each is
+`probe.episode.robust_gate_fixes` (`docs/reviews/refactor-k9.0b.md`); and,
+2026-11-15, the grade channel fixes (refactor bug ledger D-36, D-52), under
+their own switch `replay.grade_channel_fixes`: a rebuild keeps each practice
+answer's newest observation and appends a raw grade event or interpretation
+only when it changed, never over a head a review wrote unless the grade
+changed (`docs/reviews/refactor-adfix3.md`, steps b and c, with the owner
+copies' deltas: the first rebuild re-reads the answers earlier rebuilds never
+superseded, ledger D-54). Each is
 gated by one predicate over one tag set, so if a vault reaches `mvp-0.59`
 before an amendment lands, the amendment becomes `mvp-0.60` by changing that
 set, with its own upgrade row; each record says which lines.

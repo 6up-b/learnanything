@@ -248,3 +248,65 @@ No owner copy holds an adjudication.
 ## Not done (the stop)
 
 The playbook, Algorithm Versions / Version Registry notes and the vault's rebuild and replay notes; the vault references regeneration; `scripts/affected_tests.py` on the whole diff and its chunked sweep; the four vault validators; `check_gate_partition.py`; the owner lane. Done: `test_rebuild_history_appends` (13), the rebuild, regrade, grade-resolution, adjudication, grading-CLI, UX phase 4, projection, shadow and upgrade files (871 passed, 6 skipped, 4 xfailed), `test_identity_pins` and the other targeted gates (427 passed; no pin moved, no golden but the effective-defaults line changed, no ratchet rose), the durability lane on the four rebuild files (69 passed), `ruff check`, `lint-imports` (42 kept).
+
+# Step c: what D-36/D-52 move on the owner's copies, and the rest of the step
+
+The orchestrator upheld the stop: the delta is the owner's to read before D-36 and D-52 land. This step adds the sizes (no behaviour changed) and finishes what the stop left. Fresh backup-API copies of the three owner copies under `fixtures-local/adfix3/`, each upgraded to `mvp-0.59` and rebuilt once by the base code and by this branch, compared by a read-only script (numbers and column names only; its raw output is the gitignored `fixtures-local/adfix3/deltas.md`, which the orchestrator copies out). The copies are deleted.
+
+## The deltas, per vault
+
+| | `linear_algebra` | `arxiv_v2` | `probability` |
+|---|---|---|---|
+| attempts with an observation | 85 | 3 | 3 |
+| attempts the base never re-reads (D-54) | 13 | 2 | 1 |
+| attempts the branch appends to (all among those) | 7: interpretation only | 2: raw event + interpretation | 1: raw event + interpretation |
+| why | another calibration model than at live grading (model hash, reference priors, posterior, certainty, LCB, interval, influence flag; same fallback reason, same leading class) | `raw_output_json.max_points` (live: the item's maximum; replay: the cited contract's), and then another calibration model | `max_points` only; the interpretation equals the base's |
+| attempts whose read interpretation differs from the base's | 7 | 2 | 0 |
+| learning objects they belong to | 2 | 2 | 0 |
+| canonical facets with a changed row | 3 | 2 | 0 |
+| certainty LCB (the evidence-mass factor), branch − base | +0.3106 to +0.3317, all 7 up | +0.3267, both up | — |
+| certainty (posterior), branch − base | +0.2775 each | +0.2775 each | — |
+| leading true class or review flag changes | 0 | 0 | 0 |
+| influence flag (certainty < 0.5) cleared | 7 | 2 | 0 |
+
+Every changed reading is **more certain** than the one read today (9 up, 0 down): more mass, the same direction.
+
+**`facet_capability_evidence`** (rows changed / |change| min, median, max / largest relative change; no sign changes):
+
+| Column | `linear_algebra` (3 of 36 rows) | `arxiv_v2` (2 of 2) |
+|---|---|---|
+| `direct_positive_mass` | 3 / 0.1802, 0.3883, 0.3883 / 39.0% | 2 / 0.0092, 0.0098, 0.0105 / 88.5% |
+| `certification_credit`, `direct_certification_credit` | the same | the same |
+| `direct_negative_mass` | unchanged | 2 / 0.0276, 0.0295, 0.0315 / 88.5% |
+
+**`facet_recall_state`**:
+
+| Column | `linear_algebra` (9 of 76 rows) | `arxiv_v2` (4 of 4) |
+|---|---|---|
+| `recall_mean` | 9 / 0.0033, 0.0170, 0.0525 / 8.7% | 4 / 0.0043, 0.0046, 0.0049 / 1.0% |
+| `recall_alpha` | 9 / 0.0249, 0.1802, 0.3883 / 25.3% | 4 / 0.0092, 0.0098, 0.0105 / 1.0% |
+| `recall_beta` | unchanged | 4 / 0.0276, 0.0295, 0.0315 / 3.0% |
+| `recall_variance` | 9 / 0.0007, 0.0028, 0.0102 / 15.1% | 4 / 0.0010, 0.0011, 0.0011 / 1.4% |
+| `independent_evidence_mass` | 4 / 0.3106 each / 80.6% | 4 / 0.0368, 0.0394, 0.0420 / 88.5% |
+| `raw_coverage_mass` | 9 / 0.0995, 0.3106, 0.7207 / 80.6% | 4 / as `independent_evidence_mass` |
+| `consecutive_failures` | unchanged | unchanged |
+
+**Boundaries checked**, base against branch, every cell, LO or facet: the Demonstrated flag (`certification_credit >= 1.0`, `goals.certification`): **1 cell crosses on `linear_algebra`, 0.9946 → 1.3829 (one facet's capability becomes Demonstrated)**, none elsewhere; credit > 0 (the coverage rollup): 0; the facet labels (`facet_state_label` through `mastery_diagnostic_view`, unexamined / uncertain / known_gap / solid, which threshold `independent_evidence_mass` against `recall_coverage.min_facet_evidence_mass`): 0 change; LO certification (`lo_certification`, the goal check and the headline's demonstrated class): 0 of 21 / 34 / 18; the Today headline (`classify_learning_objects`, `today_headline` at a fixed time): 0; LO blueprint readiness (the goal banner and recipe tree): 2 and 1 LOs, by at most 0.0094 and 0.0081, no bottleneck facet changes; the follow-up cold start (sums `independent_evidence_mass` per LO against `followups.cold_start_min_lo_evidence`): not computed separately, the mass moves up only. No product decision thresholds `recall_mean` itself (the router and Ready blend it continuously); as a size, 1 row crosses 0.6 and 2 cross 0.7 on `linear_algebra`, none on `arxiv_v2`.
+
+**Equal**: of the 29 tables compared (every DERIVED table, `practice_item_state`, `practice_attempts`), 26 are byte-equal base against branch on every copy (641 / 4,693 / 1,833 rows, `probability` / `arxiv_v2` / `linear_algebra`), among them `learning_object_mastery` and `practice_item_state` (due dates); `subject_identifiability_watermarks` differs by its stamp; the two canonical tables as above (by stamps only on `probability`). No due date and no mastery value moves, so nothing in the due queue.
+
+**What a learner would see** (the sidecar's own handlers run on both copies, numbers compared leaf by leaf):
+
+- **Knowledge model** (`get_knowledge_map`): `linear_algebra` 23 of 3,468 numbers move: `predictedCorrect` on 11 items by at most 0.0245, `ready` on 3 facets by at most 0.0254, `readyGhost` 3 by 0.0383, `readyVariance` 3 by 0.0082, `evidenceMass` 2 by 0.3106, one `delta` by 0.0249. `arxiv_v2` 11 of 2,523: `ready` 2 by 0.0025, `readyGhost` 2 by 0.0049, `predictedCorrect` 3 by 0.0023, `evidenceMass` 2 by 0.042, `readyVariance` 2 by 0.0011. `probability`: none.
+- **Facet detail** (`get_facet_detail`, Ready and the capability ledger): 3 facets on `linear_algebra` (Ready by at most 0.0074, evidence mass by 0.3106, **one capability's Demonstrated flag false → true**), 2 on `arxiv_v2` (Ready by 0.0085, evidence mass by 0.042, no flag), none on `probability`.
+- **The evidence timeline's Demonstrated** (`facet_evidence_timelines`): 3 facets' latest value on `linear_algebra` (max 0.3883; the same facet's curve crosses 1.0, 0.9946 → 1.3829; 16 points differ), 2 on `arxiv_v2` (max 0.0105), none on `probability`. The session learning diff and "since last time" read these curves, so they show the same moves.
+- **Today**: the headline and the LO classes do not move. The scheduler's selection reads `predicted_facet_recall` continuously (the `predictedCorrect` moves above); I did not build a Today plan on the copies, so whether an item's rank changes is not determined.
+- The review queue's order reads the influence flag: 9 grades lose it, but none of them is flagged for review, so the queue is empty on every copy either way.
+
+## D-54 for the owner
+
+Since `mvp-0.8` (commit `02c3e6e10f`, 2026-07-21, which added the grade channel's dual write; the code tagged `pre-floor` has it), every answer's attempt row and its grade observation are stamped by the wall clock at whole seconds, in one transaction, with the observation written last. When that transaction crosses a second boundary, the observation is stamped one or two seconds after the attempt. A rebuild re-mints the observation at the attempt's own time, so for those answers every re-mint sorts before the live observation, and the projection, which reads each answer's newest observation, kept reading the one written when the answer was graded. A rebuild has therefore never re-interpreted those answers under a newer calibration model (13 of 85 answers on `linear_algebra`, 2 of 3 on `arxiv_v2`, 1 of 3 on `probability`), and a practice regrade of one of them would have reached the projection's grade channel only through its grading-evidence direction, not through its interpretation. On the three copies that second fault did no harm: 8 answers were regraded (7, 1, 0), 1 of them is such an answer, and every answer's read grade channel carries its current score at the base (0 of 91 differ, base and branch alike). Nothing else reads the observation's order: mastery, due dates, every other derived table and the review queue are unaffected. With D-36's fix those answers are re-read once, at the first rebuild under `mvp-0.59`, which is what moves the facet cells above.
+
+## The rest of the step
+
+See the gates below.
