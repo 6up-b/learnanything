@@ -412,7 +412,7 @@ def test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit(t
     from learnloop.clock import FrozenClock
     from learnloop.db.repositories import Repository
     from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
-    from learnloop.figures import service as FS
+    from learnloop.figures import predictions as FPR
     from learnloop.vault.loader import load_vault
 
     paths, ctx, session, figure = _homeless_figure(tmp_path)
@@ -427,7 +427,7 @@ def test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit(t
     second = figure["predictions"][1]["choices"][0]["value"]
     _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 1, "answer": second})
     later = FrozenClock(datetime(2999, 1, 1, tzinfo=UTC))
-    FS.record_explanation(vault, repository, made["predictionId"], "it moved left", clock=later)
+    FPR.record_explanation(vault, repository, made["predictionId"], "it moved left", clock=later)
     after = figure_trace_for_attempt(vault, repository, _attempt(paths, attempt_id))
     assert after == before
     assert [row["assist_id"] for row in _predictions(paths)][1] is None

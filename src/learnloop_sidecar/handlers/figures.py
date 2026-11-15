@@ -83,6 +83,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figures import power as P
 from learnloop.figures import service as FS
+from learnloop.figures import predictions as FPR
 from learnloop.figures import listing as FL
 from learnloop.figures import request as FQ
 from learnloop.figures import view as FV
@@ -926,7 +927,7 @@ def reader_figure_predict(ctx: SidecarContext, params: FigurePredictInput) -> di
 
     vault, repository = _require(ctx)
     try:
-        found = FS.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer,
+        found = FPR.record_prediction(vault, repository, params.figure_id, params.prediction_index, params.answer,
                                      on_queued=_wake_gap_worker(ctx), assist_id=_prediction_assist(vault, repository,
                                                                                                    params.figure_id))
     except FQ.FigureRefused as exc:
@@ -962,7 +963,7 @@ def reader_figure_explain(ctx: SidecarContext, params: FigureExplainInput) -> di
 
     vault, repository = _require(ctx)
     try:
-        found = FS.record_explanation(vault, repository, params.prediction_id, params.text,
+        found = FPR.record_explanation(vault, repository, params.prediction_id, params.text,
                                       on_queued=_wake_gap_worker(ctx))
     except FQ.FigureRefused as exc:
         raise _refused(exc) from exc
