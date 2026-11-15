@@ -391,6 +391,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     figures already opened in this attempt (their chain roots)."""
 
     from learnloop.figures import service as FS
+    from learnloop.figures.spec import SPEC_VERSIONS
     from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.tutor.tutor_qa import span_leaks_expected
 
@@ -399,7 +400,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not store.has_tables(connection):
             return None
-        rows = store.shown_figures(connection, FS.SPEC_VERSIONS, limit=QUALIFYING_SCAN)
+        rows = store.shown_figures(connection, SPEC_VERSIONS, limit=QUALIFYING_SCAN)
         superseded = {str(row[0]) for row in connection.execute(
             "SELECT supersedes_id FROM interactive_figures WHERE supersedes_id IS NOT NULL")}
         roots = {str(row["id"]): chain_root(connection, str(row["id"])) for row in rows}

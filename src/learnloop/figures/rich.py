@@ -74,6 +74,7 @@ from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tier
 from learnloop.figures import labels as L
 from learnloop.figures import manim_figure as M
 from learnloop.figures import routes as R
+from learnloop.figures.spec import MANIM_FIG_VERSION
 from learnloop.ids import new_ulid
 
 RICH_TASK = "figure_rich_author"
@@ -448,7 +449,7 @@ def _item_protected(vault: Any, repository: Repository, base: Mapping[str, Any],
 
 def _existing(repository: Repository, input_hash: str) -> dict[str, Any] | None:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        return store.reusable(connection, input_hash, (M.MANIM_FIG_VERSION,))
+        return store.reusable(connection, input_hash, (MANIM_FIG_VERSION,))
 
 
 def _verified_quotes(brief: Mapping[str, Any], span_texts: Mapping[str, str]) -> tuple[list[dict[str, Any]],
@@ -938,7 +939,7 @@ def content_key_for(payload: Mapping[str, Any]) -> str:
 def canonical_spec(figure: M.ManimFigure, brief: Mapping[str, Any], assumptions: Sequence[Mapping[str, Any]],
                    claims: Sequence[Mapping[str, Any]]) -> str:
     return json.dumps({
-        "spec_version": M.MANIM_FIG_VERSION, "title": figure.title, "scene_class": figure.scene_class,
+        "spec_version": MANIM_FIG_VERSION, "title": figure.title, "scene_class": figure.scene_class,
         "scene_code": figure.scene_code, "narration_md": figure.narration_md,
         "demonstrates": brief.get("demonstrates") or "", "assumptions": [dict(a) for a in assumptions],
         "source_claims": [{"span_id": c["span_id"], "quote": c["quote"]} for c in claims],
@@ -962,9 +963,9 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
         "request_id": payload.get("request_id"), "goal_text": base.get("goal_text"),
         "grounding": base.get("grounding") or "anchor", "tier": "manim", "origin": base.get("origin") or "selection",
         "supersedes_id": payload.get("supersedes_id"), "revision_note": (payload.get("revision") or {}).get("note"),
-        "spec_version": M.MANIM_FIG_VERSION, "model": route.model,
+        "spec_version": MANIM_FIG_VERSION, "model": route.model,
         "prompt_version": RICH_PROMPT_VERSION, "input_hash": str(payload["input_hash"]), "created_at": created_at,
-        "spec_json": None, "kind": None, "unsupported_kind": None, "program_version": M.MANIM_FIG_VERSION,
+        "spec_json": None, "kind": None, "unsupported_kind": None, "program_version": MANIM_FIG_VERSION,
         "runtime_digest": runtime_digest(vault),
         # A revision of a fuller version stays that quick figure's fuller version (§8.5).
         "fuller_of_id": payload.get("fast_figure_id") or payload.get("fuller_of_id"), "checks": [],

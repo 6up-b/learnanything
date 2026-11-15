@@ -42,7 +42,6 @@ from learnloop.figure_admission import sketch_enabled
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
 
-SKETCH_VERSION = "sketch-v1"
 #: keep (operational): bounds a program to one idea, reviewable.
 SKETCH_MAX_SOURCE_BYTES = 32_768  # 32 KiB
 #: keep (display): renderer cost.
@@ -901,7 +900,6 @@ __all__ = [
     "SKETCH_PLAY_TICKS",
     "SKETCH_TIME_SAMPLES",
     "SKETCH_VERIFY_SECONDS",
-    "SKETCH_VERSION",
     "SKETCH_WATCHDOG_FRAMES",
     "SketchError",
     "SketchProgramV1",

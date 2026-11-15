@@ -131,12 +131,13 @@ def _manim_row(**changes: Any) -> dict[str, Any]:
 
     from learnloop.figures import manim_figure as M
     from learnloop.figures import rich as RICH
+    from learnloop.figures.spec import MANIM_FIG_VERSION
 
     figure = M.ManimFigure(scene_code=changes.pop("scene_code", SCENE), scene_class="Area",
                            title=changes.pop("title", "zebra stripes"),
                            narration_md=changes.pop("narration_md", "zebra stripes"))
     spec = RICH.canonical_spec(figure, {"demonstrates": "zebra stripes", "brief": "b"}, [], [])
-    return {"spec_json": spec, "spec_version": M.MANIM_FIG_VERSION, "tier": "manim"}
+    return {"spec_json": spec, "spec_version": MANIM_FIG_VERSION, "tier": "manim"}
 
 
 def test_s0_f13_an_undisplayed_string_in_a_scene_is_not_reveal_text():

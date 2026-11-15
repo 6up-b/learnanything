@@ -184,7 +184,6 @@ from learnloop.figure_admission import (
 from learnloop.figure_admission import GROUNDING_PASSAGES as ADMISSION_GROUNDING_PASSAGES
 from learnloop.figures import elements as E
 from learnloop.figures import labels as L
-from learnloop.figures import manim_figure as M
 from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
@@ -193,6 +192,7 @@ from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.figures import verify as V
 from learnloop.figures.sketch import sketch_ready
+from learnloop.figures.spec import ALL_SPEC_VERSIONS, RICH_SPEC_VERSIONS, SPEC_VERSIONS
 from learnloop.ids import new_ulid
 
 #: The origins a request may name. RW5d P1 adds ``show_me`` (the Reader's
@@ -245,12 +245,6 @@ FIGURE_PREFIX = "fig_"
 LABELS = {
     "illustrative": L.ILLUSTRATIVE_LABEL,
 }
-#: RW5d P2: the spec versions a stored figure may have (a grammar spec or a sketch).
-SPEC_VERSIONS = (S.SPEC_VERSION, K.SKETCH_VERSION)
-#: RW5d P2b: a rich figure's versions (a Manim figure); listed under its quick
-#: figure when it follows one (``fuller_of_id``), else on its own line.
-RICH_SPEC_VERSIONS = (M.MANIM_FIG_VERSION,)
-ALL_SPEC_VERSIONS = SPEC_VERSIONS + RICH_SPEC_VERSIONS
 #: The sketch's code-owned badges (spec §6.6, §9.5; :mod:`.labels`): never "checked against the book".
 SKETCH_LABEL = L.SKETCH_LABEL
 SKETCH_UNCHECKED_LABEL = L.SKETCH_UNCHECKED_LABEL
@@ -1017,7 +1011,7 @@ def advanced_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
 def sketch_row(row: Mapping[str, Any]) -> bool:
     """RW5d P2: a stored sketch."""
 
-    return row.get("tier") == "sketch" or row.get("spec_version") == K.SKETCH_VERSION
+    return row.get("tier") == "sketch" or row.get("spec_version") == S.SKETCH_VERSION
 
 
 def sketch_off_row(vault: Any, row: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1693,11 +1687,11 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
     if sketch:
         from learnloop.figures.sketch_engine import ENGINE_SHA256
 
-        key["sketch"] = {"program_version": K.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256}
+        key["sketch"] = {"program_version": S.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256}
     menu = R.rich_menu(tiers)
     if menu is not None:
         key["rich"] = {"tiers_allowed": list(menu),
-                       "manim": {"version": M.MANIM_FIG_VERSION, "runtime": rich_runtime}
+                       "manim": {"version": S.MANIM_FIG_VERSION, "runtime": rich_runtime}
                        if "manim" in menu else None}
     if learner:
         from learnloop.figures.learner_state import state_hash
@@ -2999,9 +2993,9 @@ def _store_sketch(vault: Any, repository: Repository, request: FigureRequest, co
         "input_span_keys": list(dict.fromkeys(context.keys)),
         "request_id": asked["id"], "goal_text": request.goal_text, "grounding": grounding.mode, "tier": "sketch",
         "origin": request.origin, "supersedes_id": request.supersedes_id, "revision_note": request.revision_note,
-        "spec_version": K.SKETCH_VERSION, "model": author.model, "prompt_version": prompt_version,
+        "spec_version": S.SKETCH_VERSION, "model": author.model, "prompt_version": prompt_version,
         "input_hash": input_hash, "created_at": utc_now_iso(clock), "spec_json": None, "kind": None,
-        "unsupported_kind": None, "program_version": K.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256,
+        "unsupported_kind": None, "program_version": S.SKETCH_VERSION, "engine_sha256": ENGINE_SHA256,
         "runtime_digest": f"{ENGINE_VERSION}:{ENGINE_SHA256}", "checks": [],
     }
     if sketched is not None and report is not None and report.outcome == V.ILLUSTRATIVE:
