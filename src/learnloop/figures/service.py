@@ -2471,7 +2471,8 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
         attempts.start(attempt + 1)
         prompt = R.author_prompt(_author_context(request, context, digest, previous, problems, request_id=request_id,
                                                  grounding=grounding),
-                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner)
+                                 advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers, learner=learner,
+                                 rich_brief_max=RICH.RICH_BRIEF_MAX)
         try:
             output = author.ask(prompt, R.output_model(sketch=sketch, tiers=tiers), images=images,
                                 metadata={"attempt": attempt + 1, "prompt_version": prompt_version})
