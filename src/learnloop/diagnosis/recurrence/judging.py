@@ -175,7 +175,7 @@ def model_label(client: Any) -> str:
 def producer_label(client: Any) -> str:
     """Who produced a verdict: the model AND its reasoning effort.
 
-    Codex's low and medium tiers serve one model (``gpt-5.6-sol``) at
+    Codex's low and medium tiers serve one model (``gpt-6.1-sol``) at
     different efforts: a guard pass or a reused verdict from one must not
     count for the other (second review F10). The label is ``model@effort``
     (just ``model`` without an effort); it is what ``judgment_ledger.judge_model``

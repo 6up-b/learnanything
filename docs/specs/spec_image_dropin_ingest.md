@@ -22,7 +22,7 @@ stimulus (see §6 for the diagram escape hatch).
    assumes the phone did the cropping.
 3. **Transcribe.** A durable job sends the image + a transcription prompt to
    the provider routed for the new `image_transcription` task — `codex_low`
-   (gpt-5.6-sol, low effort, ChatGPT subscription auth) by default. Output is
+   (gpt-6.1-sol, low effort, ChatGPT subscription auth) by default. Output is
    structured: markdown transcript (LaTeX math, fenced code) + a
    `diagram_present` flag.
 4. **Review (mandatory).** Side-by-side photo and editable transcript. Vision
