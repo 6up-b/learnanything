@@ -4437,14 +4437,14 @@ class TeacherConfig(KeepsRetiredFields):
     replay reads any of it; a refused row rolls back alone with a warning. Off,
     nothing of it is written and lessons are the predecessor's byte for byte.
 
-    ``probes`` is the kill switch of the ``mvp-0.51`` successor: at that tag or later, with lessons on, a
-    lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up generation path
-    with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap pipeline with
-    ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a new topic
-    through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``); the brief is ``lesson_brief_v2`` (no vault
-    probe headers; where the last lesson left off); and Today offers *Continue your lesson*. Off, or below the
-    tag, every lesson is the predecessor's byte for byte. ``placement.max_probes`` (8, fixed): the probes one
-    lesson may ask for.
+    Lesson probes (the ``mvp-0.51`` successor; its switch went once every vault was past the tag): wherever
+    lessons are on, a lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up
+    generation path with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap
+    pipeline with ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a
+    new topic through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``); the brief is ``lesson_brief_v2``
+    (no vault probe headers; where the last lesson left off); and Today offers *Continue your lesson*. A lesson
+    opened before (brief ``lesson_brief_v1``) continues as it was opened. ``placement.max_probes`` (8, fixed): the
+    probes one lesson may ask for.
     """
 
     confidence_events_enabled: bool = True
@@ -4459,8 +4459,6 @@ class TeacherConfig(KeepsRetiredFields):
     visuals: bool = True
     # The episode log, intervals and node forecasts (off: nothing written, the predecessor's lessons exactly).
     episode_log: bool = True
-    # Lesson probes: the successor's kill switch (off, or below the tag: the predecessor's lessons exactly).
-    probes: bool = True
     placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 

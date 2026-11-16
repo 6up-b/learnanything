@@ -115,21 +115,6 @@ def test_remint_refuses_the_identity(tmp_path):
     assert caught.value.code == "generated_probe_single_use"
 
 
-def test_the_teachers_probe_headers_leave_it_out(tmp_path):
-    from learnloop.teacher.brief import _probe_headers
-
-    class Nothing:
-        @staticmethod
-        def reason(_item_id):
-            return None
-
-    _vault, repository, paths = rival_causes_vault(tmp_path)
-    vault = generated_item(paths.root, repository, ITEM, source="entry")
-    lo_id = vault.practice_items[ITEM].learning_object_id
-    headers = _probe_headers(vault, repository, lo_id, Nothing(), set(), {})
-    assert ITEM not in {row["id"] for row in headers}
-
-
 def test_an_exam_never_reserves_one(tmp_path):
     from learnloop.clock import FrozenClock
     from learnloop.followup_serve import identity as fg1_identity

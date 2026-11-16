@@ -1122,7 +1122,6 @@ teacher.episode_log = true
 # teacher.max_lesson_cost_usd = null
 # teacher.metered_price_per_million = null
 teacher.placement.max_probes = 8
-teacher.probes = true
 teacher.visuals = true
 trace_evidence.elicitation_enabled = true
 trace_evidence.max_elicitations_per_session = 2

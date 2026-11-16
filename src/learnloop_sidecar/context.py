@@ -1034,17 +1034,16 @@ def _lessons_active(vault: LoadedVault) -> bool:
 
 def _teacher_dto(vault: LoadedVault) -> dict[str, Any]:
     """TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2``
-    while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise)."""
+    (lessons may open on a typed goal and Today offers "Continue your lesson") with ``lessons``, which the desktop
+    still reads (absent otherwise)."""
 
     if not _lessons_active(vault):
         return {}
     # Teacher TE3b: ``suggestions`` while TE1b's suggestions are on, where the objective serves the offers too (the
     # card then shows only a Start whose lesson never opened); below its tag TE1b's gate exactly.
     from learnloop.daily_plan.lesson_suggestion import suggestions_enabled
-    from learnloop.teacher.te2 import on as te2_on
 
-    return {"teacher": {"lessons": True, **({"suggestions": True} if suggestions_enabled(vault) else {}),
-                        **({"te2": True} if te2_on(vault) else {})}}
+    return {"teacher": {"lessons": True, **({"suggestions": True} if suggestions_enabled(vault) else {}), "te2": True}}
 
 
 def config_dto(vault: LoadedVault) -> dict[str, Any]:

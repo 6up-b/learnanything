@@ -814,9 +814,9 @@ ROUTER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.50"
 # is created (gaps with source lesson through the text-gap pipeline; new
 # topics for a typed goal through create_goal_lo, mechanism teacher_goal_v1).
 # The brief becomes lesson_brief_v2 (no vault probe headers; where the last
-# lesson left off) and Today offers "Continue your lesson". Kill switch:
-# ``teacher.probes`` (off, or below the tag: TE1's and TE2-log's lessons byte
-# for byte), with the existing ``teacher.enabled``. Replay re-applies the
+# lesson left off) and Today offers "Continue your lesson", wherever lessons
+# are on (``teacher.enabled``); its kill switch went once every vault was past
+# the tag. Replay re-applies the
 # probe's attempt as an existing type; nothing new is derived.
 TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 

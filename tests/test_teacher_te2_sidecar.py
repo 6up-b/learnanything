@@ -4,9 +4,8 @@ reads (``teacher.te2``). Every model is a fake; no network."""
 
 from __future__ import annotations
 
-import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import TEACHER_PROBES_ALGORITHM_VERSION
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, plan_turn
@@ -54,15 +53,8 @@ def test_lesson_goal_and_open_lessons_through_the_handlers(tmp_path, monkeypatch
     assert [entry.get("lessonId", entry.get("lesson_id")) for entry in listed] == [view["lesson_id"]]
 
 
-def test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key(tmp_path):
+def test_the_config_carries_the_te2_key_with_lessons(tmp_path):
     from learnloop_sidecar.context import config_dto
-    from learnloop_sidecar.errors import SidecarError
-    from learnloop_sidecar.handlers import lesson as H
 
-    paths, _repository, ctx = _ctx(tmp_path, version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
-    with pytest.raises(SidecarError) as refused:
-        H.lesson_goal(ctx, H.LessonGoalInput.model_validate({"text": "eigenvalues"}))
-    assert refused.value.code == "teacher_unavailable"
-    assert "te2" not in config_dto(load_vault(paths.root)).get("teacher", {})
     on, _r, _c = _ctx(tmp_path / "on")
     assert config_dto(load_vault(on.root))["teacher"]["te2"] is True

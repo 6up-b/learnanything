@@ -395,13 +395,13 @@ def _prompt_version(visuals: bool, episodes: bool, te2: bool) -> str:
 
 
 def _te2_now(vault: Any, state: LessonState) -> bool:
-    """TE2 serves this lesson now: it was opened under TE2 (its brief) and the switch is on now."""
+    """TE2 serves this lesson now: it was opened under TE2 (its brief) and lessons are on now."""
 
     return T2.lesson_te2(state) and T2.on(vault)
 
 
 def _te2_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool:
-    """TE2 writes for this turn: it was written under the TE2 paragraph and the switch is on now."""
+    """TE2 writes for this turn: it was written under the TE2 paragraph and lessons are on now."""
 
     return bool(((turn_entry or {}).get("payload") or {}).get("te2")) and T2.on(vault)
 
@@ -677,12 +677,9 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     if origin != "learner_pick" or entry != "learning_object" or selection:
         preference_id = None
         probe_episode_id = None
-    # Teacher TE2 (§11.5, §8.1 rev 5): typed goals, and the brief's version without vault probe headers.
-    te2 = T2.on(vault)
+    # Teacher TE2 (§11.5): a typed goal resolves to topics before the brief is built.
     typed = None
     if entry == "typed_goal":
-        if not te2:
-            raise LessonError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         from learnloop.teacher import topics as TP
         from learnloop.vault.loader import load_vault
 
@@ -728,7 +725,7 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                                                learning_object_ids=los)
     brief, book = build_brief(vault, repository, learning_object_ids=los, how=how, goal_text=text,
                               selection=selected, driver=driver, lesson_id=lesson_id, constraints=constraints,
-                              notes_provider=your_notes, notes_check=notes_still_deliverable, te2=te2,
+                              notes_provider=your_notes, notes_check=notes_still_deliverable,
                               origin=origin, origin_ref=origin_ref, follow_record=follow_record,
                               preference_ref=preference_id or None,
                               opens_at=utc_now_iso(clock) if preference_id else None, from_check=check_entry)
@@ -2566,9 +2563,9 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
 
 def open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]:
     """Teacher TE2 (§11.8): Today's *Continue your lesson on X*, newest first: every open lesson with its topic in
-    plain words. Nothing closes a lesson on a timer. [] unless TE2 serves (display only, no model call)."""
+    plain words. Nothing closes a lesson on a timer. [] with lessons off (display only, no model call)."""
 
-    if not (lessons_active(vault) and T2.on(vault)):
+    if not lessons_active(vault):
         return []
     out = []
     with repository.connection() as connection:

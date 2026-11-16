@@ -63,8 +63,8 @@ export interface AlgoDisplayConfig {
    *  only while Today may suggest a lesson, so false until it says so, and off
    *  Today never asks for the suggestion card. */
   lessonSuggestions: boolean;
-  /** Teacher TE2 (`teacher.probes` at its successor, with lessons on): the sidecar sends `teacher.te2` only
-   *  then; off, Today offers no "Continue your lesson" and no "What do you want to learn?". */
+  /** Teacher TE2 (lesson probes, typed goals, "Continue your lesson"): the sidecar sends `teacher.te2` with
+   *  `teacher.lessons`; without it, Today offers no "Continue your lesson" and no "What do you want to learn?". */
   lessonGoals: boolean;
 }
 

@@ -75,7 +75,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "followup.generate_and_serve",
     "workbench.field_signals_enabled",
     "teacher.enabled",
-    "teacher.probes",
     "adaptive_difficulty.enabled",
     "adaptive_difficulty.selection",
     "adaptive_difficulty.promoted_predictor",

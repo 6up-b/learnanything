@@ -291,14 +291,11 @@ def lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]:
     the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing
     matched with a proposed topic. Nothing is written but the resolution and its ledger verdict."""
 
-    from learnloop.teacher import te2 as T2
     from learnloop.teacher import topics as TP
 
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        if not T2.on(vault):
-            raise SidecarError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         return versioned(TP.resolve(vault, repository, params.text))
     except S.LessonError as exc:
         raise _error(exc) from exc

@@ -124,3 +124,25 @@ def _probe(lesson):
 
     with lesson.repository.connection() as connection:
         return PR.probes(store.turns(connection, lesson.lesson_id))[0]
+
+
+def as_opened_before_te2(repository, lesson_id: str, probes: dict[str, list[str]] | None = None) -> None:
+    """Give a lesson's stored brief the shape a lesson opened before TE2 has (``lesson_brief_v1``: each node lists
+    vault probe items, ``probes`` by LO, instead of its delayed-check line). No lesson opens so any more, but one
+    opened before keeps its brief, and the code that continues it, closes it and reads its items stays."""
+
+    import json
+
+    with repository.atomic(), repository.connection() as connection:
+        turn_id, payload = connection.execute(
+            "SELECT t.id, p.payload_json FROM lesson_turns t JOIN lesson_turn_payloads p ON p.turn_id = t.id "
+            "WHERE t.lesson_id = ? AND t.action = 'open'", (lesson_id,)).fetchone()
+        data = json.loads(payload)
+        brief = data["brief"]
+        brief["version"] = "lesson_brief_v1"
+        brief.pop("where_you_left_off", None)
+        for node in brief["nodes"]:
+            node.pop("delayed_check", None)
+            node["probes"] = [{"id": item, "stem": "", "predicted": None} for item in (probes or {}).get(node["id"], [])]
+        connection.execute("UPDATE lesson_turn_payloads SET payload_json = ? WHERE turn_id = ?",
+                           (json.dumps(data), turn_id))

@@ -219,7 +219,7 @@ class TeacherTurnVisualsEpisodesV1(TeacherTurnVisualsV1):
     requests: list[ActionRequestVisualsEpisodesV1] = Field(default_factory=list, max_length=8)
 
 
-# --- Teacher TE2: probes and gaps (teacher.probes, rev 5 §9, §11.3, §11.7) ------------------------------
+# --- Teacher TE2: probes and gaps (rev 5 §9, §11.3, §11.7) ----------------------------------------------
 
 #: The actions TE2 adds: a generated single-use probe (FG1's generation path, lesson origin) and a gap filed from
 #: the learner's words (the text-gap pipeline, ``source_kind = 'lesson'``).

@@ -399,8 +399,8 @@ def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
     off_paths, _ = _vault(tmp_path, name="off", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     set_config(off_paths.root, {("router", "lesson_suggestions", "enabled"): False})
     on, off = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths))
-    assert on["teacher"] == {"lessons": True, "suggestions": True}
-    assert off["teacher"] == {"lessons": True}
+    assert on["teacher"] == {"lessons": True, "suggestions": True, "te2": True}
+    assert off["teacher"] == {"lessons": True, "te2": True}
 
 
 def test_todays_plan_is_byte_identical_with_a_suggestion_drawn(tmp_path, shown):

@@ -1,4 +1,4 @@
-"""``LessonBriefV1``: the lesson's opening context, built deterministically from the ledger (spec_teacher_v1 §8.1).
+"""The lesson brief (``lesson_brief_v2``): the lesson's opening context, built deterministically from the ledger (spec_teacher_v1 §8.1).
 
 The brief is the only learner context at open; anything more comes through
 actions. It holds:
@@ -10,8 +10,10 @@ actions. It holds:
   its statement, its label (demonstrated, assumed, learning or new), the predicted
   unassisted success in words with its interval and the predictor named
   (adaptive difficulty's readiness line beside it when AD serves), retrievability,
-  the last cold result, open misconceptions, and eligible vault probe items as
-  headers only (C4: the learner's linked notes as headers, ``your_notes``);
+  the last cold result, open misconceptions, and whether a delayed check could be
+  committed on it (TE2: no vault item named; a brief before TE2, ``lesson_brief_v1``,
+  listed eligible vault probe items as headers, and its readers still read them)
+  (C4: the learner's linked notes as headers, ``your_notes``);
 * ``history``: one-line headers of attempts and tutor questions on these LOs
   (assisted, primed or cold, the tap and the hedge read); text comes through
   ``read_history``;
@@ -45,7 +47,6 @@ from typing import Any
 from learnloop.adf_numeric import sigmoid
 from learnloop.attempts.grading_admission import estimated_prompt_tokens
 from learnloop.learner.lesson_weight import predicted_success
-from learnloop.teacher.contracts import BRIEF_VERSION
 from learnloop.teacher.diagnosed_sources import OVER_BUDGET, TOPIC_FILLS_BUDGET
 from learnloop.teacher.doctrines import doctrine_identity
 
@@ -414,24 +415,6 @@ def _history(vault: Any, repository: Any, learning_object_ids: Sequence[str], wi
             out.append({"id": f"q:{event_id}", "learning_object_id": item_ids[item_id], "at": created,
                         "kind": "tutor_question", "line": " ".join(str(question).split())[:STEM_CHARS]})
     out.sort(key=lambda entry: (str(entry["at"]), entry["id"]))
-    return out
-
-
-def _probe_headers(vault: Any, repository: Any, learning_object_id: str, withheld: Any,
-                   attempted: set[str], prediction: Mapping[str, Any]) -> list[dict[str, Any]]:
-    from learnloop.followup_serve.identity import generated_probe_ids
-    from learnloop.vault.lifecycle import practice_item_serving_block
-
-    # FG1 §4.2: a generated probe is never a lesson's check, attempted or not.
-    generated = generated_probe_ids(repository)
-    out = []
-    for item in sorted(vault.practice_items.values(), key=lambda i: i.id):
-        if item.learning_object_id != learning_object_id or item.id in attempted or item.id in generated:
-            continue
-        if withheld.reason(item.id) or practice_item_serving_block(vault, item) is not None:
-            continue
-        out.append({"id": item.id, "stem": " ".join(str(item.prompt).split())[:STEM_CHARS],
-                    "predicted": prediction.get("p")})
     return out
 
 
@@ -820,11 +803,11 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
                 goal_text: str, selection: Mapping[str, Any] | None, driver: str, lesson_id: str | None,
                 constraints: Mapping[str, Any],
                 notes_provider: Any = None, notes_check: NotesCheck | None = None,
-                te2: bool = False, origin: str | None = None, origin_ref: str | None = None,
+                origin: str | None = None, origin_ref: str | None = None,
                 follow_record: dict[str, Any] | None = None, preference_ref: str | None = None,
                 opens_at: str | None = None,
                 from_check: Mapping[str, Any] | None = None) -> tuple[dict[str, Any], SourceBook]:
-    """``(LessonBriefV1, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
+    """``(the brief, the delivered passages)``. ``notes_provider`` (curriculum C4) gives the learner's
     linked notes per LO; it is injected by the service (``teacher.notes``), so the brief, and the check
     minting that reads it, never reach the notes' code (spec_deliverable_curriculum_v1 §10.2).
     ``notes_check`` (injected the same way): whether the notes an earlier lesson was given could still be
@@ -846,6 +829,8 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
 
     from learnloop.learner.lesson_weight import read_hedges
     from learnloop.learner_protection import withheld_items
+    from learnloop.teacher import te2 as T2
+    from learnloop.teacher.te2 import delayed_check_words
     from learnloop.source_retrieval.reading_paths import lo_statuses
     from learnloop.source_retrieval.section_coverage import Library
 
@@ -877,15 +862,9 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
             "last_cold": last_cold,
             "misconceptions": _misconceptions(repository, lo),
         }
-        if te2:
-            # Teacher TE2 (§8.1 rev 5): probes are generated (§11.3), so no vault item is listed; the node says only
-            # whether a delayed check could be committed on it.
-            from learnloop.teacher.te2 import delayed_check_words
-
-            node["delayed_check"] = delayed_check_words(vault, repository, lo, withheld=withheld,
-                                                        attempted=attempted)
-        else:
-            node["probes"] = _probe_headers(vault, repository, lo, withheld, attempted, prediction)
+        # Teacher TE2 (§8.1 rev 5): probes are generated (§11.3), so no vault item is listed; the node says only
+        # whether a delayed check could be committed on it.
+        node["delayed_check"] = delayed_check_words(vault, repository, lo, withheld=withheld, attempted=attempted)
         if notes.get(lo):
             node["your_notes"] = notes[lo]
         nodes.append(node)
@@ -931,7 +910,7 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
         goal["resolved_by"] = {lo: (f"your deliverable: {deliverable['phrases'][lo]}" if deliverable["phrases"].get(lo)
                                     else how.get(lo)) for lo in learning_object_ids}
     brief = {
-        "version": BRIEF_VERSION,
+        "version": T2.BRIEF_VERSION_V2,
         "goal": goal,
         "nodes": nodes,
         "history": history,
@@ -942,14 +921,9 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     }
     if from_check is not None:
         brief["from_check"] = dict(from_check)
-    if te2:
-        from learnloop.teacher import te2 as T2
-
-        brief["version"] = T2.BRIEF_VERSION_V2
-        left_off = T2.where_you_left_off(vault, repository, learning_object_ids, exclude=lesson_id,
-                                         notes_check=notes_check)
-        if left_off is not None:
-            brief["where_you_left_off"] = left_off
+    left_off = T2.where_you_left_off(vault, repository, learning_object_ids, exclude=lesson_id, notes_check=notes_check)
+    if left_off is not None:
+        brief["where_you_left_off"] = left_off
     return brief, book
 
 
