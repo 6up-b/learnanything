@@ -37,10 +37,12 @@ from learnloop.diagnosis.repair_splice import (
     splice_repaired_answer,
 )
 from learnloop.vault.models import (
+    GradingValidationError as GradingValidationError,
     LoadedVault,
     PracticeItem,
     Rubric,
     learning_object_facet_union,
+    resolved_rubric as resolved_rubric,
 )
 from learnloop.vault.required_method import presented_prompt
 
@@ -266,10 +268,6 @@ def confidence_to_grader_confidence(confidence: int) -> float:
     if confidence not in mapping:
         raise ValueError("confidence must be between 1 and 5")
     return mapping[confidence]
-
-
-class GradingValidationError(ValueError):
-    pass
 
 
 _OPTION_LETTER = re.compile(r"^\s*\(?([A-H])\)?\s*[\.\):—-]?\s*", re.IGNORECASE)
@@ -1719,15 +1717,6 @@ def _validated_clarification(
         "criterion_id": criterion_id,
         "trigger": trigger,
     }
-
-
-def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
-    rubric = vault.rubric_for_item(item)
-    if rubric is None:
-        raise GradingValidationError(
-            f"{item.id} has no grading_rubric and no default rubric for practice mode {item.practice_mode}"
-        )
-    return rubric
 
 
 def _resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float:

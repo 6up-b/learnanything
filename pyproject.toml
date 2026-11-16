@@ -1185,7 +1185,6 @@ ignore_imports = [
     "learnloop.ingest.extractors -> learnloop.ai.spend",
     "learnloop.ingest.extractors.glm_ocr -> learnloop.ai.execution",
     "learnloop.ingest.extractors.glm_ocr -> learnloop.ai.spend",
-    "learnloop.learner.assessment_contracts -> learnloop.attempts.grading",
     "learnloop.learner.capability_grid -> learnloop.goals.certification",
     "learnloop.learner.capability_grid -> learnloop.goals.goal_certification",
     "learnloop.learner.capability_grid -> learnloop.goals.goal_projection",

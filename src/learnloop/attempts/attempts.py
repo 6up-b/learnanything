@@ -109,7 +109,7 @@ from learnloop.learner.facet_state_reader import (
     canonical_uncertainty_rows,
     facet_belief_corrections_on,
 )
-from learnloop.content.proposals.proposals import maybe_promote_self_tagged_fatal_error
+from learnloop.content.proposals.self_tagged_fatal import maybe_promote_self_tagged_fatal_error
 from learnloop.learner.recall_coverage import (
     CoverageResult,
     ErrorImpactResult,
