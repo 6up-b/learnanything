@@ -24479,84 +24479,6 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def append_failure_triage_event(
-        self,
-        *,
-        run_id: str,
-        kind: str,
-        tier: str,
-        decisive: bool,
-        attempt_id: str | None = None,
-        route_id: str | None = None,
-        selected_reason: str | None = None,
-        distribution_json: str | None = None,
-        alternatives_json: str | None = None,
-        inputs_snapshot_json: str | None = None,
-        routing_prior_json: str | None = None,
-        override_actor: str | None = None,
-        override_reason: str | None = None,
-        anchor_sample_id: str | None = None,
-        auto_committed: bool = False,
-        goal_contract_head_version_id: str | None = None,
-        idempotency_key: str | None = None,
-        clock: Clock | None = None,
-    ) -> dict[str, Any]:
-        """Append one triage decision to the append-only ledger (§6.1). ``seq`` is a
-        monotone per-run ordinal computed inside the write transaction. When
-        ``idempotency_key`` is supplied, a retried append with the same key returns the
-        EXISTING event instead of writing a duplicate (§12.6 exactly-once)."""
-
-        now = utc_now_iso(clock)
-        connection = self.connection()
-        connection.isolation_level = None
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            if idempotency_key is not None:
-                existing = connection.execute(
-                    "SELECT * FROM failure_triage_events WHERE run_id = ? AND idempotency_key = ?",
-                    (run_id, idempotency_key),
-                ).fetchone()
-                if existing is not None:
-                    connection.execute("ROLLBACK")
-                    return dict(existing)
-            head = connection.execute(
-                "SELECT COALESCE(MAX(seq), 0) AS s FROM failure_triage_events WHERE run_id = ?",
-                (run_id,),
-            ).fetchone()
-            seq = int(head["s"]) + 1
-            event_id = new_ulid()
-            connection.execute(
-                """
-                INSERT INTO failure_triage_events(
-                  id, run_id, attempt_id, kind, tier, decisive, route_id, selected_reason,
-                  distribution_json, alternatives_json, inputs_snapshot_json, routing_prior_json,
-                  override_actor, override_reason, anchor_sample_id, auto_committed,
-                  goal_contract_head_version_id, seq, idempotency_key, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event_id, run_id, attempt_id, kind, tier, 1 if decisive else 0, route_id,
-                    selected_reason, distribution_json, alternatives_json, inputs_snapshot_json,
-                    routing_prior_json, override_actor, override_reason, anchor_sample_id,
-                    1 if auto_committed else 0, goal_contract_head_version_id, seq,
-                    idempotency_key, now,
-                ),
-            )
-            connection.execute("COMMIT")
-            row = connection.execute(
-                "SELECT * FROM failure_triage_events WHERE id = ?", (event_id,)
-            ).fetchone()
-            return dict(row)
-        except Exception:
-            try:
-                connection.execute("ROLLBACK")
-            except sqlite3.OperationalError:
-                pass
-            raise
-        finally:
-            connection.close()
-
     def failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
             rows = connection.execute(
@@ -24564,13 +24486,6 @@ class Repository(
                 (run_id,),
             ).fetchall()
         return [dict(row) for row in rows]
-
-    def failure_triage_event(self, event_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM failure_triage_events WHERE id = ?", (event_id,)
-            ).fetchone()
-        return dict(row) if row is not None else None
 
     # ------------------------------------------------------------------
     # P2 step B.11 -- reader dialogue (U-033, §7.6). Reader events ride the P0

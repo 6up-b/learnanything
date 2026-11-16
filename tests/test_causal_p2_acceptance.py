@@ -15,7 +15,7 @@ The walk::
     with ZERO diagnosis delta unless independent evidence exists.
 
 Every step goes through a real entry point -- ``apply_attempt``,
-``failure_triage.triage``, ``causal_repair_status``, ``accept_probe_offer``
+``causal_repair_status``, ``accept_probe_offer``
 (which is ``enter_episode`` -> ``commit_presentation``),
 ``classify_probe_response``, ``record_unresolved_cause_self_report``,
 ``record_delayed_cold_verification``.  There are no hand-built receipt or
@@ -32,9 +32,8 @@ Two facts constrain the authoring (both established during this review):
   ``target_ref`` -- one synthetic class per facet-capability makes "divergent"
   mean "two distinct facets", i.e. the removed facet fallback under a new name.
 * single-attempt receipts legitimately carry ``support_scores = {id: None}`` and
-  ``support_authority = "unavailable_single_attempt"``.  The causal promotion
-  arm is therefore expected to be ABSENT here; what must survive is the LEGACY
-  arm (contract §8, §10b).
+  ``support_authority = "unavailable_single_attempt"``. One response cannot
+  manufacture validator-owned support.
 
 The classification -> resolution edge was the last open link and is now closed:
 ``record_probe_classification`` writes the §7 discriminating-observation receipt
@@ -55,7 +54,6 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.diagnosis import failure_triage as FT
 from learnloop.curriculum import golden_path_confirm as GPC
 from learnloop.curriculum import golden_path_run as GPR
 from learnloop.curriculum import task_blueprints as TB
@@ -152,34 +150,6 @@ def test_causal_disambiguation_end_to_end_acceptance(tmp_path):
     # An honest single-attempt receipt: no fabricated support numbers.
     assert receipt["support_authority"] not in APPROVED_SUPPORT_AUTHORITIES
     assert set(receipt["support_scores"].values()) == {None}
-
-    # 2b -- REQUIRED EXTRA ASSERTION (§9): the presence of that receipt must not
-    #       silently downgrade the source attempt's triage to tier two.  This is
-    #       the regression guard for the §2.1 dead-code defect: `_decisive_reason`
-    #       used `elif`, so any receipt disabled the legacy route, and production
-    #       receipts carry all-None support -- tier one was dead for every
-    #       diagnosed attempt.
-    run_id = _golden_path_run(repository)
-    triaged = FT.triage(
-        repository,
-        run_id,
-        attempt={
-            "attempt_id": result.attempt_id,
-            "coarse_class": "wrong",
-            "error_signature": "wrong_method",
-            "grader_confidence": 0.95,
-        },
-    )
-    assert triaged.tier == "one", "a receipt must not force the tier-two aid"
-    assert triaged.decisive is True
-    # `legacy_dominance`, NOT `causal_authority`: causal promotion requires an
-    # approved support authority, which a single-attempt receipt never has.
-    assert triaged.tier_one_basis == FT.TIER_ONE_BASIS_LEGACY
-    event = repository.failure_triage_event(triaged.event_id)
-    decision = json.loads(event["inputs_snapshot_json"])["triage_decision"]
-    assert decision["tier_one_basis"] == FT.TIER_ONE_BASIS_LEGACY
-    assert decision["causal_support_available"] is True
-    assert decision["causal_support_authority_approved"] is False
 
     # 3 -- with no reviewed instrument the divergent factor BLOCKS the targeted
     #      repair rather than serving one branch of it.
@@ -608,16 +578,8 @@ def test_a_verdict_over_unmeasured_features_is_inadmissible(tmp_path):
     assert observation.receipt["detail"]["unmeasured_hypothesis_ids"] == [first_id]
 
 
-def test_a_deterministic_sensor_earns_validator_owned_and_reaches_triage(tmp_path):
-    """The full deterministic lane -- the FIRST producer of approved authority.
-
-    Agent A1 established that nothing in the system ever set an approved
-    support authority, so §2.1's ``causal_authority`` promotion arm (agent A2's)
-    was unreachable outside a hand-supplied snapshot.  A blind bundle authored in
-    the deterministic criterion vocabulary is classified with no model in the
-    loop at all: the answer is graded, the criterion outcomes ARE the observed
-    features, and the post-attempt hook fires the classification itself.
-    """
+def test_a_deterministic_sensor_earns_validator_owned_and_resolves_the_factor(tmp_path):
+    """Criterion outcomes classify the probe without a model and earn authority."""
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     result, factor_id, first_id, second_id, offer = _offered_probe(
@@ -662,26 +624,6 @@ def test_a_deterministic_sensor_earns_validator_owned_and_reaches_triage(tmp_pat
         vault, repository, result=probe, clock=CLOCK
     )
     assert len(repository.causal_discriminating_observations(factor_id=factor_id)) == 1
-
-    # The observation reaches triage as SUPPORT. Grader confidence is far too
-    # low for the legacy arm, so a tier-one route here can only be the causal
-    # one -- which is exactly the arm that had no producer.
-    run_id = _golden_path_run(repository)
-    promoted = FT.triage(
-        repository,
-        run_id,
-        attempt={
-            "attempt_id": result.attempt_id,
-            "coarse_class": "wrong",
-            "error_signature": "wrong_method",
-            "grader_confidence": 0.2,
-        },
-    )
-    assert promoted.tier == "one"
-    assert promoted.tier_one_basis == FT.TIER_ONE_BASIS_CAUSAL
-    event = repository.failure_triage_event(promoted.event_id)
-    decision = json.loads(event["inputs_snapshot_json"])["triage_decision"]
-    assert decision["causal_support_authority_approved"] is True
 
     # ...and the §8 two-tailed watch can now see the edge is alive.
     health = causal_lane_health(repository)
@@ -1049,41 +991,29 @@ def test_a_first_rebuild_with_nothing_to_replay_narrates_nothing(tmp_path):
 
 
 def test_causal_lane_health_watches_both_tails_and_pins_the_tier_one_basis(tmp_path):
-    """The §8 hard assertion, plus the two-tailed fill-rate watch around it.
-
-    The original defect was invisible because nothing measured it: every
-    receipt's ``support_scores`` were ``None`` and every hypothesis's
-    ``repair_class_id`` was ``None``, on 100% of rows, and no metric named
-    either tail.  ``causal_lane_health`` names both.
-
-    The HARD assertion is the triage one.  ``causal_authority`` is expected to
-    be absent -- a single-attempt receipt can never promote -- so the arm that
-    must survive is the LEGACY one.  Under the pre-fix gate (``elif``: the mere
-    existence of a receipt replaced the legacy route) this same walk produced
-    ``tier_one_events == 0`` and a tier-two decision aid instead, which is
-    exactly what this assertion would have caught.
-    """
+    """Watch live causal channels and read the basis from historical triage rows."""
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     result = _divergent_failure(vault, repository)
     run_id = _golden_path_run(repository)
-    FT.triage(
-        repository,
-        run_id,
-        attempt={
-            "attempt_id": result.attempt_id,
-            "coarse_class": "wrong",
-            "error_signature": "wrong_method",
-            "grader_confidence": 0.95,
-        },
-    )
+    # Historical receipt: the writer is gone, but the health reader must still
+    # count stored events. Seed the old row without recreating routing logic.
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO failure_triage_events "
+            "(id, run_id, attempt_id, kind, tier, decisive, inputs_snapshot_json, seq, created_at) "
+            "VALUES (?, ?, ?, 'triaged', 'one', 1, ?, 1, ?)",
+            ("historical_triage", run_id, result.attempt_id,
+             json.dumps({"triage_decision": {"tier_one_basis": "legacy_dominance"}}), NOW_ISO),
+        )
+        connection.commit()
 
     health = causal_lane_health(repository)
     triage_health = health["triage"]
     # --- the hard assertion -------------------------------------------------
-    assert triage_health["tier_one_events"] >= 1
+    assert triage_health["tier_one_events"] == 1
     assert triage_health["tier_one_without_basis"] == 0
-    assert triage_health["tier_one_by_basis"] == {FT.TIER_ONE_BASIS_LEGACY: 1}
+    assert triage_health["tier_one_by_basis"] == {"legacy_dominance": 1}
 
     channels = {row["channel"]: row for row in health["channels"]}
     # An honest abstention, not a hole: one attempt owns no validator support,
@@ -1121,86 +1051,6 @@ def test_causal_lane_health_watches_both_tails_and_pins_the_tier_one_basis(tmp_p
     assert ChannelHealth("c", total=8, filled=3, abstained=1).missing == 4
 
 
-def test_dominance_veto_is_reachable_through_the_real_triage_entrypoint(tmp_path):
-    """The causal VETO arm, proven reachable -- with a SYNTHETIC receipt.
-
-    Contract §10b: on live data the dominance veto cannot fire at all, because
-    all-``None`` support leaves ``dominant_reason`` None.  Live traffic is
-    therefore no evidence this arm works, and this test does not pretend
-    otherwise -- it supplies a validator-owned support snapshot explicitly, the
-    way a future validator channel will.  What it adds over the unit-level
-    coverage is that the arm is reachable through ``triage()`` itself and lands
-    on the persisted event, rather than only through the private gate function.
-    """
-
-    vault, repository, _paths = _acceptance_vault(tmp_path)
-    result = _divergent_failure(vault, repository)
-    run_id = _golden_path_run(repository)
-
-    # A legacy-decisive signature, but the (synthetic) validator-owned causal
-    # mass names a DIFFERENT reason. The route must downgrade, not commit.
-    vetoed = FT.triage(
-        repository,
-        run_id,
-        attempt={
-            "attempt_id": result.attempt_id,
-            "coarse_class": "wrong",
-            "error_signature": "wrong_method",
-            "grader_confidence": 0.95,
-            "causal_support": {
-                "support_authority": "validator_owned",
-                "hypotheses": [
-                    {
-                        "hypothesis_id": "h_execution",
-                        "triage_reason": "procedure_execution",
-                        "support_score": 0.9,
-                        "trace_consistency": "consistent_with_claims",
-                    },
-                    {
-                        "hypothesis_id": "h_method",
-                        "triage_reason": "method_selection",
-                        "support_score": 0.1,
-                        "trace_consistency": "consistent_with_claims",
-                    },
-                ],
-            },
-        },
-    )
-    assert vetoed.tier == "two"
-    assert vetoed.tier_one_basis is None
-    assert vetoed.decisive is False
-    event = repository.failure_triage_event(vetoed.event_id)
-    decision = json.loads(event["inputs_snapshot_json"])["triage_decision"]
-    assert decision["causal_support_authority_approved"] is True
-    assert decision["causal_dominant_reason"] == "procedure_execution"
-
-    # ...and the same authority CONCENTRATED on the signature's own reason
-    # promotes instead, on the causal arm.
-    promoted = FT.triage(
-        repository,
-        run_id,
-        attempt={
-            "attempt_id": f"{result.attempt_id}_promote",
-            "coarse_class": "wrong",
-            "error_signature": "wrong_method",
-            "grader_confidence": 0.2,  # the LEGACY arm cannot fire here
-            "causal_support": {
-                "support_authority": "validator_owned",
-                "hypotheses": [
-                    {
-                        "hypothesis_id": "h_method",
-                        "triage_reason": "method_selection",
-                        "support_score": 0.95,
-                        "trace_consistency": "consistent_with_claims",
-                    }
-                ],
-            },
-        },
-    )
-    assert promoted.tier == "one"
-    assert promoted.tier_one_basis == FT.TIER_ONE_BASIS_CAUSAL
-
-
 # --- helpers ----------------------------------------------------------------
 
 
@@ -1215,15 +1065,7 @@ def _full_points(vault, item_id: str) -> dict[str, float]:
 
 
 def _golden_path_run(repository: Repository) -> str:
-    """A ``practice_only`` golden-path run in THIS vault, parked at ``triaging``.
-
-    ``triage()`` reads the attempt (and therefore its diagnosis receipt) out of
-    the repository it is handed, so the run has to live in the same sqlite as
-    the causal attempt.  It is minted through the real confirm service rather
-    than a hand-seeded row: no assessment surface is reserved, so the run is
-    ``practice_only`` and makes no terminal claim -- all this walk needs is a
-    legitimate run for the triage event to hang off.
-    """
+    """A real run to which a historical triage receipt can refer."""
 
     spec = stub_blueprint()
     blueprint = TB.register_blueprint_version(

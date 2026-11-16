@@ -2732,8 +2732,7 @@ def record_probe_classification(
       passed the register -> review -> activate ladder plus a manipulation-contract
       audit.  Requiring a deterministic sensor as well would make the lane
       unreachable for every short-answer probe, which is most of them.
-    * ``validator_owned`` SUPPORT — which is what unlocks the §2.1
-      ``causal_authority`` promotion arm in `failure_triage` — is granted only
+    * ``validator_owned`` SUPPORT is granted only
       when the observed features came from a deterministic sensor
       (``feature_source == "deterministic"``).  The match is deterministic; the
       *sensor* need not be, and a model reading "did the answer transpose?" out
@@ -2741,10 +2740,9 @@ def record_probe_classification(
       downstream is.  Standing constraint 4 (deterministic quantities outrank
       model-reported ones) is a per-input rule, so the provenance is recorded
       per input rather than inferred from the pipeline's last step.
-    * A model-extracted observation still reaches triage as support and may
-      therefore VETO a tier-one route.  §2.1 lets causal support downgrade
-      freely and restricts only promotion; a conservative downgrade on real
-      discriminating evidence is exactly the asymmetry it asks for.
+    * A model-extracted observation records discriminating support without
+      gaining deterministic authority.  Keeping its sensor provenance prevents
+      consumers from treating model-read features as validator-owned evidence.
 
     Diagnosis support moves ONLY through this receipt.  It is never a side
     effect of repair success, and it is deliberately not written back onto the

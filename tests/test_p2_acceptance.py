@@ -1,6 +1,6 @@
 """P2 ACCEPTANCE -- what the narrow golden path's §12 acceptance contract still proves
 about the services the Golden Path removal kept (the run machine, the diagnostic pack,
-triage, the cold assessment and the probe episodes).
+the cold assessment and the probe episodes).
 
 The ten-step walk and the planted-learner rung routing went with the pattern ladder
 and the practice pool. What stays: instruction closes the diagnostic segment and a
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import diagnostic_pack as DP
-from learnloop.diagnosis import failure_triage as FT
 from learnloop.goals import goal_contracts as GC
 from learnloop.curriculum import golden_path_assessment as GA
 from learnloop.curriculum import golden_path_run as GPR
@@ -113,9 +112,8 @@ def test_event_replay_equivalence_after_full_walk(tmp_path):
             break
         _drive_probe_item(vault, repo, baseline["episode_id"], iid, score=4)
     GPR.advance(repo, rid, to_state="triaging", reason="t", idempotency_key="t", clock=CLOCK)
-    tr = FT.triage(repo, rid, attempt={"attempt_id": "a", "coarse_class": "wrong",
-                                       "error_signature": "wrong_method", "grader_confidence": 0.95})
-    assert GPR.project_run(repo, rid).current_state == tr.routed_to == "instructing"
+    GPR.advance(repo, rid, to_state="instructing", reason="teach", idempotency_key="i", clock=CLOCK)
+    assert GPR.project_run(repo, rid).current_state == "instructing"
     # The removed pattern ladder climbed its rungs here; the run's own legal step stands in.
     GPR.advance(repo, rid, to_state="ready_to_assess", reason="repair done", idempotency_key="rta", clock=CLOCK)
     admin = GA.open_assessment(repo, run_id=rid, idempotency_key="ao", clock=CLOCK)
