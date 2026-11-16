@@ -48,6 +48,7 @@ source_paths:
   - "src/learnloop/db/stores/reader_cue_links.py"
   - "src/learnloop/db/stores/reader_digests.py"
   - "src/learnloop/db/stores/reading_paths.py"
+  - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/retrieval_spaces.py"
   - "src/learnloop/db/stores/router.py"
@@ -140,6 +141,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/db/stores/reader_digests|learnloop.db.stores.reader_digests]] | [[Reference/Modules/learnloop/db/stores/reader_digests#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/db/stores/reading_requests|learnloop.db.stores.reading_requests]] | [[Reference/Modules/learnloop/db/stores/reading_requests#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] | [[Reference/Modules/learnloop/db/stores/recurrence#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop/db/stores/retrieval_spaces|learnloop.db.stores.retrieval_spaces]] | [[Reference/Modules/learnloop/db/stores/retrieval_spaces#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
 | [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] | [[Reference/Modules/learnloop/db/stores/router#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
@@ -157,7 +159,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 34 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 35 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 
 ### Packages that import this package
@@ -171,7 +173,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 17 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 16 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 15 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 14 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 14 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 14 static module edges
@@ -232,13 +234,13 @@ flowchart LR
     n_learnloop_hints["learnloop.hints"]
     n_learnloop_source_retrieval -->|54| center
     n_learnloop -->|9| center
-    center -->|34| n_learnloop
+    center -->|35| n_learnloop
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_sidecar_handlers -->|26| center
     n_learnloop_daily_plan -->|23| center
     n_learnloop_instructional -->|23| center
     n_learnloop_figures -->|21| center
-    n_learnloop_db -->|14| center
+    n_learnloop_db -->|15| center
     center -->|5| n_learnloop_db
     n_learnloop_router_objective -->|17| center
     n_learnloop_hints -->|16| center

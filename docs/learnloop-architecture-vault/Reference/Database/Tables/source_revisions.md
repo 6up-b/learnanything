@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
-  - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/held_out_signals.py`
+- `src/learnloop/db/stores/reading_requests.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/ops/doctor.py`

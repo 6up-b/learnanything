@@ -22,6 +22,11 @@ source_paths:
   - "src/learnloop/learner_context.py"
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/causal_factor_deferral.py"
+  - "src/learnloop/diagnosis/error_hunt.py"
+  - "src/learnloop/diagnosis/recurrence/report.py"
+  - "src/learnloop/recurrence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -78,7 +83,9 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.recurrence_group_map()`
+- `Repository.recurrence_group_rows()`
+- `Repository.replace_recurrence_projection()`
 
 ### Direct SQL readers
 
@@ -92,7 +99,13 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/causal_factor_deferral.py`
+- `src/learnloop/diagnosis/error_hunt.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
+- `src/learnloop/recurrence.py`
+- `src/learnloop/substrate/recurrence_groups.py`
+- `src/learnloop/tutor/durable_promotion.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -103,6 +116,11 @@ None found by exact static reference scan.
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_recurrence_commands.py`
+- `tests/test_recurrence_deferral.py`
+- `tests/test_recurrence_groups.py`
+- `tests/test_recurrence_merge_composition.py`
+- `tests/test_stuck_prompt_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

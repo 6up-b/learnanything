@@ -69,7 +69,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 15 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
@@ -158,7 +158,7 @@ flowchart LR
     n_learnloop_scheduling -->|22| center
     n_learnloop_learner -->|21| center
     n_learnloop_db_stores -->|5| center
-    center -->|14| n_learnloop_db_stores
+    center -->|15| n_learnloop_db_stores
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

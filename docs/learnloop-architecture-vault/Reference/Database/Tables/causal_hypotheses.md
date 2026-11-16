@@ -121,6 +121,8 @@ Database triggers:
 - `Repository.causal_hypotheses_with_statement()`
 - `Repository.causal_hypothesis()`
 - `Repository.find_record()`
+- `Repository.hypothesis_episode_rows()`
+- `Repository.input_fingerprint_parts()`
 - `Repository.latest_causal_hypothesis_for_episode()`
 - `Repository.open_unresolved_cause_factors()`
 

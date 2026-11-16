@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reading_requests.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/reader/phone_media.py`

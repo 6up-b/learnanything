@@ -18,6 +18,7 @@ source_paths:
   - "migrations/226_session_ownership.sql"
   - "src/learnloop/db/stores/session_ownership.py"
   - "src/learnloop/router_objective/sessions.py"
+  - "src/learnloop_sidecar/handlers/sessions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -79,7 +80,9 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository._record_handoff()`
+- `Repository.session_handoffs()`
+- `Repository.start_session_exclusive()`
 
 ### Direct SQL readers
 
@@ -92,7 +95,8 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/db/stores/session_ownership.py`
+- `src/learnloop_sidecar/handlers/sessions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -105,6 +109,9 @@ None found by exact static reference scan.
 - `tests/test_mobile_handoff.py`
 - `tests/test_session_ownership.py`
 - `tests/test_session_ownership_migration.py`
+- `tests/test_mobile_jobs.py`
+- `tests/test_mobile_v2_landing_fixes.py`
+- `tests/test_ro0_rows7_8_sessions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

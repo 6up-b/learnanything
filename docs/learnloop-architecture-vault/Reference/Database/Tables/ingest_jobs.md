@@ -23,6 +23,9 @@ source_paths:
   - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/cli/ingest_batches.py"
+  - "src/learnloop/content/pipeline/reread.py"
+  - "src/learnloop/content/pipeline/runner.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -93,7 +96,30 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository._ingest_batch_dead()`
+- `Repository._update_ingest_job_state()`
+- `Repository.active_ingest_jobs()`
+- `Repository.batch_outcome()`
+- `Repository.claim_next_ingest_job()`
+- `Repository.delete_finished_ingest_batches()`
+- `Repository.expired_running_ingest_jobs()`
+- `Repository.get_ingest_job()`
+- `Repository.has_runnable_ingest_job()`
+- `Repository.heartbeat_ingest_job()`
+- `Repository.ingest_batch_spend_rows()`
+- `Repository.ingest_jobs_by_types()`
+- `Repository.ingest_jobs_for_batches()`
+- `Repository.ingest_jobs_for_source()`
+- `Repository.insert_ingest_job()`
+- `Repository.job_outcome()`
+- `Repository.latest_ingest_job_per_source()`
+- `Repository.newest_ingest_job_by_payload()`
+- `Repository.owns_ingest_job()`
+- `Repository.request_ingest_batch_cancel()`
+- `Repository.requeue_ingest_job()`
+- `Repository.rung_variant_pending_source_ids()`
+- `Repository.set_ingest_job_cancel_requested()`
+- `Repository.update_ingest_job_payload()`
 
 ### Direct SQL readers
 
@@ -105,7 +131,18 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/cli/ingest_batches.py`
+- `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/reread.py`
+- `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/db/stores/ingest_queue.py`
+- `src/learnloop/figures/build.py`
+- `src/learnloop/figures/rich.py`
+- `src/learnloop/scheduling/serving_exclusions.py`
+- `src/learnloop/source_retrieval/source_vectors.py`
+- `src/learnloop_sidecar/handlers/figures.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

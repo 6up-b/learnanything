@@ -24,6 +24,10 @@ source_paths:
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/write_provenance.py"
+  - "src/learnloop/attempts/post_attempt.py"
+  - "src/learnloop/attempts/regrade.py"
+  - "src/learnloop/cli/ai_compare.py"
+  - "src/learnloop/cli/diagnose.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,7 +94,15 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository._live_views()`
+- `Repository.blind_graded_attempt_ids()`
+- `Repository.blind_record_max_points()`
+- `Repository.current_live_diagnosis()`
+- `Repository.diagnoses_in_force()`
+- `Repository.input_fingerprint_parts()`
+- `Repository.insert_blind_grade_record()`
+- `Repository.latest_blind_grade_record()`
+- `Repository.latest_blind_grade_rows()`
 
 ### Direct SQL readers
 
@@ -113,7 +125,24 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/attempts/attempts.py`
+- `src/learnloop/attempts/post_attempt.py`
+- `src/learnloop/attempts/regrade.py`
+- `src/learnloop/cli/ai_compare.py`
+- `src/learnloop/cli/diagnose.py`
+- `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/recurrence/display.py`
+- `src/learnloop/diagnosis/recurrence/live.py`
+- `src/learnloop/diagnosis/split/jobs.py`
+- `src/learnloop/diagnosis/split/live.py`
+- `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/followup_run/jobs.py`
+- `src/learnloop/followup_run/serving.py`
+- `src/learnloop/followup_serve/workflow.py`
+- `src/learnloop/substrate/recurrence_groups.py`
+- `src/learnloop/teacher/diagnosed_sources.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -126,6 +155,20 @@ None found by exact static reference scan.
 - `tests/test_required_method_grading.py`
 - `tests/test_ro5_codex_review.py`
 - `tests/test_router_r2c_teach_back.py`
+- `tests/held_grade_evidence_helpers.py`
+- `tests/joint_grading_helpers.py`
+- `tests/pfc_unverified_unassessed_helpers.py`
+- `tests/required_method_grading_helpers.py`
+- `tests/route_rules_in_grader_helpers.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_replay.py`
+- `tests/test_field_split_outcomes.py`
+- `tests/test_followup_codex_review.py`
+- `tests/test_followup_reserved_only.py`
+- `tests/test_forecast_receipts.py`
+- `tests/test_grading_support.py`
+- `tests/test_held_grade_composition.py`
+- `tests/test_held_grade_evidence.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

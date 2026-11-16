@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop_sidecar/handlers/queue.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -79,7 +80,7 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.finalize_scheduler_offer()`
 
 ### Direct SQL readers
 
@@ -94,7 +95,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop_sidecar/handlers/queue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -115,6 +116,8 @@ None found by exact static reference scan.
 - `tests/test_mobile_rpc.py`
 - `tests/test_request_origin.py`
 - `tests/test_router_offer_log.py`
+- `tests/test_evaluation.py`
+- `tests/test_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

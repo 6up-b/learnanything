@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `Repository.agent_run()`
 - `Repository.complete_agent_run()`
 - `Repository.completed_agent_run_by_context()`
+- `Repository.diagnosis_calls_since()`
 - `Repository.find_record()`
 - `Repository.insert_agent_run()`
 

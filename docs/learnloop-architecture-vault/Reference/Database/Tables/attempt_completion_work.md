@@ -19,6 +19,11 @@ source_paths:
   - "src/learnloop/db/stores/completion.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/post_attempt.py"
+  - "src/learnloop/followup_run/lanes.py"
+  - "src/learnloop/teacher/probes.py"
+  - "src/learnloop_sidecar/handlers/practice.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -81,7 +86,9 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.attempt_completion()`
+- `Repository.complete_attempt_work()`
+- `Repository.save_attempt_completion()`
 
 ### Direct SQL readers
 
@@ -93,7 +100,11 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/attempts/attempts.py`
+- `src/learnloop/attempts/post_attempt.py`
+- `src/learnloop/followup_run/lanes.py`
+- `src/learnloop/teacher/probes.py`
+- `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -104,6 +115,8 @@ None found by exact static reference scan.
 - `tests/test_attempt_completion.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_followup_codex_review.py`
+- `tests/test_placement_opening_probes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

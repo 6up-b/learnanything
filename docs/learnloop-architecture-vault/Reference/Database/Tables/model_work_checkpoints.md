@@ -24,6 +24,9 @@ source_paths:
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
+  - "src/learnloop/field/classification.py"
+  - "src/learnloop/ops/pf_calls.py"
+  - "src/learnloop/practice_index/paid.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -74,7 +77,9 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.delete_checkpoint()`
+- `Repository.insert_checkpoint()`
+- `Repository.model_checkpoint()`
 
 ### Direct SQL readers
 
@@ -88,7 +93,13 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/ai/execution.py`
+- `src/learnloop/daily_plan/router_teach_back.py`
+- `src/learnloop/field/classification.py`
+- `src/learnloop/ops/pf_calls.py`
+- `src/learnloop/practice_index/paid.py`
+- `src/learnloop/source_retrieval/library_ask.py`
+- `src/learnloop/source_retrieval/passage_cues.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
