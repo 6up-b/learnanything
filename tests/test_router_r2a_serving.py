@@ -345,7 +345,7 @@ def test_a_drafts_presentation_never_binds_another_submission_or_item(tmp_path, 
 # -- G6: replay ----------------------------------------------------------------------
 
 
-def test_router_outcomes_v2_replay_twice_with_no_model_call(tmp_path, monkeypatch):
+def test_router_outcomes_replay_twice_with_no_model_call(tmp_path, monkeypatch):
     from learnloop.ai import client
     from learnloop.ai.providers import decider
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -378,7 +378,7 @@ def test_router_outcomes_v2_replay_twice_with_no_model_call(tmp_path, monkeypatc
             "WHERE p.id = ?", (served["presentationId"],),
         ).fetchone()
     assert (row["outcome_version"], row["action_status"], row["action_binding"], row["action_attempt_id"]) == (
-        "router_outcomes_v2", "taken", "presentation", answered["attemptId"],
+        "router_outcomes_v3", "taken", "presentation", answered["attemptId"],
     )
 
 

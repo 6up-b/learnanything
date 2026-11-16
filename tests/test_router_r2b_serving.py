@@ -199,20 +199,20 @@ def test_without_sensors_the_question_set_is_v1(tmp_path):
 def test_staged_mode_at_the_successor_serves_r2a_exactly_and_asks_no_model(tmp_path):
     decider, llm = FakeDecider(), FakeLLM()
     staged = mixture_env(tmp_path / "staged", fake_runtime(decider=decider, llm=llm), toml='[router]\nmode = "staged"\n')
-    r2a = mixture_env(tmp_path / "r2a", fake_runtime(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    # R2a's frame is the staged rule: its tag's own mixture with no model set up draws from the fallback's
+    # distribution with its floor (data capture A5), so the twin names the rule too.
+    r2a = mixture_env(tmp_path / "r2a", fake_runtime(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
+                      toml='[router]\nmode = "staged"\n')
     assert _blocks(run(staged)) == _blocks(run(r2a))
     assert decider.calls == [] and llm.requests == []
     assert {row["policy"] for row in rows(staged)} <= {"staged_v1", "learner"}
     assert {row["mode"] for row in rows(staged)} == {"staged"}
 
 
-def test_with_no_model_set_up_the_rule_chooses_deterministically(tmp_path):
+def test_with_no_model_set_up_the_plan_says_the_models_are_not_set_up(tmp_path):
     none = mixture_env(tmp_path / "none", fake_runtime())
-    r2a = mixture_env(tmp_path / "r2a", fake_runtime(), version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
-    assert _blocks(run(none)) == _blocks(run(r2a))
-    for row in rows(none):
-        assert row["mode"] == "mixture" and row["propensity_kind"] in {"deterministic", "none"}
-        assert row["design"] is None
+    run(none)
+    assert {row["mode"] for row in rows(none)} == {"mixture"}
     record = advance(none, serve=False)[0]
     details = [block for block in record.blocks if (block.chosen.get("router") or {}).get("decided_by") == "not_ready"]
     assert details

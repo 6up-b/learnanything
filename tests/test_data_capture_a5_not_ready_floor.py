@@ -1,15 +1,15 @@
 """Data capture A5: the router's ``not_ready`` branch keeps the existing fallback distribution.
 
 With neither model set up the staged rule's pick used to be deterministic, though a full model failure
-later keeps the floor (owner Q7). From mvp-0.44, with ``data_capture.serving`` on, ``not_ready`` draws
-from the same distribution with the same ``router.epsilon_min``: no new constant and zero model calls.
-Below the tag, or with the switch off, the plan and the row are the predecessor's byte for byte.
+later keeps the floor (owner Q7). From mvp-0.44 ``not_ready`` draws from the same distribution with the
+same ``router.epsilon_min``: no new constant and zero model calls (its switch went once every vault was past
+the tag).
 """
 
 from __future__ import annotations
 
 
-from learnloop.algorithm_versions import DATA_CAPTURE_ALGORITHM_VERSION, LESSON_SUGGESTIONS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import DATA_CAPTURE_ALGORITHM_VERSION
 from learnloop.daily_plan import router_chooser as RC
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.router import mixture as mx
@@ -18,8 +18,6 @@ from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, seed_with_first_uniform
 
 TAG = DATA_CAPTURE_ALGORITHM_VERSION
-OLD = LESSON_SUGGESTIONS_ALGORITHM_VERSION
-OFF = "[data_capture]\nserving = false\n"
 
 
 def _blocks(record):
@@ -136,19 +134,6 @@ def run_first_block(env):
     record, step = advance(env, serve=True)
     assert step["kind"] == "item"
     return record
-
-
-def test_below_the_tag_or_switched_off_it_is_the_predecessors(tmp_path):
-    old = mixture_env(tmp_path / "old", fake_runtime(), version=OLD)
-    off = mixture_env(tmp_path / "off", fake_runtime(), version=TAG, toml=OFF)
-    assert _blocks(run(old)) == _blocks(run(off))
-    for env in (old, off):
-        for row in rows(env):
-            assert row["propensity_kind"] in {"deterministic", "none"} and row["design"] is None
-        assert all(not (row["detail_json"].get("mixture")) for row in rows(env))
-    for env in (old, off):
-        record = advance(env, serve=False)[0]
-        assert record is not None
 
 
 def test_a_model_that_answers_is_untouched(tmp_path):

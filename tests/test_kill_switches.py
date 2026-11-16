@@ -69,7 +69,6 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
     "router.mode",
     "router.restraint",
     "curriculum.enabled",
-    "data_capture.serving",
     "followup.generate_and_serve",
     "workbench.field_signals_enabled",
     "teacher.enabled",

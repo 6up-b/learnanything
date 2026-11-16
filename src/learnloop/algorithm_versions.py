@@ -707,10 +707,9 @@ LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 # reads each item's own predicted success and draws uniformly over exact ties,
 # with probability 1/n logged. The outcome changes with them
 # (``router_outcomes_v3``, the shared ``delayed_completion_v1``), never
-# certification, mastery, grading, FSRS or the projection. Kill switch:
-# ``data_capture.serving`` (off, or below the tag: Today and the plan are
-# mvp-0.43's byte for byte and outcomes stay ``router_outcomes_v2``). The
-# prefilter receipts are additive and act at every version
+# certification, mastery, grading, FSRS or the projection. Its kill switch went
+# once every vault was past the tag (a rebuild derives every vault's outcomes
+# as ``router_outcomes_v3``). The prefilter receipts are additive and act at every version
 # (``data_capture.receipts``).
 DATA_CAPTURE_ALGORITHM_VERSION = "mvp-0.44"
 

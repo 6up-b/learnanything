@@ -1325,6 +1325,8 @@ _reg_const("voi_stopping:_ROUND_DIGITS", "numerical", kind="structural", owner="
 _reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structural",
            owner="voi_stopping",
            rationale="how many candidates' summaries one value-of-information receipt keeps below "
+           # Kept byte for byte: the rationale is mirrored into each vault's parameter_registry rows (a
+           # rewording changes them), though the switch it names is gone and every receipt keeps every one.
            "mvp-0.44 or with data_capture.serving off (from it, every one; the best keeps its full "
            "forecast); receipt size only, never a decision.")
 _reg_const("voi_stopping:_VARIANCE_FLOOR", "numerical", kind="structural", owner="voi_stopping",

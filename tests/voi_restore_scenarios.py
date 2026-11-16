@@ -102,7 +102,9 @@ def summarize_body(body: dict[str, Any]) -> dict[str, Any]:
                     "ref", "decision", "reason", "method", "value_uncertain", "eig_nats", "eig_robust_nats",
                     "evsi_point_minutes", "evsi_robust_minutes", "cost_minutes",
                 )}
-                for candidate in body.get("candidates") or []
+                # The golden was pinned when a logged receipt kept the first MAX_RECORDED_CANDIDATES summaries; every
+                # receipt keeps every one since data capture A1 (receipt size only, never a decision).
+                for candidate in (body.get("candidates") or [])[:voi.MAX_RECORDED_CANDIDATES]
             ],
         }
     )

@@ -271,6 +271,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["curriculum"]["plan_uses_path"] = True
     shaped["teacher"]["probes"] = True
     shaped["router"]["lesson_suggestions"].update(enabled=True, in_objective=True)
+    shaped["data_capture"]["serving"] = True
     return shaped
 
 

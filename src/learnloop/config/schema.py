@@ -3951,22 +3951,22 @@ class RouterConfig(KeepsRetiredFields):
         return self
 
 
-class DataCaptureConfig(BaseModel):
+class DataCaptureConfig(KeepsRetiredFields):
     """What later offline evaluation needs, recorded now. It adds no policy
     and no constant.
 
     * ``receipts``: the prefilter receipts (``prefilter_receipts``), linked into
       each committed decision. Additive: they act at every algorithm version and
       never change what is served; off stops the rows and nothing else.
-    * ``serving``: the kill switch of the mvp-0.44 successor:
-      measurement slots for reading, wait and stop arms, the exploration floor on
-      the router's ``not_ready`` branch, the teacher's item-specific delayed-check
-      picker with its logged tie draw, and ``router_outcomes_v3``. Off, or below
-      the tag, serving and outcomes are the predecessor's exactly.
+
+    The mvp-0.44 successor serves with no switch (its kill switch went once
+    every vault was past the tag): measurement slots for reading, wait and stop
+    arms, the exploration floor on the router's ``not_ready`` branch, the
+    teacher's item-specific delayed-check picker with its logged tie draw, and
+    ``router_outcomes_v3``.
     """
 
     receipts: bool = True
-    serving: bool = True
 
 
 class RouterObjectiveConfig(BaseModel):

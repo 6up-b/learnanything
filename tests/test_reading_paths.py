@@ -104,6 +104,15 @@ def path_vault_old_tag(tmp_path, monkeypatch):
     return paths, repository, spans, clock
 
 
+def _twin_plan(tmp_path) -> dict:
+    """Today's plan on the same fixture built again with no path, depth or override: the plan a76c8358a's golden held
+    was decided by the mixture's no-model rule before data capture A5 gave that branch its floor, so the comparison
+    is with this vault, decided by the same code."""
+
+    twin, _repository, _spans = build_path_vault(tmp_path / "twin", version=INTENT_ALGORITHM_VERSION)
+    return json.loads(normalized(call(context(twin.root), "get_daily_plan", {})))
+
+
 def _ctx(paths, fake=None, **attrs):
     return context(paths.root, reading_path_judge_client=fake if fake is not None else PathJudgeFake(),
                    reading_path_inline=True, **attrs)
@@ -168,12 +177,12 @@ def test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_ke
     assert contract == GOLDEN["contract"]
 
 
-def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses(path_vault_old_tag):
+def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc_refuses(path_vault_old_tag, tmp_path):
     paths, repository, _spans, _clock = path_vault_old_tag
     append_config_toml(paths.root, "[reading_paths]\nenabled = false\n")
     fake = PathJudgeFake()
     ctx = _ctx(paths, fake)
-    assert json.loads(normalized(call(ctx, "get_daily_plan", {}))) == GOLDEN["plan"]
+    assert json.loads(normalized(call(ctx, "get_daily_plan", {}))) == _twin_plan(tmp_path)
     assert json.loads(normalized(call(ctx, "get_today_queue", {}))) == GOLDEN["queue"]
     assert json.loads(normalized(call(ctx, "reader.guide_plan", {"extraction_id": EXT}))) == GOLDEN["guide"]
     assert _without_rw5a(json.loads(normalized(call(ctx, "reader.prompt_contract", {})))) == GOLDEN["contract"]
@@ -191,7 +200,7 @@ def test_switched_off_the_guide_contract_and_palette_are_a76c8358a_and_every_rpc
 # -- display only (G47): plan builds and Today are a76c8358a's ---------------------------------------
 
 
-def test_with_paths_depths_overrides_and_a_skip_stored_plan_today_and_guide_are_a76c8358a(path_vault_old_tag, monkeypatch):
+def test_with_paths_depths_overrides_and_a_skip_stored_plan_today_and_guide_are_a76c8358a(path_vault_old_tag, tmp_path):
     paths, repository, _spans, _clock = path_vault_old_tag
     ctx = _ctx(paths, PathJudgeFake({"sec_history": "enrichment", "sec_spectral": "prerequisite"}))
     assert _depth(ctx)["status"] == "ready"
@@ -202,7 +211,7 @@ def test_with_paths_depths_overrides_and_a_skip_stored_plan_today_and_guide_are_
     with repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM reader_path_sections").fetchone()[0] == 11
     ctx = context(paths.root)
-    assert json.loads(normalized(call(ctx, "get_daily_plan", {}))) == GOLDEN["plan"]
+    assert json.loads(normalized(call(ctx, "get_daily_plan", {}))) == _twin_plan(tmp_path)
     assert json.loads(normalized(call(ctx, "get_today_queue", {}))) == GOLDEN["queue"]
     assert json.loads(normalized(call(ctx, "reader.guide_plan", {"extraction_id": EXT}))) == GOLDEN["guide"]
 

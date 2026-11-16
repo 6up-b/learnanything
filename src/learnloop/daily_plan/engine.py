@@ -115,7 +115,7 @@ from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
 from learnloop.scheduling.fsrs import retrievability
 from learnloop.router_objective import sessions as session_receipts
-from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import INSERT_REF as INSERT_NOW_REF
@@ -1727,7 +1727,7 @@ def _prepare_plan(
     # the maintain lane's load, so the other lanes keep theirs (none here: as any due check).
     measurement_slots: list[dict[str, Any]] = []
     maintain_replaced = 0.0
-    if built.intent is not None and checks and serving_on(env.vault.config):
+    if built.intent is not None and checks:
         measurement_slots, maintain_replaced = objectives.plan_slots(built.intent, checks, loads["maintain"])
         loads["maintain"] -= maintain_replaced
     m = max(budget - requested_minutes - check_minutes, 0.0)
@@ -3775,11 +3775,9 @@ def _stop_state(decision: Any) -> Mapping[str, Any]:
 
 
 def _frozen_objective(env: PlanEnv, record: PlanRecord, decision: Any) -> objectives.FrozenObjective | None:
-    """Data capture A2: the decision's objective (None: off, or below the tag). A mixture's was frozen
+    """Data capture A2: the decision's objective (None when it could not be frozen). A mixture's was frozen
     before its draw (``RouterChooser.choose``); a deterministic rule has one arm, its own choice."""
 
-    if not serving_on(env.vault.config):
-        return None
     router_record = decision.choice.router_record or {}
     try:
         if router_record.get("objective"):
@@ -5016,7 +5014,7 @@ def _log_interrupt(
                                    router_record=outcome.record, config=env.vault.config,
                                    local_date=str(record.row.get("local_date") or ""), session_id=env.session_id,
                                    at=env.now_iso())
-            if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible and not offer_block_id:
+            if not outcome.refused and outcome.wait_feasible and not offer_block_id:
                 # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
                 # takes an item this plan holds or the follow-up itself.
                 objectives.record(

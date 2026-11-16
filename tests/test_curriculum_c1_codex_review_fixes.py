@@ -45,7 +45,10 @@ from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ende
 
 
 def test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
+    # The staged rule decides every block: with no model set up the router's fallback draws with its floor (data
+    # capture A5), and its pinned draw for this test would stop the plan before the reading.
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION,
+             config='[router]\nmode = "staged"\n')
     c1.clock.advance(days=1)  # the path is stale: the plan keeps RW7b's (here the order's) choice
     ctx = context(c1.paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]

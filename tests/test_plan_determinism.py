@@ -74,10 +74,18 @@ ROUTER_OFF = "[router]\nenabled = false\n"
 SESSIONS = tuple(f"s_{index:02d}" for index in range(30))
 
 
+#: Where the router composes Today, the staged rule decides every block: with no model set up the mixture draws from
+#: its fallback's distribution with its floor (data capture A5), which is no staged plan.
+STAGED = '[router]\nmode = "staged"\n'
+
+
+def _with_staged(toml: str | None) -> str:
+    return toml if toml and toml.startswith("[router]") else STAGED + (toml or "")
+
+
 def _template(tmp_path: Path, name: str, *, toml: str | None = None) -> Path:
     paths = create_daily_plan_vault(tmp_path / name, version=A, learning_objects=EXTRA)
-    if toml:
-        append_config_toml(paths.root, toml)
+    append_config_toml(paths.root, _with_staged(toml))
     return paths.root
 
 
@@ -280,8 +288,7 @@ def _pair_template(tmp_path: Path, name: str, item_minutes: float, *, toml: str 
     for item_id, counterpart in (PAIR, PAIR[::-1]):
         path = paths.practice_item_path("linear-algebra", item_id)
         write_yaml(path, {**read_yaml(path), "contrast_of": counterpart})
-    if toml:
-        append_config_toml(paths.root, toml)
+    append_config_toml(paths.root, _with_staged(toml))
     return paths.root
 
 

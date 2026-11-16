@@ -80,6 +80,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     # The one switch section that refuses unknown keys: its retired keys are taken out before validation.
     RetiredField("RouterLessonSuggestionsConfig", ("enabled",), bool, True, "D7"),
     RetiredField("RouterLessonSuggestionsConfig", ("in_objective",), bool, True, "D7"),
+    RetiredField("DataCaptureConfig", ("serving",), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}

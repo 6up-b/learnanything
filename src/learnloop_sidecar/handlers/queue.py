@@ -139,8 +139,8 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
     # commitment's own disposition; serving already reads it so). A no-op
     # without commitments.
     settle_answered_checks(vault, repository)
-    # Data capture A2: a measurement's due, offered, answered and unavailable states. A no-op
-    # below mvp-0.44 or with data_capture.serving off; it never blocks the queue.
+    # Data capture A2: a measurement's due, offered, answered and unavailable states; it never
+    # blocks the queue.
     try:
         objectives.settle(vault, repository)
     except Exception:  # noqa: BLE001 - a record of states never fails the queue

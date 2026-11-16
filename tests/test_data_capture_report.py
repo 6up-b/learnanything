@@ -30,7 +30,7 @@ def test_the_report_lists_each_record_with_counts_and_coverage(tmp_path):
     env = _followup_env(tmp_path, runtime, version=TAG, toml=DECIDER_ONLY)
     advance(env, serve=True)
     report = _report(env)
-    assert report["algorithm_version"] == TAG and report["switches"] == {"receipts": True, "serving": True}
+    assert report["algorithm_version"] == TAG and report["switches"] == {"receipts": True}
     pre = report["prefilter_receipts"]
     assert pre["available"] and pre["receipts"] >= 2
     assert pre["by_decision_kind"]["plan_interrupt"]["coverage"] == 1.0
@@ -57,14 +57,13 @@ def test_the_not_ready_floor_is_counted(tmp_path):
     assert floor["decisions"] >= 1 and floor["drawn"] >= 1
 
 
-def test_below_the_tag_the_outcomes_are_v2_and_receipts_are_still_counted(tmp_path):
+def test_at_an_older_tag_the_outcomes_are_v3_and_receipts_are_counted(tmp_path):
     env = mixture_env(tmp_path, fake_runtime(), version="mvp-0.43")
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     report = _report(env)
-    assert report["switches"] == {"receipts": True, "serving": False}
-    assert report["outcomes"]["outcome_version"] == "router_outcomes_v2"
+    assert report["switches"] == {"receipts": True}
+    assert report["outcomes"]["outcome_version"] == "router_outcomes_v3"
     assert report["prefilter_receipts"]["receipts"] >= 1
-    assert report["measurements"]["objectives"] == 0
 
 
 def test_the_command_is_read_only_and_says_each_section(tmp_path):

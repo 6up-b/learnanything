@@ -15,7 +15,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.causal_activity_policy import DISCRIMINATING_OUTCOMES
-from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on
 from learnloop.db.stores import data_capture as store
 from learnloop.db.stores import hypothesis_marks as marks_store
 from learnloop.followup_serve import marks as marks_rules
@@ -535,7 +535,7 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         "report_version": REPORT_VERSION,
         "as_of": as_of,
         "algorithm_version": vault.config.algorithms.algorithm_version,
-        "switches": {"receipts": receipts_on(vault.config), "serving": serving_on(vault.config)},
+        "switches": {"receipts": receipts_on(vault.config)},
         "prefilter_receipts": prefilter_section(connection),
         "measurements": measurement_section(connection),
         "outcomes": outcome_section(connection, vault, repository),
@@ -556,8 +556,7 @@ def lines(report: Mapping[str, Any]) -> list[str]:
     """The plain-text report."""
 
     out = [f"Data capture ({report['algorithm_version']}, as of {report['as_of']})",
-           f"  receipts {'on' if report['switches']['receipts'] else 'off'}, "
-           f"serving changes {'on' if report['switches']['serving'] else 'off'}"]
+           f"  receipts {'on' if report['switches']['receipts'] else 'off'}"]
     pre = report["prefilter_receipts"]
     if pre.get("available"):
         size = pre["size"]

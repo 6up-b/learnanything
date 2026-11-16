@@ -33,7 +33,6 @@ from typing import Any
 
 from learnloop.algorithm_versions import (
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
-    DATA_CAPTURE_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
@@ -52,7 +51,6 @@ from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION: {"adaptive_difficulty.enabled": False},
     TEACHER_ALGORITHM_VERSION: {"teacher.enabled": False},
-    DATA_CAPTURE_ALGORITHM_VERSION: {"data_capture.serving": False},
     FOLLOWUP_SERVE_ALGORITHM_VERSION: {"followup.generate_and_serve": False},
     INTERVAL_FACTOR_ALGORITHM_VERSION: {
         "scheduler.surprise.remove_interval_factor": False,

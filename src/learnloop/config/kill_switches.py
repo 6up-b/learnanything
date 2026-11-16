@@ -75,7 +75,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("router.mode", "mvp-0.24", "mixture"),
     KillSwitch("router.restraint", "mvp-0.24", True),
     KillSwitch("curriculum.enabled", "mvp-0.40", True),
-    KillSwitch("data_capture.serving", "mvp-0.44", True),
     KillSwitch("followup.generate_and_serve", "mvp-0.45", True),
     KillSwitch("workbench.field_signals_enabled", "mvp-0.31", True),
     # The teacher and adaptive difficulty

@@ -567,9 +567,18 @@ def test_a_lesson_with_no_reserved_text_is_byte_identical_with_the_guard_off(tmp
                 [norm(json.dumps(view, sort_keys=True)) for view in lesson.views],
                 [norm(prompt) for _purpose, prompt in lesson.fake.prompts])
 
+    def same_ids(patch):
+        # The lesson's id seeds its delayed checks' tie draws (data capture A6): both lessons get the same ids, so
+        # both draw the same item, whatever the guard does.
+        counter = iter(range(1, 10_000))
+        patch.setattr(S, "new_ulid", lambda: f"{next(counter):026d}")
+
     feedback = "Right: the eigenvalues solve det(A - tI) = 0."
-    guarded = capture(_script(_Lesson(tmp_path / "guarded", [plan_turn], fake=FeedbackGrader(feedback))))
     with monkeypatch.context() as patch:
+        same_ids(patch)
+        guarded = capture(_script(_Lesson(tmp_path / "guarded", [plan_turn], fake=FeedbackGrader(feedback))))
+    with monkeypatch.context() as patch:
+        same_ids(patch)
         patch.setattr(G, "reserved_book", lambda _vault, _repository: G.ReservedBook())
         off = capture(_script(_Lesson(tmp_path / "off", [plan_turn], fake=FeedbackGrader(feedback))))
     assert guarded == off
