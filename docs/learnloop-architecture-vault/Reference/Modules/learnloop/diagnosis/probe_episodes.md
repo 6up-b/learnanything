@@ -428,7 +428,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_coverage`
   - `test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unchanged`
   - `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe`
-  - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
   - `test_an_episode_with_no_pinned_channel_values_instruments_as_ordinary_items`
   - `test_an_instrument_only_request_matches_robust_selection`

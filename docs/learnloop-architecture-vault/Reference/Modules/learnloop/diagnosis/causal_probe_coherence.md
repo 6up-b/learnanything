@@ -178,6 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/causal_orchestrator_helpers.py](../../../../../../tests/causal_orchestrator_helpers.py) — direct import
 - [tests/causal_p2_acceptance_helpers.py](../../../../../../tests/causal_p2_acceptance_helpers.py) — direct import
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_causal_attribution_p2.py](../../../../../../tests/test_causal_attribution_p2.py) — direct import
   - `test_all_bundles_matched_is_not_open_set_evidence`
   - `test_blind_bundles_diff_audit_and_review_ladder`

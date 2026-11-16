@@ -24,6 +24,7 @@ source_paths:
   - "tests/conftest.py"
   - "tests/contamination_report_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figure_fixtures.py"
   - "tests/figure_rich_job_helpers.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/figures_help_helpers.py"
   - "tests/figures_prefetch_helpers.py"
   - "tests/figures_prefetch_review_fixes_helpers.py"
-  - "tests/figures_rw5b_review_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/figures"
@@ -84,6 +84,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/contamination_report_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figure_fixtures.py`
 - `tests/figure_rich_job_helpers.py`
@@ -92,7 +93,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/figures_help_helpers.py`
 - `tests/figures_prefetch_helpers.py`
 - `tests/figures_prefetch_review_fixes_helpers.py`
-- `tests/figures_rw5b_review_helpers.py`
 
 ## Extension and modification guidance
 

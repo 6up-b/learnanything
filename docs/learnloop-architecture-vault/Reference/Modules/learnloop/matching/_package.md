@@ -47,7 +47,7 @@ For system intent, use [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/matching/__init__|learnloop.matching]] | [[Reference/Modules/learnloop/matching/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
-| [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] | [[Reference/Modules/learnloop/matching/judge#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
+| [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] | [[Reference/Modules/learnloop/matching/judge#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/matching/kinds|learnloop.matching.kinds]] | [[Reference/Modules/learnloop/matching/kinds#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
 | [[Reference/Modules/learnloop/matching/shortlist|learnloop.matching.shortlist]] | [[Reference/Modules/learnloop/matching/shortlist#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/matching/union|learnloop.matching.union]] | [[Reference/Modules/learnloop/matching/union#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |

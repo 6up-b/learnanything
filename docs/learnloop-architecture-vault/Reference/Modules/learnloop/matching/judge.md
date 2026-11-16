@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/recurrence_fakes.py](../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f1_a_fenced_pair_is_not_a_verdict`

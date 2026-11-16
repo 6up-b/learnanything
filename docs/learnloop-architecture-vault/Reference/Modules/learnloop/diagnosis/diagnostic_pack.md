@@ -119,6 +119,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
   - `test_boundary_view_projects_blueprint_cells_as_untested`

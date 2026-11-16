@@ -3483,6 +3483,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1g_a_display_that_failed_to_persist_is_never_acknowledged`
   - `test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers`
   - `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe`
+  - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
   - `test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together`
   - `test_the_bundle_carries_the_question_as_it_was_given`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import

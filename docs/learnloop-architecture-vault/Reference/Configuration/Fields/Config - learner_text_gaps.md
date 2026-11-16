@@ -25,6 +25,7 @@ source_paths:
   - "tests/ad23_contract_helpers.py"
   - "tests/conftest.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -33,7 +34,6 @@ source_paths:
   - "tests/forecast_receipts_helpers.py"
   - "tests/help_outcomes_helpers.py"
   - "tests/hint_service_helpers.py"
-  - "tests/identity_pins_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -82,6 +82,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad23_contract_helpers.py`
 - `tests/conftest.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -90,7 +91,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/forecast_receipts_helpers.py`
 - `tests/help_outcomes_helpers.py`
 - `tests/hint_service_helpers.py`
-- `tests/identity_pins_helpers.py`
 
 ## Extension and modification guidance
 

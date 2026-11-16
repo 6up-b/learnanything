@@ -221,6 +221,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/ro1_self_report_helpers.py](../../../../../../tests/ro1_self_report_helpers.py) — direct import
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_learner_confirmation_resolves_factor_to_provisional_belief`

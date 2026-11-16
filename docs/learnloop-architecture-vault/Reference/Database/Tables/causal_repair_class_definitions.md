@@ -106,6 +106,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_identity_helpers.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_shadow_selection.py`

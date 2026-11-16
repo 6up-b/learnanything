@@ -165,6 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/help_outcomes_helpers.py](../../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/recurrence_fakes.py](../../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_activity_families.py](../../../../../../../tests/test_activity_families.py) — direct import

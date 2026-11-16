@@ -23,6 +23,7 @@ source_paths:
   - "tests/contamination_report_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/diagnose_review_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/facet_identity_fakes.py"
   - "tests/figures_fix_round2_helpers.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/followup_serve_helpers.py"
   - "tests/graph_nomination_ingest_helpers.py"
   - "tests/hint_fakes.py"
-  - "tests/identity_pins_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/facet-identity"
@@ -76,6 +76,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/contamination_report_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/diagnose_review_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/facet_identity_fakes.py`
 - `tests/figures_fix_round2_helpers.py`
@@ -83,7 +84,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/followup_serve_helpers.py`
 - `tests/graph_nomination_ingest_helpers.py`
 - `tests/hint_fakes.py`
-- `tests/identity_pins_helpers.py`
 
 ## Extension and modification guidance
 

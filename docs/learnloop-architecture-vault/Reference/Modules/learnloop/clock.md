@@ -514,6 +514,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/daily_plan_reading_helpers.py](../../../../../tests/daily_plan_reading_helpers.py) — direct import
 - [tests/device_eligibility_helpers.py](../../../../../tests/device_eligibility_helpers.py) — direct import
+- [tests/diagnosis_identity_helpers.py](../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../tests/due_queue_helpers.py) — direct import
@@ -2152,6 +2153,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_coverage`
   - `test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unchanged`
   - `test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage`
+  - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
   - `test_f1r_feedback_reopened_after_the_cold_delay_is_a_fresh_exposure`
   - `test_f6_an_ordinary_regrade_history_was_not_held`
   - `test_f6_the_regrade_history_says_the_grade_it_replaced_was_held`

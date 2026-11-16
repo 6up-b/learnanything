@@ -175,6 +175,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../../tests/mcp_world.py) — direct import
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import

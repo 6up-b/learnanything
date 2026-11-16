@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/daily_plan/lesson_offer.py"
   - "src/learnloop/teacher/probes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/facet_authority_helpers.py"
   - "tests/figure_property_corpus.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/katex_meaning.py"
   - "tests/local_embeddings_fakes.py"
   - "tests/mobile_host_auth_helpers.py"
-  - "tests/mobile_host_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/teacher"
@@ -79,6 +79,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/facet_authority_helpers.py`
 - `tests/figure_property_corpus.py`
@@ -89,7 +90,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/katex_meaning.py`
 - `tests/local_embeddings_fakes.py`
 - `tests/mobile_host_auth_helpers.py`
-- `tests/mobile_host_helpers.py`
 
 ## Extension and modification guidance
 

@@ -28,6 +28,7 @@ source_paths:
   - "tests/ad3_subject_view_helpers.py"
   - "tests/ad_fakes.py"
   - "tests/diagnosis_fakes.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/diagnosis_input_provenance_helpers.py"
   - "tests/forecast_receipts_helpers.py"
   - "tests/held_grade_evidence_helpers.py"
@@ -36,7 +37,6 @@ source_paths:
   - "tests/http_provider_double.py"
   - "tests/identity_pins_helpers.py"
   - "tests/joint_grading_helpers.py"
-  - "tests/mcp_world.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/diagnosis"
@@ -90,6 +90,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad3_subject_view_helpers.py`
 - `tests/ad_fakes.py`
 - `tests/diagnosis_fakes.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/diagnosis_input_provenance_helpers.py`
 - `tests/forecast_receipts_helpers.py`
 - `tests/held_grade_evidence_helpers.py`
@@ -98,7 +99,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/http_provider_double.py`
 - `tests/identity_pins_helpers.py`
 - `tests/joint_grading_helpers.py`
-- `tests/mcp_world.py`
 
 ## Extension and modification guidance
 

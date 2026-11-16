@@ -139,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_diagnosis_history_modes.py](../../../../../../../tests/test_diagnosis_history_modes.py) — direct import
   - `test_every_mode_keeps_s3_and_validates_evidence_ids`
   - `test_hybrid_degrades_to_exact_when_embeddings_fail`

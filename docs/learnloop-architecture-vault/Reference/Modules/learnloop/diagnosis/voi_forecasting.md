@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
   - `test_a_failed_forecast_and_a_failed_post_diagnosis_step_leave_records`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import

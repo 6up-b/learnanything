@@ -101,6 +101,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — direct import
   - `test_duration_estimates_carry_honest_provenance`
   - `test_no_action_mapping_is_a_typed_abstention_not_a_fabricated_route`
