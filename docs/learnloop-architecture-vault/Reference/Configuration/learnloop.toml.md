@@ -46,7 +46,7 @@ fallback_provider = ""
 
 [ai.providers.codex]
 type = "codex_sdk"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 reasoning_effort = "low"
 # checkout_path / revision / sdk_python_path may be set for a non-default checkout.
 

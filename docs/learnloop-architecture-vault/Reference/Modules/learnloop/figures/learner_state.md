@@ -121,9 +121,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`, `state_hash`; statically calls `anchored_learning_objects`, `enabled`, `read_learner_state`, `state_hash`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `open_gap_statements`; statically calls `open_gap_statements`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `inputs_withheld`; statically calls `inputs_withheld`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`, `state_hash`; statically calls `anchored_learning_objects`, `enabled`, `read_learner_state`, `state_hash`
 
 ## Dependencies
 
@@ -150,7 +150,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

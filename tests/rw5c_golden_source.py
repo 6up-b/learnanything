@@ -36,7 +36,9 @@ def golden(root: Path, *, switch: bool) -> dict[str, Any]:
     from typer.testing import CliRunner
 
     from learnloop.cli.app import app
-    from learnloop.figures import service as FS
+    from learnloop.figures import build as FB
+    from learnloop.figures import grounding as FGR
+    from learnloop.figures import request as FQ
     from learnloop.reader.reader_report import build_reader_report
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
@@ -61,11 +63,11 @@ def golden(root: Path, *, switch: bool) -> dict[str, Any]:
                                                         "answer": prediction["choices"][0]["value"]})
     again = call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     vault = load_vault(paths.root)
-    context_ = FS.SourceContext(passage=[{"span_id": "p3", "type": "Equation", "text": "x"}], span_texts={"p3": "x"})
+    context_ = FGR.SourceContext(passage=[{"span_id": "p3", "type": "Equation", "text": "x"}], span_texts={"p3": "x"})
     hashes = {
-        "plain": FS.request_hash(FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None),
-        "advanced": FS.request_hash(FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None, advanced=True),
-        "revision": FS.request_hash(FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], supersedes_id="fig_1",
+        "plain": FB.request_hash(FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None),
+        "advanced": FB.request_hash(FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), context_, None, advanced=True),
+        "revision": FB.request_hash(FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], supersedes_id="fig_1",
                                                      revision_note="a note"), context_, None),
     }
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path

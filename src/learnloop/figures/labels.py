@@ -49,7 +49,7 @@ text (:func:`strip_json`). A Manim figure is refused
 answer is.
 
 A stored figure is presented under the same rule (Codex review F3,
-:func:`learnloop.figures.service.worded_row`): listed or reused, it is shown
+:func:`learnloop.figures.view.worded_row`): listed or reused, it is shown
 without its label-like text, a Manim title left out and each label-like
 transcript line replaced in code's words (:func:`strip_lines`). The stored
 row is never rewritten.

@@ -165,14 +165,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/runner|learnloop.experiments.contextual_embeddings.runner]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `connect`; statically calls `connect`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/hints/discriminating|learnloop.hints.discriminating]] — imports `connect`; statically calls `connect`
@@ -295,7 +299,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 177 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 181 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

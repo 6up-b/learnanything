@@ -30,7 +30,7 @@ fallback_provider = ""
 
 [ai.providers.chatgpt]
 type = "chatgpt_plan"
-model = "gpt-5.6-sol"
+model = "gpt-6.1-sol"
 reasoning_effort = "low"
 
 [ai.providers.openrouter]

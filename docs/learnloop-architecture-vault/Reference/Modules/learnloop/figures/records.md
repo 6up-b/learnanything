@@ -164,8 +164,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `AuthorAttempts`, `code`, `sketch_problem`, `spec_problem`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `FilterLog`, `build_stop_record`, `in_one_trace`, `prebuild_record`, `write_records`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `AuthorAttempts`, `code`, `sketch_problem`, `spec_problem`
 
 ## Dependencies
 
@@ -187,7 +187,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

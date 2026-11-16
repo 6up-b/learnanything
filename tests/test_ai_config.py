@@ -29,18 +29,18 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
     assert config.ai.active_provider == "chatgpt"
     assert not hasattr(config.ai, "agent_harness_opt_in")
     assert config.ai.providers["chatgpt"].type == "chatgpt_plan"
-    assert config.ai.providers["chatgpt"].model == "gpt-5.6-sol"
+    assert config.ai.providers["chatgpt"].model == "gpt-6.1-sol"
     assert config.ai.providers["chatgpt"].reasoning_effort == "low"
     assert config.ai.providers["chatgpt_low"].reasoning_effort == "low"
     assert config.ai.providers["chatgpt_medium"].reasoning_effort == "medium"
     assert config.ai.providers["codex"].type == "codex_sdk"
-    assert config.ai.providers["codex"].model == "gpt-5.6-sol"
+    assert config.ai.providers["codex"].model == "gpt-6.1-sol"
     assert config.ai.providers["codex"].reasoning_effort == "low"
-    assert config.ai.providers["codex_low"].model == "gpt-5.6-sol"
+    assert config.ai.providers["codex_low"].model == "gpt-6.1-sol"
     assert config.ai.providers["codex_low"].reasoning_effort == "low"
-    assert config.ai.providers["codex_medium"].model == "gpt-5.6-sol"
+    assert config.ai.providers["codex_medium"].model == "gpt-6.1-sol"
     assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
-    assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+    assert codex_profile_value(config, "model") == "gpt-6.1-sol"
     assert codex_profile_value(config, "reasoning_effort") == "low"
     assert config.ai.providers["deepseek_flash"].model == "deepseek-v4-flash"
     assert config.ai.providers["deepseek_flash"].thinking == "disabled"
@@ -178,10 +178,10 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
 
     for config in (loaded, in_memory):
         assert config.ai.timeout_seconds == 180
-        assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+        assert codex_profile_value(config, "model") == "gpt-6.1-sol"
         assert codex_profile_value(config, "reasoning_effort") == "low"
         assert codex_profile_value(config, "timeout_seconds") == 180
-        assert config.ai.providers["codex"].model == "gpt-5.6-sol"
+        assert config.ai.providers["codex"].model == "gpt-6.1-sol"
         assert config.ai.providers["codex"].reasoning_effort == "low"
         assert config.ai.providers["codex_low"].reasoning_effort == "low"
         assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
@@ -244,11 +244,11 @@ def test_legacy_codex_routes_upgrade_to_workload_specific_effort_profiles():
     assert config.ai.routing.grading == "codex_low"
     assert config.ai.routing.tutor_qa == "codex_low"
     assert config.ai.routing.teach_back == "codex_low"
-    assert config.ai.providers["codex"].model == "gpt-5.6-sol"
+    assert config.ai.providers["codex"].model == "gpt-6.1-sol"
     assert config.ai.providers["codex"].reasoning_effort == "low"
     assert config.ai.providers["codex_low"].reasoning_effort == "low"
     assert config.ai.providers["codex_medium"].reasoning_effort == "medium"
-    assert codex_profile_value(config, "model") == "gpt-5.6-sol"
+    assert codex_profile_value(config, "model") == "gpt-6.1-sol"
     assert codex_profile_value(config, "reasoning_effort") == "low"
 
 

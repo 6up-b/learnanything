@@ -245,12 +245,15 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/probability_states|learnloop.field.probability_states]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/field/success_head|learnloop.field.success_head]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `Clock`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Clock`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `Clock`
@@ -489,7 +492,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 389 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 392 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

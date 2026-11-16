@@ -102,7 +102,7 @@ def case_video_from_a_cropped_region(tmp_path, monkeypatch):
     import json
 
     import learnloop.reader.span_view as SV
-    from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
     from tests.figure_fixtures import EXTRACTION
 
     def crop(path, page, bbox):
@@ -112,7 +112,7 @@ def case_video_from_a_cropped_region(tmp_path, monkeypatch):
     monkeypatch.setattr(SV, "_original_pdf_for", lambda repo, extraction_id: "book.pdf")
     monkeypatch.setattr(SV, "_original_pdf_path", lambda repo, revision, uri: "book.pdf")
     monkeypatch.setattr(SV, "_local_pdf_block_crop", crop)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=[],
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[],
                                region={"span_id": "p4", "bbox": [150.0, 120.0, 260.0, 220.0]})
     return RichCase(tmp_path, monkeypatch, request=request, images=True).run()
 
@@ -121,11 +121,11 @@ def case_video_from_a_show_me_press_with_only_a_home(tmp_path, monkeypatch):
     """A show-me press with no passage whose retrieval found nothing: the job's saved context has no span and no
     retrieved key, only the reading position (its home), which the job's held-out check reads."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
     from tests.figure_fixtures import EXTRACTION
     from tests.figures_help_helpers import FindFake
 
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me",
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me",
                                goal_text="show how the mass left of zero moves as p changes", goal_author="learner",
                                reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
     return RichCase(tmp_path, monkeypatch, request=request, find=FindFake()).run()

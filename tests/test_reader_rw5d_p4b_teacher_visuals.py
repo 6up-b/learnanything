@@ -15,7 +15,8 @@ import json
 import pytest
 
 from learnloop.content.sources import exam_material as EM
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import request as FQ
 from learnloop.teacher import service as S
 from learnloop.teacher import visuals as V
 from learnloop.vault.loader import load_vault
@@ -68,7 +69,7 @@ def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions
                                    "reading_at_json, figure_id FROM figure_requests")
     assert request[:4] == ("teacher", "teacher", "teacher", "reading")
     assert json.loads(request[4]) == {"lesson_id": lesson_id, "node_id": "n1"}
-    assert set(json.loads(request[5])) <= set(FS.LESSON_TIERS)
+    assert set(json.loads(request[5])) <= set(FQ.LESSON_TIERS)
     assert request[6] is None
     (figure,) = _rows(repository, "SELECT id, origin, extraction_id, spec_json FROM interactive_figures")
     assert figure[0] == request[7] and figure[1] == "teacher" and figure[2] is None
@@ -266,8 +267,8 @@ def test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one(t
 
     state = S.load_state(repository, view["lesson_id"])
     request = V.figure_request(state, {"goal": GOAL, "anchors": ["S1"], "node": None}, caller=caller_for(state))
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.build_figure(load_vault(paths.root), repository, request, author_client=author)
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FB.build_figure(load_vault(paths.root), repository, request, author_client=author)
     assert refused.value.code == "teacher_visuals_disabled" and author.calls == 1
 
 
@@ -326,22 +327,22 @@ def test_the_teacher_origin_is_the_lesson_services_only(tmp_path):
                     {"caller": CallerContext(kind="teacher", ref="les_x"), "goal_author": "learner"},
                     {"caller": CallerContext(kind="teacher", ref="les_x"), "span_ids": ["s1"],
                      "extraction_id": "ext_book"}):
-        request = FS.FigureRequest(**{**base, **changes})
-        with pytest.raises(FS.FigureRefused) as refused:
-            FS.check_request(vault, repository, request)
+        request = FQ.FigureRequest(**{**base, **changes})
+        with pytest.raises(FQ.FigureRefused) as refused:
+            FQ.check_request(vault, repository, request)
         assert refused.value.code == "validation_error", changes
     # A "not right?" of a lesson's figure is never made from an RPC (its revision has no teacher caller).
-    revision = FS.FigureRequest(**{**base, "caller": None, "supersedes_id": "fig_x"})
-    with pytest.raises(FS.FigureRefused):
-        FS.check_request(vault, repository, revision)
-    assert "teacher" in FS.SERVICE_ORIGINS and "teacher" not in FS.RESERVED_ORIGINS
+    revision = FQ.FigureRequest(**{**base, "caller": None, "supersedes_id": "fig_x"})
+    with pytest.raises(FQ.FigureRefused):
+        FQ.check_request(vault, repository, revision)
+    assert "teacher" in FQ.SERVICE_ORIGINS and "teacher" not in FQ.RESERVED_ORIGINS
 
 
 def test_a_lesson_figure_never_spawns_a_rich_job(tmp_path, monkeypatch):
     from tests.ux_phase1_support import set_config
 
     # Every rich tier ready on this machine: a Reader press with a spawner would put them on the menu.
-    monkeypatch.setattr(FS.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "js_animation",
+    monkeypatch.setattr(FB.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "js_animation",
                                                                                "manim"))
     spawned = []
     paths, repository = build_teacher_vault(tmp_path / "vault")

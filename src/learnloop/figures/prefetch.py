@@ -60,7 +60,7 @@ batch 7 (A)).
 **Builds** run one at a time (:data:`PREFETCH_CONCURRENT_BUILDS`), each only
 while no foreground work is in flight (:mod:`.foreground`: a pressed figure,
 a lesson turn, a tutor answer, grading), on mains, with the switch on, through
-:func:`learnloop.figures.service.build_prefetch_figure` (origin ``prefetch``,
+:func:`learnloop.figures.build.build_prefetch_figure` (origin ``prefetch``,
 under ``quiet()``; its gate holds on the switch and the power before every
 request). A later press of the same input reuses the figure by its input hash.
 
@@ -327,12 +327,13 @@ def item_protection(env: PrefetchEnv) -> ItemProtection:
 
 def context_spans(env: PrefetchEnv, candidate: "Candidate") -> list[str]:
     """The spans the figure author would be sent for this candidate: its passage and the
-    paragraphs around it (``service.source_context``, the anchored build's own context)."""
+    paragraphs around it (``grounding.source_context``, the anchored build's own context)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import grounding as FGR
+    from learnloop.figures import request as FQ
 
     try:
-        context = FS.source_context(env.vault, env.repository, FS.FigureRequest(
+        context = FGR.source_context(env.vault, env.repository, FQ.FigureRequest(
             extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids)))
     except Exception:  # noqa: BLE001 - a context that can't be read: its passage only
         return list(candidate.span_ids)
@@ -1343,7 +1344,8 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
     """The queue, one build at a time: each waits for no foreground work, and starts only on mains,
     with the switch on and today's caps with room (rechecked on the vault as configured now)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import build as FB
+    from learnloop.figures import request as FQ
 
     ids = [str(row["id"]) for row, _candidate in queue]
 
@@ -1409,22 +1411,22 @@ def run_builds(env: PrefetchEnv, queue: Sequence[tuple[dict[str, Any], Candidate
             # Landing ruling R5: the lesson step's own request (no passage, its grounding keys);
             # a lesson host is grammar and sketch only, so no rich job (the input hash is the step's).
             spawn = None
-            request = FS.FigureRequest(extraction_id=None, span_ids=[], origin="prefetch",
+            request = FQ.FigureRequest(extraction_id=None, span_ids=[], origin="prefetch",
                                        goal_text=candidate.goal_text, goal_author="teacher",
                                        grounding_keys=[tuple(key) for key in candidate.grounding_keys],
                                        prefetch_decision_id=str(row["id"]))
         else:
             spawn = _rich_spawn(env)
-            request = FS.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
+            request = FQ.FigureRequest(extraction_id=candidate.extraction_id, span_ids=list(candidate.span_ids),
                                        origin="prefetch", goal_text=candidate.goal_text,
                                        goal_author=candidate.goal_author if candidate.goal_text else None,
                                        prefetch_decision_id=str(row["id"]))
         with _BUILD_SLOTS:
             try:
-                FS.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
+                FB.build_prefetch_figure(current, env.repository, request, author_client=env.author_client,
                                          clock=env.clock, live_vault=env.live_vault, find=env.find,
                                          spawn_rich=spawn)
-            except FS.FigureRefused as exc:
+            except FQ.FigureRefused as exc:
                 result.notes.append(f"{row['id']}: {exc.code}")
                 stop(position, FR.STOP_BUILD_REFUSED, "refused", rest=False, refusal=exc.code)
                 continue
@@ -1703,7 +1705,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     docstring) now retries every such job (every source) under the background guards: called,
     before the pass's own builds, only when the pass itself would build (on mains, the plan neither
     paused nor off the author route), then
-    ``service.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
+    ``listing.prefetch_plan_waits`` on the vault as configured now (the switch, the rich tiers,
     mains, the passage not held out). Bounded: only jobs built for a decision whose horizon is
     still open (a closed decision's prebuild is no longer ahead of need), at most
     ``[figures.prefetch] max_daily_builds`` requeues per pass (a paced job is passed over, not
@@ -1718,7 +1720,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
     if env.retry_plan_wait is None or env.is_cancelled():
         return
     from learnloop.figures import rich as RICH
-    from learnloop.figures import service as FS
+    from learnloop.figures import listing as FL
 
     current = env.loaded_now()
     if current is None or not enabled(current.vault):
@@ -1735,7 +1737,7 @@ def retry_plan_waits(env: PrefetchEnv, result: PassResult) -> None:
         return
     # Codex review F1: every saved context is checked against the items' own passages now (a live
     # administration, and the stored plan's open items, as ``run_builds`` checks a new build).
-    waiting = FS.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
+    waiting = FL.prefetch_plan_waits(current.vault, env.repository, None, request_ids=open_requests,
                                      clock=current.clock)
     # Codex review F2: the bound counts requeues, not candidates. A job inside its retry interval
     # declines without a request, so the scan goes on to the next; the least recently asked first,

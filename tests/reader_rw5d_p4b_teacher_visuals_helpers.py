@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 
@@ -51,7 +51,7 @@ def _builder(paths, repository, author, *, calls=None, spawn=None):
     def build(request):
         if calls is not None:
             calls.append(request)
-        return FS.build_figure(load_vault(paths.root), repository, request, author_client=author, spawn_rich=spawn)
+        return FB.build_figure(load_vault(paths.root), repository, request, author_client=author, spawn_rich=spawn)
 
     return build
 

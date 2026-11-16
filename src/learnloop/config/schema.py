@@ -1655,7 +1655,9 @@ def _require_known_routes(value: dict[str, Any], setting: str) -> None:
         raise ValueError(f"{setting} names unknown routes: {', '.join(unknown)}")
 
 
-DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
+# Owner model upgrade (2026-11-15): future calls only; receipts keep their model.
+# The rich-job admission key includes the model, so its K10.4e identity pins move deliberately.
+DEFAULT_CODEX_MODEL = "gpt-6.1-sol"
 DEFAULT_CODEX_REASONING_EFFORT = "low"
 LEGACY_CODEX_MODEL = "gpt-5.5"
 CODEX_LOW_PROVIDER = "codex_low"

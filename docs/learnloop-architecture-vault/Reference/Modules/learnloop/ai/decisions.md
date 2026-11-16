@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py) |
-| Source lines | 336 |
+| Source lines | 341 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -74,8 +74,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `validate_questions(questions: Mapping[str, Question]) -> dict[str, Question]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 166)
 - `validate_state(state: DecisionState) -> DecisionState` ([source](../../../../../../src/learnloop/ai/decisions.py), line 179)
 - `request_body(model: str, state: DecisionState, questions: Mapping[str, Question]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 187) — The complete wire body: ``model``, ``state`` and ``questions``, nothing else.
-- `choice_probabilities(answer: ChoiceAnswer, question: ChoiceQuestion) -> dict[str, float]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 235) — Validate a typed choice distribution before a policy takes its argmax.
-- `parse_response(payload: Any, questions: Mapping[str, Question]) -> DecisionResult` ([source](../../../../../../src/learnloop/ai/decisions.py), line 278) — Parse a 200 body against the questions that were asked; fail closed.
+- `choice_probabilities(answer: ChoiceAnswer, question: ChoiceQuestion) -> dict[str, float]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 237) — Validate a typed choice distribution before a policy takes its argmax.
+- `parse_response(payload: Any, questions: Mapping[str, Question]) -> DecisionResult` ([source](../../../../../../src/learnloop/ai/decisions.py), line 280) — Parse a 200 body against the questions that were asked; fail closed.
 
 ### Module constants
 
@@ -84,8 +84,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `MAX_SCORE_LEVELS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 32)
 - `PROBABILITY_SUM_TOLERANCE` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 34)
 - `_RESPONSE_FIELDS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 203)
-- `_USAGE_FIELDS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 204)
-- `_ANSWER_FIELDS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 205)
+- `_USAGE_FIELDS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 206)
+- `_ANSWER_FIELDS` ([src/learnloop/ai/decisions.py](../../../../../../src/learnloop/ai/decisions.py), line 207)
 
 ### Explicit exports
 
@@ -115,10 +115,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Internal implementation anchors
 
 - `_text(value: str, what: str) -> str` ([source](../../../../../../src/learnloop/ai/decisions.py), line 43)
-- `_probability(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/ai/decisions.py), line 212)
-- `_count(value: Any, what: str) -> int` ([source](../../../../../../src/learnloop/ai/decisions.py), line 220)
-- `_distribution(values: Any, expected: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 226)
-- `_answer(name: str, question: Question, raw: Any) -> Answer` ([source](../../../../../../src/learnloop/ai/decisions.py), line 240)
+- `_probability(value: Any, what: str) -> float` ([source](../../../../../../src/learnloop/ai/decisions.py), line 214)
+- `_count(value: Any, what: str) -> int` ([source](../../../../../../src/learnloop/ai/decisions.py), line 222)
+- `_distribution(values: Any, expected: Sequence[str], what: str) -> dict[str, float]` ([source](../../../../../../src/learnloop/ai/decisions.py), line 228)
+- `_answer(name: str, question: Question, raw: Any) -> Answer` ([source](../../../../../../src/learnloop/ai/decisions.py), line 242)
 
 ## Who imports or calls it
 
@@ -189,6 +189,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_error_statuses_surface_without_parsing`
   - `test_fake_endpoint_answers_400_to_an_unknown_field_and_the_client_never_sends_one`
   - `test_missing_key_and_oversized_state_refuse_before_any_request`
+  - `test_openrouter_billing_metadata_preserves_answers_and_charged_cost`
   - `test_openrouter_dialect_posts_the_typed_request_and_parses_typed_answers`
   - `test_parsing_fails_closed_on_any_contract_change`
   - `test_perplexity_dialect_uses_its_path_key_and_model`

@@ -146,10 +146,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `ENGINE_SHA256`, `ENGINE_VERSION`
 - [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]] — imports `module`; statically calls `SketchEngine`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ENGINE_SHA256`, `ENGINE_VERSION`, `SketchEngine`, `SketchRunError`; statically calls `SketchEngine`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `ENGINE_SHA256`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `SketchEngine`, `SketchRunError`; statically calls `SketchEngine`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `engine_ready`; statically calls `engine_ready`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `ENGINE_SHA256`, `SketchEngine`, `SketchRunError`; statically calls `SketchRunError`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `ENGINE_SHA256`
 
 ## Dependencies
 
@@ -169,7 +172,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/katex_tree|learnloop.figures.katex_tree]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

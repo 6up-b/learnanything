@@ -32,7 +32,8 @@ import pytest
 from learnloop.ai import plan_fallback as PF
 from learnloop.ai.execution import content_key
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import grounding as FGR
+from learnloop.figures import view as FV
 from learnloop.figures import spec as S
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
@@ -135,7 +136,7 @@ def test_a_goal_alone_is_grounded_in_the_books_and_lands_where_the_learner_was(t
     # The sources service's verified retrieval, intent explain, at most three passages.
     (asked,) = find.calls
     assert asked["query"] == GOAL and asked["intent"] == "explain" and asked["verify"] is True
-    assert asked["limit"] == FS.GROUNDING_PASSAGES == 3 and asked["caller"].kind == "reader"
+    assert asked["limit"] == FGR.GROUNDING_PASSAGES == 3 and asked["caller"].kind == "reader"
     sent = author.contexts[0]
     assert sent["learner_request"] == {"text": GOAL, "written_by": "learner"}
     assert sent["grounding"] == "retrieved"
@@ -147,7 +148,7 @@ def test_a_goal_alone_is_grounded_in_the_books_and_lands_where_the_learner_was(t
     assert figure["goalText"] == GOAL and figure["goalAuthor"] == "learner" and figure["grounding"] == "retrieved"
     assert [(p["extractionId"], p["spanId"]) for p in figure["passages"]] == [
         ("ext_book", "s2"), ("ext_prob", "p6"), ("ext_book", "s3")]
-    assert figure["label"] == FS.LABELS["illustrative"]
+    assert figure["label"] == FV.LABELS["illustrative"]
     (row,) = rows(repository, "interactive_figures")
     assert row["origin"] == "show_me" and row["grounding"] == "retrieved" and row["goal_text"] == GOAL
     assert json.loads(row["input_span_ids_json"]) == []
@@ -182,7 +183,7 @@ def test_nothing_found_is_built_anyway_as_an_illustration_not_from_your_books(tm
     assert "nothing in the learner's books was found" in author.prompts[0]
     assert figure["verification"] == "illustrative" and figure["kind"] == "illustrative"
     assert figure["grounding"] == "none" and figure["passages"] == []
-    assert figure["label"] == FS.NOT_FROM_BOOKS_LABEL == "AI-built illustration · not from your books"
+    assert figure["label"] == FV.NOT_FROM_BOOKS_LABEL == "AI-built illustration · not from your books"
     spec = json.loads(figure["specJson"])
     assert spec["kind"] == "illustrative" and spec["source_claims"] == []
     assert all(not item.get("quote") for item in spec["assumptions"])

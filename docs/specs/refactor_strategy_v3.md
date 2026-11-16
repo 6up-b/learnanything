@@ -781,8 +781,8 @@ The map's methods were name- and import-based, so whole risk classes were invisi
   - **K9.12 Why a probe answer wasn't read, and which hook failed** (M, records): the classifier's declines and the four grade-keyed hooks' failures recorded. The verdict's own record is G1's, under L6.
   - **K9.13 The episode posterior as a gather and a pure fold** (M): only if G3 says G4 runs, or the owner's Q2 chooses K9.17; with L4.
   - **K9.14 The Diagnosis note true at this tip** (S): after K9.11; the full rewrite stays with §5's last stage.
-  - **K9.15 Delete `failure_triage`** (S): only if the owner's Q3 is yes; its registry entries in the same commit.
-  - **K9.16 Retire the EVSI-2 shadow selection** (M): only if the owner's Q4 is yes; with or after G2.
+  - **K9.15 Delete `failure_triage`** (S): the owner's Q3 is yes (Nov 16, §2.20); its registry entries in the same commit.
+  - **K9.16 Retire the EVSI-2 shadow selection** (M): the owner's Q4 is yes (Nov 16, §2.20), so it no longer waits for G2; how far the removal reaches beyond the shadow selection is being mapped first.
   - **K9.17 A released hold or a regrade enters the episode posterior** (M, behaviour, successor; K9-3): only if the owner's Q2 chooses it over G4.
 - **Owner's calls open** (the strategy's §9): Q1 an untaken repair episode's lifetime (recommended: until the item's next ordinary review); Q2 whether released holds and regrades move the beliefs, and in G4 or their own successor (recommended: yes, in G4 if it runs); Q3 delete `failure_triage` (recommended: yes); Q4 retire the EVSI-2 shadow (recommended: yes, with G2); Q5 no diagnosis-only change to the parameter registry.
 
@@ -851,6 +851,26 @@ This replaces §2.1's per-arc review on `gpt-6.1-sol`. The first review covers e
 - **Does:** when a step extracts a pure core or moves a function, the tests that patched its old private name are ported to call the core with plain values, or deleted when the core's own tests cover them; they are not pointed at the new location. Both counts join the structure ratchet, so they can only fall.
 
 **T5. The shape pass** (M; once, at Z2, with T2). After D7 and arc E, when what remains is stable: fix-round and stage-named files merged into behaviour-named ones, the slowest 1% remeasured. Not earlier.
+
+### 2.20 Owner decisions, Nov 16 (after the second audit)
+
+The second audit is `docs/reviews/refactor-strategy-v3-audit-2026-11-16.md`. Its additions (S1-S4, E7b, K11, M1, L6a, P1) are not approved as a set. The owner decided the following, in their words where quoted.
+
+**A shared read model** ("I definitely agree with 1--a shared read model is a great idea"). Three layers: the raw ledger; a small set of named views over it (attempt facts, claim cards, the evidence view); pure cores that take views and return a decision with its record (L6). Arcs E, G and H are done as "move this decision onto the views", not as separate designs. The first slice and the views' rule for time (three named reads in place of one `as_of`) are `docs/specs/spec_evidence_packets_v1.md` (Part E is §7). Its steps join the queue as the owner answers its questions.
+
+**Walls before interiors** ("I also agree with you 2"). L1 (the import cycle's edges, recomputed first) and L2 (`repositories.py` by feature file) run before further interior splits (K10.9 onward, K9.5-K9.11). After them, work inside a package is independent and small.
+
+**Stop the inflow** ("and 3"). A new successor ships with its tag, upgrade row and test row and no kill switch, unless the owner asks for one to monitor it. Recorded in `docs/algorithm-change-playbook.md` (2026-11-16), with what undoing a successor then means. Existing switches still go by ADR-019.
+
+**Proofs for pure moves** ("and proofs for pure moves"). A step that only moves code proves itself by an AST-identity check of every moved definition against the base (as K10.7-K10.8's landing did: 161 of 162 top-level definitions identical, the one difference `__all__`), the import contracts, the affected tests, and the landing gate. The implementer runs no sweep of its own. P-shadow, P-draw and the playbook stay for every step that changes a value.
+
+**Codex implementers** ("feel free to use additional codex subagents in place of sonnet or low tier opus subagents to save on plan usage"). Mechanical and well-specified steps go to Codex workers on the ChatGPT subscription; Opus stays for behaviour changes and design. The rules block, the orchestrator's diff read and the landing gate apply the same way.
+
+**`failure_triage` goes** ("We should remove failure triage too [...] the only useful idea from it is the concept of "which intervention would help under each plausible cause", which should be superseded by our current diagnosis/action router architecture and larger learnloop pipeline"). This is K9's Q3: K9.15 runs. The idea it held is carried by the diagnosis and the action router; nothing of the module is ported.
+
+**The EVSI shadow goes** ("You can also get rid of the EVSI shadow calib. I think the original intention was for it to follow the Adaptive Elicitation paper [arXiv 2504.04204]. I do think the target set and prediction snapshot (outcome distributions tied to an evidence cutoff, target set, model version, likelihood provenance) could still be useful. It would be nice to explore as a research direction but I don't think its that functional in its current state or doing anything from the paper."). This is K9's Q4: K9.16 runs, without waiting for G2. What "shadow calib" covers beyond the EVSI-2 shadow selection (the offline calibration harness in `evsi_calibration/`, the forecast log where it is only a receipt) is the owner's to say once the map is in; every live decision, VOI stopping included, stays as it is. The idea the owner wants kept, a prediction recorded with its evidence cutoff, target set, model version and likelihood provenance, is the forecast-side twin of `as_recorded` in `spec_evidence_packets_v1.md` §7.3 and is noted there as a later direction, not a step.
+
+Still open from the same audit: whether D7 ends at batch 3 and what happens to its last group (`plan.enabled`, `router.enabled`, `router.restraint`); the rebuild fix's deltas; each spec's own questions.
 
 
 ## 3. The decision record

@@ -30,7 +30,9 @@ from types import SimpleNamespace
 
 from learnloop.db.stores import figures as store
 from learnloop.figures import protection as FP
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows
 from tests.reading_path_fixtures import call
@@ -89,11 +91,11 @@ def test_a_quick_figure_whose_learner_inputs_became_protected_is_not_presented(t
     figure_id = job["result"]["figure"]["figureId"]
     vault = load_vault(world.root)
     assert not FP.figure_withheld(vault, world.repository, figure_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
     _make_exam_material(SimpleNamespace(paths=world.paths))
     vault = load_vault(world.root)
     assert FP.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
     # The kept build result is not delivered either.
     ctx.load(world.root)
     delivered = call(ctx, "reader.figure_job", {"jobId": job["jobId"]})["result"]
@@ -110,7 +112,7 @@ def test_a_revision_inherits_its_bases_learner_state_protection(tmp_path, monkey
     base = _quick_row(world.repository)
     _switch_off(world.paths)
     vault = load_vault(world.root)
-    revision = FS.build_figure(vault, world.repository, FS.revision_request(world.repository, base, "bigger axes"),
+    revision = FB.build_figure(vault, world.repository, FB.revision_request(world.repository, base, "bigger axes"),
                                author_client=AuthorFake([flagship(kind="illustrative", title="Bigger")]))
     revised_id = revision.view["figure_id"]
     with world.repository.connection() as connection:
@@ -213,7 +215,7 @@ def test_a_marked_quick_figure_with_no_record_is_withheld(tmp_path, monkeypatch)
     vault = load_vault(world.root)
     assert FP.learner_state_withheld(vault, world.repository, row) == FP.LEARNER_STATE_UNRECORDED
     assert FP.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
 
 
 def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_reading(tmp_path):
@@ -270,7 +272,7 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
     vault = load_vault(world.root)
     assert FP.figure_withheld(vault, world.repository, legacy_id)
     assert not FP.figure_withheld(vault, world.repository, fresh_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
     # The next press of the same input reuses the fresh figure, with no call.
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
@@ -301,12 +303,12 @@ def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched
     vault = load_vault(world.root)
     with world.repository.connection() as connection:
         fresh = store.figure(connection, fresh_id)
-    assert FS.drawable_now(vault, fresh)
+    assert FV.drawable_now(vault, fresh)
     panels = bool(vault.config.figures.advanced_panels_enabled)
     _panels(world.paths, not panels)
     vault = load_vault(world.root)
     assert bool(vault.config.figures.advanced_panels_enabled) is not panels
-    assert FS.drawable_now(vault, fresh)  # still drawable under the other setting
+    assert FV.drawable_now(vault, fresh)  # still drawable under the other setting
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
     assert third["state"] == "done" and third["result"]["figure"]["figureId"] == fresh_id, third
@@ -332,7 +334,7 @@ def _rich_revision_queued(tmp_path, monkeypatch):
     rich = _rich_row(rig.repository)
     assert rich["verification_report"][FP.LEARNER_STATE_INPUTS_KEY]
     _switch_off(rig.paths)
-    outcome = rig.build(FS.revision_request(rig.repository, rich, "red please"))
+    outcome = rig.build(FB.revision_request(rig.repository, rich, "red please"))
     assert outcome.rich["state"] == "pending"
     payload = rig.job()["payload"]
     assert "learner_state" not in payload["author_context"]  # nothing of its own
@@ -390,7 +392,7 @@ def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monk
     (first,) = rig.listed()
     with rig.repository.connection() as connection:
         base = store.figure(connection, first["figure_id"])
-    rig.build(FS.revision_request(rig.repository, base, "red"))
+    rig.build(FB.revision_request(rig.repository, base, "red"))
     assert FP.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]
 
 

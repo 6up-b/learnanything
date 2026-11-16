@@ -38,7 +38,7 @@ input or not, the client's ``occurred_at`` and the sidecar's ``received_at``) to
 only while the switch is on, so the screen sends nothing otherwise.
 
 Reader RW5d P4b: a teacher turn's ``visual`` is built inside ``lesson.turn`` by the
-figure service (``learnloop.figures.service.build_figure``, origin ``teacher``,
+figure service (``learnloop.figures.build.build_figure``, origin ``teacher``,
 the author route and live configuration the Reader's builds use), grammar and
 sketch tiers only (no rich job is spawned from a lesson), so the lesson's grant
 covers it and the lesson's spend envelope admits its requests.
@@ -174,11 +174,11 @@ def _figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
     """Reader RW5d P4b: how a lesson builds its teacher's visual (inline: the turn waits on it)."""
 
     def build(request: Any) -> Any:
-        from learnloop.figures import service as FS
+        from learnloop.figures import build as FB
 
         # Every request is admitted against the vault loaded NOW (the build's FiguresGate); no rich
-        # spawner: a lesson host is grammar and sketch only (FS.LESSON_TIERS).
-        return FS.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
+        # spawner: a lesson host is grammar and sketch only (``figures.request.LESSON_TIERS``).
+        return FB.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
                                live_vault=getattr(ctx, "loaded_vault", None),
                                find=getattr(ctx, "figure_find_sources", None),
                                spawn_rich=None)

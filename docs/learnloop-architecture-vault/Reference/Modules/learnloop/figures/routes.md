@@ -154,10 +154,11 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `FigureRoute`, `author_prompt`, `author_prompt_version`, `daily_envelope`, `output_model`, `rich_menu`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `FigureRoute`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `module`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `module`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; statically calls `FigureRoute`, `daily_envelope`, `models_off`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `FigureRoute`, `author_prompt`, `author_prompt_version`, `daily_envelope`, `output_model`, `rich_menu`
 
 ## Dependencies
 
@@ -185,7 +186,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]], [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

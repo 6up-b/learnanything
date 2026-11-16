@@ -12,8 +12,13 @@ from learnloop.cli.app import app
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.stores import figures as store
 from learnloop.figures import book_math as BM
-from learnloop.figures import service as FS
+from learnloop.figures import power as P
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import grounding as FGR
+from learnloop.figures import request as FQ
 from learnloop.figures import source_check as SC
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from tests.figure_fixtures import AuthorFake, build, call, context, rows, set_config
@@ -228,8 +233,8 @@ def test_a_difference_found_at_recheck_gives_the_failed_state_with_rebuild(tmp_p
     assert listed["sourceCheck"]["rebuild"] is True and listed["specJson"] is None
     assert rows(repository, "interactive_figures")[0]["verification"] == "illustrative"
     # Predictions and an attempt's open refuse it too.
-    with pytest.raises(FS.FigureRefused):
-        FS.shown_figure(load_vault(paths.root), repository, figure["figureId"])
+    with pytest.raises(FQ.FigureRefused):
+        FL.shown_figure(load_vault(paths.root), repository, figure["figureId"])
 
 
 @sandboxed
@@ -281,28 +286,37 @@ def test_rebuild_of_a_figure_with_no_difference_is_refused(tmp_path, monkeypatch
 
 
 def test_the_reuse_key_is_unchanged_without_a_source_check_id():
-    context_ = FS.SourceContext(passage=[{"span_id": "a", "type": "Text", "text": "x"}])
-    plain = FS.FigureRequest(extraction_id="e", span_ids=["a"])
-    rebuilt = FS.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
-    other = FS.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")
-    hashes = {FS.request_hash(request, context_, None) for request in (plain, rebuilt, other)}
+    context_ = FGR.SourceContext(passage=[{"span_id": "a", "type": "Text", "text": "x"}])
+    plain = FQ.FigureRequest(extraction_id="e", span_ids=["a"])
+    rebuilt = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_1")
+    other = FQ.FigureRequest(extraction_id="e", span_ids=["a"], source_check_id="fsc_2")
+    hashes = {FB.request_hash(request, context_, None) for request in (plain, rebuilt, other)}
     assert len(hashes) == 3
     # initial_problems are the answer to the check row: they never key a request by themselves.
-    assert FS.request_hash(FS.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
-        == FS.request_hash(plain, context_, None)
+    assert FB.request_hash(FQ.FigureRequest(extraction_id="e", span_ids=["a"], initial_problems=["x"]), context_, None) \
+        == FB.request_hash(plain, context_, None)
 
 
 @sandboxed
-def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_path, monkeypatch):
-    paths, repository, _author, ctx = _vault(tmp_path, [HALF])
-    figure = _stored_before_rw5c(paths, ctx, DENSITY)
-    with repository.connection() as connection:
-        connection.execute("UPDATE interactive_figures SET origin = 'prefetch' WHERE id = ?", (figure["figureId"],))
-        connection.commit()
-    monkeypatch.setattr(FS, "_prebuilt_pressed", lambda _repository, _row: False)
-    full = store.figure(repository.connection(), figure["figureId"])
+def test_a_prebuilt_figure_nobody_pressed_for_that_differs_lists_nothing(tmp_path):
+    paths, repository, author, _ctx = _vault(tmp_path, [HALF])
+    # A real pre-build (its request's build mode is ``prefetch``: nobody pressed for it), made before RW5c.
+    set_config(paths, "figures", prefetch_enabled=True)
+    set_switch(paths, False)
+    P.set_power_reader(lambda: P.PowerState(True, P.MAINS, "test"))
+    try:
+        outcome = FB.build_prefetch_figure(load_vault(paths.root), repository, FQ.FigureRequest(
+            extraction_id=EXTRACTION, span_ids=DENSITY["spanIds"], origin="prefetch"), author_client=author)
+    finally:
+        P.set_power_reader(None)
+    set_switch(paths, True)
+    figure_id = outcome.view["figure_id"]
+    reader = context(paths.root, author=AuthorFake())
+    assert [figure["figureId"] for figure in call(reader, "reader.figures", {"extractionId": EXTRACTION})["figures"]] \
+        == [figure_id]
+    full = store.figure(repository.connection(), figure_id)
     SC.recheck(load_vault(paths.root), repository, full)
-    assert call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
+    assert call(reader, "reader.figures", {"extractionId": EXTRACTION})["figures"] == []
 
 
 @sandboxed
@@ -310,10 +324,10 @@ def test_section_figures_leave_a_rejected_figure_out(tmp_path):
     paths, repository, _author, ctx = _vault(tmp_path, [HALF])
     figure = _stored_before_rw5c(paths, ctx, DENSITY)
     vault = load_vault(paths.root)
-    assert FS.section_figures(vault, repository, EXTRACTION, lambda span: "sec") != {}
+    assert FL.section_figures(vault, repository, EXTRACTION, lambda span: "sec") != {}
     full = store.figure(repository.connection(), figure["figureId"])
     SC.recheck(vault, repository, full)
-    assert FS.section_figures(vault, repository, EXTRACTION, lambda span: "sec") == {}
+    assert FL.section_figures(vault, repository, EXTRACTION, lambda span: "sec") == {}
 
 
 @sandboxed
@@ -326,7 +340,7 @@ def test_a_kept_build_result_read_after_the_switch_turns_off_shows_no_label(tmp_
     ctx.vault = None
     fresh = call(context(paths.root, author=AuthorFake()), "reader.figures", {"extractionId": EXTRACTION})["figures"][0]
     assert "elements" not in fresh and "sourceCheck" not in fresh and "the model's name" in fresh["specJson"]
-    view = FS.redelivered_view(load_vault(paths.root), repository, {
+    view = FV.redelivered_view(load_vault(paths.root), repository, {
         "figure_id": fresh["figureId"], "elements": [{"id": "x"}], "source_check": {"status": "checked"}, "spec_json": "stale",
         "versions": 1})
     assert "elements" not in view and "source_check" not in view and "the model's name" in view["spec_json"]

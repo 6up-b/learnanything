@@ -126,10 +126,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `row_withheld`; statically calls `row_withheld`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `INHERITED_LEARNER_INPUTS_KEY`, `LEARNER_STATE_INPUTS_KEY`, `RICH_INTENT_KEY`, `_learner_inputs_unrecorded`, `_withheld`, `inherited_learner_inputs`, `learner_state_withheld`; statically calls `_learner_inputs_unrecorded`, `_withheld`, `inherited_learner_inputs`, `learner_state_withheld`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `keys_withheld`; statically calls `keys_withheld`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `row_withheld`, `show_me_row`; statically calls `row_withheld`, `show_me_row`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`; statically calls `_withheld`, `figure_homes`, `item_passages`, `rich_base_keys`, `row_withheld`, `show_me_row`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `item_passages`, `keys_withheld`, `withheld_message`; statically calls `item_passages`, `keys_withheld`, `withheld_message`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `ATTEMPT_HOST_REFS`, `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`; statically calls `keys_withheld`, `row_withheld`, `show_me_row`, `withheld_message`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `ATTEMPT_HOST_REFS`, `LEARNER_STATE_INPUTS_KEY`, `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`; statically calls `_carries_learner_state`, `_inherited_withheld`, `_inherits_learner_state`, `_learner_state_withheld`, `_withheld`, `rich_base_item_protected`, `stored_learner_state_withheld`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ATTEMPT_HOST_REFS`, `INHERITED_LEARNER_INPUTS_KEY`, `LEARNER_STATE_INPUTS_KEY`, `RICH_INTENT_KEY`, `_learner_inputs_unrecorded`, `_withheld`, `figure_homes`, `inherited_learner_inputs`, `item_passages`, `keys_withheld`, `learner_state_withheld`, `rich_base_keys`, `row_withheld`, `show_me_row`, `withheld_message`; statically calls `_learner_inputs_unrecorded`, `_withheld`, `figure_homes`, `inherited_learner_inputs`, `item_passages`, `keys_withheld`, `learner_state_withheld`, `rich_base_keys`, `row_withheld`, `show_me_row`, `withheld_message`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `RICH_INTENT_KEY`, `_withheld`, `learner_state_withheld`; statically calls `_withheld`, `learner_state_withheld`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `figure_withheld`; statically calls `figure_withheld`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `ATTEMPT_HOST_REFS`, `figure_withheld`; statically calls `figure_withheld`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `figure_withheld`; statically calls `figure_withheld`
@@ -163,7 +167,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

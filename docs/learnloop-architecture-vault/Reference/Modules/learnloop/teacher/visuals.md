@@ -139,7 +139,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`; calls `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `reveal_text`; calls `reveal_text`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `figure_withheld`; calls `figure_withheld`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FigureRequest`, `module`; calls `FigureRequest`, `figure_view`, `rich_row`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `FigureRequest`, `module`; calls `FigureRequest`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; calls `figure_view`, `rich_row`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ### Platform and third-party dependencies

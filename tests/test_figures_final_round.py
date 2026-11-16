@@ -19,7 +19,9 @@ import pytest
 
 from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, STRUCTURED_COMPLETION
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import request as FQ
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, build_figure_vault, context, flagship, rows
 
@@ -62,9 +64,9 @@ def test_the_author_is_an_isolated_turn_with_no_workspace(tmp_path, provider_typ
 def test_a_provider_that_cannot_isolate_is_refused_before_any_request(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     author = _OptionsAuthor(provider_type="codex_sdk", isolates=False)
-    with pytest.raises(FS.FigureRefused) as caught:
-        FS.build_figure(load_vault(paths.root), repository,
-                        FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
+    with pytest.raises(FQ.FigureRefused) as caught:
+        FB.build_figure(load_vault(paths.root), repository,
+                        FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert caught.value.code == "not_isolated"
     assert author.calls == 0 and author.options == []
     assert rows(repository, "interactive_figures") == []
@@ -115,7 +117,7 @@ def test_the_view_sends_closed_property_check_keys_only(tmp_path):
     spec["panels"].append({"kind": "readout", "label": claim, "expr": "1"})
     figure = build(context(paths.root, author=AuthorFake([spec, spec])))["figure"]
     assert figure["propertyChecks"] == ["values_finite", "integrates_to_one", "nonnegative", "shaded_areas"]
-    assert set(figure["propertyChecks"]) <= set(FS.PROPERTY_CHECKS)
+    assert set(figure["propertyChecks"]) <= set(FV.PROPERTY_CHECKS)
     # The model's words reach the Reader as model text, inside the code-owned
     # frame; the badge is the Reader's own. Reader follow-ups Nov 1b (§9b.4,
     # P2b ruling R2): free text that reads like a check label is repaired, and

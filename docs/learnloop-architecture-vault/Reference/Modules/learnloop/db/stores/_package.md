@@ -115,7 +115,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/field|learnloop.db.stores.field]] | [[Reference/Modules/learnloop/db/stores/field#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/db/stores/field_signal_receipts|learnloop.db.stores.field_signal_receipts]] | [[Reference/Modules/learnloop/db/stores/field_signal_receipts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/db/stores/figure_prefetch|learnloop.db.stores.figure_prefetch]] | [[Reference/Modules/learnloop/db/stores/figure_prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] | [[Reference/Modules/learnloop/db/stores/figures#^module-purpose|purpose]] | `ACTIVE` | 11 | 15 |
+| [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] | [[Reference/Modules/learnloop/db/stores/figures#^module-purpose|purpose]] | `ACTIVE` | 15 | 15 |
 | [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] | [[Reference/Modules/learnloop/db/stores/followup_serve#^module-purpose|purpose]] | `ACTIVE` | 7 | 11 |
 | [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] | [[Reference/Modules/learnloop/db/stores/followup_value#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] | [[Reference/Modules/learnloop/db/stores/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
@@ -125,7 +125,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] | [[Reference/Modules/learnloop/db/stores/ingest_queue#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] | [[Reference/Modules/learnloop/db/stores/intent_reads#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] | [[Reference/Modules/learnloop/db/stores/judgment_claims#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
-| [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] | [[Reference/Modules/learnloop/db/stores/judgments#^module-purpose|purpose]] | `ACTIVE` | 68 | 20 |
+| [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] | [[Reference/Modules/learnloop/db/stores/judgments#^module-purpose|purpose]] | `ACTIVE` | 69 | 20 |
 | [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] | [[Reference/Modules/learnloop/db/stores/learner_gaps#^module-purpose|purpose]] | `ACTIVE` | 13 | 10 |
 | [[Reference/Modules/learnloop/db/stores/learner_notes|learnloop.db.stores.learner_notes]] | [[Reference/Modules/learnloop/db/stores/learner_notes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] | [[Reference/Modules/learnloop/db/stores/lessons#^module-purpose|purpose]] | `ACTIVE` | 10 | 9 |
@@ -167,8 +167,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 26 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 23 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 21 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 17 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 16 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
@@ -226,9 +226,9 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_instructional["learnloop.instructional"]
+    n_learnloop_figures["learnloop.figures"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_router_objective["learnloop.router_objective"]
-    n_learnloop_figures["learnloop.figures"]
     n_learnloop_hints["learnloop.hints"]
     n_learnloop_source_retrieval -->|54| center
     n_learnloop -->|9| center
@@ -237,10 +237,10 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|26| center
     n_learnloop_daily_plan -->|23| center
     n_learnloop_instructional -->|23| center
+    n_learnloop_figures -->|21| center
     n_learnloop_db -->|14| center
     center -->|5| n_learnloop_db
     n_learnloop_router_objective -->|17| center
-    n_learnloop_figures -->|16| center
     n_learnloop_hints -->|16| center
 ```
 

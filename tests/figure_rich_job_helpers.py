@@ -4,7 +4,9 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 from __future__ import annotations
 
 from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 
 from tests import rich_fixtures as RF
@@ -39,12 +41,12 @@ class _Rig:
         return self.ingest.repo.ingest_jobs_for_batch(batch)[0]["id"]
 
     def build(self, request=None, find=None):
-        request = request or FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-        return FS.build_figure(self.vault, self.repository, request, author_client=self.author, spawn_rich=self.spawn,
+        request = request or FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+        return FB.build_figure(self.vault, self.repository, request, author_client=self.author, spawn_rich=self.spawn,
                                find=find)
 
     def listed(self):
-        return FS.list_figures(self.vault, self.repository, EXTRACTION)
+        return FL.list_figures(self.vault, self.repository, EXTRACTION)
 
     def job(self):
         return self.ingest.repo.ingest_jobs_for_batch(self.batches[-1])[0]

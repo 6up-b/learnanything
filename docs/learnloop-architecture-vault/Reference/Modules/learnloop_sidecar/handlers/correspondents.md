@@ -117,7 +117,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`; calls `figures_enabled`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `section_figures`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; calls `section_figures`
 - [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] — imports `SettingsStoreError`, `apply_config_updates`; calls `SettingsStoreError`, `apply_config_updates`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `reader_enabled`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `SpanViewError`, `record_span_exposures`; calls `record_span_exposures`

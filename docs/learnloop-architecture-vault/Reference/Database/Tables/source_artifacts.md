@@ -119,7 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
-- `src/learnloop/figures/service.py`
+- `src/learnloop/figures/grounding.py`
 - `src/learnloop/figures/source_check.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/ops/doctor.py`

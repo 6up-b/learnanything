@@ -20,7 +20,11 @@ the two kept identical by one golden corpus.
 * :mod:`.routes`: ``figure_author`` under the spend cap;
 * :mod:`learnloop.figure_admission`: the one switch predicate and the gate
   every figure-derived model request passes;
-* :mod:`.service`: build, reuse, revise, list, predict, explain.
+* :mod:`.request` (what may be asked, and the key a build is admitted under),
+  :mod:`.grounding` (what the author is sent from the books), :mod:`.build`
+  (reuse, or author, verify and store), :mod:`.view` (how a stored figure is
+  presented now), :mod:`.listing` (what a source lists), :mod:`.predictions`
+  and :mod:`.protection` (whether a figure may go out).
 
 Content and formative only (W1): nothing here writes an attempt, evidence,
 mastery, certification, scheduling, FSRS or adaptive-difficulty state, and

@@ -101,10 +101,11 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `append_judgment`; statically calls `append_judgment`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `append_judgment`; statically calls `append_judgment`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `append_judgment`; statically calls `append_judgment`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `append_judgment`; statically calls `append_judgment`
@@ -157,7 +158,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] and 63 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] and 64 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -28,7 +28,9 @@ import pytest
 from learnloop.content.pipeline.runner import IngestRunner
 from learnloop.db.stores import figures as store
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import request as FQ
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
 from tests.figure_rich_job_helpers import WHY, _ledger, _Rig
@@ -152,7 +154,7 @@ def test_a_stop_between_the_quick_figure_and_the_enqueue_is_recovered_once(tmp_p
     """F8: the quick figure committed and the process stopped before the
     enqueue: before the fix the animation was lost with no line."""
 
-    monkeypatch.setattr(FS._RichSpawn, "after_quick", lambda self, *args, **kwargs: None)  # the stop
+    monkeypatch.setattr(FB._RichSpawn, "after_quick", lambda self, *args, **kwargs: None)  # the stop
     rig = _Rig(tmp_path, monkeypatch, [_quick_answer()])
     quick = rig.build().view
     assert rig.batches == []
@@ -161,13 +163,13 @@ def test_a_stop_between_the_quick_figure_and_the_enqueue_is_recovered_once(tmp_p
     (line,) = rig.listed()
     assert line["fuller"]["state"] == "pending" and line["fuller"]["rich_job_id"] is None
 
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 1
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0  # never twice
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 1
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0  # never twice
     assert len(rig.batches) == 1 and rig.job()["payload"]["fast_figure_id"] == quick["figure_id"]
     rig.ingest.drain()
     (line,) = rig.listed()
     assert line["fuller"]["state"] == "ready"
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
 
 
 def test_a_failed_enqueue_is_not_swallowed_and_is_recovered(tmp_path, monkeypatch, caplog):
@@ -177,21 +179,21 @@ def test_a_failed_enqueue_is_not_swallowed_and_is_recovered(tmp_path, monkeypatc
         raise RuntimeError("queue busy")
 
     vault = rig.vault
-    outcome = FS.build_figure(vault, rig.repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
+    outcome = FB.build_figure(vault, rig.repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]),
                               author_client=rig.author, spawn_rich=broken)
     assert outcome.view["verification"] == "illustrative"
     assert any("could not start the rich job" in record.getMessage() for record in caplog.records)
     assert outcome.view["fuller"]["state"] == "pending"
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 1
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 1
 
 
 def test_a_normal_build_or_a_cancelled_one_is_never_restarted_by_recovery(tmp_path, monkeypatch):
     rig = _Rig(tmp_path, monkeypatch, [_quick_answer()])
     rig.build()
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
     rig.ingest.cancel_batch(rig.batches[-1])
     rig.ingest.drain()
-    assert FS.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
+    assert FB.resume_rich_intents(rig.vault, rig.repository, EXTRACTION, rig.spawn) == 0
     assert len(rig.batches) == 1 and rig.listed()[0]["fuller"]["state"] == "cancelled"
 
 
@@ -206,16 +208,16 @@ def test_an_interrupted_rich_only_build_stays_as_a_failed_line_and_can_be_tried_
     job_id = outcome.rich["rich_job_id"]
     _interrupt(rig, job_id)
     assert rig.listed() == []
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "failed" and line["rich_job_id"] == job_id
     assert line["reason"] == "interrupted when LearnLoop stopped" and line["anchor_span_id"] == "p3"
 
-    assert FS.retry_rich_job(rig.vault, rig.repository, job_id) == "interrupted"
+    assert FB.retry_rich_job(rig.vault, rig.repository, job_id) == "interrupted"
     assert rig.ingest.requeue_failed_unless_cancelled(rig.job()["batch_id"], error_code="interrupted")
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "pending"
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     (figure,) = rig.listed()
     assert figure["tier"] == "manim" and figure["verification"] == "illustrative"
     assert rig.author.calls == 1  # the same build, never a second author call
@@ -226,9 +228,9 @@ def test_a_cancelled_rich_only_build_leaves_no_line_and_cannot_be_retried(tmp_pa
     outcome = rig.build()
     rig.ingest.cancel_batch(rig.batches[-1])
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.retry_rich_job(rig.vault, rig.repository, outcome.rich["rich_job_id"])
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FB.retry_rich_job(rig.vault, rig.repository, outcome.rich["rich_job_id"])
     assert refused.value.code == "not_failed"
 
 
@@ -239,7 +241,7 @@ def test_a_stored_rich_only_failure_lists_once(tmp_path, monkeypatch):
     rig.build()
     rig.ingest.drain()
     assert [line["verification"] for line in rig.listed()] == ["failed"]
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []  # its row lists it, not a second line
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []  # its row lists it, not a second line
 
 
 # --- F10 ----------------------------------------------------------------------
@@ -282,7 +284,7 @@ def test_not_right_on_an_animation_goes_to_the_rich_author_with_the_note_and_pro
     rig.build()
     rig.ingest.drain()
     (first,) = rig.listed()
-    revision = FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "the spiral should be red")
+    revision = FB.revision_request(rig.repository, _base(rig, first["figure_id"]), "the spiral should be red")
     outcome = rig.build(revision)
     assert outcome.view is None and outcome.rich["state"] == "pending" and outcome.rich["anchor_span_id"] == "p3"
     assert rig.author.calls == 1  # never back to the tier choice
@@ -307,7 +309,7 @@ def test_not_right_on_a_fuller_version_stays_that_quick_figures_fuller_version(t
     rig.ingest.drain()
     (line,) = rig.listed()
     old_rich = line["fuller"]["figure"]["figure_id"]
-    rig.build(FS.revision_request(rig.repository, _base(rig, old_rich), "red please"))
+    rig.build(FB.revision_request(rig.repository, _base(rig, old_rich), "red please"))
     rig.ingest.drain()
     (line,) = rig.listed()  # still one figure line
     assert line["figure_id"] == quick["figure_id"] and line["fuller"]["state"] == "ready"
@@ -322,7 +324,7 @@ def test_try_a_different_kind_of_figure_reruns_the_tier_choice_with_the_note(tmp
     rig.build()
     rig.ingest.drain()
     (first,) = rig.listed()
-    revision = FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "a static picture is enough")
+    revision = FB.revision_request(rig.repository, _base(rig, first["figure_id"]), "a static picture is enough")
     revision.different_kind = True
     outcome = rig.build(revision)
     assert rig.author.calls == 2 and rig.rich_author.calls == 1
@@ -339,11 +341,11 @@ def test_a_revision_needs_the_manim_tier_on_this_computer(tmp_path, monkeypatch)
     rig.ingest.drain()
     (first,) = rig.listed()
     RF.configure(rig.paths, manim_opt_in="declined")
-    with pytest.raises(FS.FigureRefused) as refused:
-        rig.build(FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
+    with pytest.raises(FQ.FigureRefused) as refused:
+        rig.build(FB.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
     assert refused.value.code == "manim_unavailable"
     RF.configure(rig.paths, rich_tiers_enabled=False)
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.check_request(rig.vault, rig.repository,
-                         FS.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FQ.check_request(rig.vault, rig.repository,
+                         FB.revision_request(rig.repository, _base(rig, first["figure_id"]), "red"))
     assert refused.value.code == "rich_disabled"

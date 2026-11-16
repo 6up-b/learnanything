@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py) |
-| Source lines | 4939 |
+| Source lines | 4972 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -117,109 +117,109 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
   - `_known_route_budgets(cls, value: dict[str, int]) -> dict[str, int]` (line 1623; internal)
   - `_merge_route_efforts(cls, value: Any) -> Any` (line 1632; internal)
   - `_known_route_efforts(cls, value: dict[str, str]) -> dict[str, str]` (line 1640; internal)
-- `class ErrorImpact(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 1747) — Error impact settings.
-- `class FsrsFittingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1758) — `learnloop fit fsrs` knobs.
-- `class FittingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1769)
-- `class EvidenceMassEntry(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1773) — Evidence carried by one attempt type.
-- `default_attempt_type_evidence() -> dict[str, EvidenceMassEntry]` ([source](../../../../../../src/learnloop/config/schema.py), line 1788)
-- `default_practice_mode_item_coverage() -> dict[str, float]` ([source](../../../../../../src/learnloop/config/schema.py), line 1810)
-- `class EvidenceCorrelationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1823) — Vault-wide surface-correlation discounting (free-form overrides).
-- `class EvidenceCertificationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1829) — Bounded certification credit.
-- `class EvidenceBlueprintsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1856) — Blueprint recipe likelihood defaults.
-- `class EvidenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1867) — Single source of truth for per-attempt-type evidence carried.
-  - `_merge_defaults(self) -> 'EvidenceConfig'` (line 1886; internal)
-- `class CapabilitiesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1896) — Capability damping/shrinkage + lazy residual activation.
-- `class TraceEvidenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1925) — Opportunistic trace evidence and its elicitation budget.
-- `class DiagnosticAugmentationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1946) — Live diagnosis rungs.
-- `class DiagnosisConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 1970) — The live blind grader + asynchronous history-aware diagnoser.
-- `class RecurrenceBlockingCutoff(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2046) — One benchmark-set blocking cutoff and the vectors it was measured on.
-  - `_a_cosine(self) -> 'RecurrenceBlockingCutoff'` (line 2065; internal)
-- `class RecurrenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2072) — Recurrence groups with authority.
-  - `_cutoffs_name_models(self) -> 'RecurrenceConfig'` (line 2119; internal)
-- `class HintsMapsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2126) — Adaptive hints: approach maps.
-- `class HintsConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2158) — Adaptive hints.
-- `class ReaderInquiryConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2238) — Reader workbench: inquiry.
-- `class CuesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2266) — Reader workbench: margin cues from the Guide.
-- `class WorkbenchConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2321) — Reader workbench: the resumable scratchpad.
-- `class RecapConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2386) — Reader workbench: "Last time here" and Wrap up.
-- `class FollowupsConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2407) — Reader workbench: cold follow-ups, a "short unfamiliar problem" after reading.
-- `class DigestConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2445) — Reader workbench: the session narrative and the router card's reader section.
-- `class ReaderIntentConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2484) — Reader workbench: the intent box.
-- `class ReaderActiveReadingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2517) — Reader workbench: active reading.
-- `class ReaderFormativeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2535) — Reader workbench: missed answers as learner text.
-- `class LibraryAskConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2550) — Reader workbench: ask your library.
-- `class ReaderTutorConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2582) — Reader workbench: a tutor that looks things up.
-- `class LibraryExercisesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2620) — Reader workbench: exercises from my sources.
-- `class FiguresPrefetchConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2645) — The guardrails of figures built ahead of need, each a fixed cap, never a learned number.
-- `class FiguresConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2667) — Reader workbench: explorable figures.
-- `class ReaderCompareConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2813) — Reader workbench: compare pinned passages.
-- `class AsPrintedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2866) — Reader: the problem as printed.
-- `class PracticeConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2881) — The practice surfaces' own switches.
-- `class RolesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2898) — Reader workbench: instructional roles.
-- `class ReadingPathsConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2930) — Reader workbench: reading paths in the Guide.
-- `class CurriculumConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2965) — Deliverable curriculum: section coverage and ``reader.correspondents``.
-- `class NotesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3029) — Deliverable curriculum: notes in the learner's voice, linked.
-  - `_drop_legacy_tend(cls, data: Any) -> Any` (line 3073; internal)
-- `class ReaderCorrespondenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3080) — Reader: *find this section in my other books* and *also in your books*.
-- `class ReaderSideBySideConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3110) — Reader: *side by side*.
-- `class ReaderConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3132) — The Reader's presentation switches.
-- `class LearnerTextGapsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3143) — Learner-text gaps.
-- `class EvsiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3205) — EVSI calibration.
-- `class ProjectConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3226) — Project understanding: delayed probes.
-- `class FamiliesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3267) — Offline family authoring only; live scheduling remains per card.
-- `class PFScalingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3274) — The scaling check's two configured tiers, as route lists.
-- `class PFConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3286) — Practice families: generate, verify, select and publish.
-- `class LocalEmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3312) — Local contextual retrieval: the local pplx v2 9B document space.
-- `class FallbackEmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3340) — Local contextual retrieval: the hosted Voyage fallback space.
-- `class SourceSpaceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3360) — The source-space resolver and its fusion.
-- `class EmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3377)
-  - `privacy_disclosure(self) -> str` (line 3405; public)
-- `class GraphNominationConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3416) — Embedding nominations for ingest and graph review.
-- `class FacetIdentityConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3439) — Facet identity at mint time, and the dedupe command.
-- `class FieldConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3484) — Offline learner-field analysis only; activation requires a later algorithm successor.
-- `class PracticeIndexConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3494) — The practice index: facet dossiers and ``find_practice``.
-- `class SourceRetrievalConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3534) — Source retrieval.
-- `class SourceServiceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3611) — Canonical sources as a shared instructional service.
-- `class PlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3668) — Learner field: starting new material without ceremony.
-- `class PlanConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3696) — Daily loop: the finite daily plan.
-  - `_shares_leave_room(self) -> 'PlanConfig'` (line 3766; internal)
-- `class IntentConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3786) — Daily loop: intent.
-  - `_targets_are_probabilities(self) -> 'IntentConfig'` (line 3800; internal)
-- `class CaptureConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3813) — Daily-loop capture settings.
-- `class RouterWeights(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3823) — The model mixture's component weights (one third each).
-  - `validate_total(self) -> 'RouterWeights'` (line 3835; public)
-- `class RouterLessonSuggestionsConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3841) — Teacher: the router suggests a lesson, the learner opts in (``learnloop.daily_plan.lesson_suggestion``).
-- `class RouterConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3876) — Action router: decision logging, the staged frame and the model mixture.
-  - `validate_floor(self) -> 'RouterConfig'` (line 3948; public)
-- `class DataCaptureConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3954) — What later offline evaluation needs, recorded now.
-- `class RouterObjectiveConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3972) — The router objective.
-  - `_mins_leave_room(self) -> 'RouterObjectiveConfig'` (line 4202; internal)
-- `class FollowupServeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4215) — Follow-up generate and serve.
-- `class VoiStoppingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4234) — Four count caps lifted onto value of information.
-- `class DeciderRoutesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4289) — Tier 1: small judgments the Decider decides, the LLM its fallback.
-- `class UiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4332) — How the desktop app presents learner surfaces.
-- `class TeacherBriefConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4357) — What the lesson brief holds: the prerequisite depth (fixed) and the deliverable switch.
-- `class TeacherContextConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4364) — The teacher's context budget: the goal's sections whole up to this many tokens (fixed).
-- `class TeacherDelayedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4370) — Delayed retention and transfer checks.
-- `class TeacherPlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4379) — ``max_probes`` (8, fixed): the generated probes one lesson may ask for: a burden guardrail; the teacher decides when to stop, this only bounds it.
-- `class TeacherConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4386) — Teacher.
-- `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4461) — How replay reads the attempt ledger (``mvp-0.34``, ``REPLAY_LEDGER_ALGORITHM_VERSION``).
-- `class AskConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4476) — One Ask.
-- `class AdaptiveDifficultyConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4497) — Adaptive difficulty.
-  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4623; internal)
-  - `_forecasters_switch(cls, value: Any) -> Any` (line 4631; internal)
-  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4641; internal)
-- `class LearnLoopConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4646)
-  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4730; internal) — Keep direct model validation compatible; implementation lives in compat.
-  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4738; internal)
-- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4827) — Return the modeled canonical Codex profile used when none is explicit.
-- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4854) — The code-default ChatGPT-plan profile.
-- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4867)
-- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4879)
-- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4892) — Claude Haiku through OpenRouter, for cheap metered judges.
-- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4903)
-- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4914) — The template's embedding profile, for vaults whose config predates it.
-- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4930) — The Perplexity Decider through OpenRouter.
+- `class ErrorImpact(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 1749) — Error impact settings.
+- `class FsrsFittingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1760) — `learnloop fit fsrs` knobs.
+- `class FittingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1771)
+- `class EvidenceMassEntry(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1775) — Evidence carried by one attempt type.
+- `default_attempt_type_evidence() -> dict[str, EvidenceMassEntry]` ([source](../../../../../../src/learnloop/config/schema.py), line 1790)
+- `default_practice_mode_item_coverage() -> dict[str, float]` ([source](../../../../../../src/learnloop/config/schema.py), line 1812)
+- `class EvidenceCorrelationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1825) — Vault-wide surface-correlation discounting (free-form overrides).
+- `class EvidenceCertificationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1831) — Bounded certification credit.
+- `class EvidenceBlueprintsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1858) — Blueprint recipe likelihood defaults.
+- `class EvidenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1869) — Single source of truth for per-attempt-type evidence carried.
+  - `_merge_defaults(self) -> 'EvidenceConfig'` (line 1888; internal)
+- `class CapabilitiesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1898) — Capability damping/shrinkage + lazy residual activation.
+- `class TraceEvidenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1927) — Opportunistic trace evidence and its elicitation budget.
+- `class DiagnosticAugmentationConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 1948) — Live diagnosis rungs.
+- `class DiagnosisConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 1972) — The live blind grader + asynchronous history-aware diagnoser.
+- `class RecurrenceBlockingCutoff(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2048) — One benchmark-set blocking cutoff and the vectors it was measured on.
+  - `_a_cosine(self) -> 'RecurrenceBlockingCutoff'` (line 2067; internal)
+- `class RecurrenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2074) — Recurrence groups with authority.
+  - `_cutoffs_name_models(self) -> 'RecurrenceConfig'` (line 2121; internal)
+- `class HintsMapsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2128) — Adaptive hints: approach maps.
+- `class HintsConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2160) — Adaptive hints.
+- `class ReaderInquiryConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2240) — Reader workbench: inquiry.
+- `class CuesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2268) — Reader workbench: margin cues from the Guide.
+- `class WorkbenchConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2323) — Reader workbench: the resumable scratchpad.
+- `class RecapConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2388) — Reader workbench: "Last time here" and Wrap up.
+- `class FollowupsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2409) — Reader workbench: cold follow-ups, a "short unfamiliar problem" after reading.
+- `class DigestConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2451) — Reader workbench: the session narrative and the router card's reader section.
+- `class ReaderIntentConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2491) — Reader workbench: the intent box.
+- `class ReaderActiveReadingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2524) — Reader workbench: active reading.
+- `class ReaderFormativeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2542) — Reader workbench: missed answers as learner text.
+- `class LibraryAskConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2557) — Reader workbench: ask your library.
+- `class ReaderTutorConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2589) — Reader workbench: a tutor that looks things up.
+- `class LibraryExercisesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2627) — Reader workbench: exercises from my sources.
+- `class FiguresPrefetchConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2652) — The guardrails of figures built ahead of need, each a fixed cap, never a learned number.
+- `class FiguresConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2674) — Reader workbench: explorable figures.
+- `class ReaderCompareConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2820) — Reader workbench: compare pinned passages.
+- `class AsPrintedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2873) — Reader: the problem as printed.
+- `class PracticeConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 2888) — The practice surfaces' own switches.
+- `class RolesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2905) — Reader workbench: instructional roles.
+- `class ReadingPathsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2937) — Reader workbench: reading paths in the Guide.
+- `class CurriculumConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 2977) — Deliverable curriculum: section coverage and ``reader.correspondents``.
+- `class NotesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3045) — Deliverable curriculum: notes in the learner's voice, linked.
+  - `_drop_legacy_tend(cls, data: Any) -> Any` (line 3089; internal)
+- `class ReaderCorrespondenceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3096) — Reader: *find this section in my other books* and *also in your books*.
+- `class ReaderSideBySideConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3126) — Reader: *side by side*.
+- `class ReaderConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3148) — The Reader's presentation switches.
+- `class LearnerTextGapsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3159) — Learner-text gaps.
+- `class EvsiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3221) — EVSI calibration.
+- `class ProjectConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3242) — Project understanding: delayed probes.
+- `class FamiliesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3283) — Offline family authoring only; live scheduling remains per card.
+- `class PFScalingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3290) — The scaling check's two configured tiers, as route lists.
+- `class PFConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3302) — Practice families: generate, verify, select and publish.
+- `class LocalEmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3328) — Local contextual retrieval: the local pplx v2 9B document space.
+- `class FallbackEmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3356) — Local contextual retrieval: the hosted Voyage fallback space.
+- `class SourceSpaceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3376) — The source-space resolver and its fusion.
+- `class EmbeddingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3393)
+  - `privacy_disclosure(self) -> str` (line 3421; public)
+- `class GraphNominationConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3432) — Embedding nominations for ingest and graph review.
+- `class FacetIdentityConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3455) — Facet identity at mint time, and the dedupe command.
+- `class FieldConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3500) — Offline learner-field analysis only; activation requires a later algorithm successor.
+- `class PracticeIndexConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3510) — The practice index: facet dossiers and ``find_practice``.
+- `class SourceRetrievalConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3550) — Source retrieval.
+- `class SourceServiceConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3627) — Canonical sources as a shared instructional service.
+- `class PlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3684) — Learner field: starting new material without ceremony.
+- `class PlanConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 3712) — Daily loop: the finite daily plan.
+  - `_shares_leave_room(self) -> 'PlanConfig'` (line 3782; internal)
+- `class IntentConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3802) — Daily loop: intent.
+  - `_targets_are_probabilities(self) -> 'IntentConfig'` (line 3823; internal)
+- `class CaptureConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3836) — Daily-loop capture settings.
+- `class RouterWeights(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3846) — The model mixture's component weights (one third each).
+  - `validate_total(self) -> 'RouterWeights'` (line 3858; public)
+- `class RouterLessonSuggestionsConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3864) — Teacher: the router suggests a lesson, the learner opts in (``learnloop.daily_plan.lesson_suggestion``).
+- `class RouterConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3903) — Action router: decision logging, the staged frame and the model mixture.
+  - `validate_floor(self) -> 'RouterConfig'` (line 3977; public)
+- `class DataCaptureConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 3983) — What later offline evaluation needs, recorded now.
+- `class RouterObjectiveConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4001) — The router objective.
+  - `_mins_leave_room(self) -> 'RouterObjectiveConfig'` (line 4231; internal)
+- `class FollowupServeConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4244) — Follow-up generate and serve.
+- `class VoiStoppingConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4263) — Four count caps lifted onto value of information.
+- `class DeciderRoutesConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4318) — Tier 1: small judgments the Decider decides, the LLM its fallback.
+- `class UiConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4361) — How the desktop app presents learner surfaces.
+- `class TeacherBriefConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4386) — What the lesson brief holds: the prerequisite depth (fixed) and the deliverable switch.
+- `class TeacherContextConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4393) — The teacher's context budget: the goal's sections whole up to this many tokens (fixed).
+- `class TeacherDelayedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4399) — Delayed retention and transfer checks.
+- `class TeacherPlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4408) — ``max_probes`` (8, fixed): the generated probes one lesson may ask for: a burden guardrail; the teacher decides when to stop, this only bounds it.
+- `class TeacherConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4415) — Teacher.
+- `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4492) — How replay reads the attempt ledger (``mvp-0.34``, ``REPLAY_LEDGER_ALGORITHM_VERSION``).
+- `class AskConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4507) — One Ask.
+- `class AdaptiveDifficultyConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4528) — Adaptive difficulty.
+  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4656; internal)
+  - `_forecasters_switch(cls, value: Any) -> Any` (line 4664; internal)
+  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4674; internal)
+- `class LearnLoopConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4679)
+  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4763; internal) — Keep direct model validation compatible; implementation lives in compat.
+  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4771; internal)
+- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4860) — Return the modeled canonical Codex profile used when none is explicit.
+- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4887) — The code-default ChatGPT-plan profile.
+- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4900)
+- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4912)
+- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4925) — Claude Haiku through OpenRouter, for cheap metered judges.
+- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4936)
+- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4947) — The template's embedding profile, for vaults whose config predates it.
+- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4963) — The Perplexity Decider through OpenRouter.
 
 ### Module constants
 
@@ -237,30 +237,30 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `DEFAULT_OUTPUT_TOKENS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1554)
 - `REASONING_EFFORTS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1556)
 - `DEFAULT_ROUTE_REASONING_EFFORT` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1559)
-- `DEFAULT_CODEX_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1658)
-- `DEFAULT_CODEX_REASONING_EFFORT` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1659)
-- `LEGACY_CODEX_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1660)
-- `CODEX_LOW_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1661)
-- `CODEX_MEDIUM_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1662)
-- `CODEX_LUNA_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1665)
-- `CODEX_LUNA_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1666)
-- `CODEX_PROVIDER_NAMES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1667)
-- `OPENROUTER_HAIKU_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1671)
-- `OPENROUTER_HAIKU_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1672)
-- `OPENROUTER_TRANSCRIPTION_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1673)
-- `AGENT_HARNESS_PROFILE_TYPES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1678)
-- `CHATGPT_PLAN_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1684)
-- `CHATGPT_LOW_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1685)
-- `CHATGPT_MEDIUM_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1686)
-- `CHATGPT_LUNA_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1687)
-- `DEFAULT_CHATGPT_PLAN_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1688)
-- `CHATGPT_LUNA_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1689)
-- `CHATGPT_PLAN_PROVIDER_NAMES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1690)
-- `DEFAULT_SERVING_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1696)
-- `LEGACY_CODEX_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1720)
-- `CODEX_TO_PLAN_PROFILE` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1739)
-- `DEFAULT_RECALL_TARGETS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 3777)
-- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4494)
+- `DEFAULT_CODEX_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1660)
+- `DEFAULT_CODEX_REASONING_EFFORT` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1661)
+- `LEGACY_CODEX_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1662)
+- `CODEX_LOW_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1663)
+- `CODEX_MEDIUM_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1664)
+- `CODEX_LUNA_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1667)
+- `CODEX_LUNA_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1668)
+- `CODEX_PROVIDER_NAMES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1669)
+- `OPENROUTER_HAIKU_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1673)
+- `OPENROUTER_HAIKU_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1674)
+- `OPENROUTER_TRANSCRIPTION_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1675)
+- `AGENT_HARNESS_PROFILE_TYPES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1680)
+- `CHATGPT_PLAN_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1686)
+- `CHATGPT_LOW_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1687)
+- `CHATGPT_MEDIUM_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1688)
+- `CHATGPT_LUNA_PROVIDER` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1689)
+- `DEFAULT_CHATGPT_PLAN_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1690)
+- `CHATGPT_LUNA_MODEL` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1691)
+- `CHATGPT_PLAN_PROVIDER_NAMES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1692)
+- `DEFAULT_SERVING_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1698)
+- `LEGACY_CODEX_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1722)
+- `CODEX_TO_PLAN_PROFILE` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1741)
+- `DEFAULT_RECALL_TARGETS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 3793)
+- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4525)
 
 ## Internal implementation anchors
 
@@ -361,18 +361,22 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_the_profile_default_is_inline`
   - `test_the_profile_validates_its_workspace_settings`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_responsibilities_have_canonical_module_owners`
   - `test_each_plan_tier_runs_its_codex_tiers_model_and_effort`
+- [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
+  - `test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b`
 - [tests/test_curriculum_c3_exam_scoping.py](../../../../../../tests/test_curriculum_c3_exam_scoping.py) — direct import
   - `test_the_config_default_is_on`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_receipts_are_on_by_default_and_their_gate_is_their_switch`
+  - `test_the_switches_are_on_by_default_and_the_gate_is_the_switch`
 - [tests/test_decider_client.py](../../../../../../tests/test_decider_client.py) — direct import
   - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
   - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
   - `test_error_statuses_surface_without_parsing`
   - `test_missing_key_and_oversized_state_refuse_before_any_request`
+  - `test_openrouter_billing_metadata_preserves_answers_and_charged_cost`
   - `test_probe_reads_the_free_listing_without_a_key`
   - `test_settings_resolve_from_the_dialect`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
@@ -479,6 +483,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_paid_roles.py](../../../../../../tests/test_plan_first_transport_paid_roles.py) — direct import
   - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
+- [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
+  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
   - `test_find_dry_run_names_metered_rerank_prices_and_caps`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import
@@ -493,6 +499,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_is_on_by_default`
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_the_switch_is_on_by_default`
+- [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
+  - `test_mvp039_is_one_constant_after_mvp038_and_the_latest`
 - [tests/test_reader_intentions.py](../../../../../../tests/test_reader_intentions.py) — direct import
   - `test_the_readers_test_fixture_is_the_sidecars_palette`
 - [tests/test_reader_rw2b_fix9.py](../../../../../../tests/test_reader_rw2b_fix9.py) — direct import
@@ -512,9 +520,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_sets_no_cosine_cutoff_by_default`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_config_setting_the_removed_switches_keeps_every_identity`
-  - `test_a_config_setting_todays_removed_switches_keeps_every_identity`
+  - `test_every_changed_default_is_still_the_default`
   - `test_retired_fields_stay_off_the_models_and_out_of_every_other_dump`
-  - `test_the_lesson_suggestions_section_still_refuses_an_unknown_key_but_loads_its_retired_ones`
   - `test_the_pre_arc_c_shape_reproduces_the_recorded_default_digest`
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
 - [tests/test_ro1_successor.py](../../../../../../tests/test_ro1_successor.py) — direct import
@@ -556,6 +563,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_route_override_cannot_exceed_the_profile_maximum`
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_switch_defaults_on_and_is_classified`
+- [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
+  - `test_the_switch_defaults_on_and_is_classified`
 - [tests/test_teacher_te0_review_fixes.py](../../../../../../tests/test_teacher_te0_review_fixes.py) — direct import
   - `test_the_switch_is_on_by_default_and_registered`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
@@ -566,7 +575,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planted_recovery_a_check_whose_cold_outcomes_agree_raises_the_mass`
   - `test_the_pool_implied_mass_is_the_parametric_mass_at_lambda_zero`
 - [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_keep_bound_and_its_validation`
+  - `test_the_switch_and_the_keep_bound_and_their_validation`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_teacher_episode_log_is_classified_and_on_by_default`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import

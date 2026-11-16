@@ -213,15 +213,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `ALL_SPEC_VERSIONS`, `RICH_SPEC_VERSIONS`, `SPEC_VERSIONS`, `module`; statically calls `parse_author_spec`
 - [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]] — imports `module`; statically calls `derived_bounds`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `SPEC_VERSIONS`, `module`; statically calls `evaluate_figure`, `parse_spec`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `ALL_SPEC_VERSIONS`, `RICH_SPEC_VERSIONS`, `SPEC_VERSIONS`, `module`; statically calls `parse_spec`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `module`; statically calls `prediction_outcome`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `ALL_SPEC_VERSIONS`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `MANIM_FIG_VERSION`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ALL_SPEC_VERSIONS`, `RICH_SPEC_VERSIONS`, `SPEC_VERSIONS`, `module`; statically calls `advanced_kinds`, `parse_author_spec`, `parse_spec`, `prediction_outcome`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`; statically calls `parse_salvaging_predictions`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `_num`, `bar_ks`, `expanded_free`, `parse_spec`, `plot_xs`
 - [[Reference/Modules/learnloop/figures/verify|learnloop.figures.verify]] — imports `module`; statically calls `evaluate_figure`, `expanded_free`, `prediction_outcome`, `shade_value`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `RICH_SPEC_VERSIONS`, `module`; statically calls `advanced_kinds`, `parse_spec`, `prediction_outcome`
 
 ## Dependencies
 
@@ -241,7 +244,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/elements|learnloop.figures.elements]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

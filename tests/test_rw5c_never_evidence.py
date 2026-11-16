@@ -10,7 +10,7 @@ from learnloop.adaptive_difficulty import protected_tables as PT
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED = {
     # The check's own home, its table's store and the classifications that say nobody reads it.
-    "src/learnloop/figures/source_check.py", "src/learnloop/figures/service.py", "src/learnloop/db/stores/figures.py",
+    "src/learnloop/figures/source_check.py", "src/learnloop/figures/build.py", "src/learnloop/db/stores/figures.py",
     "src/learnloop/db/table_roles.py", "src/learnloop/adaptive_difficulty/protected_tables.py",
     "src/learnloop/adaptive_difficulty/column_classes.py",
     # Docstrings naming the table: the switch's predicate and the config section read no row.

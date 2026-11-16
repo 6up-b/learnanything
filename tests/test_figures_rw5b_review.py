@@ -13,7 +13,9 @@ import json
 import pytest
 
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import grounding as FGR
+from learnloop.figures import request as FQ
 from learnloop.source_retrieval import library_ask as LA
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
@@ -47,11 +49,11 @@ def test_a_block_built_from_a_selection_is_reused_when_a_library_offer_names_it(
 
 
 def test_the_reuse_key_never_names_the_origin_and_keeps_rw5as_keys():
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor")
-    selection = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="selection")
-    source = FS.SourceContext(passage=[{"span_id": "p3", "text": "f"}], around=[], figure_span=None)
-    assert FS.request_hash(request, source, None) == FS.request_hash(selection, source, None)
-    assert FS.REUSE_ORIGIN == "selection"
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="tutor")
+    selection = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="selection")
+    source = FGR.SourceContext(passage=[{"span_id": "p3", "text": "f"}], around=[], figure_span=None)
+    assert FB.request_hash(request, source, None) == FB.request_hash(selection, source, None)
+    assert FB.REUSE_ORIGIN == "selection"
 
 
 def test_a_figure_built_before_the_panels_came_on_is_reused_with_them_on(tmp_path):

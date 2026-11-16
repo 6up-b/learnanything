@@ -26,7 +26,10 @@ from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import grounding as FGR
+from learnloop.figures import request as FQ
 from learnloop.ops.settings_store import apply_config_updates
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
@@ -239,8 +242,8 @@ def test_the_highest_sampled_eu_of_a_capped_batch_goes_first(tmp_path):
 
 def test_a_figure_the_learner_pressed_for_meanwhile_is_not_counted_as_the_prebuilds(tmp_path):
     paths, repository, vault, author, capped = _capped_section(tmp_path)
-    pressed = FS.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="selection")
-    FS.build_figure(vault, repository, pressed, author_client=author, clock=_clock(DAY_ONE + timedelta(hours=1)))
+    pressed = FQ.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="selection")
+    FB.build_figure(vault, repository, pressed, author_client=author, clock=_clock(DAY_ONE + timedelta(hours=1)))
     assert author.calls == 2
     requests = count(repository, "figure_requests")
     env = env_for(vault, repository, author=author, clock=_clock(DAY_TWO))
@@ -330,13 +333,13 @@ def test_a_capped_decision_is_coming_only_while_the_budget_has_room(tmp_path):
                    PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"), (EXTRACTION, "p6"))))
     assert {row["decision"] for row in decisions(repository) if not row["request_id"]} == {"capped"}
     # The day's one build is spent: a read must not poll for work no pass will do today.
-    assert FS.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
+    assert FL.prefetch_pending(vault, repository, EXTRACTION, pass_running=True) is False
     _caps(paths, max_daily_builds=2)
     raised = load_vault(paths.root)
-    assert FS.prefetch_pending(raised, repository, EXTRACTION, pass_running=True) is True
-    assert FS.prefetch_pending(raised, repository, EXTRACTION) is False  # no pass running: nobody will build it
+    assert FL.prefetch_pending(raised, repository, EXTRACTION, pass_running=True) is True
+    assert FL.prefetch_pending(raised, repository, EXTRACTION) is False  # no pass running: nobody will build it
     _caps(paths, max_daily_render_minutes=0)
-    assert FS.prefetch_pending(load_vault(paths.root), repository, EXTRACTION, pass_running=True) is False
+    assert FL.prefetch_pending(load_vault(paths.root), repository, EXTRACTION, pass_running=True) is False
 
 
 # ---------------------------------------------------------------------------
@@ -422,9 +425,9 @@ def test_close_horizons_itself_links_first(tmp_path, monkeypatch):
 def _orphan_request(repository: Any, decision_id: str, when: datetime) -> str:
     """A rich-only build's request whose job never started (the enqueue failed, or the sidecar stopped)."""
 
-    asked = FS._request_row(FS.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
+    asked = FB._request_row(FQ.FigureRequest(extraction_id=TWO, span_ids=["q6"], origin="prefetch",
                                              prefetch_decision_id=decision_id),
-                            FS.Grounding("anchor"), figure_id=None, clock=_clock(when))
+                            FGR.Grounding("anchor"), figure_id=None, clock=_clock(when))
     with repository.atomic():
         figure_store.insert_request(repository.connection(), asked)
     return str(asked["id"])

@@ -135,7 +135,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] — imports `plan`, `run_pending`, `sweep_backlog`; statically calls `plan`, `run_pending`, `sweep_backlog`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `enqueue_stuck_answer`; statically calls `enqueue_stuck_answer`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `enqueue_after_diagnosis`; statically calls `enqueue_after_diagnosis`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; statically calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; statically calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
 - [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `enqueue_reader_formative`; statically calls `enqueue_reader_formative`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `pending_jobs`, `pipeline_enabled`; statically calls `pending_jobs`, `pipeline_enabled`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `enqueue_lesson_gap`, `pipeline_enabled`; statically calls `enqueue_lesson_gap`, `pipeline_enabled`
@@ -179,7 +179,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
