@@ -201,7 +201,9 @@ def request_body(model: str, state: DecisionState, questions: Mapping[str, Quest
 
 
 _RESPONSE_FIELDS = frozenset({"model", "answers", "usage", "id", "provider"})
-_USAGE_FIELDS = frozenset({"input_tokens", "output_tokens", "cost"})
+# OpenRouter also supplies billing metadata (observed on v1.2 responses).
+# Keep it in DecisionResult.raw; only cost is the amount charged to the caller.
+_USAGE_FIELDS = frozenset({"input_tokens", "output_tokens", "cost", "is_byok", "cost_details"})
 _ANSWER_FIELDS = {
     "noul": frozenset({"type", "noul"}),
     "choice": frozenset({"type", "choice", "probabilities", "confidence"}),
@@ -290,8 +292,11 @@ def parse_response(payload: Any, questions: Mapping[str, Question]) -> DecisionR
     if not isinstance(answers, Mapping) or set(answers) != set(questions):
         raise DecisionResponseInvalid("decision answers do not match the asked questions")
     usage = payload.get("usage")
-    if not isinstance(usage, Mapping) or set(usage) - _USAGE_FIELDS:
-        raise DecisionResponseInvalid("decision usage is missing or has unknown fields")
+    if not isinstance(usage, Mapping):
+        raise DecisionResponseInvalid("decision usage is missing or is not an object")
+    unknown_usage = set(usage) - _USAGE_FIELDS
+    if unknown_usage:
+        raise DecisionResponseInvalid(f"decision usage has unknown fields: {', '.join(sorted(unknown_usage))}")
     cost = usage.get("cost")
     if cost is not None and (
         isinstance(cost, bool) or not isinstance(cost, (int, float)) or not math.isfinite(cost) or cost < 0

@@ -5,7 +5,7 @@ dialect's path, ``Authorization: Bearer``, a JSON body with exactly
 ``model``/``state``/``questions`` (any other top-level field is a 400, as
 Perplexity documents), 1-128 named questions with ``instructions``, and
 typed criteria. It answers deterministically, with ``usage`` and, for the
-OpenRouter dialect, ``id``/``provider``/``usage.cost`` and a dated model.
+OpenRouter dialect, ``id``/``provider``, billing metadata in ``usage``, and a dated model.
 No network leaves the machine: the server binds 127.0.0.1.
 """
 from __future__ import annotations
@@ -144,6 +144,12 @@ class FakeDecisionsServer:
                     payload["id"] = f"gen-dec-{len(fake.requests)}"
                     payload["provider"] = "Perplexity"
                     payload["usage"]["cost"] = input_tokens * 0.02 / 1_000_000
+                    payload["usage"]["is_byok"] = False
+                    payload["usage"]["cost_details"] = {
+                        "upstream_inference_cost": payload["usage"]["cost"],
+                        "upstream_inference_prompt_cost": payload["usage"]["cost"],
+                        "upstream_inference_completions_cost": 0,
+                    }
                 self._send(200, payload, {"x-request-id": "test"})
 
         return Handler

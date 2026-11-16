@@ -74,7 +74,7 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
     ("payload", "unavailable", "expected"),
     (
         # Plan-first transport T1: the code defaults route grading to the plan's low tier.
-        ({}, set(), ("chatgpt_low", "chatgpt_plan", "gpt-5.6-sol", "chatgpt_low", None)),
+        ({}, set(), ("chatgpt_low", "chatgpt_plan", "gpt-6.1-sol", "chatgpt_low", None)),
         (
             {
                 "ai": {

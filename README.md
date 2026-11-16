@@ -387,17 +387,17 @@ Provider profiles and per-workflow routing live in the vault's `learnloop.toml`:
 
 ```toml
 [ai]
-active_provider = "codex"
+active_provider = "chatgpt"
 
 [ai.routing]
-grading = "codex_low"
-canonical_ingest = "codex_medium"
-authoring = "codex_medium"
-tutor_qa = "codex_low"
-teach_back = "codex_low"
+grading = "chatgpt_low"
+canonical_ingest = "chatgpt_medium"
+authoring = "chatgpt_medium"
+tutor_qa = "chatgpt_low"
+teach_back = "chatgpt_low"
 ```
 
-Both derived Codex profiles use `gpt-5.6-sol`. Canonical ingestion and authoring
+Both derived ChatGPT profiles use `gpt-6.1-sol`. Canonical ingestion and authoring
 use medium reasoning; interactive grading, Tutor Ask, and teach-back use low.
 
 Secrets and machine-specific values should not be committed to a vault. LearnLoop
