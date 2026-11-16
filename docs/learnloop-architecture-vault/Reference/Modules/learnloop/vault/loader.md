@@ -731,6 +731,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unmapped_repair_class_abstains_with_a_typed_reason`
 - [tests/test_causal_attribution_p2.py](../../../../../../tests/test_causal_attribution_p2.py) — direct import
   - `test_cold_success_updates_repair_effect_not_diagnosis`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
 - [tests/test_causal_cold_outcomes.py](../../../../../../tests/test_causal_cold_outcomes.py) — direct import
   - `test_cold_pick_refuses_distinct_item_in_same_surface_group`
   - `test_cold_pick_skips_same_group_and_takes_next_independent`
@@ -1413,11 +1414,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_span_check_is_asked_before_the_vault_lock_is_taken`
   - `test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_skips_the_check`
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
-- [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
-  - `test_high_confidence_signature_takes_intended_route`
-- [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
-  - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
   - `test_isomorph_is_preserved_in_authored_members`

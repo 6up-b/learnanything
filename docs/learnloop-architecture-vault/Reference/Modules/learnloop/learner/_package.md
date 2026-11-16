@@ -103,8 +103,8 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 25 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 4 static module edges
@@ -178,7 +178,7 @@ flowchart LR
     n_learnloop_substrate -->|15| center
     center -->|5| n_learnloop_substrate
     n_learnloop_attempts -->|13| center
-    center -->|6| n_learnloop_attempts
+    center -->|5| n_learnloop_attempts
     n_learnloop_content_authoring -->|9| center
     center -->|1| n_learnloop_content_authoring
     n_learnloop_tutor -->|9| center

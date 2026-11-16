@@ -17,7 +17,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/083_diagnostic_pack_and_triage.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
   - "src/learnloop/diagnosis/causal_health.py"
 tags:
   - "learnloop/database/table"
@@ -92,8 +91,6 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository.append_failure_triage_event()`
-- `Repository.failure_triage_event()`
 - `Repository.failure_triage_events_for()`
 
 ### Direct SQL readers
@@ -102,12 +99,11 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -115,8 +111,6 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_causal_p2_acceptance.py`
-- `tests/test_failure_triage.py`
-- `tests/test_failure_triage_causal_gate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

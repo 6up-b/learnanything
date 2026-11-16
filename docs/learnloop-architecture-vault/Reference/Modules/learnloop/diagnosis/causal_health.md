@@ -47,28 +47,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py) |
-| Source lines | 359 |
+| Source lines | 357 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ChannelHealth` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 74) — Fill / abstention counts for one causal channel.
-  - `missing(self) -> int` (line 83; public)
-  - `fill_rate(self) -> float` (line 87; public)
-  - `abstention_rate(self) -> float` (line 91; public)
-  - `tail(self, min_rows: int) -> str` (line 94; public)
-  - `as_dict(self, min_rows: int=DEFAULT_MIN_ROWS) -> dict[str, Any]` (line 103; public)
-- `causal_lane_health(repository: Repository, *, min_rows: int=DEFAULT_MIN_ROWS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 156) — Fill / abstention rates for every causal channel, plus the triage arms.
-- `triage_tier_one_health(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 314) — Which arm of the §2.1 gate committed each tier-one route.
+- `class ChannelHealth` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 73) — Fill / abstention counts for one causal channel.
+  - `missing(self) -> int` (line 82; public)
+  - `fill_rate(self) -> float` (line 86; public)
+  - `abstention_rate(self) -> float` (line 90; public)
+  - `tail(self, min_rows: int) -> str` (line 93; public)
+  - `as_dict(self, min_rows: int=DEFAULT_MIN_ROWS) -> dict[str, Any]` (line 102; public)
+- `causal_lane_health(repository: Repository, *, min_rows: int=DEFAULT_MIN_ROWS) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 155) — Fill / abstention rates for every causal channel, plus the triage arms.
+- `triage_tier_one_health(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 313) — Count historical triage receipts by the arm that committed each route.
 
 ### Module constants
 
-- `CAUSAL_HEALTH_VERSION` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 54)
-- `DEFAULT_MIN_ROWS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 57)
-- `CHANNELS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 59)
-- `TAILS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 70)
+- `CAUSAL_HEALTH_VERSION` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 53)
+- `DEFAULT_MIN_ROWS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 56)
+- `CHANNELS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 58)
+- `TAILS` ([src/learnloop/diagnosis/causal_health.py](../../../../../../src/learnloop/diagnosis/causal_health.py), line 69)
 
 ### Explicit exports
 
@@ -84,9 +84,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `class _Counter` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 116)
-- `_receipt_for(repository: Repository, attempt_id: str) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 139)
-- `_is_open_set(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 148)
+- `class _Counter` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 115)
+- `_receipt_for(repository: Repository, attempt_id: str) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 138)
+- `_is_open_set(row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_health.py), line 147)
 
 ## Who imports or calls it
 
@@ -123,7 +123,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-  - `test_a_deterministic_sensor_earns_validator_owned_and_reaches_triage`
+  - `test_a_deterministic_sensor_earns_validator_owned_and_resolves_the_factor`
   - `test_causal_lane_health_watches_both_tails_and_pins_the_tier_one_basis`
 
 ## Modification guidance

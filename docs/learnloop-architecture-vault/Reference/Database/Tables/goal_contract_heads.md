@@ -21,7 +21,6 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_run.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -95,7 +94,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/curriculum/golden_path_run.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/goals/goal_contracts.py`
 
 > [!note] Static-reference boundary
@@ -103,7 +101,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_failure_triage.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`

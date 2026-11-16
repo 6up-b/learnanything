@@ -111,7 +111,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_restoration.py`
 - `src/learnloop/curriculum/task_blueprints.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary

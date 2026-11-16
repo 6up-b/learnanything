@@ -107,7 +107,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/diagnosis_adjudication.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/missing_vocabulary.py`
@@ -132,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_table_roles.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
+- `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_repair_mapping_p2.py`
@@ -142,7 +142,6 @@ Indexes and uniqueness:
 - `tests/test_facet_belief_successor_derivation.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_held_grade_evidence.py`
-- `tests/test_item_parameters.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

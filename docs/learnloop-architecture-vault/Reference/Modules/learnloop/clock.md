@@ -134,6 +134,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `Clock`
@@ -207,7 +208,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `Clock`
@@ -711,6 +711,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_classification_is_pinned_and_survives_a_newer_bundle`
   - `test_cold_success_updates_repair_effect_not_diagnosis`
   - `test_empty_feature_row_is_rejected_at_generation_and_skipped_at_read`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
   - `test_repair_class_divergence_locks_existing_hypothesis_set_with_other`
 - [tests/test_causal_cold_outcomes.py](../../../../../tests/test_causal_cold_outcomes.py) — direct import
   - `test_clean_consume_records_cold_success_row_idempotently`
@@ -1081,8 +1082,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_algorithm_version_change_rewrites_the_rows_it_stamps`
   - `test_the_residual_writer_writes_nothing_when_nothing_changed`
   - `test_the_writer_deletes_vanished_cells_inserts_new_ones_and_updates_only_changed_ones`
-- [tests/test_failure_triage_causal_gate.py](../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
 - [tests/test_familiarity.py](../../../../../tests/test_familiarity.py) — direct import
 - [tests/test_field_signal_production_paths.py](../../../../../tests/test_field_signal_production_paths.py) — direct import
   - `test_library_question_targets_only_its_notes_learning_objects`

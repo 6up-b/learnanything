@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps models behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `VaultModel`, `SourceRef`, `Provenance`, `GoalFacetScope`, `GoalExamConfig`, `Goal`, `GoalsFile`, `SourceSetScope` and 48 more public symbols.
+This module keeps models behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `VaultModel`, `SourceRef`, `Provenance`, `GoalFacetScope`, `GoalExamConfig`, `Goal`, `GoalsFile`, `SourceSetScope` and 50 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/models.py](../../../../../../src/learnloop/vault/models.py) |
-| Source lines | 1032 |
+| Source lines | 1045 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -122,6 +122,8 @@ The authoritative system-level explanation remains in [[State and Persistence]];
   - `subjects_for_item(self, item: PracticeItem) -> list[str]` (line 1022; public)
   - `canonical_facet_id(self, facet_id: str) -> str` (line 1028; public)
   - `rubric_for_item(self, item: PracticeItem) -> Rubric | None` (line 1031; public)
+- `class GradingValidationError(ValueError)` ([source](../../../../../../src/learnloop/vault/models.py), line 1035)
+- `resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/vault/models.py), line 1039)
 
 ### Module constants
 
@@ -144,7 +146,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `LoadedVault`, `PracticeItem`
-- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `LoadedVault`, `PracticeItem`, `Rubric`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `LoadedVault`, `PracticeItem`, `Rubric`, `learning_object_facet_union`, `resolved_rubric`; statically calls `GradingValidationError`, `learning_object_facet_union`, `resolved_rubric`
 - [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] — imports `LoadedVault`, `PracticeItem`, `Rubric`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `PracticeItem`
 - [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] — imports `LoadedVault`
@@ -171,8 +173,9 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `EvidenceFacet`, `LoadedVault`
-- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `CAPABILITY_VOCABULARY`, `LoadedVault`, `PracticeItem`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `CAPABILITY_VOCABULARY`, `LoadedVault`, `learning_object_facet_union`; statically calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `LoadedVault`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/content/sources/source_outcome_analytics|learnloop.content.sources.source_outcome_analytics]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] — imports `LoadedVault`, `SourceSet`
@@ -301,7 +304,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `Goal`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`; statically calls `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`, `resolved_rubric`; statically calls `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`, `resolved_rubric`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `Blueprint`, `BlueprintRecipe`, `LearningObject`, `LoadedVault`, `PracticeItem`, `RecipeComponent`
 - [[Reference/Modules/learnloop/learner/calibration|learnloop.learner.calibration]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `LoadedVault`
@@ -450,7 +453,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 289 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 290 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

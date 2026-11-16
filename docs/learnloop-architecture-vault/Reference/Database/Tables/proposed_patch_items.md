@@ -143,6 +143,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
+- `src/learnloop/content/proposals/self_tagged_fatal.py`
 - `src/learnloop/content/sources/provenance.py`
 - `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_append.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/error_taxonomy.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
