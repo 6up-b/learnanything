@@ -361,6 +361,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_the_profile_default_is_inline`
   - `test_the_profile_validates_its_workspace_settings`
+- [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
 - [tests/test_config_refactor.py](../../../../../../tests/test_config_refactor.py) — direct import
   - `test_config_responsibilities_have_canonical_module_owners`
   - `test_each_plan_tier_runs_its_codex_tiers_model_and_effort`
@@ -519,6 +520,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_sets_no_cosine_cutoff_by_default`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_config_setting_the_removed_switches_keeps_every_identity`
+  - `test_every_changed_default_is_still_the_default`
   - `test_retired_fields_stay_off_the_models_and_out_of_every_other_dump`
   - `test_the_pre_arc_c_shape_reproduces_the_recorded_default_digest`
 - [tests/test_ro0_row4_exposure_initiator.py](../../../../../../tests/test_ro0_row4_exposure_initiator.py) — direct import
