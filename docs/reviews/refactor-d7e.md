@@ -2,7 +2,7 @@
 
 Step D7 batch 3 of arc D (`docs/specs/refactor_strategy_v3.md` §2.6), on branch `refactor/d7e-switches-today`, based on `250b0e16fe` (batch 1 part 4, the diagnosis split pair, merged with main). The rule, the precondition and the conventions are batch 1's (`docs/reviews/refactor-d7a.md` §1-§9): ADR-019's rule (owner, Nov 12; L7), and the owner's run of `scripts/vault_report.py` on Nov 14 (no live or retired vault sets any tagged switch). For every vault the owner has, each switch removed here is at its default, so removing it with its off branch changes nothing that vault computes.
 
-**This landing is the batch's first boundary.** It removes seven of the batch's fourteen switches, the brief's group 1: `adaptive_difficulty.generation_contract`, `router.probe_tie_admission`, `intent.enabled` and `intent.recall_targets_enabled`, `followups.enabled`, `reading_paths.plan_uses_path`, `curriculum.plan_uses_path`. What remains is in §9. Line numbers are the base's (`250b0e16fe`).
+**This landing is the batch's first boundary.** It removes seven of the batch's fourteen switches, the brief's group 1: `adaptive_difficulty.generation_contract`, `router.probe_tie_admission`, `intent.enabled` and `intent.recall_targets_enabled`, `followups.enabled`, `reading_paths.plan_uses_path`, `curriculum.plan_uses_path`. What remains is in §9. Line numbers are the base's (`250b0e16fe`). **Part 2** (the batch's second landing: the lesson-suggestion pair, `teacher.probes`, `data_capture.serving`) follows §11, as §12-§22.
 
 Inventory: `docs/reviews/refactor-d7-inventory.md` §1.3, §1.4, §4 batch 3. Each row's class was checked at this tip before its removal: all seven are class A (a predecessor nothing needs, no identity that `RETIRED_FIELDS` cannot hold).
 
@@ -225,3 +225,196 @@ No new bug was found.
 - ADR-019: the kept-because list went to 75 with this part, and what a removed switch's tests do when its off branch is a kept feature switch's.
 - `Concepts/Attempt Processing` and `Concepts/Learning System` name none of the seven and are unchanged; the generated Config notes regenerated.
 - Ledger rows D7-1, D7-3 and D7-5 updated.
+
+---
+
+# Part 2: `router.lesson_suggestions.enabled` and `.in_objective`, `teacher.probes`, `data_capture.serving`
+
+The batch's second landing (the brief's group 2), built on part 1's tip `1101a99480`, which is this part's base: line numbers below are its. The rule, the precondition and the conventions are part 1's. Each row was checked at the base before its removal: all four are class A (the off code is a predecessor nothing needs, or shared with a switch that stays; no identity names them by value; `RETIRED_FIELDS` holds the whole-config digest). Group 3 (`plan.enabled`, `router.enabled`, `router.restraint`) is not started.
+
+## 12. Which tests reached a predecessor through `tests/successor_switches.py`
+
+Part 1's discovery run recorded which tests the helper writes each of the four keys for (§1's table: 223 files in their union). Before any source or test was touched, those 223 files ran (3 chunks at `-n 4 -m "not arc_close"` behind the lock) with part 1's scratch plugin deleting all four rows from `SWITCHES_BY_TAG`: **54 cases in 32 files failed**. The removals then went one switch (or the pair) per commit, and each commit's own run (source edited, tests not yet ported) failed exactly its share of them, which attributes each to one switch:
+
+| switch (commit) | discovery cases it took the predecessor of | files |
+|---|---:|---:|
+| `teacher.probes` (`641206a0f0`) | 16 | 9 (`test_teacher_te2_lessons` 4, `test_reader_rw5d_p4b_teacher_visuals` 3, `test_teacher_te2log_episodes` 2, `_node_held` 2, `_report` 1, `test_teacher_te2_successor` 1, `_sidecar` 1, `test_followups_batch5_recap_protection` 1, `test_teacher_te1b_suggestions` 1: its config now always carries `te2`) |
+| the lesson-suggestion pair (`3a2d552c18`) | 8 | 6 (`test_ro6_serving` 3, `test_ro6_codex_rereview` 1, `test_te3b_clock`, `_features`, `_population`, `_successor` 1 each) |
+| `data_capture.serving` (`128128b911`) | 30 | 17 (`test_plan_determinism` 6, `_landing` 3, `test_data_capture_successor` 3, `_a2_measurement` 2, `_a1_prefilter`, `_a5_not_ready_floor`, `_a6_delayed_pick`, `_report` 1 each, `test_reading_paths` 2, `test_voi_v2` 2, `test_router_r2b_serving` 2, `test_router_r2a_landing`, `_r2a_serving`, `_r2c_retrieval`, `_g4_restraint` 1 each, `test_teacher_exam_question_guard` 1, `test_curriculum_c1_codex_review_fixes` 1) |
+
+Each commit's run also failed the tests that name the switch or its predicate directly (the field and predicate tests, the off-only tests, `test_teacher_te2_review_fixes::test_f6_…`, which set `teacher.probes` itself). Every failing case is in §17, with what became of it. The other cases the helper wrote these keys for (about 1,450 by the discovery's count, overlapping) pass without their predecessor: their old tag is their own setup or still holds a listed successor, so they were left at it. Then the four rows left the helper with their switches (and the helper's imports of `TEACHER_PROBES_`, `LESSON_SUGGESTIONS_`, `LESSON_OFFERS_` and `DATA_CAPTURE_ALGORITHM_VERSION`). Its own test needed no change.
+
+## 13. Step 0, per switch
+
+None of the four is named by `projection_switches`, `objective_settings`, `followup_switch_snapshot`, `followup_generator_switches`, `draw_inputs` or `router_settings` (`lesson_offers_on` reaches `objective_settings["lessons_compete_with_followups"]` through `lessons_compete_with_followups_on`, and at the defaults that value is `True` before and after: the pins are unmoved, §15).
+
+### `teacher.probes` (mvp-0.51)
+
+- **Reads:** one predicate, `teacher.te2.on` (`te2.py:52`: lessons on and the field, getattr default **False**, ledger D7-3's kind), with ten callers: `service._te2_now` (`:400`), `_te2_turn` (`:406`), `open_lesson` (`:681`), `take_turn`'s close (`:932`), `_view_te2` (`:2535`, `:2553`), `open_lessons` (`:2571`), the sidecar's `_teacher_dto` (`context.py:1047`) and `lesson.goal` (`handlers/lesson.py:300`), and the follow-up job's `lesson_probe.enabled` (`followup_run/lesson_probe.py:55`).
+- **Off code:** with lessons on and the switch off: `open_lesson`'s typed-goal refusal (`teacher_unavailable`, `:684`) and the sidecar's (`:301`); `build_brief`'s `te2=False` path, the v1 brief (`brief.py:880-888`), and `_probe_headers` (`:420-436`, only caller `:888`). `build_brief`'s only caller is `open_lesson`, after `require_active`, so the `te2` parameter goes and every new brief is `lesson_brief_v2`. What stays: `te2.on` is lessons on (the conjunct goes, as `generation_contract`'s did), and every path that `teacher.enabled = false` (class C, kept) reaches; the continuation of a lesson opened before TE2 (`lesson_te2(state)` reads the stored brief's version), and the readers of a stored v1 brief's probe items (`brief.py:131`, `:475`).
+- **Stored and echoed:** the sidecar's `teacher.te2` keeps being sent, now `True` whenever `teacher` is (the desktop's `lessonGoals` reads it: `apps/learnloop-tauri/src/app/algoConfig.ts`, comment only); the brief's `version` is `lesson_brief_v2` for every new lesson, as for every owner vault with the switch on.
+- **What the learner sees today with it on, and after:** desktop: "What do you want to learn?", "Continue your lesson", lesson probes and gaps: unchanged (same config payload, same code paths). Phone: no lesson RPCs (desktop-only). Not read by replay: a lesson probe's attempt is an existing attempt type.
+
+### `router.lesson_suggestions.enabled` (mvp-0.43) and `.in_objective` (mvp-0.53), one pair
+
+- **Reads:** `enabled` in `lesson_suggestion.suggestions_enabled` (`:110`; five callers: `today_suggestion` `:522`, `respond` `:636`, `suggestions_active` `:131`, `router_card` `:372`, the sidecar's `_teacher_dto` `:1046`) and in `router_objective_switches.lesson_offers_on` (`:298`); `in_objective` only in `lesson_offers_on` (`:298`, getattr default **False**), whose callers are `lesson_offer.offers_on`, `objective_inputs._lessons_on`, `policy`'s lesson-offer builder, `scores`' clock, `tail_data.features_version`, `lesson_suggestion._model`'s `with_offers` and `lessons_compete_with_followups_on`. `in_objective` is meaningful only beside `enabled` (both gate lesson offers), so they go together.
+- **Off code:** none of their own: every off path is also reached by the router off, its decision log off or lessons off (`suggestions_enabled`'s other conjuncts), or by the objective off (`lesson_offers_on`'s `objective_on`), which stay. So only the conjuncts go.
+- **The section refuses unknown keys** (ledger D7-2). `RouterLessonSuggestionsConfig` is `extra="forbid"`; it now subclasses `KeepsRetiredFields`, and `KeepsRetiredFields`' wrap validator gives the handler the input without the model's retired keys wherever the model forbids extras (`retired._without_retired_keys`): a vault setting either key loads, only an identity dump shows the value, and a misspelt key is still refused. Every other retired-aware model ignores or keeps the key itself, and its plain dump is unchanged, so the step is skipped there.
+- **Stored:** none of the two is written anywhere by value; the trace's `config_snapshot["router"]` dumps the live `RouterConfig` (its nested section loses the two keys), inside a `snapshot_hash` nothing recomputes, as in part 1.
+- **What the learner sees, and after:** desktop: the Today suggestion card, lesson offers in the plan, "Learn it with the tutor": unchanged (`teacher.suggestions` is sent on the same conditions with the defaults). Phone: none of these RPCs. Not read by replay.
+
+### `data_capture.serving` (mvp-0.44)
+
+- **Reads:** `data_capture.gates.serving_on` (`gates.py:22`, getattr default **False**) at sixteen sites: the plan's measurement slots (`engine.py:1730`), a decision's frozen objective (`:3781`), the follow-up's objective (`:5019`, and `followup_run/router.py:349`), `measurement.settle` (`:446`), the mixture's `not_ready` branch (`router_chooser.py:424`), its objective freeze (`:487`), the restraint's `not_ready` branch (`:718`), the reading-exposure sweep (`reading_exposures.py:290`), VOI's full candidate receipts (`voi_stopping.py:1145`, `:1197`), the teacher's delayed-check picker (`teacher/delayed.py:139`, `:185`), the AD report's delayed definition (`adaptive_difficulty/report.py:656`), the capture report's echo (`ops/capture_report.py:538`), and `router/outcomes.outcome_version_for` (`:238`), whose callers are the rebuild's `router_outcomes` replayer (`substrate/rebuild_orchestrator.py:556`), the router's similar-decision retrieval (`router_retrieval.py:158`), the capture report (`capture_report.py:140`) and `why/outcomes_now.py:26`.
+- **Off code:** the predecessor's deterministic `not_ready` returns in the mixture and the restraint (`router_chooser.py:424-426`, `:718-721`), `_frozen_objective`'s and `settle`'s early returns, the band-middle-by-LO pick in `teacher.delayed.pick` and `picked_for`'s off arm (`delayed.py:139-149`, `:185-186`), the sweep's early return, and `outcome_version_for`'s v2 answer. Deleted. Kept: `pick` (another caller, `teacher/checks.py:125`) now always reads the item's own prediction; version 2's derivation stays as `derive_router_outcomes`' default argument (tests call it so; no vault derives under it); VOI's `MAX_RECORDED_CANDIDATES` and the `record_all` / `record_all_candidates` defaults stay (every production site passes `True`); the AD report's `delayed_definition` parameter stays (passed `True`). `outcome_version_for(config)` keeps its signature and answers `router_outcomes_v3`: the replayer calls it, and `substrate/rebuild_orchestrator.py` belongs to the parallel arc-D close fix, so it is untouched.
+- **What a rebuild computes with it on** (what every owner vault has): the `router_outcomes` replayer derives every decision's outcomes as `router_outcomes_v3` (R_cold under the shared delayed-completion definition, with the Reader's exposures), which is exactly what it derives now. §16's real rebuilds are equal row by row on all three copies (the one copy with router outcomes holds three `router_outcomes_v3` rows on each side).
+- **Stored and echoed:** `router_outcomes.outcome_version` is `router_outcomes_v3` as before. The capture report stops writing `switches.serving` and its "serving changes on" words (nothing compares them; no pin or golden holds them). The VOI receipt cap's registry rationale names the switch and keeps its bytes, with a comment saying why (it is mirrored into vault rows, part 1 §2's lesson).
+- **What the learner sees, and after:** desktop and phone: the plan's "Check once" measurements and the mixture's no-model draws are as with it on; the phone's measurement holding is unchanged (`test_data_capture_phone`). The sidecar's queue comment no longer names it.
+
+## 14. What went
+
+| commit | what |
+|---|---|
+| `641206a0f0` | `teacher.probes` |
+| `3a2d552c18` | `router.lesson_suggestions.enabled` and `.in_objective` (with D7-2's loading fix and test) |
+| `128128b911` | `data_capture.serving` |
+| `00bc34052a` | the vault's references regenerated (1,164 to 1,160 effective leaves) |
+
+In each removal commit: the field into `RETIRED_FIELDS` (`removed_by` `D7`; `RouterLessonSuggestionsConfig` and `DataCaptureConfig` now keep retired fields, `TeacherConfig` already did; no section was left empty), `_pre_arc_c_shape`, the kill-switch table row and its kept-because line, the registry rules (`teacher.probes`' share of TE2's rule, both lesson-suggestion rules), the vault generator's descriptions (`router.lesson_suggestions.enabled`, the `data_capture` section), the tags' comments in `algorithm_versions.py`, the helper's row, and the effective-defaults golden (exactly the removed lines).
+
+**Deletion proof** (strategy §2.1): `serving_on`, `_probe_headers`, the `te2=` keyword of `build_brief`, `teacher_unavailable` with the typed-goal message, `lesson_suggestions.enabled`, `in_objective` and `data_capture.serving` searched over `src/`, `scripts/`, `tests/`, `apps/` and the vault's `_scripts/` as names and strings: no function-local or `importlib` import, no registry, Typer or `MODULE_INVENTORY` entry left (`teacher_unavailable` stays: the teacher's model being unavailable raises it, `service.py:1257`).
+
+## 15. Identities and stored snapshots
+
+- **The retired-config identities.** Part 1's `TODAY_SWITCHES_TOML` already sets all four away from their defaults and its digests were recorded at `250b0e16fe`, so `test_a_config_setting_todays_removed_switches_keeps_every_identity` needed no new line; `_pre_arc_c_shape` gained the four fields. **With each new entry removed** from `RETIRED_FIELDS` (mutations, not committed): `TeacherConfig.probes` and `DataCaptureConfig.serving` fail six tests each (`test_the_config_identity_reproduces_both_recorded_digests`, `test_an_embedding_compare_report_is_named_as_before_arc_c`, both cases of the batch-1 and of this batch's identity test); each lesson-suggestion entry fails eight (those six, the loading test and the new section test, because the forbidding section then refuses the key). Restored: 19 passed.
+- **D7-2, fail first.** A new test, `test_the_lesson_suggestions_section_still_refuses_an_unknown_key_but_loads_its_retired_ones`, validates the section with both retired keys (plain dump without them, identity dump with them), refuses a misspelt key, and loads a `learnloop.toml` that sets both. With `KeepsRetiredFields` handing the forbidding model its raw input (`model = handler(data)`, a mutation): that test, `test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_nothing` and the `switched` case of this batch's identity test fail (a vault setting either key no longer loads). Restored: green.
+- **`tests/test_identity_pins.py`:** unmoved at every commit; nothing written. C3-C6 do not move (`lessons_compete_with_followups` is `True` at the defaults before and after).
+- **Snapshots, per switch:** `teacher.probes`: the sidecar's `teacher.te2` keeps `True` (desktop reader); briefs are `lesson_brief_v2`. The lesson-suggestion pair: none stored. `data_capture.serving`: `outcome_version` keeps `router_outcomes_v3`; the capture report's `switches.serving` echo stops.
+
+## 16. Proof
+
+**P-shadow** (`learnanything-ad1/fixtures-local/owner-copies-mvp058`, fresh `copy_tree_with_databases` copies; base `1101a99480` from a `git archive` of `src/` and `migrations/` on `PYTHONPATH`, branch at `128128b911`; counts only; copies deleted):
+
+| | linear_algebra | probability | arxiv_v2 |
+|---|---|---|---|
+| `learnloop upgrade`, both | `mvp-0.58 -> mvp-0.59` | same | same |
+| shadow facet / mastery / schedule changed | 0 / 0 / 0 (80 / 21 / 99 unchanged) | 0 / 0 / 0 (3 / 18 / 77) | 0 / 0 / 0 (7 / 34 / 32) |
+| `schedule_effects` due dates moved (items, cards) | 0, 0 | 0, 0 | 0, 0 |
+| the two shadow reports, marker id, `as_of` and hashes aside | equal | equal | equal |
+| every table of the two upgraded copies, row by row | 402 tables, 19,442 rows: none differ | 402, 10,426: none | 402, 23,877: none |
+| the same after the shadow | none differ | none | none |
+| the same after a real `rebuild-derived-state` on each side | 19,749 rows: none differ | 10,498 (3 `router_outcomes_v3` rows each side): none | 23,719: none |
+| Today on a copy of the rebuilt vault at 2026-11-15 12:00Z: `read_due_queue`, the intent report, a built plan | byte-equal | byte-equal | byte-equal |
+
+This is `data_capture.serving`'s rebuild proof (the `router_outcomes` replayer read it): unchanged. No registry row moved this time (the rewritten rules are config rules of paths no copy sets; the one mirrored rationale kept its bytes).
+
+**Old rows at the floor and the head** (`fixtures/mvp017_route_check_replay`, retagged to `mvp-0.58` and `mvp-0.59`, two live rebuilds per code, branch at `128128b911`): every table equal row by row after each rebuild at both tags except the one `attempt_debug_payloads` row of `att_02_svd_fail`, equal with replay's minted ids, stamps and digests normalized, as in part 1.
+
+**P-draw.** The router's pinned draws and the due-queue goldens ran unchanged at the default switches: `tests/test_due_queue_golden.py` in each commit's gate and in the sweep, the pinned-draw router files in the sweep (§18). No golden or pin was regenerated. The tests that had reached the old deterministic `not_ready` pick now name the staged rule, which is what that pick was (§17); none of them is a pinned-draw subject.
+
+**Goldens.** The effective-defaults golden lost exactly four lines (`data_capture.serving`, `router.lesson_suggestions.enabled`, `router.lesson_suggestions.in_objective`, `teacher.probes`) and gained none. The CLI snapshot did not change. The grade-application, due-queue and figure goldens ran unchanged in the sweep. The structure golden is unchanged (no number moved: `--write` wrote the same file).
+
+**The owner lane** (`-m owner_vaults`, 31 files, copies made with the gate's `owner_copy_make.py` under `fixtures-local/owner-lane-d7e`, deleted after): 92 passed, 8 skipped, as at part 1. No owner-lane test was edited (two edited files, `test_router_r2a_serving` and `test_router_r2b_serving`, hold owner-lane tests elsewhere in the file; they ran).
+
+## 17. Tests
+
+**Deleted** (each with its subject):
+- `teacher.probes`: `test_teacher_te2_lessons::test_switch_off_or_below_the_tag_gives_te1s_lesson_byte_for_byte` (2 cases: off equals TE1), `::test_typed_goals_need_the_switch` (the refusal); `test_followup_single_use::test_the_teachers_probe_headers_leave_it_out` (called the deleted `_probe_headers`; no brief lists a vault item now).
+- The pair: `test_te3b_successor::test_the_switch_defaults_on_and_is_classified` (the field and its rule); `test_teacher_te1b_suggestions::test_off_nothing_is_drawn_or_written`'s `switch_off` case.
+- `data_capture.serving`: `test_data_capture_a1_prefilter::test_the_voi_flag_follows_the_successors_switch` (the predicate); `test_data_capture_a2_measurement::test_settle_is_a_no_op_with_the_switch_off` (off), `::test_below_the_tag_or_switched_off_nothing_is_frozen_or_arranged` (2 cases: off equals mvp-0.43); `test_data_capture_a5_not_ready_floor::test_below_the_tag_or_switched_off_it_is_the_predecessors`; `test_data_capture_a6_delayed_pick::test_below_the_tag_or_switched_off_the_smallest_id_wins_as_before` (2 cases); `test_data_capture_codex_rereview::test_f1_no_receipt_with_both_switches_off` (off); `test_data_capture_successor::test_switched_off_at_the_tag_the_plan_and_its_rows_are_the_predecessors` (2 cases); `test_plan_determinism_landing::test_staged_plans_at_mvp024_…`'s three `mixture_not_ready` cases (mvp-0.24's deterministic no-model mixture: the mixture now draws there); `test_router_g4_restraint::test_with_no_model_set_up_a_placeable_follow_up_joins_deterministically` (the predecessor's deterministic restraint; A5's floor on the restraint is `test_data_capture_a5_not_ready_floor::test_the_restraint_keeps_the_floor_on_not_ready_too`).
+
+**Every assertion changed, and why:**
+
+| test | before | after | why |
+|---|---|---|---|
+| `test_teacher_te2_successor` (3 tests) | the field's default, its rule, the gate below the tag and switched off | the keep bound and its rule; the gate on with lessons on, off with lessons off | field and rule gone; twin |
+| `test_teacher_te2_lessons::test_today_lists_open_lessons_…` | below the tag: no card, close refused | removed | twin: on side kept |
+| `test_teacher_te2_sidecar::test_the_config_carries_the_te2_key_with_lessons` (was `test_below_the_tag_the_goal_rpc_refuses_…`) | refusal and no key below the tag | the key with lessons | twin |
+| `test_teacher_te2_review_fixes::test_f6_today_can_close_a_te1_lesson_left_open_before_te2` | a TE1 lesson made with the switch off | a lesson whose stored brief is given the v1 shape (`as_opened_before_te2`, `tests/teacher_te2_probes_helpers.py`) | no lesson opens as TE1 now; one opened before still continues, and that is the subject |
+| `test_followups_batch5_recap_protection::test_an_item_the_earlier_lesson_was_shown_…` | the first teacher tag's lesson listed `pi_det_1` in its brief | the earlier lesson's stored brief lists it (`as_opened_before_te2`) | as above: the recap check reads a stored v1 brief's items, which stays |
+| `test_reader_rw5d_p4b_teacher_visuals` (3 tests), `test_teacher_te2log_episodes` (2), `_node_held` (2), `_report` (1) | pinned the first teacher tag for TE1's prompt, schema and family | at the head: the same prompt, schema and family with TE2's paragraph beside (`T2.turn_model`, `T2.instructions`, `T2.prompt_version`, `+teacher_te2_v1`) | the subject is visuals or episodes; every lesson opens under TE2 |
+| `test_teacher_te1b_suggestions::test_without_the_decision_log_the_desktop_config_has_no_suggestions` (was `…_with_the_switch_off_…`) | `router.lesson_suggestions.enabled = false` | `router.log_decisions = false`; both sides carry `te2` | same assertions, other route; `te2` is always sent with lessons |
+| `test_teacher_te1b_review_fixes::test_the_learners_answers_…` | suggestions off by the field | by the decision log | other route |
+| `test_te3b_successor::test_the_gate_reads_on_and_off_with_the_objective_or_lessons_off` | below the tag and the two fields off | the objective off and lessons off | twin, kept routes |
+| `test_te3b_clock::test_the_gate_reads_lessons_on_the_clock_with_lessons_on`, `test_te3b_features::test_ro6s_features_…` | `in_objective = false` / the older tag | `teacher.enabled = false` | other route (no offers without lessons) |
+| `test_te3b_population::test_with_lessons_off_the_same_database_is_valued_without_lessons` (was `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`) | off and the older tag equal each other; on moves | lessons off against on: minutes, population, features version, offer builder move; lessons off draws no card | off-equals-predecessor went; the twin's on assertions kept against the kept route (two added for the on side: the offer builder is present, the off side has no card) |
+| `test_te3b_population::test_the_population_holds_…` | the older tag's population lacks the LO | removed | twin |
+| `test_te3b_codex_review` F2 | `in_objective = false` mid-run | lessons off mid-run | other route: the offer is withdrawn and the objective's next boundary decides without offers |
+| `test_te3b_codex_review` F3 (3 tests) | `in_objective = false` | `router_objective.enabled = false` | other route: the daily card where the objective does not serve; F3's subject |
+| `test_ro6_serving` (3), `test_ro6_codex_rereview::test_f3_…` | `LT.NAMES` (14 features) at RO6's own tag | `LT.NAMES_LESSON` (15), and `rebuilt_features` at the vault's served features version | their tag is their setup; lesson offers serve there now, so the features carry the lesson indicator |
+| `test_data_capture_successor` (2) | `serving` default and gate; v2 below the tag | `receipts`' default and gate; v3 at any tag | the switch went; rebuild proof at the unit level |
+| `test_data_capture_a2_measurement::test_a_decision_before_its_objective_could_be_frozen_…` | a run at mvp-0.43 left decisions with no objective | a stored pre-0.44 stop decision inserted as a row | no decision is written without an objective now; old vaults hold such rows, and the subject is reading them |
+| `test_data_capture_report` (2) | `switches == {receipts, serving}`; v2 below the tag | `switches == {receipts}`; v3 at an older tag, receipts counted | the echo stopped; the outcomes are v3 for every vault |
+| `test_data_capture_phone` | set `serving = True` | removed | the field is gone |
+| `test_plan_determinism` (templates) | the router-on templates reached the deterministic `not_ready` pick | `router.mode = "staged"` | same assertions, the staged rule's route (what that pick was) |
+| `test_router_r2a_landing::_real_queue_world`, `test_curriculum_c1_codex_review_fixes::test_f1_after_a_refresh_…` | the same | `router.mode = "staged"` | same; in the C1 test the floor's pinned draw would otherwise stop the plan before its reading |
+| `test_router_r2b_serving::test_staged_mode_…` | R2a's twin at its tag with no models | R2a's twin with `mode = "staged"` | R2a's frame is the staged rule |
+| `test_router_r2b_serving::test_with_no_model_set_up_the_plan_says_the_models_are_not_set_up` (was `…_the_rule_chooses_deterministically`) | deterministic and equal to R2a | the rows are the mixture's and the plan says the models are not set up | the deterministic half was the predecessor |
+| `test_router_r2a_serving::test_router_outcomes_replay_twice_with_no_model_call` | `router_outcomes_v2` | `router_outcomes_v3` | every vault's outcomes are v3 |
+| `test_router_r2c_retrieval::test_only_matured_…` | `similar_decisions(vault=…)` with no repository | `repository=env.repository` (as its one production caller passes) | v3 needs the Reader's exposures, which need the repository |
+| `test_reading_paths` (2 tests) | the plan equal to a76c8358a's golden | equal to the same fixture built again with no path, depth or override (`_twin_plan`); the queue, guide and contract goldens unchanged | the golden's plan was decided by the predecessor's deterministic no-model rule; the twin shows the same subject (display only) |
+| `test_voi_v2` (2, through `tests/voi_restore_scenarios.summarize_body`) | every logged candidate summary | the first `MAX_RECORDED_CANDIDATES` | the golden was pinned when a receipt kept six; every receipt keeps all now (receipt size, never a decision) |
+| `test_teacher_exam_question_guard::test_a_lesson_with_no_reserved_text_is_byte_identical_…` | two lessons with random ids | the same ids in both (`S.new_ulid` patched per lesson) | the lesson id seeds the delayed checks' tie draw (A6): both lessons must draw the same item, whatever the guard does |
+| `test_successor_switches`, `test_kill_switches`, `test_retired_config_identities` | the four keys | removed; `_pre_arc_c_shape` gains them | fields gone |
+
+Edits made by a script rather than the Edit tool: as in part 1, exact-pattern replacements in Python one-offs that assert each pattern occurs once (or cut a test between two unique markers), kept in the step's scratch directory; `ruff check --fix --select F401` removed two imports the deleted tests left unused.
+
+## 18. Gates run
+
+All under the empty-home wrapper in 5 GB scopes.
+- Each commit: the tests naming its switch, predicate or module, the discovery's failing files and the standard files (identity, retired-config, architecture, layout, effective-defaults, CLI-snapshot, kill-switch, structure, successor-switch, vault-report): `teacher.probes` 86 + 11 files (1,556 + 386 passed); the pair 89 files (1,959 passed); `data_capture.serving` 194 files in two chunks behind the lock (4,397 passed, after the ports; the last port, `test_router_r2c_retrieval`, then green on its own).
+- Desktop: `tsc --noEmit` clean after each touched commit; vitest over every test file that reads `algoConfig`, `lessonGoals` or `lessonSuggestions` (85 files, 787 tests); once, by a shell slip, the whole vitest suite (286 files, 2,874 tests), all passing. The only desktop edits are two doc comments in `algoConfig.ts`.
+- **The sweep:** `scripts/affected_tests.py --base 1101a99480` with the standard and edited files selects 1,333 test files; all ran in 14 chunks of 100 at `-n 4 -m "not arc_close"` behind `flock /tmp/learnloop-fullsuite.lock`, on `00bc34052a`: **28,738 passed, 101 skipped, 12 xfailed, no failure or error**, first time through. The grade-application, due-queue and figure goldens and the pinned-draw router files ran in it unchanged.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 30,958 collected, landing 30,893 + arc_close 65.
+- Vault: references regenerated once (`00bc34052a`; the two hand-written leaf counts 1,164 to 1,160, in `Configuration.md` and `Database.md`); a second `generate_all.py` changed nothing. Validators: `db_validate_reference`, `desktop_validate`, `module_validate`, `validate_vault` all pass.
+- Not run (the orchestrator's): the durability lane, `--fresh-connections`, the arc-close lane, the full vitest suite as a gate, `cargo check`, `npm run frontend:build`.
+
+## 19. The census and the measures
+
+**The census** (part 1's plugin), over the 39 test files this part edited, base code and tests (a `git archive` of `1101a99480`) against this branch: **220 test cases opened a vault below the floor at the base, 190 now (-30)**. The 11 cases the branch lists and the base does not are the same tests renamed or unparametrized at their old tags (§17). What is left (`test_data_capture_codex_rereview` 23, `test_router_r2b_serving` 20, `test_data_capture_a2_measurement` 19, `test_plan_determinism_landing` 16, `test_teacher_te1b_suggestions` 15, `test_plan_determinism` 12, `test_router_g4_restraint` 11, `test_router_r2a_serving` 10, sixteen others 64) are tests whose vaults sit at their own successor's tag (data capture's, the router frame's, TE1b's): they wait on the re-tagging step, and the router-frame ones also on group 3 (`router.enabled`, `router.restraint`) and batch 4 (`router.mode`). (The base run had two failures because the extract has no `apps/` or `scripts/`: `test_reading_paths`, as in part 1.)
+
+**Measures** (`scripts/refactor_measures.py`; base: part 1's tip measurement at `895213968a`, whose source equals `1101a99480`'s; branch at `128128b911`):
+
+| measure | base | this part |
+|---|---|---|
+| ADR-019's kept-because list | 75 | 71 |
+| tagged switches in `TAGGED_SWITCHES` | 77 | 73 |
+| `mvp-0.N` literals: code / docstring / comment | 259 / 305 / 576 | 253 / 304 / 572 |
+| `config/schema.py` lines | 4,945 | 4,939 |
+| raw lines; code lines (all four packages) | 614,162; 431,898 | 614,075; 431,823 |
+| functions over 100 lines; over 200 | 474; 73 | 474; 73 |
+| `enabled` booleans in `config/schema.py`; effective config leaves | 115; 1,172 | 114; 1,168 (the vault's catalog: 1,164 to 1,160) |
+| comments naming a stage artifact | 2,371 | 2,371 |
+| `src/` lines (diff) | | +169, -256 |
+| test lines (diff, goldens aside) | | +275, -413 |
+
+## 20. Bug ledger
+
+- **D7-1:** `data_capture.serving`, batch 3's replay-read switch, is gone; the rebuild derives what it derived with it on (§16). The other three are not read by replay.
+- **D7-2:** fixed in `3a2d552c18` (§13, §15).
+- **D7-3:** three more reads of a missing field as off went with their switches: `serving_on`, `te2.on`'s `probes` conjunct and `lesson_offers_on`'s two conjuncts.
+- **D7-5:** nothing of it belonged to these four.
+- **D7-9:** unchanged.
+
+No new bug was found.
+
+## 21. What remains of the batch, and judgment calls
+
+**Not removed here** (group 3): `plan.enabled`, `router.enabled`, `router.restraint`. Part 1's discovery run recorded no helper key for them (they were never in the helper); their tests name them directly.
+
+**Judgment calls:**
+1. **`KeepsRetiredFields` strips retired keys only where the model forbids extras** (D7-2). A general strip would have changed the plain dump of `LearnLoopConfig` (`extra="allow"`), which keeps an old table as an unread extra; the forbidding section is the only one that needs it, and a misspelt key there is still refused.
+2. **`teacher.probes`: `build_brief` loses its `te2` parameter and `_probe_headers`**, since its only caller opens lessons only with lessons on. Two tests that need a lesson opened before TE2 give a lesson's stored brief that shape (`as_opened_before_te2` rewrites the open turn's payload, which has no update trigger) instead of opening one through the deleted path.
+3. **The sidecar keeps sending `teacher.te2: true`** with `teacher.lessons` (the desktop reads it) rather than the desktop losing its branch, as part 1 kept `get_intent`'s `enabled`.
+4. **The lesson-suggestion pair and `teacher.probes` remove conjuncts, not branches**: their off paths are reached by the router, its log, lessons and the objective, which stay. Tests that used the fields to reach those paths use those switches (`router_objective.enabled` for "where the objective does not serve", which batch 4 may revisit).
+5. **`data_capture.serving`: `outcome_version_for` stays, answering v3**, because the rebuild orchestrator (another step's file) calls it; version 2's derivation, VOI's six-summary cap and the AD report's `delayed_definition` parameter stay as default arguments that no production caller uses. Removing them is a later, deliberate cleanup (their tests and the VOI cap's mirrored registry row would move).
+6. **The old deterministic `not_ready` pick is reached through `router.mode = "staged"`** in the tests whose subject is a staged plan (plan determinism, R2a's frame, the C1 reading); the tests whose subject was that pick itself went. `router.mode` is batch 4's; those tests will need the staged rule another way then.
+7. **`test_reading_paths`' a76c8358a plan golden became a twin comparison** (the golden's plan carried the removed path's labels: "the models aren't set up, so the plan's usual rule chose", `router_mixture_v1`); the queue, guide and contract goldens are unchanged.
+8. **`test_voi_v2`'s restore golden compares the first six logged candidate summaries**, the receipt size it was pinned with, rather than being regenerated.
+9. **`test_teacher_exam_question_guard` pins its lesson ids** so both lessons draw the same delayed-check tie (the draw is seeded by the lesson id); without the pin the two lessons would pick different items half the time.
+
+## 22. Docs
+
+- ADR-019: the kept-because list went to 71 with this part, the replay-read switch's rebuild, and the forbidding section's retired keys.
+- `Concepts/Attempt Processing` and `Concepts/Learning System` name none of the four and are unchanged; the generated Config notes regenerated (`Config - data_capture`, `Config - router`, `Config - teacher`).
+- Ledger rows D7-1, D7-2 (fixed), D7-3 and D7-5 updated.
