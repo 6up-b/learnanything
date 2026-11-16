@@ -90,8 +90,7 @@ CAUSAL_DECISION_POLICY_VERSION = "causal_p2_v1"
 #: The open-world arm's placeholder id on a *candidate cause row* (§5.1: a
 #: candidate cause set is never closed).  Written by
 #: ``canonical_projection._open_candidate_causes`` and by the receipt-derived
-#: factor below; read by ``failure_triage``, ``probe_targeting``, and
-#: ``causal_probe_coherence``.
+#: factor below; read by ``probe_targeting`` and ``causal_probe_coherence``.
 #:
 #: This is a DIFFERENT namespace from ``probe_hypotheses.H_OTHER``
 #: (``"other_or_unknown"``), which is the open-set *label* inside a probe
@@ -2629,9 +2628,8 @@ def materialize_causal_episode(
         "model_reported_support_proposals": (
             model_reported_support_proposals
         ),
-        # A single attempt earns no approved authority.  The honest value is the
-        # one that keeps `failure_triage` from PROMOTING on it (§2); it may still
-        # veto.
+        # A single attempt earns no approved authority; consumers must not
+        # treat its model-reported support as deterministic evidence.
         "support_authority": support_authority,
         "trace_consistency": trace_consistency,
         "trace_consistency_detail": trace_consistency_detail,

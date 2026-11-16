@@ -149,7 +149,7 @@ Every saved slate persists explanations, candidate components and decision-time 
 
 ## Reader and tutor
 
-[[Reader Tutor and Teach-Back]] distinguishes instruction from assessment. Source-grounded reader dialogue can warm familiarity or influence triage but cannot update ability. Teach-back is a real attempt only over the criteria actually asked and answered.
+[[Reader Tutor and Teach-Back]] distinguishes instruction from assessment. Source-grounded reader dialogue can warm familiarity but cannot update ability. Teach-back is a real attempt only over the criteria actually asked and answered.
 
 ## What AI does—and does not do
 

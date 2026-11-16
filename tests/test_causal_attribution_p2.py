@@ -24,20 +24,24 @@ from learnloop.diagnosis.causal_probe_coherence import (
     rung_divergence_gate,
     transition_probe_candidate,
 )
-from learnloop.diagnosis import failure_triage as FT
+from learnloop.diagnosis.causal_attribution import receipt_trace_consistency
 from learnloop.diagnosis.remediation import (
     RemediationBlocked,
     RemediationError,
     start_remediation_episode,
 )
 from learnloop.attempts.attempts import (
+    ApplyAttemptInput,
     AttemptDraft,
+    GradeAttribution,
+    ResolvedGrade,
+    apply_attempt,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, add_followup_item, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, add_followup_item, create_basic_vault
 
 
 def _seed_factor(repository: Repository) -> tuple[str, str, str]:
@@ -130,81 +134,6 @@ def test_evsi_rule_is_action_relative_and_budgeted():
     assert manifest["lifecycle"] == "heuristic_default"
     assert manifest["values"]["recent_diagnostic_limit"] == 2.0
     assert worth_it.decision_policy_version == "causal_p2_v1"
-
-
-def test_triage_signature_authority_is_an_and_gate_not_a_replacement():
-    """Causal support VETOES freely but PROMOTES only under an approved authority.
-
-    The previous contract encoded here ("a receipt replaces the legacy route") made
-    tier one unreachable in production: single-attempt receipts carry all-``None``
-    support scores by design, so the causal arm never fired and the legacy arm was
-    skipped."""
-
-    # A production single-attempt receipt: no validator-owned support, no falsifiable
-    # claims. It must NOT silently downgrade an otherwise-decisive legacy route.
-    single_attempt_receipt = {
-        "support_authority": "unavailable_single_attempt",
-        "hypotheses": [
-            {
-                "hypothesis_id": "h_method",
-                "triage_reason": "method_selection",
-                "support_score": None,
-                "trace_consistency": "no_deterministic_claims",
-            }
-        ],
-    }
-    reason, basis = FT._decisive_route(
-        {"error_signature": "wrong_method", "grader_confidence": 0.99},
-        {},
-        causal_support=single_attempt_receipt,
-        causal_support_available=True,
-    )
-    assert (reason, basis) == ("method_selection", FT.TIER_ONE_BASIS_LEGACY)
-
-    # A contradicted deterministic claim on the routed reason vetoes it.
-    contradicted = FT._decisive_route(
-        {"error_signature": "wrong_method", "grader_confidence": 0.99},
-        {},
-        causal_support={
-            "support_authority": "unavailable_single_attempt",
-            "hypotheses": [
-                {
-                    "hypothesis_id": "h_method",
-                    "triage_reason": "method_selection",
-                    "support_score": None,
-                    "trace_consistency": "contradicted",
-                }
-            ],
-        },
-        causal_support_available=True,
-    )
-    assert contradicted == (None, None)
-
-    # Approved, complete, dominant, trace-consistent support promotes on its own --
-    # grader confidence is irrelevant to the causal arm.
-    promoted = FT._decisive_route(
-        {"error_signature": "wrong_method", "grader_confidence": 0.1},
-        {},
-        causal_support={
-            "support_authority": "validator_owned",
-            "hypotheses": [
-                {
-                    "hypothesis_id": "h_method",
-                    "triage_reason": "method_selection",
-                    "support_score": 0.9,
-                    "trace_consistency": "consistent_with_claims",
-                },
-                {
-                    "hypothesis_id": "h_execution",
-                    "triage_reason": "procedure_execution",
-                    "support_score": 0.1,
-                    "trace_consistency": "consistent_with_claims",
-                },
-            ],
-        },
-        causal_support_available=True,
-    )
-    assert promoted == ("method_selection", FT.TIER_ONE_BASIS_CAUSAL)
 
 
 def test_repair_class_divergence_locks_existing_hypothesis_set_with_other(
@@ -836,3 +765,91 @@ def test_rung_divergence_gate_defers_instead_of_buying_learner_effort(
     assert cover["state"] == "common_cover"
     assert cover["probe_worthy"] is False
     assert cover["common_repair_cover"] is True
+
+
+@pytest.mark.parametrize("receipt_bool", [False, True])
+def test_legacy_receipt_states_are_unknown(receipt_bool):
+    receipt = {
+        "schema_version": 2,
+        "trace_consistency": None,
+        "trace_consistent": receipt_bool,
+        "hypotheses": [{"id": "h_house"}, {"id": "h_exec"}, {"id": "h_open"}],
+    }
+    assert receipt_trace_consistency(receipt) == {
+        "h_house": "unknown", "h_exec": "unknown", "h_open": "unknown",
+    }
+
+
+def test_real_receipt_from_apply_attempt_has_no_validator_support(tmp_path):
+    """A single attempt records hypotheses without inventing causal support."""
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    result = apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id="pi_svd_define_001",
+                learner_answer_md="U Sigma Q",
+            ),
+            attempt_id="att_triage_gate",
+            grade=ResolvedGrade(
+                rubric_score=0,
+                criterion_points={"correctness": 0},
+                evidence_rows=[
+                    {
+                        "id": "ge_att_triage_gate",
+                        "criterion_id": "correctness",
+                        "points_awarded": 0.0,
+                        "evidence": "Q was used where Q transpose was required.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": NOW_ISO,
+                    }
+                ],
+                error_attributions=[
+                    GradeAttribution(
+                        error_type="wrong_method",
+                        severity=0.7,
+                        evidence="The final factor is not transposed.",
+                        is_misconception=True,
+                        misconception_statement=(
+                            "The learner may be treating Q and Q transpose as identical."
+                        ),
+                        resolution_status="unresolved",
+                        cause_scope="learner_state",
+                        operation="wrong_method",
+                        model_reported_causal_confidence=0.65,
+                        candidate_causes=[
+                            {
+                                "statement": (
+                                    "The learner may be treating Q and Q transpose "
+                                    "as identical."
+                                ),
+                                "cause_scope": "learner_state",
+                                "target_ref": {
+                                    "kind": "criterion",
+                                    "criterion_id": "correctness",
+                                },
+                            }
+                        ],
+                        postdictive_claims=[],
+                    )
+                ],
+                grader_confidence=0.9,
+                confidence=4,
+                manual_review_reason=None,
+                feedback_md="Check the transpose on the final factor.",
+            ),
+        ),
+        clock=FrozenClock(NOW),
+    )
+
+    receipt = repository.attempt_debug_payload(result.attempt_id)["causal_attribution"]["diagnosis_receipt"]
+    assert receipt["support_authority"] == "unavailable_single_attempt"
+    assert receipt["hypotheses"], "the attempt must carry P2 diagnosis hypotheses"
+    assert receipt["support_scores"]
+    assert set(receipt["support_scores"].values()) == {None}

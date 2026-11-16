@@ -124,7 +124,6 @@ MODULE_INVENTORY: dict[str, str] = {
     # P2 DIAGNOSTIC track -- pre-authored diagnostic pack baseline cap (§5.2, design §E).
     "diagnostic_pack": "src/learnloop/diagnosis/diagnostic_pack.py",
     # P2 DIAGNOSTIC track -- two-tier triage confidence buckets (§6.1, U-027, design §E).
-    "failure_triage": "src/learnloop/diagnosis/failure_triage.py",
     # P2 step B.11 -- minimal bidirectional reader dialogue (U-033, §7.6).
     "reader_dialogue": "src/learnloop/reader/reader_dialogue.py",
     # P2 ASSESSMENT + RESTORATION + MILESTONE track -- cold assessment + boundary
@@ -1127,19 +1126,6 @@ _reg_const("diagnostic_pack:PACK_SPEC_SCHEMA_VERSION", "version", kind="structur
 _reg_const("diagnostic_pack:BASELINE_VISIBLE_CAP", "constraint", owner="diagnostic_pack",
            rationale="§5.2 visible-administration cap band (2-4); a requested cap is clamped "
            "into this band and the episode's robust stopping rules do the rest.")
-_reg_const("failure_triage:TRIAGE_ROUTES_SCHEMA_VERSION", "version", kind="structural",
-           owner="failure_triage", rationale="failure-triage route-table schema version pin; enum.")
-_reg_const("failure_triage:TRIAGE_CONFIDENCE_BUCKET_EDGES", "threshold", owner="failure_triage",
-           rationale="U-027 grader-confidence bucket edges (low|mid|high); a tier-one signature "
-           "route fires only in the high bucket, else tier two applies.")
-_reg_const("failure_triage:TRIAGE_DOMINANCE_SHARE", "threshold", owner="failure_triage",
-           rationale="C3 owner-flagged default (PENDING OWNER CONFIRMATION): minimum share of the "
-           "supplied provisional reason distribution one signature must own for the "
-           "high-confidence error-signature route to stay tier-one; a diffuse distribution "
-           "downgrades it to a tier-two decision aid. The spec's three decisive triggers are "
-           "unaffected. Cheap to reverse (a bare signature with no supplied distribution still "
-           "routes tier-one).")
-
 # P2 step B.11 -- reader routing prior (U-033, §7.6, design A.1). The prior is a
 # replay-derived decision AID that only reorders triage candidates inside the
 # U-027 channel and is superseded by the first cold observation; reader dialogue
