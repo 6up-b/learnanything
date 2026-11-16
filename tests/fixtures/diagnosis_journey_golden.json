@@ -41248,7 +41248,7 @@
 "version": "decision_state_v1",
 "versions": {
 "algorithm": "mvp-0.59",
-"code": "git:9cb87cfa16e368931bcac4d345d46f6487357248",
+"code": "<code-version>",
 "config": "1abcca51afb3cda3f1671593b4f1f63ac9450773ad9e78c9ea2c0ce9afd1a6b1",
 "fsrs_weights": "a00444e09ca114a3ce9704158c2abb90200f9aa76e4892ef87fe7d4c79b85f56"
 }

@@ -434,3 +434,6 @@ setup stage with nothing written. Every later stage is compared exactly as befor
 - Rewritten with `DIAGNOSIS_JOURNEY_WRITE_GOLDEN=1`, then three fresh runs: 18 passed each (7.6-7.7 s); with `-n 4`:
   18 passed (4.3 s).
 - The three scratch edits above act on later stages, so their results stand; they were not re-run after this change.
+- A second change, found by the pre-gate check after the first commit: a decision-state receipt records the
+  checkout's commit (`versions.code = "git:<sha>"`), so the `fg1_wait` case failed as soon as HEAD moved. The
+  recorder now replaces that one value with a fixed token. The worker's runs could not see this: it never commits.

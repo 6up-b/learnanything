@@ -34,7 +34,11 @@ def snapshot(repository):
     def decoded(key, value):
         if isinstance(value, bytes):
             if key == "state_z":
-                return {"zlib_json": json.loads(zlib.decompress(value))}
+                state = json.loads(zlib.decompress(value))
+                # A decision-state receipt names the checkout's commit, which changes with every landing.
+                if isinstance(state, dict) and isinstance(state.get("versions"), dict) and "code" in state["versions"]:
+                    state["versions"]["code"] = "<code-version>"
+                return {"zlib_json": state}
             return {"hex": value.hex()}
         if isinstance(value, str) and key.endswith("_json"):
             try:
