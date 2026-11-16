@@ -113,8 +113,6 @@ def test_stale_uncertainty_reprobe_does_not_reopen_an_inactive_lo(tmp_path, monk
 
     from types import SimpleNamespace
 
-    from learnloop.diagnosis import probe_episodes as PE
-
     paths = create_basic_vault(tmp_path / "vault")
     repository = seed_due_item(paths)  # mastery logit_variance 1.0: above the re-probe bar
     _set_lo_status(paths.root, "dormant")
@@ -123,15 +121,14 @@ def test_stale_uncertainty_reprobe_does_not_reopen_an_inactive_lo(tmp_path, monk
         learning_object_id=LO_ID, status="complete", completed_at="2026-01-01T00:00:00Z"
     )
     monkeypatch.setattr(repository, "list_probe_episodes", lambda: [finished])
-    opened: list[str] = []
-    monkeypatch.setattr(PE, "enter_episode", lambda vault, repository, lo_id, **kw: opened.append(lo_id))
-
-    enter_stale_uncertainty_reprobes(vault, repository, clock=CLOCK)
+    opened = enter_stale_uncertainty_reprobes(vault, repository, clock=CLOCK)
     assert opened == []
+    assert repository.open_probe_episode(LO_ID) is None
 
     _set_lo_status(paths.root, "active")  # sanity: the same LO re-probes once active
-    enter_stale_uncertainty_reprobes(load_vault(paths.root), repository, clock=CLOCK)
-    assert opened == [LO_ID]
+    opened = enter_stale_uncertainty_reprobes(load_vault(paths.root), repository, clock=CLOCK)
+    assert [episode.learning_object_id for episode in opened] == [LO_ID]
+    assert repository.open_probe_episode(LO_ID).id == opened[0].id
 
 
 def test_probe_dialogue_block_refuses_an_inactive_lo(tmp_path):

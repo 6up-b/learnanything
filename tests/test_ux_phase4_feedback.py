@@ -2728,20 +2728,22 @@ def test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run(tmp_
     would cover. A refused instrument is skipped, as production callers do,
     and the run goes on."""
 
-    from learnloop.diagnosis import probe_episodes
+    from datetime import UTC, datetime
+
+    from learnloop.db.repositories import Repository
     from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
     from tests.sim_probe_validation_helpers import _vault_with_confusable
 
     refused: list[str] = []
-    original = probe_episodes.refuse_routine_display_covered
+    original = Repository.reveal_events_for_target
 
-    def refuse_first(repository, practice_item_id, *, clock=None):
-        if not refused or practice_item_id == refused[0]:
+    def reveal_first(repository, *, practice_item_id=None, learning_object_id=None):
+        if practice_item_id and not refused:
             refused.append(practice_item_id)
-            raise probe_episodes.RoutineDisplayCovered(practice_item_id)
-        return original(repository, practice_item_id, clock=clock)
+            _routine_disclosure(repository, practice_item_id, clock=FrozenClock(datetime(2026, 2, 3, tzinfo=UTC)))
+        return original(repository, practice_item_id=practice_item_id, learning_object_id=learning_object_id)
 
-    monkeypatch.setattr(probe_episodes, "refuse_routine_display_covered", refuse_first)
+    monkeypatch.setattr(Repository, "reveal_events_for_target", reveal_first)
     vault_root = _vault_with_confusable(tmp_path)
 
     report = run_probe_validation(vault_root, tmp_path / "runs", planted_types=PLANTED_TYPES[:1], seeds=(11,))
@@ -2761,7 +2763,6 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     between the check and the commit, the commit's refusal rolls the relock
     back): the episode's lock and A's presentation are as they were."""
 
-    from learnloop.diagnosis import causal_orchestrator
     from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
     from tests.helpers import admit_probe_instrument_card
@@ -2778,12 +2779,25 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     assert presentation_a is not None
     later = FrozenClock(CLOCK.now() + timedelta(days=1))
     _routine_disclosure(repository, PROBE_ITEM, clock=FrozenClock(later.now() - timedelta(hours=1)), learning_object_id=LO_ID)
+    reads = []
     if race:
-        monkeypatch.setattr(causal_orchestrator, "_answer_shown", lambda *_args, **_kwargs: False)
+        original = repository.reveal_events_for_target
+
+        def reveal_after_offer_check(*, practice_item_id=None, learning_object_id=None):
+            rows = original(practice_item_id=practice_item_id, learning_object_id=learning_object_id)
+            if practice_item_id == PROBE_ITEM:
+                reads.append(practice_item_id)
+                if len(reads) == 1:
+                    return []
+            return rows
+
+        monkeypatch.setattr(repository, "reveal_events_for_target", reveal_after_offer_check)
 
     offer = accept_probe_offer(vault, repository, factor_id=factor_id, clock=later)
 
     assert offer.accepted is False and offer.reason == "probe_item_answer_shown"
+    if race:
+        assert len(reads) >= 2
     after = repository.probe_episode(plain.id)
     assert (after.hypothesis_set_id, after.origin, after.entered_at, after.status) == (
         plain.hypothesis_set_id, plain.origin, plain.entered_at, plain.status,

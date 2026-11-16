@@ -870,7 +870,7 @@ fields = [
 ]
 
 ["learnloop.vault.models:TraceContract"]
-sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6"]
+sites = ["A11-A12", "A19", "A9", "B1-B3", "B4-B5", "B6", "K9.5b"]
 fields = [
   "(extra=allow)",
   "status: Literal['available', 'no_reliable_decomposition'] = \"available\"",

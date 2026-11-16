@@ -227,7 +227,7 @@ def test_a_failed_forecast_and_a_failed_post_diagnosis_step_leave_records(tmp_pa
         raise ValueError("the learner wrote transposes here")
 
     monkeypatch.setattr(voi_forecasting.VF, "record_forecast", boom)
-    monkeypatch.setattr("learnloop.diagnosis.causal_orchestrator.sweep_machine_checks", boom)
+    monkeypatch.setattr(repository, "open_unresolved_cause_factors", boom)
     with provenance.trace_scope("TRACE_STEPS"):
         voi_forecasting.record_value_decision_forecast(
             vault, repository, {"decision": "continue", "site": "followup_intervention", "candidates": [],
