@@ -52,7 +52,6 @@ VOI_SITES = (
     "probe_selection",
     "probe_robust_selection",
     "followup_selection",
-    "causal_shadow_selection",
     "staged_diagnostic_selection",
     # Canonical sources S2b (mvp-0.19): a source-first need's decision-mode
     # valuation (stop marks the need stale; measure orders its imports).

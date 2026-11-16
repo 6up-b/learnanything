@@ -3228,8 +3228,8 @@ class EvsiConfig(BaseModel):
 
     ``measured_loss_enabled`` adds the measured minutes an unresolved
     misconception costs later (``scheduling.unresolved_cost``) to the EVSI
-    loss table. It changes what EVSI values, so it is off by default; only
-    the causal shadow selector's EVSI reads it.
+    loss table used by instructional valuation and VOI stopping. It changes
+    what EVSI values, so it is off by default.
     ``unresolved_cost_prior_pseudo_count`` is how many of the learner's own
     recurrence classes the Eedi population prior is worth in the shrinkage.
     """

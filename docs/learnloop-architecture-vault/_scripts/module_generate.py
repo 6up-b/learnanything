@@ -161,7 +161,6 @@ DORMANT_MODULES = {
 
 EVALUATION_MODULES = {
     "learnloop.diagnosis.causal_diagnostic_selector",
-    "learnloop.diagnosis.causal_selection_audit",
     "learnloop.scheduling.intent_planner",
     "learnloop.scheduling.shadow_components",
 }
@@ -180,7 +179,6 @@ MODULE_WORKFLOW_OVERRIDES: dict[str, list[str]] = {
     "learnloop.scheduling.intent_planner": ["Start a Learning Cycle"],
     "learnloop.scheduling.open_world_gate": ["Doctor Migrations and Recovery"],
     "learnloop.diagnosis.causal_diagnostic_selector": ["Process Model Output"],
-    "learnloop.diagnosis.causal_selection_audit": ["Process Model Output"],
 }
 
 OPERATIONAL_SCOPE_NOTES = {

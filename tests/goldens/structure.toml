@@ -5,12 +5,12 @@
 
 
 [ratchet]
-largest_import_component = 186
-modules_in_an_import_cycle = 279
+largest_import_component = 185
+modules_in_an_import_cycle = 278
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 73
+functions_over_200_lines = 72
 comment_lines_naming_a_stage_artifact = 2374
 test_files_named_for_a_stage = 184
 
@@ -66,7 +66,6 @@ import_component = [
     "learnloop.diagnosis.calibration_sessions",
     "learnloop.diagnosis.causal_activity_policy",
     "learnloop.diagnosis.causal_attribution",
-    "learnloop.diagnosis.causal_diagnostic_selector",
     "learnloop.diagnosis.causal_orchestrator",
     "learnloop.diagnosis.causal_probe_coherence",
     "learnloop.diagnosis.contrast_pairs",
@@ -266,7 +265,6 @@ functions_over_200_lines = [
     "src/learnloop/diagnosis/causal_attribution.py materialize_causal_episode",
     "src/learnloop/diagnosis/causal_attribution.py record_unresolved_cause_self_report",
     "src/learnloop/diagnosis/causal_attribution.py select_minimal_repair",
-    "src/learnloop/diagnosis/causal_diagnostic_selector.py record_shadow_selection",
     "src/learnloop/diagnosis/causal_orchestrator.py _accept_probe_offer",
     "src/learnloop/diagnosis/causal_orchestrator.py _status_for_factor",
     "src/learnloop/diagnosis/causal_probe_commissioning.py commission_probe_instrument",

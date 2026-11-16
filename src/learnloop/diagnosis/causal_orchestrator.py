@@ -131,7 +131,6 @@ from learnloop.diagnosis.causal_probe_coherence import (
     repair_class_need_for_factor,
     resolve_causal_probe_parameters,
 )
-from learnloop.diagnosis import causal_diagnostic_selector as shadow_selector
 from learnloop.diagnosis.probe_targeting import (
     CAUSE_SET_INCOMPLETE_MAPPING,
     MAPPING_BASIS_LEGACY_FACET,
@@ -1444,11 +1443,6 @@ def _status_for_factor(
         if isinstance(value, Mapping) and value.get("hypothesis_id")
     )
 
-    # The shadow selector reads the SAME chosen candidate the live decision
-    # used (set below, once `chosen` exists); early arms shadow with none,
-    # which the selector records as typed unavailable arms — the honest state.
-    shadow_context: dict[str, Any] = {"candidates": (), "chosen": None}
-
     def finish(
         *,
         status: str,
@@ -1488,31 +1482,6 @@ def _status_for_factor(
             candidate_id=str(candidate["id"]) if candidate is not None else None,
             clock=clock,
         )
-        # EVSI-2 shadow (§6.6): computed AFTER the live receipt exists, from
-        # the live receipt itself, in its own try/except. Zero live authority:
-        # the return value feeds nothing below, and a shadow failure must
-        # never take the attempt path down (§3 invariant 2).
-        try:
-            shadow_selector.record_shadow_selection(
-                repository,
-                decision_receipt=receipt,
-                candidates=tuple(shadow_context["candidates"]),
-                chosen_candidate=shadow_context["chosen"],
-                repair_class_by_hypothesis=repair_class_by_hypothesis,
-                common_repair_class_id=common_repair_class_id,
-                vault=vault,
-                clock=clock,
-            )
-        except Exception as exc:
-            logging.getLogger(__name__).exception(
-                "shadow selection failed for factor %s (live decision unaffected)",
-                factor_id,
-            )
-            from learnloop.diagnosis.chain_records import record_step_failed
-
-            record_step_failed(repository, step="causal_shadow_selection", exc=exc, attempt_id=attempt_id,
-                               subject=("factor", str(factor_id)),
-                               facts={"causal_receipt_id": receipt.get("id") if isinstance(receipt, Mapping) else None})
         episode = (
             _episode_for(
                 repository,
@@ -1669,8 +1638,6 @@ def _status_for_factor(
     # cannot diverge.
     chosen = active[0] if active else (candidates[0] if candidates else None)
     instrument_available = bool(active)
-    shadow_context["candidates"] = tuple(candidates)
-    shadow_context["chosen"] = chosen
 
     discrimination = _discrimination_inputs(chosen, repair_class_by_hypothesis)
     expected_information_gain = discrimination.expected_information_gain

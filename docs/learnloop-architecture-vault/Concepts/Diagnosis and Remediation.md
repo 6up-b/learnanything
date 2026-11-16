@@ -84,5 +84,5 @@ Attribution has abstention and missing-vocabulary paths. A label that the vocabu
 
 ## Tests
 
-Probe episode/EIG/hypothesis/family/gate suites; causal attribution/orchestrator/migration/shadow tests; error taxonomy, remediation, correction, persona, and simulation validation suites.
+Probe episode/EIG/hypothesis/family/gate suites; causal attribution/orchestrator/migration and valuation-helper tests; error taxonomy, remediation, correction, persona, and simulation validation suites.
 

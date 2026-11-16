@@ -9,7 +9,7 @@ pure builder and a writer that never raises:
   ``job_enqueued``;
 * ``diagnosis_step``: a post-diagnosis step that failed to a log line before
   (the machine-check sweep, the common-repair consultation, the escalation
-  receipt, the learner-text enqueue, the causal shadow selector);
+  receipt, the learner-text enqueue);
 * ``followup_value``: each follow-up value decision, beside its receipt
   (``followup_value_decisions``), so the follow-up's later router decision is
   reached through the trace (break 6);
