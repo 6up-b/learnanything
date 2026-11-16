@@ -20,6 +20,7 @@ source_paths:
   - "tests/causal_factor_deferral_helpers.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/diagnosis_identity_helpers.py"
+  - "tests/diagnosis_journey_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/identity_pins_helpers.py"
   - "tests/intent_fix_round4_helpers.py"
   - "tests/joint_grading_helpers.py"
-  - "tests/local_embeddings_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/voi-stopping"
@@ -68,6 +68,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/diagnosis_identity_helpers.py`
+- `tests/diagnosis_journey_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -76,7 +77,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/identity_pins_helpers.py`
 - `tests/intent_fix_round4_helpers.py`
 - `tests/joint_grading_helpers.py`
-- `tests/local_embeddings_fakes.py`
 
 ## Extension and modification guidance
 

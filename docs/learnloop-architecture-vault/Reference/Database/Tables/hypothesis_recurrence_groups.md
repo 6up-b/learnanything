@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recurrence_live.py`
+- `tests/diagnosis_journey_helpers.py`
 - `tests/test_recurrence_commands.py`
 - `tests/test_recurrence_deferral.py`
 - `tests/test_recurrence_groups.py`

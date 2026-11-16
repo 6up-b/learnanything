@@ -138,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/test_effective_observation.py](../../../../../../tests/test_effective_observation.py) — direct import
   - `test_uniform_posterior_yields_zero_certification_mass`
 - [tests/test_evaluate_selection_credible_sets.py](../../../../../../tests/test_evaluate_selection_credible_sets.py) — direct import

@@ -132,6 +132,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_journey_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_dialogue_causal_join.py`

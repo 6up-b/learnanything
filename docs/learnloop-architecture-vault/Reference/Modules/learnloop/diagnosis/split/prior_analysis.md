@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
+- [tests/diagnosis_journey_helpers.py](../../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/test_learner_blindness_relax.py](../../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_arm_is_a_seeded_equipoise_draw_or_the_configured_arm`
   - `test_the_live_diagnosis_records_its_arm_and_the_grader_never_sees_it`

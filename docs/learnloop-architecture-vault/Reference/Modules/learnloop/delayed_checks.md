@@ -125,6 +125,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_journey_helpers.py](../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
   - `test_no_question_to_ask_is_recorded_unavailable_and_visible_on_the_outcome`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import

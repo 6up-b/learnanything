@@ -73,7 +73,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/split/legacy_view|learnloop.diagnosis.split.legacy_view]] | [[Reference/Modules/learnloop/diagnosis/split/legacy_view#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] | [[Reference/Modules/learnloop/diagnosis/split/live#^module-purpose|purpose]] | `ACTIVE` | 7 | 17 |
 | [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] | [[Reference/Modules/learnloop/diagnosis/split/pfc_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/diagnosis/split/prior_analysis|learnloop.diagnosis.split.prior_analysis]] | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/diagnosis/split/prior_analysis|learnloop.diagnosis.split.prior_analysis]] | [[Reference/Modules/learnloop/diagnosis/split/prior_analysis#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/split/provenance|learnloop.diagnosis.split.provenance]] | [[Reference/Modules/learnloop/diagnosis/split/provenance#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/split/reports|learnloop.diagnosis.split.reports]] | [[Reference/Modules/learnloop/diagnosis/split/reports#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/split/retrieval|learnloop.diagnosis.split.retrieval]] | [[Reference/Modules/learnloop/diagnosis/split/retrieval#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |

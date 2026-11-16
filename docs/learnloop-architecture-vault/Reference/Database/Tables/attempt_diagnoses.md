@@ -170,13 +170,13 @@ Database triggers:
 - `tests/test_workbench_step_graph.py`
 - `tests/test_workbench_text_gaps.py`
 - `tests/diagnosis_input_provenance_helpers.py`
+- `tests/diagnosis_journey_helpers.py`
 - `tests/mcp_world.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_held_grade_composition.py`
 - `tests/test_learner_blindness_relax.py`
-- `tests/test_mcp_c1a_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

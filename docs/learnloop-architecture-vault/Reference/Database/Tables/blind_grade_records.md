@@ -155,6 +155,7 @@ Database triggers:
 - `tests/test_required_method_grading.py`
 - `tests/test_ro5_codex_review.py`
 - `tests/test_router_r2c_teach_back.py`
+- `tests/diagnosis_journey_helpers.py`
 - `tests/held_grade_evidence_helpers.py`
 - `tests/joint_grading_helpers.py`
 - `tests/pfc_unverified_unassessed_helpers.py`
@@ -168,7 +169,6 @@ Database triggers:
 - `tests/test_forecast_receipts.py`
 - `tests/test_grading_support.py`
 - `tests/test_held_grade_composition.py`
-- `tests/test_held_grade_evidence.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

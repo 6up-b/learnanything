@@ -113,6 +113,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_journey_helpers.py`
 - `tests/router_objective_migration_helpers.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ro0_gate.py`
