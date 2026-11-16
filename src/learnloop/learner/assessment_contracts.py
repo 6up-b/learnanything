@@ -25,7 +25,6 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.clock import Clock
 from learnloop.learner.capability_mapping import compile_criterion_targets
-from learnloop.attempts.grading import resolved_rubric
 from learnloop.db.stores.source_service import KEY_IDENTITY, KEY_IDENTITY_FIELD
 from learnloop.vault.hashes import reference_content_hash as _reference_content_hash
 from learnloop.vault.models import (
@@ -36,6 +35,7 @@ from learnloop.vault.models import (
     RubricCriterion,
     RubricFatalError,
     recipe_components,
+    resolved_rubric,
 )
 
 CONTRACT_SCHEMA_VERSION = 1
