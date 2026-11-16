@@ -466,17 +466,27 @@ def repo_relative(path: Path) -> str:
 
 def repository_methods_by_table() -> dict[str, list[str]]:
     path = REPOSITORY_ROOT / "src" / "learnloop" / "db" / "repositories.py"
-    text = path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-    tree = ast.parse(text)
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    repository = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Repository")
+    bases = {node.id for node in repository.bases if isinstance(node, ast.Name)}
+    paths = [path]
+    # Inherited store methods still belong to the facade's table inventory.
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module and any(
+            (alias.asname or alias.name) in bases for alias in node.names
+        ):
+            paths.append(REPOSITORY_ROOT / "src" / Path(*node.module.split(".")).with_suffix(".py"))
     result: dict[str, list[str]] = defaultdict(list)
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        segment = "\n".join(lines[node.lineno - 1 : node.end_lineno])
-        for table in TABLE_ROLES:
-            if re.search(rf"(?<![A-Za-z0-9_]){re.escape(table)}(?![A-Za-z0-9_])", segment):
-                result[table].append(node.name)
+    for source in paths:
+        text = source.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        for node in ast.walk(ast.parse(text)):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            segment = "\n".join(lines[node.lineno - 1 : node.end_lineno])
+            for table in TABLE_ROLES:
+                if re.search(rf"(?<![A-Za-z0-9_]){re.escape(table)}(?![A-Za-z0-9_])", segment):
+                    result[table].append(node.name)
     return {table: sorted(set(names)) for table, names in result.items()}
 
 

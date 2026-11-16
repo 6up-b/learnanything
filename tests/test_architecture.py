@@ -42,6 +42,7 @@ REGISTERED_SQL_OWNERS = frozenset(
     {
         "src/learnloop/db/migrate.py",
         "src/learnloop/db/repositories.py",
+        "src/learnloop/db/stores/reading_requests.py",
         "src/learnloop/db/stores/ingest_queue.py",
         # Teacher TE1 (migration 230): the lesson ledger and receipts, and the DERIVED weight state.
         "src/learnloop/db/stores/lessons.py",
