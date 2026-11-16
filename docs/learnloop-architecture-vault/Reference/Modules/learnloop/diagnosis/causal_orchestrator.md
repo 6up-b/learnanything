@@ -47,90 +47,90 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py) |
-| Source lines | 3468 |
+| Source lines | 3435 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OrchestratorParameters` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 288) — Resolved orchestrator knobs plus their provenance.
-  - `__getitem__(self, key: str) -> float` (line 296; internal)
-  - `manifest(self) -> dict[str, Any]` (line 299; public)
-- `resolve_orchestrator_parameters(repository: Repository | None) -> OrchestratorParameters` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 309)
-- `class RepairAction` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 354)
-  - `as_dict(self) -> dict[str, str]` (line 358; public)
-- `class RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 363) — The typed union returned by :func:`causal_repair_status` (§6).
-  - `__post_init__(self) -> None` (line 400; internal)
-  - `repair_permitted(self) -> bool` (line 404; public) — True when the causal state allows the targeted repair to run.
-  - `as_dict(self) -> dict[str, Any]` (line 414; public)
-- `backfill_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 486) — The typed backfill obligation for one classified cause set.
-- `instrument_commissioning_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 521) — The typed obligation for a divergent factor with no instrument.
-- `enqueue_backfill_obligation(repository: Repository, obligation: Mapping[str, Any], *, learning_object_id: str | None, source: str='causal_orchestrator', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 549) — Queue one typed obligation; idempotent on its content hash.
-- `sweep_machine_checks(vault: LoadedVault, repository: Repository, learning_object_id: str, *, source: str='causal_orchestrator', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 575) — Turn backfill obligations into queued machine checks, idempotently.
-- `close_satisfied_backfills(repository: Repository, factor_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 717) — Close this factor's repair-mapping checks once it owes nothing.
-- `resolve_machine_check(repository: Repository, check_id: str, *, resolution: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 747) — Explicit discharge for a regrade / verifier / authoring agent.
-- `pending_machine_checks_for_factor(repository: Repository, *, factor_id: str, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 762) — Checks that must discharge before this factor may buy learner effort.
-- `record_learner_preference(repository: Repository, *, preference: str, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, source: str='learner_action', expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 799)
-- `learner_preference(repository: Repository, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 836)
-- `open_factors_for_hypothesis(repository: Repository, causal_hypothesis_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 856) — Open cause factors on this hypothesis' own learning object (§3.9).
-- `diagnosis_receipt(repository: Repository, attempt_id: str | None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 961)
-- `class DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1104) — The two EVSI terms plus where each came from (standing constraint 4).
-- `class CausalRepairError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1186) — The repair case itself is unusable (no such misconception / candidate).
-- `causal_repair_status(vault: LoadedVault | None, repository: Repository, *, misconception_id: str, session_id: str | None=None, session_budget_minutes: float | None=None, start_repair: bool=True, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1242) — Resolve — and where safe, START — the repair for one cause.
-- `class ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1937) — Result of accepting the quick check.
-  - `as_dict(self) -> dict[str, Any]` (line 1950; public)
-- `causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1968) — An episode's origin string for a factor.
-- `causal_origin_factor(origin: str) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1974) — The factor a causal episode's origin names, or None (:func:`_causal_origin`).
-- `episode_conflict_reason(repository: Repository, episode: ProbeEpisodeRecord | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1981) — Why an already-open probe episode cannot host this causal probe.
-- `accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2044) — "Take the quick check" (:func:`_accept_probe_offer`), and its ``probe_offer`` decision record (refactor B7).
-- `defer_probe_offer(repository: Repository, *, factor_id: str, learning_object_id: str | None=None, session_id: str | None=None, preference: str='decline', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2323) — "Not now": persist the decline so the next attempt does not re-offer.
-- `request_teaching_now(vault: LoadedVault, repository: Repository, *, misconception_id: str, factor_id: str, session_id: str | None=None, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2346) — "Teach me now": an explicit learner authorisation to skip the check.
-- `pinned_causal_probe(repository: Repository, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2378)
-- `classify_probe_response(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2389) — Classify an administered causal probe against its PINNED bundles.
-- `class DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2449) — One classification, judged: what it may close and what it may not.
-  - `outcome(self) -> str` (line 2461; public)
-  - `observation_id(self) -> str | None` (line 2465; public)
-  - `as_dict(self) -> dict[str, Any]` (line 2468; public)
-- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2612) — Record a falsifiable expectation the learner's OWN question asserted.
-- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2691) — Classify an administered probe AND act on the verdict (§6, §7).
-- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2883) — The graded probe attempt's own criterion outcomes, as a feature vector.
-- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2940) — Close the loop automatically when a probe answer can be read by machine.
-- `cold_verification_context(vault: LoadedVault | None, repository: Repository, *, episode: Mapping[str, Any], source_attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3012) — Everything ``record_delayed_cold_verification`` will need, resolved NOW.
-- `record_cold_verification_from_task(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3122) — Fire the delayed cold verification when a scheduled retry completes.
-- `sweep_expired_cold_retries(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3301) — Turn silent cold-retry expiries into typed §4.3 dispositions.
+- `class OrchestratorParameters` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 287) — Resolved orchestrator knobs plus their provenance.
+  - `__getitem__(self, key: str) -> float` (line 295; internal)
+  - `manifest(self) -> dict[str, Any]` (line 298; public)
+- `resolve_orchestrator_parameters(repository: Repository | None) -> OrchestratorParameters` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 308)
+- `class RepairAction` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 353)
+  - `as_dict(self) -> dict[str, str]` (line 357; public)
+- `class RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 362) — The typed union returned by :func:`causal_repair_status` (§6).
+  - `__post_init__(self) -> None` (line 399; internal)
+  - `repair_permitted(self) -> bool` (line 403; public) — True when the causal state allows the targeted repair to run.
+  - `as_dict(self) -> dict[str, Any]` (line 413; public)
+- `backfill_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 485) — The typed backfill obligation for one classified cause set.
+- `instrument_commissioning_obligation(targeting: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 520) — The typed obligation for a divergent factor with no instrument.
+- `enqueue_backfill_obligation(repository: Repository, obligation: Mapping[str, Any], *, learning_object_id: str | None, source: str='causal_orchestrator', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 548) — Queue one typed obligation; idempotent on its content hash.
+- `sweep_machine_checks(vault: LoadedVault, repository: Repository, learning_object_id: str, *, source: str='causal_orchestrator', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 574) — Turn backfill obligations into queued machine checks, idempotently.
+- `close_satisfied_backfills(repository: Repository, factor_id: str, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 716) — Close this factor's repair-mapping checks once it owes nothing.
+- `resolve_machine_check(repository: Repository, check_id: str, *, resolution: Mapping[str, Any], status: str='resolved', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 746) — Explicit discharge for a regrade / verifier / authoring agent.
+- `pending_machine_checks_for_factor(repository: Repository, *, factor_id: str, learning_object_id: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 761) — Checks that must discharge before this factor may buy learner effort.
+- `record_learner_preference(repository: Repository, *, preference: str, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, source: str='learner_action', expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 798)
+- `learner_preference(repository: Repository, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 835)
+- `open_factors_for_hypothesis(repository: Repository, causal_hypothesis_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 855) — Open cause factors on this hypothesis' own learning object (§3.9).
+- `diagnosis_receipt(repository: Repository, attempt_id: str | None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 960)
+- `class DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1103) — The two EVSI terms plus where each came from (standing constraint 4).
+- `class CausalRepairError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1185) — The repair case itself is unusable (no such misconception / candidate).
+- `causal_repair_status(vault: LoadedVault | None, repository: Repository, *, misconception_id: str, session_id: str | None=None, session_budget_minutes: float | None=None, start_repair: bool=True, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1241) — Resolve — and where safe, START — the repair for one cause.
+- `class ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1904) — Result of accepting the quick check.
+  - `as_dict(self) -> dict[str, Any]` (line 1917; public)
+- `causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1935) — An episode's origin string for a factor.
+- `causal_origin_factor(origin: str) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1941) — The factor a causal episode's origin names, or None (:func:`_causal_origin`).
+- `episode_conflict_reason(repository: Repository, episode: ProbeEpisodeRecord | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1948) — Why an already-open probe episode cannot host this causal probe.
+- `accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2011) — "Take the quick check" (:func:`_accept_probe_offer`), and its ``probe_offer`` decision record (refactor B7).
+- `defer_probe_offer(repository: Repository, *, factor_id: str, learning_object_id: str | None=None, session_id: str | None=None, preference: str='decline', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2290) — "Not now": persist the decline so the next attempt does not re-offer.
+- `request_teaching_now(vault: LoadedVault, repository: Repository, *, misconception_id: str, factor_id: str, session_id: str | None=None, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2313) — "Teach me now": an explicit learner authorisation to skip the check.
+- `pinned_causal_probe(repository: Repository, presentation_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2345)
+- `classify_probe_response(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2356) — Classify an administered causal probe against its PINNED bundles.
+- `class DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2416) — One classification, judged: what it may close and what it may not.
+  - `outcome(self) -> str` (line 2428; public)
+  - `observation_id(self) -> str | None` (line 2432; public)
+  - `as_dict(self) -> dict[str, Any]` (line 2435; public)
+- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2579) — Record a falsifiable expectation the learner's OWN question asserted.
+- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2658) — Classify an administered probe AND act on the verdict (§6, §7).
+- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2850) — The graded probe attempt's own criterion outcomes, as a feature vector.
+- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2907) — Close the loop automatically when a probe answer can be read by machine.
+- `cold_verification_context(vault: LoadedVault | None, repository: Repository, *, episode: Mapping[str, Any], source_attempt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2979) — Everything ``record_delayed_cold_verification`` will need, resolved NOW.
+- `record_cold_verification_from_task(vault: LoadedVault, repository: Repository, *, task: Mapping[str, Any], cold_attempt_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3089) — Fire the delayed cold verification when a scheduled retry completes.
+- `sweep_expired_cold_retries(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 3268) — Turn silent cold-retry expiries into typed §4.3 dispositions.
 
 ### Module constants
 
-- `CAUSAL_ORCHESTRATOR_FORMULA_VERSION` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 142)
-- `CAUSAL_ORCHESTRATOR_POLICY_SCOPE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 147)
-- `REPAIR_STATUSES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 149)
-- `LEARNER_PREFERENCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 157)
-- `EVSI_PROVENANCE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 167)
-- `LOSS_TABLE_REGIME_P2_PROXY` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 178)
-- `MACHINE_CHECK_REPAIR_MAPPING` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 180)
-- `MACHINE_CHECK_INSTRUMENT_COMMISSIONING` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 186)
-- `PROBE_BLOCKING_MACHINE_CHECK_KINDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 197)
-- `SWEPT_MACHINE_CHECK_KINDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 202)
-- `BLIND_PROBE_BASIS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 210)
-- `OBSERVATION_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 216)
-- `VALIDATOR_OWNED_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 223)
-- `DETERMINISTIC_FEATURE_PREFIX` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 226)
-- `NEEDS_DISAMBIGUATION_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 231)
-- `DEFERRED_OFFER_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 235)
-- `DEFERRED_MACHINE_CHECKS_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 239)
-- `SAFE_COMMON_REPAIR_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 243)
-- `BLOCKED_PENDING_REVIEW_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 247)
-- `EPISODE_CONFLICT_REASON` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 253)
-- `EPISODE_CONFLICT_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 254)
-- `STARTED_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 259)
-- `TAKE_QUICK_CHECK` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 261)
-- `TEACH_ME_NOW` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 262)
-- `NOT_NOW` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 263)
-- `CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 269)
-- `_ORCHESTRATOR_POLICY_BOUNDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 280)
-- `_UNCOMMITTED_REPAIR_STATES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1194)
-- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2609)
+- `CAUSAL_ORCHESTRATOR_FORMULA_VERSION` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 141)
+- `CAUSAL_ORCHESTRATOR_POLICY_SCOPE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 146)
+- `REPAIR_STATUSES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 148)
+- `LEARNER_PREFERENCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 156)
+- `EVSI_PROVENANCE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 166)
+- `LOSS_TABLE_REGIME_P2_PROXY` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 177)
+- `MACHINE_CHECK_REPAIR_MAPPING` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 179)
+- `MACHINE_CHECK_INSTRUMENT_COMMISSIONING` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 185)
+- `PROBE_BLOCKING_MACHINE_CHECK_KINDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 196)
+- `SWEPT_MACHINE_CHECK_KINDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 201)
+- `BLIND_PROBE_BASIS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 209)
+- `OBSERVATION_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 215)
+- `VALIDATOR_OWNED_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 222)
+- `DETERMINISTIC_FEATURE_PREFIX` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 225)
+- `NEEDS_DISAMBIGUATION_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 230)
+- `DEFERRED_OFFER_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 234)
+- `DEFERRED_MACHINE_CHECKS_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 238)
+- `SAFE_COMMON_REPAIR_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 242)
+- `BLOCKED_PENDING_REVIEW_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 246)
+- `EPISODE_CONFLICT_REASON` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 252)
+- `EPISODE_CONFLICT_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 253)
+- `STARTED_MESSAGE` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 258)
+- `TAKE_QUICK_CHECK` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 260)
+- `TEACH_ME_NOW` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 261)
+- `NOT_NOW` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 262)
+- `CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 268)
+- `_ORCHESTRATOR_POLICY_BOUNDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 279)
+- `_UNCOMMITTED_REPAIR_STATES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1193)
+- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2576)
 
 ### Explicit exports
 
@@ -186,30 +186,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 343)
-- `_with_reveal_spend(repository: Repository, status: RepairStatus) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 445) — Stamp the episode's reveal spend and the budget it is measured against.
-- `_machine_check_id(obligation: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 472)
-- `_close_orphan_checks(repository: Repository, learning_object_id: str, live: set[str], *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 689)
-- `_durable_case_factor(repository: Repository, misconception: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 879) — The open cause factor a durable misconception's case rides on, if any.
-- `_case_repair_class_id(repository: Repository, hypothesis: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 912) — The repair class a factor-less diagnosis case would cold-verify (G14).
-- `_unmapped_case_obligation(hypothesis: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 933) — The typed mapping obligation for a factor-less unmapped diagnosis case.
-- `_receipt_repair_class_id(receipt: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 974) — The repair class one diagnosis receipt commits to, if any.
-- `_repair_class_by_hypothesis(causes: Sequence[Mapping[str, Any]]) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1000)
-- `_avoided_overteaching_minutes(repository: Repository, *, attempt_id: str | None, repair_class_ids: Sequence[str], default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1014) — Expected teaching minutes a discriminating answer would save, + provenance.
-- `_probe_burden_minutes(repository: Repository, practice_item_id: str | None, default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1067) — Probe burden from the instrument card's own expected seconds, + provenance.
-- `_recent_diagnostic_burden(repository: Repository, learning_object_id: str, window: int) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1090)
-- `_discrimination_inputs(candidate: Mapping[str, Any] | None, repair_class_by_hypothesis: Mapping[str, str]) -> DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1115) — ``(expected_information_gain, p(information changes the repair))``.
-- `_episode_for(repository: Repository, *, case_kind: str, case_ref: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1197) — The repair episode for this case — reused, not re-minted.
-- `_actions(status: str, *, offered: bool) -> tuple[RepairAction, ...]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1228)
-- `_status_for_factor(repository: Repository, *, misconception_id: str, factor: Mapping[str, Any], session_id: str | None, session_budget_minutes: float | None, start_repair: bool, clock: Clock | None, vault: LoadedVault | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1414)
-- `_causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1964)
-- `_probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2007) — The conflict that would make ``accept_probe_offer`` refuse, if any.
-- `_answer_shown(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2020) — Was the item's answer shown, so no probe of it may be offered (UX Phase 4 round 7; the one eligibility decision's question)?
-- `class _OfferRefusedAtCommit(Exception)` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2035) — The commit refused the probe after the episode was retargeted: rolls the retarget back with it (UX Phase 4 round 7).
-- `_accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2076) — "Take the quick check": enter a factor-aware episode and pin the probe.
-- `_measured_hypotheses(repository: Repository, classification: Mapping[str, Any], observed_features: Mapping[str, Any]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2481) — Which of the locked set's concrete hypotheses the observation MEASURED.
-- `_observation_support_scores(classification: Mapping[str, Any], measured: set[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2537) — Support mass a discriminating observation licenses, and nothing more.
-- `_probe_production_admissibility(repository: Repository, *, probe_attempt_id: str | None) -> 'ProductionAdmissibility | None'` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2564) — Was the probe answer produced before anything was revealed to it?
+- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 342)
+- `_with_reveal_spend(repository: Repository, status: RepairStatus) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 444) — Stamp the episode's reveal spend and the budget it is measured against.
+- `_machine_check_id(obligation: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 471)
+- `_close_orphan_checks(repository: Repository, learning_object_id: str, live: set[str], *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 688)
+- `_durable_case_factor(repository: Repository, misconception: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 878) — The open cause factor a durable misconception's case rides on, if any.
+- `_case_repair_class_id(repository: Repository, hypothesis: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 911) — The repair class a factor-less diagnosis case would cold-verify (G14).
+- `_unmapped_case_obligation(hypothesis: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 932) — The typed mapping obligation for a factor-less unmapped diagnosis case.
+- `_receipt_repair_class_id(receipt: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 973) — The repair class one diagnosis receipt commits to, if any.
+- `_repair_class_by_hypothesis(causes: Sequence[Mapping[str, Any]]) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 999)
+- `_avoided_overteaching_minutes(repository: Repository, *, attempt_id: str | None, repair_class_ids: Sequence[str], default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1013) — Expected teaching minutes a discriminating answer would save, + provenance.
+- `_probe_burden_minutes(repository: Repository, practice_item_id: str | None, default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1066) — Probe burden from the instrument card's own expected seconds, + provenance.
+- `_recent_diagnostic_burden(repository: Repository, learning_object_id: str, window: int) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1089)
+- `_discrimination_inputs(candidate: Mapping[str, Any] | None, repair_class_by_hypothesis: Mapping[str, str]) -> DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1114) — ``(expected_information_gain, p(information changes the repair))``.
+- `_episode_for(repository: Repository, *, case_kind: str, case_ref: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1196) — The repair episode for this case — reused, not re-minted.
+- `_actions(status: str, *, offered: bool) -> tuple[RepairAction, ...]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1227)
+- `_status_for_factor(repository: Repository, *, misconception_id: str, factor: Mapping[str, Any], session_id: str | None, session_budget_minutes: float | None, start_repair: bool, clock: Clock | None, vault: LoadedVault | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1413)
+- `_causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1931)
+- `_probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1974) — The conflict that would make ``accept_probe_offer`` refuse, if any.
+- `_answer_shown(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1987) — Was the item's answer shown, so no probe of it may be offered (UX Phase 4 round 7; the one eligibility decision's question)?
+- `class _OfferRefusedAtCommit(Exception)` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2002) — The commit refused the probe after the episode was retargeted: rolls the retarget back with it (UX Phase 4 round 7).
+- `_accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2043) — "Take the quick check": enter a factor-aware episode and pin the probe.
+- `_measured_hypotheses(repository: Repository, classification: Mapping[str, Any], observed_features: Mapping[str, Any]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2448) — Which of the locked set's concrete hypotheses the observation MEASURED.
+- `_observation_support_scores(classification: Mapping[str, Any], measured: set[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2504) — Support mass a discriminating observation licenses, and nothing more.
+- `_probe_production_admissibility(repository: Repository, *, probe_attempt_id: str | None) -> 'ProductionAdmissibility | None'` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 2531) — Was the probe answer produced before anything was revealed to it?
 
 ## Who imports or calls it
 
@@ -236,10 +236,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `OBSERVATION_CHANNEL_BLIND_PROBE`, `OBSERVATION_CHANNEL_LEARNER_QUESTION`, `ProbeEpisodeRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`, `_normalized`; calls `_normalized`
-- [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `module`; calls `record_shadow_selection`
 - [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `sweep_promotion_blocking_factors`; calls `sweep_promotion_blocking_factors`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `ColdVerificationPrecondition`, `ProbeDecision`, `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`, `decide_probe`, `order_probe_candidates`, `record_causal_cold_outcome`, `record_delayed_cold_verification`, `repair_class_need_for_factor`, `resolve_causal_probe_parameters`; calls `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`, `decide_probe`, `order_probe_candidates`, `record_causal_cold_outcome`, `record_delayed_cold_verification`, `repair_class_need_for_factor`, `resolve_causal_probe_parameters`
-- [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `record_probe_offer`, `record_step_failed`; calls `record_probe_offer`, `record_step_failed`
+- [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `record_probe_offer`; calls `record_probe_offer`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RoutineDisplayCovered`, `commit_presentation`, `eligible_instruments`, `enter_episode`, `episode_has_observations`, `retarget_episode_to_causal_factor`, `routine_display_covers_item`; calls `commit_presentation`, `eligible_instruments`, `enter_episode`, `episode_has_observations`, `retarget_episode_to_causal_factor`, `routine_display_covers_item`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `CAUSE_SET_INCOMPLETE_MAPPING`, `MAPPING_BASIS_LEGACY_FACET`, `classify_cause_set`; calls `classify_cause_set`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `EPISODE_REVEAL_BUDGET`, `episode_reveal_spend`; calls `episode_reveal_spend`
@@ -306,12 +305,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../../tests/test_causal_repair_sidecar_rpcs.py) — direct import
   - `test_serving_the_pinned_probe_reuses_its_presentation`
 - [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — direct import
-  - `test_commissioned_v2_bundles_reach_arm_b_and_the_prior_refusal_passes_through`
-  - `test_no_action_mapping_is_a_typed_abstention_not_a_fabricated_route`
-  - `test_readiness_report_counts_multiplicity_and_regimes`
-  - `test_shadow_failure_and_corruption_cannot_alter_the_live_decision`
-  - `test_shadow_receipt_rides_the_live_decision_with_typed_arms`
-  - `test_v1_style_bundles_stay_arm_c_and_never_license_measure`
+  - `test_causal_probe_decision_writes_no_retired_shadow_receipts`
 - [tests/test_cold_retry_reschedule.py](../../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import

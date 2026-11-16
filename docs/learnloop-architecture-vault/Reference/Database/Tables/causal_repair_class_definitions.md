@@ -19,7 +19,6 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
-  - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/diagnosis/split/history.py"
 tags:
@@ -99,7 +98,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_diagnostic_selector.py`
-- `src/learnloop/diagnosis/causal_selection_audit.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/history.py`
 

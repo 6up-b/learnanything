@@ -141,7 +141,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
   - `test_loss_table_is_byte_identical_without_unresolved_minutes`
-  - `test_measured_loss_switch_charges_unresolved_minutes_in_the_shadow`
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_rank_four_off_keeps_todays_table_for_every_label_class`
   - `test_rank_four_off_prices_the_minutes_only_table_exactly`

@@ -126,6 +126,7 @@ None found by exact static reference scan.
 - `tests/identity_pins_helpers.py`
 - `tests/sim_probe_validation_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_causal_shadow_selection.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_facet_rewords_migration.py`
 - `tests/test_forecast_receipts.py`

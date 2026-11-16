@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py) |
-| Source lines | 1124 |
+| Source lines | 1109 |
 | Owning package | [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,9 +71,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_answered_delayed_task(self, attempt_id: str) -> bool` (line 434; internal) — The attempt consumed a delayed follow-up task (cold retry, certification probe): those lanes ride the same ``intervention_followup`` component and shadow a queued follow-up of the same item, so its offer was theirs.
   - `_followup_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]` (line 445; internal) — The attempt that took a queued follow-up decision (review F6, re-review F6).
 - `realized_emission(connection: sqlite3.Connection, vault: LoadedVault, forecast: Mapping[str, Any], attempt_id: str) -> tuple[str | None, str]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 678) — The realized emission in the forecast's alphabet, or (None, why not).
-- `truth_for(connection: sqlite3.Connection, forecast: Mapping[str, Any], *, realized_attempt_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 826) — Independent later diagnostic truth about the forecast's hypotheses, or None.
-- `calibration_report(vault: LoadedVault, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 970)
-- `summarize_joined(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any] | None]], *, since: str | None=None, router_available: bool=False, logging_enabled: bool=True, measured_loss_enabled: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 997)
+- `truth_for(connection: sqlite3.Connection, forecast: Mapping[str, Any], *, realized_attempt_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 811) — Independent later diagnostic truth about the forecast's hypotheses, or None.
+- `calibration_report(vault: LoadedVault, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 955)
+- `summarize_joined(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any], Mapping[str, Any] | None]], *, since: str | None=None, router_available: bool=False, logging_enabled: bool=True, measured_loss_enabled: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 982)
 
 ### Module constants
 
@@ -84,8 +84,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PROJECT_PROBE_VALUE_SITE` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 109)
 - `VALUE_DECISION_SITES` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 110)
 - `BINARY_CORRECTNESS_CUT` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 116)
-- `REPAIR_RESOLUTION_KINDS` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 749)
-- `_OBSERVATION_COLUMNS` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 752)
+- `REPAIR_RESOLUTION_KINDS` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 734)
+- `_OBSERVATION_COLUMNS` ([src/learnloop/evsi_calibration/live_report.py](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 737)
 
 ## Internal implementation anchors
 
@@ -96,11 +96,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_observation(connection: sqlite3.Connection, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 511)
 - `_target_facet_emission(connection: sqlite3.Connection, body: Mapping[str, Any], attempt_id: str) -> tuple[str | None, str]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 522) — A follow-up answer read as its TARGET facet's outcome (review F5).
 - `_value_decision_emission(connection: sqlite3.Connection, vault: LoadedVault, forecast: Mapping[str, Any], attempt_id: str) -> tuple[str | None, str]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 616) — A value decision's realized emission, in the alphabet its described check was valued in.
-- `_independent_match(row: Mapping[str, Any] | None, realized_attempt_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 757) — The one hypothesis an observation is independent evidence for, else None.
-- `_support_delta(support: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 779)
-- `_cited_support(connection: sqlite3.Connection, support: Mapping[str, Any], linked: set[str], hypotheses: set[str], realized_attempt_id: str | None) -> tuple[str, set[str]] | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 786) — What a cold verification's diagnosis support proves, after resolving its evidence.
-- `_join(connection: sqlite3.Connection, vault: LoadedVault, forecast: Mapping[str, Any], adapters: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 942)
-- `_round(value: float | None, digits: int=4) -> float | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 966)
+- `_independent_match(row: Mapping[str, Any] | None, realized_attempt_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 742) — The one hypothesis an observation is independent evidence for, else None.
+- `_support_delta(support: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 764)
+- `_cited_support(connection: sqlite3.Connection, support: Mapping[str, Any], linked: set[str], hypotheses: set[str], realized_attempt_id: str | None) -> tuple[str, set[str]] | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 771) — What a cold verification's diagnosis support proves, after resolving its evidence.
+- `_join(connection: sqlite3.Connection, vault: LoadedVault, forecast: Mapping[str, Any], adapters: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 927)
+- `_round(value: float | None, digits: int=4) -> float | None` ([source](../../../../../../src/learnloop/evsi_calibration/live_report.py), line 951)
 
 ## Who imports or calls it
 

@@ -17,12 +17,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/145_causal_cold_outcomes.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/forecast_receipts.py"
   - "src/learnloop/diagnosis/guided_redo.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/remediation.py"
@@ -119,7 +119,6 @@ None found by exact static reference scan.
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
-- `src/learnloop/diagnosis/causal_selection_audit.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 

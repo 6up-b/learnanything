@@ -127,14 +127,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sweep_machine_checks_queues_the_instrument_debt`
   - `test_target_mapping_never_falls_back_to_postdictive_claims`
 - [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — direct import
-  - `test_commissioned_v2_bundles_reach_arm_b_and_the_prior_refusal_passes_through`
-  - `test_readiness_report_counts_multiplicity_and_regimes`
+  - `test_causal_probe_decision_writes_no_retired_shadow_receipts`
   - `test_stripping_the_h_other_disposition_demotes_arm_b`
-  - `test_v1_style_bundles_stay_arm_c_and_never_license_measure`
 - [tests/test_followup_live_shape.py](../../../../../../tests/test_followup_live_shape.py) — direct import
   - `test_h_other_at_the_tag_the_quick_checks_commissioning_gets_past_the_arm`
   - `test_h_other_below_the_tag_the_quick_checks_commissioning_still_fails_as_it_did`
-- [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 
 ## Modification guidance
 

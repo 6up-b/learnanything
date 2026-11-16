@@ -17,8 +17,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/146_causal_shadow_selection.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_selection_audit.py"
-  - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -93,7 +91,6 @@ Database triggers:
 
 - `Repository.causal_shadow_selection_receipt()`
 - `Repository.causal_shadow_selection_receipts()`
-- `Repository.insert_causal_shadow_selection_receipt()`
 
 ### Direct SQL readers
 
@@ -105,9 +102,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/causal_diagnostic_selector.py`
-- `src/learnloop/diagnosis/causal_selection_audit.py`
+None found by exact static reference scan.
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

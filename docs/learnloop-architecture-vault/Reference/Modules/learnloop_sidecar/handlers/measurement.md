@@ -50,30 +50,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/measurement.py](../../../../../../src/learnloop_sidecar/handlers/measurement.py) |
-| Source lines | 427 |
+| Source lines | 423 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ScheduleCertificationColdProbesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 38)
-- `class GenerateCommissioningPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 42)
-- `class TransitionCausalProbeCandidateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 53)
-- `class ApplyIntegrationBackfillInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 60)
-- `get_measurement_health(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 220) — Stage 0–6 plus the Stage 8.1 precheck for the Tauri Maintain view.
-- `schedule_certification_cold_probes_handler(ctx: SidecarContext, params: ScheduleCertificationColdProbesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 272)
-- `transition_causal_probe_candidate_handler(ctx: SidecarContext, params: TransitionCausalProbeCandidateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 288)
-- `apply_integration_backfill_handler(ctx: SidecarContext, params: ApplyIntegrationBackfillInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 306) — Apply reviewed D3 coordination edits and narrate the recalibration.
-- `generate_commissioning_practice(ctx: SidecarContext, params: GenerateCommissioningPracticeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 341) — Author practice for the commissioning queue's authorable gaps.
+- `class ScheduleCertificationColdProbesInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 37)
+- `class GenerateCommissioningPracticeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 41)
+- `class TransitionCausalProbeCandidateInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 52)
+- `class ApplyIntegrationBackfillInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 59)
+- `get_measurement_health(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 219) — Stage 0–6 plus the Stage 8.1 precheck for the Tauri Maintain view.
+- `schedule_certification_cold_probes_handler(ctx: SidecarContext, params: ScheduleCertificationColdProbesInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 268)
+- `transition_causal_probe_candidate_handler(ctx: SidecarContext, params: TransitionCausalProbeCandidateInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 284)
+- `apply_integration_backfill_handler(ctx: SidecarContext, params: ApplyIntegrationBackfillInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 302) — Apply reviewed D3 coordination edits and narrate the recalibration.
+- `generate_commissioning_practice(ctx: SidecarContext, params: GenerateCommissioningPracticeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 337) — Author practice for the commissioning queue's authorable gaps.
 
 ## Internal implementation anchors
 
-- `_integration_backfill(vault)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 64)
-- `_integration_backfill_payload(vault) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 71)
-- `_causal_probe_review_queue(repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 86)
-- `_instrument_audit_payload(vault, repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 133) — Every Meas §3 instrument class's REVERT criterion, plus A4 commissioning.
-- `_facet_mint_gate_payload(vault) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 200)
+- `_integration_backfill(vault)` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 63)
+- `_integration_backfill_payload(vault) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 70)
+- `_causal_probe_review_queue(repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 85)
+- `_instrument_audit_payload(vault, repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 132) — Every Meas §3 instrument class's REVERT criterion, plus A4 commissioning.
+- `_facet_mint_gate_payload(vault) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/measurement.py), line 199)
 
 ## Who imports or calls it
 
@@ -95,7 +95,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `COORDINATION`, `apply_integration_backfill`, `apply_integration_backfill_and_recalibrate`, `plan_integration_backfill`; calls `apply_integration_backfill`, `apply_integration_backfill_and_recalibrate`, `plan_integration_backfill`
 - [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] — imports `causal_lane_health`; calls `causal_lane_health`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `candidate_has_current_blind_input_contract`, `transition_probe_candidate`; calls `candidate_has_current_blind_input_contract`, `transition_probe_candidate`
-- [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]] — imports `causal_selection_readiness`; calls `causal_selection_readiness`
 - [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `commission_contrast_pairs`, `contrast_pair_order_effect`; calls `commission_contrast_pairs`, `contrast_pair_order_effect`
 - [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] — imports `profile_coverage`, `profile_match_fill_rate`; calls `profile_coverage`, `profile_match_fill_rate`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `error_hunt_outcome_summary`, `proofreading_signal`; calls `error_hunt_outcome_summary`, `proofreading_signal`

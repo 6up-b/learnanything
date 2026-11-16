@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
+  - "src/learnloop/diagnosis/probe_episodes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/compat"
@@ -94,7 +94,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_diagnostic_selector.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
