@@ -29,6 +29,7 @@ from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
 from learnloop.attempts.attempts import AttemptDraft, complete_codex_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
+from learnloop.config.schema import DEFAULT_CODEX_MODEL
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.ops.doctor import run_doctor
@@ -110,7 +111,7 @@ _LEGACY_TABLE_DEFAULTS = {
     "authoring_path": "/authoring-proposal", "base_url": "http://127.0.0.1:8765",
     "canonical_ingest_path": "/canonical-ingest", "checkout_path": "", "grading_path": "/grading-proposal",
     "healthcheck_path": "/health", "healthcheck_timeout_seconds": 5, "input_modalities": [],
-    "misconception_match_path": "/misconception-match", "model": "gpt-5.6-sol", "reasoning_effort": "low",
+    "misconception_match_path": "/misconception-match", "model": DEFAULT_CODEX_MODEL, "reasoning_effort": "low",
     "reasoning_summary": "none", "revision": "<pinned-commit>", "sdk_codex_bin": "", "sdk_launch_command": "",
     "sdk_python_path": "sdk/python/src", "startup_command": "", "startup_timeout_seconds": 20,
     "teach_back_authoring_path": "/teach-back-authoring", "teach_back_path": "/teach-back", "timeout_seconds": 180,

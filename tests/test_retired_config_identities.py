@@ -116,8 +116,41 @@ ADDED_SINCE_BASE: tuple[tuple[str, ...], ...] = (
 )
 
 
+#: Config defaults whose VALUE changed after both bases, each on purpose: put back to the base's value before a
+#: whole-config dump is compared with a recorded digest, where the dump still holds the new default (a config that
+#: sets the field itself keeps what it set). A changed default is not a deletion either.
+CHANGED_SINCE_BASES: tuple[tuple[tuple[str, ...], str, str], ...] = tuple(
+    # Owner, 2026-11-15: the Codex and ChatGPT-plan default model moved to gpt-6.1-sol (future calls only).
+    (("ai", "providers", name, "model"), "gpt-5.6-sol", "gpt-6.1-sol")
+    for name in ("chatgpt", "chatgpt_low", "chatgpt_medium", "codex", "codex_low", "codex_medium")
+)
+
+
+def _with_base_defaults(shaped: dict) -> dict:
+    """``shaped`` (already a copy) with each changed default back at its base value."""
+
+    for (*parents, name), base, now in CHANGED_SINCE_BASES:
+        node = shaped
+        for key in parents:
+            node = node[key]  # a KeyError means the entry is stale: the default left or moved
+        if node[name] == now:
+            node[name] = base
+    return shaped
+
+
+def test_every_changed_default_is_still_the_default():
+    """A stale ``CHANGED_SINCE_BASES`` entry would put a value back that no default holds any more."""
+
+    dump = LearnLoopConfig().model_dump(mode="json")
+    for (*parents, name), _base, now in CHANGED_SINCE_BASES:
+        node = dump
+        for key in parents:
+            node = node[key]
+        assert node[name] == now, (*parents, name)
+
+
 def _without_additions(dump: dict) -> dict:
-    shaped = copy.deepcopy(dump)
+    shaped = _with_base_defaults(copy.deepcopy(dump))
     for *parents, name in ADDED_SINCE_BASE:
         node = shaped
         for key in parents:
@@ -379,7 +412,7 @@ ADDED_SINCE_SWITCHES_BASE: tuple[tuple[str, ...], ...] = (
 
 
 def _without_additions_since_switches_base(dump: dict) -> dict:
-    shaped = copy.deepcopy(dump)
+    shaped = _with_base_defaults(copy.deepcopy(dump))
     for *parents, name in ADDED_SINCE_SWITCHES_BASE:
         node = shaped
         for key in parents:
