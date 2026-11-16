@@ -270,6 +270,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["reading_paths"]["plan_uses_path"] = True
     shaped["curriculum"]["plan_uses_path"] = True
     shaped["teacher"]["probes"] = True
+    shaped["router"]["lesson_suggestions"].update(enabled=True, in_objective=True)
     return shaped
 
 
@@ -548,3 +549,24 @@ def test_a_vault_that_still_sets_a_removed_switch_loads_and_the_switch_reads_not
         for key in field.path:
             node = node[key]
         assert node != field.default, field
+
+
+def test_the_lesson_suggestions_section_still_refuses_an_unknown_key_but_loads_its_retired_ones(tmp_path):
+    """``[router.lesson_suggestions]`` refuses unknown keys (a typo there fails loudly). Its two retired kill switches
+    are not unknown: a vault that still sets them loads, and only an identity dump shows what it set."""
+
+    from pydantic import ValidationError
+
+    from learnloop.config.retired import identity_dump
+    from learnloop.config.schema import RouterLessonSuggestionsConfig
+
+    section = RouterLessonSuggestionsConfig.model_validate({"enabled": False, "in_objective": False,
+                                                            "ceiling_per_day": 2})
+    assert section.model_dump() == {"ceiling_per_day": 2}
+    assert identity_dump(section) == {"ceiling_per_day": 2, "enabled": False, "in_objective": False}
+    with pytest.raises(ValidationError):
+        RouterLessonSuggestionsConfig.model_validate({"ceiling_per_day": 2, "celing_per_day": 1})
+    path = tmp_path / "learnloop.toml"
+    path.write_text("[router.lesson_suggestions]\nenabled = false\nin_objective = false\n", encoding="utf-8")
+    loaded = load_config(path, load_environment=False)
+    assert loaded.router.lesson_suggestions.model_dump() == {"ceiling_per_day": 3}

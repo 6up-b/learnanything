@@ -21,8 +21,7 @@ Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_sugges
 * ``lesson.suggestion``: Today's suggestion card (no model call). The day's
   first call draws the day's decision and writes it; later calls read it back.
   ``null`` when there is no card (none today, already answered, or switched
-  off: ``router.lesson_suggestions.enabled``, the router, its decision log or
-  lessons off, or the vault below TE1b's tag; then nothing is written).
+  off: the router, its decision log or lessons off; then nothing is written).
 * ``lesson.suggestion_respond``: Start (``accepted``), an alternative
   (``chose_alternative``) or "Not now" (``declined``), appended once to
   ``router_suggestion_responses``. Start returns the lesson to open:

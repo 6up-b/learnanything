@@ -1953,22 +1953,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "default desired retention; RW6b's valuation replaces it); 3 and 7 days, basis legacy (RW6b's "
         "retention fallback and capture.test_me_later_days), used only while the LO has no FSRS state. "
         "Serving dates, never evidence."),
-    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the successor's kill switch and
-    # the anti-nagging ceiling (keep: never learned, each bind logged). How often a
-    # suggestion comes and how long a "Not now" lasts are learned (the module's
-    # seeded priors); neither is a config value.
-    _ConfigRule(_exact("router.lesson_suggestions.enabled"), "structural", "operational",
-        "kill switch for teacher TE1b's successor: Today may draw one lesson suggestion a day with an exact "
-        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.42's."),
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the anti-nagging ceiling (keep: never learned, each bind
+    # logged). How often a suggestion comes and how long a "Not now" lasts are learned (the module's seeded
+    # priors); neither is a config value.
     _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
         "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
         "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),
-    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): its successor's kill switch.
-    _ConfigRule(_exact("router.lesson_suggestions.in_objective"), "structural", "operational",
-        "kill switch for teacher TE3b's successor: lesson offers are candidates of the router objective at a "
-        "reversible plan block boundary, lesson minutes count on its clock, LOs with a pending lesson check join its "
-        "population, and TE1b's Today-open card is drawn only where the objective does not serve; off (or below the "
-        "tag) TE1b's daily card and RO4's support exactly (mvp-0.52)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

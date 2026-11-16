@@ -370,14 +370,12 @@ def _dump(repository) -> dict[str, list[tuple]]:
         return {t: [tuple(r) for r in connection.execute(f"SELECT * FROM {t}").fetchall()] for t in tables}
 
 
-@pytest.mark.parametrize("setting", ["switch_off", "router_off", "lessons_off"])
+@pytest.mark.parametrize("setting", ["router_off", "lessons_off"])
 def test_off_nothing_is_drawn_or_written(tmp_path, shown, setting):
     from tests.ux_phase1_support import set_config
 
     paths, repository = _vault(tmp_path, version=TAG)
-    if setting == "switch_off":
-        set_config(paths.root, {("router", "lesson_suggestions", "enabled"): False})
-    elif setting == "router_off":
+    if setting == "router_off":
         set_config(paths.root, {("router", "enabled"): False})
     elif setting == "lessons_off":
         set_config(paths.root, {("teacher", "enabled"): False})
@@ -391,13 +389,13 @@ def test_off_nothing_is_drawn_or_written(tmp_path, shown, setting):
     assert refused.value.code == "suggestions_disabled"
 
 
-def test_with_the_switch_off_the_desktop_config_is_byte_identical(tmp_path):
+def test_without_the_decision_log_the_desktop_config_has_no_suggestions(tmp_path):
     from learnloop_sidecar.context import config_dto
     from tests.ux_phase1_support import set_config
 
     on_paths, _ = _vault(tmp_path, name="on", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
     off_paths, _ = _vault(tmp_path, name="off", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
-    set_config(off_paths.root, {("router", "lesson_suggestions", "enabled"): False})
+    set_config(off_paths.root, {("router", "log_decisions"): False})
     on, off = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths))
     assert on["teacher"] == {"lessons": True, "suggestions": True, "te2": True}
     assert off["teacher"] == {"lessons": True, "te2": True}

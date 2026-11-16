@@ -5,9 +5,10 @@
   the offer's block: the offer is taken back unanswered (``withdrawn``, an ``expired`` row: never the learner's
   ``ignored``), and the probe is served next, whether the learner then presses Next, answers the card, or had the card
   shown;
-* F2: switching ``router.lesson_suggestions.in_objective`` off takes back a drawn, unanswered offer (the predecessor's
-  boundary decides) and its card is neither shown nor answerable;
-* F3: with the switch off, TE1b's daily draw reads TE1b's own decisions only (no offer response trains it).
+* F2: once lesson offers stop (here lessons switched off), a drawn, unanswered offer is taken back (the objective's
+  boundary without offers decides) and its card is neither shown nor answerable;
+* F3: where the objective stops serving the plan (``router_objective.enabled`` off), TE1b's daily draw reads TE1b's
+  own decisions only (no offer response trains it).
 
 Fakes only (``tests.router_model_fakes``); FG1's workflow is stood in by its one read (``session_rows``).
 """
@@ -162,7 +163,8 @@ def test_f1_a_shown_card_with_a_probe_ready_is_withdrawn_not_ignored(tmp_path, m
 
 
 def _switch_off(env) -> None:
-    env.vault.config.router.lesson_suggestions.in_objective = False
+    # Lessons off: the objective still serves the plan, with no lesson offer in it.
+    env.vault.config.teacher.enabled = False
     env.policy = policy_for(env.vault, env.repository, session_id=env.session_id, clock=env.clock,
                             runtime=fake_runtime(), serve=True)
     assert env.policy.lesson_offer is None and not LO.offers_on(env.vault)
@@ -208,7 +210,7 @@ def test_f3_with_the_switch_off_the_daily_draw_never_learns_from_offer_responses
     _record, step = _prefetched_offer(env)
     decision_id = step["offer"]["decision_id"]
     SG.respond(env.vault, env.repository, decision_id=decision_id, response="declined", clock=env.clock)
-    env.vault.config.router.lesson_suggestions.in_objective = False
+    env.vault.config.router_objective.enabled = False
     assert SG.suggestions_active(env.vault)
     env.clock.advance(5)
     SG.today_suggestion(env.vault, env.repository, clock=env.clock)
@@ -250,7 +252,7 @@ def _offer_then_switch_off_draw(tmp_path, response: str) -> dict[str, Any]:
         daily_only = {str(d["id"]): d["detail"] for d in suggestions.decisions(connection)}
         assert set(offered) <= set(LS.declines_by_learning_object(every, ledger))
         assert LS.declines_by_learning_object(daily_only, ledger) == {}
-    env.vault.config.router.lesson_suggestions.in_objective = False
+    env.vault.config.router_objective.enabled = False
     env.clock.advance(60 * 24 * 2)
     SG.today_suggestion(env.vault, env.repository, clock=env.clock)
     daily = rows(env, kind="lesson_suggestion")

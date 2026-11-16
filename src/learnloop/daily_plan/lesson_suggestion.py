@@ -35,10 +35,9 @@ acceptance model and the draw). Three steps, each its own call:
   with ``origin = 'router'``), which checks the response.
 
 Suggestions are only this card: never a modal or a notification, and never
-during a check (the card lives on Today, not on the practice screen). Off
-(``router.lesson_suggestions.enabled``, the router, its decision log or lessons
-off), or below the successor's tag, every call returns nothing and writes
-nothing, so Today and the plan are the predecessor's byte for byte.
+during a check (the card lives on Today, not on the practice screen). With the
+router, its decision log or lessons off, every call returns nothing and writes
+nothing.
 """
 
 from __future__ import annotations
@@ -103,11 +102,11 @@ class SuggestionError(ValueError):
 
 
 def suggestions_enabled(vault: Any) -> bool:
-    """TE1b's suggestions are on: its switch, the router and its log, and lessons. A card's or an offer's response,
+    """TE1b's suggestions are on: the router and its log, and lessons. A card's or an offer's response,
     and a Start whose lesson never opened, are honoured whenever this holds."""
 
     config = vault.config
-    if not (config.router.lesson_suggestions.enabled and config.router.enabled and config.router.log_decisions):
+    if not (config.router.enabled and config.router.log_decisions):
         return False
     # Lessons may open (``teacher.service.lessons_active``, read here without importing the teacher, a
     # composition layer nothing below imports; a test pins the two equal).
@@ -124,9 +123,8 @@ def offers_in_objective(vault: Any) -> bool:
 
 
 def suggestions_active(vault: Any) -> bool:
-    """Today may draw a suggestion card at its open: TE1b's suggestions on (:func:`suggestions_enabled`), and,
-    from TE3b's tag with its switch on, only where the objective does not serve the plan (§15.1a: TE1b exactly
-    there). Below TE3b's tag, or with ``in_objective`` off, TE1b's gate exactly."""
+    """Today may draw a suggestion card at its open: TE1b's suggestions on (:func:`suggestions_enabled`), and only
+    where the objective does not serve the plan (TE3b, §15.1a: TE1b exactly there)."""
 
     return suggestions_enabled(vault) and not offers_in_objective(vault)
 

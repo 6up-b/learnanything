@@ -8,12 +8,11 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.router_objective import price as P
 
 
 TAG = LATEST_ALGORITHM_VERSION
-OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from tests.te3b_value_helpers import T0, _lesson, _lesson_db, _stamp
 
 # --- the objective's clock -----------------------------------------------------------------------------------
@@ -53,18 +52,16 @@ def test_the_serving_clock_reads_only_lesson_intervals_received_by_now(tmp_path)
     assert len(window) == 1 and window[0][2] == pytest.approx(20.0 * 60)
 
 
-def test_the_gate_reads_lessons_on_the_clock_only_at_the_tag_with_the_switch(tmp_path):
+def test_the_gate_reads_lessons_on_the_clock_with_lessons_on(tmp_path):
     from learnloop.daily_plan import objective_inputs as OI
     from learnloop.vault.loader import load_vault
 
     from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 
     paths = create_basic_vault(tmp_path / "v")
-    set_algorithm_version(paths, OLD)
-    assert not OI._lessons_on(load_vault(paths.root).config)
     set_algorithm_version(paths, TAG)
     assert OI._lessons_on(load_vault(paths.root).config)
-    append_config_toml(paths.root, "[router.lesson_suggestions]\nin_objective = false\n")
+    append_config_toml(paths.root, "[teacher]\nenabled = false\n")
     assert not OI._lessons_on(load_vault(paths.root).config)
 
 

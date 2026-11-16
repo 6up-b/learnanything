@@ -681,9 +681,8 @@ HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 # Nov 2 was landing as mvp-0.42, which landed first; this claims the next tag
 # (ruling R4 at its landing; ONE constant: the upgrade, the CLI and the gate
 # all read it). Below
-# the tag, Today never suggests a lesson. From the tag on, with
-# ``router.lesson_suggestions.enabled`` on (and the router, its decision log
-# and lessons on), Today's open draws at most one ``instruct(lesson)``
+# the tag, Today never suggests a lesson. From the tag on, with the router,
+# its decision log and lessons on, Today's open draws at most one ``instruct(lesson)``
 # suggestion a day among LOs new on a goal, failing their cold checks or
 # predicted below adaptive difficulty's calibrate cut, with an exact logged
 # propensity (shown or not: a ``lesson_suggestion`` router decision); a shown
@@ -693,9 +692,7 @@ HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 # offers, so it is a router successor (spec §15.1), never evidence, FSRS, the
 # projection or replay (a suggestion writes no attempt; its decision is
 # RAW_LEDGER and its outcome joins ``router_outcomes`` intention-to-treat).
-# Kill switch: ``router.lesson_suggestions.enabled`` (off, or below the tag:
-# nothing is drawn or written, and Today and the plan are mvp-0.42's byte for
-# byte).
+# Its kill switch went once every vault was past the tag.
 LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 
 # mvp-0.44 (data capture, the long-horizon objective's dataset; owner decisions
@@ -847,9 +844,7 @@ LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
 # lesson delayed check join its population (an objective-definition change
 # point); RO6's features gain a lesson indicator (a features-version change
 # point); TE1b's Today-open card is drawn only where the objective does not
-# serve. Kill switch ``router.lesson_suggestions.in_objective`` (off, or below
-# the tag: TE1b's daily card and RO4's support exactly, mvp-0.52 byte for
-# byte). No migration. Expected mvp-0.53 at landing (one constant).
+# serve. Its kill switch went once every vault was past the tag. No migration. Expected mvp-0.53 at landing (one constant).
 LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
 
 # mvp-0.54 (mobile frontend v2, stage V3: probes and cold checks on the phone;

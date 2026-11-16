@@ -77,6 +77,9 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("ReadingPathsConfig", ("plan_uses_path",), bool, True, "D7"),
     RetiredField("CurriculumConfig", ("plan_uses_path",), bool, True, "D7"),
     RetiredField("TeacherConfig", ("probes",), bool, True, "D7"),
+    # The one switch section that refuses unknown keys: its retired keys are taken out before validation.
+    RetiredField("RouterLessonSuggestionsConfig", ("enabled",), bool, True, "D7"),
+    RetiredField("RouterLessonSuggestionsConfig", ("in_objective",), bool, True, "D7"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}
@@ -122,13 +125,24 @@ class KeepsRetiredFields(BaseModel):
     @model_validator(mode="wrap")
     @classmethod
     def _remember_retired_values(cls, data: Any, handler: Any) -> Any:
-        model = handler(data)
+        model = handler(_without_retired_keys(cls, data))
         if isinstance(model, KeepsRetiredFields) and model is not data:
             model._retired_values = {
                 field.path: field.default if (raw := _given(data, field.path)) is _MISSING else _coerce(field, raw)
                 for field in _BY_MODEL.get(type(model).__name__, ())
             }
         return model
+
+
+def _without_retired_keys(cls: type[BaseModel], data: Any) -> Any:
+    """``data`` without this model's retired keys where the model refuses unknown keys: there a vault that still sets
+    a retired key would no longer load. Every other model ignores or keeps the key itself, and its plain dump keeps
+    what it did."""
+
+    if cls.model_config.get("extra") != "forbid" or not isinstance(data, Mapping):
+        return data
+    retired = {field.path[0] for field in _BY_MODEL.get(cls.__name__, ())}
+    return {key: value for key, value in data.items() if key not in retired} if retired & set(data) else data
 
 
 def remembering(model: _Model, **values: Any) -> _Model:

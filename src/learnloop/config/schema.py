@@ -3838,43 +3838,39 @@ class RouterWeights(BaseModel):
         return self
 
 
-class RouterLessonSuggestionsConfig(BaseModel):
+class RouterLessonSuggestionsConfig(KeepsRetiredFields):
     """Teacher: the router suggests a lesson, the learner opts in
     (``learnloop.daily_plan.lesson_suggestion``).
 
-    ``enabled`` is the kill switch of the successor
-    ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``. On (at that tag or later, with
-    ``router.enabled``, ``router.log_decisions`` and lessons able to open),
-    Today may show one suggestion card a day ("Learn *X* now? (about 15
-    min)": Start, up to two alternatives, Not now), drawn with an exact logged
-    propensity among ``instruct(lesson)`` candidates; the acceptance model and
-    the decline recovery are seeded priors the responses move. Off, or below
-    the tag, nothing is drawn or written and Today and the plan are the
-    predecessor's byte for byte.
+    With ``router.enabled``, ``router.log_decisions`` and lessons able to open
+    (TE1b, ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``), Today may show one
+    suggestion card a day ("Learn *X* now? (about 15 min)": Start, up to two
+    alternatives, Not now), drawn with an exact logged propensity among
+    ``instruct(lesson)`` candidates; the acceptance model and the decline
+    recovery are seeded priors the responses move.
 
     ``ceiling_per_day``: an anti-nagging guardrail, never learned; a draw it
     binds shows no card and is logged with ``ceiling_bound``. The card is
     also drawn at most once a day, so the default 3 binds only if that rule
     is ever relaxed.
 
-    ``in_objective`` is the kill switch of
-    ``LESSON_OFFERS_ALGORITHM_VERSION``: on (at
-    that tag or later, with ``enabled`` and wherever the router objective
-    serves the plan), a lesson offer is a candidate of the objective at a
-    reversible plan block boundary (one card at a time, its acceptance model a
-    sensor, drawn from the logged mix and answered on that decision), lesson
-    minutes count on the objective's clock, LOs with a pending lesson delayed
-    check join its population, and the Today-open card above is drawn only
-    where the objective does not serve. ``ceiling_per_day`` binds across the
-    day's offers and cards together. Off, or below the tag: the daily card
-    and the objective's predecessor support exactly.
+    Wherever the router objective serves the plan (TE3b,
+    ``LESSON_OFFERS_ALGORITHM_VERSION``), a lesson offer is a candidate of the
+    objective at a reversible plan block boundary (one card at a time, its
+    acceptance model a sensor, drawn from the logged mix and answered on that
+    decision), lesson minutes count on the objective's clock, LOs with a
+    pending lesson delayed check join its population, and the Today-open card
+    above is drawn only where the objective does not serve.
+    ``ceiling_per_day`` binds across the day's offers and cards together.
+
+    The two successors' kill switches (``enabled``, ``in_objective``) went once
+    every vault was past their tags; an unknown key is still refused, the two
+    retired ones are not.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = True
     ceiling_per_day: int = Field(default=3, ge=0)
-    in_objective: bool = True
 
 
 class RouterConfig(KeepsRetiredFields):

@@ -37,9 +37,7 @@ from learnloop.algorithm_versions import (
     FAILURE_SHARE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
-    LESSON_OFFERS_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
-    LESSON_SUGGESTIONS_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
@@ -54,7 +52,6 @@ from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION: {"adaptive_difficulty.enabled": False},
     TEACHER_ALGORITHM_VERSION: {"teacher.enabled": False},
-    LESSON_SUGGESTIONS_ALGORITHM_VERSION: {"router.lesson_suggestions.enabled": False},
     DATA_CAPTURE_ALGORITHM_VERSION: {"data_capture.serving": False},
     FOLLOWUP_SERVE_ALGORITHM_VERSION: {"followup.generate_and_serve": False},
     INTERVAL_FACTOR_ALGORITHM_VERSION: {
@@ -73,7 +70,6 @@ SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION: {"router_objective.learned_tail": False},
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION: {f"router_objective.{key}": False for key in FOLLOWUP_SWITCHES},
     LESSON_OPPORTUNITY_ALGORITHM_VERSION: {"adaptive_difficulty.lesson_opportunities": False},
-    LESSON_OFFERS_ALGORITHM_VERSION: {"router.lesson_suggestions.in_objective": False},
     # Instruct hand-off's batch (one tag).
     FAILURE_SHARE_ALGORITHM_VERSION: {
         "router_objective.failure_share_to_other_policy": False,

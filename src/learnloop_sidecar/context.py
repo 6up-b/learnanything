@@ -1040,7 +1040,7 @@ def _teacher_dto(vault: LoadedVault) -> dict[str, Any]:
     if not _lessons_active(vault):
         return {}
     # Teacher TE3b: ``suggestions`` while TE1b's suggestions are on, where the objective serves the offers too (the
-    # card then shows only a Start whose lesson never opened); below its tag TE1b's gate exactly.
+    # card then shows only a Start whose lesson never opened).
     from learnloop.daily_plan.lesson_suggestion import suggestions_enabled
 
     return {"teacher": {"lessons": True, **({"suggestions": True} if suggestions_enabled(vault) else {}), "te2": True}}

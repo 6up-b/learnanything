@@ -1322,14 +1322,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "recorded on lesson_checks, its teaching text writes lesson reveal rows and its close commits delayed "
         "checks. Off, or below the tag, no lesson opens and every path is mvp-0.40's byte for byte."
     ),
-    "router.lesson_suggestions.enabled": (
-        "Kill switch for teacher TE1b's successor (mvp-0.43; "
-        "spec_teacher_v1 §15.1). On (with router.enabled, router.log_decisions and lessons on), Today's open draws "
-        "at most one instruct(lesson) suggestion a day with an exact logged propensity (a lesson_suggestion router "
-        "decision, shown or not); Start opens a TE1 lesson whose origin is that decision and every response is a "
-        "router_suggestion_responses row. Off, or below the tag, nothing is drawn or written and Today and the plan "
-        "are mvp-0.42's byte for byte."
-    ),
     "router.lesson_suggestions.ceiling_per_day": (
         "keep: the anti-nagging ceiling on shown lesson suggestions a day (spec_teacher_v1 §18.4); never learned; a "
         "draw it binds shows no card and is logged with ceiling_bound. The card is drawn at most once a day, so the "
