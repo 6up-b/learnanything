@@ -206,12 +206,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_the_objective_reads_the_curve_through_ads_entry_only_at_the_tag_with_the_switch_on`
 - [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
-  - `test_the_gate_reads_lessons_on_the_clock_only_at_the_tag_with_the_switch`
+  - `test_the_gate_reads_lessons_on_the_clock_with_lessons_on`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_g3_mu_recomputes_with_an_offer_in_the_support_on_every_path`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
-  - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
   - `test_the_population_holds_los_with_a_pending_lesson_check`
+  - `test_with_lessons_off_the_same_database_is_valued_without_lessons`
 
 ## Modification guidance
 

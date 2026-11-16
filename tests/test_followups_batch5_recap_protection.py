@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import json
 
-from tests.teacher_fakes import pin_default_tag
-from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.teacher import brief as B
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
@@ -89,11 +87,13 @@ def test_the_recap_stays_when_protection_changed_elsewhere(tmp_path):
     assert _prior(fake, first)["recap"] == f"Remember: {PASSAGE}"
 
 
-def test_an_item_the_earlier_lesson_was_shown_now_reserved_for_an_exam_drops_its_recap(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
+def test_an_item_the_earlier_lesson_was_shown_now_reserved_for_an_exam_drops_its_recap(tmp_path):
     from tests.teacher_te1_review_fixes_helpers import _rows
+    from tests.teacher_te2_probes_helpers import as_opened_before_te2
 
     paths, repository, first = _first_lesson(tmp_path, read_lay=False)
+    # A lesson opened before TE2 listed vault probe items in its brief: those are the items it was shown.
+    as_opened_before_te2(repository, first, probes={"lo_eigen": ["pi_det_1"]})
     opened = S.load_state(repository, first)
     probes = [probe["id"] for node in opened.brief["nodes"] for probe in node.get("probes") or []]
     assert "pi_det_1" in probes

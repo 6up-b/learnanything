@@ -285,7 +285,6 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     from learnloop.adaptive_difficulty.readiness import decision_state_fields
     from learnloop.ids import new_ulid
     from learnloop.daily_plan import measurement as objectives
-    from learnloop.data_capture.gates import serving_on
     from learnloop.followup_serve import workflow as wf
     from learnloop.router_objective import decision_state
     from learnloop.scheduling.fsrs import retrievability
@@ -346,7 +345,7 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                       block_id=str(offer_block_id), why=decision.why,
                                       why_kind=(decision.record or {}).get("offer_why_kind"),
                                       propensity=decision.propensity)
-            if decision_id is not None and serving_on(vault.config) and not decision.refused and not decision.lesson_offer:
+            if decision_id is not None and not decision.refused and not decision.lesson_offer:
                 offered = (decision.record or {}).get("objective_followup")
                 # At the tag the frozen support is the objective decision's own (R5 (1), R8: the three arms, or
                 # ask-now alone with no room to wait); below it, FG1's arms as before.

@@ -35,7 +35,6 @@ from tests.data_capture_a2_measurement_helpers import (
 )
 
 OLD = LESSON_SUGGESTIONS_ALGORITHM_VERSION
-OFF = "[data_capture]\nserving = false\n"
 
 
 def _reading_rows(env):
@@ -315,13 +314,6 @@ def test_a_read_whose_models_are_still_out_freezes_nothing_and_draws_nothing(tmp
         gate.set()
 
 
-def test_settle_is_a_no_op_with_the_switch_off(tmp_path):
-    env, decision_id, _objective = _due_measurement(tmp_path)
-    env.vault.config.data_capture.serving = False
-    assert M.settle(env.vault, env.repository, clock=env.clock) == 0
-    assert decision_id not in _events(env)
-
-
 def test_the_plan_charges_a_measurement_to_the_maintain_lane(tmp_path):
     """A measurement replaces an ordinary maintenance slot: the other lanes keep their minutes."""
 
@@ -398,19 +390,6 @@ def test_plan_slots_counts_only_measurements_and_never_more_than_the_load():
 # -- the switch ----------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("version, toml", [(OLD, DECIDER_ONLY), (TAG, DECIDER_ONLY + OFF)])
-def test_below_the_tag_or_switched_off_nothing_is_frozen_or_arranged(tmp_path, version, toml):
-    runtime = fake_runtime(decider=FakeDecider(choice=first_option, p_yes=0.0),
-                           seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
-    env = _followup_env(tmp_path, runtime, version=version, toml=toml)
-    advance(env, serve=True)
-    assert _objectives(env) == {}
-    with env.repository.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0] == 0
-    (row,) = rows(env, "plan_interrupt")
-    assert "objective" not in json.dumps(row["detail_json"])
-
-
 def test_a7s_interface_takes_any_decision_with_an_experiment_id(tmp_path):
     env, _decision_id, _objective = _arranged_wait(tmp_path)
     frozen = M.freeze_followup("lo_p1", support=["probe", "continue"])
@@ -431,11 +410,21 @@ def test_a7s_interface_takes_any_decision_with_an_experiment_id(tmp_path):
 
 
 def test_a_decision_before_its_objective_could_be_frozen_stays_not_applicable(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(), version=OLD)
-    run(env)
-    env.vault.config.algorithms.algorithm_version = TAG
-    stops = [row for row in rows(env) if row["chosen_ref"] == "stop_for_today"]
-    assert stops
-    outcome = _outcomes(env)[stops[-1]["id"]]
+    """A stop logged before data capture froze objectives (a vault's rows from before mvp-0.44; no decision is
+    written so now) has no frozen objective to measure it on."""
+
+    from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
+
+    env = mixture_env(tmp_path, fake_runtime(), version=TAG)
+    with env.repository.atomic(), env.repository.connection() as connection:
+        insert_router_decision(connection, {
+            "id": "d_before", "receipt_key": "plan_block:b_before", "decision_kind": "plan_block",
+            "surface": "daily_plan", "mode": "mixture", "policy": "staged_v1", "algorithm_version": OLD,
+            "log_version": ROUTER_LOG_VERSION, "snapshot_hash": "h", "candidates_json": "[]",
+            "exclusions_json": "{}", "candidate_count": 0, "chosen_ref": "stop_for_today", "propensity": 1.0,
+            "propensity_kind": "deterministic", "learner_pick": 0, "detail_json": "{}",
+            "created_at": "2026-10-01T00:00:00Z",
+        })
+    outcome = _outcomes(env)["d_before"]
     assert outcome["r_cold_status"] == "not_applicable"
     assert json.loads(outcome["detail_json"])["no_outcome"] == "no_frozen_objective"

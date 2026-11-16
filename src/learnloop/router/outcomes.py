@@ -95,8 +95,8 @@ alternative's delayed check reaches its decision without replacing the ITT
 target (codex review F4). No switch is claimed from it; the effect among those who accepted is
 confounded and never reported.
 
-**Version 3** (``router_outcomes_v3``, data capture A4; mvp-0.44 with
-``data_capture.serving``, the caller says through :func:`outcome_version_for`):
+**Version 3** (``router_outcomes_v3``, data capture A4, mvp-0.44; every vault's,
+:func:`outcome_version_for`):
 R_cold reads the one shared definition (:mod:`learnloop.delayed_completion`,
 adaptive difficulty's dose outcomes read it too). The delay runs since the last
 exposure or practice before the attempt's own presentation (an attempt, a
@@ -104,8 +104,8 @@ reveal, a tutor question or a reading, any of them), and a delayed, unexposed
 presentation followed by requested help (a hint, a help-equivalent question, a
 reveal during it) is R_cold = 0, a failure of unassisted completion, as adaptive
 difficulty defines it. A pre-exposed presentation and an unanswered one are
-neither: they stay separate. Below it R_cold is v2's exactly (a help-assisted
-attempt is excluded). Version only: certification, mastery, grading, FSRS and the
+neither: they stay separate. Version 2's R_cold (a help-assisted attempt is
+excluded) stays the derivation's default argument; no vault derives under it. Version only: certification, mastery, grading, FSRS and the
 projection read nothing here. Its reading exposures are frozen and LO-linked (a
 completed section, a passage view, a tutor exchange, a worked example, an in-passage
 question; Codex review F1): the caller's ``reader_exposures``
@@ -147,7 +147,7 @@ from typing import Any
 
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc
-from learnloop.data_capture.gates import OUTCOME_VERSION_V3, serving_on
+from learnloop.data_capture.gates import OUTCOME_VERSION_V3
 from learnloop.db.stores import data_capture as capture_store
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import OVERRIDE_KEY_PREFIX, replace_router_outcomes
@@ -233,9 +233,11 @@ def _facet_ids(raw: Any) -> tuple[str, ...]:
 
 
 def outcome_version_for(config: Any) -> str:
-    """The outcome version a vault's outcomes are derived under (module docstring)."""
+    """The outcome version a vault's outcomes are derived under (module docstring): version 3 for every vault, since
+    data capture's switch went. ``config`` stays for the callers that name the vault's (the rebuild's replayer)."""
 
-    return OUTCOME_VERSION_V3 if serving_on(config) else OUTCOME_VERSION
+    del config
+    return OUTCOME_VERSION_V3
 
 
 def _table_present(connection: sqlite3.Connection, name: str) -> bool:

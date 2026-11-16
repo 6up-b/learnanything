@@ -52,7 +52,7 @@ tags:
 | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 19 | Practice-content authoring gates, generation contracts, and authored artifacts. |
 | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] | `domain` | `ACTIVE` | 9 | Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo. |
 | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] | `domain` | `ACTIVE` | 12 | Canonical content extraction and transformation stages. |
-| [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] | `domain` | `ACTIVE` | 9 | Reviewable content and graph change proposals and their lifecycle. |
+| [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] | `domain` | `ACTIVE` | 10 | Reviewable content and graph change proposals and their lifecycle. |
 | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] | `domain` | `ACTIVE` | 16 | Canonical source-library identity, manifests, and source-set behavior. |
 | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] | `domain` | `ACTIVE` | 22 | Synthesis of source material into learning structures and AI-owned contracts. |
 | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] | `domain` | `ACTIVE` | 21 | Commitments, blueprints, depth structures, concept relationships, and golden paths. |
@@ -60,7 +60,7 @@ tags:
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 9 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
 | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 55 | Table-family persistence owners extracted from the repository facade. |
-| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 57 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
+| [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 56 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] | `domain` | `ACTIVE` | 10 | Recurrence with authority: the same_cause match kind over causal hypotheses, its shortlist and judge, the live step and the backlog. |
 | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] | `domain` | `ACTIVE` | 20 | History-aware diagnosis split from the learner-blind grader: history modes, the diagnoser's inputs, jobs and traces. |
@@ -163,6 +163,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1882 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1881 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

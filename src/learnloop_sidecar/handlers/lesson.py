@@ -21,8 +21,7 @@ Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_sugges
 * ``lesson.suggestion``: Today's suggestion card (no model call). The day's
   first call draws the day's decision and writes it; later calls read it back.
   ``null`` when there is no card (none today, already answered, or switched
-  off: ``router.lesson_suggestions.enabled``, the router, its decision log or
-  lessons off, or the vault below TE1b's tag; then nothing is written).
+  off: the router, its decision log or lessons off; then nothing is written).
 * ``lesson.suggestion_respond``: Start (``accepted``), an alternative
   (``chose_alternative``) or "Not now" (``declined``), appended once to
   ``router_suggestion_responses``. Start returns the lesson to open:
@@ -291,14 +290,11 @@ def lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]:
     the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing
     matched with a proposed topic. Nothing is written but the resolution and its ledger verdict."""
 
-    from learnloop.teacher import te2 as T2
     from learnloop.teacher import topics as TP
 
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        if not T2.on(vault):
-            raise SidecarError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         return versioned(TP.resolve(vault, repository, params.text))
     except S.LessonError as exc:
         raise _error(exc) from exc

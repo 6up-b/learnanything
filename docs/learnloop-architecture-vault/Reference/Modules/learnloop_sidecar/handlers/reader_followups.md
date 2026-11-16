@@ -46,28 +46,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py) |
-| Source lines | 214 |
+| Source lines | 193 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 68) — Before the day's plan: re-value the pending follow-ups (once a local day, no model call) and start planning any ended session in the background.
-- `class ReaderFollowupsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 147)
-- `reader_followups(ctx: SidecarContext, params: ReaderFollowupsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 155) — "Coming up": a dated timeline, never a count.
-- `class FollowupUndoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 168)
-- `reader_followup_undo(ctx: SidecarContext, params: FollowupUndoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 174) — Undo one scheduled check; ``reason`` is the optional "why?".
-- `class FollowupUndoAllInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 184)
-- `reader_followup_undo_all(ctx: SidecarContext, params: FollowupUndoAllInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 190)
-- `class FollowupRestoreInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 198)
-- `reader_followup_restore(ctx: SidecarContext, params: FollowupRestoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 203) — Undo a retirement (or an undo): the check is pending again.
+- `prepare_followups(ctx: SidecarContext, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 65) — Before the day's plan: re-value the pending follow-ups (once a local day, no model call) and start planning any ended session in the background.
+- `class ReaderFollowupsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 127)
+- `reader_followups(ctx: SidecarContext, params: ReaderFollowupsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 135) — "Coming up": a dated timeline, never a count.
+- `class FollowupUndoInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 148)
+- `reader_followup_undo(ctx: SidecarContext, params: FollowupUndoInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 154) — Undo one scheduled check; ``reason`` is the optional "why?".
+- `class FollowupUndoAllInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 164)
+- `reader_followup_undo_all(ctx: SidecarContext, params: FollowupUndoAllInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 170)
+- `class FollowupRestoreInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 178)
+- `reader_followup_restore(ctx: SidecarContext, params: FollowupRestoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 183) — Undo a retirement (or an undo): the check is pending again.
 
 ### Module constants
 
-- `READER_RW6B_RPCS` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 40)
-- `JOB_NAME` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 46)
-- `_PLANNING` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 47)
+- `READER_RW6B_RPCS` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 37)
+- `JOB_NAME` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 43)
+- `_PLANNING` ([src/learnloop_sidecar/handlers/reader_followups.py](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 44)
 
 ### Explicit exports
 
@@ -79,10 +79,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_now() -> datetime` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 50)
-- `_search(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 54)
-- `_valuer(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 62)
-- `_require_on(vault: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 142)
+- `_now() -> datetime` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 47)
+- `_search(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 51)
+- `_valuer(vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_followups.py), line 59)
 
 ## Who imports or calls it
 
@@ -97,8 +96,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
-- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; calls `admission_problem`, `digests_waiting`, `narrate_waiting`, `narrative_enabled`, `sessions_to_summarize`, `summarize_ended_sessions`
-- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; calls `coming_up`, `default_search`, `default_valuer`, `exposure_refresh_waiting`, `followups_enabled`, `plan_ended_sessions`, `refresh_exposure`, `restore_followup`, `revalue_pending`, `sessions_to_plan`, `undo_all`, `undo_followup`
+- [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; calls `admission_problem`, `digests_waiting`, `narrate_waiting`, `narrative_enabled`
+- [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `module`; calls `coming_up`, `default_search`, `default_valuer`, `exposure_refresh_waiting`, `plan_ended_sessions`, `refresh_exposure`, `restore_followup`, `revalue_pending`, `sessions_to_plan`, `undo_all`, `undo_followup`
 - [[Reference/Modules/learnloop/instructional/wiring|learnloop.instructional.wiring]] — imports `find_practice_injections`; calls `find_practice_injections`
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `background_jobs`; calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
@@ -128,7 +127,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pinned_rw6b_rpcs_are_all_of_them`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_the_background_job_narrates_waiting_sessions`
-  - `test_the_queue_build_narrates_a_session_with_follow_ups_off`
   - `test_with_the_narrative_off_the_queue_build_starts_no_narration_job`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
 

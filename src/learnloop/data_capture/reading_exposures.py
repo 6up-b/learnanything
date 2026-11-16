@@ -30,8 +30,8 @@ a document load and an LO scan, about 20 ms. Those mappings, empty results inclu
 vault's content and the source and coverage rows they read (:func:`_revision`), so a repeat costs lookups alone: no model
 call, no write, no clock. Measured on copies of the owner's vaults in ``docs/reviews/data-capture-a1-a6-codex-review.md``.
 
-Frozen where Today prepares (:func:`learnloop.daily_plan.measurement.settle`). Under either of data capture's switches, at
-every version: a receipt changes nothing served, and only ``router_outcomes_v3`` and the time metric read it. Never
+Frozen where Today prepares (:func:`learnloop.daily_plan.measurement.settle`), at every version and whatever
+``data_capture.receipts`` says: a receipt changes nothing served, and only ``router_outcomes_v3`` and the time metric read it. Never
 evidence, FSRS, the projection or replay (A12 stands: this writes nothing AD reads).
 """
 
@@ -45,7 +45,7 @@ import logging
 from typing import Any
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
-from learnloop.data_capture.gates import OUTCOME_VERSION_V3, receipts_on, serving_on
+from learnloop.data_capture.gates import OUTCOME_VERSION_V3
 from learnloop.db.stores import data_capture as store
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS
 from learnloop.reading_sources import SWEEP_OVERLAP, listed_events, source_stamp
@@ -285,10 +285,9 @@ def for_version(connection: Any, vault: Any, repository: Any, version: str, *, r
 
 def sweep(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     """Freeze the listed Reader activity since the window's start (:func:`recent_since`); how many rows it wrote. Idempotent;
-    a no-op with both of data capture's switches off or before migration 240. The write lock only with rows to write."""
+    a no-op before migration 240. The write lock only with rows to write. The receipts are router outcome version 3's
+    inputs, which every vault derives, so ``data_capture.receipts`` off does not stop them."""
 
-    if not (receipts_on(vault.config) or serving_on(vault.config)):
-        return 0
     swept_at = utc_now_iso(clock)
     upper = (clock or SystemClock()).now().astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
     with repository.connection() as connection:

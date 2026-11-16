@@ -358,7 +358,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unknown_item_id_still_reports_not_found`
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
   - `test_unknown_scopes_and_choices_are_refused`
-  - `test_with_intent_off_the_control_answers_off_and_refuses_writes`
 - [tests/test_k1_serve_door_reservation.py](../../../../../tests/test_k1_serve_door_reservation.py) — direct import
   - `test_a_reserved_item_is_refused_at_the_session_serve_door`
   - `test_the_reservation_refusal_does_not_follow_the_held_out_selection_switch`
@@ -593,8 +592,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_lesson_turn_refuses_with_the_switch_off`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_start_opens_a_lesson_whose_origin_is_the_decision`
-- [tests/test_teacher_te2_sidecar.py](../../../../../tests/test_teacher_te2_sidecar.py) — direct import
-  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
 - [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import

@@ -333,7 +333,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
 - [tests/test_reader_ca5_also_in_books.py](../../../../../tests/test_reader_ca5_also_in_books.py) — direct import
   - `test_the_ca5_rpcs_are_registered_and_desktop_only`
-- [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_wrap_up_is_a_pure_read_and_its_actions_are_the_chips_rpcs`
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import

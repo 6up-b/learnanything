@@ -26,9 +26,9 @@ from tests.deliverable_fixtures import DeliverableFake
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
 from tests.curriculum_c1_plan_follows_path_helpers import (
-    C1_OFF,
+    CURRICULUM_OFF,
+    GUIDE_OFF,
     PRIMARIES,
-    RW7B_OFF,
     _at,
     _c1,
     _complete,
@@ -45,7 +45,10 @@ from tests.curriculum_c1_codex_review_fixes_helpers import NEAR_PRIMARIES, _ende
 
 
 def test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
+    # The staged rule decides every block: with no model set up the router's fallback draws with its floor (data
+    # capture A5), and its pinned draw for this test would stop the plan before the reading.
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION,
+             config='[router]\nmode = "staged"\n')
     c1.clock.advance(days=1)  # the path is stale: the plan keeps RW7b's (here the order's) choice
     ctx = context(c1.paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
@@ -60,7 +63,7 @@ def test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restore
     assert _split(c1.repository)["reading_path"]["moves"][0]["displaced_block_ids"] == [staged["blockId"]]
     replacement = step["blockId"]
     # The learner turns C1 off before starting the replacement: RW7b's reading comes back.
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     step = call(context(c1.paths.root), "next_plan_item", {"sessionId": session_id, "serve": False})["step"]
     assert step["kind"] == "reading" and step["reading"]["sectionId"] == "ch_eigen"
     after = _split(c1.repository)
@@ -83,7 +86,7 @@ def test_f1_a_started_replacement_reading_is_still_kept(tmp_path, monkeypatch):
     started = call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert started["reading"]["sectionId"] == "ch_det"
     before = _split(c1.repository)
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     step = call(context(c1.paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     # The learner is reading it: history is kept.
     assert (step["reading"]["sectionId"], step["blockId"]) == ("ch_det", started["blockId"])
@@ -98,14 +101,14 @@ def test_f2_c1_off_then_rw7b_off_in_separate_reads_ends_on_the_orders_reading(tm
     call(context(c1.paths.root), "get_daily_plan", {})
     built = _split(c1.repository)
     assert _at(built["reading"]) == ("ext_book", "ch_det") and built["reading"]["path_label"] == "prerequisite"
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     first = _split(c1.repository)
     # RW7b's choice (its own path skips the enrichment chapter): the same section, RW7b's label.
     assert first["reading"] == built["reading_path"]["predecessor"] and first["reading"]["path_label"] == "core"
     [first_move] = first["reading_path"]["moves"]
     assert first_move["reason"] == "deliverable_path_off" and first["reading_path"]["move_count"] == 1
-    append_config_toml(c1.paths.root, RW7B_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
+    append_config_toml(c1.paths.root, GUIDE_OFF.replace("[reading_paths]\n", "\n[reading_paths]\n"))
     call(context(c1.paths.root), "get_daily_plan", {})
     second = _split(c1.repository)
     # Now the order's choice (what a build now gives), and both moves are in the receipt.
@@ -123,12 +126,12 @@ def test_f2_c1_back_on_moves_the_unread_reading_back_to_c1s_choice(tmp_path, mon
     c1 = _c1(tmp_path, monkeypatch)
     call(context(c1.paths.root), "get_daily_plan", {})
     built = _split(c1.repository)
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     call(context(c1.paths.root), "get_daily_plan", {})
     first = _split(c1.repository)
     assert _at(first["reading"]) == ("ext_book", "ch_eigen")
     config = c1.paths.root / "learnloop.toml"
-    config.write_text(config.read_text().replace("plan_uses_path = false", "plan_uses_path = true"))
+    config.write_text(config.read_text().replace(CURRICULUM_OFF, "[curriculum]\nenabled = true\n"))
     # C1 is on again and the reading is unread: the fresh choice is C1's step again (the
     # invariant: a build now would choose it), recorded as the latest move.
     assert E.deliverable_plan_active(load_vault(c1.paths.root))

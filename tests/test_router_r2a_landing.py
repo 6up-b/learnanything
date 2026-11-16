@@ -39,7 +39,7 @@ from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault.yaml_io import read_yaml
 
 from tests.daily_plan_fakes import MovableClock, iso, seed_due
-from tests.helpers import create_daily_plan_vault
+from tests.helpers import append_config_toml, create_daily_plan_vault
 from tests.source_service_fakes import build_textbook_vault
 from tests.exam_protection_review_helpers import _switch_off
 from tests.router_card_helpers import LAST, _attempt, _card, _card_world, _hypothesis
@@ -129,6 +129,9 @@ def _real_queue_world(tmp_path, monkeypatch, *, switch_off: bool = False):
         tmp_path / "vault", learning_objects={"lo_m1": [("pi_ok", 2.0), ("pi_reserved", 2.0), ("pi_held", 2.0)]},
         version=A,
     )
+    # The staged frame's rule decides every block, as at R2a: with no model set up the mixture draws from its
+    # fallback's distribution with its floor (data capture A5).
+    append_config_toml(paths.root, '[router]\nmode = "staged"\n')
     if switch_off:
         _switch_off(paths.root)
     vault = load_vault(paths.root)

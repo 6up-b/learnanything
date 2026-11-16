@@ -2,8 +2,7 @@
 
 * **Medium (F1 for auto-completed plans)** When the path excluded every
   remaining reading and no practice was left, the plan closed by itself
-  (``complete``). Turning ``reading_paths.plan_uses_path`` or
-  ``reading_paths.enabled`` off must reopen it and put the predecessor's
+  (``complete``). Turning ``reading_paths.enabled`` off must reopen it and put the predecessor's
   reading back (G47 for existing plans), recorded on the receipt's
   transition. A plan the learner ended ("Done for today") or one with a
   reading started or ended stays as it is.
@@ -16,14 +15,13 @@ Fakes only (``PathJudgeFake``); no network.
 """
 from __future__ import annotations
 
-import pytest
 
 from learnloop.algorithm_versions import READING_PATH_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.vault.loader import load_vault
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.plan_follows_path_helpers import GUIDE_OFF, OFF, _split, _vault
+from tests.plan_follows_path_helpers import GUIDE_OFF, _split, _vault
 from tests.rw7b_codex_review_fixes_helpers import LABELS, _stage_reading
 from tests.rw7b_fix_round2_helpers import _plan_row, _skip_to_done
 
@@ -33,9 +31,9 @@ EVERY_ENRICHMENT = {section: "enrichment" for section in ("sec_eigen", "sec_spec
 # -- Medium: a plan auto-completed because the path excluded every reading -----------------------------
 
 
-@pytest.mark.parametrize("switch", [OFF, GUIDE_OFF], ids=["plan_uses_path_off", "guide_off"])
 def test_an_auto_completed_plan_whose_path_left_no_reading_is_reopened_to_the_predecessors_reading(
-        tmp_path, monkeypatch, switch):
+        tmp_path, monkeypatch):
+    switch = GUIDE_OFF
     paths, repository, _ = _vault(tmp_path, monkeypatch, labels=EVERY_ENRICHMENT, version=READING_PATH_PLAN_ALGORITHM_VERSION)
     ctx = context(paths.root)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
@@ -73,7 +71,7 @@ def test_a_plan_the_learner_ended_stays_ended_when_the_switch_turns_off(tmp_path
     call(ctx, "plan_keep_going", {"sessionId": session_id, "stop": True})
     ended, before = _plan_row(repository), _split(repository)
     assert (ended["status"], ended["stop_reason"]) == ("stopped", "learner_stopped")
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     step = call(context(paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert step["kind"] == "done"
     assert _plan_row(repository) == ended and _split(repository) == before
@@ -90,7 +88,7 @@ def test_an_auto_completed_plan_with_a_reading_ended_stays_complete(tmp_path, mo
     assert _skip_to_done(ctx, session_id)["kind"] == "done"
     closed, before = _plan_row(repository), _split(repository)
     assert closed["status"] == "complete"
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     step = call(context(paths.root), "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert step["kind"] == "done"
     assert _plan_row(repository) == closed and _split(repository) == before
@@ -107,7 +105,7 @@ def test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_project
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     staged = _stage_reading(ctx, session_id)
     assert staged["reading"]["sectionId"] == "sec_spectral"
-    append_config_toml(paths.root, OFF)
+    append_config_toml(paths.root, GUIDE_OFF)
     env = E.PlanEnv(load_vault(paths.root), repository)
     # Reconcile withdraws the staged block (no boundary crossed yet) ...
     record = E.reconcile(env, E.latest_today(env))

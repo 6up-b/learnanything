@@ -41,7 +41,6 @@ import numpy as np
 
 from learnloop import delayed_completion as DC
 from learnloop.clock import parse_utc, utc_now_iso
-from learnloop.data_capture.gates import serving_on
 from learnloop.db.stores import ad_serving as store
 
 from learnloop.adaptive_difficulty import arms as A
@@ -402,7 +401,7 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot, *, view: Any,
     the section's LOs at least one day after the decision, with no reveal of that item in between.
     The draws are the view's (a withheld extra's draw is left out; Codex verify F29).
 
-    ``delayed_definition`` (data capture A4, mvp-0.44, ``data_capture.serving``): the shared definition
+    ``delayed_definition`` (data capture A4, mvp-0.44; the report passes it for every vault): the shared definition
     (:mod:`learnloop.delayed_completion`): a day since the last exposure or practice on the LO before the
     attempt's presentation as well as since the decision, so warm performance never carries a cold label.
     The value stays AD's own (``Y = 2`` is 1, anything else 0: any help is a failure of unassisted
@@ -653,7 +652,7 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                       answer_minutes=_answer_minutes(connection, view=view),
                       median_doses=_median_doses(records),
                       offers=_offer_outcomes(connection, snapshot, view=view,
-                                             delayed_definition=serving_on(vault.config)),
+                                             delayed_definition=True),
                       records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records],
                       lessons=_lesson_inputs(snapshot, records) if lessons else None)
     report = {

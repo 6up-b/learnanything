@@ -1030,3 +1030,16 @@ class LoadedVault:
 
     def rubric_for_item(self, item: PracticeItem) -> Rubric | None:
         return item.grading_rubric or self.default_rubrics.get(item.practice_mode)
+
+
+class GradingValidationError(ValueError):
+    pass
+
+
+def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
+    rubric = vault.rubric_for_item(item)
+    if rubric is None:
+        raise GradingValidationError(
+            f"{item.id} has no grading_rubric and no default rubric for practice mode {item.practice_mode}"
+        )
+    return rubric

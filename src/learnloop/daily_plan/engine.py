@@ -115,7 +115,7 @@ from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
 from learnloop.scheduling.fsrs import retrievability
 from learnloop.router_objective import sessions as session_receipts
-from learnloop.data_capture.gates import objective_receipts_on, receipts_on, serving_on
+from learnloop.data_capture.gates import objective_receipts_on, receipts_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import INSERT_REF as INSERT_NOW_REF
@@ -203,41 +203,33 @@ def reading_step_rule(vault: Any) -> str:
 def reading_path_plan_active(vault: Any) -> bool:
     """Reader workbench RW7b (spec_reader_workbench_v1 §10.2): the plan's
     reading block follows the learner's reading path wherever the plan acts,
-    with its kill switch ``reading_paths.plan_uses_path`` on and the Guide's paths on
-    (``reading_paths.enabled``: the plan never follows a path the learner
-    cannot see). A successor, unlike U4's order: it changes what is served
-    through labels a model judged (F3). Off, or with the Guide's paths off, every plan build is the predecessor's exactly, and a
+    with the Guide's paths on (``reading_paths.enabled``: the plan never
+    follows a path the learner cannot see). A successor, unlike U4's order: it
+    changes what is served through labels a model judged (F3); its own kill
+    switch went once every vault was past its tag. With the Guide's paths off,
+    every plan build is the predecessor's exactly, and a
     plan already built goes back to the predecessor's reading while that
     reading is unstarted (:func:`_reading_path_switched_off`; Codex review
     F1), a plan that closed by itself only for want of the reading the path
     left out reopening with it (fix round 2)."""
 
     section = getattr(vault.config, "reading_paths", None)
-    return (
-        plan_active(vault)
-        and bool(getattr(section, "enabled", False))
-        and bool(getattr(section, "plan_uses_path", False))
-    )
+    return plan_active(vault) and bool(getattr(section, "enabled", False))
 
 
 def deliverable_plan_active(vault: Any) -> bool:
     """Curriculum C1 (spec_deliverable_curriculum_v1 §7.6, §8.1): the plan's reading block
-    follows the nearest active deliverable's fresh path across books, with its kill switch
-    ``curriculum.plan_uses_path``
-    and ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
+    follows the nearest active deliverable's fresh path across books, with
+    ``curriculum.enabled`` on (the Guide's slice shows the path: Q14, the plan never
     follows a path the learner cannot see) and RW7b's own gate on (C1 is RW7b's first
     branch, :func:`_reading_on_path`; the slice lives in the Guide's path card, shown
     only with ``reading_paths.enabled``). A successor: it changes what is served through
-    labels a model judged. Off, or with any of those off, every plan build
-    is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
+    labels a model judged; its own kill switch went once every vault was past its tag. With
+    any of those off, every plan build is RW7b's exactly (gate G-C4), and a plan already built goes back to RW7b's reading
     while that reading is unstarted (:func:`_reading_path_switched_off`)."""
 
     section = getattr(vault.config, "curriculum", None)
-    return (
-        reading_path_plan_active(vault)
-        and bool(getattr(section, "enabled", False))
-        and bool(getattr(section, "plan_uses_path", False))
-    )
+    return reading_path_plan_active(vault) and bool(getattr(section, "enabled", False))
 
 
 #: The version of RW7b's receipt (``split_json["reading_path"]``).
@@ -1735,7 +1727,7 @@ def _prepare_plan(
     # the maintain lane's load, so the other lanes keep theirs (none here: as any due check).
     measurement_slots: list[dict[str, Any]] = []
     maintain_replaced = 0.0
-    if built.intent is not None and checks and serving_on(env.vault.config):
+    if built.intent is not None and checks:
         measurement_slots, maintain_replaced = objectives.plan_slots(built.intent, checks, loads["maintain"])
         loads["maintain"] -= maintain_replaced
     m = max(budget - requested_minutes - check_minutes, 0.0)
@@ -3783,11 +3775,9 @@ def _stop_state(decision: Any) -> Mapping[str, Any]:
 
 
 def _frozen_objective(env: PlanEnv, record: PlanRecord, decision: Any) -> objectives.FrozenObjective | None:
-    """Data capture A2: the decision's objective (None: off, or below the tag). A mixture's was frozen
+    """Data capture A2: the decision's objective (None when it could not be frozen). A mixture's was frozen
     before its draw (``RouterChooser.choose``); a deterministic rule has one arm, its own choice."""
 
-    if not serving_on(env.vault.config):
-        return None
     router_record = decision.choice.router_record or {}
     try:
         if router_record.get("objective"):
@@ -4150,7 +4140,7 @@ def _reading_path_switched_off(
 
     A plan whose reading the path decided (its receipt's ``predecessor``
     differs from its ``reading``) gets the predecessor's reading back once
-    ``reading_paths.plan_uses_path`` or ``reading_paths.enabled`` is off,
+    ``reading_paths.enabled`` is off,
     while no reading of the plan has started or ended: a staged, unstarted
     path reading block is ended unread (``reading_path_off``, no minutes
     counted; appended to ``writes``), the split's reading, its full minutes
@@ -4194,8 +4184,7 @@ def _reading_path_switched_off(
         "transition": {
             "at": now,
             "reason": READING_PATH_OFF,
-            "switch": {"plan_uses_path": bool(getattr(env.vault.config.reading_paths, "plan_uses_path", False)),
-                       "enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
+            "switch": {"enabled": bool(getattr(env.vault.config.reading_paths, "enabled", False))},
             **change,
         },
     }
@@ -4382,10 +4371,8 @@ def _reading_follows_fresh_choice(
     updated, change = _move_plan_reading(env, record, now, writes, to=desired, withdraw=pending)
     reading_paths = env.vault.config.reading_paths
     curriculum = getattr(env.vault.config, "curriculum", None)
-    switch = {"plan_uses_path": bool(getattr(reading_paths, "plan_uses_path", False)),
-              "enabled": bool(getattr(reading_paths, "enabled", False)),
-              "curriculum": {"plan_uses_path": bool(getattr(curriculum, "plan_uses_path", False)),
-                             "enabled": bool(getattr(curriculum, "enabled", False))}}
+    switch = {"enabled": bool(getattr(reading_paths, "enabled", False)),
+              "curriculum": {"enabled": bool(getattr(curriculum, "enabled", False))}}
     if deliverable_plan_active(env.vault):
         reason = DELIVERABLE_PATH_MOVED
     elif reading_path_plan_active(env.vault):
@@ -5027,7 +5014,7 @@ def _log_interrupt(
                                    router_record=outcome.record, config=env.vault.config,
                                    local_date=str(record.row.get("local_date") or ""), session_id=env.session_id,
                                    at=env.now_iso())
-            if serving_on(env.vault.config) and not outcome.refused and outcome.wait_feasible and not offer_block_id:
+            if not outcome.refused and outcome.wait_feasible and not offer_block_id:
                 # Data capture A2: the follow-up's own LO, whichever arm was drawn; its check never
                 # takes an item this plan holds or the follow-up itself.
                 objectives.record(

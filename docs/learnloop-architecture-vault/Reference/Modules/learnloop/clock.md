@@ -134,6 +134,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `Clock`
@@ -207,7 +208,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `Clock`
@@ -711,6 +711,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_classification_is_pinned_and_survives_a_newer_bundle`
   - `test_cold_success_updates_repair_effect_not_diagnosis`
   - `test_empty_feature_row_is_rejected_at_generation_and_skipped_at_read`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
   - `test_repair_class_divergence_locks_existing_hypothesis_set_with_other`
 - [tests/test_causal_cold_outcomes.py](../../../../../tests/test_causal_cold_outcomes.py) — direct import
   - `test_clean_consume_records_cold_success_row_idempotently`
@@ -921,7 +922,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a3_time_metric.py](../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
   - `test_enrollment_is_the_learners_commitment_and_a_system_dated_check_is_none`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
-  - `test_below_the_tag_or_switched_off_the_smallest_id_wins_as_before`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
 - [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — direct import
@@ -1082,8 +1082,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_algorithm_version_change_rewrites_the_rows_it_stamps`
   - `test_the_residual_writer_writes_nothing_when_nothing_changed`
   - `test_the_writer_deletes_vanished_cells_inserts_new_ones_and_updates_only_changed_ones`
-- [tests/test_failure_triage_causal_gate.py](../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
 - [tests/test_familiarity.py](../../../../../tests/test_familiarity.py) — direct import
 - [tests/test_field_signal_production_paths.py](../../../../../tests/test_field_signal_production_paths.py) — direct import
   - `test_library_question_targets_only_its_notes_learning_objects`
@@ -1268,14 +1266,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_settling_writes_the_satisfaction_once_and_only_for_answered_checks`
   - `test_the_way_back_is_rendered_only_when_the_provenance_carries_it`
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
-  - `test_f2_at_the_predecessor_commitments_change_nothing`
   - `test_f2_new_vaults_start_at_the_successor_with_intent_live`
   - `test_f3_a_cold_attempt_still_answers_the_check_its_own_feedback_notwithstanding`
   - `test_f3_an_attempt_under_a_siblings_hold_is_practice_not_the_check`
 - [tests/test_intent_codex_review.py](../../../../../tests/test_intent_codex_review.py) — direct import
   - `test_f1_a_follow_up_never_serves_an_item_a_check_once_still_holds`
   - `test_f1_a_pending_follow_up_never_resurrects_a_paused_item`
-  - `test_f2_with_intent_off_commitments_change_nothing_in_the_ranked_list_or_the_plan`
   - `test_f3_a_check_whose_answer_the_tutor_revealed_is_not_served_as_a_check_on_your_own`
   - `test_f3_a_hinted_attempt_does_not_use_up_the_check`
   - `test_f5_a_primed_retry_changes_neither_the_cost_preview_nor_the_review_load`
@@ -1312,7 +1308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_primed_retry_and_a_diagnostic_between_reviews_leave_the_effective_due_unchanged`
   - `test_effective_due_scales_the_interval_from_the_anchor`
   - `test_fallbacks_no_state_null_due_no_anchor_and_anchor_not_before_due`
-  - `test_identity_at_090_uncommitted_items_are_served_exactly_as_with_intent_off`
+  - `test_identity_at_090_uncommitted_items_are_served_exactly_as_with_no_commitment`
   - `test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies`
 - [tests/test_intent_resolution.py](../../../../../tests/test_intent_resolution.py) — direct import
   - `test_a_satisfied_check_still_decides_over_an_older_lo_master`
@@ -1820,9 +1816,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_probe_ties.py](../../../../../tests/test_router_probe_ties.py) — direct import
   - `test_a_greedy_probe_presentation_carries_no_exploration_mark`
   - `test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice`
-  - `test_kill_switch_serves_the_predecessors_probe_offer_exactly`
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_router_r1_composition.py](../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../tests/test_router_r2a_serving.py) — direct import

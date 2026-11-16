@@ -731,6 +731,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unmapped_repair_class_abstains_with_a_typed_reason`
 - [tests/test_causal_attribution_p2.py](../../../../../../tests/test_causal_attribution_p2.py) — direct import
   - `test_cold_success_updates_repair_effect_not_diagnosis`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
 - [tests/test_causal_cold_outcomes.py](../../../../../../tests/test_causal_cold_outcomes.py) — direct import
   - `test_cold_pick_refuses_distinct_item_in_same_surface_group`
   - `test_cold_pick_skips_same_group_and_takes_next_independent`
@@ -960,7 +961,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_m3_k0_observed_k1_prepared_and_a_concurrent_guide_open_for_k1_send_one_call`
   - `test_m3_the_guides_worker_moves_its_claim_to_the_inputs_it_prepared`
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
-  - `test_the_switch_is_on_by_default_classified_and_needs_the_curriculum_and_rw7b`
+  - `test_the_plan_follows_the_deliverable_only_with_the_curriculum_the_guide_and_the_plan_on`
 - [tests/test_curriculum_c1_round5_followups.py](../../../../../../tests/test_curriculum_c1_round5_followups.py) — direct import
   - `test_c1_r5_followup_a_a_guide_judgment_keeps_its_route_rules`
   - `test_c1_r5_followup_b_a_reload_right_after_the_gates_read_cannot_slip_into_the_admission`
@@ -1050,7 +1051,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`
   - `test_a_tied_span_check_inside_an_automatic_build_waits_for_the_owner`
@@ -1413,11 +1414,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_span_check_is_asked_before_the_vault_lock_is_taken`
   - `test_the_span_switch_restores_the_cited_reword_and_reword_confirm_off_skips_the_check`
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
-- [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
-  - `test_high_confidence_signature_takes_intended_route`
-- [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
-  - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
   - `test_isomorph_is_preserved_in_authored_members`
@@ -2286,7 +2282,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
   - `test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out`
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
-  - `test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on`
+  - `test_the_plan_follows_a_path_only_with_the_guide_and_the_plan_on`
 - [tests/test_planted_misgrade.py](../../../../../../tests/test_planted_misgrade.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
@@ -2489,7 +2485,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_shadow_is_zero_with_a_narrative_present`
   - `test_switched_off_there_is_no_route_call_and_no_narrative_anywhere`
   - `test_the_prompt_carries_the_typed_summary_and_never_the_learners_words`
-  - `test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated`
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
   - `test_a_workbench_session_asks_as_its_items_practice`
 - [tests/test_reader_followups.py](../../../../../../tests/test_reader_followups.py) — direct import
@@ -2844,8 +2839,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_replayer_applies_the_vaults_servable_items`
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
   - `test_the_full_list_seam_reads_the_plan`
@@ -3213,12 +3207,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off`
 - [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
-  - `test_the_gate_reads_lessons_on_the_clock_only_at_the_tag_with_the_switch`
+  - `test_the_gate_reads_lessons_on_the_clock_with_lessons_on`
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
   - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
 - [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off`
+  - `test_the_gate_reads_on_and_off_with_the_objective_or_lessons_off`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
@@ -3312,7 +3306,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not`
   - `test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does`
   - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
-  - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
+  - `test_without_the_decision_log_the_desktop_config_has_no_suggestions`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
   - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
@@ -3321,15 +3315,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_a_typed_goal_opens_on_the_los_c0bs_resolver_names_and_says_what_is_not_in_the_books`
   - `test_the_next_lesson_on_the_same_topics_starts_where_the_last_left_off`
-  - `test_typed_goals_need_the_switch`
   - `test_yes_to_a_leftover_creates_the_topic_with_teacher_goal_v1_and_one_goal_lo_episode`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
-  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
   - `test_lesson_goal_and_open_lessons_through_the_handlers`
+  - `test_the_config_carries_the_te2_key_with_lessons`
 - [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_lessons_off`
+  - `test_the_gate_reads_on_with_lessons_on_and_off_with_lessons_off`
 - [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_an_episodes_minutes_come_from_the_screens_intervals`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

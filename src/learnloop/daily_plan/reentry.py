@@ -141,8 +141,7 @@ def reentry_panel(
             if not resolved.uncommitted:
                 if resolved.excluded or resolved.choice in ("light_touch", "check_once"):
                     continue
-                if intent.recall_targets_enabled:
-                    lo_target = resolved.recall_target
+                lo_target = resolved.recall_target
         if current >= lo_target:
             solid += 1
         elif previous >= lo_target:

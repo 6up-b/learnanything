@@ -137,17 +137,16 @@ def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, sessio
         queue_accepted_diagnostic_followups(repository)
     # Daily-loop DL2: a "Check once" an attempt answered is satisfied (the
     # commitment's own disposition; serving already reads it so). A no-op
-    # without commitments or with intent.enabled off.
+    # without commitments.
     settle_answered_checks(vault, repository)
-    # Data capture A2: a measurement's due, offered, answered and unavailable states. A no-op
-    # below mvp-0.44 or with data_capture.serving off; it never blocks the queue.
+    # Data capture A2: a measurement's due, offered, answered and unavailable states; it never
+    # blocks the queue.
     try:
         objectives.settle(vault, repository)
     except Exception:  # noqa: BLE001 - a record of states never fails the queue
         logging.getLogger(__name__).warning("data capture: measurement states were not settled", exc_info=True)
     # Reader RW6b: re-value the pending cold follow-ups before the day's plan
     # (no model call) and plan any ended reader session in the background.
-    # A no-op with followups.enabled off.
     prepare_followups(ctx, vault, repository)
     _wait_for_session_diagnoses(ctx, vault, repository, session_id)
 

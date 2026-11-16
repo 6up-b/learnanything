@@ -25,7 +25,6 @@ TAG = "mvp-0.44"
 def _at_tag(ctx):
     vault, _repository = ctx.require_vault()
     vault.config.algorithms.algorithm_version = TAG
-    vault.config.data_capture.serving = True
     return vault
 
 

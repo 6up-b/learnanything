@@ -193,7 +193,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cold_verification_is_carried_through_the_followup_task`
   - `test_live_attempt_queues_a_repair_mapping_backfill_that_self_closes`
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-  - `test_a_deterministic_sensor_earns_validator_owned_and_reaches_triage`
+  - `test_a_deterministic_sensor_earns_validator_owned_and_resolves_the_factor`
   - `test_causal_disambiguation_end_to_end_acceptance`
 - [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — direct import
   - `test_attempt_without_factors_is_untouched`

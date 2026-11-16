@@ -365,7 +365,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_teach_back_readiness_is_probed_once_per_offer`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_rw5c_recheck.py](../../../../../../tests/test_rw5c_recheck.py) — direct import
   - `test_the_audit_lists_no_equation_of_a_source_held_out_after_its_check`

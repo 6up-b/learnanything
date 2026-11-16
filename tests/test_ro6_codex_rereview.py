@@ -194,7 +194,8 @@ def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_pa
                == TS.CARRIED]
     assert carried, [((trace.get("residual") or {}).get("status"), (trace.get("residual") or {}).get("previous"),
                       (trace.get("residual") or {}).get("error")) for trace in traces]
-    span_at = LT.NAMES.index("cutoff_span")
+    # Lesson offers serve at this vault (TE3b), so the features are RO6's with the lesson indicator.
+    span_at = LT.NAMES_LESSON.index("cutoff_span")
     for trace in carried:
         previous = trace["residual"]["previous"]
         support = list(trace["mixing"]["mu"])
@@ -203,7 +204,7 @@ def test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff(tmp_pa
         for ref in support:
             vector = [float(v) for v in previous["features"][ref]]
             own = [float(v) for v in trace["residual"]["candidates"][ref]["features"]]
-            assert len(vector) == len(LT.NAMES)
+            assert len(vector) == len(LT.NAMES_LESSON)
             assert vector[span_at] == pytest.approx(float(previous["cutoff_days"]) / 90.0)
             assert [v for k, v in enumerate(vector) if k != span_at] == [v for k, v in enumerate(own) if k != span_at]
 

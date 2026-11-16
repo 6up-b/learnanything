@@ -123,7 +123,6 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 

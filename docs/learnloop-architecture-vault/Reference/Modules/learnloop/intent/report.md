@@ -47,14 +47,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/report.py](../../../../../../src/learnloop/intent/report.py) |
-| Source lines | 74 |
+| Source lines | 68 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `intent_report(vault: Any, connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/report.py), line 22)
+- `intent_report(vault: Any, connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/report.py), line 21)
 
 ### Explicit exports
 
@@ -80,7 +80,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/scheduling/intent/recall_targets|learnloop.scheduling.intent.recall_targets]] — imports `effective_due`, `load_anchors`; calls `effective_due`, `load_anchors`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `Resolution`, `load_snapshots`; calls `Resolution`, `load_snapshots`
-- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `intent_enabled`; calls `intent_enabled`
 
 ### Platform and third-party dependencies
 

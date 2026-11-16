@@ -87,12 +87,12 @@ def test_a_tests_own_switch_is_never_overwritten(tmp_path):
     assert _at(_toml(other), "router_objective.enabled") is None
     # A fragment naming a table the test itself wrote still refuses the duplicate.
     third = create_basic_vault(tmp_path / "third")
-    append_config_toml(third.root, "[intent]\nenabled = true\n")
+    append_config_toml(third.root, "[teacher]\nenabled = true\n")
     set_algorithm_version(third, "mvp-0.14")
     try:
-        append_config_toml(third.root, "[intent]\nenabled = false\n")
+        append_config_toml(third.root, "[teacher]\nenabled = false\n")
     except AssertionError as error:
-        assert "already has [intent]" in str(error)
+        assert "already has [teacher]" in str(error)
     else:
         raise AssertionError("a duplicate table the test wrote was merged")
 

@@ -7,9 +7,9 @@ resolution serving uses. ``set_intent`` applies one choice through the
 commitments API. ``set_intent_deadline`` adds or moves a deadline (a learner
 goal linked by the commitment version's ``goal_id``) and reloads the vault.
 
-Desktop only (never on the phone allowlist). Below the successor
-``mvp-0.29``, or with ``intent.enabled`` off, ``get_intent`` answers
-``{"enabled": false}`` and the two writes refuse.
+Desktop only (never on the phone allowlist). ``get_intent`` still answers
+``"enabled": true``, which the desktop control reads (intent's kill switch
+went once every vault was past ``mvp-0.29``).
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from learnloop.daily_plan.intent_cost import cost_function
 from learnloop.intent.control import IntentControlError, Scope, apply_choice, describe
 from learnloop.intent.deadline import set_deadline
 from learnloop.scheduling.intent.model import SCOPE_KINDS
-from learnloop.scheduling.intent.serving import intent_enabled
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -52,20 +51,9 @@ def _describe(vault: Any, repository: Any, scope: Scope) -> dict[str, Any]:
     return describe(vault, repository, scope, cost=cost_function(vault, repository))
 
 
-def _require_enabled(vault: Any) -> None:
-    if not intent_enabled(vault.config):
-        raise SidecarError(
-            "intent_disabled",
-            "Intent settings are off for this vault (they need algorithm version mvp-0.29 or later "
-            "and intent.enabled = true).",
-        )
-
-
 @method("get_intent", IntentScopeInput)
 def get_intent(ctx: SidecarContext, params: IntentScopeInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    if not intent_enabled(vault.config):
-        return versioned({"enabled": False})
     try:
         view = _describe(vault, repository, _scope(params))
     except IntentControlError as error:
@@ -76,7 +64,6 @@ def get_intent(ctx: SidecarContext, params: IntentScopeInput) -> dict[str, Any]:
 @method("set_intent", SetIntentInput)
 def set_intent(ctx: SidecarContext, params: SetIntentInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    _require_enabled(vault)
     scope = _scope(params)
     try:
         applied = apply_choice(vault, repository, scope, params.choice)
@@ -89,7 +76,6 @@ def set_intent(ctx: SidecarContext, params: SetIntentInput) -> dict[str, Any]:
 @method("set_intent_deadline", SetIntentDeadlineInput)
 def set_intent_deadline(ctx: SidecarContext, params: SetIntentDeadlineInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    _require_enabled(vault)
     scope = _scope(params)
     try:
         result = set_deadline(vault, repository, scope, params.due_at)

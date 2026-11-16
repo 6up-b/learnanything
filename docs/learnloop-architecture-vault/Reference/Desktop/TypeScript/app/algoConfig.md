@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/algoConfig.ts](../../../../../../apps/learnloop-tauri/src/app/algoConfig.ts) |
-| Source lines | 257 |
+| Source lines | 256 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -55,33 +55,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface AlgoDisplayConfig` — interface, line 7
-- `export interface AskPanelConfig` — interface, line 71
-- `export interface WorkbenchHelpConfig` — interface, line 79
-- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 90
-- `export interface AdaptiveHintsConfig` — interface, line 92
-- `export function setAlgoConfig(config: unknown): void` — function, line 124
-- `export function subscribeAlgoConfig(listener: ()` — function, line 184
-- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 196
-- `export function storedHelpStyle(): HelpStyleValue` — function, line 205
-- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 211
-- `export function algoConfig(): AlgoDisplayConfig` — function, line 213
-- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 217
-- `export function masteryBand(mastery: number): MasteryBand` — function, line 219
-- `export function masteryTone<T>(mastery: number, palette:` — function, line 226
-- `export function useSymbolicChecksLive(): boolean` — function, line 238
-- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 250
-- `export function activeShell(): "simple" | "classic"` — function, line 255
+- `export interface AskPanelConfig` — interface, line 70
+- `export interface WorkbenchHelpConfig` — interface, line 78
+- `export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me"` — type, line 89
+- `export interface AdaptiveHintsConfig` — interface, line 91
+- `export function setAlgoConfig(config: unknown): void` — function, line 123
+- `export function subscribeAlgoConfig(listener: ()` — function, line 183
+- `export function setAdaptiveHelpStyle(style: HelpStyleValue): void` — function, line 195
+- `export function storedHelpStyle(): HelpStyleValue` — function, line 204
+- `export const STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"` — const, line 210
+- `export function algoConfig(): AlgoDisplayConfig` — function, line 212
+- `export type MasteryBand = "strong" | "developing" | "weak"` — type, line 216
+- `export function masteryBand(mastery: number): MasteryBand` — function, line 218
+- `export function masteryTone<T>(mastery: number, palette:` — function, line 225
+- `export function useSymbolicChecksLive(): boolean` — function, line 237
+- `export function setRenderedShell(shell: "simple" | "classic" | null): void` — function, line 249
+- `export function activeShell(): "simple" | "classic"` — function, line 254
 
 ## Internal implementation anchors
 
-- `const DEFAULTS: AlgoDisplayConfig =` — const, line 99
-- `let current: AlgoDisplayConfig =` — let, line 120
-- `let renderedShell: "simple" | "classic" | null = null` — let, line 122
-- `const root = (config ??` — const, line 125
-- `const listeners = new Set<()` — const, line 180
-- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 191
-- `const band = masteryBand(mastery)` — const, line 227
-- `function asNumber(value: unknown, fallback: number): number` — function, line 231
+- `const DEFAULTS: AlgoDisplayConfig =` — const, line 98
+- `let current: AlgoDisplayConfig =` — let, line 119
+- `let renderedShell: "simple" | "classic" | null = null` — let, line 121
+- `const root = (config ??` — const, line 124
+- `const listeners = new Set<()` — const, line 179
+- `function asHelpStyle(value: unknown): HelpStyleValue` — function, line 190
+- `const band = masteryBand(mastery)` — const, line 226
+- `function asNumber(value: unknown, fallback: number): number` — function, line 230
 
 ## Who imports or calls it
 

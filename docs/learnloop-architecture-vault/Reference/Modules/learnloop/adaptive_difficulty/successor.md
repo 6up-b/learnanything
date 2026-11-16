@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptiv
 
 ## Why this module exists
 
-`learnloop.adaptive_difficulty.successor` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: The AD2+AD3 successor's gate and its six switches (spec_adaptive_difficulty_v1 §11.1).
+`learnloop.adaptive_difficulty.successor` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: The AD2+AD3 successor's gate and its five switches (spec_adaptive_difficulty_v1 §11.1).
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py) |
-| Source lines | 143 |
+| Source lines | 138 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,25 +55,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `successor_active(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 42) — The master switch on.
-- `switch_on(config: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 48) — One of the six switches, under the master switch.
+- `switch_on(config: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 48) — One of the five switches, under the master switch.
 - `selection_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 56)
-- `generation_contract_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 60)
-- `subject_view_live(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 64) — Live decisions read the subject view (``promoted_predictor``).
-- `coupling_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 70)
-- `reading_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 74)
-- `verdicts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 78)
-- `lesson_opportunities_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 85) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read by the objective's lesson interface.
-- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 93) — The Reader's dose arm (outside the successor; every version).
-- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 102) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
-- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 115)
+- `subject_view_live(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 60) — Live decisions read the subject view (``promoted_predictor``).
+- `coupling_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 66)
+- `reading_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 70)
+- `verdicts_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 74)
+- `lesson_opportunities_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 81) — Teacher TE3a (spec_teacher_v1 rev 5 §14.2): lesson opportunities are swept, applied by the subject view and read by the objective's lesson interface.
+- `dose_offers_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 89) — The Reader's dose arm (outside the successor; every version).
+- `history_fallback(config: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 98) — How AD reads a historical attempt whose exact item revision was not saved (``adaptive_difficulty.history_fallback``; owner decision 2026-10-19): ``"current_content"`` (the default) reads it against today's item text, ``"exclude"`` leaves it out.
+- `settings(config: Any) -> dict[str, bool]` ([source](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 111)
 
 ### Module constants
 
-- `SUCCESSOR` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 32)
-- `SWITCHES` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 33)
+- `SUCCESSOR` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 33)
+- `SWITCHES` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 34)
 - `DOSE_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 35)
-- `LESSON_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 82)
-- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 99)
+- `LESSON_SWITCH` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 78)
+- `HISTORY_FALLBACKS` ([src/learnloop/adaptive_difficulty/successor.py](../../../../../../src/learnloop/adaptive_difficulty/successor.py), line 95)
 
 ### Explicit exports
 
@@ -86,7 +85,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SWITCHES`
 - `coupling_on`
 - `dose_offers_on`
-- `generation_contract_on`
 - `history_fallback`
 - `lesson_opportunities_on`
 - `reading_on`
@@ -108,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `history_fallback`; statically calls `history_fallback`
 - [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `dose_offers_on`; statically calls `dose_offers_on`
-- [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `generation_contract_on`, `successor_active`; statically calls `generation_contract_on`, `successor_active`
+- [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `successor_active`; statically calls `successor_active`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `lesson_opportunities_on`; statically calls `lesson_opportunities_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `lesson_opportunities_on`; statically calls `lesson_opportunities_on`
 - [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `lesson_opportunities_on`, `subject_view_live`; statically calls `lesson_opportunities_on`, `subject_view_live`

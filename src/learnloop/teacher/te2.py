@@ -1,6 +1,6 @@
 """Teacher TE2's switch, prompt and turn shape (spec_teacher_v1 rev 5 §9, §11.3, §11.5, §11.7, §11.8, §18.3).
 
-One successor (mvp-0.51) behind ``teacher.probes`` with the existing ``teacher.enabled``:
+One successor (mvp-0.51), serving wherever lessons are on (``teacher.enabled``):
 
 * **The turn grows** (§9): ``serve_probe {node, readings, p}`` (:mod:`.probes`) and ``propose_gap {ref, gap_kind,
   gap}`` (:mod:`.topics`), with the doctrine's versioned TE2 paragraph (``doctrine/te2/v1.md``) and the prompt
@@ -12,8 +12,8 @@ One successor (mvp-0.51) behind ``teacher.probes`` with the existing ``teacher.e
   node says whether a delayed check can be committed on it ("an unseen question exists" or "none yet", no item
   named), and ``where_you_left_off`` carries the last lesson's latest plan on these topics (§11.8).
 
-Off, or below the tag: none of this runs, and the prompt, the schema, the brief, the transcript and the forecaster
-family are TE1's (and TE2-log's) exactly.
+A lesson opened before it (brief ``lesson_brief_v1``) keeps TE1's prompt, schema and actions to its close
+(:func:`lesson_te2`).
 """
 
 from __future__ import annotations
@@ -50,10 +50,10 @@ _PARAGRAPH = Path(__file__).resolve().parent / "doctrine" / "te2" / "v1.md"
 
 
 def on(vault: Any) -> bool:
-    """TE2 serves: lessons on and ``teacher.probes`` on."""
+    """TE2 serves: lessons are on."""
 
     teacher = getattr(getattr(vault, "config", None), "teacher", None)
-    return teacher is not None and bool(getattr(teacher, "enabled", False)) and bool(getattr(teacher, "probes", False))
+    return teacher is not None and bool(getattr(teacher, "enabled", False))
 
 
 def lesson_te2(state: Any) -> bool:

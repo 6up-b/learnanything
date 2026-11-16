@@ -231,7 +231,7 @@ def test_the_learners_answers_are_preference_lines_on_the_router_card(tmp_path, 
     assert after.card_version == CARD_VERSION + SUGGESTION_CARD_SUFFIX
     # Outside the card's 7-day window the line is gone; with suggestions off the card is the predecessor's.
     assert SUGGESTION_SECTION not in _card(paths, repository, "2026-11-10T09:00:00Z").json["evidence_sections"]
-    set_config(paths.root, {("router", "lesson_suggestions", "enabled"): False})
+    set_config(paths.root, {("router", "log_decisions"): False})
     off = _card(paths, repository, "2026-11-03T09:00:00Z")
     assert SUGGESTION_SECTION not in off.json["evidence_sections"] and off.card_version == CARD_VERSION
 

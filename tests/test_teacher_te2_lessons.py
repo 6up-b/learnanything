@@ -1,9 +1,7 @@
-"""Teacher TE2: the switch, the brief's version, gaps, typed goals, the resume card and rebuild equivalence
+"""Teacher TE2: the brief's version, gaps, typed goals, the resume card and rebuild equivalence
 (spec_teacher_v1 rev 5 §8.1, §11.5, §11.7, §11.8, §18.3, §24 row TE2). Every model is a fake; no network.
 
-* ``teacher.probes`` off at the tag, or the vault below it: a lesson is TE1's and TE2-log's byte for byte (the
-  prompts, the turn schema, the brief, the transcript, the forecaster family).
-* On: the brief is ``lesson_brief_v2`` (no vault probe headers; each node's delayed-check line; where the last lesson
+* The brief is ``lesson_brief_v2`` (no vault probe headers; each node's delayed-check line; where the last lesson
   left off); ``propose_gap`` files the learner's words with ``source_kind = 'lesson'``; a typed goal opens through
   C0b's resolver, a new topic through ``create_goal_lo`` with ``teacher_goal_v1``; Today lists open lessons and
   "Close it" closes one with no teacher call.
@@ -15,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.teacher import service as S
 from learnloop.teacher import te2 as T2
@@ -25,7 +23,6 @@ from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, cl
 from tests.teacher_te2_probes_helpers import _Lesson, probe_turn
 
 TAG = LATEST_ALGORITHM_VERSION
-OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 T0 = datetime(2026, 11, 6, 15, 0, tzinfo=UTC)
 
 
@@ -33,37 +30,6 @@ def _script(lesson):
     lesson.act("reply", {"text": "Go."}, turns=[check_turn()])
     lesson.act("answer_check", {"answer": "det(A - tI) = 0", "tap": 4}, turns=[close_turn()])
     return lesson
-
-
-@pytest.mark.parametrize("episode_log", [True, False])
-def test_switch_off_or_below_the_tag_gives_te1s_lesson_byte_for_byte(tmp_path, episode_log):
-    config = {("teacher", "episode_log"): episode_log}
-    import re
-
-    below = _script(_Lesson(tmp_path / "below", [plan_turn], version=OLD, config=config))
-    off = _script(_Lesson(tmp_path / "off", [plan_turn], config={**config, ("teacher", "probes"): False}))
-
-    def same(lesson):
-        # Ids aside (each lesson's own id, its minted check item, attempt ULIDs): the prompts byte for byte.
-        out = []
-        for _purpose, prompt in lesson.fake.prompts:
-            prompt = prompt.replace(lesson.lesson_id, "LESSON")
-            out.append(re.sub(r"pi_lesson_[0-9a-f]+|\b[0-9A-Z]{26}\b", "ID", prompt))
-        return out
-
-    assert same(below) == same(off)
-    assert len(below.fake.prompts) == len(off.fake.prompts) >= 3
-    assert below.fake.result_models == off.fake.result_models
-    assert T2.PROMPT_SUFFIX not in below.fake.all_prompts()
-    for lesson in (below, off):
-        brief = S.load_state(lesson.repository, lesson.lesson_id).brief
-        assert brief["version"] == "lesson_brief_v1" and all("probes" in node for node in brief["nodes"])
-        assert "te2" not in lesson.view and "probe" not in lesson.view
-    strip = lambda rows: [row[1:] for row in rows]  # noqa: E731 - ids aside
-    query = "SELECT id, seq, actor, action, validation FROM lesson_turns ORDER BY seq"
-    assert strip(below.rows(query)) == strip(off.rows(query))
-    assert below.rows("SELECT kind, forecaster_version FROM forecast_receipts ORDER BY created_at") == off.rows(
-        "SELECT kind, forecaster_version FROM forecast_receipts ORDER BY created_at")
 
 
 def test_on_the_brief_is_v2_and_the_turn_carries_te2s_actions(tmp_path):
@@ -205,14 +171,6 @@ def test_no_to_every_leftover_teaches_the_rest_and_a_protected_goal_is_refused(t
     assert refused.value.code == "protected"
 
 
-def test_typed_goals_need_the_switch(tmp_path):
-    paths, repository = build_teacher_vault(tmp_path / "vault", version=OLD)
-    with pytest.raises(S.LessonError) as refused:
-        S.open_lesson(load_vault(paths.root), repository, entry="typed_goal", goal_text="eigenvalues",
-                      clients=clients(TeacherFake([plan_turn])))
-    assert refused.value.code == "teacher_unavailable"
-
-
 def test_today_lists_open_lessons_and_close_it_closes_with_no_teacher_call(tmp_path):
     lesson = _Lesson(tmp_path, [plan_turn])
     cards = S.open_lessons(lesson.vault(), lesson.repository)
@@ -222,10 +180,6 @@ def test_today_lists_open_lessons_and_close_it_closes_with_no_teacher_call(tmp_p
     assert lesson.view["closed"] and lesson.view["close_reason"] == "learner_stop"
     assert len(lesson.fake.prompts) == calls
     assert S.open_lessons(lesson.vault(), lesson.repository) == []
-    old = _Lesson(tmp_path / "old", [plan_turn], version=OLD)
-    assert S.open_lessons(old.vault(), old.repository) == []
-    with pytest.raises(S.LessonError):
-        old.act("close")
 
 
 def test_rebuild_equivalence_on_a_lesson_with_a_probe(tmp_path):

@@ -26,7 +26,6 @@ from tests.reading_path_fixtures import (
 
 
 TAG = LATEST_ALGORITHM_VERSION
-OFF = "[reading_paths]\nplan_uses_path = false\n"
 GUIDE_OFF = "[reading_paths]\nenabled = false\n"
 
 

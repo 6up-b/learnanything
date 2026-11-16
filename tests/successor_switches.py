@@ -33,15 +33,10 @@ from typing import Any
 
 from learnloop.algorithm_versions import (
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
-    DATA_CAPTURE_ALGORITHM_VERSION,
     FAILURE_SHARE_ALGORITHM_VERSION,
     FOLLOWUP_SERVE_ALGORITHM_VERSION,
-    INTENT_ALGORITHM_VERSION,
     INTERVAL_FACTOR_ALGORITHM_VERSION,
-    LESSON_OFFERS_ALGORITHM_VERSION,
     LESSON_OPPORTUNITY_ALGORITHM_VERSION,
-    LESSON_SUGGESTIONS_ALGORITHM_VERSION,
-    PROBE_TIE_ALGORITHM_VERSION,
     ROUTER_CALIBRATION_ALGORITHM_VERSION,
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION,
@@ -49,18 +44,13 @@ from learnloop.algorithm_versions import (
     ROUTER_OBJECTIVE_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     TEACHER_ALGORITHM_VERSION,
-    TEACHER_PROBES_ALGORITHM_VERSION,
 )
 from learnloop.router_objective_switches import FOLLOWUP_SWITCHES
 
 #: Successor tag -> the config values that serve its predecessor (dotted key -> value).
 SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
-    PROBE_TIE_ALGORITHM_VERSION: {"router.probe_tie_admission": False},
-    INTENT_ALGORITHM_VERSION: {"intent.enabled": False},
     ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION: {"adaptive_difficulty.enabled": False},
     TEACHER_ALGORITHM_VERSION: {"teacher.enabled": False},
-    LESSON_SUGGESTIONS_ALGORITHM_VERSION: {"router.lesson_suggestions.enabled": False},
-    DATA_CAPTURE_ALGORITHM_VERSION: {"data_capture.serving": False},
     FOLLOWUP_SERVE_ALGORITHM_VERSION: {"followup.generate_and_serve": False},
     INTERVAL_FACTOR_ALGORITHM_VERSION: {
         "scheduler.surprise.remove_interval_factor": False,
@@ -77,9 +67,7 @@ SWITCHES_BY_TAG: dict[str, dict[str, Any]] = {
     },
     ROUTER_LEARNED_TAIL_ALGORITHM_VERSION: {"router_objective.learned_tail": False},
     ROUTER_FOLLOWUPS_ALGORITHM_VERSION: {f"router_objective.{key}": False for key in FOLLOWUP_SWITCHES},
-    TEACHER_PROBES_ALGORITHM_VERSION: {"teacher.probes": False},
     LESSON_OPPORTUNITY_ALGORITHM_VERSION: {"adaptive_difficulty.lesson_opportunities": False},
-    LESSON_OFFERS_ALGORITHM_VERSION: {"router.lesson_suggestions.in_objective": False},
     # Instruct hand-off's batch (one tag).
     FAILURE_SHARE_ALGORITHM_VERSION: {
         "router_objective.failure_share_to_other_policy": False,

@@ -93,7 +93,7 @@ def process_next_job(
     outcome = JobOutcome(job_id=str(job["id"]), kind=str(job["kind"]), state="done",
                          workflow_id=job.get("workflow_id"))
     try:
-        # Teacher TE2: a lesson's probe is the teacher's (teacher.probes at its successor), not FG1's switch.
+        # Teacher TE2: a lesson's probe is the teacher's (lessons on), not FG1's switch.
         from learnloop.followup_run import lesson_probe
 
         lesson_job = job["kind"] == "lesson"

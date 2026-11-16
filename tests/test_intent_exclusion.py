@@ -2,8 +2,7 @@
 
 Pause, Reference and Let go keep an item out of the open queue, the plan and
 the request floor, at every scope; resuming (a later choice) brings it back;
-the review-load projection leaves excluded items out; with ``intent.enabled =
-false`` none of it applies. Held-out material keeps its own exclusions, and a
+the review-load projection leaves excluded items out. Held-out material keeps its own exclusions, and a
 "Check once" never selects a held-out item.
 """
 
@@ -19,7 +18,6 @@ from learnloop.daily_plan.engine import PlanEnv, _review_items, _estimator
 from learnloop.scheduling import scheduler as scheduler_module
 from learnloop.scheduling.serving_exclusions import ServingExclusions
 from tests.daily_plan_fakes import MovableClock
-from tests.helpers import append_config_toml
 from tests.intent_fakes import NOW, make_intent_vault
 
 T = lambda minutes: NOW + timedelta(minutes=minutes)  # noqa: E731
@@ -65,14 +63,6 @@ def test_excluded_items_are_left_out_of_the_review_load(iv):
     assert not {"pi_c1", "pi_c2"} & ids
     assert {"pi_a1", "pi_b1"} <= ids
     assert {"pi_c1", "pi_c2"} <= {item.practice_item_id for item in _review_items(env, estimator)}
-
-
-def test_with_intent_off_commitments_change_nothing_served(iv):
-    iv.choose("subject", "linear-algebra", "pause", T(0))
-    assert iv.queue(T(1)) == []
-    append_config_toml(iv.root, "[intent]\nenabled = false\n")
-    iv.reload()
-    assert sorted(iv.queue(T(1))) == ["pi_a1", "pi_a2", "pi_b1", "pi_c1", "pi_c2"]
 
 
 def _hold_out(monkeypatch, item_ids):

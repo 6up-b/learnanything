@@ -65,7 +65,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/substrate/__init__|learnloop.substrate]] | [[Reference/Modules/learnloop/substrate/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] | [[Reference/Modules/learnloop/substrate/activities#^module-purpose|purpose]] | `ACTIVE` | 52 | 43 |
+| [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] | [[Reference/Modules/learnloop/substrate/activities#^module-purpose|purpose]] | `ACTIVE` | 51 | 43 |
 | [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] | [[Reference/Modules/learnloop/substrate/activity_patterns#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
 | [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] | [[Reference/Modules/learnloop/substrate/administration_adapters#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] | [[Reference/Modules/learnloop/substrate/canonical_projection#^module-purpose|purpose]] | `ACTIVE` | 42 | 42 |
@@ -120,7 +120,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 22 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 21 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 13 static module edges
@@ -173,7 +173,7 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_goals["learnloop.goals"]
     center -->|32| n_learnloop
-    n_learnloop_diagnosis -->|22| center
+    n_learnloop_diagnosis -->|21| center
     center -->|5| n_learnloop_diagnosis
     center -->|25| n_learnloop_db
     n_learnloop_learner -->|5| center

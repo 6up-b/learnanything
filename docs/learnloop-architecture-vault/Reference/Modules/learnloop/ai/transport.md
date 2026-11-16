@@ -359,7 +359,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
-  - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+  - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import
   - `test_f1_kill_codex_interrupts_nothing_when_its_settle_fails`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
@@ -374,7 +374,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_review_spend_reserves_the_transport_retry_at_its_doubled_allowance`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
-  - `test_switch_off_keeps_te1s_lesson_byte_identical`
+  - `test_switch_off_keeps_the_lesson_without_the_episode_paragraph`
   - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
   - `test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room`

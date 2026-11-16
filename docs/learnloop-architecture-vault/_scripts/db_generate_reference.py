@@ -870,7 +870,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
     "followup": "follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped",
     "router_objective": "the router objective (docs/specs/spec_router_objective_v1.md): RO0's receipts' switch, additive at every version, read by nothing serving, scheduling or certification; RO1's kill switches of the successor mvp-0.46: decision-time attempt reads by availability time, and a learner's misconception pick not counted as validated evidence (the interval factor's switch is scheduler.surprise.remove_interval_factor)",
-    "data_capture": "data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version, and the kill switch of the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3",
+    "data_capture": "data capture (the long-horizon objective's dataset): the prefilter receipts' switch, additive at every version (the successor mvp-0.44's measurement slots, not_ready floor, delayed-check picker and router_outcomes_v3 serve with no switch)",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
@@ -1064,7 +1064,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "plan.project_probes_max_per_day": "Most due project probes a day in the maintain lane (project M2); the rest stay in the full list.",
     "plan.headline": "Shows the optional one-line Today headline (display only, D7).",
     "router.log_decisions": "Writes one router_decisions row per Today offer, staged P2 decision, learner pick and daily-plan block decision; not a serving change, acts at every version.",
-    "router.probe_tie_admission": "Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14.",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
         "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
@@ -1323,14 +1322,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "recorded on lesson_checks, its teaching text writes lesson reveal rows and its close commits delayed "
         "checks. Off, or below the tag, no lesson opens and every path is mvp-0.40's byte for byte."
     ),
-    "router.lesson_suggestions.enabled": (
-        "Kill switch for teacher TE1b's successor (mvp-0.43; "
-        "spec_teacher_v1 §15.1). On (with router.enabled, router.log_decisions and lessons on), Today's open draws "
-        "at most one instruct(lesson) suggestion a day with an exact logged propensity (a lesson_suggestion router "
-        "decision, shown or not); Start opens a TE1 lesson whose origin is that decision and every response is a "
-        "router_suggestion_responses row. Off, or below the tag, nothing is drawn or written and Today and the plan "
-        "are mvp-0.42's byte for byte."
-    ),
     "router.lesson_suggestions.ceiling_per_day": (
         "keep: the anti-nagging ceiling on shown lesson suggestions a day (spec_teacher_v1 §18.4); never learned; a "
         "draw it binds shows no card and is logged with ceiling_bound. The card is drawn at most once a day, so the "
@@ -1340,16 +1331,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Curriculum C4's switch (spec_deliverable_curriculum_v1 §8.2): the brief's goal and sources from the "
         "nearest deliverable naming the lesson's topics and its path (primaries whole, alternates as outline), "
         "and the learner's linked notes as headers with read_note. Off: the brief has none of it."
-    ),
-    "curriculum.plan_uses_path": (
-        "Kill switch for curriculum C1's successor (mvp-0.40; "
-        "spec_deliverable_curriculum_v1 §7.6). On (with curriculum.enabled and RW7b's reading_paths.enabled "
-        "and reading_paths.plan_uses_path), the plan's reading block opens the next unfinished core or "
-        "prerequisite section in the nearest active deliverable's fresh path order, in whichever book it is "
-        "(the front-matter rule, the exam filter and DL2's reading_allowed first; receipts "
-        "reading_path_plan_v2); a stale path is re-judged quietly once a day (plan only) and not followed "
-        "meanwhile. Off, every plan build is RW7b's (mvp-0.32 onwards) byte for byte. Dormant below the "
-        "successor; replay never reads it."
     ),
     "replay.ledger_bounded": (
         "Kill switch for the rebuild-equivalence successor (mvp-0.34). "
@@ -1367,16 +1348,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "taught_first_predecessor component record what the predecessor would have decided. Off (or below "
         "the successor) the derivation, Phase 6 serving and every plan build run as the predecessor and no "
         "workbench table is read."
-    ),
-    "intent.enabled": (
-        "Kill switch for daily-loop DL2's successor (mvp-0.29; learnloop.scheduling.intent). On, "
-        "serving reads the learner's intent: Pause, Reference, Let go and an answered \"Check once\" "
-        "keep items out of the queue, requests, follow-up insertion and plans already built; a "
-        "\"Check once\" is served cold only when the one eligibility decision allows it and answered "
-        "only by an attempt it would have served cold; effective dues at the recall targets, push, "
-        "admission, re-entry and reading by intent; the desktop intent control. Off (or below the "
-        "successor) every serve path and plan run the predecessor's code and the control answers "
-        "enabled: false. Replay never reads it."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

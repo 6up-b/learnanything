@@ -271,7 +271,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] — imports `LESSON_PROBE_EVIDENCE_ORIGIN`, `LESSON_PROBE_EXPOSED_SOURCE`, `LESSON_PROBE_SOURCE`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
-- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `maybe_promote_self_tagged_fatal_error`; calls `maybe_promote_self_tagged_fatal_error`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `maybe_promote_self_tagged_fatal_error`; calls `maybe_promote_self_tagged_fatal_error`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `FacetRecallState`, `FacetUncertaintyState`, `GradingEvidenceRecord`, `ItemParameterState`, `MasteryState`, `PracticeItemQualityState`, `PracticeItemState`, `Repository`; calls `PracticeItemState`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `AMBIGUOUS_DEFAULT_REVISION`, `AMBIGUOUS_METHOD_REVISION`, `KEY_IDENTITY`, `KEY_IDENTITY_FIELD`, `checked_content_hashes`, `reference_content_hash`, `reference_status_for_item`; calls `checked_content_hashes`, `reference_content_hash`, `reference_status_for_item`
@@ -418,6 +418,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_causal_attribution_p1.py](../../../../../../tests/test_causal_attribution_p1.py) — direct import
 - [tests/test_causal_attribution_p2.py](../../../../../../tests/test_causal_attribution_p2.py) — direct import
   - `test_cold_success_updates_repair_effect_not_diagnosis`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
 - [tests/test_causal_factor_deferral.py](../../../../../../tests/test_causal_factor_deferral.py) — direct import
   - `test_an_auto_primed_attempt_can_never_resolve_a_factor`
 - [tests/test_causal_orchestrator.py](../../../../../../tests/test_causal_orchestrator.py) — direct import
@@ -425,7 +426,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_live_attempt_queues_a_repair_mapping_backfill_that_self_closes`
   - `test_relocking_an_open_episode_does_not_inherit_its_evidence`
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-  - `test_a_deterministic_sensor_earns_validator_owned_and_reaches_triage`
+  - `test_a_deterministic_sensor_earns_validator_owned_and_resolves_the_factor`
   - `test_auto_classification_declines_a_sensor_it_cannot_read`
   - `test_causal_disambiguation_end_to_end_acceptance`
   - `test_diagnosis_support_moves_only_on_independent_discriminating_evidence`
@@ -518,8 +519,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight`
   - `test_variance_floor_blocks_confidence_before_required_facet_breadth`
 - [tests/test_facet_state_write_on_change.py](../../../../../../tests/test_facet_state_write_on_change.py) — direct import
-- [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
   - `test_review_f2_the_row_survives_the_submit_on_the_vault`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import

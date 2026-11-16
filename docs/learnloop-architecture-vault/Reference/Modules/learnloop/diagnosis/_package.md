@@ -28,7 +28,6 @@ source_paths:
   - "src/learnloop/diagnosis/error_hunt.py"
   - "src/learnloop/diagnosis/error_taxonomy.py"
   - "src/learnloop/diagnosis/error_taxonomy_map.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/forecast_receipts.py"
   - "src/learnloop/diagnosis/gate_fit.py"
@@ -102,7 +101,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] | [[Reference/Modules/learnloop/diagnosis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 7 | 14 |
 | [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] | [[Reference/Modules/learnloop/diagnosis/calibration_sessions#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
 | [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] | [[Reference/Modules/learnloop/diagnosis/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 10 | 9 |
-| [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] | [[Reference/Modules/learnloop/diagnosis/causal_attribution#^module-purpose|purpose]] | `ACTIVE` | 27 | 19 |
+| [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] | [[Reference/Modules/learnloop/diagnosis/causal_attribution#^module-purpose|purpose]] | `ACTIVE` | 26 | 20 |
 | [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] | [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector#^module-purpose|purpose]] | `EVALUATION` | 3 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] | [[Reference/Modules/learnloop/diagnosis/causal_health#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -121,7 +120,6 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] | [[Reference/Modules/learnloop/diagnosis/error_hunt#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] | [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map#^module-purpose|purpose]] | `ACTIVE` | 8 | 4 |
-| [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] | [[Reference/Modules/learnloop/diagnosis/failure_triage#^module-purpose|purpose]] | `ACTIVE` | 0 | 5 |
 | [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] | [[Reference/Modules/learnloop/diagnosis/followups#^module-purpose|purpose]] | `ACTIVE` | 10 | 27 |
 | [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] | [[Reference/Modules/learnloop/diagnosis/forecast_receipts#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] | [[Reference/Modules/learnloop/diagnosis/gate_fit#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -167,11 +165,11 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 77 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 76 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 51 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 48 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 25 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 22 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 47 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 24 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 21 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 18 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 18 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 12 static module edges
@@ -184,10 +182,10 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 2 static module edges
-- [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
+- [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
@@ -246,14 +244,14 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    center -->|77| n_learnloop
+    center -->|76| n_learnloop
     center -->|51| n_learnloop_vault
-    center -->|48| n_learnloop_db
+    center -->|47| n_learnloop_db
     n_learnloop_attempts -->|20| center
-    center -->|25| n_learnloop_attempts
+    center -->|24| n_learnloop_attempts
     n_learnloop_sidecar_handlers -->|29| center
     n_learnloop_substrate -->|5| center
-    center -->|22| n_learnloop_substrate
+    center -->|21| n_learnloop_substrate
     n_learnloop_cli -->|25| center
     n_learnloop_learner -->|5| center
     center -->|18| n_learnloop_learner

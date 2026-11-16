@@ -81,7 +81,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
-- [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge

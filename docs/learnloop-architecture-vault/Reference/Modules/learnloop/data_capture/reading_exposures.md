@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/data_capture/reading_exposures.py](../../../../../../src/learnloop/data_capture/reading_exposures.py) |
-| Source lines | 331 |
+| Source lines | 330 |
 | Owning package | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `read_for_answer(connection: Any, vault: Any, repository: Any, *, answered_at: str) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/data_capture/reading_exposures.py), line 265) — :func:`read` for judging one answer on the foreground: activity that could have made it warm, or newer than the sweep's window.
 - `for_version(connection: Any, vault: Any, repository: Any, version: str, *, recent: bool=False) -> list[tuple[str, str]] | None` ([source](../../../../../../src/learnloop/data_capture/reading_exposures.py), line 277) — :func:`read` for a derivation at ``version`` (``recent``: on the foreground, from :func:`recent_since`); None below ``router_outcomes_v3``, which reads no reading receipt.
 - `sweep(vault: Any, repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/data_capture/reading_exposures.py), line 286) — Freeze the listed Reader activity since the window's start (:func:`recent_since`); how many rows it wrote.
-- `sweep_quietly(vault: Any, repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/data_capture/reading_exposures.py), line 311) — :func:`sweep`, never raising: the record of an exposure never blocks Today; the next sweep reads it.
+- `sweep_quietly(vault: Any, repository: Any, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/data_capture/reading_exposures.py), line 310) — :func:`sweep`, never raising: the record of an exposure never blocks Today; the next sweep reads it.
 
 ### Module constants
 
@@ -113,7 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `OUTCOME_VERSION_V3`, `receipts_on`, `serving_on`; calls `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `OUTCOME_VERSION_V3`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `insert_reading_exposure`, `newest_reading_exposure`, `reading_exposure_recorded`, `reading_exposures_present`, `reading_receipts`, `sections_read_by_coverage`
 - [[Reference/Modules/learnloop/db/stores/section_coverage|learnloop.db.stores.section_coverage]] — imports `module`; calls `learning_objects_named`, `table_present`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `RETENTION_MIN_DELAY_SECONDS`
@@ -147,7 +147,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_failed_sweep_never_stops_the_states`
   - `test_f1_a_section_read_after_the_last_sweep_is_found_by_the_next`
   - `test_f1_a_span_view_a_tutor_exchange_and_an_in_passage_question_are_exposures_too`
-  - `test_f1_no_receipt_with_both_switches_off`
   - `test_f1_the_sweep_records_each_exposure_once_at_its_source_time`
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import

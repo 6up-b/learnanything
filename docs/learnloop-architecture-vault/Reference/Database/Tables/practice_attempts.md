@@ -317,9 +317,9 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/laddered_stems.py`
 - `src/learnloop/content/authoring/persona_realism.py`
 - `src/learnloop/content/proposals/proposals.py`
+- `src/learnloop/content/proposals/self_tagged_fatal.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/daily_plan/engine.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -14,8 +14,6 @@ import json
 
 import pytest
 
-from tests.teacher_fakes import pin_default_tag
-from learnloop.algorithm_versions import TEACHER_ALGORITHM_VERSION
 from learnloop.content.sources import exam_material as EM
 from learnloop.figures import build as FB
 from learnloop.figures import request as FQ
@@ -46,15 +44,15 @@ def _rows(repository, sql, params=()):
 # --- a visual turn builds a figure ------------------------------------------------------------------
 
 
-def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
+def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed(tmp_path):
     paths, repository, fake, author, view, _build = _open(tmp_path, [visual_turn])
     lesson_id = view["lesson_id"]
     # The teacher was offered the visual: its paragraph, its prompt version and the schema with ``visual``
-    # (teacher TE2-log's episode fields ride on it at the defaults, teacher.episode_log on).
+    # (teacher TE2-log's episode fields ride on it at the defaults, teacher.episode_log on, and TE2's).
     from learnloop.teacher import episodes as E
+    from learnloop.teacher import te2 as T2
 
-    assert fake.result_models == [E.turn_model(V.turn_model(True), True)]
+    assert fake.result_models == [T2.turn_model(E.turn_model(V.turn_model(True), True), True)]
     prompt = fake.prompts[0][1]
     assert f"prompt_version: {V.VISUALS_PROMPT_VERSION}" in prompt and "Instruments over description" in prompt
     # One author call: the teacher's goal, written by the teacher, grounded in the delivered passage.
@@ -223,26 +221,27 @@ def test_a_visual_the_lesson_cannot_build_is_refused_back_to_the_teacher(tmp_pat
 # --- the switch -----------------------------------------------------------------------------------
 
 
-def test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical(tmp_path, monkeypatch):
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
+def test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph(tmp_path):
     from learnloop.ai.transport import render_structured_prompt
+    from learnloop.teacher import te2 as T2
     from learnloop.teacher.contracts import PROMPT_VERSION, TeacherTurnV1
     from learnloop.teacher.doctrines import doctrine_hash, doctrine_text
 
     assert _schema_sha(TeacherTurnV1) == TE1_SCHEMA_SHA256 and doctrine_hash() == TE1_DOCTRINE_SHA256
     assert _schema_sha(V.turn_model(True)) != TE1_SCHEMA_SHA256
-    # Teacher TE2-log's teacher.episode_log off in every case: TE1's prompt is the one with both paragraphs off
-    # (tests/test_teacher_te2log_episodes.py pins the episode switch the same way).
+    # Teacher TE2-log's teacher.episode_log off in every case: the prompt is TE1's with TE2's paragraph alone (every
+    # lesson opens under TE2; tests/test_teacher_te2log_episodes.py pins the episode switch the same way).
     off = {("teacher", "episode_log"): False}
     cases = (({("teacher", "visuals"): False, **off}, True), ({("figures", "show_me_enabled"): False, **off}, True),
              ({("figures", "enabled"): False, **off}, True), (off, False))
     for index, (config, builder) in enumerate(cases):
         paths, repository, fake, author, view, _ = _open(tmp_path / f"case{index}", [plan_turn],
                                                          config=config, builder=builder)
-        assert fake.result_models == [TeacherTurnV1], config
+        assert fake.result_models == [T2.turn_model(TeacherTurnV1, True)], config
         purpose, prompt = fake.prompts[0]
-        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", PROMPT_VERSION,
-                                           {"instructions": doctrine_text(), "context": context_of(prompt)},
+        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", T2.prompt_version(PROMPT_VERSION, True),
+                                           {"instructions": T2.instructions(doctrine_text(), True),
+                                            "context": context_of(prompt)},
                                            context_tail_fields=("transcript",))
         assert prompt == rebuilt, config
         assert "Instruments over description" not in prompt and "visual" not in prompt.split('"context"')[0]
@@ -549,11 +548,10 @@ def test_review_f2_a_suppressed_prediction_is_never_counted_as_shown(tmp_path):
     assert [e["status"] for e in view["feed"] if e["kind"] == "figure"] == [V.SHOWN]
 
 
-def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path, monkeypatch):
+def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path):
     """The visuals paragraph is a new doctrine version for §12.2's pool: a visuals-on lesson's forecasts
-    carry their own family (TE1's unchanged off), so each policy's λ posterior is learned apart, and the
-    replay reproduces both."""
-    pin_default_tag(monkeypatch, TEACHER_ALGORITHM_VERSION)  # the first teacher tag's lesson is the subject
+    carry their own family (the plain lesson's unchanged off), so each policy's λ posterior is learned apart, and
+    the replay reproduces both."""
 
     from datetime import UTC, datetime, timedelta
 
@@ -566,7 +564,7 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path, mon
     t0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
     paths, repository = build_teacher_vault(tmp_path / "vault")
     # Teacher TE2-log's episode paragraph is its own family too (tests/test_teacher_te2log_episodes.py): off here,
-    # so the two families compared are TE1's and the visuals paragraph's.
+    # so the two families compared are TE2's (every lesson opens under TE2) and TE2's with the visuals paragraph.
     set_config(paths.root, {("teacher", "episode_log"): False})
     author = AuthorFake([_spec()])
     build = _builder(paths, repository, author)
@@ -584,19 +582,21 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path, mon
 
     off = lesson(None, t0)
     on = lesson(build, t0 + timedelta(hours=1))
-    te1 = S._family_of("fake-teacher-model")
-    assert te1 == f"{S.DOCTRINE_VERSION}:fake-teacher-model"
+    from learnloop.teacher import te2 as T2
+
+    plain = S._family_of("fake-teacher-model", te2=True)
+    assert plain == f"{S.DOCTRINE_VERSION}+{T2.TE2_VERSION}:fake-teacher-model"
     families = {lesson_id: {f["family"] for f in _turn_payloads_for(repository, lesson_id, "forecast")}
                 for lesson_id in (off, on)}
-    assert families[off] == {te1}
+    assert families[off] == {plain}
     (visuals_family,) = families[on]
-    assert visuals_family != te1 and V.VISUALS_VERSION in visuals_family
+    assert visuals_family != plain and V.VISUALS_VERSION in visuals_family
     receipts = dict(_rows(repository, "SELECT decision_ref, forecaster_version FROM forecast_receipts "
                                       "WHERE kind = 'lesson_step_retained'"))
-    assert receipts == {off: te1, on: visuals_family}
+    assert receipts == {off: plain, on: visuals_family}
     checks = {row[0]: json.loads(row[1])["pool"]["family"]
               for row in _rows(repository, "SELECT lesson_id, weight_inputs_json FROM lesson_checks")}
-    assert checks == {off: te1, on: visuals_family}
+    assert checks == {off: plain, on: visuals_family}
     # One cold outcome resolves both forecasts: each family's posterior updates once, apart.
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 
@@ -606,8 +606,8 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path, mon
                      answer_confidence=4),
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=FrozenClock(t0 + timedelta(days=3)))
     state = LW.replay_state(load_vault(paths.root), repository)
-    assert state.pool_updates.get(te1, 0) >= 1 and state.pool_updates.get(visuals_family, 0) >= 1
-    assert set(state.pools) >= {te1, visuals_family}
+    assert state.pool_updates.get(plain, 0) >= 1 and state.pool_updates.get(visuals_family, 0) >= 1
+    assert set(state.pools) >= {plain, visuals_family}
     # Replay parity: the written state is the replay's, both families included.
     with repository.atomic():
         LW.write_state(repository, state)

@@ -17,18 +17,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.curriculum import commitments as C
-from learnloop.daily_plan.engine import PlanEnv, build_plan
 from learnloop.intent.checks import PRACTICE_BANNER, served_check, settle_answered_checks
 from learnloop.scheduling import serving_exclusions
-from learnloop.scheduling.intent.serving import intent_enabled, intent_serving
-from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.yaml_io import read_yaml, write_yaml
-from tests.daily_plan_fakes import MovableClock, iso
-from tests.intent_fakes import ITEM_LO, NOW, OURS, make_intent_vault
+from tests.daily_plan_fakes import iso
+from tests.intent_fakes import ITEM_LO, NOW, make_intent_vault
 
 #: The predecessor: the newest tag below the intent successor on this branch.
-PREDECESSOR = "mvp-0.27"
-
 
 @pytest.fixture
 def iv(tmp_path):
@@ -66,46 +61,11 @@ def _cold_retry(iv, item_id, *, ref):
     )
 
 
-# -- F2: intent is the successor; below the tag the predecessor's code runs ---------------------------
+# -- F2: intent is the successor ---------------------------------------------------------------------
 
 
-def test_f2_at_the_predecessor_commitments_change_nothing(tmp_path):
-    # The predecessor's tag is served through the switch (tests/successor_switches.py).
-    bare = make_intent_vault(tmp_path / "bare", version=PREDECESSOR)
-    chosen = make_intent_vault(tmp_path / "chosen", version=PREDECESSOR)
-    assert not chosen.vault.config.intent.enabled
-    chosen.choose("learning_object", "lo_a", "pause", NOW)
-    chosen.choose("learning_object", "lo_b", "check_once", NOW)
-    chosen.choose("learning_object", "lo_c", "light_touch", NOW)
-    at = NOW + timedelta(days=8)
-    assert not intent_enabled(chosen.vault.config)
-    assert intent_serving(chosen.vault, chosen.repository, now=at) is None
-
-    def ranked(iv):
-        return [
-            (entry.practice_item_id, round(entry.priority, 12), tuple(sorted(entry.components.items())))
-            for entry in read_due_queue(iv.vault, iv.repository, clock=FrozenClock(at))
-            if entry.practice_item_id in OURS
-        ]
-
-    assert ranked(bare) == ranked(chosen)
-    plans = []
-    for iv in (bare, chosen):
-        env = PlanEnv(vault=iv.vault, repository=iv.repository, clock=MovableClock(at), session_id=None)
-        record = build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-        blocks = [[(item.practice_item_id, item.lane, item.check_kind) for item in block.items] for block in record.blocks]
-        plans.append((record.split.get("pool"), record.admission, blocks))
-    assert plans[0] == plans[1]
-
-
-def test_f2_below_the_tag_a_paused_items_cold_retry_is_still_served(tmp_path):
-    """The re-review's trigger: at the successor a paused item's pending cold
-    retry waits (F1); below it the measurement is admitted as before."""
-
-    below = make_intent_vault(tmp_path / "below", version=PREDECESSOR)
-    _cold_retry(below, "pi_a1", ref="mc_f2")
-    below.choose("learning_object", "lo_a", "pause", NOW + timedelta(minutes=1))
-    assert below.queue(NOW + timedelta(minutes=2))[0] == "pi_a1"
+def test_f2_a_paused_items_cold_retry_waits(tmp_path):
+    """The re-review's trigger: a paused item's pending cold retry waits (F1)."""
 
     at_tag = make_intent_vault(tmp_path / "at_tag")
     _cold_retry(at_tag, "pi_a1", ref="mc_f2b")
@@ -113,7 +73,7 @@ def test_f2_below_the_tag_a_paused_items_cold_retry_is_still_served(tmp_path):
     assert "pi_a1" not in at_tag.queue(NOW + timedelta(minutes=2))
 
 
-def test_f2_the_intent_control_is_off_below_the_tag(tmp_path):
+def test_f2_the_intent_control_is_on(tmp_path):
     from learnloop_sidecar.handlers.intent import get_intent
 
     class _Ctx:
@@ -123,11 +83,9 @@ def test_f2_the_intent_control_is_off_below_the_tag(tmp_path):
         def require_vault(self):
             return self._iv.vault, self._iv.repository
 
-    below = make_intent_vault(tmp_path / "below", version=PREDECESSOR)
     from learnloop_sidecar.handlers.intent import IntentScopeInput
 
     params = IntentScopeInput(scope_kind="learning_object", scope_id="lo_a")
-    assert get_intent(_Ctx(below), params)["enabled"] is False
     at_tag = make_intent_vault(tmp_path / "at_tag")
     assert get_intent(_Ctx(at_tag), params)["enabled"] is True
 
@@ -220,19 +178,7 @@ def test_f2_the_chain_ends_at_the_intent_successor():
     assert INTENT_ALGORITHM_VERSION == "mvp-0.29" == SUCCESSOR_CHAIN[19]
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.59"
     assert SUCCESSOR_CHAIN[20] == "mvp-0.30"
-    assert SUCCESSOR_CHAIN[18] == PREDECESSOR
-
-
-def test_f2_the_gate_reads_the_version_and_the_switch(tmp_path):
-    from tests.helpers import append_config_toml
-
-    at_tag = make_intent_vault(tmp_path / "at_tag")
-    assert intent_enabled(at_tag.vault.config)
-    append_config_toml(at_tag.root, "[intent]\nenabled = false\n")
-    at_tag.reload()
-    assert not intent_enabled(at_tag.vault.config)
-    for version in ("mvp-0.14", "mvp-0.26", PREDECESSOR):
-        assert not intent_enabled(make_intent_vault(tmp_path / version, version=version).vault.config)
+    assert SUCCESSOR_CHAIN[18] == "mvp-0.27"
 
 
 def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
@@ -245,4 +191,3 @@ def test_f2_new_vaults_start_at_the_successor_with_intent_live(tmp_path):
     # claims' mvp-0.36, Reader CA2's mvp-0.35, rebuild equivalence's, LP-min (a)'s, RW7b's, RW2d's and adaptive
     # difficulty's) keeps intent live.
     assert config.algorithms.algorithm_version == "mvp-0.59"
-    assert intent_enabled(config)

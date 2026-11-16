@@ -536,10 +536,10 @@ def _reserve_goal_exam_pool(vault_root, sqlite_path) -> list[str]:
 def test_populate_goal_dry_run_waives_probe_gate_and_ignores_reserved_supply(tmp_path):
     vault_root = tmp_path / "vault"
     # With AD's generation contract (mvp-0.30) a goal whose only item is reserved has no scope (Codex
-    # verify F37, test_ad23_contract), so "reserved items are not supply" is the predecessor's path;
-    # `adaptive_difficulty.generation_contract` off serves it exactly. Goes with that switch in D7.
+    # verify F37, test_ad23_contract), so "reserved items are not supply" is the incumbent's path, which
+    # AD's master switch off serves.
     paths = create_basic_vault(vault_root)
-    set_config_switch(vault_root, "adaptive_difficulty.generation_contract", False)
+    set_config_switch(vault_root, "adaptive_difficulty.enabled", False)
     # No completed probe, and the goal's only item is held out for its exam —
     # exactly the day-one starvation populate-goal exists to fix.
     reserved = _reserve_goal_exam_pool(vault_root, paths.sqlite_path)

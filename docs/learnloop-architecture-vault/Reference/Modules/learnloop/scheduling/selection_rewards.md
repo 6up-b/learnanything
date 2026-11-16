@@ -151,8 +151,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_thin_mastery_evidence_cannot_suppress_strong_facet_evidence`
   - `test_zero_evidence_mastery_row_is_uninformative`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-- [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
-  - `test_selection_propensities_greedy_when_disabled_or_singleton_or_probe`
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 
 ## Modification guidance

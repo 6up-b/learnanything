@@ -28,9 +28,8 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.db.stores import reader_digests as RDG
 from learnloop.instructional import reader_digest as RN
-from learnloop.reader import reader_sessions as RS
 from learnloop.vault.loader import load_vault
-from tests.recap_fixtures import EXT, ask, at, call
+from tests.recap_fixtures import EXT, at, call
 from tests.recap_fixtures import context as _plain_context
 from tests.reader_followups_helpers import FakeSearch, _candidate, _now, _plan, _seeded
 from tests.reader_digest_narrative_helpers import NarrativeFake, QUESTION, _row, _session_with_question
@@ -359,81 +358,6 @@ def test_a_narrative_written_meanwhile_never_supersedes_part_1s_plan(tmp_path):
                    minutes=310)
     assert second["status"] == "planned" and second["followup_commitment_ids"]
     assert second["narrative_md"] == NarrativeFake().text  # the narrative stays
-
-
-# -- Codex review F2: narration does not need follow-ups ----------------------------------------
-
-
-def _commitment_count(repo) -> int:
-    with repo.connection() as connection:
-        return connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0]
-
-
-def _ended_session_without_digest(tmp_path, config: str, **kwargs):
-    vault, repo, _session = _seeded(tmp_path, config=config, **kwargs)
-    ask(vault, repo, QUESTION, 5)
-    with repo.connection() as connection:
-        assert RDG.digests(connection) == []
-    return vault, repo, RS.sessions_for_source(repo, EXT)[0]
-
-
-def test_with_follow_ups_off_an_ended_session_is_summarized_and_narrated(tmp_path):
-    vault, repo, session = _ended_session_without_digest(tmp_path, "[followups]\nenabled = false\n")
-    before = _commitment_count(repo)
-    assert [s.session_id for s in RN.sessions_to_summarize(vault, repo, now=_now())] == [session.session_id]
-    [row] = RN.summarize_ended_sessions(vault, repo, now=_now(), clock=at(300))
-    assert row["status"] == "incomplete" and row["followup_commitment_ids"] == []
-    assert row["valuation"][RN.NOT_PLANNED_KEY] == "followups_off" and row["valuation"]["chosen"] == []
-    assert row["summary"]["activity"] and _commitment_count(repo) == before  # nothing planned
-    assert RN.sessions_to_summarize(vault, repo, now=_now()) == []  # once
-    fake = NarrativeFake()
-    assert RN.narrate_digest(vault, repo, row["id"], client=fake, now=_now(), clock=at(300)).status == "narrated"
-    view = RN.narrative_view(vault, repo, extraction_id=EXT, session_key=session.session_id, now=_now())
-    assert view["state"] == "landed" and view["text"] == fake.text
-    # Still the typed summary; the learner's own words travel only as the
-    # learner-blindness relax's inquiry quotes (digest.narrative_quotes_inquiry).
-    payload = fake.payloads[0]
-    assert QUESTION not in json.dumps(payload["summary"]) and QUESTION not in json.dumps(payload["titles"])
-    assert all(QUESTION in quote["learner_question"] for quote in payload["inquiry_quotes"])
-
-    # Follow-ups switched on later plan the session as any unfinished one; the narrative stays.
-    from learnloop.instructional import reader_followups as RF
-    from tests.ux_phase1_support import set_config
-
-    set_config(vault.root, {("followups", "enabled"): True})
-    vault = load_vault(vault.root)
-    assert [s.session_id for s in RF.sessions_to_plan(vault, repo, now=_now())] == [session.session_id]
-    planned = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]))
-    assert planned["status"] == "planned" and planned["followup_commitment_ids"]
-    assert RN.NOT_PLANNED_KEY not in planned["valuation"] and planned["narrative_md"] == fake.text
-
-
-@pytest.mark.parametrize("config", ["[digest]\nnarrative_enabled = false\n[followups]\nenabled = false\n", ""])
-def test_no_summary_row_with_narration_off_or_follow_ups_live(tmp_path, config):
-    vault, repo, _session = _ended_session_without_digest(tmp_path, config) if config else (
-        *_seeded(tmp_path)[:2], None)
-    assert RN.sessions_to_summarize(vault, repo, now=_now()) == []
-    assert RN.summarize_ended_sessions(vault, repo, now=_now()) == []
-
-
-def test_the_queue_build_narrates_a_session_with_follow_ups_off(tmp_path, monkeypatch):
-    from learnloop_sidecar.background_jobs import background_jobs
-    from learnloop_sidecar.handlers import reader_followups as handler
-
-    vault, repo, session = _ended_session_without_digest(tmp_path, "[followups]\nenabled = false\n")
-    monkeypatch.setattr(handler, "_now", lambda: _now())
-    fake = NarrativeFake()
-    ctx = context(vault.root, reader_digest_client=fake)
-    try:
-        loaded, repository = ctx.require_vault()
-        handler.prepare_followups(ctx, loaded, repository)
-        for thread in background_jobs(ctx).running:
-            thread.join(timeout=30)
-        with repo.connection() as connection:
-            row = RDG.digest_for_session(connection, EXT, session.session_id)
-        assert fake.calls == 1 and row["narrative_md"] == fake.text and row["followup_commitment_ids"] == []
-    finally:
-        ctx.close()
 
 
 # -- Codex review F3: one paid call per session across processes ---------------------------------

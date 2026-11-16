@@ -118,7 +118,8 @@ DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.14"
 # probe). It changes what is SERVED (which near-tie leads the offer), not the
 # projection, so it is another successor tag on the mvp-0.8 namespace. The
 # branch built it as mvp-0.12 and it was relabelled mvp-0.15 when it merged
-# after the daily plan (mvp-0.14). Kill switch: ``router.probe_tie_admission``.
+# after the daily plan (mvp-0.14). Its kill switch went once every vault was
+# past the tag.
 # Decision logging (``router.log_decisions``) is not a serving change and runs
 # at every version. New vaults started here until mvp-0.16 merged.
 PROBE_TIE_ALGORITHM_VERSION = "mvp-0.15"
@@ -380,9 +381,9 @@ ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
 # the recall targets, push, admission, re-entry and reading by intent. It
 # changes which items are served as measurements (the 2026-10-17 rule), not
 # the projection: due_at, FSRS state, evidence and replay never read it, so
-# it is another successor tag on the mvp-0.8 namespace. Kill switch:
-# ``intent.enabled`` (off: every serve path and plan as the predecessor;
-# the desktop control answers ``enabled: false``).
+# it is another successor tag on the mvp-0.8 namespace. Its kill switches
+# (intent.enabled, intent.recall_targets_enabled) went once every vault was
+# past the tag.
 INTENT_ALGORITHM_VERSION = "mvp-0.29"
 
 # mvp-0.30 (adaptive difficulty AD2+AD3, owner 2026-10-18;
@@ -400,7 +401,9 @@ INTENT_ALGORITHM_VERSION = "mvp-0.29"
 # numbers and the router card's AD fields read the subject view. Six kill
 # switches under [adaptive_difficulty], each restoring its part of mvp-0.29
 # exactly: selection, generation_contract, promoted_predictor,
-# learned_coupling, reading_opportunities, reading_self_check. It changes what
+# learned_coupling, reading_opportunities, reading_self_check
+# (generation_contract went once every vault was past the tag; the contract
+# runs under AD's master switch). It changes what
 # is SERVED, never the authority-propagation projection, evidence, mastery,
 # FSRS or certification (A2, A11, A12), so it is another successor tag on the
 # mvp-0.8 namespace. The Reader's randomized dose offers ship beside it with
@@ -444,9 +447,9 @@ WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION = "mvp-0.31"
 # plan's reading block; F3), never evidence or the projection, so it is
 # another successor tag on the mvp-0.8 namespace. Receipts: the plan's
 # ``split_json["reading_path"]`` records the section the predecessor's order
-# would have chosen. Kill switch: ``reading_paths.plan_uses_path`` (off, or
-# with the Guide's ``reading_paths.enabled`` off: every plan build exactly as
-# the predecessor).
+# would have chosen. Its kill switch (reading_paths.plan_uses_path) went once
+# every vault was past the tag; with the Guide's ``reading_paths.enabled``
+# off, every plan build is exactly the predecessor's.
 READING_PATH_PLAN_ALGORITHM_VERSION = "mvp-0.32"
 # mvp-0.33 (learned parameters LP-min (a), the four claim-defect fixes;
 # spec_learned_parameters_v1 §3.0b item 1, AD §5.5;
@@ -591,8 +594,8 @@ COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 # spec_reader_workbench_v1 §9.3 "Why no successor", whose fallback the Codex
 # review of docs/reviews/reader-rw6b-p1-followups.md invoked, F4), on top of
 # mvp-0.38 (the cold-retry reschedule; the chain stays linear: mvp-0.39 means
-# everything mvp-0.38 means PLUS this). From the tag on, with
-# ``followups.enabled`` on, an ended reader session's open questions are
+# everything mvp-0.38 means PLUS this). From the tag on, an ended reader
+# session's open questions are
 # valued (``value_candidates``) and each check that clears the stop becomes an
 # automatic ``test_me_later`` commitment dated by purpose, re-valued before
 # each day's plan; DL2 serves it as a "Check once", gated at serve by the full
@@ -600,9 +603,8 @@ COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION = "mvp-0.38"
 # That changes which dated requests the maintain lane holds and serves, never
 # evidence, FSRS, the projection or replay (replay passes no vault and plans
 # nothing; ``reader_session_digests`` is workflow state), so it is a
-# successor by the 2026-10-17 eligibility rule. Kill switch:
-# ``followups.enabled`` (off, or below the tag: nothing is planned or
-# re-valued, exactly the predecessor's plan).
+# successor by the 2026-10-17 eligibility rule. Its kill switch
+# (followups.enabled) went once every vault was past the tag.
 READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
 # mvp-0.40 (curriculum C1, the plan follows the deliverable;
 # docs/specs/spec_deliverable_curriculum_v1.md §7.6, §8.1;
@@ -619,9 +621,9 @@ READER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.39"
 # ``reading_allowed`` still run first on each candidate. That changes what is
 # served through labels a model judged (RW7b's F3 reasoning), never evidence,
 # FSRS, the projection or replay (replay never reads a plan's reading), so it
-# is a successor by the 2026-10-17 eligibility rule. Kill switches:
-# ``curriculum.plan_uses_path`` and ``curriculum.enabled`` (off, or below the
-# tag: RW7b's plans byte for byte, gate G-C4).
+# is a successor by the 2026-10-17 eligibility rule. Its kill switch
+# (curriculum.plan_uses_path) went once every vault was past the tag; with
+# ``curriculum.enabled`` off: RW7b's plans byte for byte, gate G-C4.
 DELIVERABLE_PLAN_ALGORITHM_VERSION = "mvp-0.40"
 
 # mvp-0.41 (teacher TE1, the first good lesson, with curriculum C4 folded in;
@@ -679,9 +681,8 @@ HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 # Nov 2 was landing as mvp-0.42, which landed first; this claims the next tag
 # (ruling R4 at its landing; ONE constant: the upgrade, the CLI and the gate
 # all read it). Below
-# the tag, Today never suggests a lesson. From the tag on, with
-# ``router.lesson_suggestions.enabled`` on (and the router, its decision log
-# and lessons on), Today's open draws at most one ``instruct(lesson)``
+# the tag, Today never suggests a lesson. From the tag on, with the router,
+# its decision log and lessons on, Today's open draws at most one ``instruct(lesson)``
 # suggestion a day among LOs new on a goal, failing their cold checks or
 # predicted below adaptive difficulty's calibrate cut, with an exact logged
 # propensity (shown or not: a ``lesson_suggestion`` router decision); a shown
@@ -691,9 +692,7 @@ HELP_FOLD_ATTACH_ALGORITHM_VERSION = "mvp-0.42"
 # offers, so it is a router successor (spec §15.1), never evidence, FSRS, the
 # projection or replay (a suggestion writes no attempt; its decision is
 # RAW_LEDGER and its outcome joins ``router_outcomes`` intention-to-treat).
-# Kill switch: ``router.lesson_suggestions.enabled`` (off, or below the tag:
-# nothing is drawn or written, and Today and the plan are mvp-0.42's byte for
-# byte).
+# Its kill switch went once every vault was past the tag.
 LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 
 # mvp-0.44 (data capture, the long-horizon objective's dataset; owner decisions
@@ -708,10 +707,9 @@ LESSON_SUGGESTIONS_ALGORITHM_VERSION = "mvp-0.43"
 # reads each item's own predicted success and draws uniformly over exact ties,
 # with probability 1/n logged. The outcome changes with them
 # (``router_outcomes_v3``, the shared ``delayed_completion_v1``), never
-# certification, mastery, grading, FSRS or the projection. Kill switch:
-# ``data_capture.serving`` (off, or below the tag: Today and the plan are
-# mvp-0.43's byte for byte and outcomes stay ``router_outcomes_v2``). The
-# prefilter receipts are additive and act at every version
+# certification, mastery, grading, FSRS or the projection. Its kill switch went
+# once every vault was past the tag (a rebuild derives every vault's outcomes
+# as ``router_outcomes_v3``). The prefilter receipts are additive and act at every version
 # (``data_capture.receipts``).
 DATA_CAPTURE_ALGORITHM_VERSION = "mvp-0.44"
 
@@ -812,9 +810,9 @@ ROUTER_FOLLOWUPS_ALGORITHM_VERSION = "mvp-0.50"
 # is created (gaps with source lesson through the text-gap pipeline; new
 # topics for a typed goal through create_goal_lo, mechanism teacher_goal_v1).
 # The brief becomes lesson_brief_v2 (no vault probe headers; where the last
-# lesson left off) and Today offers "Continue your lesson". Kill switch:
-# ``teacher.probes`` (off, or below the tag: TE1's and TE2-log's lessons byte
-# for byte), with the existing ``teacher.enabled``. Replay re-applies the
+# lesson left off) and Today offers "Continue your lesson", wherever lessons
+# are on (``teacher.enabled``); its kill switch went once every vault was past
+# the tag. Replay re-applies the
 # probe's attempt as an existing type; nothing new is derived.
 TEACHER_PROBES_ALGORITHM_VERSION = "mvp-0.51"
 
@@ -845,9 +843,7 @@ LESSON_OPPORTUNITY_ALGORITHM_VERSION = "mvp-0.52"
 # lesson delayed check join its population (an objective-definition change
 # point); RO6's features gain a lesson indicator (a features-version change
 # point); TE1b's Today-open card is drawn only where the objective does not
-# serve. Kill switch ``router.lesson_suggestions.in_objective`` (off, or below
-# the tag: TE1b's daily card and RO4's support exactly, mvp-0.52 byte for
-# byte). No migration. Expected mvp-0.53 at landing (one constant).
+# serve. Its kill switch went once every vault was past the tag. No migration. Expected mvp-0.53 at landing (one constant).
 LESSON_OFFERS_ALGORITHM_VERSION = "mvp-0.53"
 
 # mvp-0.54 (mobile frontend v2, stage V3: probes and cold checks on the phone;

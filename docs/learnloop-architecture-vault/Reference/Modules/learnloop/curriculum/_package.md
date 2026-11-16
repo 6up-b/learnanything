@@ -75,9 +75,9 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] | [[Reference/Modules/learnloop/curriculum/depth_transition#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] | [[Reference/Modules/learnloop/curriculum/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
-| [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 11 |
+| [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] | [[Reference/Modules/learnloop/curriculum/golden_path_restoration#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] | [[Reference/Modules/learnloop/curriculum/golden_path_run#^module-purpose|purpose]] | `ACTIVE` | 3 | 9 |
+| [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] | [[Reference/Modules/learnloop/curriculum/golden_path_run#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] | [[Reference/Modules/learnloop/curriculum/graph_edit_proposals#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] | [[Reference/Modules/learnloop/curriculum/integration_backfill#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] | [[Reference/Modules/learnloop/curriculum/rung_backfill#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -111,10 +111,10 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 3 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 2 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 1 static module edge
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
@@ -133,8 +133,8 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_reader["learnloop.reader"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_content_proposals["learnloop.content.proposals"]
@@ -143,9 +143,9 @@ flowchart LR
     center -->|17| n_learnloop_db
     center -->|17| n_learnloop_substrate
     n_learnloop_reader -->|8| center
-    n_learnloop_diagnosis -->|2| center
-    center -->|5| n_learnloop_diagnosis
     n_learnloop_sidecar_handlers -->|7| center
+    n_learnloop_diagnosis -->|1| center
+    center -->|5| n_learnloop_diagnosis
     center -->|5| n_learnloop_ai
     n_learnloop_cli -->|5| center
     n_learnloop_content_proposals -->|1| center

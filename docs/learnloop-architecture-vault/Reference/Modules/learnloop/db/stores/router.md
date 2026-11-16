@@ -128,11 +128,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/router_outcomes_helpers.py](../../../../../../../tests/router_outcomes_helpers.py) — direct import
+- [tests/test_data_capture_a2_measurement.py](../../../../../../../tests/test_data_capture_a2_measurement.py) — direct import
+  - `test_a_decision_before_its_objective_could_be_frozen_stays_not_applicable`
 - [tests/test_data_capture_a4_delayed_completion.py](../../../../../../../tests/test_data_capture_a4_delayed_completion.py) — direct import
   - `test_the_lesson_suggestion_adapter_reads_the_same_definition`
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — direct import
 - [tests/test_data_capture_successor.py](../../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
 - [tests/test_held_grade_composition.py](../../../../../../../tests/test_held_grade_composition.py) — direct import
 - [tests/test_ih3_learner_preferences.py](../../../../../../../tests/test_ih3_learner_preferences.py) — direct import
 - [tests/test_ih3_phone_host.py](../../../../../../../tests/test_ih3_phone_host.py) — direct import

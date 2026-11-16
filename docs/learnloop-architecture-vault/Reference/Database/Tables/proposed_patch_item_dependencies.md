@@ -91,6 +91,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
+- `src/learnloop/content/proposals/self_tagged_fatal.py`
 - `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`

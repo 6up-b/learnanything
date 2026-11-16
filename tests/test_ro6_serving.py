@@ -80,7 +80,8 @@ def test_at_the_tag_the_trace_carries_the_residual_and_its_terms_recompute(tmp_p
             assert entry["v_residual"] == pytest.approx(fit.value(entry["features"]), abs=1e-6)
             assert terms["v_tail"] == terms["q"] == entry["v_tail"]
             assert terms["v_tilde"] == pytest.approx(terms["v_tail"] + terms["w_hat"] * terms["v_residual"], abs=1e-6)
-            assert len(entry["features"]) == len(LT.NAMES)
+            # Lesson offers serve at this vault (TE3b): RO6's features with the lesson indicator.
+            assert len(entry["features"]) == len(LT.NAMES_LESSON)
         tie = trace["policies"]["numeric"]["tie"]
         if trace["policies"]["numeric"]["status"] == "answered":
             assert tie["argmax"] == tie["tail_argmax"]  # ŵ = 0: the tail decides
@@ -95,7 +96,8 @@ def test_the_features_frozen_at_serve_equal_the_rebuild_from_the_trace_and_ro0s_
             found = store.trace(connection, row["decision_id"])
             receipt = store.decision_state(connection, row["decision_id"])
             frozen = found["trace"]["residual"]["candidates"]
-            rebuilt = TD.rebuilt_features(found["trace"], receipt)
+            rebuilt = TD.rebuilt_features(found["trace"], receipt,
+                                          features_version=TD.features_version(env.vault.config))
             for ref, entry in frozen.items():
                 assert rebuilt[ref] == pytest.approx(tuple(float(v) for v in entry["features"]), abs=1e-4), ref
 
@@ -103,7 +105,7 @@ def test_the_features_frozen_at_serve_equal_the_rebuild_from_the_trace_and_ro0s_
 def _planted_fit(monkeypatch, coef_on: str, value: float):
     """Every decision's fit: a residual on one feature (standardization the identity), and ŵ = 1."""
 
-    names = LT.NAMES
+    names = LT.NAMES_LESSON  # the served features (lesson offers serve at this vault)
     planted = LT.Fit(generator="g", names=names, mean=(0.0,) * len(names), sd=(1.0,) * len(names),
                      coef=tuple(value if name == coef_on else 0.0 for name in names), n=1, prior_sd=0.01,
                      source="planted")

@@ -191,14 +191,6 @@ def test_a_refused_follow_up_is_never_forced_into_the_next_block(tmp_path):
     assert len(rows(env, "plan_interrupt")) == 1
 
 
-def test_with_no_model_set_up_a_placeable_follow_up_joins_deterministically(tmp_path):
-    env = _followup_env(tmp_path, fake_runtime())
-    record, step = advance(env, serve=True)
-    assert step["practice_item_id"] == "pi_diag_mid"
-    (row,) = rows(env, "plan_interrupt")
-    assert (row["chosen_ref"], row["propensity_kind"], row["policy"]) == ("insert_now", "deterministic", "staged_v1")
-
-
 # -- Codex review F1, F6, F8 -------------------------------------------------------------------
 
 

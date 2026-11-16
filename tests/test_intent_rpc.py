@@ -3,8 +3,7 @@
 ``get_intent`` shows the current setting and every choice's consequence and
 cost; ``set_intent`` applies one; ``set_intent_deadline`` links a learner goal.
 A due "Check once" carries ``intentCheck`` on a session serve (absent on any
-other item), the answered check carries it on feedback, and with
-``intent.enabled = false`` the control answers off and refuses writes.
+other item), and the answered check carries it on feedback.
 """
 
 from __future__ import annotations
@@ -18,7 +17,6 @@ import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import METHOD_REGISTRY
-from tests.helpers import append_config_toml
 from tests.intent_fakes import NOW, make_intent_vault
 
 
@@ -92,19 +90,6 @@ def test_a_due_check_carries_its_cold_view_on_a_session_serve_and_on_feedback(se
     feedback = _call(ctx, "get_feedback", {"attemptId": attempt, "recordOpen": False})
     assert feedback["intentCheck"]["kind"] == "check_once"
     assert feedback["intentCheck"]["restoration"] is None
-
-
-def test_with_intent_off_the_control_answers_off_and_refuses_writes(tmp_path, monkeypatch):
-    iv = make_intent_vault(tmp_path / "vault")
-    append_config_toml(iv.root, "[intent]\nenabled = false\n")
-    ctx = SidecarContext()
-    ctx.load(iv.root)
-    view = _call(ctx, "get_intent", {"scopeKind": "learning_object", "scopeId": "lo_a"})
-    assert view["enabled"] is False and "choices" not in view
-    with pytest.raises(SidecarError):
-        _call(ctx, "set_intent", {"scopeKind": "learning_object", "scopeId": "lo_a", "choice": "pause"})
-    with pytest.raises(SidecarError):
-        _call(ctx, "set_intent_deadline", {"scopeKind": "learning_object", "scopeId": "lo_a", "dueAt": "2026-12-01"})
 
 
 def test_unknown_scopes_and_choices_are_refused(setup):
