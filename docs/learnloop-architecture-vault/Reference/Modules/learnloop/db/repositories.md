@@ -3163,7 +3163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
-  - `test_router_outcomes_v2_replay_twice_with_no_model_call`
+  - `test_router_outcomes_replay_twice_with_no_model_call`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_an_unfinished_request_keeps_its_reservation_after_a_restart`
 - [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import

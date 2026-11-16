@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/measurement.py](../../../../../../src/learnloop/daily_plan/measurement.py) |
-| Source lines | 623 |
+| Source lines | 619 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -141,11 +141,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None, reader_exposures: Iterable[tuple[str, str]]) -> bool` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 400) — Whether the decision's outcome cannot read this answer because it was warm or exposed (a held or unscorable answer is still an answer: its outcome says why it is not read).
 - `_replacement_detail(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 414) — The early answer's event of this decision's measurement, if it had one.
 - `_unplanned_reasons(connection: Any, today: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 423) — Today's plans' reasons a due check was not planned, by commitment.
-- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 551) — A UTC stamp's local day (the plan's, ``engine.local_date``).
-- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str, typed: bool=False) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 558) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
-- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='', typed: bool=False, delay: str | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 566)
-- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 578)
-- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 586) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
+- `_local_day(at: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 547) — A UTC stamp's local day (the plan's, ``engine.local_date``).
+- `_lost(connection: Any, decision_id: str, prefix: str, reason: str, *, at: str, typed: bool=False) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 554) — The check cannot be offered, in the episode its newest ``due`` or ``offered`` opened: the same reason again only counts after availability came back.
+- `_event(connection: Any, decision_id: str, state: str, *, at: str, reason: str='', practice_item_id: str | None=None, attempt_id: str | None=None, detail: Mapping[str, Any] | None=None, episode: str='', typed: bool=False, delay: str | None=None) -> int` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 562)
+- `_satisfied_by(connection: Any, commitment_id: str) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 574)
+- `_offers(connection: Any, check: Any, row: Mapping[str, Any], *, since: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/measurement.py), line 582) — The check's presentations at or after it came due (its item, or any it decides), oldest first.
 
 ## Who imports or calls it
 
@@ -163,7 +163,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `create_commitment`, `resolve_disposition`
-- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `serving_on`; calls `objective_receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`; calls `objective_receipts_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`, `reading_learning_objects`; calls `read_for_answer`, `reading_learning_objects`, `sweep_quietly`
 - [[Reference/Modules/learnloop/db/stores/daily_plans|learnloop.db.stores.daily_plans]] — imports `module`; calls `plans_for_date`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `due_recorded`, `insert_measurement_event`, `insert_objective`, `latest_episode`, `objectives_present`
@@ -209,7 +209,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_question_to_ask_is_recorded_unavailable_and_visible_on_the_outcome`
   - `test_one_check_per_lo_while_one_is_pending`
   - `test_plan_slots_counts_only_measurements_and_never_more_than_the_load`
-  - `test_settle_is_a_no_op_with_the_switch_off`
   - `test_the_insert_arm_of_the_same_decision_has_the_same_objective_on_its_own_outcome`
   - `test_the_measurement_is_an_ordinary_check_once_with_the_teachers_rule_and_dates`
   - `test_the_objective_is_frozen_before_the_draw_the_same_for_every_arm`

@@ -158,7 +158,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_outcomes.py](../../../../../../../tests/test_router_outcomes.py) — direct import
   - `test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_call`
 - [tests/test_router_r2a_serving.py](../../../../../../../tests/test_router_r2a_serving.py) — direct import
-  - `test_router_outcomes_v2_replay_twice_with_no_model_call`
+  - `test_router_outcomes_replay_twice_with_no_model_call`
 
 ## Modification guidance
 

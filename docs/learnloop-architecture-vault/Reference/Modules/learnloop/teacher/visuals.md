@@ -179,7 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_review_f1_a_visual_after_protection_changed_mid_action_is_not_built`
   - `test_review_f2_a_suppressed_prediction_is_never_counted_as_shown`
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
-  - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+  - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import

@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `PlannedVisualV1`
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `ActionRequestV1`
-- [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `BRIEF_VERSION`, `READ_ACTIONS`
+- [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `READ_ACTIONS`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `CheckV1`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ActionRequestV1`, `CheckV1`, `READ_ACTIONS`, `RECEIPT_VERSION`, `TURN_VERSION`, `TeacherTurnV1`
@@ -187,10 +187,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
-  - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+  - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
-  - `test_switch_off_keeps_te1s_lesson_byte_identical`
+  - `test_switch_off_keeps_the_lesson_without_the_episode_paragraph`
   - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_switch_off_has_no_p_held_and_writes_no_forecast`

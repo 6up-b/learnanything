@@ -246,8 +246,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
   - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
-  - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
   - `test_the_population_change_moves_the_objectives_definition_once`
+  - `test_with_lessons_off_the_same_database_is_valued_without_lessons`
 
 ## Modification guidance
 

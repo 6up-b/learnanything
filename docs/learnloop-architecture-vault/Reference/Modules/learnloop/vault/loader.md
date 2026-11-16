@@ -1050,7 +1050,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_landing_review.py](../../../../../../tests/test_data_capture_landing_review.py) — direct import
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`
   - `test_a_tied_span_check_inside_an_automatic_build_waits_for_the_owner`
@@ -3211,12 +3211,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3a_successor.py](../../../../../../tests/test_te3a_successor.py) — direct import
   - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_ad_off`
 - [tests/test_te3b_clock.py](../../../../../../tests/test_te3b_clock.py) — direct import
-  - `test_the_gate_reads_lessons_on_the_clock_only_at_the_tag_with_the_switch`
+  - `test_the_gate_reads_lessons_on_the_clock_with_lessons_on`
 - [tests/test_te3b_features.py](../../../../../../tests/test_te3b_features.py) — direct import
   - `test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_point`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
 - [tests/test_te3b_successor.py](../../../../../../tests/test_te3b_successor.py) — direct import
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_suggestions_or_the_objective_off`
+  - `test_the_gate_reads_on_and_off_with_the_objective_or_lessons_off`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
@@ -3310,7 +3310,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not`
   - `test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does`
   - `test_todays_plan_is_byte_identical_with_a_suggestion_drawn`
-  - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
+  - `test_without_the_decision_log_the_desktop_config_has_no_suggestions`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
   - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
@@ -3319,15 +3319,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_a_typed_goal_opens_on_the_los_c0bs_resolver_names_and_says_what_is_not_in_the_books`
   - `test_the_next_lesson_on_the_same_topics_starts_where_the_last_left_off`
-  - `test_typed_goals_need_the_switch`
   - `test_yes_to_a_leftover_creates_the_topic_with_teacher_goal_v1_and_one_goal_lo_episode`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f5_a_metered_typed_goal_resolver_is_sent_nothing`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
-  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
   - `test_lesson_goal_and_open_lessons_through_the_handlers`
+  - `test_the_config_carries_the_te2_key_with_lessons`
 - [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_lessons_off`
+  - `test_the_gate_reads_on_with_lessons_on_and_off_with_lessons_off`
 - [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_an_episodes_minutes_come_from_the_screens_intervals`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import

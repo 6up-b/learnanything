@@ -156,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_config_setting_the_removed_switches_keeps_every_identity`
   - `test_a_config_setting_todays_removed_switches_keeps_every_identity`
+  - `test_the_lesson_suggestions_section_still_refuses_an_unknown_key_but_loads_its_retired_ones`
 - [tests/test_success_head_cli.py](../../../../../../tests/test_success_head_cli.py) — direct import
 - [tests/test_voyage_fallback.py](../../../../../../tests/test_voyage_fallback.py) — direct import
   - `test_every_ai_task_refuses_the_fallback_profile`

@@ -108,6 +108,7 @@ None found by exact static reference scan.
 
 - `tests/teacher_te1_migration_helpers.py`
 - `tests/teacher_te1_review_fixes_helpers.py`
+- `tests/teacher_te2_probes_helpers.py`
 - `tests/test_followups_batch5_lesson.py`
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch5_recap_protection.py`

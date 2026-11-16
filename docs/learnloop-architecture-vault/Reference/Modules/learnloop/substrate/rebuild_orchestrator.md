@@ -206,7 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
   - `test_f1_a_rebuild_with_no_sweep_cannot_bring_back_the_cold_label`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
@@ -351,7 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
-  - `test_router_outcomes_v2_replay_twice_with_no_model_call`
+  - `test_router_outcomes_replay_twice_with_no_model_call`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_tables`
   - `test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call`

@@ -918,7 +918,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a3_time_metric.py](../../../../../tests/test_data_capture_a3_time_metric.py) — direct import
   - `test_enrollment_is_the_learners_commitment_and_a_system_dated_check_is_none`
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
-  - `test_below_the_tag_or_switched_off_the_smallest_id_wins_as_before`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
 - [tests/test_data_capture_codex_rereview.py](../../../../../tests/test_data_capture_codex_rereview.py) — direct import

@@ -47,27 +47,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py) |
-| Source lines | 263 |
+| Source lines | 247 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `question_overlap(shown: str, question: str) -> float` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 66) — The share of a question's word pairs (numbers kept: a matrix is part of the question) that the shown text contains, in 0..1: 1 for a question reproduced as it stands, near 0 for teaching that only shares its topic's vocabulary.
-- `shown_vault_items(vault: Any, texts: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 77) — Vault items whose question the lesson's displayed text reproduces (a vault question reused as a check, or quoted in teaching), at the house exposure threshold (the auto-prime rule), in id order.
-- `taught_facets(vault: Any, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 96)
-- `measures_facet(vault: Any, item: Any, facets: set[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 107) — Whether a criterion of the item's rubric measures one of ``facets`` (its targets, else the item's declared facets: KM §9.3's "a criterion that visibly exercises it").
-- `presentation(item: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 128)
-- `pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> Any | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 134) — The candidate pitched nearest the band's middle (the house prior); module docstring.
-- `retention_seed_key(lesson_id: str, learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 151) — The retention check's draw: its commit and the lesson forecast about it share it (§12.2).
-- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 157) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
+- `question_overlap(shown: str, question: str) -> float` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 63) — The share of a question's word pairs (numbers kept: a matrix is part of the question) that the shown text contains, in 0..1: 1 for a question reproduced as it stands, near 0 for teaching that only shares its topic's vocabulary.
+- `shown_vault_items(vault: Any, texts: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 74) — Vault items whose question the lesson's displayed text reproduces (a vault question reused as a check, or quoted in teaching), at the house exposure threshold (the auto-prime rule), in id order.
+- `taught_facets(vault: Any, learning_object_ids: Iterable[str]) -> set[str]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 93)
+- `measures_facet(vault: Any, item: Any, facets: set[str]) -> bool` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 104) — Whether a criterion of the item's rubric measures one of ``facets`` (its targets, else the item's declared facets: KM §9.3's "a criterion that visibly exercises it").
+- `presentation(item: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 125)
+- `pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str='') -> Any | None` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 131) — The candidate pitched nearest the band's middle (the house prior); module docstring.
+- `retention_seed_key(lesson_id: str, learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 137) — The retention check's draw: its commit and the lesson forecast about it share it (§12.2).
+- `commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]], goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]], shown_items: Iterable[str], taught_learning_objects: Sequence[str]=(), clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 143) — Commit one retention check per landed node with an LO and one transfer check; returns ``(delayed_checks, warnings)`` for the receipt.
 
 ### Module constants
 
-- `PURPOSES` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 56)
-- `DEPTH_PRESET` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 57)
-- `VIA` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 58)
+- `PURPOSES` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 53)
+- `DEPTH_PRESET` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 54)
+- `VIA` ([src/learnloop/teacher/delayed.py](../../../../../../src/learnloop/teacher/delayed.py), line 55)
 
 ### Explicit exports
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_bigrams(text: str) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 61)
+- `_bigrams(text: str) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/delayed.py), line 58)
 
 ## Who imports or calls it
 
@@ -106,11 +106,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `create_commitment`
-- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `serving_on`; calls `serving_on`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `PICK_VERSION`, `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`; calls `attempted_items`, `candidates`, `due_days`, `lineage`, `pick_with_receipt`, `revealed_items`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
-- [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `downstream_learning_objects`, `lo_prediction`; calls `downstream_learning_objects`, `lo_prediction`
+- [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `downstream_learning_objects`; calls `downstream_learning_objects`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `learning_object_facet_union`; calls `learning_object_facet_union`
 
 ### Platform and third-party dependencies
@@ -134,7 +133,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_a_near_tie_is_no_tie`
   - `test_an_exact_tie_is_a_logged_uniform_draw_with_probability_one_over_n`
-  - `test_below_the_tag_or_switched_off_the_smallest_id_wins_as_before`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`
