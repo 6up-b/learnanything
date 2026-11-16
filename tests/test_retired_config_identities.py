@@ -528,7 +528,8 @@ def test_a_config_setting_todays_removed_switches_keeps_every_identity(tmp_path,
     config = LearnLoopConfig() if case == "default" else load_config(path, load_environment=False)
     expected = TODAY_SWITCHES_BASE_IDENTITIES[case]
     dump = identity_dump(config)
-    assert content_key(dump) == expected["config"]
+    # The base predates the new default model: the changed defaults go back before the whole-config compare.
+    assert content_key(_with_base_defaults(copy.deepcopy(dump))) == expected["config"]
     for section, digest in expected.items():
         if section != "config":
             assert _sha256(dump[section]) == digest, section
