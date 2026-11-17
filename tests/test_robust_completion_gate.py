@@ -19,7 +19,7 @@ from learnloop.algorithm_versions import (
 from learnloop.clock import FrozenClock
 from learnloop.config.kill_switches import TAGGED_SWITCHES
 from learnloop.config.schema import LearnLoopConfig, ProbeEpisodeConfig
-from learnloop.diagnosis.probe_episodes import robust_gate_completion
+from learnloop.diagnosis.probe_completion import robust_gate_completion
 from learnloop.diagnosis.probe_robust import robust_gate_fixes_on
 from learnloop.diagnosis.robust_composition import RobustDecision
 from learnloop.instructional.valuation import CandidateInput, ValuationProblem, value_problem

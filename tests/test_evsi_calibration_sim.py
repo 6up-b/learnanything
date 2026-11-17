@@ -157,7 +157,7 @@ def test_the_incumbent_arm_includes_the_robust_completion_gate(eedi):
     # Review F8: after the minimum independent observations, an unstable
     # posterior whose remaining instruments the robust selector cannot tell
     # apart ends the live episode under the predecessor gate (mvp-0.58,
-    # probe_episodes._robust_gate_verdict without the fixes). The incumbent arm
+    # probe_completion._robust_gate_verdict without the fixes). The incumbent arm
     # with that gate does the same; the cap-only comparator keeps checking.
     scenario = build_scenarios(eedi["bank"], eedi["fit"])[0]
     belief = {h: 1.0 / len(scenario.hypotheses) for h in scenario.hypotheses}  # unstable, not action-equivalent

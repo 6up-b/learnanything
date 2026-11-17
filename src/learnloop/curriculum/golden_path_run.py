@@ -321,14 +321,14 @@ def _close_diagnostic_segment_on_instruction(
     if pin is None:
         return
     from learnloop.diagnosis import diagnostic_pack as DP
-    from learnloop.diagnosis import probe_episodes as PE
+    from learnloop.diagnosis import probe_completion as PC
 
     # Snapshot the baseline boundary BEFORE closing the episode -- the projection reads
     # the (about-to-be-frozen) baseline observations, and the snapshot is idempotent.
     DP.snapshot_baseline_boundary(repository, run_id=run_id, clock=clock)
     episode_id = pin.get("probe_episode_id")
     if episode_id:
-        closed = PE.close_diagnostic_segment(repository, episode_id, clock=clock)
+        closed = PC.close_diagnostic_segment(repository, episode_id, clock=clock)
         if closed is not None:
             repository.append_golden_path_artifact(
                 run_id=run_id,

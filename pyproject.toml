@@ -1162,7 +1162,7 @@ ignore_imports = [
     "learnloop.curriculum.confusable_concepts -> learnloop.diagnosis.probe_hypotheses",
     "learnloop.curriculum.golden_path_restoration -> learnloop.diagnosis.diagnostic_pack",
     "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack",
-    "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_episodes",
+    "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_completion",
     "learnloop.db.repositories -> learnloop.ai.usage",
     "learnloop.db.repositories -> learnloop.ingest.ir",
     "learnloop.goals.certification_cold_probe -> learnloop.attempts.coldness_receipt",
@@ -1235,6 +1235,7 @@ ignore_imports = [
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.contrast_pairs",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.diagnostic_surface_supply",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.error_taxonomy_map",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_completion",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_episodes",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probes",
     # mvp-0.21: the scheduler values probe episodes and further teach-backs

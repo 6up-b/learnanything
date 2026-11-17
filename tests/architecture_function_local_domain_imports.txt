@@ -50,7 +50,7 @@ learnloop.content.proposals.proposals -> learnloop.diagnosis.missing_vocabulary
 learnloop.content.synthesis.source_set_synthesis -> learnloop.learner.capability_mapping
 learnloop.content.synthesis.synthesis_gates -> learnloop.curriculum.curriculum_locks
 learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack
-learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_episodes
+learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_completion
 learnloop.curriculum.integration_backfill -> learnloop.learner.facet_diagnostics
 learnloop.curriculum.integration_backfill -> learnloop.substrate.replay
 learnloop.curriculum.subject_registry -> learnloop.learner.identifiability

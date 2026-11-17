@@ -144,13 +144,14 @@ def test_robust_gate_forecast_records_the_eig_paths_minutes(tmp_path):
 
 
 def test_robust_completion_override_logs_its_forecast(tmp_path):
+    from learnloop.diagnosis import probe_completion as completion
     from learnloop.diagnosis import probe_episodes as pe
 
     loaded, repository = _load(tmp_path)
     episode = enter_episode(loaded, repository, "lo_svd_definition", clock=CLOCK)
     posterior = pe.episode_posterior(loaded, repository, episode)
     open_episode = dataclasses.replace(episode, minimum_independent_observations=0)
-    pe._robust_completion_override(loaded, repository, open_episode, posterior)
+    completion._robust_completion_override(loaded, repository, open_episode, posterior)
     rows = [r for r in _forecasts(repository) if r["site"] == "probe_robust_selection"]
     assert len(rows) == 1 and rows[0]["probe_episode_id"] == episode.id
 
