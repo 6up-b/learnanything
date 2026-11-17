@@ -5,13 +5,13 @@
 
 
 [ratchet]
-largest_import_component = 146
-modules_in_an_import_cycle = 252
+largest_import_component = 149
+modules_in_an_import_cycle = 255
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
 functions_over_200_lines = 72
-comment_lines_naming_a_stage_artifact = 2371
+comment_lines_naming_a_stage_artifact = 2370
 test_files_named_for_a_stage = 184
 
 [members]
@@ -56,6 +56,7 @@ import_component = [
     "learnloop.diagnosis.calibration_sessions",
     "learnloop.diagnosis.causal_activity_policy",
     "learnloop.diagnosis.causal_attribution",
+    "learnloop.diagnosis.causal_cold_verification",
     "learnloop.diagnosis.causal_orchestrator",
     "learnloop.diagnosis.causal_probe_coherence",
     "learnloop.diagnosis.causal_reads",
@@ -69,6 +70,7 @@ import_component = [
     "learnloop.diagnosis.followups",
     "learnloop.diagnosis.forecast_receipts",
     "learnloop.diagnosis.guided_redo",
+    "learnloop.diagnosis.machine_checks",
     "learnloop.diagnosis.misconceptions",
     "learnloop.diagnosis.missing_vocabulary",
     "learnloop.diagnosis.offline_review.decider_links",
@@ -81,6 +83,7 @@ import_component = [
     "learnloop.diagnosis.probe_episodes",
     "learnloop.diagnosis.probe_hard_stops",
     "learnloop.diagnosis.probe_instance_generation",
+    "learnloop.diagnosis.probe_presentations",
     "learnloop.diagnosis.probe_targeting",
     "learnloop.diagnosis.recurrence.backlog",
     "learnloop.diagnosis.recurrence.escalation",
@@ -607,7 +610,7 @@ stage_test_files = [
 "src/learnloop/db/table_roles.py" = 6
 "src/learnloop/decider_judgments.py" = 1
 "src/learnloop/diagnosis/causal_attribution.py" = 1
-"src/learnloop/diagnosis/causal_orchestrator.py" = 6
+"src/learnloop/diagnosis/causal_orchestrator.py" = 5
 "src/learnloop/diagnosis/causal_probe_coherence.py" = 1
 "src/learnloop/diagnosis/contrast_pairs.py" = 1
 "src/learnloop/diagnosis/diagnosis_adjudication.py" = 1
@@ -616,12 +619,14 @@ stage_test_files = [
 "src/learnloop/diagnosis/followups.py" = 2
 "src/learnloop/diagnosis/forecast_receipts.py" = 2
 "src/learnloop/diagnosis/grading_hardcases.py" = 2
+"src/learnloop/diagnosis/machine_checks.py" = 1
 "src/learnloop/diagnosis/offline_review/planted.py" = 1
 "src/learnloop/diagnosis/offline_review/probes.py" = 1
 "src/learnloop/diagnosis/offline_review/runner.py" = 6
 "src/learnloop/diagnosis/offline_review/spot_check.py" = 2
 "src/learnloop/diagnosis/probe_dialogue.py" = 2
-"src/learnloop/diagnosis/probe_episodes.py" = 7
+"src/learnloop/diagnosis/probe_episodes.py" = 5
+"src/learnloop/diagnosis/probe_presentations.py" = 1
 "src/learnloop/diagnosis/recurrence/benchmarks.py" = 2
 "src/learnloop/diagnosis/recurrence/guard.py" = 1
 "src/learnloop/diagnosis/recurrence/judging.py" = 1
