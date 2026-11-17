@@ -169,6 +169,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
   - `test_exam_sitting_cap_processes_worst_first_and_suppresses_the_rest`
   - `test_exam_sitting_pipeline_survives_a_failing_attempt`
+- [tests/test_probe_records.py](../../../../../../tests/test_probe_records.py) — direct import
+  - `test_grade_hook_failure_completes_the_attempt`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_recovery_normalizes_with_the_configured_grading_provider`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import

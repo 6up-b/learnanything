@@ -173,6 +173,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/p2_acceptance_helpers.py](../../../../../../tests/p2_acceptance_helpers.py) — direct import
 - [tests/probe_block_end_helpers.py](../../../../../../tests/probe_block_end_helpers.py) — direct import
 - [tests/probe_episodes_helpers.py](../../../../../../tests/probe_episodes_helpers.py) — direct import
+- [tests/probe_records_helpers.py](../../../../../../tests/probe_records_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
@@ -305,6 +306,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_predictive_eig.py](../../../../../../tests/test_probe_predictive_eig.py) — direct import
   - `test_hypothesis_fallback_when_target_set_inadequate`
   - `test_predictive_objective_is_default_and_persisted`
+- [tests/test_probe_records.py](../../../../../../tests/test_probe_records.py) — direct import
+  - `test_a_late_completion_lists_only_evaluated_rules_in_order`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
   - `test_remint_surface_group_stays_probe_ineligible`
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import

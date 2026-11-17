@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py) |
-| Source lines | 690 |
+| Source lines | 719 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,7 +63,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 295) — Record a falsifiable expectation the learner's OWN question asserted.
 - `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 374) — Classify an administered probe AND act on the verdict (§6, §7).
 - `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 566) — The graded probe attempt's own criterion outcomes, as a feature vector.
-- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 623) — Close the loop automatically when a probe answer can be read by machine.
+- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 631) — Close the loop automatically when a probe answer can be read by machine.
 
 ### Module constants
 
@@ -78,6 +78,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_measured_hypotheses(repository: Repository, classification: Mapping[str, Any], observed_features: Mapping[str, Any]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 164) — Which of the locked set's concrete hypotheses the observation MEASURED.
 - `_observation_support_scores(classification: Mapping[str, Any], measured: set[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 220) — Support mass a discriminating observation licenses, and nothing more.
 - `_probe_production_admissibility(repository: Repository, *, probe_attempt_id: str | None) -> 'ProductionAdmissibility | None'` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 247) — Was the probe answer produced before anything was revealed to it?
+- `_deterministic_probe_features_with_reason(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[dict[str, Any], str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 591)
 
 ## Who imports or calls it
 
@@ -99,6 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`; calls `bundle_feature_row_report`, `candidate_has_current_blind_input_contract`, `classify_against_blind_bundles`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`; calls `CausalRepairError`
+- [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; calls `record_probe_classification_declined`
 - [[Reference/Modules/learnloop/diagnosis/content_ids|learnloop.diagnosis.content_ids]] — imports `content_id`; calls `content_id`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `probe_answer_exposed`; calls `probe_answer_exposed`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `unassessed_evidence_row`; calls `unassessed_evidence_row`
@@ -124,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
+- [tests/probe_records_helpers.py](../../../../../../tests/probe_records_helpers.py) — direct import
 - [tests/test_causal_orchestrator.py](../../../../../../tests/test_causal_orchestrator.py) — direct import
   - `test_a_router_decided_pin_names_its_router_decision_not_a_causal_receipt`
   - `test_accepting_the_offer_enters_a_factor_aware_episode_with_pinned_bundles`
@@ -147,6 +150,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_miss_with_two_rivals_generates_one_pinned_probe`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_pinned_probe_declines_to_classify_an_unassessed_criterion`
+- [tests/test_probe_records.py](../../../../../../tests/test_probe_records.py) — direct import
+  - `test_noncausal_or_already_read_answer_is_silent`
+- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
+  - `test_why_wasnt_this_probe_answer_read`
 
 ## Modification guidance
 

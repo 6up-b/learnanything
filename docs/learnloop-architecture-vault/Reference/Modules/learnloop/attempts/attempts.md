@@ -357,6 +357,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/pfc_unassessed_readers_helpers.py](../../../../../../tests/pfc_unassessed_readers_helpers.py) — direct import
 - [tests/probe_block_end_helpers.py](../../../../../../tests/probe_block_end_helpers.py) — direct import
 - [tests/probe_orchestration_remainder_helpers.py](../../../../../../tests/probe_orchestration_remainder_helpers.py) — direct import
+- [tests/probe_records_helpers.py](../../../../../../tests/probe_records_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/rebuild_equivalence_helpers.py](../../../../../../tests/rebuild_equivalence_helpers.py) — direct import
@@ -648,6 +649,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answer_confidence_out_of_range_is_rejected`
 - [tests/test_probe_policy.py](../../../../../../tests/test_probe_policy.py) — direct import
 - [tests/test_probe_pool_empty.py](../../../../../../tests/test_probe_pool_empty.py) — direct import
+- [tests/test_probe_records.py](../../../../../../tests/test_probe_records.py) — direct import
+  - `test_a_late_completion_lists_only_evaluated_rules_in_order`
+  - `test_block_settlement_decline_precedes_grade_and_is_reachable`
+  - `test_grade_hook_failure_completes_the_attempt`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
