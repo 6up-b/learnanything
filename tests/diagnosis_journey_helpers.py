@@ -12,6 +12,7 @@ from learnloop.diagnosis import machine_checks
 from learnloop.diagnosis import causal_orchestrator as causal
 from learnloop.diagnosis import probe_completion as completion
 from learnloop.diagnosis import probe_episodes as probes
+from learnloop.diagnosis import probe_presentations as presentations
 
 from tests.figure_build_golden_helpers import (
     DURATION_KEYS, _TIME, _Tokens, freeze_ids, freeze_wall, written,
@@ -327,12 +328,12 @@ def probe_case(kind, root, patch):
     assert probes.episode_contract(vault, repo, LO)["forced_attempt_type"] == "diagnostic_probe"
     eligible = probes.next_probe_item(vault, repo, LO)
     assert eligible is not None
-    assert probes.probe_serving_block_reason(vault, repo, session_id="journey") is None
-    probes.probe_value_block_reason(vault, repo, episode, ITEM_ID, session_id="journey")
-    presentation = probes.commit_item_presentation(vault, repo, episode, vault.practice_items[ITEM_ID],
+    assert presentations.probe_serving_block_reason(vault, repo, session_id="journey") is None
+    presentations.probe_value_block_reason(vault, repo, episode, ITEM_ID, session_id="journey")
+    presentation = presentations.commit_item_presentation(vault, repo, episode, vault.practice_items[ITEM_ID],
                                                   probes.episode_hypothesis_set(repo, episode), clock=CLOCK)
     assert presentation is not None
-    probes.serve_presentation(repo, presentation.id, clock=CLOCK)
+    presentations.serve_presentation(repo, presentation.id, clock=CLOCK)
     journey.capture("presented")
     if kind == "held_release":
         from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision

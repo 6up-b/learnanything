@@ -14,8 +14,6 @@ from learnloop.attempts.attempts import (
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.probe_episodes import (
     _resolved_slot_map_from_snapshot,
-    commit_item_presentation,
-    commit_presentation,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
@@ -23,8 +21,12 @@ from learnloop.diagnosis.probe_episodes import (
     maybe_reprobe_for_misconception,
     next_probe_item,
     record_episode_evidence,
-    serve_presentation,
     stop_diagnosing_and_teach,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_item_presentation,
+    commit_presentation,
+    serve_presentation,
 )
 from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_DEFAULT_ROWS,

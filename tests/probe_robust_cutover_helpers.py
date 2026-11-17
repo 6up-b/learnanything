@@ -9,9 +9,11 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.diagnosis.probe_families import validate_and_compile_card

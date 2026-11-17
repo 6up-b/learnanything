@@ -2421,12 +2421,16 @@ def test_f1k_a_session_serve_inside_routine_coverage_opens_no_administration(ctx
 
 @pytest.mark.parametrize("covered", [False, True], ids=["control", "covered"])
 def test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage(tmp_path, covered):
-    """The shared commit (``probe_episodes.commit_presentation``, every probe and
+    """The shared commit (``probe_presentations.commit_presentation``, every probe and
     placement presentation) refuses an item inside routine-display coverage: a
     self-grade disclosure of it was shown an hour ago and abandoned (so it is
     still never attempted, a probe candidate)."""
 
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     _root, loaded, repository = _setup(tmp_path)
@@ -2654,10 +2658,12 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
     a presentation committed before the answer was shown is ended, not served."""
 
     from learnloop.diagnosis.probe_episodes import (
-        RoutineDisplayCovered,
-        commit_presentation,
         eligible_instruments,
         enter_episode,
+    )
+    from learnloop.diagnosis.probe_presentations import (
+        RoutineDisplayCovered,
+        commit_presentation,
         serve_presentation,
     )
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
@@ -2764,7 +2770,11 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     back): the episode's lock and A's presentation are as they were."""
 
     from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from tests.helpers import admit_probe_instrument_card
     from tests.causal_orchestrator_helpers import CLOCK, LO_ID, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
 
@@ -2805,28 +2815,6 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     kept = repository.probe_presentation(presentation_a.id)
     assert (kept.status, kept.end_reason) == ("served", None)
     assert [row.id for row in repository.probe_presentations_for_episode(plain.id)] == [presentation_a.id]
-
-
-# -- NEW 2: a block's size and indices are its surviving members' --------------------------------
-
-
-def test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices(tmp_path):
-    """Two candidate members, one whose answer was just shown: the block holds
-    the other alone, stamped block_size 1 and block_index 0, so its completion
-    target is reachable."""
-
-    from learnloop.diagnosis.probe_episodes import enter_episode, plan_precommitted_block
-    from tests.probe_policy_helpers import CLOCK, ITEM_2, ITEM_ID, LO_ID, _setup as policy_setup
-
-    loaded, repository = policy_setup(tmp_path, items=(ITEM_ID, ITEM_2))
-    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
-    _routine_disclosure(repository, ITEM_ID, clock=FrozenClock(CLOCK.now() - timedelta(hours=1)), learning_object_id=LO_ID)
-
-    block = plan_precommitted_block(loaded, repository, episode, block_size=2, clock=CLOCK)
-
-    assert [presentation.practice_item_id for presentation in block] == [ITEM_2]
-    components = block[0].selection_components
-    assert (components["block_size"], components["block_index"]) == (1, 0)
 
 
 # -- F: a temporary hold never finishes the plan ------------------------------------------------

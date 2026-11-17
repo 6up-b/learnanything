@@ -25,7 +25,7 @@ from learnloop.db.repositories import Repository
 from learnloop.daily_plan.lanes import (
     classify_pool,
 )
-from learnloop.diagnosis.probe_episodes import (
+from learnloop.diagnosis.probe_presentations import (
     probe_serving_block_reason,
     probe_value_block_reason,
 )

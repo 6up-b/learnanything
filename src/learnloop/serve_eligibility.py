@@ -154,7 +154,7 @@ COLD_CHECK_AUTO_PRIMED = "cold_check_auto_primed"
 #: scheduled).
 COLD_CHECK_HELP_TAKEN = "cold_check_help_taken"
 #: A probe or placement presentation of an item whose answer was shown
-#: (``probe_episodes.PROBE_ITEM_ANSWER_SHOWN``, unchanged code).
+#: (``probe_presentations.PROBE_ITEM_ANSWER_SHOWN``, unchanged code).
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
 #: A quick-check offer of an item submit would prime.
 QUICK_CHECK_ANSWER_SHOWN = "quick_check_answer_shown"

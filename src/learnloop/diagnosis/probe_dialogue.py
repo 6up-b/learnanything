@@ -32,9 +32,11 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
+    episode_hypothesis_set,
+)
+from learnloop.diagnosis.probe_presentations import (
     RoutineDisplayCovered,
     commit_presentation,
-    episode_hypothesis_set,
     serve_presentation,
 )
 from learnloop.diagnosis.probe_families import (

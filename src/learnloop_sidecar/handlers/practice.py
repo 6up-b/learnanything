@@ -38,18 +38,20 @@ from learnloop.hints.telemetry import (
     telemetry_enabled,
 )
 from learnloop.diagnosis.probe_episodes import (
-    PROBE_ITEM_ANSWER_SHOWN,
-    RoutineDisplayCovered,
-    commit_item_presentation,
     enter_episode,
     episode_contract,
     episode_hypothesis_set,
     next_probe_item,
+    stop_diagnosing_and_teach,
+)
+from learnloop.diagnosis.probe_presentations import (
+    PROBE_ITEM_ANSWER_SHOWN,
+    RoutineDisplayCovered,
+    commit_item_presentation,
     probe_serving_block_reason,
     probe_value_block_reason,
     routine_display_covers_item,
     serve_presentation,
-    stop_diagnosing_and_teach,
     validate_presentation_for_submission,
 )
 from learnloop.diagnosis.probes import probe_posterior
