@@ -5,8 +5,8 @@
 
 
 [ratchet]
-largest_import_component = 149
-modules_in_an_import_cycle = 255
+largest_import_component = 151
+modules_in_an_import_cycle = 257
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
@@ -57,6 +57,7 @@ import_component = [
     "learnloop.diagnosis.causal_activity_policy",
     "learnloop.diagnosis.causal_attribution",
     "learnloop.diagnosis.causal_cold_verification",
+    "learnloop.diagnosis.causal_discrimination",
     "learnloop.diagnosis.causal_orchestrator",
     "learnloop.diagnosis.causal_probe_coherence",
     "learnloop.diagnosis.causal_reads",
@@ -81,6 +82,7 @@ import_component = [
     "learnloop.diagnosis.probe_blocks",
     "learnloop.diagnosis.probe_completion",
     "learnloop.diagnosis.probe_episodes",
+    "learnloop.diagnosis.probe_evidence",
     "learnloop.diagnosis.probe_hard_stops",
     "learnloop.diagnosis.probe_instance_generation",
     "learnloop.diagnosis.probe_presentations",
@@ -229,13 +231,13 @@ functions_over_200_lines = [
     "src/learnloop/diagnosis/causal_attribution.py materialize_causal_episode",
     "src/learnloop/diagnosis/causal_attribution.py record_unresolved_cause_self_report",
     "src/learnloop/diagnosis/causal_attribution.py select_minimal_repair",
-    "src/learnloop/diagnosis/causal_orchestrator.py _accept_probe_offer",
     "src/learnloop/diagnosis/causal_orchestrator.py _status_for_factor",
     "src/learnloop/diagnosis/causal_probe_commissioning.py commission_probe_instrument",
     "src/learnloop/diagnosis/followups.py _choose_intervention_item",
     "src/learnloop/diagnosis/followups.py evaluate_intervention_followup",
     "src/learnloop/diagnosis/grading_hardcases.py run_hardcases",
-    "src/learnloop/diagnosis/probe_episodes.py _record_presentation_observation",
+    "src/learnloop/diagnosis/probe_evidence.py _record_presentation_observation",
+    "src/learnloop/diagnosis/probe_offer.py _accept_probe_offer",
     "src/learnloop/diagnosis/remediation.py record_remediation_attempt",
     "src/learnloop/diagnosis/split/context.py assemble_diagnosis_context",
     "src/learnloop/diagnosis/split/history.py _load",
@@ -610,7 +612,7 @@ stage_test_files = [
 "src/learnloop/db/table_roles.py" = 6
 "src/learnloop/decider_judgments.py" = 1
 "src/learnloop/diagnosis/causal_attribution.py" = 1
-"src/learnloop/diagnosis/causal_orchestrator.py" = 5
+"src/learnloop/diagnosis/causal_discrimination.py" = 2
 "src/learnloop/diagnosis/causal_probe_coherence.py" = 1
 "src/learnloop/diagnosis/contrast_pairs.py" = 1
 "src/learnloop/diagnosis/diagnosis_adjudication.py" = 1
@@ -625,7 +627,9 @@ stage_test_files = [
 "src/learnloop/diagnosis/offline_review/runner.py" = 6
 "src/learnloop/diagnosis/offline_review/spot_check.py" = 2
 "src/learnloop/diagnosis/probe_dialogue.py" = 2
-"src/learnloop/diagnosis/probe_episodes.py" = 5
+"src/learnloop/diagnosis/probe_episodes.py" = 3
+"src/learnloop/diagnosis/probe_evidence.py" = 2
+"src/learnloop/diagnosis/probe_offer.py" = 3
 "src/learnloop/diagnosis/probe_presentations.py" = 1
 "src/learnloop/diagnosis/recurrence/benchmarks.py" = 2
 "src/learnloop/diagnosis/recurrence/guard.py" = 1
