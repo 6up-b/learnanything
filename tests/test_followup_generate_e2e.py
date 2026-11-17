@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION
-from learnloop.diagnosis.causal_orchestrator import pinned_causal_probe
+from learnloop.diagnosis.causal_discrimination import pinned_causal_probe
 from learnloop.followup_serve import identity, workflow as wf
 
 from tests.followup_serve_helpers import AuthorFake, author_clients, CLOCK, miss_with_rivals, rival_causes_vault, run_jobs

@@ -24,13 +24,14 @@ from learnloop.diagnosis.causal_reads import CAUSAL_ORCHESTRATOR_FORMULA_VERSION
 from learnloop.diagnosis.causal_orchestrator import (
     EVSI_PROVENANCE,
     NEEDS_DISAMBIGUATION_MESSAGE,
-    accept_probe_offer,
     causal_repair_status,
-    classify_probe_response,
+)
+from learnloop.diagnosis.probe_offer import (
+    accept_probe_offer,
     defer_probe_offer,
-    pinned_causal_probe,
     request_teaching_now,
 )
+from learnloop.diagnosis.causal_discrimination import classify_probe_response, pinned_causal_probe
 from learnloop.diagnosis.causal_cold_verification import cold_verification_context
 from learnloop.diagnosis.machine_checks import (
     enqueue_backfill_obligation,

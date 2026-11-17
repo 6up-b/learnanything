@@ -682,9 +682,7 @@ def _record_dialogue_causal_signals(
 
     if prediction:
         try:
-            from learnloop.diagnosis.causal_orchestrator import (
-                record_learner_embedded_prediction,
-            )
+            from learnloop.diagnosis.causal_discrimination import record_learner_embedded_prediction
 
             factors = repository.unresolved_cause_factors_for_attempt(
                 attempt_id, status="open"

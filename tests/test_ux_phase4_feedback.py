@@ -2769,7 +2769,7 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     between the check and the commit, the commit's refusal rolls the relock
     back): the episode's lock and A's presentation are as they were."""
 
-    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
     from learnloop.diagnosis.probe_episodes import (
         enter_episode,
         episode_hypothesis_set,

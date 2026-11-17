@@ -71,14 +71,14 @@ from learnloop.diagnosis.causal_attribution import (
     record_unresolved_cause_self_report,
 )
 from learnloop.diagnosis.causal_health import ChannelHealth, causal_lane_health
-from learnloop.diagnosis.causal_orchestrator import (
-    accept_probe_offer,
+from learnloop.diagnosis.probe_offer import accept_probe_offer
+from learnloop.diagnosis.causal_discrimination import (
     auto_classify_pinned_probe,
-    causal_repair_status,
     classify_probe_response,
     pinned_causal_probe,
     record_probe_classification,
 )
+from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 from learnloop.diagnosis.probe_hard_stops import episode_conflict_reason
 from learnloop.diagnosis.causal_probe_coherence import (
     build_causal_hypothesis_set,

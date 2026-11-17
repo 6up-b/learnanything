@@ -190,7 +190,7 @@ SUPPORT_BASIS_AUTHORITY: dict[str, str] = {
     # exact-key comparison.  The prediction was committed before the response
     # existed, is content-addressed and append-only, and was reviewed through
     # the register -> review -> activate ladder; the match itself runs no model.
-    # See `causal_orchestrator.record_probe_classification` for the sensor
+    # See `causal_discrimination.record_probe_classification` for the sensor
     # condition this grant is contingent on.
     "blind_probe_match": "validator_owned",
     "learner_confirmation": "learner_confirmed",

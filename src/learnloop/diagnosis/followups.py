@@ -835,7 +835,7 @@ def _run_causal_orchestrator_hooks(
     it never raises — a P2 bookkeeping failure must not fail an attempt.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import auto_classify_pinned_probe
+    from learnloop.diagnosis.causal_discrimination import auto_classify_pinned_probe
     from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
     from learnloop.diagnosis.machine_checks import sweep_machine_checks
 

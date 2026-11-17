@@ -318,7 +318,7 @@ def test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly(tmp_
     ids=["assessed_zero", "unverified_zero", "unverified_partial"],
 )
 def test_a_pinned_probe_declines_to_classify_an_unassessed_criterion(tmp_path, points, unverified):
-    from learnloop.diagnosis.causal_orchestrator import (
+    from learnloop.diagnosis.causal_discrimination import (
         auto_classify_pinned_probe,
         deterministic_probe_features,
     )

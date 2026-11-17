@@ -391,7 +391,7 @@ def commission_and_pin(
     as such, never as the learner lane's causal decision receipt.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
     from learnloop.diagnosis.causal_probe_commissioning import commission_probe_instrument
 
     model = getattr(client, "model", None)

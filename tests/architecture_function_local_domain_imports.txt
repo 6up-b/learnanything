@@ -62,8 +62,8 @@ learnloop.diagnosis.causal_attribution -> learnloop.substrate.canonical_projecti
 learnloop.diagnosis.causal_cold_verification -> learnloop.attempts.coldness_receipt
 learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.instrument_serving
-learnloop.diagnosis.causal_orchestrator -> learnloop.attempts.reveal_ledger
-learnloop.diagnosis.causal_orchestrator -> learnloop.substrate.canonical_projection
+learnloop.diagnosis.causal_discrimination -> learnloop.attempts.reveal_ledger
+learnloop.diagnosis.causal_discrimination -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.contrast_pairs -> learnloop.learner.identifiability
 learnloop.diagnosis.diagnosis_adjudication -> learnloop.tutor.durable_promotion
 learnloop.diagnosis.diagnostic_pack -> learnloop.curriculum.golden_path_assessment
@@ -160,5 +160,5 @@ learnloop.tutor.teach_back -> learnloop.goals.goal_projection
 learnloop.tutor.teach_back -> learnloop.learner.facet_diagnostics
 learnloop.tutor.tutor_qa -> learnloop.content.authoring.practice_leakage
 learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_attribution
-learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_orchestrator
+learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_discrimination
 learnloop.tutor.tutor_qa -> learnloop.reader.reader_progression

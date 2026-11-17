@@ -1039,7 +1039,7 @@ def test_f10_a_closed_probes_candidate_leaves_the_factors_active_set(journey):
     """Serving accepts only ``active`` candidates, so a retired probe's mustn't stay one: the
     predecessor's offer would pin a question every door refuses, after the switch goes off."""
 
-    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
 
     row = _workflow_probe(journey)
     repository = journey.repository

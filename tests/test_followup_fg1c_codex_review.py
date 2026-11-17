@@ -25,7 +25,7 @@ from learnloop.diagnosis.split.settings import DiagnosisSettings
 from learnloop.diagnosis.split.snapshot import export_snapshot
 from learnloop.followup_run import marks as panel
 from learnloop.followup_serve import workflow as wf
-from learnloop.diagnosis import causal_orchestrator
+from learnloop.diagnosis import causal_discrimination
 from learnloop.ops import capture_report
 from learnloop.ops.capture_report import build_report, lines
 from learnloop.vault.paths import VaultPaths
@@ -138,7 +138,7 @@ def _mark_row(mark, key=None, factor="f"):
 
 
 def test_f3_the_report_and_the_orchestrator_share_one_contract():
-    assert capture_report.DISCRIMINATING_OUTCOMES is causal_orchestrator.DISCRIMINATING_OUTCOMES
+    assert capture_report.DISCRIMINATING_OUTCOMES is causal_discrimination.DISCRIMINATING_OUTCOMES
     assert "matched_multiple" not in capture_report.DISCRIMINATING_OUTCOMES
 
 

@@ -476,7 +476,7 @@ def _committed_presentation(repository, episode, session_id: str | None):
 
     Routine probes are precommitted alongside a `scheduler_slate_candidates`
     row, so `active_probe_presentation_for_session` finds them by joining the
-    session's slate. A CAUSAL probe (`causal_orchestrator.accept_probe_offer`)
+    session's slate. A CAUSAL probe (`probe_offer.accept_probe_offer`)
     has no scheduler candidate at all — it is minted by a learner action, not
     by the planner — so that join misses it. Committing a SECOND presentation
     for the same item would drop the `causal_probe` selection component pinning

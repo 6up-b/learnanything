@@ -10,6 +10,8 @@ from learnloop.clock import FrozenClock
 from learnloop.db.table_roles import TABLE_ROLES
 from learnloop.diagnosis import machine_checks
 from learnloop.diagnosis import causal_orchestrator as causal
+from learnloop.diagnosis import causal_discrimination
+from learnloop.diagnosis import probe_offer
 from learnloop.diagnosis import probe_completion as completion
 from learnloop.diagnosis import probe_episodes as probes
 from learnloop.diagnosis import probe_presentations as presentations
@@ -210,7 +212,7 @@ def status_case(kind, root):
         _activate_probe_candidate(repo, factor, a, b)
     journey.capture("factor_and_instrument")
     if kind == "started":
-        status = causal.request_teaching_now(vault, repo, misconception_id=a, factor_id=factor, clock=CLOCK)
+        status = probe_offer.request_teaching_now(vault, repo, misconception_id=a, factor_id=factor, clock=CLOCK)
     else:
         status = causal.causal_repair_status(vault, repo, misconception_id=a, clock=CLOCK)
     assert status.status == ("needs_disambiguation" if kind == "decline" else kind)
@@ -228,7 +230,7 @@ def status_case(kind, root):
         machine_checks.resolve_machine_check(repo, checks[0]["id"], resolution={"basis": "owner_review"}, clock=CLOCK)
         journey.capture("commissioning_resolved")
     if kind == "decline":
-        causal.defer_probe_offer(repo, factor_id=factor, clock=CLOCK)
+        probe_offer.defer_probe_offer(repo, factor_id=factor, clock=CLOCK)
         status = causal.causal_repair_status(vault, repo, misconception_id=a, clock=CLOCK)
         assert status.probe_decision == "defer_learner_preference"
         journey.capture("declined")
@@ -253,11 +255,11 @@ def cold_case(root, success):
     status = causal.causal_repair_status(vault, repo, misconception_id=a, clock=CLOCK)
     assert status.status == "needs_disambiguation"
     journey.capture("offered")
-    offer = causal.accept_probe_offer(vault, repo, factor_id=factor["id"],
+    offer = probe_offer.accept_probe_offer(vault, repo, factor_id=factor["id"],
                                      decision_receipt_id=status.decision_receipt_id, clock=CLOCK)
     assert offer.accepted and offer.as_dict()["accepted"]
     journey.capture("accepted")
-    observation = causal.record_probe_classification(repo, presentation_id=offer.presentation_id,
+    observation = causal_discrimination.record_probe_classification(repo, presentation_id=offer.presentation_id,
                     observed_features={"names_transpose": False}, feature_source="model_extracted", clock=CLOCK)
     assert observation.admitted and observation.resolved_factor
     assert observation.as_dict()["observation_id"]

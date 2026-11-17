@@ -69,7 +69,7 @@ def probe_repository():
 
 
 def embedded_prediction():
-    from learnloop.diagnosis.causal_orchestrator import record_learner_embedded_prediction
+    from learnloop.diagnosis.causal_discrimination import record_learner_embedded_prediction
 
     return record_learner_embedded_prediction(
         probe_repository(), factor_id="factor_pin", prediction="  I expect the order to reverse.  ",
@@ -77,7 +77,7 @@ def embedded_prediction():
 
 
 def probe_classification():
-    from learnloop.diagnosis.causal_orchestrator import record_probe_classification
+    from learnloop.diagnosis.causal_discrimination import record_probe_classification
 
     return record_probe_classification(probe_repository(), presentation_id="presentation_pin",
                                        observed_features={"sign": "+"}, feature_source="deterministic").observation_id
