@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop_sidecar/handlers/app.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
@@ -108,11 +109,13 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/machine_checks.py`
+- `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/followup_serve/identity.py`
 - `src/learnloop_sidecar/handlers/measurement.py`
 

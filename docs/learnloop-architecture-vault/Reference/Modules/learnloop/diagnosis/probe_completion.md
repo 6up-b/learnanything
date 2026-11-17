@@ -84,7 +84,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `module`; statically calls `close_diagnostic_segment`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`; statically calls `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `close_diagnostic_segment`, `persist_episode_beliefs`, `set_target_decision`, `voi_probe_site_active`; statically calls `close_diagnostic_segment`, `persist_episode_beliefs`, `set_target_decision`, `voi_probe_site_active`
+- [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `set_target_decision`, `voi_probe_site_active`; statically calls `set_target_decision`, `voi_probe_site_active`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `close_diagnostic_segment`, `persist_episode_beliefs`; statically calls `close_diagnostic_segment`, `persist_episode_beliefs`
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `robust_gate_counterfactual`; statically calls `robust_gate_counterfactual`
 - [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]] — imports `robust_gate_completion`; statically calls `robust_gate_completion`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `robust_gate_counterfactual`; statically calls `robust_gate_counterfactual`
@@ -116,7 +117,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]], [[Reference/Modules/learnloop/evsi_calibration/policies|learnloop.evsi_calibration.policies]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

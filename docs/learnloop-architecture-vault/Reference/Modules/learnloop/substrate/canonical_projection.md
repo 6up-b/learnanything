@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `surface_group_id`; statically calls `surface_group_id`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `surface_group_id`, `unassessed_evidence_row`; statically calls `surface_group_id`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `surface_group_id`; statically calls `surface_group_id`

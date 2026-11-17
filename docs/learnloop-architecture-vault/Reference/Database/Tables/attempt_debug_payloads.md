@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/diagnosis_adjudication.py"
   - "src/learnloop/diagnosis/guided_redo.py"
   - "src/learnloop/diagnosis/scoreboard.py"

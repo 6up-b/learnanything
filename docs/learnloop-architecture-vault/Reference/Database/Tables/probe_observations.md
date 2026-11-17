@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_serve/workflow.py`

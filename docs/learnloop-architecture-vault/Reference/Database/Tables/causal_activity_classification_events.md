@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_evidence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -116,7 +116,7 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
-- `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/substrate/canonical_projection.py`

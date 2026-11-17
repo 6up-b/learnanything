@@ -84,7 +84,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `COARSE_RESPONSE_SLUG`, `ensure_builtin_schemas`, `resolve_schema_id`; statically calls `ensure_builtin_schemas`, `resolve_schema_id`
 - [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `BUILTIN_SCHEMAS`, `ensure_builtin_schemas`; statically calls `ensure_builtin_schemas`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `BUILTIN_SCHEMAS`, `COARSE_RESPONSE_SLUG`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `BUILTIN_SCHEMAS`, `COARSE_RESPONSE_SLUG`
 - [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]] — imports `BUILTIN_SCHEMAS`, `COARSE_RESPONSE_SLUG`, `COARSE_RESPONSE_UNANSWERED_SLUG`, `SIGNATURE_ERROR_SLUG`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `SIGNATURE_ERROR_SLUG`, `resolve_schema_id`; statically calls `resolve_schema_id`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `COARSE_RESPONSE_SLUG`, `ensure_builtin_schemas`; statically calls `ensure_builtin_schemas`
@@ -109,7 +109,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_outcome_mapping|learnloop.diagnosis.probe_outcome_mapping]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

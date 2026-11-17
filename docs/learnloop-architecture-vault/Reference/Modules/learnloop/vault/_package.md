@@ -61,7 +61,7 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 22 | 19 |
 | [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] | [[Reference/Modules/learnloop/vault/lifecycle#^module-purpose|purpose]] | `ACTIVE` | 16 | 3 |
 | [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 97 | 888 |
-| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 298 | 81 |
+| [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 302 | 81 |
 | [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 98 | 122 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 48 | 31 |
 | [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] | [[Reference/Modules/learnloop/vault/required_method#^module-purpose|purpose]] | `ACTIVE` | 49 | 11 |
@@ -83,7 +83,7 @@ For system intent, use [[State and Persistence]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 81 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 54 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 58 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 43 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 41 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 30 static module edges
@@ -148,7 +148,7 @@ flowchart LR
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_cli -->|81| center
-    n_learnloop_diagnosis -->|54| center
+    n_learnloop_diagnosis -->|58| center
     n_learnloop_source_retrieval -->|43| center
     n_learnloop_ops -->|41| center
     n_learnloop_content_authoring -->|30| center

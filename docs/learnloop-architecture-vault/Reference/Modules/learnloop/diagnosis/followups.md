@@ -140,7 +140,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `exercise_key`, `need_source_import`, `serve_time_exposure`; calls `exercise_key`, `need_source_import`, `serve_time_exposure`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `causal_episode_for_attempt`; calls `causal_episode_for_attempt`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `record_cold_verification_from_task`; calls `record_cold_verification_from_task`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `SAFE_COMMON_REPAIR_MESSAGE`, `auto_classify_pinned_probe`, `causal_repair_status`; calls `auto_classify_pinned_probe`, `causal_repair_status`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `auto_classify_pinned_probe`; calls `auto_classify_pinned_probe`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `SAFE_COMMON_REPAIR_MESSAGE`, `causal_repair_status`; calls `causal_repair_status`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; calls `record_followup_value`, `record_step_failed`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `GATE_FEATURE_VERSION`, `GateScoreResult`, `GateSignalValues`, `compute_gate_score`, `resolve_gate_weights`; calls `GateSignalValues`, `compute_gate_score`, `resolve_gate_weights`

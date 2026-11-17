@@ -21,9 +21,10 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/followup_serve.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/chain_records.py"
+  - "src/learnloop/diagnosis/probe_dialogue.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
 tags:
@@ -139,13 +140,16 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_completion.py`
+- `src/learnloop/diagnosis/probe_controls.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
+- `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_run/serving.py`
@@ -154,9 +158,6 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
-- `src/learnloop_sidecar/handlers/knowledge_map.py`
-- `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -84,9 +84,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `validate_presentation_for_submission`; statically calls `validate_presentation_for_submission`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `RoutineDisplayCovered`, `commit_presentation`, `routine_display_covers_item`; statically calls `commit_presentation`, `routine_display_covers_item`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; statically calls `commit_presentation`, `serve_presentation`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `validate_presentation_for_submission`; statically calls `validate_presentation_for_submission`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `validate_presentation_for_submission`; statically calls `validate_presentation_for_submission`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `RoutineDisplayCovered`, `commit_presentation`, `routine_display_covers_item`; statically calls `commit_presentation`, `routine_display_covers_item`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `RoutineDisplayCovered`, `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`; statically calls `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; statically calls `commit_presentation`, `serve_presentation`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`
@@ -120,7 +120,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

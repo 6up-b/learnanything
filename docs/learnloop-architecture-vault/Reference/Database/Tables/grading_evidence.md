@@ -151,10 +151,10 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/misconceptions.py`
-- `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`

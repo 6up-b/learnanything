@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `record_grade_dual_write`, `response_soft_score`; statically calls `record_grade_dual_write`, `response_soft_score`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `append_adjudication`; statically calls `append_adjudication`
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `PROJECTION_ALGORITHM_VERSION`, `resolve_grade`; statically calls `resolve_grade`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `flag_observation_for_review`; statically calls `flag_observation_for_review`
 
@@ -126,7 +126,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

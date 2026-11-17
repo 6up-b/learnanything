@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_health.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -119,9 +119,9 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/causal_reads.py`
@@ -129,13 +129,13 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/machine_checks.py`
 - `src/learnloop/diagnosis/misconceptions.py`
+- `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/followup_run/admission.py`
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/followup_run/lanes.py`
 - `src/learnloop/followup_run/marks.py`
-- `src/learnloop/followup_serve/workflow.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

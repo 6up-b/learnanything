@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `production_admissibility`; statically calls `production_admissibility`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ProductionAdmissibility`, `production_admissibility`; statically calls `ProductionAdmissibility`, `production_admissibility`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `ProductionAdmissibility`, `production_admissibility`; statically calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_repair_display_reveals`; statically calls `record_repair_display_reveals`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `production_admissibility`; statically calls `production_admissibility`
@@ -137,7 +137,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

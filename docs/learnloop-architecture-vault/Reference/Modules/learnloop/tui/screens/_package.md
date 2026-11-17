@@ -58,8 +58,8 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 9 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 7 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 5 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
@@ -82,8 +82,8 @@ flowchart LR
     center["learnloop.tui.screens"]
     n_learnloop_tui["learnloop.tui"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop["learnloop"]
     n_learnloop_ai["learnloop.ai"]
@@ -93,8 +93,8 @@ flowchart LR
     n_learnloop_tui -->|1| center
     center -->|9| n_learnloop_tui
     center -->|7| n_learnloop_attempts
+    center -->|5| n_learnloop_diagnosis
     center -->|5| n_learnloop_scheduling
-    center -->|4| n_learnloop_diagnosis
     center -->|3| n_learnloop_learner
     center -->|2| n_learnloop
     center -->|2| n_learnloop_ai

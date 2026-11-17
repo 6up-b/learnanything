@@ -113,12 +113,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] — imports `FOLLOWUP_PROBE_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `with_open_set_arm`; calls `with_open_set_arm`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `accept_probe_offer`; calls `accept_probe_offer`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `build_causal_hypothesis_set`, `transition_probe_candidate`; calls `build_causal_hypothesis_set`, `transition_probe_candidate`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `commission_probe_instrument`, `support_scores`; calls `commission_probe_instrument`, `support_scores`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `administered_surface_exclusions`; calls `administered_surface_exclusions`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `DIALOGUE_MICROPROBE_V1`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `LLM_GENERATOR_ID`, `LLM_GENERATOR_VERSION`, `applicable_families`, `ensure_instrument_card`, `family_measurement_intent`, `generated_instance_payload`, `instance_gate_errors`; calls `applicable_families`, `ensure_instrument_card`, `family_measurement_intent`, `generated_instance_payload`, `instance_gate_errors`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `accept_probe_offer`; calls `accept_probe_offer`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `AuthoredProbe`, `AuthoringRejected`, `QUESTION_MATCHES_RESERVED`, `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`; calls `build_context`, `causes_coverage`, `check_output`, `request_authored_probe`, `reserved_view`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `item_revision`, `register`
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `practice_item_hash`; calls `practice_item_hash`

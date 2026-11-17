@@ -136,19 +136,19 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_completion.py`
+- `src/learnloop/diagnosis/probe_controls.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
+- `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
-- `src/learnloop/followup_run/jobs.py`
-- `src/learnloop/followup_run/router.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -158,8 +158,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `materialize_causal_episode`; statically calls `materialize_causal_episode`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `validate_repair_candidate`; statically calls `validate_repair_candidate`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`; statically calls `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`
 - [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] — imports `APPROVED_SUPPORT_AUTHORITIES`, `OPEN_SET_CAUSE_ID`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSAL_DECISION_POLICY_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `OPEN_SET_CAUSE_ID`, `SUPPORT_BASIS_AUTHORITY`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `_normalized`; statically calls `_normalized`
 - [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `causal_episode_for_attempt`; statically calls `causal_episode_for_attempt`
@@ -168,6 +169,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `materialize_causal_episode`; statically calls `materialize_causal_episode`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `REPAIR_POLICY_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `claim_checked_feedback`; statically calls `claim_checked_feedback`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `CAUSAL_DECISION_POLICY_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `OPEN_SET_CAUSE_ID`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `validate_repair_candidate`; statically calls `validate_repair_candidate`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_unresolved_cause_self_report`; statically calls `record_unresolved_cause_self_report`
@@ -216,7 +218,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] and 24 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

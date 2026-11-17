@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/probe_blocks.py"
   - "src/learnloop/diagnosis/probe_completion.py"
+  - "src/learnloop/diagnosis/probe_controls.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
 tags:
   - "learnloop/database/table"
@@ -92,6 +93,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_completion.py`
+- `src/learnloop/diagnosis/probe_controls.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 
 > [!note] Static-reference boundary

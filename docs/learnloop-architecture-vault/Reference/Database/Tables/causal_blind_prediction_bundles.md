@@ -18,8 +18,8 @@ source_paths:
   - "migrations/121_causal_probe_coherence.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
 tags:
   - "learnloop/database/table"
@@ -105,8 +105,8 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_diagnostic_selector.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 
 > [!note] Static-reference boundary

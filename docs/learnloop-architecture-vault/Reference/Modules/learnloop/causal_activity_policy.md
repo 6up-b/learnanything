@@ -81,8 +81,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `LESSON_PROBE_EXPOSED_SOURCE`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_PRECEDENCE`, `policy_for_class`; statically calls `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `CAUSAL_ACTIVITY_POLICY_VERSION`, `CONTAMINATION_CLASSES`, `CONTAMINATION_PRECEDENCE`, `CausalActivityPolicy`, `policy_for_class`; statically calls `CausalActivityPolicy`, `policy_for_class`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `DISCRIMINATING_OUTCOMES`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `LESSON_PROBE_EVIDENCE_ORIGIN`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `DISCRIMINATING_OUTCOMES`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `LESSON_PROBE_EVIDENCE_ORIGIN`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `LESSON_PROBE_EXPOSED_SOURCE`
 - [[Reference/Modules/learnloop/ops/capture_report|learnloop.ops.capture_report]] — imports `DISCRIMINATING_OUTCOMES`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `CONTAMINATION_PRECEDENCE`
@@ -106,7 +106,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]], [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

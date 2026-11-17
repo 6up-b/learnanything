@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `HELD_ROW_KEY`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `HELD_ROW_KEY`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `GRADE_HELD_FOR_REVIEW`, `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `GRADE_HELD_FOR_REVIEW`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/diagnosis/split/history|learnloop.diagnosis.split.history]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `GRADE_HELD_FOR_REVIEW`, `unassessed_evidence_row`; statically calls `unassessed_evidence_row`

@@ -20,8 +20,8 @@ source_paths:
   - "src/learnloop/diagnosis/causal_reads.py"
   - "src/learnloop/diagnosis/probe_coverage.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_evidence.py"
   - "src/learnloop/diagnosis/probe_instance_generation.py"
-  - "src/learnloop/substrate/compat/activity_backfill.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/probe_coverage.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 

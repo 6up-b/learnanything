@@ -107,7 +107,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSE_SET_INCOMPLETE_MAPPING`, `MAPPING_BASIS_LEGACY_FACET`, `classify_cause_set`; statically calls `classify_cause_set`
 - [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `classify_cause_set`; statically calls `classify_cause_set`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `open_cause_sets_for_learning_object`, `select_discriminating_instrument`; statically calls `open_cause_sets_for_learning_object`, `select_discriminating_instrument`
+- [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `open_cause_sets_for_learning_object`, `select_discriminating_instrument`; statically calls `open_cause_sets_for_learning_object`, `select_discriminating_instrument`
 
 ## Dependencies
 
@@ -131,7 +131,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]], [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
