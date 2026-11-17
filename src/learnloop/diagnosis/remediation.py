@@ -145,10 +145,8 @@ def start_remediation_episode(
     "Not now") should call ``causal_repair_status`` directly.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import (
-        CausalRepairError,
-        causal_repair_status,
-    )
+    from learnloop.diagnosis.causal_reads import CausalRepairError
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     try:
         status = causal_repair_status(

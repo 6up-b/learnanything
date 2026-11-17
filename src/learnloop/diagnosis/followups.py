@@ -1045,10 +1045,8 @@ def _consult_common_repair(
                 return
 
     from learnloop.diagnosis.causal_attribution import causal_episode_for_attempt
-    from learnloop.diagnosis.causal_orchestrator import (
-        CausalRepairError,
-        causal_repair_status,
-    )
+    from learnloop.diagnosis.causal_reads import CausalRepairError
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     episode = causal_episode_for_attempt(repository, result.attempt_id)
     if not episode:

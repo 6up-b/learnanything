@@ -254,7 +254,7 @@ def _run_entry(vault: Any, repository: Repository, episode_id: str, *, clients: 
 
 
 def _causal_factor_of(episode: Any) -> str | None:
-    from learnloop.diagnosis.causal_orchestrator import causal_origin_factor
+    from learnloop.diagnosis.probe_hard_stops import causal_origin_factor
 
     return causal_origin_factor(str(episode.origin or ""))
 

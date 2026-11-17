@@ -95,12 +95,12 @@ class FollowupDecision:
 def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None:
     """§5: what still refuses, in the orchestrator's own terms, before anything is spent."""
 
-    from learnloop.diagnosis.causal_orchestrator import (
+    from learnloop.diagnosis.probe_hard_stops import (
         causal_origin,
         episode_conflict_reason,
         learner_preference,
-        pending_machine_checks_for_factor,
     )
+    from learnloop.diagnosis.causal_orchestrator import pending_machine_checks_for_factor
 
     preference = learner_preference(
         repository, factor_id=factor_id, session_id=row.get("session_id"),

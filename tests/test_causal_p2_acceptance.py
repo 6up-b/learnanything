@@ -76,10 +76,10 @@ from learnloop.diagnosis.causal_orchestrator import (
     auto_classify_pinned_probe,
     causal_repair_status,
     classify_probe_response,
-    episode_conflict_reason,
     pinned_causal_probe,
     record_probe_classification,
 )
+from learnloop.diagnosis.probe_hard_stops import episode_conflict_reason
 from learnloop.diagnosis.causal_probe_coherence import (
     build_causal_hypothesis_set,
     record_delayed_cold_verification,

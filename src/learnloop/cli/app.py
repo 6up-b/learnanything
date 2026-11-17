@@ -4807,10 +4807,8 @@ def commission_causal_probes_command(
     `review-causal-probe`.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import (
-        MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
-        resolve_machine_check,
-    )
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+    from learnloop.diagnosis.causal_orchestrator import resolve_machine_check
     from learnloop.diagnosis.causal_probe_commissioning import (
         COMMISSIONING_POLICY_VERSION,
         commission_probe_instrument,

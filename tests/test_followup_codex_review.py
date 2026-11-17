@@ -877,14 +877,14 @@ def test_f7_rereview_skipping_a_workflows_probe_through_the_sidecar_closes_it(jo
 
 
 def _not_now(repository, factor_id, session_id):
-    from learnloop.diagnosis.causal_orchestrator import record_learner_preference
+    from learnloop.diagnosis.probe_hard_stops import record_learner_preference
 
     record_learner_preference(repository, preference="decline", factor_id=factor_id, session_id=session_id,
                               source="learner_action", clock=CLOCK)
 
 
 def _blocking_check(repository, factor_id):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_REPAIR_MAPPING
 
     repository.enqueue_causal_machine_check(check_id="mc_blocks", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
                                             source="test", factor_id=factor_id, clock=CLOCK)
@@ -1362,7 +1362,7 @@ def test_f7_verify_the_scan_leaves_what_isnt_a_writer(source):
 
 
 def _blocking_check_on_the_object(repository, learning_object_id):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_REPAIR_MAPPING
 
     repository.enqueue_causal_machine_check(check_id="mc_blocks_object", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
                                             source="test", learning_object_id=learning_object_id, clock=CLOCK)
@@ -1405,7 +1405,7 @@ def test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the
 
 
 def test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing(tmp_path):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository)
