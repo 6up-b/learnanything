@@ -270,7 +270,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `SITE_FOLLOWUP`, `VOI_VALUE_SUPPRESSION`, `module`, `record_followup_decision`, `voi_stopping_active`; statically calls `Candidate`, `VoiContext`, `former_cap`, `record_followup_decision`, `value_candidates`, `voi_stopping_active`
 - [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] — imports `VALUATION_SUPPRESSION_REASONS`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `module`; statically calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `SITE_PROBE_EPISODE`, `VoiSettings`, `module`, `voi_stopping_active`; statically calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`, `with_robust_gate_counterfactual`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `SITE_PROBE_EPISODE`, `VoiSettings`, `module`, `voi_stopping_active`; statically calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`, `with_robust_gate_counterfactual`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `SITE_PROBE_EPISODE`, `module`, `voi_stopping_active`; statically calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`, `with_robust_gate_counterfactual`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `probe_lane_holds_out_pending`, `probe_lane_reads_diagnosis`; statically calls `probe_lane_holds_out_pending`, `probe_lane_reads_diagnosis`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `module`; statically calls `InformationEntry`, `VoiContext`, `candidate_forecasts`, `greedy_information_admission`, `hypothesis_channel_body`, `probe_episode_decision`, `record_offer_value_forecasts`, `voi_stopping_active`, `with_robust_gate_counterfactual`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `FORECAST_VERSION`
@@ -307,7 +308,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
   - "src/learnloop/diagnosis/probe_blocks.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_completion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -117,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_serve/workflow.py`

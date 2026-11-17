@@ -144,6 +144,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
@@ -157,7 +158,6 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/phone_reader.py`
-- `src/learnloop_sidecar/serving.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

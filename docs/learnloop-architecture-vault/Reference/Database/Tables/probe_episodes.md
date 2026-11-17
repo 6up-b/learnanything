@@ -23,11 +23,10 @@ source_paths:
   - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
-  - "src/learnloop/curriculum/golden_path_run.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/daily_plan/router_reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -125,6 +124,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 
 ### Upstream callers of the repository access surface
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_hard_stops.py`
@@ -148,7 +149,6 @@ Indexes and uniqueness:
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/followup_run/router.py`
 - `src/learnloop/followup_serve/workflow.py`
-- `src/learnloop/goals/goal_contracts.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

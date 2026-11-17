@@ -119,7 +119,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 22 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 9 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 10 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
@@ -174,8 +174,8 @@ flowchart LR
     center["learnloop.scheduling"]
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_vault["learnloop.vault"]
@@ -185,10 +185,10 @@ flowchart LR
     n_learnloop -->|2| center
     center -->|36| n_learnloop
     center -->|22| n_learnloop_db
+    n_learnloop_diagnosis -->|9| center
+    center -->|10| n_learnloop_diagnosis
     n_learnloop_substrate -->|4| center
     center -->|15| n_learnloop_substrate
-    n_learnloop_diagnosis -->|9| center
-    center -->|9| n_learnloop_diagnosis
     n_learnloop_sidecar_handlers -->|15| center
     n_learnloop_daily_plan -->|14| center
     center -->|12| n_learnloop_vault
