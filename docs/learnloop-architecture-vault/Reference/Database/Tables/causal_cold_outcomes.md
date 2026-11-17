@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/remediation.py"
 tags:
@@ -117,7 +117,7 @@ None found by exact static reference scan.
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop_sidecar/handlers/serializers.py`

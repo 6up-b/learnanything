@@ -186,7 +186,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `log_decision`, `pending_writes`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_CHECK_HELP_TAKEN`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `COLD_FOLLOWUP_TASK_KINDS`

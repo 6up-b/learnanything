@@ -21,10 +21,9 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/followup_serve.py"
-  - "src/learnloop/diagnosis/chain_records.py"
-  - "src/learnloop/evsi_calibration/forecast_report.py"
-  - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/chain_records.py"
+  - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
 tags:
@@ -147,6 +146,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_presentations.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
 - `src/learnloop/followup_run/serving.py`
 - `src/learnloop/followup_serve/identity.py`
@@ -157,33 +157,32 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/practice.py`
-- `src/learnloop_sidecar/phone_reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_journey_helpers.py`
+- `tests/p2_acceptance_helpers.py`
+- `tests/probe_block_end_helpers.py`
+- `tests/probe_episodes_helpers.py`
+- `tests/probe_robust_cutover_helpers.py`
 - `tests/test_ad_guard_reachable_reads.py`
+- `tests/test_causal_repair_sidecar_rpcs.py`
+- `tests/test_characterization_probe_regrade.py`
+- `tests/test_characterization_probe_replay.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_learner_protection_predicates.py`
 - `tests/test_mcp_c1a_landing.py`
+- `tests/test_p2_leakage_suite.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
-- `tests/test_reader_ca1_codex_review.py`
-- `tests/test_robust_completion_gate.py`
-- `tests/test_sg_slip_vs_gap.py`
-- `tests/due_queue_helpers.py`
-- `tests/test_causal_repair_sidecar_rpcs.py`
-- `tests/test_device_eligibility.py`
-- `tests/test_due_queue_read_builds.py`
-- `tests/test_evsi_router_composition.py`
-- `tests/test_followup_journey.py`
-- `tests/test_followup_reserved_only.py`
-- `tests/test_held_grade_evidence.py`
-- `tests/test_mobile_v3_codex_review.py`
+- `tests/test_probe_audit.py`
+- `tests/test_probe_episodes.py`
+- `tests/test_probe_longform_families.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

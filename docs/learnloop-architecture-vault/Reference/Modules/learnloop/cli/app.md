@@ -219,7 +219,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`; calls `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`
 - [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] — imports `causal_lane_health`; calls `causal_lane_health`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `resolve_machine_check`; calls `resolve_machine_check`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `transition_probe_candidate`; calls `transition_probe_candidate`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `COMMISSIONING_POLICY_VERSION`, `commission_probe_instrument`; calls `commission_probe_instrument`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `MACHINE_CHECK_INSTRUMENT_COMMISSIONING`
@@ -227,6 +226,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `commission_planted_diagnostic_evaluation`, `diagnostic_augmentation_report`, `model_family`, `planted_cases_from_manifest`; calls `commission_planted_diagnostic_evaluation`, `diagnostic_augmentation_report`, `model_family`, `planted_cases_from_manifest`
 - [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] — imports `profile_coverage`, `profile_match_fill_rate`; calls `profile_coverage`, `profile_match_fill_rate`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `error_hunt_outcome_summary`, `proofreading_signal`; calls `error_hunt_outcome_summary`, `proofreading_signal`
+- [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `resolve_machine_check`; calls `resolve_machine_check`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `missing_vocabulary_report`; calls `missing_vocabulary_report`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/spend|learnloop.diagnosis.offline_review.spend]] — imports `ReviewSpend`; calls `ReviewSpend`
 - [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `grading_confusion_report`, `pilot_report`, `run_probe_regrade_checks`; calls `grading_confusion_report`, `pilot_report`, `run_probe_regrade_checks`

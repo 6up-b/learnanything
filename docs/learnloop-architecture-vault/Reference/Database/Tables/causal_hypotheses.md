@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_factor_deferral.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -157,6 +157,7 @@ Database triggers:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
@@ -164,6 +165,7 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/guided_redo.py`
+- `src/learnloop/diagnosis/machine_checks.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/recurrence/kind.py`
@@ -171,8 +173,6 @@ Database triggers:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
-- `src/learnloop/diagnosis/text_gaps/actions.py`
-- `src/learnloop/followup_run/admission.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

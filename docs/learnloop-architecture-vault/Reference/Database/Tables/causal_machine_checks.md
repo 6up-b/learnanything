@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/machine_checks.py"
   - "src/learnloop_sidecar/handlers/measurement.py"
 tags:
   - "learnloop/database/table"
@@ -96,7 +97,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/machine_checks.py`
 - `src/learnloop_sidecar/handlers/measurement.py`
 
 > [!note] Static-reference boundary

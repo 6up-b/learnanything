@@ -71,9 +71,9 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 12 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 7 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
@@ -102,9 +102,9 @@ flowchart LR
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -112,9 +112,9 @@ flowchart LR
     center -->|12| n_learnloop_adaptive_difficulty
     center -->|10| n_learnloop_vault
     n_learnloop_cli -->|7| center
+    center -->|7| n_learnloop_diagnosis
     center -->|7| n_learnloop_learner
     center -->|6| n_learnloop_attempts
-    center -->|6| n_learnloop_diagnosis
     center -->|5| n_learnloop
     center -->|5| n_learnloop_db
     n_learnloop_scheduling -->|1| center
