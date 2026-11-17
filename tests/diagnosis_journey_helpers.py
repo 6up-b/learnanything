@@ -9,6 +9,7 @@ from datetime import timedelta
 from learnloop.clock import FrozenClock
 from learnloop.db.table_roles import TABLE_ROLES
 from learnloop.diagnosis import causal_orchestrator as causal
+from learnloop.diagnosis import probe_completion as completion
 from learnloop.diagnosis import probe_episodes as probes
 
 from tests.figure_build_golden_helpers import (
@@ -344,8 +345,8 @@ def probe_case(kind, root, patch):
             clock=FrozenClock(NOW + timedelta(hours=1)))
         assert revision["status"] == "revised" and not attempt_grade_held(repo, result.attempt_id)
         journey.capture("released")
-        probes.close_diagnostic_segment(repo, episode.id, clock=CLOCK)
-        assert probes.close_diagnostic_segment(repo, episode.id, clock=CLOCK) is None
+        completion.close_diagnostic_segment(repo, episode.id, clock=CLOCK)
+        assert completion.close_diagnostic_segment(repo, episode.id, clock=CLOCK) is None
         journey.capture("segment_closed")
     else:
         result = _submit(vault, repo, item_id=ITEM_ID, presentation_id=presentation.id, score=1)

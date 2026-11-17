@@ -8,7 +8,7 @@
   agreement gate). No count cap.
 * ``incumbent``: the serving probe episode where the robust gate decides (the
   probe-episode value site off, or a calibration session): the highest
-  hypothesis-EIG question, stopped as ``probe_episodes._evaluate_completion``
+  hypothesis-EIG question, stopped as ``probe_completion.evaluate_completion``
   stops it, in its order: the observation budget; on an unstable posterior the
   action equivalence stop, then (from the minimum independent observations on)
   the robust completion gate (``couldnt_reliably_distinguish``); on a stable
@@ -40,7 +40,7 @@ import numpy as np
 
 from learnloop.config.schema import ProbeEpisodeConfig
 from learnloop.diagnosis import robust_composition as rc
-from learnloop.diagnosis.probe_episodes import robust_gate_completion
+from learnloop.diagnosis.probe_completion import robust_gate_completion
 from learnloop.scheduling import action_loss as AL
 from learnloop.scheduling import evsi as EV
 
@@ -63,7 +63,7 @@ ALL_POLICIES = POLICIES + VARIANTS
 #: single-family study's arms are unchanged.
 #:
 #: ``voi_successor`` (the branch at ``086c24c0``, after its review fixes):
-#: today's per-episode stops (``probe_episodes._evaluate_completion``: decision
+#: today's per-episode stops (``probe_completion.evaluate_completion``: decision
 #: stable, action equivalent, the robust completion gate) with the episode's
 #: ``maximum_observations`` lifted onto value (``episode_maximum_binds`` is
 #: false while the site is on), and, on every next observation, the
@@ -315,7 +315,7 @@ def _action_equivalent(state: EpisodeState, config: ProbeEpisodeConfig) -> bool:
 
 
 def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool = True) -> str | None:
-    """The cap-only stop rules (``_evaluate_completion`` without the robust gate).
+    """The cap-only stop rules (``evaluate_completion`` without the robust gate).
     ``budget=False``: the episode maximum lifted onto value (mvp-0.21)."""
 
     n = state.observations
@@ -329,7 +329,7 @@ def _cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool =
 
 
 def _robust_gate_ends(state: EpisodeState, settings: PolicySettings) -> bool:
-    """``probe_episodes._robust_gate_verdict``: the robust selector over the
+    """``probe_completion._robust_gate_verdict``: the robust selector over the
     remaining instruments asks the episode to end (the episode-pinned channel
     here is the simulation's identity channel). ``settings.robust_gate_fixes``
     picks the gate, as the switch does in serving: a fragile stop only, or
@@ -354,7 +354,7 @@ def _robust_gate_ends(state: EpisodeState, settings: PolicySettings) -> bool:
 
 def _incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig, *,
                     budget: bool = True) -> str | None:
-    """``probe_episodes._evaluate_completion`` in its own order (review F8).
+    """``probe_completion.evaluate_completion`` in its own order (review F8).
     ``budget=False``: the episode maximum lifted onto value (mvp-0.21)."""
 
     n = state.observations

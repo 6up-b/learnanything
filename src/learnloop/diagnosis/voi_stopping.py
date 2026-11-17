@@ -71,7 +71,7 @@ study at the value in brackets:
 
 * rank 1, ``robust_gate_with_value`` (false; true): the mvp-0.8 robust
   completion gate does not end an episode while value decides it
-  (``probe_episodes.robust_gate_applies``); a value stop records the gate's
+  (``probe_completion.robust_gate_applies``); a value stop records the gate's
   verdict as a counterfactual (:func:`with_robust_gate_counterfactual`);
 * rank 2, ``lookahead_max_checks`` (3; 1): in a probe episode
   (:data:`LOOKAHEAD_SITES`), where a decision is at stake, ``rank_feasible``

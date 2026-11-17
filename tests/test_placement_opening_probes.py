@@ -387,7 +387,8 @@ def test_an_adopted_episode_that_completes_without_a_gap_opens_no_tutor(tmp_path
     writes no decision) neither opens the tutor nor reaches its context; a
     typed decision the block end writes still does."""
 
-    from learnloop.diagnosis.probe_episodes import _set_target_decision, maybe_reprobe_for_misconception
+    from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_misconception
+    from learnloop.diagnosis.probe_completion import set_target_decision
     from learnloop.tutor.tutor_qa import _diagnostic_decision_for, build_tutor_opening
 
     _paths, vault, repository = _upgraded(tmp_path)
@@ -406,7 +407,7 @@ def test_an_adopted_episode_that_completes_without_a_gap_opens_no_tutor(tmp_path
     assert build_tutor_opening(vault, repository, NoPaidOpening(), practice_item_id="pi_diag_mid") is None
 
     typed = {"diagnosed_gap": "misconception:m1", "tutor_move": "contrast_cases", "target_facets": []}
-    _set_target_decision(repository, adopted.id, typed, clock=_at(5))
+    set_target_decision(repository, adopted.id, typed, clock=_at(5))
     assert _diagnostic_decision_for(vault, repository, item, "practice") == typed
 
 

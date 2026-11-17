@@ -526,7 +526,7 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     gate abstention and the episode continues, the next committed
     observation's receipt says what the gate would have said ("later")."""
 
-    from learnloop.diagnosis import probe_episodes as pe
+    from learnloop.diagnosis import probe_completion as completion
     from learnloop.scheduling import scheduler as S
     from tests.voi_stopping_helpers import CLOCK, _answer_probe, _minutes
 
@@ -547,7 +547,7 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     restored, restored_repository = _gate_vault(tmp_path / "restored", toml="[voi_stopping]\nrobust_gate_with_value = true\n")
     first = restored_repository.open_probe_episode("lo_svd_definition")
     rows = restored_repository.probe_observations_for_episode(first.id)
-    assert pe.robust_gate_counterfactual(restored, restored_repository, first, {"a": 0.5, "b": 0.5}) == (False, None)
+    assert completion.robust_gate_counterfactual(restored, restored_repository, first, {"a": 0.5, "b": 0.5}) == (False, None)
     assert rows == []
 
 

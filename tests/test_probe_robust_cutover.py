@@ -12,11 +12,8 @@ import pytest
 
 from learnloop.diagnosis import probe_robust as pr
 from learnloop.diagnosis import robust_composition as rc
-from learnloop.diagnosis.probe_episodes import (
-    _evaluate_completion,
-    enter_episode,
-    episode_posterior,
-)
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_posterior
+from learnloop.diagnosis.probe_completion import evaluate_completion
 from learnloop.diagnosis.probe_families import CompiledInstrument
 from learnloop.diagnosis.probe_outcome_mapping import (
     PROBE_COARSE_MAPPING_VERSION,
@@ -164,10 +161,11 @@ def test_evaluate_completion_abstains_on_planted_indistinguishable_case(tmp_path
     # observations, and make the robust selector abstain by planting a fragile
     # (non-robust-advantage) decision. We drive _robust_completion_override with a
     # patched robust_selection to assert the override wiring returns the outcome.
+    from learnloop.diagnosis import probe_completion as completion
     from learnloop.diagnosis import probe_episodes as pe
 
     monkeypatch.setattr(
-        pe,
+        completion,
         "_robust_completion_override",
         lambda *a, **k: "couldnt_reliably_distinguish",
     )
@@ -182,7 +180,7 @@ def test_evaluate_completion_abstains_on_planted_indistinguishable_case(tmp_path
         entropy=1.0,
     )
     # Give the episode maximum headroom so budget-exhaustion does not preempt.
-    reason = _evaluate_completion(loaded, repository, refreshed, unstable, clock=CLOCK)
+    reason = evaluate_completion(loaded, repository, refreshed, unstable, clock=CLOCK)
     assert reason == "couldnt_reliably_distinguish"
 
 

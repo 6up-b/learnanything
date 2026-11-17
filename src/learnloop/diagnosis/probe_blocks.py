@@ -29,13 +29,12 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import ProbeEpisodeRecord, Repository
-from learnloop.diagnosis.probe_episodes import (
-    EpisodePosterior,
-    _evaluate_completion,
-    _set_target_decision,
+from learnloop.diagnosis.probe_episodes import EpisodePosterior, episode_posterior
+from learnloop.diagnosis.probe_completion import (
     episode_maximum_binds,
-    episode_posterior,
+    evaluate_completion,
     persist_episode_beliefs,
+    set_target_decision,
 )
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.vault.models import LoadedVault
@@ -474,7 +473,7 @@ def end_diagnostic_block(
     if posterior is not None:
         persist_episode_beliefs(vault, repository, episode, posterior, clock=clock)
         open_set = evaluate_open_set_trigger(vault, repository, episode, posterior, clock=clock)
-        completion_reason = _evaluate_completion(vault, repository, episode, posterior, clock=clock)
+        completion_reason = evaluate_completion(vault, repository, episode, posterior, clock=clock)
 
     refreshed = repository.probe_episode(episode.id) or episode
     first_error = _first_error_from_block(rows)
@@ -492,7 +491,7 @@ def end_diagnostic_block(
             decision = build_typed_transition_decision(
                 vault, repository, refreshed, posterior, first_error_step_or_claim=first_error
             )
-            _set_target_decision(repository, refreshed.id, decision, clock=clock)
+            set_target_decision(repository, refreshed.id, decision, clock=clock)
 
     # Segment boundary (§5.1): revealing feedback is an intervention boundary;
     # a continuing (or parked) episode measures its next block in a fresh

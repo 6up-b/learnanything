@@ -33,8 +33,8 @@ from learnloop.diagnosis.probe_episodes import (
     presentation_commit_payload,
     probe_serving_block_reason,
     record_presentation_forecast,
-    robust_gate_counterfactual,
 )
+from learnloop.diagnosis.probe_completion import robust_gate_counterfactual
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.goals.goal_projection import build_goal_frontier
