@@ -19,10 +19,9 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
     episode_posterior,
     maybe_reprobe_for_misconception,
-    next_probe_item,
-    record_episode_evidence,
-    stop_diagnosing_and_teach,
 )
+from learnloop.diagnosis.probe_controls import next_probe_item, stop_diagnosing_and_teach
+from learnloop.diagnosis.probe_evidence import record_episode_evidence
 from learnloop.diagnosis.probe_presentations import (
     commit_item_presentation,
     commit_presentation,

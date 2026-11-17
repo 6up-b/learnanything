@@ -14,9 +14,9 @@ in-block diagnostic attempts). At block end, one hook runs in order:
 5. route to the typed transition (§12.1), the next block, or ordinary practice.
 
 Every modality funnels here: dialogue blocks end through
-``end_dialogue_block`` (probe_dialogue.py), sequential and precommitted
+``end_dialogue_block`` (probe_dialogue.py), sequential
 microprobe blocks end from ``record_episode_evidence`` once the block's
-observation target is reached (probe_episodes.py). Steps 1 and 2 are
+observation target is reached (probe_evidence.py). Steps 1 and 2 are
 ``settle_block_answers``, which "Stop diagnosing and teach me"
 (``stop_diagnosing_and_teach``) also runs, since a stopped block never
 reaches its block end.
@@ -29,7 +29,7 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import ProbeEpisodeRecord, Repository
-from learnloop.diagnosis.probe_episodes import EpisodePosterior, episode_posterior
+from learnloop.diagnosis.probe_episodes import EpisodePosterior, eligible_instruments, episode_posterior
 from learnloop.diagnosis.probe_completion import (
     episode_maximum_binds,
     evaluate_completion,
@@ -68,8 +68,7 @@ def block_complete(
     """Whether recording this presentation's observation closed the block.
 
     Dialogue blocks never auto-close here — their explicit endpoint
-    (``end_dialogue_block``) owns the boundary. A precommitted joint block
-    closes when its committed size is consumed; sequential probes close after
+    (``end_dialogue_block``) owns the boundary. Sequential probes close after
     the configured default block size. Exhausting the episode's qualifying
     budget always closes the block so the completion policy can run.
     """
@@ -96,11 +95,6 @@ def block_complete(
     segment_rows = [
         row for row in rows if row.get("state_segment_id") == episode.active_state_segment_id
     ]
-    if components.get("joint_block"):
-        target = int(components.get("block_size") or 0)
-        if target <= 0:
-            target = vault.config.probe.block.default_block_observations
-        return len(segment_rows) >= target
     target = (
         min(vault.config.probe.block.default_block_observations, episode.maximum_observations)
         if maximum_binds
@@ -122,7 +116,6 @@ def _next_observation_does_not_pay(
     rows: list[dict],
 ) -> bool:
     from learnloop.diagnosis import voi_stopping as voi
-    from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
 
     if not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
         return False
@@ -301,7 +294,7 @@ def build_typed_transition_decision(
     }
 
 
-def _first_error_from_block(rows: list[dict[str, Any]]) -> str | None:
+def first_error_from_block(rows: list[dict[str, Any]]) -> str | None:
     """First divergent step/claim from the block's structured traces (§8.2)."""
 
     for row in rows:
@@ -476,7 +469,7 @@ def end_diagnostic_block(
         completion_reason = evaluate_completion(vault, repository, episode, posterior, clock=clock)
 
     refreshed = repository.probe_episode(episode.id) or episode
-    first_error = _first_error_from_block(rows)
+    first_error = first_error_from_block(rows)
 
     # 5. Route: typed transition, the next block, or ordinary practice.
     route = "ordinary_practice"

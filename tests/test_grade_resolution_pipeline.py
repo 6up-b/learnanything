@@ -595,7 +595,7 @@ def test_exam_answer_dual_writes_assessment_grade(tmp_path):
 
 
 def test_probe_dual_write_helper_records_diagnostic_grade(env):
-    from learnloop.diagnosis.probe_episodes import _dual_write_probe_grade
+    from learnloop.diagnosis.probe_evidence import _dual_write_probe_grade
 
     vault, repo = env
     # Seed a bare practice_attempts row (as the probe submission path would have).

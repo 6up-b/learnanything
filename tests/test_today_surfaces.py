@@ -301,7 +301,7 @@ def test_overconfidence_probe_origin_survives_target_selection(tmp_path, migrati
     """Driving the real target-selection flow overwrites target_decision_json but
     must not erase the origin (spec §4.3)."""
 
-    from learnloop.diagnosis.probe_episodes import stop_diagnosing_and_teach
+    from learnloop.diagnosis.probe_controls import stop_diagnosing_and_teach
 
     root = owner_vault("linear_algebra")
     vault = load_vault(root)

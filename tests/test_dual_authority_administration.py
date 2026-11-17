@@ -23,8 +23,8 @@ from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
-    next_probe_item,
 )
+from learnloop.diagnosis.probe_controls import next_probe_item
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item

@@ -1207,7 +1207,7 @@ def test_a_calibration_session_keeps_the_episode_maximum(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("switches", ["on", "off"])
 def test_the_probe_contract_says_value_decides_only_with_the_switch_on(tmp_path, switches):
-    from learnloop.diagnosis.probe_episodes import episode_contract
+    from learnloop.diagnosis.probe_controls import episode_contract
 
     _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21", toml=VOI_OFF if switches == "off" else "")
     contract = episode_contract(vault, repository, LO)

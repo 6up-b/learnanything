@@ -2,7 +2,7 @@
 
 Two controls hand a check to a lesson: "Teach me this" when a check ends with a gap to teach, and "Stop diagnosing and
 teach me" during one. Both persist the check's typed transition decision on its episode before the lesson opens
-(``diagnosis.probe_episodes.stop_diagnosing_and_teach``, ``diagnosis.probe_blocks.end_diagnostic_block``), and the
+(``diagnosis.probe_controls.stop_diagnosing_and_teach``, ``diagnosis.probe_blocks.end_diagnostic_block``), and the
 lesson's opening names the episode. Without this entry the lesson would know the check's answers only as cold results
 ("result only") and would find the gap again itself.
 

@@ -1144,7 +1144,7 @@ ignore_imports = [
     "learnloop.attempts.attempts -> learnloop.diagnosis.error_hunt",
     "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy_map",
-    "learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.probe_evidence",
     "learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations",
     "learnloop.attempts.attempts -> learnloop.diagnosis.remediation",
     "learnloop.attempts.attempts -> learnloop.scheduling.fsrs",

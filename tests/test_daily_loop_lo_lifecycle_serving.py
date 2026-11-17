@@ -22,8 +22,8 @@ from learnloop.diagnosis.probe_episodes import (
     enter_episode,
     enter_stale_uncertainty_reprobes,
     episode_hypothesis_set,
-    next_probe_item,
 )
+from learnloop.diagnosis.probe_controls import next_probe_item
 from learnloop.scheduling.scheduler import _insert_pending_followups, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
