@@ -25,11 +25,13 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,
-    RoutineDisplayCovered,
     administered_surface_exclusions,
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
+)
+from learnloop.diagnosis.probe_presentations import (
+    RoutineDisplayCovered,
     presentation_commit_payload,
     probe_serving_block_reason,
     record_presentation_forecast,

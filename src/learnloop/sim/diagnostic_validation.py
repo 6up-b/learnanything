@@ -52,10 +52,12 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.diagnosis.probe_episodes import (
-    RoutineDisplayCovered,
-    commit_presentation,
     eligible_instruments,
     episode_posterior,
+)
+from learnloop.diagnosis.probe_presentations import (
+    RoutineDisplayCovered,
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.diagnosis.probe_families import (

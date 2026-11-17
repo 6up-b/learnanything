@@ -1537,7 +1537,7 @@ def _answer_shown(
     4 round 7; the one eligibility decision's question)? The offer asks before
     it changes anything."""
 
-    from learnloop.diagnosis.probe_episodes import routine_display_covers_item
+    from learnloop.diagnosis.probe_presentations import routine_display_covers_item
 
     return routine_display_covers_item(repository, practice_item_id, clock=clock)
 
@@ -1672,11 +1672,13 @@ def _accept_probe_offer(
         )
 
     from learnloop.diagnosis.probe_episodes import (
-        RoutineDisplayCovered,
-        commit_presentation,
         eligible_instruments,
         enter_episode,
         retarget_episode_to_causal_factor,
+    )
+    from learnloop.diagnosis.probe_presentations import (
+        RoutineDisplayCovered,
+        commit_presentation,
     )
 
     def finish(episode) -> ProbeOffer:

@@ -19,12 +19,14 @@ from learnloop.diagnosis.calibration_sessions import (
     graph_propagated_prior,
 )
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     enter_episode,
     enter_stale_uncertainty_reprobes,
     episode_hypothesis_set,
     maybe_reprobe_for_predictive_failure,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.substrate.state_sync import sync_vault_state
@@ -238,7 +240,7 @@ def test_session_cap_blocks_further_probe_serving(tmp_path):
     session has spent its qualifying observations, the shared gate returns
     session_cap_reached; other sessions and capless callers are unaffected."""
 
-    from learnloop.diagnosis.probe_episodes import probe_serving_block_reason
+    from learnloop.diagnosis.probe_presentations import probe_serving_block_reason
     from learnloop.vault.writer import upsert_practice_item
 
     # The predecessor's routine per-session count cap. From mvp-0.21 (voi_stopping) the cap is
@@ -395,7 +397,7 @@ def test_routine_planner_shadow_ranks_open_episodes(tmp_path):
 
 def test_planner_shadow_report_summarizes_logged_components(tmp_path):
     from learnloop.diagnosis.probe_audit import planner_shadow_report
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
 
     _, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)

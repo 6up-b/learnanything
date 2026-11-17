@@ -6,9 +6,11 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.vault.loader import load_vault

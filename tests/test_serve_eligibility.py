@@ -535,7 +535,11 @@ def test_no_probe_is_committed_for_an_item_submit_would_prime(tmp_path, revealed
     never-attempted probe item, at any age (only an attempt absorbs it), means
     a probe of it cannot test the learner, so none is committed."""
 
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from learnloop.vault.loader import load_vault
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 

@@ -3364,7 +3364,7 @@ def _validate_probe_presentation(
     presentation_id = application.attempt_record.get("probe_presentation_id")
     if not presentation_id:
         return application
-    from learnloop.diagnosis.probe_episodes import validate_presentation_for_submission
+    from learnloop.diagnosis.probe_presentations import validate_presentation_for_submission
 
     validation = validate_presentation_for_submission(
         repository,

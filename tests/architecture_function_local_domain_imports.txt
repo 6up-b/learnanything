@@ -11,6 +11,7 @@ learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation
 learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles
 learnloop.attempts.attempts -> learnloop.diagnosis.error_hunt
 learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes
+learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations
 learnloop.attempts.attempts -> learnloop.diagnosis.remediation
 learnloop.attempts.attempts -> learnloop.goals.certification_cold_probe
 learnloop.attempts.attempts -> learnloop.learner.assessment_contracts

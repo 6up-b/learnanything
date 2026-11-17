@@ -1,4 +1,4 @@
-"""Redundancy penalty and precommitted joint blocks (Checkpoint 5.2/5.3, test 29)."""
+"""Redundancy penalty and sequential selection on the observed posterior."""
 
 from __future__ import annotations
 
@@ -12,15 +12,16 @@ from learnloop.attempts.attempts import (
     apply_attempt,
 )
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
     episode_posterior,
-    plan_precommitted_block,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
-from tests.probe_policy_helpers import CLOCK, ITEM_2, ITEM_3, ITEM_ID, LO_ID, _setup
+from tests.probe_policy_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
 def _grade(score: int) -> ResolvedGrade:
     return ResolvedGrade(
@@ -80,41 +81,6 @@ def test_family_redundancy_penalty_after_observation(tmp_path):
     for entry in after:
         assert entry.redundancy_penalty == pytest.approx(penalty)
         assert entry.selection_components()["redundancy_penalty"] == pytest.approx(penalty)
-
-
-# --- Precommitted joint block (Checkpoint 5.3, §16 test 29) ------------------------------
-
-
-def test_precommitted_block_commits_all_before_answers(tmp_path):
-    loaded, repository = _setup(tmp_path, items=(ITEM_ID, ITEM_2, ITEM_3))
-    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
-
-    block = plan_precommitted_block(loaded, repository, episode, block_size=2, clock=CLOCK)
-    assert len(block) == 2
-    # All committed before any answer: both selected, distinct items/surfaces.
-    assert {presentation.status for presentation in block} == {"selected"}
-    assert len({presentation.practice_item_id for presentation in block}) == 2
-    for index, presentation in enumerate(block):
-        components = presentation.selection_components
-        assert components["joint_block"] is True
-        assert components["block_index"] == index
-        assert components["conditional_eig"] > 0
-    # Later picks condition on predicted (not observed) outcomes: the second
-    # pick's conditional EIG is an expectation, at most its prior EIG.
-    assert block[1].selection_components["conditional_eig"] <= (
-        block[0].selection_components["conditional_eig"] + 1e-9
-    )
-
-    # The block is consumable in order through the normal submission path.
-    serve_presentation(repository, block[0].id, clock=CLOCK)
-    _submit(loaded, repository, item_id=block[0].practice_item_id, presentation_id=block[0].id)
-    episode = repository.probe_episode(episode.id)
-    if episode.status == "in_progress":
-        serve_presentation(repository, block[1].id, clock=CLOCK)
-        result = _submit(
-            loaded, repository, item_id=block[1].practice_item_id, presentation_id=block[1].id
-        )
-        assert repository.probe_observation_for_attempt(result.attempt_id) is not None
 
 
 def test_sequential_selection_conditions_on_observed_posterior(tmp_path):

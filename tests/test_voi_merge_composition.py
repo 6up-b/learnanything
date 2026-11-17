@@ -317,7 +317,7 @@ def _sidecar_offer(paths, repository):
 
 
 def test_a_committed_probe_logs_its_value_decision_once_beside_the_selection_forecast(tmp_path):
-    from learnloop.diagnosis.probe_episodes import record_presentation_forecast
+    from learnloop.diagnosis.probe_presentations import record_presentation_forecast
 
     paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
     session_id = _sidecar_offer(paths, repository)
@@ -528,7 +528,7 @@ def _report_site(vault, site):
 
 def _answer_presentation(vault, repository, presentation, session_id, *, score=4):
     from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
-    from learnloop.diagnosis.probe_episodes import serve_presentation
+    from learnloop.diagnosis.probe_presentations import serve_presentation
     from learnloop.ids import new_ulid
 
     from datetime import UTC, datetime, timedelta

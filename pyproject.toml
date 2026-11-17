@@ -1145,6 +1145,7 @@ ignore_imports = [
     "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.error_taxonomy_map",
     "learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes",
+    "learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations",
     "learnloop.attempts.attempts -> learnloop.diagnosis.remediation",
     "learnloop.attempts.attempts -> learnloop.scheduling.fsrs",
     "learnloop.attempts.coldness_receipt -> learnloop.diagnosis.remediation",
@@ -1237,6 +1238,7 @@ ignore_imports = [
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.error_taxonomy_map",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_completion",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_episodes",
+    "learnloop.scheduling.scheduler -> learnloop.diagnosis.probe_presentations",
     "learnloop.scheduling.scheduler -> learnloop.diagnosis.probes",
     # mvp-0.21: the scheduler values probe episodes and further teach-backs
     # with diagnosis.voi_stopping, which sits beside the probe machinery it
@@ -1247,6 +1249,7 @@ ignore_imports = [
     "learnloop.sim.diagnostic_validation -> learnloop.attempts.attempts",
     "learnloop.sim.diagnostic_validation -> learnloop.attempts.grading",
     "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_episodes",
+    "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_presentations",
     "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_families",
     "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_hypotheses",
     "learnloop.sim.diagnostic_validation -> learnloop.diagnosis.probe_instance_generation",

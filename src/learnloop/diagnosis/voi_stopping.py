@@ -2332,7 +2332,7 @@ def record_offer_value_forecasts(
     the seeded exploration drew it), and each probe episode whose next
     observation the offer withheld because it does not pay. An episode's
     continue acts where its observation is committed, so it is logged with the
-    presentation (``probe_episodes.record_presentation_forecast``), never here,
+    presentation (``probe_presentations.record_presentation_forecast``), never here,
     and an episode's completion on its value stop is logged at the completion.
     """
 

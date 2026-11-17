@@ -178,10 +178,12 @@ def test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_
     from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
     from learnloop.diagnosis.probe_episodes import (
-        commit_presentation,
         eligible_instruments,
         enter_episode,
         episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import (
+        commit_presentation,
         serve_presentation,
     )
     from learnloop.ids import new_ulid
