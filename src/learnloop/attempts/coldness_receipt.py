@@ -105,7 +105,7 @@ their meaning, and consumers distinguish eras by receipt presence and
 observable when it was written. The existing enforcement (the §6.2 guards)
 stays; this is the recorded line-item layer above it, plus exactly two NEW
 hard-fail causes
-(applied by ``causal_orchestrator.record_cold_verification_from_task``): the
+(applied by ``causal_cold_verification.record_cold_verification_from_task``): the
 cold item's own answer revealed post-primed, and a hard same-surface exposure
 post-primed. Everything else records without blocking, so the lane is never
 starved by its own receipts.

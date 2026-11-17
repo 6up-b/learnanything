@@ -100,7 +100,7 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
         episode_conflict_reason,
         learner_preference,
     )
-    from learnloop.diagnosis.causal_orchestrator import pending_machine_checks_for_factor
+    from learnloop.diagnosis.machine_checks import pending_machine_checks_for_factor
 
     preference = learner_preference(
         repository, factor_id=factor_id, session_id=row.get("session_id"),

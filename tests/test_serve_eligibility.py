@@ -84,7 +84,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
     receipt (the expiry sweep adds nothing), the practice answer is accepted,
     and no cold retry on the item is ever served after it."""
 
-    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
     from learnloop.scheduling.scheduler import build_due_queue
     from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 

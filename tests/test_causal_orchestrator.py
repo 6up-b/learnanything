@@ -27,11 +27,13 @@ from learnloop.diagnosis.causal_orchestrator import (
     accept_probe_offer,
     causal_repair_status,
     classify_probe_response,
-    cold_verification_context,
     defer_probe_offer,
-    enqueue_backfill_obligation,
     pinned_causal_probe,
     request_teaching_now,
+)
+from learnloop.diagnosis.causal_cold_verification import cold_verification_context
+from learnloop.diagnosis.machine_checks import (
+    enqueue_backfill_obligation,
     sweep_machine_checks,
 )
 from learnloop.diagnosis.probe_hard_stops import learner_preference

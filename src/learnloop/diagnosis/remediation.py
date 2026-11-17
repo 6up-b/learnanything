@@ -959,7 +959,7 @@ def record_remediation_attempt(
         # task. When the retry lands days later, the factor may have closed and
         # the receipt may be stale; reconstructing them then is exactly the
         # "future caller" assumption that left this channel unwired.
-        from learnloop.diagnosis.causal_orchestrator import cold_verification_context
+        from learnloop.diagnosis.causal_cold_verification import cold_verification_context
 
         context = cold_verification_context(
             None, repository, episode=episode, source_attempt=attempt

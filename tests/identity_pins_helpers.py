@@ -1177,7 +1177,7 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "K9.5a", "causal discriminating observations and machine checks",
         ("src/learnloop/diagnosis/causal_orchestrator.py::record_learner_embedded_prediction",
          "src/learnloop/diagnosis/causal_orchestrator.py::record_probe_classification",
-         "src/learnloop/diagnosis/causal_orchestrator.py::_machine_check_id"),
+         "src/learnloop/diagnosis/machine_checks.py::_machine_check_id"),
         "idempotent observation and machine-check inserts", "duplicate observations or obligations",
         {"cdo_question": diagnosis_pins.embedded_prediction, "cdo_probe": diagnosis_pins.probe_classification,
          "cmc": diagnosis_pins.machine_check}),

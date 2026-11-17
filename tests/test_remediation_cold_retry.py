@@ -282,7 +282,7 @@ def test_a_deferred_cold_retry_still_expires_on_its_original_window(tmp_path):
     """Deferral can never outlive the task: an episode that keeps being
     revealed runs out its original 30-day window and censors honestly."""
 
-    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
 
     vault, repository, misconception_id = _setup(tmp_path)
     _, _, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)

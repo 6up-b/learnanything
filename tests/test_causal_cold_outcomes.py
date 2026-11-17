@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from learnloop.clock import FrozenClock
-from learnloop.diagnosis.causal_orchestrator import (
+from learnloop.diagnosis.causal_cold_verification import (
     record_cold_verification_from_task,
     sweep_expired_cold_retries,
 )

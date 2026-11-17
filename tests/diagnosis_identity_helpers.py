@@ -330,7 +330,7 @@ def text_needed():
 
 
 def machine_check():
-    from learnloop.diagnosis.causal_orchestrator import enqueue_backfill_obligation
+    from learnloop.diagnosis.machine_checks import enqueue_backfill_obligation
 
     return enqueue_backfill_obligation(SimpleNamespace(enqueue_causal_machine_check=echo),
         {"kind": "repair_class_mapping_backfill", "factor_id": "factor_pin", "attempt_id": "att_pin",

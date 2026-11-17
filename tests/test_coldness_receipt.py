@@ -24,7 +24,7 @@ from learnloop.attempts.attempts import (
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.diagnosis.causal_orchestrator import record_cold_verification_from_task
+from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
 from learnloop.attempts.coldness_receipt import (
     COLDNESS_RECEIPT_VERSION,
     TELEMETRY_COVERAGE_VERSION,
@@ -1282,7 +1282,7 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
 
 
 def test_expired_task_gets_a_partial_final_receipt(tmp_path):
-    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
 
     _, vault, repository, misconception_id = _setup(tmp_path)
     treatment = _to_treatment(vault, repository, misconception_id)

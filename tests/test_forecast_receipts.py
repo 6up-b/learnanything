@@ -42,7 +42,7 @@ from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import forecast_receipts as receipt_store
 from learnloop.db.table_roles import TableRole, role_for_table, tables_for_role
-from learnloop.diagnosis.causal_orchestrator import record_cold_verification_from_task
+from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
 from learnloop.diagnosis import forecast_receipts as repair_forecasts
 from learnloop.diagnosis import remediation
 from learnloop.diagnosis.split import jobs as jobs_module

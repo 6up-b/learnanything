@@ -835,11 +835,9 @@ def _run_causal_orchestrator_hooks(
     it never raises — a P2 bookkeeping failure must not fail an attempt.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import (
-        auto_classify_pinned_probe,
-        record_cold_verification_from_task,
-        sweep_machine_checks,
-    )
+    from learnloop.diagnosis.causal_orchestrator import auto_classify_pinned_probe
+    from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
+    from learnloop.diagnosis.machine_checks import sweep_machine_checks
 
     logger = logging.getLogger(__name__)
     try:
@@ -983,7 +981,7 @@ def run_post_diagnosis_hooks(
     from types import SimpleNamespace
 
     from learnloop.diagnosis import chain_records
-    from learnloop.diagnosis.causal_orchestrator import sweep_machine_checks
+    from learnloop.diagnosis.machine_checks import sweep_machine_checks
 
     logger = logging.getLogger(__name__)
     result = SimpleNamespace(attempt_id=attempt_id, learning_object_id=learning_object_id)

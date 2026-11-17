@@ -35,7 +35,7 @@ Replay-safety: every input is derived from stored, append-only records —
 cold-verification rows, ``causal_hypotheses`` versions (rebuilt by replay from
 attempts), remediation episodes, attribution reports and primed attempts —
 and every timestamp comparison uses the injected attempt-time clock, exactly
-like ``causal_orchestrator.sweep_expired_cold_retries``. Re-running the sweep
+like ``causal_cold_verification.sweep_expired_cold_retries``. Re-running the sweep
 (or replaying attempts) reproduces identical factor outcomes; closing an
 already-closed factor is a no-op.
 

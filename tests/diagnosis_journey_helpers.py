@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.db.table_roles import TABLE_ROLES
+from learnloop.diagnosis import machine_checks
 from learnloop.diagnosis import causal_orchestrator as causal
 from learnloop.diagnosis import probe_completion as completion
 from learnloop.diagnosis import probe_episodes as probes
@@ -214,16 +215,16 @@ def status_case(kind, root):
     assert status.status == ("needs_disambiguation" if kind == "decline" else kind)
     journey.capture("status")
     if kind == "deferred_machine_checks":
-        causal.sweep_machine_checks(vault, repo, LO, clock=CLOCK)
+        machine_checks.sweep_machine_checks(vault, repo, LO, clock=CLOCK)
         journey.capture("backfill_pending")
         repo.resolve_unresolved_cause_factor(factor, resolution_observation_ids=[], clock=CLOCK)
-        assert causal.sweep_machine_checks(vault, repo, LO, clock=CLOCK) == []
+        assert machine_checks.sweep_machine_checks(vault, repo, LO, clock=CLOCK) == []
         journey.capture("backfill_closed")
     if kind == "blocked_pending_review":
-        checks = causal.sweep_machine_checks(vault, repo, LO, clock=CLOCK)
+        checks = machine_checks.sweep_machine_checks(vault, repo, LO, clock=CLOCK)
         assert checks
         journey.capture("commissioning_pending")
-        causal.resolve_machine_check(repo, checks[0]["id"], resolution={"basis": "owner_review"}, clock=CLOCK)
+        machine_checks.resolve_machine_check(repo, checks[0]["id"], resolution={"basis": "owner_review"}, clock=CLOCK)
         journey.capture("commissioning_resolved")
     if kind == "decline":
         causal.defer_probe_offer(repo, factor_id=factor, clock=CLOCK)

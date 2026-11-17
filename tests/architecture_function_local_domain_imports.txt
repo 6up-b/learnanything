@@ -58,10 +58,11 @@ learnloop.diagnosis.calibration_sessions -> learnloop.learner.mastery
 learnloop.diagnosis.causal_activity_policy -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.causal_attribution -> learnloop.attempts.reveal_ledger
 learnloop.diagnosis.causal_attribution -> learnloop.substrate.canonical_projection
-learnloop.diagnosis.causal_orchestrator -> learnloop.attempts.coldness_receipt
+learnloop.diagnosis.causal_cold_verification -> learnloop.attempts.coldness_receipt
+learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.canonical_projection
+learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.instrument_serving
 learnloop.diagnosis.causal_orchestrator -> learnloop.attempts.reveal_ledger
 learnloop.diagnosis.causal_orchestrator -> learnloop.substrate.canonical_projection
-learnloop.diagnosis.causal_orchestrator -> learnloop.substrate.instrument_serving
 learnloop.diagnosis.contrast_pairs -> learnloop.learner.identifiability
 learnloop.diagnosis.diagnosis_adjudication -> learnloop.tutor.durable_promotion
 learnloop.diagnosis.diagnostic_pack -> learnloop.curriculum.golden_path_assessment
