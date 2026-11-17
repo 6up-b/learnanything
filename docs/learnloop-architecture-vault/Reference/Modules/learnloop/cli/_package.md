@@ -166,7 +166,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 55 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 24 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 25 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 19 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 18 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 17 static module edges
@@ -242,7 +242,7 @@ flowchart LR
     n_learnloop -->|1| center
     center -->|26| n_learnloop
     center -->|27| n_learnloop_db
-    center -->|24| n_learnloop_diagnosis
+    center -->|25| n_learnloop_diagnosis
     center -->|19| n_learnloop_source_retrieval
     center -->|18| n_learnloop_ops
     center -->|17| n_learnloop_attempts

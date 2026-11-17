@@ -19,8 +19,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
+  - "src/learnloop/diagnosis/causal_reads.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_instance_generation.py"
   - "src/learnloop/diagnosis/probe_coverage.py"
@@ -94,8 +94,8 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
+- `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/probe_coverage.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`

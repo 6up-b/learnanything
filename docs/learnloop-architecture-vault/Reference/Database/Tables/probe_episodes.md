@@ -143,12 +143,12 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/followup_run/jobs.py`
 - `src/learnloop/followup_run/router.py`
 - `src/learnloop/followup_serve/workflow.py`
 - `src/learnloop/goals/goal_contracts.py`
-- `src/learnloop/instructional/needs.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

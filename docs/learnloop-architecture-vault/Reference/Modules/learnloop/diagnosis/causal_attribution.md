@@ -47,41 +47,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py) |
-| Source lines | 3778 |
+| Source lines | 3771 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class VerificationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 232) — Typed deterministic-verifier output; no boolean authority laundering.
-  - `__post_init__(self) -> None` (line 247; internal)
-  - `as_dict(self) -> dict[str, Any]` (line 257; public)
-- `class RepairValidationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 268) — Validator-owned structural and deterministic-verification outcome.
-  - `as_dict(self) -> dict[str, Any]` (line 276; public)
-- `class SympyVerifierAdapter` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 290) — Small P1 CAS adapter for equality checks.
-  - `verify(self, observed_expression: str, expected_expression: str, *, assumptions: tuple[str, ...]=(), required_assumptions: tuple[str, ...]=()) -> VerificationResult` (line 297; public)
-- `class TestExecutionVerifierAdapter` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 343) — Typed adapter over an already-sandboxed test-execution result.
-  - `verify(self, *, returncode: int | None, tests_collected: int, parsed_form: Any=None, assumptions: tuple[str, ...]=()) -> VerificationResult` (line 346; public)
-- `validate_repair_candidate(suggestion: dict[str, Any], *, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, execution_result: Mapping[str, Any] | None=None) -> RepairValidationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 470) — Validate a repair without trusting any verdict supplied in its payload.
-- `select_minimal_repair(repairs: list[dict[str, Any]], *, protected_refs: list[dict[str, Any]] | None=None, episode_id: str | None=None, repair_policy_version: str=REPAIR_POLICY_VERSION, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, learner_answer_md: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 690) — Select the least-backtracking safe repair by §6.4's lexicographic rule.
-- `repair_equivalence_id(repair_class: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 899) — The cross-episode "same help" id for a repair class (Aug A2).
-- `repair_class_definition_rows(repair_classes: Sequence[Mapping[str, Any]], *, episode_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 932) — Durable-store rows for the repair classes an episode minted.
-- `mint_causal_mechanism_taxonomy(repository: Repository, *, min_cluster_size: int=2, activate: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1022) — Build an immutable mechanism-taxonomy snapshot as an explicit batch.
-- `normalized_prior_weights(candidates: Sequence[Mapping[str, Any]]) -> tuple[list[float], str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1513) — Normalize the grader's verbalized candidate weights across one set.
-- `hypothesis_mechanism_projection(hypothesis: Mapping[str, Any]) -> tuple[str | None, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1578) — The post-hoc mechanism projection stored on a hypothesis.
-- `receipt_probe_need(receipt: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2068) — Read `probe_need` from a receipt of any schema version.
-- `receipt_trace_consistency(receipt: dict[str, Any] | None, *, hypothesis_ids: list[str] | None=None) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2094) — Read the per-hypothesis trace-consistency map from any schema version.
-- `open_rival_causes_factor(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2224) — R9: a miss with two or more distinct concrete causes and no factor gets one, with no repair class and whatever its error type.
-- `with_open_set_arm(refs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2253) — A factor's refs with the ``H_OTHER`` arm a probe's hypothesis set requires, for a factor that has concrete causes.
-- `materialize_causal_episode(vault: LoadedVault, repository: Repository, *, attempt_id: str, repair_suggestions: list[dict[str, Any]] | None=None, generation_agent_run_id: str | None=None, model: str | None=None, mechanism_taxonomy_version_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2342) — Materialize all P1 causal records and return the immutable receipt.
-- `append_dialogue_candidate(vault: LoadedVault, repository: Repository, *, attempt_id: str, candidate: Mapping[str, Any], question_event_id: str, remediation_episode_id: str | None=None, post_reveal: bool=False, generation_agent_run_id: str | None=None, model: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2700) — Append a hypothesis version for a cause the DIALOGUE surfaced.
-- `record_eliciting_response(vault: LoadedVault, repository: Repository, *, attempt_id: str, suggestion_index: int, response_md: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2815) — Record the learner's unaided answer to an eliciting repair's question.
-- `causal_episode_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2920)
-- `claim_checked_feedback(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2973) — Build the typed P1 overlay, failing closed on unpermitted claims.
-- `record_causal_diagnosis_contest(vault: LoadedVault, repository: Repository, *, attempt_id: str, response: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3221) — Record a typed P1 contest even when P0 opened no ambiguity factor.
-- `trace_consistent(vault: LoadedVault, repository: Repository, attempt_id: str, *, hypothesis_id: str | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3518) — DEPRECATED receipt-level veto; prefer ``_trace_consistency_states``.
-- `record_unresolved_cause_self_report(vault: LoadedVault, repository: Repository, *, factor_id: str, response: str, candidate_index: int | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3541) — Record the one-tap report; confirmation may open a provisional belief.
+- `class VerificationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 225) — Typed deterministic-verifier output; no boolean authority laundering.
+  - `__post_init__(self) -> None` (line 240; internal)
+  - `as_dict(self) -> dict[str, Any]` (line 250; public)
+- `class RepairValidationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 261) — Validator-owned structural and deterministic-verification outcome.
+  - `as_dict(self) -> dict[str, Any]` (line 269; public)
+- `class SympyVerifierAdapter` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 283) — Small P1 CAS adapter for equality checks.
+  - `verify(self, observed_expression: str, expected_expression: str, *, assumptions: tuple[str, ...]=(), required_assumptions: tuple[str, ...]=()) -> VerificationResult` (line 290; public)
+- `class TestExecutionVerifierAdapter` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 336) — Typed adapter over an already-sandboxed test-execution result.
+  - `verify(self, *, returncode: int | None, tests_collected: int, parsed_form: Any=None, assumptions: tuple[str, ...]=()) -> VerificationResult` (line 339; public)
+- `validate_repair_candidate(suggestion: dict[str, Any], *, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, execution_result: Mapping[str, Any] | None=None) -> RepairValidationResult` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 463) — Validate a repair without trusting any verdict supplied in its payload.
+- `select_minimal_repair(repairs: list[dict[str, Any]], *, protected_refs: list[dict[str, Any]] | None=None, episode_id: str | None=None, repair_policy_version: str=REPAIR_POLICY_VERSION, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, learner_answer_md: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 683) — Select the least-backtracking safe repair by §6.4's lexicographic rule.
+- `repair_equivalence_id(repair_class: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 892) — The cross-episode "same help" id for a repair class (Aug A2).
+- `repair_class_definition_rows(repair_classes: Sequence[Mapping[str, Any]], *, episode_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 925) — Durable-store rows for the repair classes an episode minted.
+- `mint_causal_mechanism_taxonomy(repository: Repository, *, min_cluster_size: int=2, activate: bool=False, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1015) — Build an immutable mechanism-taxonomy snapshot as an explicit batch.
+- `normalized_prior_weights(candidates: Sequence[Mapping[str, Any]]) -> tuple[list[float], str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1506) — Normalize the grader's verbalized candidate weights across one set.
+- `hypothesis_mechanism_projection(hypothesis: Mapping[str, Any]) -> tuple[str | None, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1571) — The post-hoc mechanism projection stored on a hypothesis.
+- `receipt_probe_need(receipt: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2061) — Read `probe_need` from a receipt of any schema version.
+- `receipt_trace_consistency(receipt: dict[str, Any] | None, *, hypothesis_ids: list[str] | None=None) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2087) — Read the per-hypothesis trace-consistency map from any schema version.
+- `open_rival_causes_factor(repository: Repository, attempt_id: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2217) — R9: a miss with two or more distinct concrete causes and no factor gets one, with no repair class and whatever its error type.
+- `with_open_set_arm(refs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2246) — A factor's refs with the ``H_OTHER`` arm a probe's hypothesis set requires, for a factor that has concrete causes.
+- `materialize_causal_episode(vault: LoadedVault, repository: Repository, *, attempt_id: str, repair_suggestions: list[dict[str, Any]] | None=None, generation_agent_run_id: str | None=None, model: str | None=None, mechanism_taxonomy_version_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2335) — Materialize all P1 causal records and return the immutable receipt.
+- `append_dialogue_candidate(vault: LoadedVault, repository: Repository, *, attempt_id: str, candidate: Mapping[str, Any], question_event_id: str, remediation_episode_id: str | None=None, post_reveal: bool=False, generation_agent_run_id: str | None=None, model: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2693) — Append a hypothesis version for a cause the DIALOGUE surfaced.
+- `record_eliciting_response(vault: LoadedVault, repository: Repository, *, attempt_id: str, suggestion_index: int, response_md: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2808) — Record the learner's unaided answer to an eliciting repair's question.
+- `causal_episode_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2913)
+- `claim_checked_feedback(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2966) — Build the typed P1 overlay, failing closed on unpermitted claims.
+- `record_causal_diagnosis_contest(vault: LoadedVault, repository: Repository, *, attempt_id: str, response: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3214) — Record a typed P1 contest even when P0 opened no ambiguity factor.
+- `trace_consistent(vault: LoadedVault, repository: Repository, attempt_id: str, *, hypothesis_id: str | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3511) — DEPRECATED receipt-level veto; prefer ``_trace_consistency_states``.
+- `record_unresolved_cause_self_report(vault: LoadedVault, repository: Repository, *, factor_id: str, response: str, candidate_index: int | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3534) — Record the one-tap report; confirmation may open a provisional belief.
 
 ### Module constants
 
@@ -109,47 +109,46 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `DIAGNOSIS_SUPPORT_BASES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 200)
 - `TRACE_CONSISTENCY_STATES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 206)
 - `VERIFICATION_STATUSES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 213)
-- `MECHANISM_TAXONOMY_ALGORITHM` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 969)
-- `MECHANISM_ABSTENTION_REASONS` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 975)
-- `NONTRIVIAL_REPAIR_ERROR_TYPES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2173)
-- `TRIVIAL_REPAIR_ERROR_TYPES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2185)
-- `ELICITING_RESPONSE_REASON` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2812)
+- `MECHANISM_TAXONOMY_ALGORITHM` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 962)
+- `MECHANISM_ABSTENTION_REASONS` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 968)
+- `NONTRIVIAL_REPAIR_ERROR_TYPES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2166)
+- `TRIVIAL_REPAIR_ERROR_TYPES` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2178)
+- `ELICITING_RESPONSE_REASON` ([src/learnloop/diagnosis/causal_attribution.py](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2805)
 
 ## Internal implementation anchors
 
-- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 224)
-- `_declared_checkpoint_ids(trace: dict[str, Any] | None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 379)
-- `_checkpoint_claims_verifiable(trace_contract: Any, changed_checkpoint_ids: Sequence[str]) -> bool | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 391) — Are the claimed checkpoint ids real steps of some authored recipe?
-- `_backtracking_depth(trace_contract: Any, changed_steps: Sequence[str]) -> int | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 422) — How far back through an authored recipe a repair reaches.
-- `_ref_key(ref: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 617)
-- `_trace_edit_cost(before: str, after: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 632)
-- `_repair_class(suggestion: dict[str, Any], *, episode_id: str | None=None, repair_policy_version: str=REPAIR_POLICY_VERSION) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 642)
-- `_normalized(value: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 895)
-- `_discrimination_profile(hypothesis: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 996) — What a probe would have to observe to bear on this hypothesis.
-- `_record_abstention_notes(repository: Repository, *, attempt_id: str, repair_classes: Sequence[Mapping[str, Any]], selected_repair_class_id: str | None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1194) — Capture A5 missing-vocabulary notes for this episode's abstentions.
-- `_operation_labels(members: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1230) — Operation strings observed in a group, most frequent first.
-- `_criterion_receipt(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1248)
-- `_repair_definitions(repair_suggestions: list[dict[str, Any]], protected_refs: list[dict[str, Any]], *, episode_id: str, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, learner_answer_md: str | None=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1338)
-- `_classes_covering(repair_classes: list[dict[str, Any]], keys: set[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1380)
-- `_resolve_repair_mapping(repair_classes: list[dict[str, Any]], *, target_ref: dict[str, Any] | None, criterion_ids: Sequence[Any]=(), open_set: bool=False, selected_repair_class_id: str | None=None) -> tuple[str | None, str, str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1392) — Map one hypothesis onto an authored repair class.
-- `_candidate_key(candidate: dict[str, Any], *, target_ref: dict[str, Any] | None, status: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1459) — Stable identity for a candidate independent of presentation order.
-- `_event_candidate_causes(event: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1481) — The raw candidate causes an error event proposes, in authored order.
-- `_raw_prior_weight(candidate: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1502)
-- `_discriminating_predictions(candidate: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1558) — The candidate's free-text falsifiable expectations, in authored order.
-- `_candidate_status(candidate: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1605)
-- `_selected_repair_class_id(selection: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1614)
-- `_repair_mapping_fields(repair_classes: list[dict[str, Any]], *, target_ref: dict[str, Any] | None, criterion_ids: Sequence[Any]=(), status: str, selected_repair_class_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1624) — The three persisted repair-mapping columns for one hypothesis spec.
-- `_hypothesis_specs(vault: LoadedVault, repository: Repository, *, attempt_id: str, repair_classes: list[dict[str, Any]], selected_repair_class_id: str | None=None) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1648)
-- `_statement_provenance(repository: Repository, attempt_id: str, refs: Any) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1898) — What a materialized hypothesis's statement was written from (diagnosis input provenance): the attempt's grading and the diagnosis whose causal view lies over its event, or, for an unresolved-cause factor's candidate, every completed live diagnosis of the attempt.
-- `_anchors(hypotheses: list[dict[str, Any]], selection: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1915)
-- `_repair_cover_matrix(hypotheses: list[dict[str, Any]], selection: dict[str, Any]) -> tuple[list[dict[str, Any]], bool, str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1984)
-- `_probe_need(*, divergent: bool, repair_class_ids: list[str], common_repair_cover: bool, incomplete_repair_mapping: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2034) — State what a probe would have to resolve — never whether to run one.
-- `_attempt_trace_contract(vault: LoadedVault, attempt: dict[str, Any]) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2128) — The authored decomposition of the item an attempt was made on.
-- `_attempt_has_nontrivial_error(repository: Repository, *, attempt_id: str, concrete: Sequence[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2190) — True when the attempt's recorded error types include a nontrivial one.
-- `_open_repair_factor(repository: Repository, *, attempt: Mapping[str, Any], concrete: Sequence[Mapping[str, Any]], clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2264) — Open the repair-lane factor a failed attempt owes.
-- `_claim_hypothesis_id(claim: dict[str, Any], *, labels: dict[str, str], by_index: list[str | None], known_ids: set[str]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3297) — Resolve an explicit hypothesis reference carried by a claim, if any.
-- `_postdictive_claim_attribution(repository: Repository, attempt_id: str, hypotheses: list[dict[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3324) — Attribute each deterministic claim to at most ONE hypothesis.
-- `_trace_consistency_states(vault: LoadedVault, repository: Repository, attempt_id: str, hypotheses: list[dict[str, Any]] | None=None) -> tuple[dict[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3417) — Per-hypothesis trace-consistency states plus their audit detail (§5.6).
+- `_declared_checkpoint_ids(trace: dict[str, Any] | None) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 372)
+- `_checkpoint_claims_verifiable(trace_contract: Any, changed_checkpoint_ids: Sequence[str]) -> bool | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 384) — Are the claimed checkpoint ids real steps of some authored recipe?
+- `_backtracking_depth(trace_contract: Any, changed_steps: Sequence[str]) -> int | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 415) — How far back through an authored recipe a repair reaches.
+- `_ref_key(ref: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 610)
+- `_trace_edit_cost(before: str, after: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 625)
+- `_repair_class(suggestion: dict[str, Any], *, episode_id: str | None=None, repair_policy_version: str=REPAIR_POLICY_VERSION) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 635)
+- `_normalized(value: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 888)
+- `_discrimination_profile(hypothesis: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 989) — What a probe would have to observe to bear on this hypothesis.
+- `_record_abstention_notes(repository: Repository, *, attempt_id: str, repair_classes: Sequence[Mapping[str, Any]], selected_repair_class_id: str | None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1187) — Capture A5 missing-vocabulary notes for this episode's abstentions.
+- `_operation_labels(members: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1223) — Operation strings observed in a group, most frequent first.
+- `_criterion_receipt(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1241)
+- `_repair_definitions(repair_suggestions: list[dict[str, Any]], protected_refs: list[dict[str, Any]], *, episode_id: str, expected_answer: str | dict[str, Any] | None=None, trace_contract: Any=None, learner_answer_md: str | None=None) -> tuple[list[dict[str, Any]], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1331)
+- `_classes_covering(repair_classes: list[dict[str, Any]], keys: set[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1373)
+- `_resolve_repair_mapping(repair_classes: list[dict[str, Any]], *, target_ref: dict[str, Any] | None, criterion_ids: Sequence[Any]=(), open_set: bool=False, selected_repair_class_id: str | None=None) -> tuple[str | None, str, str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1385) — Map one hypothesis onto an authored repair class.
+- `_candidate_key(candidate: dict[str, Any], *, target_ref: dict[str, Any] | None, status: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1452) — Stable identity for a candidate independent of presentation order.
+- `_event_candidate_causes(event: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1474) — The raw candidate causes an error event proposes, in authored order.
+- `_raw_prior_weight(candidate: Mapping[str, Any]) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1495)
+- `_discriminating_predictions(candidate: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1551) — The candidate's free-text falsifiable expectations, in authored order.
+- `_candidate_status(candidate: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1598)
+- `_selected_repair_class_id(selection: dict[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1607)
+- `_repair_mapping_fields(repair_classes: list[dict[str, Any]], *, target_ref: dict[str, Any] | None, criterion_ids: Sequence[Any]=(), status: str, selected_repair_class_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1617) — The three persisted repair-mapping columns for one hypothesis spec.
+- `_hypothesis_specs(vault: LoadedVault, repository: Repository, *, attempt_id: str, repair_classes: list[dict[str, Any]], selected_repair_class_id: str | None=None) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1641)
+- `_statement_provenance(repository: Repository, attempt_id: str, refs: Any) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1891) — What a materialized hypothesis's statement was written from (diagnosis input provenance): the attempt's grading and the diagnosis whose causal view lies over its event, or, for an unresolved-cause factor's candidate, every completed live diagnosis of the attempt.
+- `_anchors(hypotheses: list[dict[str, Any]], selection: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1908)
+- `_repair_cover_matrix(hypotheses: list[dict[str, Any]], selection: dict[str, Any]) -> tuple[list[dict[str, Any]], bool, str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 1977)
+- `_probe_need(*, divergent: bool, repair_class_ids: list[str], common_repair_cover: bool, incomplete_repair_mapping: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2027) — State what a probe would have to resolve — never whether to run one.
+- `_attempt_trace_contract(vault: LoadedVault, attempt: dict[str, Any]) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2121) — The authored decomposition of the item an attempt was made on.
+- `_attempt_has_nontrivial_error(repository: Repository, *, attempt_id: str, concrete: Sequence[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2183) — True when the attempt's recorded error types include a nontrivial one.
+- `_open_repair_factor(repository: Repository, *, attempt: Mapping[str, Any], concrete: Sequence[Mapping[str, Any]], clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 2257) — Open the repair-lane factor a failed attempt owes.
+- `_claim_hypothesis_id(claim: dict[str, Any], *, labels: dict[str, str], by_index: list[str | None], known_ids: set[str]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3290) — Resolve an explicit hypothesis reference carried by a claim, if any.
+- `_postdictive_claim_attribution(repository: Repository, attempt_id: str, hypotheses: list[dict[str, Any]]) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3317) — Attribute each deterministic claim to at most ONE hypothesis.
+- `_trace_consistency_states(vault: LoadedVault, repository: Repository, attempt_id: str, hypotheses: list[dict[str, Any]] | None=None) -> tuple[dict[str, str], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_attribution.py), line 3410) — Per-hypothesis trace-consistency states plus their audit detail (§5.6).
 
 ## Who imports or calls it
 
@@ -160,8 +159,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `validate_repair_candidate`; statically calls `validate_repair_candidate`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`; statically calls `causal_episode_for_attempt`, `mint_causal_mechanism_taxonomy`
 - [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] — imports `APPROVED_SUPPORT_AUTHORITIES`, `OPEN_SET_CAUSE_ID`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`, `_normalized`; statically calls `_normalized`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `SUPPORT_BASIS_AUTHORITY`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `OPEN_SET_CAUSE_ID`, `SUPPORT_BASIS_AUTHORITY`
+- [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `_normalized`; statically calls `_normalized`
 - [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `causal_episode_for_attempt`; statically calls `causal_episode_for_attempt`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `SympyVerifierAdapter`, `repair_equivalence_id`; statically calls `SympyVerifierAdapter`, `repair_equivalence_id`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `causal_episode_for_attempt`; statically calls `causal_episode_for_attempt`
@@ -191,6 +191,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `attempt_statement_refs`, `closure`, `fold_topic_records`; calls `attempt_statement_refs`, `closure`, `fold_topic_records`
+- [[Reference/Modules/learnloop/diagnosis/content_ids|learnloop.diagnosis.content_ids]] — imports `content_id`; calls `content_id`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy_map|learnloop.diagnosis.error_taxonomy_map]] — imports `MECHANISM_PROJECTION_OPEN_SET`, `map_legacy_error_type`, `project_mechanism`; calls `map_legacy_error_type`, `project_mechanism`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `record_diagnostic_abstention_notes`; calls `record_diagnostic_abstention_notes`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/display|learnloop.diagnosis.recurrence.display]] — imports `displayed_repair_suggestions`; calls `displayed_repair_suggestions`
@@ -205,7 +206,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `difflib`, `hashlib`, `json`, `re`, `typing`
+- Standard library: `__future__`, `dataclasses`, `difflib`, `json`, `re`, `typing`
 - Third party: `sympy`
 
 ## Larger workflow participation
@@ -215,7 +216,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 21 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 22 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

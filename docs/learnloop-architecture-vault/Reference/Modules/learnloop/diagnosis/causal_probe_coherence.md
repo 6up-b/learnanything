@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py) |
-| Source lines | 2010 |
+| Source lines | 2004 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,39 +59,39 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `recent_diagnostic_limit(self) -> int` (line 138; public)
   - `manifest(self) -> dict[str, Any]` (line 141; public)
 - `resolve_causal_probe_parameters(repository: Repository | None) -> CausalProbeParameters` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 151) — Active fitted probe-policy knobs, else the pinned heuristic defaults.
-- `class BundleFeatureRow` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 216) — One declared prediction row.
-  - `matches(self, observed_features: Mapping[str, Any]) -> bool` (line 228; public)
-  - `as_record(self) -> dict[str, Any]` (line 238; public)
-- `class BundleFeatureRowReport` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 243)
-  - `usable(self) -> bool` (line 248; public)
-- `bundle_feature_row_report(predictions: Mapping[str, Any] | None) -> BundleFeatureRowReport` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 280) — Parse every declared feature row plus the typed reasons for the rest.
-- `parse_bundle_feature_rows(predictions: Mapping[str, Any]) -> list[BundleFeatureRow]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 337) — The single parser used by generation, discrimination, and classification.
-- `rows_are_separable(left: Sequence[BundleFeatureRow], right: Sequence[BundleFeatureRow]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 370) — True iff some observation can match exactly one of the two row sets.
-- `class ProbeDecision` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 391)
-  - `as_dict(self) -> dict[str, Any]` (line 406; public)
-- `decide_probe(*, repair_class_ids: Sequence[str | None], common_repair_covers: bool, expected_information_gain: float, probability_information_changes_repair: float, probe_burden_minutes: float, avoided_overteaching_minutes: float, pending_machine_checks: Sequence[str]=(), session_budget_minutes: float | None=None, learner_preference: str='allow', recent_diagnostic_burden: int=0, repository: Repository | None=None, parameters: CausalProbeParameters | None=None) -> ProbeDecision` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 413) — Apply §7's EVSI-flavoured, action-relative probe rule.
-- `repair_class_need_for_factor(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 527)
-- `rung_divergence_gate(repository: Repository, hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 571) — Golden-path cause → repair-rung gate, tri-state (§3.7).
-- `class CausalHypothesisSetPlan` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 665) — An unlocked set plus the provenance of its prior.
-  - `as_hypothesis_set(self, set_id: str | None=None) -> HypothesisSet` (line 679; public)
-- `build_causal_hypothesis_set(repository: Repository, factor_id: str, *, support_scores: Mapping[str, float | None] | None=None) -> CausalHypothesisSetPlan` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 705) — Build the hypothesis-set plan from P1 ids, always with H_OTHER.
-- `lock_causal_hypothesis_set(repository: Repository, factor_id: str, *, probe_phase_id: str | None, algorithm_version: str, support_scores: Mapping[str, float | None] | None=None, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 814)
-- `class BlindGenerationInput` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 863) — The ONLY thing a blind prediction generator ever sees.
-  - `as_payload(self) -> dict[str, Any]` (line 884; public)
-- `generate_blind_prediction_bundle(repository: Repository, *, hypothesis_id: str, item: PracticeItem | Mapping[str, Any], rubric: Any, trace_contract: Any, generator: Callable[[dict[str, Any]], Mapping[str, Any]], model_revision: str, outcome_schema_version: str, generation_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 928) — Generate and persist a bundle from a typed, allowlisted blind input.
-- `blind_bundle_discrimination(repository: Repository, *, hypothesis_ids: Sequence[str], practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1040) — Assess discrimination using only stamped blind bundles.
-- `classify_against_blind_bundles(repository: Repository, *, hypothesis_set_id: str, practice_item_id: str, blind_bundle_ids: Sequence[str], observed_features: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1144) — Classify an administered probe against the bundles PINNED to the probe.
-- `audit_manipulation_contract(repository: Repository, *, source_item: PracticeItem | Mapping[str, Any], candidate_item: PracticeItem | Mapping[str, Any], source_kind: str, adversarial_review: Mapping[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, require_adversarial: bool=True, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1400) — Run the shared probe/rung structural diff plus independent review.
-- `validate_independent_measurement_contract(measurement_contract: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1492) — Reject parent-weight inheritance and require recompilation or abstention.
-- `create_probe_candidate(repository: Repository, *, factor_id: str, practice_item_id: str, hypothesis_set_id: str, manipulation_audit_id: str, measurement_contract: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1515) — Mint a candidate only after blind discrimination and the diff audit.
-- `candidate_has_current_blind_input_contract(candidate: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1575) — Whether a candidate was minted from the observation-free v2 input.
-- `order_probe_candidates(candidates: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1605) — THE deterministic candidate order, shared by every consumer.
-- `transition_probe_candidate(repository: Repository, candidate_id: str, *, to_status: str, reviewer: str | None=None, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1631) — Enforce candidate → registered → reviewed → active.
-- `classify_causal_activity(repository: Repository, *, attempt_id: str, contamination_class: str, near_clone: bool=False, near_clone_basis: str | None=None, source: str='causal_probe_coherence', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1705) — Persist the contamination classification for one attempt.
-- `class ColdVerificationPrecondition(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1758) — A §6.2 precondition failed, with the §4.3 disposition it maps to.
-  - `__init__(self, reason: str, message: str, *, detail: Mapping[str, Any] | None=None)` (line 1765; internal)
-- `record_causal_cold_outcome(repository: Repository, *, outcome: str, followup_task_id: str | None=None, remediation_episode_id: str | None=None, case_kind: str | None=None, case_ref: str | None=None, source_attempt_id: str | None=None, cold_attempt_id: str | None=None, repair_class_id: str | None=None, hypothesis_ids: Sequence[str]=(), cold_verification_id: str | None=None, servable_opportunity: bool, detail: Mapping[str, Any] | None=None, scheduled_not_before: str | None=None, scheduled_expires_at: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1771) — Write one typed terminal disposition (spec §4.3).
-- `record_delayed_cold_verification(vault: LoadedVault, repository: Repository, *, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], avoided_affordances: Sequence[str], diagnosis_support_update: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1833) — Record three separate cold-outcome channels.
+- `class BundleFeatureRow` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 209) — One declared prediction row.
+  - `matches(self, observed_features: Mapping[str, Any]) -> bool` (line 221; public)
+  - `as_record(self) -> dict[str, Any]` (line 231; public)
+- `class BundleFeatureRowReport` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 236)
+  - `usable(self) -> bool` (line 241; public)
+- `bundle_feature_row_report(predictions: Mapping[str, Any] | None) -> BundleFeatureRowReport` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 273) — Parse every declared feature row plus the typed reasons for the rest.
+- `parse_bundle_feature_rows(predictions: Mapping[str, Any]) -> list[BundleFeatureRow]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 330) — The single parser used by generation, discrimination, and classification.
+- `rows_are_separable(left: Sequence[BundleFeatureRow], right: Sequence[BundleFeatureRow]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 363) — True iff some observation can match exactly one of the two row sets.
+- `class ProbeDecision` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 384)
+  - `as_dict(self) -> dict[str, Any]` (line 399; public)
+- `decide_probe(*, repair_class_ids: Sequence[str | None], common_repair_covers: bool, expected_information_gain: float, probability_information_changes_repair: float, probe_burden_minutes: float, avoided_overteaching_minutes: float, pending_machine_checks: Sequence[str]=(), session_budget_minutes: float | None=None, learner_preference: str='allow', recent_diagnostic_burden: int=0, repository: Repository | None=None, parameters: CausalProbeParameters | None=None) -> ProbeDecision` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 406) — Apply §7's EVSI-flavoured, action-relative probe rule.
+- `repair_class_need_for_factor(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 521)
+- `rung_divergence_gate(repository: Repository, hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 565) — Golden-path cause → repair-rung gate, tri-state (§3.7).
+- `class CausalHypothesisSetPlan` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 659) — An unlocked set plus the provenance of its prior.
+  - `as_hypothesis_set(self, set_id: str | None=None) -> HypothesisSet` (line 673; public)
+- `build_causal_hypothesis_set(repository: Repository, factor_id: str, *, support_scores: Mapping[str, float | None] | None=None) -> CausalHypothesisSetPlan` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 699) — Build the hypothesis-set plan from P1 ids, always with H_OTHER.
+- `lock_causal_hypothesis_set(repository: Repository, factor_id: str, *, probe_phase_id: str | None, algorithm_version: str, support_scores: Mapping[str, float | None] | None=None, clock: Clock | None=None) -> HypothesisSet` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 808)
+- `class BlindGenerationInput` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 857) — The ONLY thing a blind prediction generator ever sees.
+  - `as_payload(self) -> dict[str, Any]` (line 878; public)
+- `generate_blind_prediction_bundle(repository: Repository, *, hypothesis_id: str, item: PracticeItem | Mapping[str, Any], rubric: Any, trace_contract: Any, generator: Callable[[dict[str, Any]], Mapping[str, Any]], model_revision: str, outcome_schema_version: str, generation_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 922) — Generate and persist a bundle from a typed, allowlisted blind input.
+- `blind_bundle_discrimination(repository: Repository, *, hypothesis_ids: Sequence[str], practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1034) — Assess discrimination using only stamped blind bundles.
+- `classify_against_blind_bundles(repository: Repository, *, hypothesis_set_id: str, practice_item_id: str, blind_bundle_ids: Sequence[str], observed_features: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1138) — Classify an administered probe against the bundles PINNED to the probe.
+- `audit_manipulation_contract(repository: Repository, *, source_item: PracticeItem | Mapping[str, Any], candidate_item: PracticeItem | Mapping[str, Any], source_kind: str, adversarial_review: Mapping[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, require_adversarial: bool=True, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1394) — Run the shared probe/rung structural diff plus independent review.
+- `validate_independent_measurement_contract(measurement_contract: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1486) — Reject parent-weight inheritance and require recompilation or abstention.
+- `create_probe_candidate(repository: Repository, *, factor_id: str, practice_item_id: str, hypothesis_set_id: str, manipulation_audit_id: str, measurement_contract: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1509) — Mint a candidate only after blind discrimination and the diff audit.
+- `candidate_has_current_blind_input_contract(candidate: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1569) — Whether a candidate was minted from the observation-free v2 input.
+- `order_probe_candidates(candidates: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1599) — THE deterministic candidate order, shared by every consumer.
+- `transition_probe_candidate(repository: Repository, candidate_id: str, *, to_status: str, reviewer: str | None=None, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1625) — Enforce candidate → registered → reviewed → active.
+- `classify_causal_activity(repository: Repository, *, attempt_id: str, contamination_class: str, near_clone: bool=False, near_clone_basis: str | None=None, source: str='causal_probe_coherence', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1699) — Persist the contamination classification for one attempt.
+- `class ColdVerificationPrecondition(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1752) — A §6.2 precondition failed, with the §4.3 disposition it maps to.
+  - `__init__(self, reason: str, message: str, *, detail: Mapping[str, Any] | None=None)` (line 1759; internal)
+- `record_causal_cold_outcome(repository: Repository, *, outcome: str, followup_task_id: str | None=None, remediation_episode_id: str | None=None, case_kind: str | None=None, case_ref: str | None=None, source_attempt_id: str | None=None, cold_attempt_id: str | None=None, repair_class_id: str | None=None, hypothesis_ids: Sequence[str]=(), cold_verification_id: str | None=None, servable_opportunity: bool, detail: Mapping[str, Any] | None=None, scheduled_not_before: str | None=None, scheduled_expires_at: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1765) — Write one typed terminal disposition (spec §4.3).
+- `record_delayed_cold_verification(vault: LoadedVault, repository: Repository, *, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], avoided_affordances: Sequence[str], diagnosis_support_update: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1827) — Record three separate cold-outcome channels.
 
 ### Module constants
 
@@ -102,26 +102,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `RUNG_GATE_STATES` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 84)
 - `CAUSAL_PROBE_POLICY_DEFAULTS` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 95)
 - `_CAUSAL_PROBE_POLICY_BOUNDS` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 109)
-- `_RUBRIC_CRITERION_FIELDS` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 851)
-- `CANDIDATE_STATUS_RANK` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1588)
-- `CAUSAL_COLD_OUTCOME_STORE_VERSION` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1755)
+- `_RUBRIC_CRITERION_FIELDS` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 845)
+- `CANDIDATE_STATUS_RANK` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1582)
+- `CAUSAL_COLD_OUTCOME_STORE_VERSION` ([src/learnloop/diagnosis/causal_probe_coherence.py](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1749)
 
 ## Internal implementation anchors
 
-- `_content_id(prefix: str, value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 189)
-- `_jsonable(value: Any) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 196)
-- `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 206)
-- `_feature_row_from_mapping(source: str, raw: Any) -> tuple[BundleFeatureRow | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 252) — Build one row, or a typed skip record.
-- `_rows_conflict(left: BundleFeatureRow, right: BundleFeatureRow) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 348) — True iff the rows disagree on a key they BOTH declare.
-- `_discriminating_row(row: BundleFeatureRow, others: Sequence[BundleFeatureRow]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 364)
-- `_hypothesis_prior_weight(hypothesis: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 688) — The grader's normalized verbalized prior for one hypothesis, or 0.0.
-- `_rubric_criteria(rubric: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 901)
-- `_optional_mapping(value: Any) -> dict | None` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 923)
-- `_cohort_of(bundle: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1017)
-- `_cohort_record(cohort: tuple[str, str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1024)
-- `_single_cohort(bundles: Iterable[Mapping[str, Any]]) -> tuple[tuple[str, str] | None, list[dict[str, str]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1031)
-- `_item_diff(source: Mapping[str, Any], candidate: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1329)
-- `_candidate_separable_pairs(candidate: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1597)
+- `_jsonable(value: Any) -> Any` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 189)
+- `_canonical(value: Any) -> str` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 199)
+- `_feature_row_from_mapping(source: str, raw: Any) -> tuple[BundleFeatureRow | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 245) — Build one row, or a typed skip record.
+- `_rows_conflict(left: BundleFeatureRow, right: BundleFeatureRow) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 341) — True iff the rows disagree on a key they BOTH declare.
+- `_discriminating_row(row: BundleFeatureRow, others: Sequence[BundleFeatureRow]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 357)
+- `_hypothesis_prior_weight(hypothesis: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 682) — The grader's normalized verbalized prior for one hypothesis, or 0.0.
+- `_rubric_criteria(rubric: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 895)
+- `_optional_mapping(value: Any) -> dict | None` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 917)
+- `_cohort_of(bundle: Mapping[str, Any]) -> tuple[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1011)
+- `_cohort_record(cohort: tuple[str, str]) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1018)
+- `_single_cohort(bundles: Iterable[Mapping[str, Any]]) -> tuple[tuple[str, str] | None, list[dict[str, str]]]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1025)
+- `_item_diff(source: Mapping[str, Any], candidate: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1323)
+- `_candidate_separable_pairs(candidate: Mapping[str, Any]) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_probe_coherence.py), line 1591)
 
 ## Who imports or calls it
 
@@ -152,6 +151,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `NEAR_CLONE_BASES`, `assess_near_clone`, `policy_for_class`; calls `assess_near_clone`, `policy_for_class`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `CAUSAL_DECISION_POLICY_VERSION`, `OPEN_SET_CAUSE_ID`, `SUPPORT_BASIS_AUTHORITY`
 - [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `apply_cold_verification_to_factors`; calls `apply_cold_verification_to_factors`
+- [[Reference/Modules/learnloop/diagnosis/content_ids|learnloop.diagnosis.content_ids]] — imports `content_id`; calls `content_id`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `Hypothesis`, `HypothesisSet`; calls `Hypothesis`, `HypothesisSet`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `CAUSAL_PROBE_POLICY_SCOPE`
@@ -160,7 +160,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `hashlib`, `json`, `math`, `typing`
+- Standard library: `__future__`, `dataclasses`, `json`, `math`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

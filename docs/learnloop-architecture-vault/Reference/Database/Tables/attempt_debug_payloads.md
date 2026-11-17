@@ -103,9 +103,9 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/grading.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
+- `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/diagnosis_adjudication.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/guided_redo.py`
