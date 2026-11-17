@@ -73,6 +73,12 @@ def evaluate_completion(
 ) -> str | None:
     if episode.status != "in_progress":
         return None
+    passed: list[str] = []
+
+    def complete(reason: str) -> str:
+        return _complete(repository, episode, reason, posterior=posterior,
+                         detail={"rules_passed": passed}, clock=clock)
+
     episode_config = vault.config.probe.episode
     rows = repository.probe_observations_for_episode(episode.id)
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
@@ -81,10 +87,12 @@ def evaluate_completion(
     # session cap (reader spec §18, §20.7); while value decides, an episode
     # keeps asking past it and ends on its value stop instead.
     # observation_budget_exhausted: the episode count cap still binds.
-    if len(qualifying) >= episode.maximum_observations and episode_maximum_binds(
-        vault, repository, qualifying
-    ):
-        return _complete(repository, episode, "observation_budget_exhausted", posterior=posterior, clock=clock)
+    at_cap = len(qualifying) >= episode.maximum_observations
+    if at_cap and episode_maximum_binds(vault, repository, qualifying):
+        return complete("observation_budget_exhausted")
+    # At the cap with the cap lifted (value decides), the rule did not apply: it is not listed as passed.
+    if not at_cap:
+        passed.append("observation_budget_exhausted")
 
     # Decision-equivalence early stop (evsi.shared_optimal_action semantics on
     # the episode posterior): once every plausible hypothesis routes to the
@@ -94,12 +102,10 @@ def evaluate_completion(
     # only where the episode would otherwise CONTINUE: a posterior that also
     # reaches full decision stability with breadth keeps the stronger
     # 'decision_stable' outcome.
+    action_rule_applies = episode_config.action_equivalence_enabled and bool(qualifying)
+
     def _action_equivalent() -> bool:
-        return (
-            episode_config.action_equivalence_enabled
-            and bool(qualifying)
-            and _plausible_actions_agree(repository, posterior, episode_config)
-        )
+        return action_rule_applies and _plausible_actions_agree(repository, posterior, episode_config)
 
     top_label, top_probability = posterior.top
     sorted_probabilities = sorted(posterior.posterior.values(), reverse=True)
@@ -121,7 +127,9 @@ def evaluate_completion(
         # repair needs no further probing — stop before spending instruments.
         # action_equivalent: an unstable posterior already routes to one repair.
         if _action_equivalent():
-            return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
+            return complete("action_equivalent")
+        if action_rule_applies:
+            passed.append("action_equivalent")
         # mvp-0.21 (the multi-family EVSI study's rank 1,
         # voi_stopping.robust_gate_with_value): while value decides the
         # episode the gate no longer ends it; the value stop below records the
@@ -133,7 +141,8 @@ def evaluate_completion(
             abstain_reason = _robust_completion_override(vault, repository, episode, posterior)
             # couldnt_reliably_distinguish: the deciding robust gate abstains.
             if abstain_reason is not None:
-                return _complete(repository, episode, abstain_reason, posterior=posterior, clock=clock)
+                return complete(abstain_reason)
+            passed.append("couldnt_reliably_distinguish")
         # §10: an unstable episode with no unconsumed instrument left (§5.4
         # forbids surface repeats) parks in pending_items with one deduplicated
         # generation need — never blocking ordinary practice on the LO.
@@ -169,7 +178,8 @@ def evaluate_completion(
         )
         # value_of_information_stop: another observation no longer pays while unstable.
         if value_stop is not None:
-            return _complete_on_value_stop(vault, repository, episode, posterior, value_stop, clock=clock)
+            return _complete_on_value_stop(vault, repository, episode, posterior, value_stop,
+                                           rules_passed=passed, clock=clock)
         return None
 
     # §7.7: dialogue microprobe turns within one block are correlated
@@ -192,7 +202,8 @@ def evaluate_completion(
     )
     # decision_stable: the stable posterior also meets the breadth contract.
     if breadth_ok:
-        return _complete(repository, episode, "decision_stable", posterior=posterior, clock=clock)
+        return complete("decision_stable")
+    passed.append("decision_stable")
 
     # §11 fast path: an explicit strong prior claim plus one highly
     # discriminating cross-facet instrument may complete early. This replaces
@@ -203,12 +214,15 @@ def evaluate_completion(
         and strong_prior_claim(vault, repository, episode.learning_object_id)
         and any(len(row.get("target_facets") or []) >= 2 for row in qualifying)
     ):
-        return _complete(repository, episode, "fast_path_strong_claim", posterior=posterior, clock=clock)
+        return complete("fast_path_strong_claim")
+    passed.append("fast_path_strong_claim")
     # Stable but breadth-short: if the plausible hypotheses already agree on
     # the repair, the missing breadth buys nothing for routing — stop.
     # action_equivalent: the stable posterior needs no more breadth for routing.
     if _action_equivalent():
-        return _complete(repository, episode, "action_equivalent", posterior=posterior, clock=clock)
+        return complete("action_equivalent")
+    if action_rule_applies:
+        passed.append("action_equivalent")
     # mvp-0.21: breadth is asked for only while its value pays for its minutes.
     value_stop = _value_of_information_stop(
         vault,
@@ -222,7 +236,8 @@ def evaluate_completion(
     )
     # value_of_information_stop: more breadth no longer pays for its minutes.
     if value_stop is not None:
-        return _complete_on_value_stop(vault, repository, episode, posterior, value_stop, clock=clock)
+        return _complete_on_value_stop(vault, repository, episode, posterior, value_stop,
+                                       rules_passed=passed, clock=clock)
     return None
 
 
@@ -570,6 +585,7 @@ def _complete_on_value_stop(
     posterior: EpisodePosterior,
     value_stop: Mapping[str, Any],
     *,
+    rules_passed: Sequence[str] | None = None,
     clock: Clock | None = None,
 ) -> str:
     """Complete the episode on its value stop (the decision kept in
@@ -578,7 +594,8 @@ def _complete_on_value_stop(
     ``voi_forecasts`` behind ``evsi.forecast_logging``, logging only)."""
 
     reason = _complete(
-        repository, episode, "value_of_information_stop", posterior=posterior, detail=value_stop, clock=clock
+        repository, episode, "value_of_information_stop", posterior=posterior,
+        detail={**value_stop, "rules_passed": list(rules_passed)} if rules_passed is not None else value_stop, clock=clock
     )
     from learnloop.diagnosis.voi_forecasting import record_value_decision_forecast
 

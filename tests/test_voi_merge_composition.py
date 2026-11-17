@@ -390,6 +390,7 @@ def test_a_value_stop_is_logged_once_at_the_completion(tmp_path, monkeypatch):
         detail = json.loads(
             connection.execute("SELECT completion_detail_json FROM probe_episodes WHERE id = ?", (episode.id,)).fetchone()[0]
         )
+    assert detail.pop("rules_passed") == ["observation_budget_exhausted", "action_equivalent"]
     assert stop["forecast"]["value_decision"] == detail
 
 

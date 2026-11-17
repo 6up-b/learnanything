@@ -6,10 +6,10 @@ aliases:
   - Why x and not y
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.57
+implementation_version: mvp-0.59
 decision_date: 2026-11-10
 decision_status: accepted
-last_reviewed: 2026-11-10
+last_reviewed: 2026-11-17
 source_commit: 0f11cb1053075cf6a271edf65355265f5732a059
 source_commit_timestamp: "2026-11-10T04:17:59-05:00"
 source_paths:
@@ -54,7 +54,7 @@ The architecture map (`docs/reviews/architecture-map-2026-11-08.md` §4.3, §4.6
 | `id` | ULID; the record's handle in `why` |
 | `trace_id` | One learner-visible action and its background work |
 | `parent_id` | The record that caused this one, possibly in an earlier trace |
-| `kind` | `plan_block`, `model_answer`, `offer_withdrawn`, `slate`, `figure_prebuild`, `figure_author`, `grade`, ...: constants beside the code that writes them |
+| `kind` | `plan_block`, `model_answer`, `offer_withdrawn`, `slate`, `figure_prebuild`, `figure_author`, `grade`, `probe_classification`, ...: constants beside the code that writes them |
 | `status` | One of `chosen`, `fallback`, `excluded`, `withdrawn`, `timeout`, `discarded`, `failed`, `refused`, `deferred` (a CHECK) |
 | `subject_kind`, `subject_id` | `attempt`, `item`, `block`, `offer`, `figure`, `job`: how a learner-visible thing finds its records |
 | `chosen_ref` | What won, or null |
@@ -70,6 +70,8 @@ The architecture map (`docs/reviews/architecture-map-2026-11-08.md` §4.3, §4.6
 "What happened next" is not a column: it is the next record whose `parent_id` is this one, the detail row's own outcome, or a presentation and attempt reached from the subject.
 
 **A record never changes a decision.** `provenance.write(connection, record)` joins the caller's transaction in a savepoint. `db.stores.provenance.write_decision` (and `refusal_records.write`; both are `provenance.write_through`) writes through a repository: it joins a transaction the caller holds on a pinned or atomic connection without ever committing it, and takes a short one of its own otherwise (arc B fix 2). A path on a wall-clock budget holding no transaction uses `write_decision_without_waiting`, a connection of its own with no busy wait, so a lock held elsewhere drops the record rather than holding the decision (the router's spend guard, arc B fix 1). Either way a failed write logs a warning with the trace id and returns; it never raises into the decision. Record and trace ids come from a ULID stream of their own (`provenance.new_record_id`), never from `ids.new_ulid`, which also mints the router's decision id and so its draw seed: a record never moves the next decision's id (arc B fix 3). A record holds no prose: no learner text, item text, prompt or model output (`provenance.check_no_prose`, and a test that plants item text). Payloads stay in `model_call_receipts`, under their existing retention.
+
+`probe_classification` records a declined pinned causal probe answer (`excluded`, rule a decline code), subject the attempt and with the presentation in facts. Its parent is the current cause; it shares the action's trace even when written before the grade. Ordinary unpinned diagnostic presentations and an observation already written for the same attempt need no decline record. Successful classification retains its existing observation receipt.
 
 ### The trace id
 

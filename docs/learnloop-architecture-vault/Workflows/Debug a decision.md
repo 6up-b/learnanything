@@ -6,8 +6,8 @@ aliases:
   - Debug a Decision Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.57
-last_reviewed: 2026-11-10
+implementation_version: mvp-0.59
+last_reviewed: 2026-11-17
 source_commit: a8b3ab6f6827d33a45b286c6005c248e9de4eb6a
 source_commit_timestamp: "2026-11-10T12:48:49-05:00"
 source_paths:
@@ -63,6 +63,14 @@ Each decision appears under `decisions` with the same fields:
 What was discarded is in one place, the answer's top-level `discarded`: calls that answered after their decision took its answers (`late_ms`, with `late_ms_precision_ms`: `1000` when a time was stored to the second) or never answered. Each entry names its decision (`record_id`, or `decision_id` for a reconstructed one) and its `label`. Top-level `model_calls` lists the trace's calls (ids, purposes, statuses, times; never the prompt or the output), and `unclaimed` the router calls whose decision was never made (a key that changed before the serve, an evicted prefetch).
 
 A record older than `router.payload_retention_days` keeps its row but not its payload columns: `facts` reads `{"payload_pruned": true}` and `alternatives` is empty (migration 254; startup maintenance prunes).
+
+## Probe answers and failed hooks
+
+“Why wasn't this probe answer read?” Use `why attempt:<id> --json`: a declined pinned causal probe leaves an `excluded` `probe_classification` record whose `rule` is one of `pinned_bundles_empty`, `candidate_not_current`, `already_observed`, `no_deterministic_rubric`, `no_assessed_criterion`, `pinned_bundle_missing`, `declared_features_not_covered`. Its subject is the attempt; its inputs name the presentation and candidate when known, and counts of declared and supplied keys where checked. It shares the action's trace and uses the current cause as parent, even when block settlement runs before the grade record is written. Unpinned diagnostic answers belong to the episode posterior and write none here. A successful classification is explained by its observation row; repeating the classifier for that same attempt is silent. An observation belonging to another attempt gives `already_observed`.
+
+“Which hook failed?” The attempt's `diagnosis_step` records use `machine_check_sweep`, `cold_verification_wiring`, `probe_classification_hook`, `common_repair_consultation`, `escalation_receipt`, `learner_text_enqueue`. The four grade-keyed hooks include `inputs.phase = grade_keyed`; their failure leaves the attempt complete. The exception type and location are stored; its message stays in the log.
+
+An episode stop's existing `completion_detail_json.rules_passed` lists earlier evaluated rules in order. A gate that was off contributes no code; continuation writes no list. Completion paths outside the evaluator omit the key when they do not know which rules passed.
 
 ## Old decisions: "reconstructed"
 

@@ -826,7 +826,7 @@ def _run_causal_orchestrator_hooks(
     * ``auto_classify_pinned_probe`` closes the classification -> resolution edge
       when a causal probe answer is machine-readable: it writes the §7
       discriminating-observation receipt and resolves the factor. It declines
-      (recording nothing) whenever the pinned bundles declare features no
+      with a decline record whenever the pinned bundles declare features no
       deterministic sensor can supply, because an exact-key matcher handed an
       incapable sensor reports ``no_bundle_matched`` — which would manufacture
       open-set evidence out of a probe that was never read.
@@ -835,6 +835,7 @@ def _run_causal_orchestrator_hooks(
     it never raises — a P2 bookkeeping failure must not fail an attempt.
     """
 
+    from learnloop.diagnosis import chain_records
     from learnloop.diagnosis.causal_discrimination import auto_classify_pinned_probe
     from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
     from learnloop.diagnosis.machine_checks import sweep_machine_checks
@@ -848,7 +849,7 @@ def _run_causal_orchestrator_hooks(
             source="attempt_followup",
             clock=clock,
         )
-    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail an attempt
         # Logged, never swallowed silently: an invisible failure here is how a
         # producer becomes inert, which is the defect this wiring exists to fix.
         logger.warning(
@@ -856,6 +857,9 @@ def _run_causal_orchestrator_hooks(
             result.learning_object_id,
             exc_info=True,
         )
+        chain_records.record_step_failed(repository, step="machine_check_sweep", exc=exc,
+                                         attempt_id=result.attempt_id,
+                                         facts={"learning_object_id": result.learning_object_id, "phase": "grade_keyed"})
     try:
         # Ask for the repair lane by name: migration 139 put a second `kind` on
         # the same table, and one attempt can discharge a task in each.
@@ -874,34 +878,43 @@ def _run_causal_orchestrator_hooks(
                 cold_attempt_id=result.attempt_id,
                 clock=clock,
             )
-    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail an attempt
         logger.warning(
             "cold verification wiring failed for attempt %s",
             result.attempt_id,
             exc_info=True,
         )
+        chain_records.record_step_failed(repository, step="cold_verification_wiring", exc=exc,
+                                         attempt_id=result.attempt_id,
+                                         facts={"learning_object_id": result.learning_object_id, "phase": "grade_keyed"})
     try:
         auto_classify_pinned_probe(
             vault, repository, attempt_id=result.attempt_id, clock=clock
         )
-    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail an attempt
         logger.warning(
             "causal probe classification failed for attempt %s",
             result.attempt_id,
             exc_info=True,
         )
+        chain_records.record_step_failed(repository, step="probe_classification_hook", exc=exc,
+                                         attempt_id=result.attempt_id,
+                                         facts={"learning_object_id": result.learning_object_id, "phase": "grade_keyed"})
     if not include_common_repair:
         return
     try:
         _consult_common_repair(
             vault, repository, result, session_id=session_id, clock=clock
         )
-    except Exception:  # pragma: no cover - bookkeeping must not fail an attempt
+    except Exception as exc:  # pragma: no cover - bookkeeping must not fail an attempt
         logger.warning(
             "common-repair consultation failed for attempt %s",
             result.attempt_id,
             exc_info=True,
         )
+        chain_records.record_step_failed(repository, step="common_repair_consultation", exc=exc,
+                                         attempt_id=result.attempt_id,
+                                         facts={"learning_object_id": result.learning_object_id, "phase": "grade_keyed"})
 
 
 def attempt_followup_grade(

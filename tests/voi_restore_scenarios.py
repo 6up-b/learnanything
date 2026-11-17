@@ -309,7 +309,11 @@ def integration_decisions(tmp_path: Path, monkeypatch: Any, toml: str = "") -> d
                         raw = connection.execute(
                             "SELECT completion_detail_json FROM probe_episodes WHERE id = ?", (answered.id,)
                         ).fetchone()[0]
-                    detail = summarize_body(json.loads(raw)) if raw else None
+                    body = json.loads(raw) if raw else None
+                    # Rules alone explain a stop that still has no value-decision receipt.
+                    if body is not None and set(body) == {"rules_passed"}:
+                        body = None
+                    detail = summarize_body(body) if body is not None else None
                 steps.append(
                     {
                         "queue_head": [item.practice_item_id for item in step_queue[:3]],

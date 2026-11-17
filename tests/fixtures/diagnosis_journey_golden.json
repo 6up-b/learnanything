@@ -7399,7 +7399,9 @@
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
 "completed_at": "2026-05-19T12:00:00Z",
-"completion_detail_json": null,
+"completion_detail_json": {
+"rules_passed": []
+},
 "completion_posterior_json": {
 "other_or_unknown": 0.30890366735287955,
 "recall_without_mechanism": 0.6415691552713653,
@@ -79287,6 +79289,10 @@ null
 },
 "reason": "lcb_evsi_below_minutes_cost",
 "recommended_ref": null,
+"rules_passed": [
+"observation_budget_exhausted",
+"action_equivalent"
+],
 "site": "probe_episode"
 },
 "completion_posterior_json": {
@@ -87346,6 +87352,9 @@ null
 },
 "reason": "lcb_evsi_below_minutes_cost",
 "recommended_ref": null,
+"rules_passed": [
+"observation_budget_exhausted"
+],
 "site": "probe_episode"
 },
 "completion_posterior_json": {

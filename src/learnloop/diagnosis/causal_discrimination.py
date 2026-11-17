@@ -585,11 +585,19 @@ def deterministic_probe_features(
     deterministic sensor can supply.
     """
 
+    return _deterministic_probe_features_with_reason(vault, repository, attempt_id)[0]
+
+
+def _deterministic_probe_features_with_reason(
+    vault: LoadedVault, repository: Repository, attempt_id: str
+) -> tuple[dict[str, Any], str | None]:
+    from learnloop.diagnosis import chain_records
+
     attempt = repository.fetch_practice_attempt(attempt_id) or {}
     item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
     rubric = vault.rubric_for_item(item) if item is not None else None
     if item is None or rubric is None:
-        return {}
+        return {}, chain_records.NO_DETERMINISTIC_RUBRIC
     from learnloop.substrate.canonical_projection import unassessed_evidence_row
 
     evidence = {
@@ -617,7 +625,7 @@ def deterministic_probe_features(
         features[f"{DETERMINISTIC_FEATURE_PREFIX}{criterion.id}:full_credit"] = (
             fraction >= 1.0 - 1e-9
         )
-    return features
+    return features, None if features else chain_records.NO_ASSESSED_CRITERION
 
 
 def auto_classify_pinned_probe(
@@ -629,8 +637,10 @@ def auto_classify_pinned_probe(
 ) -> DiscriminatingObservation | None:
     """Close the loop automatically when a probe answer can be read by machine.
 
-    Runs on the live post-attempt path.  Returns ``None`` — recording nothing —
-    unless the attempt consumed a presentation carrying a pinned causal probe
+    Runs on the live post-attempt path. Returns ``None`` with a decline record
+    for each pinned causal probe it cannot read, except an answer already read
+    for this same attempt. Unpinned presentations are silent. It classifies only
+    when the presentation carries a pinned causal probe
     AND every declared feature key of the pinned bundles is in the deterministic
     vocabulary :func:`deterministic_probe_features` supplies.
 
@@ -650,9 +660,21 @@ def auto_classify_pinned_probe(
     presentation_id = attempt.get("probe_presentation_id")
     if not presentation_id:
         return None
+    from learnloop.diagnosis import chain_records
+
+    candidate_id = None
+
+    def decline(reason: str, *, declared_keys_n: int | None = None, supplied_keys_n: int | None = None) -> None:
+        chain_records.record_probe_classification_declined(
+            repository, attempt_id=attempt_id, presentation_id=str(presentation_id), reason=reason,
+            candidate_id=candidate_id, declared_keys_n=declared_keys_n, supplied_keys_n=supplied_keys_n)
+
     pinned = pinned_causal_probe(repository, str(presentation_id))
-    if not pinned or not pinned.get("blind_bundle_ids"):
+    candidate_id = str((pinned or {}).get("causal_probe_candidate_id") or "") or None
+    if not pinned:
         return None
+    if not pinned.get("blind_bundle_ids"):
+        return decline(chain_records.PINNED_BUNDLES_EMPTY)
     candidate = repository.causal_probe_candidate(
         str(pinned.get("causal_probe_candidate_id") or "")
     )
@@ -660,25 +682,32 @@ def auto_classify_pinned_probe(
         candidate is None
         or not candidate_has_current_blind_input_contract(candidate)
     ):
-        return None
-    if repository.causal_discriminating_observations(
+        return decline(chain_records.CANDIDATE_NOT_CURRENT)
+    observations = repository.causal_discriminating_observations(
         presentation_id=str(presentation_id)
-    ):
+    )
+    if observations:
         # Already observed. Re-classifying the same probe from a second hook
         # would append a duplicate verdict under a new attempt id.
-        return None
-    features = deterministic_probe_features(vault, repository, attempt_id)
+        if any(row.get("probe_attempt_id") == attempt_id for row in observations):
+            # This attempt's own answer was read by an earlier hook: a decline
+            # record beside its observation would say the opposite.
+            return None
+        return decline(chain_records.ALREADY_OBSERVED)
+    features, reason = _deterministic_probe_features_with_reason(vault, repository, attempt_id)
     if not features:
-        return None
+        return decline(reason, supplied_keys_n=0)
     declared: set[str] = set()
     for bundle_id in pinned["blind_bundle_ids"]:
         bundle = repository.causal_blind_prediction_bundle(str(bundle_id))
         if bundle is None:
-            return None
+            return decline(chain_records.PINNED_BUNDLE_MISSING, declared_keys_n=len(declared),
+                           supplied_keys_n=len(features))
         for row in bundle_feature_row_report(bundle["predictions"]).rows:
             declared.update(row.keys)
     if not declared or not declared <= set(features):
-        return None
+        return decline(chain_records.DECLARED_FEATURES_NOT_COVERED, declared_keys_n=len(declared),
+                       supplied_keys_n=len(features))
     return record_probe_classification(
         repository,
         presentation_id=str(presentation_id),

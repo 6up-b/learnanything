@@ -28,6 +28,7 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop import provenance
+from tests.probe_records_helpers import DECLINES, declined_answer
 
 from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - the fixture
 from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
@@ -43,6 +44,21 @@ from tests.why_cases_helpers import (
 )
 
 SECRET = "the learner wrote about eigenvalues here"
+
+
+@pytest.mark.parametrize("code", DECLINES)
+def test_why_wasnt_this_probe_answer_read(tmp_path, monkeypatch, code):
+    from learnloop.diagnosis.causal_discrimination import auto_classify_pinned_probe
+
+    root, vault, repository, result = declined_answer(tmp_path, code, monkeypatch)
+    with provenance.trace_scope("TRACE_LATER_ACTION"):
+        assert auto_classify_pinned_probe(vault, repository, attempt_id=result.attempt_id) is None
+    payload = why(root, f"attempt:{result.attempt_id}")
+    [record] = [entry for entry in of_kind(payload, "probe_classification")
+                if entry["rule"] == code and entry["trace_id"] == "TRACE_LATER_ACTION"]
+    assert record["status"] == "excluded" and record["parent_id"] is None
+    assert record["inputs"]["attempt_id"] == result.attempt_id
+    assert "private answer" not in json.dumps(record)
 
 
 def why_text(root: Path, *args: str) -> str:
