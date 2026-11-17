@@ -10,7 +10,7 @@ learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution
 learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation
 learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles
 learnloop.attempts.attempts -> learnloop.diagnosis.error_hunt
-learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes
+learnloop.attempts.attempts -> learnloop.diagnosis.probe_evidence
 learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations
 learnloop.attempts.attempts -> learnloop.diagnosis.remediation
 learnloop.attempts.attempts -> learnloop.goals.certification_cold_probe
@@ -76,11 +76,11 @@ learnloop.diagnosis.guided_redo -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.misconceptions -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.misconceptions -> learnloop.tutor.durable_promotion
 learnloop.diagnosis.probe_audit -> learnloop.attempts.grading
-learnloop.diagnosis.probe_episodes -> learnloop.attempts.grade_resolution
-learnloop.diagnosis.probe_episodes -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.probe_episodes -> learnloop.goals.goal_contracts
 learnloop.diagnosis.probe_episodes -> learnloop.learner.facet_diagnostics
 learnloop.diagnosis.probe_episodes -> learnloop.scheduling.controller_ownership
+learnloop.diagnosis.probe_evidence -> learnloop.attempts.grade_resolution
+learnloop.diagnosis.probe_evidence -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.probe_outcome_mapping -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.remediation -> learnloop.attempts.coldness_receipt
 learnloop.diagnosis.remediation -> learnloop.substrate.canonical_projection

@@ -2779,7 +2779,7 @@ def _record_lesson_probe(
         detail={"practice_item_id": draft.practice_item_id, "exposure": attempt.diagnostic_exposure},
         clock=clock,
     )
-    from learnloop.diagnosis.probe_episodes import dual_write_presentationless_probe_grade
+    from learnloop.diagnosis.probe_evidence import dual_write_presentationless_probe_grade
 
     dual_write_presentationless_probe_grade(
         vault,
@@ -2804,10 +2804,10 @@ def publish_regraded_probe_grade(
     clock: Clock | None = None,
 ) -> bool:
     """A regrade's probe grade under the replacement grade's identity (TE2 landing ruling R1): the attempts
-    package's door to :func:`learnloop.diagnosis.probe_episodes.dual_write_regraded_probe_grade` (the probe
+    package's door to :func:`learnloop.diagnosis.probe_evidence.dual_write_regraded_probe_grade` (the probe
     dual-writes live there, and this module already reads them), so the regrade adds no cross-package edge."""
 
-    from learnloop.diagnosis.probe_episodes import dual_write_regraded_probe_grade
+    from learnloop.diagnosis.probe_evidence import dual_write_regraded_probe_grade
 
     return dual_write_regraded_probe_grade(
         vault,
@@ -3094,9 +3094,7 @@ def _apply_attempt_in_transaction(
         # but its activity policy is an INPUT to the canonical projection just
         # below. Persist the presentation-derived contamination/near-clone fact
         # first so live state and a later replay cannot disagree.
-        from learnloop.diagnosis.probe_episodes import (
-            record_presentation_activity_classification,
-        )
+        from learnloop.diagnosis.probe_evidence import record_presentation_activity_classification
 
         record_presentation_activity_classification(
             vault,
@@ -3210,7 +3208,7 @@ def _apply_attempt_in_transaction(
         # Episode accounting owns probe advancement; `record_probe_attempt` is
         # kept only for pre-redesign replay. Belief updates and episode
         # advancement are separated inside `record_episode_evidence`.
-        from learnloop.diagnosis.probe_episodes import record_episode_evidence
+        from learnloop.diagnosis.probe_evidence import record_episode_evidence
 
         block_end = record_episode_evidence(
             vault,

@@ -22,7 +22,7 @@ from learnloop.attempts.post_attempt import (
     run_post_attempt_pipeline,
 )
 from learnloop.db.repositories import Repository
-from learnloop.diagnosis.probe_episodes import abandon_episode, enter_episode
+from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -202,7 +202,9 @@ def test_resumed_completion_routes_to_the_episode_the_attempt_was_applied_under(
     result = _self_graded(vault, repository, submission_id="sub-episode")
 
     # Completion was interrupted; meanwhile that episode ended and a new one opened.
-    abandon_episode(repository, learning_object_id)
+    repository.update_probe_episode_status(
+        applied_under.id, status="abandoned", completion_reason="learner_abandoned"
+    )
     newer = enter_episode(vault, repository, learning_object_id)
     assert newer.id != applied_under.id
 
@@ -225,7 +227,9 @@ def test_resumed_diagnostic_completion_evaluates_followups_after_its_episode_end
     assert result.probe_block_end is None
 
     # Completion was interrupted; that episode was abandoned and another opened.
-    abandon_episode(repository, block_setup.LO_ID, clock=clock)
+    repository.update_probe_episode_status(
+        applied_under.id, status="abandoned", completion_reason="learner_abandoned", clock=clock
+    )
     newer = enter_episode(vault, repository, block_setup.LO_ID, clock=clock)
     assert newer.status == "in_progress"
 

@@ -37,10 +37,9 @@ from learnloop.hints.telemetry import (
     stamp_window_submission,
     telemetry_enabled,
 )
-from learnloop.diagnosis.probe_episodes import (
-    enter_episode,
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_hypothesis_set
+from learnloop.diagnosis.probe_controls import (
     episode_contract,
-    episode_hypothesis_set,
     next_probe_item,
     stop_diagnosing_and_teach,
 )

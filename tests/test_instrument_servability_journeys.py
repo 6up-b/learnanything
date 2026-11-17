@@ -48,11 +48,8 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.goals.exam_pool import reserve_exam_pool
 from learnloop.substrate.instrument_serving import UNSERVABLE_REMEDIES
-from learnloop.diagnosis.probe_episodes import (
-    eligible_instruments,
-    enter_episode,
-    next_probe_item,
-)
+from learnloop.diagnosis.probe_episodes import eligible_instruments, enter_episode
+from learnloop.diagnosis.probe_controls import next_probe_item
 from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,

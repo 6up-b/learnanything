@@ -14,6 +14,7 @@ from learnloop.diagnosis import causal_discrimination
 from learnloop.diagnosis import probe_offer
 from learnloop.diagnosis import probe_completion as completion
 from learnloop.diagnosis import probe_episodes as probes
+from learnloop.diagnosis import probe_controls
 from learnloop.diagnosis import probe_presentations as presentations
 
 from tests.figure_build_golden_helpers import (
@@ -319,7 +320,7 @@ def probe_case(kind, root, patch):
             run_post_attempt_pipeline(vault, repo, result=result, clock=CLOCK)
             answers.append(result.attempt_id)
             journey.capture(f"answered_{item}")
-        stopped = probes.stop_diagnosing_and_teach(vault, repo, LO, clock=CLOCK)
+        stopped = probe_controls.stop_diagnosing_and_teach(vault, repo, LO, clock=CLOCK)
         assert stopped is not None and repo.probe_episode(episode.id).status == "converted_to_tutoring"
         assert {row["attempt_id"] for row in stopped.released_feedback} == set(answers)
         journey.capture("stopped_and_settled")
@@ -327,8 +328,8 @@ def probe_case(kind, root, patch):
     _, vault, repo = _setup(root, extra_item=True)
     journey = Journey(repo)
     episode = probes.enter_episode(vault, repo, LO, clock=CLOCK)
-    assert probes.episode_contract(vault, repo, LO)["forced_attempt_type"] == "diagnostic_probe"
-    eligible = probes.next_probe_item(vault, repo, LO)
+    assert probe_controls.episode_contract(vault, repo, LO)["forced_attempt_type"] == "diagnostic_probe"
+    eligible = probe_controls.next_probe_item(vault, repo, LO)
     assert eligible is not None
     assert presentations.probe_serving_block_reason(vault, repo, session_id="journey") is None
     presentations.probe_value_block_reason(vault, repo, episode, ITEM_ID, session_id="journey")

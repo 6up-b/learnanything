@@ -16,7 +16,8 @@ from learnloop.diagnosis.probe_dialogue import (
     next_dialogue_turn,
     record_turn_submitted,
 )
-from learnloop.diagnosis.probe_episodes import enter_episode, stop_diagnosing_and_teach
+from learnloop.diagnosis.probe_episodes import enter_episode
+from learnloop.diagnosis.probe_controls import stop_diagnosing_and_teach
 from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND
 from learnloop.ids import new_ulid
 from learnloop.vault.loader import load_vault
