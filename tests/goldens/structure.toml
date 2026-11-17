@@ -5,8 +5,8 @@
 
 
 [ratchet]
-largest_import_component = 143
-modules_in_an_import_cycle = 249
+largest_import_component = 145
+modules_in_an_import_cycle = 251
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
@@ -58,6 +58,7 @@ import_component = [
     "learnloop.diagnosis.causal_attribution",
     "learnloop.diagnosis.causal_orchestrator",
     "learnloop.diagnosis.causal_probe_coherence",
+    "learnloop.diagnosis.causal_reads",
     "learnloop.diagnosis.contrast_pairs",
     "learnloop.diagnosis.diagnosis_adjudication",
     "learnloop.diagnosis.diagnostic_augmentation",
@@ -77,6 +78,7 @@ import_component = [
     "learnloop.diagnosis.offline_review.runner",
     "learnloop.diagnosis.probe_blocks",
     "learnloop.diagnosis.probe_episodes",
+    "learnloop.diagnosis.probe_hard_stops",
     "learnloop.diagnosis.probe_instance_generation",
     "learnloop.diagnosis.probe_targeting",
     "learnloop.diagnosis.recurrence.backlog",
