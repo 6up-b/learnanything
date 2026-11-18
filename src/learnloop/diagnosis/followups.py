@@ -8,7 +8,8 @@ from typing import Any
 
 from learnloop.clock import Clock, parse_utc
 from learnloop.diagnosis.misconceptions import normalize_and_resolve_attempt
-from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import MisconceptionRecord
 from learnloop.learner.facet_diagnostics import candidate_facet_support
 from learnloop.learner.facet_state_reader import (
     facet_recall_state_for_lo,

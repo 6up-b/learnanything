@@ -14,7 +14,8 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.db.repositories import ProbeCalibrationSessionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeCalibrationSessionRecord
 from learnloop.goals.goal_projection import resolve_goal_scope
 from learnloop.diagnosis.probe_episodes import eligible_instruments, enter_episode, episode_posterior
 from learnloop.diagnosis.probe_instance_generation import generate_instances_for_episode

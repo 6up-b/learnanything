@@ -43,11 +43,8 @@ from learnloop.ai.transport import (
     execute_structured_operation,
 )
 from learnloop.clock import Clock
-from learnloop.db.repositories import (
-    ItemMisconceptionDiscrimination,
-    MisconceptionRecord,
-    Repository,
-)
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import ItemMisconceptionDiscrimination, MisconceptionRecord
 from learnloop.numeric import beta_quantile
 from learnloop.vault.models import LoadedVault, PracticeItem, discriminates
 

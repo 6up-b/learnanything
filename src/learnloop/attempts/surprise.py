@@ -6,7 +6,8 @@ from math import exp, log, pi, sqrt
 
 from learnloop.clock import parse_utc
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import ActiveErrorEvent, MasteryState
+from learnloop.db.repositories import MasteryState
+from learnloop.db.stores.learner_model import ActiveErrorEvent
 from learnloop.numeric import clamp
 from learnloop.learner.mastery import (
     MasteryObservation,

@@ -17,16 +17,16 @@ from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
 from learnloop.db.repositories import (
-    ActiveErrorEvent,
     FacetRecallState,
     FacetUncertaintyState,
-    GradingEvidenceRecord,
     ItemParameterState,
     MasteryState,
     PracticeItemQualityState,
     PracticeItemState,
     Repository,
 )
+from learnloop.db.stores.attempts import GradingEvidenceRecord
+from learnloop.db.stores.learner_model import ActiveErrorEvent
 from learnloop.ids import new_ulid
 from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
 from learnloop.ai.runs import finish_agent_run

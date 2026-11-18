@@ -16,7 +16,8 @@ import logging
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.db.repositories import ProbeEpisodeRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,

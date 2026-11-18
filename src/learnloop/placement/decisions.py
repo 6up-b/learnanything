@@ -30,7 +30,8 @@ import json
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.db.repositories import ProbeCalibrationSessionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeCalibrationSessionRecord
 from learnloop.db.stores import field_signal_receipts
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.placement import (

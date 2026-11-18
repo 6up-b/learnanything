@@ -20,7 +20,8 @@ from learnloop.diagnosis.ai_contracts import (
     misconception_match_prompt,
 )
 from learnloop.clock import Clock, parse_utc
-from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import MisconceptionRecord
 from learnloop.recurrence import key_for_statement
 from learnloop.substrate.recurrence_groups import active_group_map, refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault

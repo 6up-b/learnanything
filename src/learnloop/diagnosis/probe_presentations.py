@@ -15,7 +15,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.db.repositories import ProbeEpisodeRecord, ProbePresentationRecord, Repository
+from learnloop.db.repositories import ProbePresentationRecord, Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.diagnosis.probe_completion import robust_gate_counterfactual
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,

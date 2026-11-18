@@ -28,7 +28,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from learnloop.clock import Clock
-from learnloop.db.repositories import ProbeEpisodeRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.diagnosis.probe_episodes import EpisodePosterior, eligible_instruments, episode_posterior
 from learnloop.diagnosis.probe_completion import (
     episode_maximum_binds,

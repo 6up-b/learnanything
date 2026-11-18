@@ -13,11 +13,8 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from learnloop.clock import Clock, parse_utc
-from learnloop.db.repositories import (
-    ProbeEpisodeRecord,
-    ProbePresentationRecord,
-    Repository,
-)
+from learnloop.db.repositories import ProbePresentationRecord, Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.diagnosis.probe_families import (
     APPROVED_DIAGNOSTIC_GRADING_SOURCES,
     CompiledInstrument,

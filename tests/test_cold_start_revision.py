@@ -228,7 +228,7 @@ class TestStratifiedCap:
 
 class TestAssessmentSideErrorFiltering:
     def test_scheduler_excludes_assessment_side_errors(self):
-        from learnloop.db.repositories import ActiveErrorEvent
+        from learnloop.db.stores.learner_model import ActiveErrorEvent
         from learnloop.scheduling.scheduler import _errors_by_learning_object
 
         events = [

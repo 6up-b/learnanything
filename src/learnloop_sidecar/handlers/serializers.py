@@ -8,12 +8,8 @@ from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
 from learnloop.db.scopes import pinned_repository_call
-from learnloop.db.repositories import (
-    GradingEvidenceRecord,
-    MasteryState,
-    PracticeItemState,
-    Repository,
-)
+from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
+from learnloop.db.stores.attempts import GradingEvidenceRecord
 from learnloop.curriculum.confusable_concepts import learner_observed_confusable_concepts
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.learner.mastery import display_mastery, sigmoid

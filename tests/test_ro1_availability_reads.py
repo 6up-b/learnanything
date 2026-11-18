@@ -224,21 +224,21 @@ OCCURRENCE_TIME_READS: dict[tuple[str, str], str] = {
         "window cost (§8.7, router_objective.scores) reads the same spans (Codex review F4): an outcome of the "
         "decision, never a decision-time read. RO6's transition rewards (§10, router_objective.tail_data) charge the "
         "same cost between two decisions: an outcome too, never a feature",
-    ("learnloop/db/repositories.py", "list_recent_attempts_by_practice_item"):
+    ("learnloop/db/stores/attempts.py", "list_recent_attempts_by_practice_item"):
         "FSRS and replay: the ledger before the attempt being recomputed (before=), and a historical "
         "writer's instant (until=, serve_eligibility Q33, exam seeding)",
-    ("learnloop/db/repositories.py", "count_clean_attempts_since"):
+    ("learnloop/db/stores/attempts.py", "count_clean_attempts_since"):
         "mastery: clean attempts that resolve a misconception, by when they happened",
-    ("learnloop/db/repositories.py", "clean_attempt_ids_since"):
+    ("learnloop/db/stores/attempts.py", "clean_attempt_ids_since"):
         "mastery: the attempts count_clean_attempts_since counts",
-    ("learnloop/db/repositories.py", "followup_source_attempt"):
+    ("learnloop/db/stores/remediation.py", "followup_source_attempt"):
         "outcome: which queued follow-up an attempt answered, written with the attempt and replayed",
     ("learnloop/db/repositories.py", "session_attempt_counts"): "report: a session's own window",
     ("learnloop/db/repositories.py", "session_attempt_rows"): "report: a session's own window",
     ("learnloop/db/repositories.py", "review_session_rows"): "report: the Review surface's session spine",
-    ("learnloop/db/repositories.py", "practice_attempts_for_items_before"):
+    ("learnloop/db/stores/attempts.py", "practice_attempts_for_items_before"):
         "outcome: the coldness receipt's prior administrations, written with the attempt it labels",
-    ("learnloop/db/repositories.py", "_insert_learning_outcome_labels"):
+    ("learnloop/db/stores/attempts.py", "_insert_learning_outcome_labels"):
         "outcome: learning-outcome labels written with the attempt",
     ("learnloop/db/stores/practice_index.py", "attempts_after"): "report: the practice index's usage join",
     ("learnloop/evsi_calibration/live_report.py", "_queue_serving_at"): "report: EVSI live calibration",

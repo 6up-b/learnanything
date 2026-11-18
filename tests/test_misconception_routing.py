@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import ItemMisconceptionDiscrimination, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import ItemMisconceptionDiscrimination
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.followups import evaluate_intervention_followup
 from learnloop.vault.loader import load_vault

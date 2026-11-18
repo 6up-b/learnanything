@@ -36,7 +36,8 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
-from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.attempts import GradingEvidenceRecord
 from learnloop.grading_epochs import ordered_epochs
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.content.authoring.conjunctive_items import (

@@ -6,7 +6,8 @@ from tests.structured_ai import StructuredClientFake
 
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.diagnosis.ai_contracts import DiagnosticTrialResult, DiagnosticTrials
-from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import MisconceptionRecord
 from learnloop.diagnosis.diagnostic_gate import (
     BACKFILL_SKIPPED_EXISTING,
     BACKFILL_SKIPPED_UNREGISTERED,

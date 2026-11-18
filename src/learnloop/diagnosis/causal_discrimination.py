@@ -17,11 +17,8 @@ from typing import Any, Mapping
 
 from learnloop.causal_activity_policy import DISCRIMINATING_OUTCOMES
 from learnloop.clock import Clock
-from learnloop.db.repositories import (
-    OBSERVATION_CHANNEL_BLIND_PROBE,
-    OBSERVATION_CHANNEL_LEARNER_QUESTION,
-    Repository,
-)
+from learnloop.db.repositories import OBSERVATION_CHANNEL_LEARNER_QUESTION, Repository
+from learnloop.db.stores.causal import OBSERVATION_CHANNEL_BLIND_PROBE
 from learnloop.diagnosis.causal_attribution import (
     CAUSAL_DECISION_POLICY_VERSION,
     SUPPORT_BASIS_AUTHORITY,

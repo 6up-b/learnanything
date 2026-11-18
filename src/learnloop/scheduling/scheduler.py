@@ -10,13 +10,8 @@ from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import (
-    ActiveErrorEvent,
-    MasteryState,
-    PracticeItemQualityState,
-    PracticeItemState,
-    Repository,
-)
+from learnloop.db.repositories import MasteryState, PracticeItemQualityState, PracticeItemState, Repository
+from learnloop.db.stores.learner_model import ActiveErrorEvent
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.substrate.instrument_serving import unservable_reason

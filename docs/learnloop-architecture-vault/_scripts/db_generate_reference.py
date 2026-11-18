@@ -470,10 +470,11 @@ def repository_methods_by_table() -> dict[str, list[str]]:
     repository = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Repository")
     bases = {node.id for node in repository.bases if isinstance(node, ast.Name)}
     paths = [path]
-    # Inherited store methods still belong to the facade's table inventory.
+    # Inherited methods and shared SQL row helpers still belong to the facade's table inventory.
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module and any(
-            (alias.asname or alias.name) in bases for alias in node.names
+        if isinstance(node, ast.ImportFrom) and node.module and (
+            node.module == "learnloop.db.records"
+            or any((alias.asname or alias.name) in bases for alias in node.names)
         ):
             paths.append(REPOSITORY_ROOT / "src" / Path(*node.module.split(".")).with_suffix(".py"))
     result: dict[str, list[str]] = defaultdict(list)

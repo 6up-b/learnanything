@@ -25,7 +25,8 @@ from learnloop.content.proposals.ai_contracts import (
     authoring_prompt,
 )
 from learnloop.ai.transport import execute_structured_operation
-from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import MisconceptionRecord
 from learnloop.vault.repository import vault_repository
 from learnloop.ai.runs import finish_agent_run
 from learnloop.diagnosis.diagnostic_gate import GateResult, run_discrimination_gate

@@ -19,7 +19,8 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from learnloop.clock import Clock
-from learnloop.db.repositories import ProbeEpisodeRecord, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 
 LEARNER_PREFERENCES = ("allow", "decline", "teach_now", "no_more_diagnostics")
 

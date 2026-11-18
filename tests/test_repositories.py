@@ -205,7 +205,7 @@ def test_error_event_misconception_backfill(tmp_path):
 
 
 def test_item_misconception_discrimination_upsert_and_math(tmp_path):
-    from learnloop.db.repositories import ItemMisconceptionDiscrimination
+    from learnloop.db.stores.learner_model import ItemMisconceptionDiscrimination
 
     paths = create_basic_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)

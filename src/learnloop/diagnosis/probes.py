@@ -9,12 +9,12 @@ from math import exp, log
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import ProbeIRTConfig, ProbeSelfTagConfig
-from learnloop.db.repositories import (
+from learnloop.db.records import ProbeStateRecord
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import (
     ActiveErrorEvent,
     ItemMisconceptionDiscrimination,
     MisconceptionRecord,
-    ProbeStateRecord,
-    Repository,
 )
 from learnloop.learner.mastery import (
     covering_learner_claim,

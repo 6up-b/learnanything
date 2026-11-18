@@ -13,7 +13,8 @@ from datetime import timedelta
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.db.repositories import ItemMisconceptionDiscrimination, Repository
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.learner_model import ItemMisconceptionDiscrimination
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.misconceptions import (
     misconception_posterior,

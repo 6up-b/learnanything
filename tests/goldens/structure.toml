@@ -10,7 +10,7 @@ modules_in_an_import_cycle = 220
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
-functions_over_200_lines = 72
+functions_over_200_lines = 71
 comment_lines_naming_a_stage_artifact = 2370
 test_files_named_for_a_stage = 184
 
@@ -143,7 +143,6 @@ functions_over_200_lines = [
     "src/learnloop/attempts/attempts.py _apply_attempt_in_transaction",
     "src/learnloop/attempts/attempts.py graded_reference_contents",
     "src/learnloop/attempts/coldness_receipt.py _scan_exposures",
-    "src/learnloop/attempts/grade_resolution.py resolve_grade",
     "src/learnloop/attempts/grading.py validate_codex_grading_proposal",
     "src/learnloop/attempts/regrade.py _publish_regrade",
     "src/learnloop/attempts/regrade.py regrade_attempt",
@@ -531,8 +530,9 @@ stage_test_files = [
 "src/learnloop/daily_plan/view.py" = 2
 "src/learnloop/db/connection.py" = 6
 "src/learnloop/db/migrate.py" = 1
-"src/learnloop/db/repositories.py" = 6
+"src/learnloop/db/repositories.py" = 5
 "src/learnloop/db/stores/ad_serving.py" = 4
+"src/learnloop/db/stores/attempts.py" = 1
 "src/learnloop/db/stores/collection.py" = 1
 "src/learnloop/db/stores/help_assists.py" = 4
 "src/learnloop/db/stores/learner_gaps.py" = 1

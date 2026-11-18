@@ -18,10 +18,8 @@ from typing import Any, Iterable, Mapping
 from learnloop.followup_serve.gates import generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_entry
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.db.repositories import (
-    ProbeEpisodeRecord,
-    Repository,
-)
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.instrument_serving import unservable_reason

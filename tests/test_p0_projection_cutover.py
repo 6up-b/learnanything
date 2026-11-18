@@ -312,12 +312,16 @@ def test_grading_evidence_write_discipline_is_append_only_with_supersession():
     import re as _re
 
     import learnloop.db.repositories as repositories_module
+    from learnloop.db.stores import attempts as attempts_store
 
-    source = inspect.getsource(repositories_module)
     allowed = {"superseded_at", "superseded_by_evidence_id"}
-    updates = _re.findall(
-        r"UPDATE grading_evidence\s+SET\s+(.*?)\s+WHERE", source, flags=_re.S
-    )
+    updates = [
+        update
+        for module in (repositories_module, attempts_store)
+        for update in _re.findall(
+            r"UPDATE grading_evidence\s+SET\s+(.*?)\s+WHERE", inspect.getsource(module), flags=_re.S
+        )
+    ]
     assert updates, "expected at least the supersession bookkeeping writers"
     for set_clause in updates:
         columns = {
