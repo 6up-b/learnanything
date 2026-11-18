@@ -97,7 +97,7 @@ def test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path(t
     from learnloop.daily_plan.engine import advance
 
     gate = threading.Event()
-    real = OC.V.evaluate
+    real = OC.ROL.evaluate
     on_serving_thread: list[bool] = []
     serving = threading.current_thread()
 
@@ -107,7 +107,7 @@ def test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path(t
             gate.wait(60.0)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(OC.V, "evaluate", blocked)
+    monkeypatch.setattr(OC.ROL, "evaluate", blocked)
     env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=TAG)
     waits: list[float] = []
     try:
@@ -217,7 +217,7 @@ def test_with_models_the_wait_returns_and_the_next_prefetch_runs_it(tmp_path, mo
     from tests.ro4_objective_serving_helpers import policy_answer
 
     gate, reached = threading.Event(), threading.Event()
-    real = OC.V.evaluate
+    real = OC.ROL.evaluate
 
     def blocked(*args, **kwargs):
         if kwargs.get("cutoff") is not None:
@@ -225,7 +225,7 @@ def test_with_models_the_wait_returns_and_the_next_prefetch_runs_it(tmp_path, mo
             gate.wait(60.0)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(OC.V, "evaluate", blocked)
+    monkeypatch.setattr(OC.ROL, "evaluate", blocked)
     timeout = 20.0
     try:
         runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer), inline=False,
@@ -270,7 +270,7 @@ def test_an_early_publication_served_keeps_its_carried_valuation(tmp_path, monke
     from tests.router_mixture_helpers import mixture_env
     from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
-    real = OC.V.evaluate
+    real = OC.ROL.evaluate
     at_cutoff: list[tuple[bool, dict]] = []
 
     def spy(*args, **kwargs):
@@ -279,7 +279,7 @@ def test_an_early_publication_served_keeps_its_carried_valuation(tmp_path, monke
             at_cutoff.append((args[0].effect is None, {row.ref: float(row.q) for row in out.valued}))
         return out
 
-    monkeypatch.setattr(OC.V, "evaluate", spy)
+    monkeypatch.setattr(OC.ROL, "evaluate", spy)
     gate = threading.Event()
     # Router speed, item 4: the serve's wait runs out right after the numeric job's early publication, by events,
     # never by a real 3 s wait against a publication that takes about 2.2 s (later than 3 s on a loaded machine, so
