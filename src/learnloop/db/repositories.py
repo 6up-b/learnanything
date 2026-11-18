@@ -2315,12 +2315,12 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
-        if attempt.get("received_at") is not None:
+        if (received_at := attempt.get("received_at")) is not None and str(received_at).strip():
             # Router objective RO1 (migration 244): when the attempt became
-            # known, written only where created_at is not the write time (exam
-            # seeding). Written only when set, like the AD1 columns below.
+            # known (exam seeding). Leave blanks NULL so SQL uses created_at
+            # and ordinary attempts still write to schemas before migration 244.
             columns.extend(("received_at", "received_at_source"))
-            values.extend((attempt["received_at"], attempt.get("received_at_source") or "recorded"))
+            values.extend((received_at, attempt.get("received_at_source") or "recorded"))
         for column in ("difficulty_rating", "first_hint_progress"):
             if attempt.get(column) is not None:
                 # Adaptive difficulty AD1 (migration 213): written only when

@@ -22,7 +22,7 @@ from typing import Any
 from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc
 from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
-from learnloop.goals.goal_series_store import prune_rows
+from learnloop.goals.goal_series_store import drop_scratch_delete_guards, prune_rows
 from learnloop.goals.goal_projection import (
     goal_report,
     projected_ready_mean_at,
@@ -233,6 +233,8 @@ def _replay_and_report(
                 "SELECT id FROM practice_attempts WHERE created_at > ?", (checkpoint_iso,)
             )
         ]
+        if doomed:
+            drop_scratch_delete_guards(connection)
         prune_rows(connection, "practice_attempts", "id", doomed)
         connection.commit()
     rebuild_derived_state(

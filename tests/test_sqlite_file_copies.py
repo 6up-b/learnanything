@@ -80,6 +80,11 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
         "copies textbooks and reference PDFs (each checked by sha256), never a database; "
         "the vaults are copied with learnloop.db.copies.copy_tree_with_databases",
     ),
+    "scripts/ux_walk/start.py": (
+        2,
+        "copies the walk client script and the persona's upload documents into a walk directory, never a database; "
+        "the walk's vault is built by make_vault.py",
+    ),
     "tests/test_sqlite_wal.py": (
         1,
         "plants a -wal from another database to prove fresh creation discards orphans",
