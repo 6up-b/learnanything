@@ -47,39 +47,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py) |
-| Source lines | 870 |
+| Source lines | 871 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `build_plan_block_decision(decision: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 128) — The ``router_decisions`` row for one plan block decision (pure).
-- `log_plan_block_decision(connection: Any, decision: Any) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 491) — DL1's plan-decision logger: write the ``plan_block`` row, return its id.
-- `drawn_lesson_on(connection: Any, block_id: Any, key: str) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 547) — IH2: the latest decision on this block and follow-up that drew a lesson, or None.
-- `held_a_lesson(connection: Any, decision_id: str | None) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 560) — IH2: this decision's support held a lesson offer, so the lesson has already had its chance against what it drew.
-- `build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 572) — The ``router_decisions`` row of one ``plan_interrupt`` decision (pure).
-- `log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 687) — Write one ``plan_interrupt`` row on the caller's transaction; returns its id.
-- `build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 716) — FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
-- `existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str, redraw_of: Any=None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 824) — The decision this workflow already logged on this block, or None: its immutable receipt.
-- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 837) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
+- `build_plan_block_decision(decision: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 129) — The ``router_decisions`` row for one plan block decision (pure).
+- `log_plan_block_decision(connection: Any, decision: Any) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 492) — DL1's plan-decision logger: write the ``plan_block`` row, return its id.
+- `drawn_lesson_on(connection: Any, block_id: Any, key: str) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 548) — IH2: the latest decision on this block and follow-up that drew a lesson, or None.
+- `held_a_lesson(connection: Any, decision_id: str | None) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 561) — IH2: this decision's support held a lesson offer, so the lesson has already had its chance against what it drew.
+- `build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 573) — The ``router_decisions`` row of one ``plan_interrupt`` decision (pure).
+- `log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 688) — Write one ``plan_interrupt`` row on the caller's transaction; returns its id.
+- `build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 717) — FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
+- `existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str, redraw_of: Any=None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 825) — The decision this workflow already logged on this block, or None: its immutable receipt.
+- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 838) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
 
 ### Module constants
 
-- `DECISION_KIND` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 69)
-- `SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 70)
-- `MODE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 71)
-- `CONTINUE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 72)
-- `STOP_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 73)
-- `PICK_PREFIX` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 75)
-- `FALLBACK_POLICY` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 77)
-- `_DETERMINISTIC_TOLERANCE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 79)
-- `MODEL_PAYLOAD_KINDS` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 391)
-- `INTERRUPT_KIND` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 516)
-- `INSERT_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 517)
-- `DECLINE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 518)
-- `OFFER_PREFIX` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 521)
-- `NO_INTERVENTION_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 713)
+- `DECISION_KIND` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 70)
+- `SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 71)
+- `MODE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 72)
+- `CONTINUE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 73)
+- `STOP_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 74)
+- `PICK_PREFIX` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 76)
+- `FALLBACK_POLICY` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 78)
+- `_DETERMINISTIC_TOLERANCE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 80)
+- `MODEL_PAYLOAD_KINDS` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 392)
+- `INTERRUPT_KIND` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 517)
+- `INSERT_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 518)
+- `DECLINE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 519)
+- `OFFER_PREFIX` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 522)
+- `NO_INTERVENTION_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 714)
 
 ### Explicit exports
 
@@ -103,20 +103,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 82)
-- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 86)
-- `_logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 90)
-- `_ledger_present(connection: Any) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 99)
-- `_surface(device: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 108) — Mobile v2 §2.2: a decision taken under a phone origin records its plan surface (``phone_plan``); every other decision, the desktop's, keeps :data:`SURFACE`.
-- `_device_inputs(device: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 115) — The device rules a phone decision served under (``device_policy``), in its inputs as M2a's queue offers name them.
-- `_probability(value: Any) -> float | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 122)
-- `_model_columns(record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 369) — The R2b columns (reserved since R1, migration 181) from a router record.
-- `_store_payloads(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 394) — R2b: both models' requests and raw answers, beside the decision (own savepoints).
-- `_store_context_vector(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 418) — R2c: the decision's ``decision/context`` vector (computed at prefetch, written after the decision, in its own savepoint; a cache replay never reads).
-- `_store_card(connection: Any, decision: Any, row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 450) — R2a: the learner-state card the chooser built, beside its decision.
-- `_offer_arm(mixture: Mapping[str, Any], candidate_propensity: Any, record: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 524) — The offer's row among the decision's candidates, when its support holds one (none: the predecessor's rows).
-- `_offer_detail(decision: Mapping[str, Any], record: Mapping[str, Any], chosen_ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 534) — IH2: what an offer among the arms adds to a ``plan_interrupt`` row: the offer's record (or why there was none), and on a drawn offer its card and its own block (what the acceptance model and the card read back).
-- `_followup_receipt_key(block_id: Any, workflow_id: Any, redraw_of: Any=None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 818) — ``redraw_of`` (IH2): the lesson's decision this follow-up lost to; a later decision is a new receipt.
+- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 83)
+- `_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 87)
+- `_logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 91)
+- `_ledger_present(connection: Any) -> bool` ([source](../../../../../../src/learnloop/router/plan_log.py), line 100)
+- `_surface(device: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 109) — Mobile v2 §2.2: a decision taken under a phone origin records its plan surface (``phone_plan``); every other decision, the desktop's, keeps :data:`SURFACE`.
+- `_device_inputs(device: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 116) — The device rules a phone decision served under (``device_policy``), in its inputs as M2a's queue offers name them.
+- `_probability(value: Any) -> float | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 123)
+- `_model_columns(record: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 370) — The R2b columns (reserved since R1, migration 181) from a router record.
+- `_store_payloads(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 395) — R2b: both models' requests and raw answers, beside the decision (own savepoints).
+- `_store_context_vector(connection: Any, record: Mapping[str, Any], row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 419) — R2c: the decision's ``decision/context`` vector (computed at prefetch, written after the decision, in its own savepoint; a cache replay never reads).
+- `_store_card(connection: Any, decision: Any, row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 451) — R2a: the learner-state card the chooser built, beside its decision.
+- `_offer_arm(mixture: Mapping[str, Any], candidate_propensity: Any, record: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 525) — The offer's row among the decision's candidates, when its support holds one (none: the predecessor's rows).
+- `_offer_detail(decision: Mapping[str, Any], record: Mapping[str, Any], chosen_ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 535) — IH2: what an offer among the arms adds to a ``plan_interrupt`` row: the offer's record (or why there was none), and on a drawn offer its card and its own block (what the acceptance model and the card read back).
+- `_followup_receipt_key(block_id: Any, workflow_id: Any, redraw_of: Any=None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 819) — ``redraw_of`` (IH2): the lesson's decision this follow-up lost to; a later decision is a new receipt.
 
 ## Who imports or calls it
 
@@ -136,6 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/embedding_vectors|learnloop.db.stores.embedding_vectors]] — imports `put_vector`; calls `put_vector`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `ROUTER_LOG_VERSION`, `append_router_decision`, `append_router_payload`, `prune_router_payloads`; calls `append_router_decision`, `append_router_payload`, `prune_router_payloads`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 
@@ -155,12 +156,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
-  - `test_ref_copies_across_import_boundaries_stay_equal`
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_router_r1_logs_plan_block_decisions_through_the_boundary_hook`
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
+- [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
+  - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
 
 ## Modification guidance
 

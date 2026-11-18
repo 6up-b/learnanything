@@ -47,35 +47,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py) |
-| Source lines | 526 |
+| Source lines | 527 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OfferHeadMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/router/decisions.py), line 100) — The recomposed realized outcome does not reproduce the served head.
-  - `__init__(self, message: str, *, realized_head: str | None=None, served_head: str | None=None, slate_id: str | None=None) -> None` (line 109; internal)
-- `offer_failure_record(exc: BaseException, *, slate_id: str | None, surface: str | None, parent_id: str | None=None) -> DecisionRecord` ([source](../../../../../../src/learnloop/router/decisions.py), line 123) — A Today offer whose router decision could not be logged, so it was published without one (``failed``): a head mismatch names the recomposed and the served heads; any other failure its type and where.
-- `split_exclusions(exclusions: Mapping[str, Iterable[str]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/decisions.py), line 192) — ``{"named": {reason: [ids]}, "counts": {reason: n}}``, sorted and deduplicated.
-- `head_distribution(outcomes: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None]) -> dict[str | None, float]` ([source](../../../../../../src/learnloop/router/decisions.py), line 213) — P(each item heads the offer) over the exploration's whole support.
-- `build_today_offer_decision(trace: Any, *, offered: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None], section_of: Callable[[Any], str], served_head: str | None, surface: str, policy: str, in_progress: Mapping[str, Any] | None=None, removed: Mapping[str, Iterable[str]] | None=None, inputs: Mapping[str, Any] | None=None, head_served: bool=True, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 230) — The ``router_decisions`` row for one published Today offer.
-- `record_decision(repository: Any, row: Mapping[str, Any], *, alongside: Callable[[Any], Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 493) — Append one decision row in its own transaction; idempotent on its key.
-- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 505)
+- `class OfferHeadMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/router/decisions.py), line 101) — The recomposed realized outcome does not reproduce the served head.
+  - `__init__(self, message: str, *, realized_head: str | None=None, served_head: str | None=None, slate_id: str | None=None) -> None` (line 110; internal)
+- `offer_failure_record(exc: BaseException, *, slate_id: str | None, surface: str | None, parent_id: str | None=None) -> DecisionRecord` ([source](../../../../../../src/learnloop/router/decisions.py), line 124) — A Today offer whose router decision could not be logged, so it was published without one (``failed``): a head mismatch names the recomposed and the served heads; any other failure its type and where.
+- `split_exclusions(exclusions: Mapping[str, Iterable[str]]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/router/decisions.py), line 193) — ``{"named": {reason: [ids]}, "counts": {reason: n}}``, sorted and deduplicated.
+- `head_distribution(outcomes: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None]) -> dict[str | None, float]` ([source](../../../../../../src/learnloop/router/decisions.py), line 214) — P(each item heads the offer) over the exploration's whole support.
+- `build_today_offer_decision(trace: Any, *, offered: Sequence[Any], head_of: Callable[[Sequence[Any]], str | None], section_of: Callable[[Any], str], served_head: str | None, surface: str, policy: str, in_progress: Mapping[str, Any] | None=None, removed: Mapping[str, Iterable[str]] | None=None, inputs: Mapping[str, Any] | None=None, head_served: bool=True, created_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/decisions.py), line 231) — The ``router_decisions`` row for one published Today offer.
+- `record_decision(repository: Any, row: Mapping[str, Any], *, alongside: Callable[[Any], Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 494) — Append one decision row in its own transaction; idempotent on its key.
+- `logging_enabled(config: Any) -> bool` ([source](../../../../../../src/learnloop/router/decisions.py), line 506)
 
 ### Module constants
 
-- `CONTINUE_REF` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 45)
-- `STOP_REF` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 46)
-- `DESIGN_SCHEDULER_EXPLORATION` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 48)
-- `NOT_SERVED` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 50)
-- `MODE_LEGACY_QUEUE` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 51)
-- `DETERMINISTIC_TOLERANCE` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 54)
-- `COUNTED_EXCLUSIONS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 60)
-- `_PLANNER_SIGNALS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 80)
-- `TODAY_OFFER_RECORD` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 118)
-- `HEAD_MISMATCH` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 119)
-- `DECISION_NOT_BUILT` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 120)
+- `CONTINUE_REF` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 46)
+- `STOP_REF` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 47)
+- `DESIGN_SCHEDULER_EXPLORATION` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 49)
+- `NOT_SERVED` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 51)
+- `MODE_LEGACY_QUEUE` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 52)
+- `DETERMINISTIC_TOLERANCE` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 55)
+- `COUNTED_EXCLUSIONS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 61)
+- `_PLANNER_SIGNALS` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 81)
+- `TODAY_OFFER_RECORD` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 119)
+- `HEAD_MISMATCH` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 120)
+- `DECISION_NOT_BUILT` ([src/learnloop/router/decisions.py](../../../../../../src/learnloop/router/decisions.py), line 121)
 
 ### Explicit exports
 
@@ -99,11 +99,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router/decisions.py), line 164)
-- `_exact(probability: float) -> float` ([source](../../../../../../src/learnloop/router/decisions.py), line 170) — A candidate's head probability, to 12 decimals (the row keeps the chosen candidate's at full precision).
-- `_canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 177)
-- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 182)
-- `_propensity(probability: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/decisions.py), line 186)
+- `_round(value: Any) -> Any` ([source](../../../../../../src/learnloop/router/decisions.py), line 165)
+- `_exact(probability: float) -> float` ([source](../../../../../../src/learnloop/router/decisions.py), line 171) — A candidate's head probability, to 12 decimals (the row keeps the chosen candidate's at full precision).
+- `_canonical_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 178)
+- `_dumps(value: Any) -> str` ([source](../../../../../../src/learnloop/router/decisions.py), line 183)
+- `_propensity(probability: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/router/decisions.py), line 187)
 
 ## Who imports or calls it
 
@@ -119,6 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `ROUTER_LOG_VERSION`, `insert_router_decision`; calls `insert_router_decision`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `is_code`, `where`; calls `DecisionRecord`, `is_code`, `where`
 
 ### Platform and third-party dependencies
@@ -139,12 +140,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
-  - `test_ref_copies_across_import_boundaries_stay_equal`
 - [tests/test_data_capture_codex_review.py](../../../../../../tests/test_data_capture_codex_review.py) — direct import
   - `test_f8_a_crash_before_the_transaction_ends_loses_both_or_neither`
 - [tests/test_forced_withdrawal_records.py](../../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_the_builders_keep_ids_numbers_and_codes_only`
+- [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
+  - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_a_committed_presentation_is_logged_as_the_continue_choice`
   - `test_a_draft_in_progress_is_logged_as_the_continue_candidate`

@@ -48,45 +48,45 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py) |
-| Source lines | 298 |
+| Source lines | 299 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 35)
-- `receipt_key(day: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 41)
-- `decision_for_day(connection: sqlite3.Connection, day: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 53)
-- `decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 61)
-- `decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 68) — Every lesson-suggestion decision, oldest first.
-- `offer_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 99) — Every drawn lesson offer (a ``plan_block`` or, from IH2, ``plan_interrupt`` decision naming one), oldest first; none below TE3b's tag.
-- `offer_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 108)
-- `offer_drawn_since(connection: sqlite3.Connection, decision_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 115) — A lesson offer was drawn after this decision.
-- `all_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 125) — TE1b's daily decisions and TE3b's drawn offers together, oldest first (identical to :func:`decisions` while no offer was ever drawn).
-- `responses(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 136) — Every learner response (never a release), in response order.
-- `releases(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 145) — Every reservation let go (``released`` or ``expired``), in order.
-- `response_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 154) — The decision's one learner response (never its release).
-- `release_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 164) — The row that let the decision's reservation go, if one did.
-- `response_for_lesson(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 174)
-- `insert_response(connection: sqlite3.Connection, *, decision_id: str, response: str, candidate_ref: str, learning_object_ids: Sequence[str], responded_at: str, lesson_id: str | None=None, session_id: str | None=None, detail: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 181) — Append the decision's one response (or its one release); a second of either is a no-op (False).
-- `lesson_exists(connection: sqlite3.Connection, lesson_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 209)
-- `open_lesson_learning_objects(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 213) — The LOs of every lesson still open.
-- `last_lesson_opened_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 224) — Per LO, when the latest lesson on it opened.
-- `last_lesson_ended_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 236) — Per LO, when the last lesson on it ended: the latest ``closed_at`` (``opened_at`` for one still open, which the candidates leave out anyway).
-- `attempts_classified_by(connection: sqlite3.Connection, source: str) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 250) — The attempts with an activity classification written by ``source`` (e.g.
-- `attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 261) — Each LO's attempts, oldest first (what the candidate reasons read).
+- `tables_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 36)
+- `receipt_key(day: str) -> str` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 42)
+- `decision_for_day(connection: sqlite3.Connection, day: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 54)
+- `decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 62)
+- `decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 69) — Every lesson-suggestion decision, oldest first.
+- `offer_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 100) — Every drawn lesson offer (a ``plan_block`` or, from IH2, ``plan_interrupt`` decision naming one), oldest first; none below TE3b's tag.
+- `offer_decision(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 109)
+- `offer_drawn_since(connection: sqlite3.Connection, decision_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 116) — A lesson offer was drawn after this decision.
+- `all_decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 126) — TE1b's daily decisions and TE3b's drawn offers together, oldest first (identical to :func:`decisions` while no offer was ever drawn).
+- `responses(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 137) — Every learner response (never a release), in response order.
+- `releases(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 146) — Every reservation let go (``released`` or ``expired``), in order.
+- `response_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 155) — The decision's one learner response (never its release).
+- `release_for(connection: sqlite3.Connection, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 165) — The row that let the decision's reservation go, if one did.
+- `response_for_lesson(connection: sqlite3.Connection, lesson_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 175)
+- `insert_response(connection: sqlite3.Connection, *, decision_id: str, response: str, candidate_ref: str, learning_object_ids: Sequence[str], responded_at: str, lesson_id: str | None=None, session_id: str | None=None, detail: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 182) — Append the decision's one response (or its one release); a second of either is a no-op (False).
+- `lesson_exists(connection: sqlite3.Connection, lesson_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 210)
+- `open_lesson_learning_objects(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 214) — The LOs of every lesson still open.
+- `last_lesson_opened_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 225) — Per LO, when the latest lesson on it opened.
+- `last_lesson_ended_by_learning_object(connection: sqlite3.Connection) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 237) — Per LO, when the last lesson on it ended: the latest ``closed_at`` (``opened_at`` for one still open, which the candidates leave out anyway).
+- `attempts_classified_by(connection: sqlite3.Connection, source: str) -> set[str]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 251) — The attempts with an activity classification written by ``source`` (e.g.
+- `attempts_by_learning_object(connection: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 262) — Each LO's attempts, oldest first (what the candidate reasons read).
 
 ### Module constants
 
-- `RECEIPT_PREFIX` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 19)
-- `RESPONSE_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 22)
-- `RELEASE_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 25)
-- `_RESPONSE_SQL` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 26)
-- `_RELEASE_SQL` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 27)
-- `RESPONSE_COLUMNS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 29)
-- `OFFER_REF_PREFIX` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 79)
-- `OFFER_DECISION_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 80)
+- `RECEIPT_PREFIX` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 20)
+- `RESPONSE_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 23)
+- `RELEASE_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 26)
+- `_RESPONSE_SQL` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 27)
+- `_RELEASE_SQL` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 28)
+- `RESPONSE_COLUMNS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 30)
+- `OFFER_REF_PREFIX` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 80)
+- `OFFER_DECISION_KINDS` ([src/learnloop/db/stores/router_suggestions.py](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 81)
 
 ### Explicit exports
 
@@ -119,8 +119,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 45)
-- `_offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 83) — A drawn lesson offer in the shape of a shown TE1b decision (its context, its card, its day), so the acceptance model, the decline recovery, the ceiling and a pending Start read both alike.
+- `_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 46)
+- `_offer_decision(row: sqlite3.Row | Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/router_suggestions.py), line 84) — A drawn lesson offer in the shape of a shown TE1b decision (its context, its card, its day), so the acceptance model, the decline recovery, the ceiling and a pending Start read both alike.
 
 ## Who imports or calls it
 
@@ -141,6 +141,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 
@@ -160,8 +161,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/test_action_kinds_complete.py](../../../../../../../tests/test_action_kinds_complete.py) — direct import
-  - `test_ref_copies_across_import_boundaries_stay_equal`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f3_the_cli_labels_the_r_cold_comparison_with_observed_cold_outcomes`
 - [tests/test_followups_batch6_router_report.py](../../../../../../../tests/test_followups_batch6_router_report.py) — direct import
@@ -186,6 +185,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
   - `test_the_candidacy_condition_reads_no_score_magnitude_count_or_error_type`
+- [tests/test_plan_refs.py](../../../../../../../tests/test_plan_refs.py) — direct import
+  - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
 - [tests/test_te3b_codex_review.py](../../../../../../../tests/test_te3b_codex_review.py) — direct import
 - [tests/test_te3b_offers.py](../../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_drawn_offer_is_a_block_answered_on_its_own_decision`

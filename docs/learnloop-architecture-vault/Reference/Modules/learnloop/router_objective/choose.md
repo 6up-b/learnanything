@@ -47,29 +47,30 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py) |
-| Source lines | 264 |
+| Source lines | 262 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OptionFacts` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 45) — What the rule sentence reads of one option in the support: the reason code the staged frame (or the boundary, for an offer or IH2's contest) gave it, and the topic or section its sentence names.
-- `class ChoiceInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 55) — Everything one boundary's choice depends on, as read before it.
-- `class Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 96) — What :func:`choose` decided, as the router logs it.
-- `coin_reads_minutes(stop_rate: float, support: tuple[str, ...] | list[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 136) — Whether the coin could apply, so the session's minutes are read for it: a positive rate and stop offered.
-- `coin_applies(stop_rate: float, support: tuple[str, ...] | list[str], session_minutes: float | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 142) — Whether the coin is flipped (and its availability read first): a positive rate at a boundary where stop sits beside a block once the session holds active minutes (``stop_coin.eligible``).
-- `choose(inputs: ChoiceInputs) -> Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 149) — The boundary's choice: the mix of the two policies over the support, the stop coin on its own uniform, the rule sentence of what is served and the why the learner sees.
+- `class OptionFacts` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 47) — What the rule sentence reads of one option in the support: the reason code the staged frame (or the boundary, for an offer or IH2's contest) gave it, and the topic or section its sentence names.
+- `class ChoiceInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 57) — Everything one boundary's choice depends on, as read before it.
+- `class Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 98) — What :func:`choose` decided, as the router logs it.
+- `coin_reads_minutes(stop_rate: float, support: tuple[str, ...] | list[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 135) — Whether the coin could apply, so the session's minutes are read for it: a positive rate and stop offered.
+- `coin_applies(stop_rate: float, support: tuple[str, ...] | list[str], session_minutes: float | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 141) — Whether the coin is flipped (and its availability read first): a positive rate at a boundary where stop sits beside a block once the session holds active minutes (``stop_coin.eligible``).
+- `choose(inputs: ChoiceInputs) -> Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 148) — The boundary's choice: the mix of the two policies over the support, the stop coin on its own uniform, the rule sentence of what is served and the why the learner sees.
+- `decision_record(choice: Choice, inputs: ChoiceInputs, *, question_set_version: Any) -> DecisionRecord` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 222) — The decision's own ``plan_block`` record: chosen, its rule, the support's other options with their logged probabilities, and the draw's facts and versions (``question_set_version``: the LLM policy's request's, as the router's record names it).
 
 ### Module constants
 
-- `MODE` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 32)
-- `NO_MODELS` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 33)
-- `WHY_VERSION` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 35)
-- `ANSWERED` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 37)
-- `NOT_READY` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 38)
-- `STOP_OFFER` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 40)
-- `PLAN_BLOCK` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 41)
+- `MODE` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 34)
+- `NO_MODELS` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 35)
+- `WHY_VERSION` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 37)
+- `ANSWERED` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 39)
+- `NOT_READY` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 40)
+- `STOP_OFFER` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 42)
+- `PLAN_BLOCK` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 43)
 
 ### Explicit exports
 
@@ -87,20 +88,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `choose`
 - `coin_applies`
 - `coin_reads_minutes`
+- `decision_record`
 
 ## Internal implementation anchors
 
-- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 210)
-- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 214)
-- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 220)
-- `_with_record(choice: Choice, inputs: ChoiceInputs) -> Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 224) — The decision's ``plan_block`` record: chosen, its rule, the support's other options with their logged probabilities, and the draw's facts and versions.
+- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 208)
+- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 212)
+- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 218)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `ChoiceInputs`, `OptionFacts`, `choose`, `coin_applies`, `coin_reads_minutes`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `ChoiceInputs`, `OptionFacts`, `choose`, `coin_applies`, `coin_reads_minutes`, `decision_record`
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `ANSWERED`, `NOT_READY`
 
 ## Dependencies
@@ -138,12 +139,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_one_hot_mix_is_served_with_propensity_one`
   - `test_both_failed_leave_staged_the_whole_mix_and_a_missing_answer_reads_not_ready`
   - `test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone`
-  - `test_the_choice_returns_its_own_plan_block_record`
+  - `test_the_choice_has_its_own_plan_block_record`
   - `test_the_coin_draws_after_the_mix_on_its_own_uniform_and_leaves_the_mixs_draw_alone`
   - `test_the_coin_skips_the_sessions_opening_boundary_and_needs_its_availability`
   - `test_the_statuses_it_compares_are_the_runtimes`
   - `test_with_no_coin_the_logged_distribution_is_the_mixs_and_the_propensity_its_draws`
   - `test_with_the_switch_off_a_failed_policys_share_goes_to_staged`
+- [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
+  - `test_a_decision_record_that_cannot_be_built_leaves_the_drawn_block_served`
 
 ## Modification guidance
 

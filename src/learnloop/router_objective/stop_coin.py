@@ -63,7 +63,7 @@ import math
 from typing import Any
 
 from learnloop.router import mixture as mx
-from learnloop.router_objective.types import STOP_FOR_TODAY as STOP
+from learnloop.plan_refs import STOP_FOR_TODAY as STOP
 
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"

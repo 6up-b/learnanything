@@ -145,7 +145,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`, `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 
@@ -170,7 +170,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_c1a_landing_helpers.py](../../../../../../tests/mcp_c1a_landing_helpers.py) — direct import
 - [tests/teacher_te1b_review_fixes_helpers.py](../../../../../../tests/teacher_te1b_review_fixes_helpers.py) — direct import
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
-  - `test_action_kind_trace_label_and_reversibility`
+  - `test_a_plan_candidates_trace_label_and_reversibility`
+  - `test_stops_trace_label_and_support`
 - [tests/test_block_chooser_interface.py](../../../../../../tests/test_block_chooser_interface.py) — direct import
   - `test_stopping_is_only_allowed_when_offered`
   - `test_unknown_ids_and_continue_at_a_boundary_fall_back_and_are_flagged`
@@ -200,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it`
+- [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
+  - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import

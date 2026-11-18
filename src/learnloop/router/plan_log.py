@@ -65,12 +65,13 @@ from learnloop.db.stores.router import (
     prune_router_payloads,
 )
 from learnloop.ids import new_ulid
+from learnloop.plan_refs import LESSON_OFFER_PREFIX, STOP_FOR_TODAY
 
 DECISION_KIND = "plan_block"
 SURFACE = "daily_plan"
 MODE = "daily_plan"
 CONTINUE_REF = "continue_current"
-STOP_REF = "stop_for_today"
+STOP_REF = STOP_FOR_TODAY
 #: A learner pick's candidate id (``pick:<practice item>``, DL1's learner_pick).
 PICK_PREFIX = "pick:"
 #: DL1's rule 2: a chooser whose choice cannot stand falls back to lane quota.
@@ -517,8 +518,8 @@ INTERRUPT_KIND = "plan_interrupt"
 INSERT_REF = "insert_now"
 DECLINE_REF = "decline"
 #: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson offer among a ``plan_interrupt`` decision's arms
-#: (``daily_plan.types.LESSON_OFFER_PREFIX``; this module is the router's leaf and imports no plan).
-OFFER_PREFIX = "lesson_offer:"
+#: (``plan_refs``'s prefix: this module is the router's leaf and imports no plan).
+OFFER_PREFIX = LESSON_OFFER_PREFIX
 
 
 def _offer_arm(mixture: Mapping[str, Any], candidate_propensity: Any, record: Mapping[str, Any]) -> list[dict[str, Any]]:

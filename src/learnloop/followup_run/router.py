@@ -31,7 +31,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve.gates import SERVING_SURFACE
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 LOG = logging.getLogger(__name__)
 

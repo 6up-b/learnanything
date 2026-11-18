@@ -153,7 +153,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`; calls `Contrast`, `calibration_summary`, `residual_weight`
 - [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] — imports `module`; calls `Bounded`, `observed_returns`
 - [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] — imports `module`; calls `_with_traces`, `logged`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `module`; calls `is_offer`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `module`; calls `is_offer_subtype`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `preferences_inform_router_on`; calls `preferences_inform_router_on`
 
 ### Platform and third-party dependencies

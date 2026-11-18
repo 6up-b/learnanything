@@ -37,6 +37,8 @@ from dataclasses import dataclass, replace
 from functools import partial
 import json
 import logging
+import math
+import threading
 import time
 from typing import Any
 
@@ -547,14 +549,19 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
             at_draws, at_deadline = draws, deadline
 
-            def compute(record: Mapping[str, Any] = record, deadline: float | None = None) -> dict[str, Any]:
+            def compute(record: Mapping[str, Any] = record, deadline: float | None = None,
+                        stop: threading.Event | None = None) -> dict[str, Any]:
                 from learnloop.router_objective import tail_serve as TS
 
                 # ``deadline``: a later prefetch's own, when the valuation was deferred to it (the follow-up
-                # batch's item 4); else this job's.
-                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
-                                           deadline=at_deadline if deadline is None else deadline,
-                                           clock=clock, cutoff=at_cutoff, **rollout)
+                # batch's item 4); else this job's. ``stop`` (its session closed or its plan was replaced) ends it at
+                # the rollouts' next deadline check, as the deadline would: once set, the clock reads just past it
+                # (a finite reading, so the evaluation's elapsed time stays a number).
+                until = at_deadline if deadline is None else deadline
+                timed = clock if stop is None or until is None else (
+                    lambda: max(clock(), math.nextafter(until, math.inf)) if stop.is_set() else clock())
+                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed, deadline=until,
+                                           clock=timed, cutoff=at_cutoff, **rollout)
                 return TS.with_carried_values(record, at_previous)
 
             return compute
@@ -691,6 +698,26 @@ def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.Bl
         p_accept=float(p_accept) if p_accept is not None else None))
 
 
+def _built_record(choice: C.Choice, inputs: C.ChoiceInputs, question_set_version: Any) -> tuple[Any, Any]:
+    """The decision's own record (:func:`learnloop.router_objective.choose.decision_record`), or, when it cannot be
+    built, None and a failure record for the boundary's children. The choice is already drawn: escaping here would
+    send the engine to the rule's fallback, so a record's construction would change what is served. Without the
+    decision's own part, ``boundary_records`` derives it from the router's record, which holds the same facts."""
+
+    try:
+        return C.decision_record(choice, inputs, question_set_version=question_set_version), None
+    except Exception as exc:  # noqa: BLE001 - a record never changes the decision it describes
+        from learnloop import provenance
+        from learnloop.daily_plan import plan_records
+
+        LOG.warning("plan_block decision record not built (trace %s): %s", provenance.current_trace(),
+                    type(exc).__name__)
+        try:
+            return None, plan_records.step_failure(plan_records.DECISION_RECORD_BUILD, plan_records.BUILDER_ERROR, exc)
+        except Exception:  # noqa: BLE001 - nor does its failure record
+            return None, None
+
+
 def _is_contest(candidate: BlockCandidate) -> bool:
     return bool((candidate.annotations or {}).get(FOLLOWUP_CONTEST_NOTE))
 
@@ -722,9 +749,9 @@ class ObjectiveChooser(RouterChooser):
         # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer the boundary added is never the staged rule's
         # pick nor in staged's top-k order: it joins the support beside them (one offer a decision). With none, the
         # predecessor's decision exactly.
-        offers = [candidate for candidate in feasible if OT.is_offer(candidate.subtype)]
+        offers = [candidate for candidate in feasible if OT.is_offer_subtype(candidate.subtype)]
         if offers:
-            feasible = [candidate for candidate in feasible if not OT.is_offer(candidate.subtype)]
+            feasible = [candidate for candidate in feasible if not OT.is_offer_subtype(candidate.subtype)]
         # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups against a lesson offer: these two are the decision.
         contest = next((candidate for candidate in feasible if _is_contest(candidate)), None)
         staged = StagedChooser(card_builder=None).choose(state, feasible)
@@ -829,7 +856,7 @@ class ObjectiveChooser(RouterChooser):
                          numeric_seed: str) -> Prefetch:
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        options = [_offer_option(by_id[ref], titles) if ref in by_id and OT.is_offer(by_id[ref].subtype)
+        options = [_offer_option(by_id[ref], titles) if ref in by_id and OT.is_offer_subtype(by_id[ref].subtype)
                    else _contest_option(by_id[ref], titles) if ref in by_id and _is_contest(by_id[ref])
                    else _option(by_id[ref], titles) if ref in by_id
                    else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
@@ -852,7 +879,15 @@ class ObjectiveChooser(RouterChooser):
                           settings: Mapping[str, Any], now_iso: str) -> BlockChoice:
         """The boundary's decision in three parts: the reads gathered into ``ChoiceInputs``, the choice
         (:func:`learnloop.router_objective.choose.choose`, pure), then what the decision writes from it (its trace,
-        the router's record and the served block). Nothing between the reads and the writes decides."""
+        the router's record, its decision record and the served block). Nothing between the reads and the writes
+        decides.
+
+        Three reads of what the job's threads publish are taken in the writes, each at its own fixed point, so a
+        thread that publishes mid-decision is recorded as it always was: the LLM's card for the trace (after the
+        draw), the carried valuations (inside the trace's assembly, after its rows) and the LLM request's question set
+        (after the trace). Moving one earlier drops what lands in between from the record. The decision record is
+        built last, from the choice, and a failure to build it is recorded beside the served choice, never in its
+        place."""
 
         config = self.vault.config
         material = entry.material
@@ -872,7 +907,8 @@ class ObjectiveChooser(RouterChooser):
         # needs only the answer and the decision's id, and it leaves the answer's status and choice as they were.
         if carry and numeric is not None:
             numeric = J.defer_carry(numeric, entry, decision_id, runtime=self.runtime,
-                                    sqlite_path=self.repository.sqlite_path, config=config)
+                                    sqlite_path=self.repository.sqlite_path, config=config,
+                                    session_id=self.session_id, plan_id=state.plan_id)
         seed = mix_seed(self.runtime, entry.key, decision_id)
         # What the stop coin is frozen with is read before its uniform: the session's minutes on the serving clock
         # at this decision (the coin skips the session's opening boundary, where no stop is being decided), then
@@ -881,40 +917,48 @@ class ObjectiveChooser(RouterChooser):
         coin_minutes = self._session_minutes(now_iso) if C.coin_reads_minutes(rate, support) else None
         availability = ({**self._availability(state, numeric), "session_minutes": coin_minutes}
                         if C.coin_applies(rate, support, coin_minutes) else None)
-        policy_card = material.get("policy_card") or {}
-        policy_request = material.get("policy_request")
+        # The rationale guard reads the card's evidence ids only for an answered LLM, and the job publishes the card
+        # before it asks the LLM, so this read sees the card the trace's own read (below) sees whenever it matters.
+        guard_card = material.get("policy_card") or {}
         # -- the choice -------------------------------------------------------------------------------------
-        choice = C.choose(C.ChoiceInputs(
+        inputs = C.ChoiceInputs(
             support=tuple(support), staged_ref=staged_ref,
             options={ref: _option_facts(by_id[ref]) for ref in support if ref in by_id},
             llm_status=llm.status, llm_distribution=llm_dist, rationale=rationale, cited=cited,
-            card_evidence_ids=frozenset(policy_card.get("evidence_ids") or ()),
+            card_evidence_ids=frozenset(guard_card.get("evidence_ids") or ()),
             numeric_status=numeric.status if numeric is not None else None,
             numeric_choice=numeric.choice if numeric is not None else None,
             w=w, to_other_policy=to_other, epsilon=float(settings["epsilon_min"]), seed=seed,
             stop_rate=rate, session_minutes=coin_minutes, availability=availability, staged_why=staged.why,
             no_models=isinstance(entry, _NoModels), boundary_key=entry.key,
-            algorithm_version=config.algorithms.algorithm_version,
-            question_set_version=getattr(policy_request, "question_set_version", None),
-            llm_schema_version=rq.LLM_POLICY_SCHEMA,
-        ))
+            algorithm_version=config.algorithms.algorithm_version, llm_schema_version=rq.LLM_POLICY_SCHEMA,
+        )
+        choice = C.choose(inputs)
         # -- the writes -------------------------------------------------------------------------------------
         drawn, coin = choice.drawn, choice.coin
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+        # The card the trace records (its learner statements), read after the draw: the job's card build can still
+        # publish after the serve's wait ended, and the trace names the card that was there at this point.
+        policy_card = material.get("policy_card") or {}
         contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
-        # Earlier decisions' carried valuations a later prefetch ran, recorded in this trace (read as of the trace's
-        # own time; the transition into each is then no longer censored).
-        carried_for = J.carried_for(self.repository, decision_id) if carry else []
+        # Earlier decisions' carried valuations a later prefetch ran, recorded in this trace: read inside its
+        # assembly, after the rows, so one a thread finishes while the rows are built is recorded (the transition
+        # into it is then no longer censored).
+        carried = ((lambda: J.carried_for(self.repository, decision_id, session_id=self.session_id,
+                                          plan_id=state.plan_id)) if carry else None)
         trace = T.objective_trace(choice, support=support, by_id=by_id, feasible=feasible, titles=titles,
                                   numeric=numeric, llm=llm, decider=results.get(DECIDER), staged_ref=staged_ref,
                                   weight=(w, weight_record), seed=seed, config=config, now_iso=now_iso,
                                   card_version=card.version, policy_card=policy_card, contested=contested,
-                                  carried_for=carried_for)
+                                  read_carried_for=carried)
         decider = results.get(DECIDER)
         decider_dist = (dict(decider.parsed.distribution) if decider is not None and decider.status == ANSWERED
                         and getattr(decider, "parsed", None) is not None else None)
         latencies = [r.latency_ms for r in results.values() if r.latency_ms is not None]
         costs = [r.cost_usd for r in results.values() if r.cost_usd is not None]
+        # The LLM request's question set, read after the trace: a card build that ends after the serve's wait
+        # publishes its request while the trace is assembled, and the record names it if it was there by now.
+        question_set_version = getattr(material.get("policy_request"), "question_set_version", None)
         payloads = _payloads({name: result for name, result in results.items() if name != NUMERIC})
         record.update(
             policy=mix.POLICY, decided_by=choice.decided_by,
@@ -940,7 +984,7 @@ class ObjectiveChooser(RouterChooser):
                                             "ell_q": config.router_objective.numeric_min_share},
                              "effective": choice.effective},
             model_distributions={"llm": llm_dist, "numeric": choice.components.get(mix.NUMERIC), "decider": decider_dist},
-            question_set_version=getattr(policy_request, "question_set_version", None),
+            question_set_version=question_set_version,
             model_ids={"decider": results[DECIDER].model, "llm": llm.model, "llm_schema_version": rq.LLM_POLICY_SCHEMA},
             latency_ms=max(latencies) if latencies else None,
             cost_usd=round(sum(costs), 8) if costs else 0.0,
@@ -957,9 +1001,12 @@ class ObjectiveChooser(RouterChooser):
             record["mixture"]["mix_pi"] = dict(drawn.pi)
             record["mixture"]["pi"] = dict(choice.pi)
             record["ro5_assignments"] = list(choice.assignments)
+        own_record, failure = _built_record(choice, inputs, question_set_version)
+        if failure is not None:
+            provenance = {**provenance, "decision_failures": (failure,)}
         return BlockChoice(candidate_id=choice.served, chosen_by="mixture", propensity=choice.propensity,
                            why=choice.why, why_kind=choice.why_kind,  # type: ignore[arg-type]
-                           router_record=record, provenance=provenance, decision_record=choice.record)
+                           router_record=record, provenance=provenance, decision_record=own_record)
 
     def _session_minutes(self, now_iso: str) -> float | None:
         """The objective session's active minutes at ``now_iso`` on the serving clock (``price.session_active_minutes``,
@@ -1126,7 +1173,7 @@ class ObjectiveRestraintGate(RestraintGate):
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
                 # SG1: an offer among the valued arms (never on the shared card) gets its miss's cause on the LLM's state.
-                offers = [part for part in values.values() if OT.is_offer(getattr(part, "subtype", None))]
+                offers = [part for part in values.values() if OT.is_offer_subtype(getattr(part, "subtype", None))]
                 entry = (start or self._start_policy)(key, state, candidates, topic, options, extra, ready,
                                                       **({"offers": offers} if offers else {}))
             from learnloop.daily_plan.router_chooser import _await as await_entry
@@ -1195,7 +1242,7 @@ class ObjectiveRestraintGate(RestraintGate):
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
         offer_drawn = values.get(drawn.chosen)
-        if offer_drawn is not None and OT.is_offer(offer_drawn.subtype):
+        if offer_drawn is not None and OT.is_offer_subtype(offer_drawn.subtype):
             # IH2 (spec_instruct_handoff_v1 §5 item 3): the offer page's words for this draw, under the block's guard.
             _code, rule = _rule_sentence(offer_drawn, state)
             cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()

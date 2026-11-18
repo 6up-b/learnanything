@@ -108,13 +108,13 @@ from learnloop.daily_plan.types import (
 from learnloop import provenance
 from learnloop.daily_plan import boundary_records
 from learnloop.daily_plan import measurement as objectives
-from learnloop.daily_plan import plan_records
+from learnloop.daily_plan import objective_job, plan_records
 from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
 from learnloop.scheduling.fsrs import retrievability
 from learnloop.router_objective import sessions as session_receipts
-from learnloop.router_objective.types import is_offer
+from learnloop.plan_refs import is_offer_subtype
 from learnloop.data_capture.gates import objective_receipts_on, receipts_on
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
@@ -2139,6 +2139,7 @@ def build_plan(
         if with_insert is not None:
             with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
+    objective_job.stop_carries(env.repository.sqlite_path, keep=(env.session_id, plan_id))  # earlier plans' carries end
     record = _reload(env, plan_id)
     if not first_block:
         return record
@@ -2974,7 +2975,7 @@ def _persist_block(
 ) -> str:
     block_id = block_id or new_ulid()
     now = env.now_iso()
-    if is_offer(subtype) and reading is None:
+    if is_offer_subtype(subtype) and reading is None:
         detail = _replace_open_offers(env, connection, record.id, detail, decision_ref=decision_ref)
     reading_row = None
     if reading is not None:
@@ -3181,7 +3182,7 @@ def _boundary(
         # Teacher TE3b: the boundary's lesson offer (its candidate id and sensors), or why there was none (a ceiling
         # bind is logged here, on the decision).
         detail["lesson_offers"] = dict(offer.record)
-    if decision.candidate is not None and is_offer(decision.candidate.subtype):
+    if decision.candidate is not None and is_offer_subtype(decision.candidate.subtype):
         # The drawn offer's card: what the block shows and the acceptance model replays from (its context and
         # candidates as scored at the draw).
         detail["lesson_offer"] = dict((decision.candidate.annotations or {}).get("lesson_offer") or {})
@@ -3254,7 +3255,7 @@ def _boundary(
         )
         return None
     # IH2: an offer that beat the follow-ups holds nothing, and they stay available to a later decision.
-    offer_won = contest is not None and candidate is not None and is_offer(candidate.subtype)
+    offer_won = contest is not None and candidate is not None and is_offer_subtype(candidate.subtype)
     items: list[tuple[PoolItem | PlannedItem, str]] = [] if offer_won else [(item, forced_origin) for item in forced]
     if offer_won:
         # What an offer it replaces had already beaten waits on this one too, or it would replace this one in turn.
@@ -3328,7 +3329,7 @@ def _boundary(
             detail["decision_ref"] = logged
         _write_boundary_records(env, connection, decision, block_id=block_id, detail_id=logged, stop=False)
         # TE3b: a lesson offer's block has no measurement slot of its own (its delayed checks are the lesson's).
-        offer_block = is_offer(subtype)
+        offer_block = is_offer_subtype(subtype)
         if superseding is not None and not offer_block:
             # A new offer ends it in ``_persist_block``.
             _supersede_offer(env, connection, superseding, by=decision_ref,

@@ -54,9 +54,9 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
+- [[Reference/Modules/learnloop/_package|learnloop]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 3 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
@@ -77,20 +77,20 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.why"]
+    n_learnloop["learnloop"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_router_objective["learnloop.router_objective"]
-    n_learnloop["learnloop"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_data_capture["learnloop.data_capture"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_router["learnloop.router"]
+    center -->|3| n_learnloop
     n_learnloop_cli -->|3| center
     center -->|3| n_learnloop_db_stores
-    center -->|3| n_learnloop_router_objective
-    center -->|2| n_learnloop
+    center -->|2| n_learnloop_router_objective
     center -->|2| n_learnloop_scheduling
     center -->|1| n_learnloop_ai
     center -->|1| n_learnloop_attempts

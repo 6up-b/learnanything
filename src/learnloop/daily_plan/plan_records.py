@@ -13,6 +13,9 @@ record never changes what is served:
   what was let in, made to wait or refused, by which rule, with the gate's support and its components' answers.
 * **randomized_check** and **lesson_offer_build** (``failed``): a boundary step that raised (the day's check draw or
   placement, the lesson offer's builder). The boundary decides without it; the record is the boundary's child.
+* **decision_record_build** (``failed``): the objective's own part of its ``plan_block`` record could not be built
+  after its choice was drawn. The drawn choice is served, its record is derived from the router's record, and this is
+  its child.
 * **ad_slot** (``fallback``): adaptive difficulty was unavailable for a slot or the day's deferrals, so the incumbent
   decided, with AD's failure code and, when its guard refused something, what it refused (verb, table, reader).
 * **serve_eligibility** (``excluded``, ``fallback``): a planned cold check the serve could not take cold: displaced,
@@ -37,6 +40,7 @@ OFFER_WITHDRAWN = "offer_withdrawn"
 PLAN_INTERRUPT = "plan_interrupt"
 RANDOMIZED_CHECK = "randomized_check"
 LESSON_OFFER_BUILD = "lesson_offer_build"
+DECISION_RECORD_BUILD = "decision_record_build"
 AD_SLOT = "ad_slot"
 SERVE_ELIGIBILITY = "serve_eligibility"
 
@@ -273,8 +277,8 @@ def serve_eligibility(decision: Any, *, block_id: Any, displaced: bool) -> Decis
 
 
 __all__ = [
-    "AD_SLOT", "BUILDER_ERROR", "CHECK_BLOCK_RULE", "CHECK_DRAW_ERROR", "CHECK_PLACE_ERROR", "INCUMBENT",
-    "LESSON_OFFER_BUILD", "MODEL_ANSWER", "OFFER_WITHDRAWN", "PLAN", "PLAN_INTERRUPT", "RANDOMIZED_CHECK",
+    "AD_SLOT", "BUILDER_ERROR", "CHECK_BLOCK_RULE", "CHECK_DRAW_ERROR", "CHECK_PLACE_ERROR", "DECISION_RECORD_BUILD",
+    "INCUMBENT", "LESSON_OFFER_BUILD", "MODEL_ANSWER", "OFFER_WITHDRAWN", "PLAN", "PLAN_INTERRUPT", "RANDOMIZED_CHECK",
     "SERVE_ELIGIBILITY", "ad_unavailable", "check_block", "children", "forced_entry", "forced_facts", "offer_withdrawn",
     "plan_interrupt", "serve_eligibility", "step_failure",
 ]

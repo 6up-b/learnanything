@@ -5,7 +5,8 @@
 ``daily_plan/objective_inputs.py`` builds them from the vault; :mod:`rollouts` simulates on them. They live here,
 not beside their builder, because ``router_objective`` may not import ``daily_plan`` (the package-level cycle
 contract), and the builder sits in the chooser's import cycle. This module imports :mod:`memory` (the combiner a
-default :class:`Inputs` holds) and :mod:`ad_link` (two field types); nothing it imports reads it back.
+default :class:`Inputs` holds), :mod:`ad_link` (two field types) and :mod:`learnloop.plan_refs` (the offer and stop
+names it re-exports); nothing it imports reads it back.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from learnloop.plan_refs import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, is_offer_subtype
 from learnloop.router_objective.ad_link import AdLink, LessonCurve
 from learnloop.router_objective.memory import Combiner
 
@@ -31,23 +33,8 @@ STOP = "stop"
 SEQUENCE = "sequence"
 PRACTICE_KINDS = frozenset({REVIEW, NEW_PRACTICE, REPAIR, TEACH_BACK})
 KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LESSON, STOP, SEQUENCE})
-
-
-#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a plan block of its own (no items, no reading) whose
-#: card the learner answers; its candidate id is ``lesson_offer:<LO>``. Only at TE3b's tag with its switch on. Defined
-#: here, below ``daily_plan``, so the plan and the objective's modules read one name; ``router``, ``db`` and
-#: ``followup_serve`` sit below this package and keep their own copies (``tests/test_action_kinds_complete.py`` holds
-#: them equal).
-LESSON_OFFER_SUBTYPE = "lesson_offer"
-LESSON_OFFER_PREFIX = f"{LESSON_OFFER_SUBTYPE}:"
-#: The plan's stop option: offered when minutes_left < 5 or nothing is feasible.
-STOP_FOR_TODAY = "stop_for_today"
-
-
-def is_offer(subtype: str | None) -> bool:
-    """Tell an offer block apart by its subtype."""
-
-    return subtype == LESSON_OFFER_SUBTYPE
+# The lesson offer's subtype and ref prefix and the stop ref are ``plan_refs``'s (imported above and re-exported):
+# one definition that ``router``, ``db`` and ``followup_serve`` read too.
 
 
 @dataclass(frozen=True)
@@ -224,5 +211,5 @@ def cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float:
 __all__ = [
     "Action", "CauseSplit", "DatedUse", "EffectSlope", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
     "PRACTICE_KINDS", "PROBE", "Price", "READING", "REPAIR", "REVIEW", "SEQUENCE", "STOP", "TEACH_BACK", "Topic",
-    "LESSON_OFFER_PREFIX", "LESSON_OFFER_SUBTYPE", "STOP_FOR_TODAY", "cutoff_for", "is_offer",
+    "LESSON_OFFER_PREFIX", "LESSON_OFFER_SUBTYPE", "STOP_FOR_TODAY", "cutoff_for", "is_offer_subtype",
 ]

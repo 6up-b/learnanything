@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_carried_valuation_lifecycle.py](../../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
 - [tests/test_ro6_codex_rereview.py](../../../../../../tests/test_ro6_codex_rereview.py) — direct import
   - `test_f3_the_chooser_values_the_candidates_again_at_the_carried_cutoff`
 - [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
@@ -166,6 +167,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_the_no_model_branch_is_r3s`
   - `test_the_no_model_branch_defers_its_carried_valuation_off_the_serving_path`
   - `test_with_models_the_wait_returns_and_the_next_prefetch_runs_it`
+- [tests/test_router_sampling_points.py](../../../../../../tests/test_router_sampling_points.py) — direct import
+  - `test_the_trace_records_a_carry_that_landed_while_its_rows_were_built`
 
 ## Modification guidance
 

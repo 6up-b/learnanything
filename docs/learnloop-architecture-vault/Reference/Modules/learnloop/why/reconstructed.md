@@ -125,9 +125,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`; calls `content_key`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `time_precision_ms`; calls `time_precision_ms`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `cap_alternatives`, `is_code`
 - [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `recompute`; calls `recompute`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 

@@ -25,7 +25,7 @@ from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.stores import router_objective as store
 from learnloop.ids import new_ulid
 #: A plan block the plan itself numbered: a stop's receipt row has no ordinal.
-from learnloop.router_objective.types import STOP_FOR_TODAY as _STOP_ACTION
+from learnloop.plan_refs import STOP_FOR_TODAY as _STOP_ACTION
 
 logger = logging.getLogger(__name__)
 

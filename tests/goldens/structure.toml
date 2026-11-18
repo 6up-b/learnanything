@@ -8,12 +8,12 @@
 largest_import_component = 84
 modules_in_an_import_cycle = 220
 first_level_packages = 46
-first_level_root_modules = 35
-first_level_root_modules_not_upgrade = 35
+first_level_root_modules = 36
+first_level_root_modules_not_upgrade = 36
 functions_over_200_lines = 71
 comment_lines_naming_a_stage_artifact = 2353
 test_files_named_for_a_stage = 184
-"src/learnloop/daily_plan/engine.py" = 6775
+"src/learnloop/daily_plan/engine.py" = 6776
 "src/learnloop/attempts/attempts.py" = 5814
 "src/learnloop/db/repositories.py" = 3025
 "src/learnloop/scheduling/scheduler.py" = 3748
@@ -130,6 +130,7 @@ root_modules = [
     "migration_coordinator",
     "numeric",
     "outcome_contract",
+    "plan_refs",
     "provenance",
     "reader_learner_state",
     "reading_sources",

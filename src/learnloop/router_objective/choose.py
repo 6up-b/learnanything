@@ -3,9 +3,11 @@
 ``choose(inputs)`` takes what the chooser read (each policy's answer or why it has none, the weight, the switches as
 they serve, the seed, the stop coin's rate with what the coin freezes) and returns what is served with everything the
 router logs about it: which policies failed and where their share went, the effective weights, the mix's draw, the
-stop coin, the rule code and its sentence, the rationale guard's verdict, the why, and the decision's record. It reads
-no database and no clock and draws only from the seed it is given, so the same inputs give the same choice, bit for
-bit; ``daily_plan.objective_chooser`` gathers the inputs and writes what this returns.
+stop coin, the rule code and its sentence, the rationale guard's verdict and the why. ``decision_record(choice,
+inputs, ...)`` is that choice's ``plan_block`` record. Both read no database and no clock, and ``choose`` draws only
+from the seed it is given, so the same inputs give the same choice, bit for bit; ``daily_plan.objective_chooser``
+gathers the inputs, writes what ``choose`` returns and builds the record after the trace (the question set's version
+it names is read there), where a failure to build it cannot change what is served.
 
 The order of the draws is the served one: the mix's two uniforms (``mix.draw``), then the coin's own (``stop_coin``),
 never the mix's, so the mix's draw and ``μ`` are the same whether or not a coin is flipped.
@@ -17,7 +19,7 @@ two component statuses it compares are repeated here (``tests/test_choose.py`` h
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass
 import math
 from typing import Any
 
@@ -85,10 +87,10 @@ class ChoiceInputs:
     staged_why: str
     #: Whether no model was set up (the decision is ``objective_no_models``).
     no_models: bool
-    #: What the decision's record names besides the choice.
+    #: What the decision's record names besides the choice (the question set's version is read after the choice and
+    #: handed to :func:`decision_record`).
     boundary_key: str
     algorithm_version: Any
-    question_set_version: Any
     llm_schema_version: Any
 
 
@@ -128,9 +130,6 @@ class Choice:
     fallback_reasons: Mapping[str, str]
     #: The coin's ``policy_experiment_assignments`` row, pending (written with the decision).
     assignments: tuple[Mapping[str, Any], ...] = ()
-    #: The decision's own ``plan_block`` record: what the decision knows; the container adds the block, the router
-    #: row, the trace and what only it saw (``boundary_records.plan_block_records``).
-    record: DecisionRecord | None = field(default=None, compare=False)
 
 
 def coin_reads_minutes(stop_rate: float, support: tuple[str, ...] | list[str]) -> bool:
@@ -194,7 +193,7 @@ def choose(inputs: ChoiceInputs) -> Choice:
         assignments = ()
     decided_by = NO_MODELS if inputs.no_models else MODE
     fallback = mix.fallback_label(failed)
-    choice = Choice(
+    return Choice(
         failed=tuple(failed), effective=effective, components=parts, numeric_choice=numeric_choice, drawn=drawn,
         coin=coin, served=served, propensity=propensity, pi=pi, rule_code=code, rule=rule, favoured=favoured,
         guard=guard, shown=shown, rationale_hidden=bool(drawn.component == mix.LLM and not shown),
@@ -204,7 +203,6 @@ def choose(inputs: ChoiceInputs) -> Choice:
                           for name in failed},
         assignments=assignments,
     )
-    return _with_record(choice, inputs)
 
 
 def _code(value: Any) -> str | None:
@@ -221,10 +219,11 @@ def _compact(values: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
 
 
-def _with_record(choice: Choice, inputs: ChoiceInputs) -> Choice:
-    """The decision's ``plan_block`` record: chosen, its rule, the support's other options with their logged
-    probabilities, and the draw's facts and versions. No id, time, trace or subject: the container writes the record
-    in the block's transaction and adds those."""
+def decision_record(choice: Choice, inputs: ChoiceInputs, *, question_set_version: Any) -> DecisionRecord:
+    """The decision's own ``plan_block`` record: chosen, its rule, the support's other options with their logged
+    probabilities, and the draw's facts and versions (``question_set_version``: the LLM policy's request's, as the
+    router's record names it). No id, time, trace or subject: the container writes the record in the block's
+    transaction and adds those (``boundary_records.plan_block_records``)."""
 
     alternatives = []
     taken = {choice.served}
@@ -233,7 +232,7 @@ def _with_record(choice: Choice, inputs: ChoiceInputs) -> Choice:
             alternatives.append(_compact({"ref": provenance.ref(option), "p": _number(choice.pi.get(option)),
                                           "lost_by": "not_drawn"}))
             taken.add(option)
-    record = DecisionRecord(
+    return DecisionRecord(
         kind=PLAN_BLOCK,
         status="chosen",
         chosen_ref=provenance.ref(choice.served),
@@ -253,12 +252,11 @@ def _with_record(choice: Choice, inputs: ChoiceInputs) -> Choice:
             "design": _code(mix.DESIGN),
             "seed": _code(inputs.seed),
             "why_version": _code(WHY_VERSION),
-            "question_set_version": _code(inputs.question_set_version),
+            "question_set_version": _code(question_set_version),
             "llm_schema_version": _code(inputs.llm_schema_version),
         }),
     )
-    return replace(choice, record=record)
 
 
 __all__ = ["ANSWERED", "Choice", "ChoiceInputs", "MODE", "NOT_READY", "NO_MODELS", "OptionFacts", "STOP_OFFER",
-           "WHY_VERSION", "choose", "coin_applies", "coin_reads_minutes"]
+           "WHY_VERSION", "choose", "coin_applies", "coin_reads_minutes", "decision_record"]

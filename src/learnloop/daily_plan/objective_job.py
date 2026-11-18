@@ -18,7 +18,8 @@ The job's life:
 * **Carry**: a served answer whose carried valuation (the backup at an earlier decision's cutoff) was not ready is
   registered at the serve (:func:`defer_carry`), off the serving path, and run by the next boundary's job after its own
   answer (:func:`drain_carry`), or, with no models, on a thread of its own; a later decision's trace records it
-  (:func:`carried_for`). :func:`join_carried` waits for those threads.
+  (:func:`carried_for`), only a decision of the session and plan that deferred it. :func:`join_carried` waits for
+  those threads; :func:`stop_carries` stops them when a session closes or a new plan replaces the last one.
 
 What the job computes but cannot import, because the chooser's import cycle would then hold this module too (the
 fit's read scope, the LLM policy's request and the numeric policy), the chooser hands :func:`start_job` as arguments.
@@ -273,20 +274,24 @@ def carry_on(config: Any) -> bool:
     return TD.carried_in_prefetch_on(config)
 
 
-def _register_carry(sqlite_path: Any, decision_id: str, compute: Callable[[], dict[str, Any]]) -> None:
+def _register_carry_locked(sqlite_path: Any, decision_id: str, compute: Callable[..., dict[str, Any]], *,
+                           session_id: str | None, plan_id: str | None) -> None:
     """The follow-up batch's item 4: a decision served before its carried valuation existed leaves the valuation
-    (its own frozen inputs, in ``compute``) to the next boundary's prefetch."""
+    (its own frozen inputs, in ``compute``) to the next boundary's prefetch. Only a later decision of the same
+    session and plan records it (:func:`carried_for`). The caller holds ``_CARRY_LOCK``."""
 
-    with _CARRY_LOCK:
-        waiting = _CARRY.setdefault(str(sqlite_path), [])
-        waiting.append({"decision_id": decision_id, "compute": compute, "record": None, "carriers": []})
-        del waiting[:-CARRY_LIMIT]
+    waiting = _CARRY.setdefault(str(sqlite_path), [])
+    waiting.append({"decision_id": decision_id, "compute": compute, "record": None, "carriers": [],
+                    "session_id": session_id, "plan_id": plan_id, "stop": threading.Event(),
+                    "done": threading.Event()})
+    del waiting[:-CARRY_LIMIT]
 
 
 def drain_carry(sqlite_path: Any, *, deadline: float | None = None) -> int:
     """Run every deferred carried valuation of this database not yet run (a prefetch job's, after its own answer
     released the serve's wait; the no-model branch's thread, after its serve), each by ``deadline`` (the runner's
-    own). Never the serving thread's work. Returns how many ran."""
+    own) or until it is told to stop (:func:`stop_carries`), whichever comes first. Never the serving thread's work.
+    Returns how many ran."""
 
     with _CARRY_LOCK:
         todo = [entry for entry in _CARRY.get(str(sqlite_path), []) if entry["record"] is None
@@ -295,26 +300,77 @@ def drain_carry(sqlite_path: Any, *, deadline: float | None = None) -> int:
             entry["running"] = True
     ran = 0
     for entry in todo:
+        stop = entry["stop"]
+        if stop.is_set():
+            # Stopped before its turn (its session closed or its plan was replaced): nothing will record it.
+            with _CARRY_LOCK:
+                entry["running"] = False
+            entry["done"].set()
+            continue
         try:
-            record = entry["compute"](deadline=deadline)
+            record = entry["compute"](deadline=deadline, stop=stop)
         except Exception:  # noqa: BLE001 - the backup stays censored; the decision is untouched
             LOG.warning("router objective: a deferred carried valuation failed", exc_info=True)
             record = {"previous": {"q_status": "not_valued_in_the_next_prefetch"}}
         with _CARRY_LOCK:
             entry["record"] = record
             entry["running"] = False
+        entry["done"].set()
         ran += 1
     return ran
 
 
-def carried_for(repository: Any, decision_id: str) -> list[dict[str, Any]]:
-    """The deferred carried valuations ready to be recorded in this decision's trace (``carried_for``). Each stays
-    waiting until a trace that holds it is known to be written (a choice computed and never logged writes nothing),
-    then is dropped, so a record is carried until one carrier is in the log."""
+#: The longest a closing session or a new plan waits for the carried valuations it stopped. A stopped valuation ends
+#: at its rollouts' next action (``drain_carry``); one still running past this is a daemon whose result nothing reads.
+STOP_WAIT_SECONDS = 2.0
+
+
+def stop_carries(sqlite_path: Any, *, keep: tuple[str | None, str | None] | None = None,
+                 timeout: float = STOP_WAIT_SECONDS) -> bool:
+    """Tell every deferred carried valuation of this database to stop, except those of ``keep`` (a session and plan
+    still deciding), take them off the registry so no later trace records them, and wait up to ``timeout`` for those
+    already running and for the threads that run them. A closing session passes no ``keep``; a new plan keeps its own.
+    Says whether everything stopped finished in time."""
+
+    import time
+
+    key = str(sqlite_path)
+    with _CARRY_LOCK:
+        waiting = _CARRY.get(key, [])
+        stopped = [entry for entry in waiting
+                   if keep is None or (entry.get("session_id"), entry.get("plan_id")) != tuple(keep)]
+        for entry in stopped:
+            entry["stop"].set()
+        if stopped:
+            _CARRY[key] = [entry for entry in waiting if all(entry is not gone for gone in stopped)]
+        running = [entry for entry in stopped if entry.get("running")]
+        threads = [thread for thread in _CARRY_THREADS if getattr(thread, "carry_key", None) == key
+                   and (keep is None or getattr(thread, "carry_owner", None) != tuple(keep))]
+    end = time.monotonic() + max(float(timeout), 0.0)
+    finished = True
+    for entry in running:
+        finished = entry["done"].wait(max(end - time.monotonic(), 0.0)) and finished
+    for thread in threads:
+        if thread is not threading.current_thread():
+            thread.join(max(end - time.monotonic(), 0.0))
+            finished = finished and not thread.is_alive()
+    with _CARRY_LOCK:
+        _CARRY_THREADS[:] = [thread for thread in _CARRY_THREADS if thread.is_alive()]
+    return finished
+
+
+def carried_for(repository: Any, decision_id: str, *, session_id: str | None,
+                plan_id: str | None) -> list[dict[str, Any]]:
+    """The deferred carried valuations ready to be recorded in this decision's trace (``carried_for``): those its own
+    session and plan deferred, never another's (work that outlives its session or plan belongs to no later trace).
+    Each stays waiting until a trace that holds it is known to be written (a choice computed and never logged writes
+    nothing), then is dropped, so a record is carried until one carrier is in the log."""
 
     key = str(repository.sqlite_path)
+    owner = (session_id, plan_id)
     with _CARRY_LOCK:
-        waiting = list(_CARRY.get(key, []))
+        waiting = [entry for entry in _CARRY.get(key, [])
+                   if (entry.get("session_id"), entry.get("plan_id")) == owner]
     carriers = sorted({carrier for entry in waiting for carrier in entry["carriers"]})
     written: set[str] = set()
     if carriers:
@@ -326,6 +382,9 @@ def carried_for(repository: Any, decision_id: str) -> list[dict[str, Any]]:
     with _CARRY_LOCK:
         kept = []
         for entry in _CARRY.get(key, []):
+            if (entry.get("session_id"), entry.get("plan_id")) != owner:
+                kept.append(entry)  # another session's or plan's: left as it is, never recorded here
+                continue
             if written & set(entry["carriers"]):
                 continue
             record = entry["record"]
@@ -445,10 +504,10 @@ _CARRY_THREADS: list[threading.Thread] = []
 
 
 def defer_carry(numeric: NumericPolicy, entry: Any, decision_id: str, *, runtime: RouterRuntime, sqlite_path: Any,
-                config: Any) -> NumericPolicy:
+                config: Any, session_id: str | None, plan_id: str | None) -> NumericPolicy:
     """A decision served before its carried valuation existed hands it to the next boundary's job (with no models,
-    to a thread of its own started after this decision), off the serving path; a later decision's trace records it.
-    The decision's own record says where its value went.
+    to a thread of its own started after this decision), off the serving path; a later decision of the same session
+    and plan records it in its trace. The decision's own record says where its value went.
 
     The valuation is the served answer's own (``numeric.carried``, frozen to that answer's inputs), so an early
     publication served before the job completes hands over its own, and a final answer its."""
@@ -461,14 +520,18 @@ def defer_carry(numeric: NumericPolicy, entry: Any, decision_id: str, *, runtime
         return numeric
     if numeric.carried is None:
         return numeric
-    _register_carry(sqlite_path, decision_id, numeric.carried)
     no_models = isinstance(entry, _NoModels)
-    if no_models:
-        deadline = runtime.clock() + float(config.router.timeout_seconds)
-        thread = threading.Thread(target=drain_carry, args=(sqlite_path,),
-                                  kwargs={"deadline": deadline}, name="learnloop-objective-carried", daemon=True)
-        thread.start()
-        with _CARRY_LOCK:
+    deadline = runtime.clock() + float(config.router.timeout_seconds) if no_models else None
+    with _CARRY_LOCK:
+        _register_carry_locked(sqlite_path, decision_id, numeric.carried, session_id=session_id, plan_id=plan_id)
+        if no_models:
+            # Started and listed in one hold of the lock: a join_carried between the two would find no thread and
+            # say none is running while this one reads the database. (drain_carry waits for the lock to start.)
+            thread = threading.Thread(target=drain_carry, args=(sqlite_path,),
+                                      kwargs={"deadline": deadline}, name="learnloop-objective-carried", daemon=True)
+            thread.carry_key = str(sqlite_path)  # type: ignore[attr-defined]
+            thread.carry_owner = (session_id, plan_id)  # type: ignore[attr-defined]
+            thread.start()
             _CARRY_THREADS[:] = [*(running for running in _CARRY_THREADS if running.is_alive()), thread]
     return replace(numeric, residual={**dict(residual or {}), "previous": {
         **dict(previous), "deferred_to": "own_thread_after_the_serve" if no_models else "next_prefetch"}})
@@ -489,6 +552,6 @@ def join_carried(timeout: float | None = None) -> bool:
         return not _CARRY_THREADS
 
 
-__all__ = ["CARRIED", "CARRY_LIMIT", "NUMERIC", "PUBLISHED", "NumericPolicy", "answer_without_models", "await_job",
-           "carried_for", "carry_on", "defer_carry", "drain_carry", "job_answers", "join_carried", "pooled",
-           "start_job"]
+__all__ = ["CARRIED", "CARRY_LIMIT", "NUMERIC", "PUBLISHED", "STOP_WAIT_SECONDS", "NumericPolicy",
+           "answer_without_models", "await_job", "carried_for", "carry_on", "defer_carry", "drain_carry", "job_answers",
+           "join_carried", "pooled", "start_job", "stop_carries"]

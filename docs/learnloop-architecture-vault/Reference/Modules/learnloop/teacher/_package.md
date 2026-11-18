@@ -84,7 +84,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 16 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 9 static module edges
@@ -94,10 +94,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 3 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
@@ -132,7 +132,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
-    center -->|27| n_learnloop
+    center -->|28| n_learnloop
     center -->|16| n_learnloop_db_stores
     center -->|11| n_learnloop_source_retrieval
     center -->|9| n_learnloop_ai
