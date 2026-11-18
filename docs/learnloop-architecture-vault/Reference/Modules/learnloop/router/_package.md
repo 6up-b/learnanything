@@ -70,7 +70,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
@@ -107,7 +107,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_daily_plan -->|20| center
-    center -->|12| n_learnloop
+    center -->|14| n_learnloop
     n_learnloop_router_objective -->|8| center
     center -->|7| n_learnloop_db_stores
     center -->|2| n_learnloop_ai

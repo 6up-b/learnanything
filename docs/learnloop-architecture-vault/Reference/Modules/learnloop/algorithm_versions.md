@@ -250,6 +250,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
   - `test_mvp035_is_one_constant_after_mvp034_and_the_latest`
 - [tests/test_canonical_projection_fold_skip.py](../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
+- [tests/test_carried_valuation_lifecycle.py](../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
+  - `test_a_new_plan_stops_and_joins_the_carries_its_predecessors_left`
+  - `test_the_production_valuation_ends_once_told_to_stop`
 - [tests/test_cold_retry_reschedule.py](../../../../../tests/test_cold_retry_reschedule.py) — direct import
   - `test_mvp038_is_one_constant_after_mvp037`
 - [tests/test_config_refactor.py](../../../../../tests/test_config_refactor.py) — direct import
@@ -570,6 +573,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_summaries_run_only_where_the_mixture_serves`
 - [tests/test_router_reader_activity.py](../../../../../tests/test_router_reader_activity.py) — direct import
   - `test_the_plan_stores_the_card_with_its_reader_section`
+- [tests/test_router_sampling_points.py](../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_router_why_copy.py](../../../../../tests/test_router_why_copy.py) — direct import
   - `test_every_why_the_staged_chooser_writes_on_a_plan_is_plain`
 - [tests/test_rw7b_codex_review_fixes.py](../../../../../tests/test_rw7b_codex_review_fixes.py) — direct import

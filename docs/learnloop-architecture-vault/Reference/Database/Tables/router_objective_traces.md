@@ -147,6 +147,7 @@ None found by exact static reference scan.
 - `tests/test_ro5_landing.py`
 - `tests/test_rofu_learning.py`
 - `tests/test_rospeed_join.py`
+- `tests/test_router_sampling_points.py`
 - `tests/test_te3b_binding.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -109,9 +109,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `recent_learner_preferences`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `WITHHELD_UNREADABLE`; calls `PastWork`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `is_offer_subtype`; calls `is_offer_subtype`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `CARD_NOTE`, `module`; calls `card_entry`, `sensor`, `surprise_reference`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `WORDS`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `is_offer`; calls `is_offer`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `miss_cause_sensor_on`, `preferences_inform_router_on`; calls `miss_cause_sensor_on`, `preferences_inform_router_on`
 
 ### Platform and third-party dependencies
@@ -149,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_build_card_and_fit_of_the_jobs_is_the_same_with_the_pool`
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
   - `test_a_regrade_or_hold_between_the_jobs_card_and_numeric_builds_reaches_the_numeric_policy`
+- [tests/test_router_sampling_points.py](../../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_nothing_protected_or_answer_restating_reaches_the_card_and_probe_attempts_gain_the_cause`
   - `test_off_and_below_the_tag_the_card_is_the_predecessors`

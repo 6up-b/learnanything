@@ -125,7 +125,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
-  - `test_action_kind_has_a_rollout_effect`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_the_offers_declined_branch_is_the_followup_not_the_tail`
 - [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import

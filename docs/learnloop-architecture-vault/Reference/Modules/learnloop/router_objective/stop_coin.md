@@ -163,10 +163,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `_pick`, `uniform`
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; calls `rows`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `session_active_minutes`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

@@ -157,7 +157,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LANES`, `ReadingTarget`, `STOP_FOR_TODAY`; calls `ReadingTarget`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `is_offer`; calls `is_offer`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `is_offer_subtype`; calls `is_offer_subtype`
 
 ### Platform and third-party dependencies
 

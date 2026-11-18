@@ -106,6 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`, `ref`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`, `ref`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `current_trace`, `get`
 - [[Reference/Modules/learnloop/daily_plan/plan_records|learnloop.daily_plan.plan_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `is_code`, `new_record_id`, `where`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `current_trace`; statically calls `current_trace`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; statically calls `DecisionRecord`, `continue_trace`, `current_cause`, `current_trace`, `is_code`, `write`, `write_through`
@@ -144,7 +145,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 21 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 22 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -238,12 +239,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_failure_records.py](../../../../../tests/test_router_failure_records.py) — direct import
   - `test_a_chooser_crash_writes_a_fallback_record_with_the_error_and_each_models_answer`
   - `test_a_component_timeout_writes_a_model_answer_with_the_configured_wait`
+  - `test_a_decision_record_that_cannot_be_built_leaves_the_drawn_block_served`
   - `test_a_late_answer_is_listed_as_discarded`
   - `test_a_prefetch_whose_key_changed_before_the_serve_leaves_unclaimed_calls`
   - `test_a_prefetched_decision_names_the_prefetching_and_the_serving_trace`
   - `test_a_record_that_cannot_be_built_never_blocks_the_block`
   - `test_records_hold_codes_only_and_an_id_that_is_not_a_code_is_hashed`
   - `test_the_crash_is_logged_with_its_trace_and_never_its_message`
+- [tests/test_router_sampling_points.py](../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
   - `test_a_persisting_build_writes_one_slate_record_with_its_exclusions`
   - `test_a_record_that_cannot_be_written_changes_nothing_served`

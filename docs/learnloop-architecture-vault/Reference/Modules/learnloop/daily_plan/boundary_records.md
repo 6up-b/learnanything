@@ -136,6 +136,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_objective_decision_record.py](../../../../../../tests/test_objective_decision_record.py) — direct import
   - `test_the_cores_record_is_the_one_the_container_derived`
 - [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
+  - `test_a_decision_record_that_cannot_be_built_leaves_the_drawn_block_served`
   - `test_a_record_that_cannot_be_built_never_blocks_the_block`
   - `test_records_hold_codes_only_and_an_id_that_is_not_a_code_is_hashed`
 

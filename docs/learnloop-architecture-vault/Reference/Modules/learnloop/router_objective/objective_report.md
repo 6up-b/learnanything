@@ -89,10 +89,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `table_present`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; calls `summary`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

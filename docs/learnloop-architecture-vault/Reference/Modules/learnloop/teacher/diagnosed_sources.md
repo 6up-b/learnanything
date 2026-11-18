@@ -136,7 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `stored_record`; calls `stored_record`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; calls `latest_marks`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `hypothesis_answers`; calls `PastWork`, `hypothesis_answers`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `search_sections`
 
 ### Platform and third-party dependencies

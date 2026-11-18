@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `table_present`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

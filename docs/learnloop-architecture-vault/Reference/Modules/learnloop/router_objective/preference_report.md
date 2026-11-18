@@ -99,9 +99,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `learner_preference_rows`, `preferences_present`
+- [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `DELAYED_LABEL`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `KINDS`, `STOP`, `kind_of`; calls `kind_of`
-- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

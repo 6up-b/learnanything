@@ -152,7 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_served_block_carries_its_own_reason_code_and_sentence`
   - `test_an_offered_stop_the_coin_chose_shows_no_models_words`
   - `test_both_failed_leave_staged_the_whole_mix_and_a_missing_answer_reads_not_ready`
-  - `test_the_choice_returns_its_own_plan_block_record`
+  - `test_the_choice_has_its_own_plan_block_record`
   - `test_with_no_coin_the_logged_distribution_is_the_mixs_and_the_propensity_its_draws`
   - `test_with_the_switch_off_a_failed_policys_share_goes_to_staged`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
@@ -192,6 +192,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_serving_records_each_coin_with_its_exact_probability_and_availability`
+- [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
+- [tests/test_router_sampling_points.py](../../../../../../tests/test_router_sampling_points.py) — direct import
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_sg2_moves_only_the_diagnosed_topics_values_and_the_logged_mu_replays`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
