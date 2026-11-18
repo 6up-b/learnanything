@@ -1,7 +1,7 @@
 # Refactor status
 
-- In the gate: E5 (the objective apart from the rollouts) with the second batch of K5 fixes. Running next: E6 (an action is one place), then the review of arc E; G1 and G3 alongside.
-- On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1–E4 (the router's choice is a pure function, its job control and trace assembly are their own modules; `objective_chooser.py` is 1,473 lines); S1, S2 and M1; the K5 review with its two high fixes; `replay.ledger_bounded` removed.
+- In the gate: the fix round for arc E's adversarial review (eleven findings, rows ER-1 to ER-11 in the bug ledger), the two rows that were due at arc E's close (E-1, E-2) and the UX walk harness. Arc E's steps E1 to E6 are on main; the arc closes when this gate lands. Next: the UX journey audit (persona walks on the harness) beside arc G, which starts with G1.
+- On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1–E6 (the router's choice is a pure function, its job control and trace assembly are their own modules, the objective's terms are apart from the rollouts, and an action kind has one guard test and one how-to list); G3's measurement of the two diagnosis beliefs; S1, S2 and M1; the K5 review with its two high fixes; `replay.ledger_bounded` removed.
 - After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
@@ -102,9 +102,10 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E2 | Extract the chooser's pure decision function | landed | `2bc640bf05` | [refactor-e2.md](refactor-e2.md) | — |
 | E3 | Move job control and clocks out of choice | landed | `13925e8bbf` | [refactor-e3.md](refactor-e3.md) | — |
 | E4 | Move trace assembly out of the chooser | landed | `8eb1c94b4d` | [refactor-e4.md](refactor-e4.md) | — |
-| E5 | Separate objective terms from rollout arithmetic | in the gate | — | [refactor-e5.md](refactor-e5.md) | — |
-| E6 | Put each router action in one place | in the gate | — | [refactor-e6.md](refactor-e6.md) | The stop rule stopped the full design at step 0. The alternative lands with a guard test, one offer predicate, one definition of the refs and a how-to list. |
-| E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
+| E5 | Separate objective terms from rollout arithmetic | landed | `f8300a3f00` | [refactor-e5.md](refactor-e5.md) | — |
+| E6 | Put each router action in one place | landed | `8804080fcf` | [refactor-e6.md](refactor-e6.md) | The stop rule stopped the full design at step 0. The alternative landed with a guard test, one offer predicate, one definition of the refs and a how-to list. |
+| E review | Adversarial review of arc E and its fix round | in the gate | — | [refactor-efix1.md](refactor-efix1.md), [refactor-efix2.md](refactor-efix2.md) | Eleven findings (ledger ER-1 to ER-11): nine fixed, ER-5 by design, ER-2 left for the next algorithm tag. E-1 and E-2 are fixed in the same gate ([refactor-e-close-fixes.md](refactor-e-close-fixes.md)) |
+| E7 | Build the shared view of evidence once | waiting on | — | — | The [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
 | E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
 | E8 | Remove performance switches from learned model identity | deferred | — | — | Goes with F2 (owner, Nov 17: F2 only if Next after feedback is slow) |
 | E9 | Rename misleading modules and move feature-owned files | not started | — | — | E1–E7 |
@@ -130,9 +131,9 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| G1 | Extract probe facts and hard stops | waiting on | — | — | Arc E |
+| G1 | Extract probe facts and hard stops | not started | — | — | Next after arc E's fix round lands |
 | G2 | Make the action router the probe decider | waiting on | — | — | G1, K6 and G6 |
-| G3 | Measure disagreement between the two diagnosis beliefs | in the gate | — | [refactor-g3.md](refactor-g3.md) | Result on the live arxiv vault: four real pairs, none with different causes, all four one-sided, three with an exposed answer counted at full weight by the episode posterior (ledger G3-1). |
+| G3 | Measure disagreement between the two diagnosis beliefs | landed | `8804080fcf` | [refactor-g3.md](refactor-g3.md) | Result on the live arxiv vault: four real pairs, none with different causes, all four one-sided, three with an exposed answer counted at full weight by the episode posterior (ledger G3-1). |
 | G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | [refactor-g3.md](refactor-g3.md) | The narrow fix G3-1 first; the full step is decided after G1 with a rerun of G3. |
 | G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
 | G6 | Use one authority for each protection question | waiting on | — | — | G1 and G3. Runs with K6. |
