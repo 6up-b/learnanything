@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from learnloop.db.table_roles import role_for_table, user_table_names
 
 _MAX_PRUNE_DEPTH = 8
 _PRUNE_CHUNK = 400
+
+#: A trigger that refuses a delete (an append-only table's guard).
+_DELETE_GUARD = re.compile(r"\bBEFORE\s+DELETE\b.*\bRAISE\s*\(", re.IGNORECASE | re.DOTALL)
+
+
+def drop_scratch_delete_guards(connection) -> list[str]:
+    """Drop the scratch copy's append-only delete guards, so replay can prune it.
+
+    The copy is thrown away once the series is read; the live database keeps
+    every guard. The guards are read from the copy's schema, not listed here:
+    a table that gains one later would otherwise fail the learner's goal
+    details the first time one of its rows hangs off a pruned attempt.
+    Returns the names dropped."""
+
+    guards = [
+        str(name)
+        for name, sql in connection.execute("SELECT name, sql FROM sqlite_schema WHERE type = 'trigger'").fetchall()
+        if sql and _DELETE_GUARD.search(sql)
+    ]
+    for name in guards:
+        connection.execute(f'DROP TRIGGER "{name}"')
+    return guards
 
 
 def _chunked(values: list[Any]) -> list[list[Any]]:
@@ -106,4 +129,4 @@ def prune_rows(
         )
 
 
-__all__ = ["prune_rows"]
+__all__ = ["drop_scratch_delete_guards", "prune_rows"]

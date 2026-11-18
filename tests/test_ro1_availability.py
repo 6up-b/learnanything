@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import closing
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -26,7 +26,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ids import _decode_ulid, new_ulid
-from learnloop.db.attempt_availability import AVAILABLE_AT_SQL, attempt_time_sql, available_at
+from learnloop.db.attempt_availability import AVAILABLE_AT_SQL, attempt_time_sql, available_at, known_at
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
@@ -202,6 +202,32 @@ def test_an_ordinary_attempt_records_no_received_at(tmp_path):
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=FrozenClock(IMPORTED_AT))
     row = repository.fetch_practice_attempt(result.attempt_id)
     assert (row["received_at"], row["received_at_source"]) == (None, None)
+
+
+@pytest.mark.parametrize("received_at", ["", " \t\n"], ids=["empty", "whitespace"])
+def test_blank_received_at_stores_null_and_agrees_at_cutoffs(tmp_path, received_at):
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    _root, vault, repository = _exam_vault(tmp_path)
+    result = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_exam_q1", learner_answer_md="An answer.", received_at=received_at),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4),
+        clock=FrozenClock(IMPORTED_AT),
+    )
+    row = repository.fetch_practice_attempt(result.attempt_id)
+    assert (row["received_at"], row["received_at_source"]) == (None, None)
+
+    expression = attempt_time_sql(vault.config)
+    assert expression == AVAILABLE_AT_SQL
+    with repository.connection() as connection:
+        for seconds, expected in [(-1, False), (0, True), (1, True)]:
+            cutoff = (IMPORTED_AT + timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            admitted = connection.execute(
+                f"SELECT 1 FROM practice_attempts WHERE id = ? AND {expression} <= ?",
+                (result.attempt_id, cutoff),
+            ).fetchone() is not None
+            assert admitted == (known_at(row, vault.config) <= cutoff) == expected
 
 
 #: A decision after the exam's date and before the import: the router could not have known the exam then.
