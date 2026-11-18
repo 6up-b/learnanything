@@ -17,7 +17,7 @@ would make an import cycle.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import timedelta
 import math
 from typing import Any
@@ -383,10 +383,13 @@ def objective_trace(choice: Any, *, support: Sequence[str], by_id: Mapping[str, 
                     titles: Mapping[str, str], numeric: Any, llm: Any, decider: Any, staged_ref: str,
                     weight: tuple[float, Mapping[str, Any]], seed: str, config: Any, now_iso: str,
                     card_version: str | None, policy_card: Mapping[str, Any], contested: str | None,
-                    carried_for: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+                    read_carried_for: Callable[[], Sequence[Mapping[str, Any]]] | None) -> dict[str, Any]:
     """A block boundary's trace, from its choice (``choose.Choice``) and what the chooser read for it: the numeric
-    policy's answer, the two models' results, the weight, the mix's seed, the LLM's card (``policy_card``), the IH2
-    contest's follow-up (``contested``) and the carried valuations this trace records (``carried_for``)."""
+    policy's answer, the two models' results, the weight, the mix's seed, the LLM's card (``policy_card``) and the IH2
+    contest's follow-up (``contested``). ``read_carried_for`` reads the carried valuations this trace records (None:
+    carries are off and none is read); it is called after the rows and the goal dates, where the decision has always
+    read them, because a carry thread may finish while the rows are built, and a value read earlier would leave it out
+    of this trace."""
 
     drawn, coin = choice.drawn, choice.coin
     session_minutes = numeric.inputs.session_minutes if numeric is not None and numeric.inputs is not None else None
@@ -408,6 +411,7 @@ def objective_trace(choice: Any, *, support: Sequence[str], by_id: Mapping[str, 
     # Every active dated goal's frozen forecast, for the goal-date read, whatever its distance; the policy
     # comparison's uses keep only the window's, so a goal past the window would otherwise have no forecast.
     trace["goal_dates"] = goal_dates(numeric)
+    carried_for = read_carried_for() if read_carried_for is not None else []
     if carried_for:
         # Earlier decisions' carried valuations a later job ran, recorded here (read as of this trace's own time;
         # the transition into each is then no longer censored).

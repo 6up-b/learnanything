@@ -2834,7 +2834,9 @@ def _note_for_records(env: PlanEnv, decision: Decision, *, forced: Sequence[Any]
     the workflow reads can't delay it; never raises."""
 
     try:
-        note: dict[str, Any] = {"failures": tuple(failures), "parent_record": parent_record}
+        # The chooser's own failed steps (its decision record's construction) come after the boundary's earlier ones.
+        chooser_failures = tuple((decision.seen or {}).get("failures") or ())
+        note: dict[str, Any] = {"failures": (*tuple(failures), *chooser_failures), "parent_record": parent_record}
         if forced:
             note["forced"] = _forced_entries(env, forced, forced_origin)
         if superseding is not None:

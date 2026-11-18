@@ -2,8 +2,8 @@
 
 ``router_objective.choose.choose`` is the boundary's decision: the failed policies and where their share goes (IH5),
 the effective weights, the mix's draw, the stop coin on its own uniform after the mix's (RO5), the rule code and
-sentence of what is served, the rationale guard and the why, and the decision's own record (L6). Each test builds
-``ChoiceInputs`` from literals; a seed that lands a draw where a test needs it is found by trying seeds, never by
+sentence of what is served, the rationale guard and the why; ``decision_record`` is the decision's own record (L6).
+Each test builds ``ChoiceInputs`` from literals; a seed that lands a draw where a test needs it is found by trying seeds, never by
 patching the draw.
 """
 
@@ -35,11 +35,16 @@ def inputs(**overrides) -> C.ChoiceInputs:
         rationale=RATIONALE, cited=("att_1",), card_evidence_ids=frozenset({"att_1", "att_2"}),
         numeric_status="answered", numeric_choice="maintain:b", w=0.5, to_other_policy=True, epsilon=0.02,
         seed="e2-seed", stop_rate=0.0, session_minutes=None, availability=None, staged_why="The plan's own why.",
-        no_models=False, boundary_key="bk_e2", algorithm_version="mvp-0.60", question_set_version="qs_v1",
-        llm_schema_version="router_llm_choice_v3",
+        no_models=False, boundary_key="bk_e2", algorithm_version="mvp-0.60", llm_schema_version="router_llm_choice_v3",
     )
     values.update(overrides)
     return C.ChoiceInputs(**values)
+
+
+def record_of(choice: C.Choice, **overrides):
+    """The choice's own record, built from the inputs it was chosen on (``overrides`` as given to ``inputs``)."""
+
+    return C.decision_record(choice, inputs(**overrides), question_set_version="qs_v1")
 
 
 def seed_where(predicate, **overrides) -> tuple[str, C.Choice]:
@@ -61,24 +66,25 @@ def test_the_statuses_it_compares_are_the_runtimes():
 
 
 def test_a_served_stop_is_the_stop_offer():
-    _seed, choice = seed_where(lambda c: c.served == STOP)
+    seed, choice = seed_where(lambda c: c.served == STOP)
     assert (choice.rule_code, choice.rule) == ("stop_offer", router_why.sentence("stop_offer"))
-    assert choice.record.rule == "stop_offer" and choice.record.chosen_ref == STOP
+    record = record_of(choice, seed=seed)
+    assert record.rule == "stop_offer" and record.chosen_ref == STOP
 
 
 def test_a_served_block_carries_its_own_reason_code_and_sentence():
-    _seed, choice = seed_where(lambda c: c.served == "maintain:b" and c.drawn.component == mix.NUMERIC)
+    seed, choice = seed_where(lambda c: c.served == "maintain:b" and c.drawn.component == mix.NUMERIC)
     assert (choice.rule_code, choice.rule) == ("review", "Bases again, before it slips.")
-    assert choice.record.rule == "review"
+    assert record_of(choice, seed=seed).rule == "review"
     assert (choice.why, choice.why_kind) == (f"{router_why.PICKED_BY_ESTIMATE} Bases again, before it slips.",
                                              "computed")
 
 
 def test_a_block_with_no_code_has_no_rule_and_the_staged_pick_keeps_the_plans_why():
     options = {**OPTIONS, "repair:a": C.OptionFacts("")}
-    _seed, choice = seed_where(lambda c: c.served == "repair:a" and c.drawn.component == mix.STAGED,
-                               options=options, llm_distribution=None, llm_status="timeout", to_other_policy=False)
-    assert choice.rule_code == "" and choice.record.rule is None
+    overrides = dict(options=options, llm_distribution=None, llm_status="timeout", to_other_policy=False)
+    seed, choice = seed_where(lambda c: c.served == "repair:a" and c.drawn.component == mix.STAGED, **overrides)
+    assert choice.rule_code == "" and record_of(choice, seed=seed, **overrides).rule is None
     assert (choice.why, choice.why_kind) == ("The plan's own why.", "computed")
 
 
@@ -120,9 +126,10 @@ def test_with_no_coin_the_logged_distribution_is_the_mixs_and_the_propensity_its
     assert choice.pi == mix.mu(list(SUPPORT), parts, choice.effective, 0.02) == choice.drawn.pi
     assert choice.propensity == choice.drawn.propensity == choice.pi[choice.served]
     assert choice.coin is None and choice.assignments == ()
-    assert [entry["ref"] for entry in choice.record.alternatives] == [ref for ref in SUPPORT if ref != choice.served]
+    record = record_of(choice)
+    assert [entry["ref"] for entry in record.alternatives] == [ref for ref in SUPPORT if ref != choice.served]
     assert all(entry["p"] == choice.pi[entry["ref"]] and entry["lost_by"] == "not_drawn"
-               for entry in choice.record.alternatives)
+               for entry in record.alternatives)
 
 
 def test_a_one_hot_mix_is_served_with_propensity_one():
@@ -151,11 +158,11 @@ def test_the_coin_draws_after_the_mix_on_its_own_uniform_and_leaves_the_mixs_dra
 
 
 def test_an_offered_stop_the_coin_chose_shows_no_models_words():
-    _seed, choice = seed_where(lambda c: c.coin is not None and c.coin.arm == SC.OFFER_STOP
-                               and c.drawn.chosen != STOP and c.drawn.component == mix.LLM, **COIN)
+    seed, choice = seed_where(lambda c: c.coin is not None and c.coin.arm == SC.OFFER_STOP
+                              and c.drawn.chosen != STOP and c.drawn.component == mix.LLM, **COIN)
     assert choice.served == STOP and not choice.shown and choice.rationale_hidden
     assert (choice.why, choice.why_kind) == (router_why.sentence("stop_offer"), "computed")
-    assert choice.record.facts["propensity"] == choice.coin.served_propensity
+    assert record_of(choice, seed=seed, **COIN).facts["propensity"] == choice.coin.served_propensity
 
 
 def test_the_coin_skips_the_sessions_opening_boundary_and_needs_its_availability():
@@ -203,15 +210,15 @@ def test_the_llm_drawing_an_option_it_did_not_favour_hides_its_rationale():
 # -- the record and the purity -------------------------------------------------------------------------------------
 
 
-def test_the_choice_returns_its_own_plan_block_record():
-    record = C.choose(inputs(no_models=True)).record
+def test_the_choice_has_its_own_plan_block_record():
+    record = record_of(C.choose(inputs(no_models=True)), no_models=True)
     assert (record.kind, record.status, record.decided_by) == ("plan_block", "chosen", C.NO_MODELS)
     assert record.subject_id is None and record.id is None and record.trace_id is None
     assert record.facts["boundary_key"] == "bk_e2" and record.facts["option_count"] == 3
     assert record.versions == {"algorithm_version": "mvp-0.60", "policy": mix.POLICY, "design": mix.DESIGN,
                                "seed": "e2-seed", "why_version": C.WHY_VERSION, "question_set_version": "qs_v1",
                                "llm_schema_version": "router_llm_choice_v3"}
-    assert C.choose(inputs()).record.decided_by == C.MODE
+    assert record_of(C.choose(inputs())).decided_by == C.MODE
 
 
 def test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone(monkeypatch):
@@ -227,5 +234,7 @@ def test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone(mon
     given = inputs(**COIN)
     snapshot = (dict(given.llm_distribution), dict(given.availability), dict(given.options))
     first, second = C.choose(given), C.choose(replace(given))
-    assert first == second and first.record == second.record
+    assert first == second
+    assert (C.decision_record(first, given, question_set_version="qs_v1")
+            == C.decision_record(second, replace(given), question_set_version="qs_v1"))
     assert snapshot == (dict(given.llm_distribution), dict(given.availability), dict(given.options))

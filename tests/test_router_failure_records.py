@@ -297,11 +297,91 @@ def test_records_hold_codes_only_and_an_id_that_is_not_a_code_is_hashed():
     assert boundary_records._where("pkg.mod:<lambda>:12") == "pkg.mod:_lambda_:12"
 
 
+def _drawing_away_from_staged(monkeypatch) -> list[str]:
+    """The mix's draw moved onto a block the staged rule did not pick (so not the rules' fallback pick either), with
+    that block's own probability as its propensity. Returns the drawn refs."""
+
+    from dataclasses import replace
+
+    from learnloop.router_objective import mix
+
+    real = mix.draw
+    drawn_refs: list[str] = []
+
+    def away(support, parts, weights, epsilon, seed):
+        drawn = real(support, parts, weights, epsilon, seed)
+        staged = max(parts[mix.STAGED], key=lambda ref: parts[mix.STAGED][ref])
+        target = next(ref for ref in support if ref not in (staged, "stop_for_today"))
+        drawn_refs.append(target)
+        return replace(drawn, chosen=target, propensity=drawn.pi[target])
+
+    monkeypatch.setattr(mix, "draw", away)
+    return drawn_refs
+
+
+def _lane_quota_pick(tmp_path, monkeypatch) -> str:
+    """What the rules' fallback serves at this boundary: the chooser made to fail before it draws."""
+
+    from learnloop.router_objective import choose
+
+    def failing(_inputs):
+        raise RuntimeError("no choice")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(choose, "choose", failing)
+        env = mixture_env(tmp_path / "rules", fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer)),
+                          version=TAG)
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+        record, _step = advance(env, serve=True)
+    assert rows(env)[0]["detail_json"]["fallback_reason"] == "chooser_error"
+    return record.blocks[0].chosen["candidate_id"]
+
+
+def test_a_decision_record_that_cannot_be_built_leaves_the_drawn_block_served(tmp_path, monkeypatch, caplog):
+    """The objective's own part of its record is built after the draw. When building it fails, the drawn block is
+    served (not the rules' fallback), the block's record is derived from the router's record, and the failure is the
+    block record's child, with its type and place and never its message."""
+
+    from learnloop.router_objective import choose
+
+    rules_pick = _lane_quota_pick(tmp_path, monkeypatch)
+    drawn = _drawing_away_from_staged(monkeypatch)
+    env = mixture_env(tmp_path / "drawn", fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer)),
+                      version=TAG)
+
+    def broken(*_args, **_kwargs):
+        raise ValueError(SECRET)
+
+    monkeypatch.setattr(choose, "decision_record", broken)
+    with caplog.at_level("WARNING"), provenance.trace_scope("TRACE_RECORD"):
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+        record, step = advance(env, serve=True)
+    served = record.blocks[0].chosen["candidate_id"]
+    assert drawn and served == drawn[0] != rules_pick
+    assert step is not None and step["kind"] == "item"
+    assert rows(env)[0]["detail_json"]["fallback"] is False
+    payload = _why(env, "TRACE_RECORD")
+    [block] = _by_kind(payload, "plan_block")
+    assert (block["status"], block["decided_by"]) == ("chosen", "objective")
+    assert block["chosen_ref"] == boundary_records.ref(served)
+    assert block["versions"]["question_set_version"] and block["facts"]["boundary_key"]
+    [failure] = _by_kind(payload, "decision_record_build")
+    assert (failure["status"], failure["rule"], failure["error_type"]) == ("failed", "builder_error", "ValueError")
+    assert failure["parent_id"] == block["id"]
+    assert re.fullmatch(r"tests\.test_router_failure_records:broken:\d+", failure["error_where"])
+    warnings = [r.getMessage() for r in caplog.records if "decision record not built" in r.getMessage()]
+    assert warnings and all("ValueError" in line and SECRET not in line for line in warnings)
+    assert not any(SECRET in r.getMessage() for r in caplog.records)
+
+
 def test_a_record_that_cannot_be_built_never_blocks_the_block(tmp_path, monkeypatch, caplog):
+    # The drawn block is moved off the staged rule's pick, so the rules' fallback would serve something else.
+    rules_pick = _lane_quota_pick(tmp_path, monkeypatch)
+    drawn = _drawing_away_from_staged(monkeypatch)
     # The decision seed is pinned to one that draws a block (as RO6's chooser tests do): with the live seed (a random
     # decision id) the mix drew stop_for_today at this boundary in about 1 run in 13, and the step was "done", not an item.
     runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer), seed=block_drawing_seed())
-    env = mixture_env(tmp_path, runtime, version=TAG)
+    env = mixture_env(tmp_path / "drawn", runtime, version=TAG)
     calls: list[str] = []
 
     def broken(*_args, **_kwargs):
@@ -311,9 +391,10 @@ def test_a_record_that_cannot_be_built_never_blocks_the_block(tmp_path, monkeypa
     monkeypatch.setattr(boundary_records, "plan_block_records", broken)
     with provenance.trace_scope("TRACE_BROKEN"):
         build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-        _record, step = advance(env, serve=True)
+        record, step = advance(env, serve=True)
     assert calls  # the records were attempted and failed on this very block
     assert step is not None and step["kind"] == "item" and rows(env)
+    assert drawn and record.blocks[0].chosen["candidate_id"] == drawn[0] != rules_pick
     with env.repository.connection() as connection:
         assert provenance.read(connection, "TRACE_BROKEN") == []
     assert not any(SECRET in r.getMessage() for r in caplog.records)
