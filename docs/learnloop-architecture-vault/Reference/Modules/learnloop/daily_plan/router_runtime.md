@@ -168,7 +168,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `FAILED`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `TIMEOUT`, `call_decider`, `call_llm`, `seen`, `wall_now`; statically calls `ComponentResult`, `seen`, `wall_now`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `FAILED`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `TIMEOUT`, `seen`; statically calls `ComponentResult`, `seen`
+- [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `FAILED`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `TIMEOUT`, `call_decider`, `call_llm`, `wall_now`; statically calls `ComponentResult`, `wall_now`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `default_runtime`; statically calls `default_runtime`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `ANSWERED`, `ComponentResult`, `DECIDER`, `INVALID`, `LLM`, `NOT_READY`, `Prefetch`, `RECEIPT_OWNER`, `RouterRuntime`, `call_decider`, `call_llm`, `note_failure`, `seen`, `wall_now`; statically calls `ComponentResult`, `note_failure`, `seen`, `wall_now`
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `EMBEDDING_TIMEOUT_SECONDS`, `SpendRefused`
@@ -208,7 +209,7 @@ Use this module in context through:
 
 - [[Configure AI Providers]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -228,15 +229,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_generation_receipts_are_in_the_daily_total`
   - `test_f1_generation_spend_refuses_the_routers_own_next_request`
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — direct import
+- [tests/test_instruct_handoff_ih0.py](../../../../../../tests/test_instruct_handoff_ih0.py) — direct import
+  - `test_a_slow_llm_within_the_wait_is_served_and_does_not_fall_back`
 - [tests/test_mobile_v2_objective_stop.py](../../../../../../tests/test_mobile_v2_objective_stop.py) — direct import
 - [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_plan_determinism_landing.py](../../../../../../tests/test_plan_determinism_landing.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_guard_record_that_cannot_be_built_still_refuses`
   - `test_a_refused_router_request_leaves_a_record_though_no_call_row_exists`
+- [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
+  - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import
   - `test_an_early_publication_served_keeps_its_carried_valuation`
 - [tests/test_rofu_switch_key.py](../../../../../../tests/test_rofu_switch_key.py) — direct import
+- [tests/test_rospeed2_connections.py](../../../../../../tests/test_rospeed2_connections.py) — direct import
+  - `test_the_job_opens_a_handful_of_connections`
 - [tests/test_router_failure_records.py](../../../../../../tests/test_router_failure_records.py) — direct import
   - `test_the_store_names_the_routers_receipt_owner`
 - [tests/test_router_r2b_agreement.py](../../../../../../tests/test_router_r2b_agreement.py) — direct import

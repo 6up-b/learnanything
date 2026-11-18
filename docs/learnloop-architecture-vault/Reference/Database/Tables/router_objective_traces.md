@@ -17,12 +17,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/246_router_objective_traces.sql"
   - "src/learnloop/daily_plan/objective_chooser.py"
+  - "src/learnloop/daily_plan/objective_job.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/db/stores/router_objective.py"
   - "src/learnloop/router_objective/calibration_report.py"
   - "src/learnloop/router_objective/combiner_data.py"
   - "src/learnloop/router_objective/forecast_resolve.py"
-  - "src/learnloop/router_objective/goal_read.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -108,6 +108,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/objective_chooser.py`
+- `src/learnloop/daily_plan/objective_job.py`
 - `src/learnloop/db/stores/router_objective.py`
 - `src/learnloop/router_objective/calibration_report.py`
 - `src/learnloop/router_objective/combiner_data.py`
