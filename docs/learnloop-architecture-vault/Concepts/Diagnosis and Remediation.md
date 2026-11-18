@@ -46,6 +46,8 @@ Diagnosis tracks possible causes of a miss and connects them to probes and repai
 A probe episode measures against a locked set of hypotheses; the causal repair lane tracks an unresolved cause factor and its repair choices.
 Grading and diagnosis have separate roles: see [[ADR-016 Learner-blind grading with an asynchronous diagnoser]].
 
+A delayed repair check can record a pass or a fail. Feedback gives a verdict about the repair only when the final coldness receipt qualifies the check to measure its effect. If other practice on the topic came in between, for example, feedback shows the result and explains why the repair's effect is unclear.
+
 ## Episode lifecycle
 
 The `probe_episodes` row has five allowed statuses. Status and `completion_reason` are separate fields.

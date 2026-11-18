@@ -1681,15 +1681,14 @@ export interface FeedbackBundle {
  *
  *  `passed` and `claim` are deliberately separate. `passed` is whether the
  *  unassisted answer was right; `claim` is what the system is licensed to
- *  conclude, which a downgraded receipt can withhold even from a correct
- *  answer. Rendering only one of them would let assistance buy a confirmation.
+ *  conclude. A measured result can leave the repair's effect unestablished.
  */
 export interface ColdCheckResultDto {
   passed: boolean;
   /** Recorded cold outcome (`cold_success`, `cold_failure`,
    *  `right_censored_expired`, `contaminated_or_assisted`, …). */
   outcome: string | null;
-  claim: "repair_confirmed" | "escalated_unrepaired" | "downgraded" | "unmeasured";
+  claim: "repair_confirmed" | "escalated_unrepaired" | "repair_effect_unestablished" | "unmeasured";
   claimDowngradedReason: string | null;
   caseKind: string | null;
   caseRef: string | null;

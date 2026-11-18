@@ -719,6 +719,24 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     )
 
 
+def _repair_claim_reason(receipt: dict[str, Any]) -> str | None:
+    derived = receipt.get("derived") or {}
+    if reason := derived.get("claim_downgraded_reason"):
+        return reason
+    dimensions = receipt.get("dimensions") or {}
+    exposures = (dimensions.get("exposure_isolation") or {}).get("evidence") or {}
+    for event in exposures.get("events") or []:
+        if event.get("type") == "retrieval" and (reason := event.get("why")):
+            return reason
+    for name in ("retrieval_delay", "unassisted", "window_integrity"):
+        dimension = dimensions.get(name) or {}
+        if dimension.get("status") != "pass":
+            evidence = dimension.get("evidence") or {}
+            if reason := evidence.get("violation") or evidence.get("reason"):
+                return reason
+    return None
+
+
 def _cold_check_result(
     vault: LoadedVault, repository: Repository, attempt: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -728,15 +746,13 @@ def _cold_check_result(
     the single unassisted measurement an earlier assisted repair scheduled.
     Everything here is read back from records the submit path already wrote (the
     consumed task, the episode it closed, the ``causal_cold_outcomes`` row and
-    the final coldness receipt); nothing is derived, decided or persisted, so
-    re-opening feedback cannot change a verdict.
+    the final coldness receipt). Re-opening feedback writes nothing.
 
     The verdict is deliberately reported in TWO parts. ``passed`` says whether
     the unassisted answer was right. ``claim`` says what the system is licensed
-    to conclude from it, which is not the same thing: a receipt whose episode
-    spent more of the answer than its budget has its repair claim downgraded, so
-    a correct answer can be recorded and still not confirm the repair. Collapsing
-    the two would let assistance quietly buy a confirmation.
+    to conclude from it. A measured pass or failure can survive an intervening
+    retrieval or a missing receipt, so the outcome alone cannot answer whether
+    the repair helped.
     """
 
     attempt_id = str(attempt["id"])
@@ -754,16 +770,14 @@ def _cold_check_result(
         outcome = str((outcome_row or {}).get("outcome") or "") or None
         receipt = repository.coldness_receipt_for_task_stage(task_id, "final")
         derived = (receipt or {}).get("derived") or {}
-        downgraded_reason = derived.get("claim_downgraded_reason") or None
         passed = outcome == "cold_success"
-        if outcome is None:
-            claim = "unmeasured"
-        elif downgraded_reason:
-            claim = "downgraded"
-        elif passed:
-            claim = "repair_confirmed"
-        elif outcome == "cold_failure":
-            claim = "escalated_unrepaired"
+        downgraded_reason = None
+        if outcome in {"cold_success", "cold_failure"}:
+            if derived.get("qualifies_as_repair_effect_verification") is True:
+                claim = "repair_confirmed" if passed else "escalated_unrepaired"
+            else:
+                claim = "repair_effect_unestablished"
+                downgraded_reason = _repair_claim_reason(receipt or {})
         else:
             # right_censored_expired, contaminated_or_assisted, missing_chain …
             # — the check happened but produced no verdict about the repair.

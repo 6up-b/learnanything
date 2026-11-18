@@ -57,6 +57,7 @@ The important shape is convergence: every grading door resolves a grade before t
 - AI grading builds a bounded context, requests `GradingProposal`, and validates it before use.
 - Optional AI failure can fall back to supported manual/self-grade semantics; required AI fails explicitly.
 - Regrade creates correction/reinterpretation records rather than erasing the original attempt.
+- Startup defers learner self-grades until an AI grader is ready. An exam import with a saved answer keeps its existing regrade path. A score-only import keeps its reported grade, and simulated grades and learner self-reports stay out of the queue.
 
 ## Semantic validation
 

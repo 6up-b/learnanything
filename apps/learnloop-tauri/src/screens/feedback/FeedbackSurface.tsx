@@ -35,6 +35,7 @@ import {
   expectedAnswerText,
   type FeedbackOrigin,
   ORIGIN_LABEL,
+  unestablishedRepairCopy,
   VERDICT_TEXT,
   type Verdict
 } from "../../app/practiceFeedback";
@@ -174,8 +175,8 @@ function honestyLines(f: FeedbackBundle): string[] {
         ? `This was the check on your own for the fix from ${when}: it held.`
         : check.claim === "escalated_unrepaired"
           ? `This was the check on your own for the fix from ${when}: it didn't hold yet, so the fix comes back with more support.`
-          : check.claim === "downgraded"
-            ? `This was the check on your own for the fix from ${when}: it's recorded, but it can't confirm the fix. Another check comes later.`
+          : check.claim === "repair_effect_unestablished"
+            ? unestablishedRepairCopy(check)
             : `This was the check on your own for the fix from ${when}: no verdict this time.`
     );
   }

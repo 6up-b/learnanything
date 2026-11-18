@@ -172,6 +172,37 @@ afterEach(() => {
   shell.window = null;
 });
 
+it.each([
+  ["simple", true, "attempt_on_overlapping_facets", "You passed this check. Other practice on this topic came in between, so this check can't show whether the repair helped."],
+  ["classic", false, "attempt_on_overlapping_facets", "You didn't pass this check. Other practice on this topic came in between, so this check can't show whether the repair helped."],
+  ["simple", false, null, "You didn't pass this check. This check can't show whether the repair helped."],
+  ["classic", true, "episode_reveal_over_budget", "You passed this check. The repair showed too much of the answer for this check to tell whether it helped."],
+] as const)("reports an unestablished repair effect in %s feedback (passed=%s, reason=%s)", async (mode, passed, reason, copy) => {
+  setAlgoConfig({ ui: { practiceFeedback: mode } });
+  const feedback: FeedbackBundle = {
+    ...BUNDLE,
+    rubricScore: passed ? 4 : 0,
+    correctness: passed ? 1 : 0,
+    coldCheckResult: {
+      passed,
+      outcome: passed ? "cold_success" : "cold_failure",
+      claim: "repair_effect_unestablished",
+      claimDowngradedReason: reason,
+      caseKind: "misconception",
+      caseRef: null,
+      caseSummary: "Conditional probability",
+      factorId: null,
+      episodeId: null,
+      instructedAt: "2026-10-18T00:00:00Z",
+      checkedAt: "2026-10-19T00:00:00Z",
+    },
+  };
+  api.getFeedback.mockResolvedValue(feedback);
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText(copy)).toBeTruthy();
+  expect(bodyText()).not.toMatch(/repair is confirmed|another check will be scheduled|comes back with more support/i);
+});
+
 it("leads with a verdict in words, never the score, and keeps the machine's numbers off the surface", async () => {
   render(<FeedbackScreen {...props()} />);
   expect(await screen.findByText("Partly right")).toBeTruthy();

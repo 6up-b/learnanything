@@ -6,11 +6,24 @@
 // projections or replay (the owner's ruling: live changes behind kill
 // switches, no algorithm successor). `[ui] practice_feedback = "classic"`
 // restores every one of those screens exactly as it was before Phase 4.
+import type { ColdCheckResultDto } from "../api/dto";
 import { algoConfig } from "./algoConfig";
 
 /** Whether the Phase 4 presentation is on (the default). */
 export function simplePracticeFeedback(): boolean {
   return algoConfig().practiceFeedback !== "classic";
+}
+
+export function unestablishedRepairCopy(check: ColdCheckResultDto): string {
+  const result = check.passed ? "You passed this check." : "You didn't pass this check.";
+  switch (check.claimDowngradedReason) {
+    case "attempt_on_overlapping_facets":
+      return `${result} Other practice on this topic came in between, so this check can't show whether the repair helped.`;
+    case "episode_reveal_over_budget":
+      return `${result} The repair showed too much of the answer for this check to tell whether it helped.`;
+    default:
+      return `${result} This check can't show whether the repair helped.`;
+  }
 }
 
 export type Verdict = "right" | "partly" | "not_yet" | "held";

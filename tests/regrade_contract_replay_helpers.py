@@ -78,7 +78,7 @@ def _self_graded_apply(vault, repository, item_id, points, *, attempt_id, when):
                     {
                         "id": f"ge_{attempt_id}_{cid}", "criterion_id": cid,
                         "points_awarded": float(value), "evidence": "self", "notes": None,
-                        "local_grader_id": "learner", "grader_tier": 1, "created_at": _iso(when),
+                        "local_grader_id": "self", "grader_tier": 1, "created_at": _iso(when),
                     }
                     for cid, value in points.items()
                 ],

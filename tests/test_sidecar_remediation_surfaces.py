@@ -25,6 +25,8 @@ from learnloop.attempts.attempts import (
     SelfGradeInput,
     complete_self_graded_attempt,
 )
+from learnloop.attempts.coldness_receipt import record_administration_snapshot
+from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_episode,
@@ -37,6 +39,7 @@ from learnloop_sidecar.handlers.knowledge_map import (
 )
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 from learnloop_sidecar.handlers.sessions import _session_cold_checks
+from tests.guided_redo_helpers import failed_attempt_with_repair
 
 from tests.helpers import (
     NOW,
@@ -48,14 +51,17 @@ from tests.helpers import (
 
 LO_ID = "lo_svd_definition"
 ITEM = "pi_svd_define_001"
+THIRD_ITEM = "pi_svd_define_003"
 
 
-def _setup(tmp_path):
+def _setup(tmp_path, *, third_item=False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     write_facets(paths, [{"id": "recall", "kind": "definition", "claim": "SVD factorization."}])
     seed_due_item(paths)
     add_followup_item(vault_root)  # so primed and cold items can differ
+    if third_item:
+        add_followup_item(vault_root, THIRD_ITEM)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
     misconception_id = repository.insert_misconception(
@@ -71,7 +77,7 @@ def _setup(tmp_path):
     return vault, repository, misconception_id
 
 
-def _attempt(vault, repository, item_id, *, clock, primed=False):
+def _attempt(vault, repository, item_id, *, clock, primed=False, points=4):
     return complete_self_graded_attempt(
         vault,
         repository,
@@ -82,7 +88,7 @@ def _attempt(vault, repository, item_id, *, clock, primed=False):
             hints_used=0,
             primed=primed,
         ),
-        SelfGradeInput(criterion_points={"correctness": 4}, fatal_errors=[], confidence=4),
+        SelfGradeInput(criterion_points={"correctness": points}, fatal_errors=[], confidence=4),
         clock=clock,
     )
 
@@ -131,14 +137,83 @@ def test_cold_check_result_reports_the_span_and_the_claim(tmp_path):
     assert result["claim"] in {
         "repair_confirmed",
         "escalated_unrepaired",
-        "downgraded",
+        "repair_effect_unestablished",
         "unmeasured",
     }
     if result["claim"] == "repair_confirmed":
         assert result["passed"] is True
         assert result["claimDowngradedReason"] is None
     if result["claimDowngradedReason"]:
-        assert result["claim"] == "downgraded"
+        assert result["claim"] == "repair_effect_unestablished"
+
+
+@pytest.mark.parametrize(
+    ("scenario", "points", "expected_claim", "expected_reason"),
+    [
+        ("interleaved practice", 4, "repair_effect_unestablished", "attempt_on_overlapping_facets"),
+        ("interleaved practice", 0, "repair_effect_unestablished", "attempt_on_overlapping_facets"),
+        ("no final receipt", 4, "repair_effect_unestablished", None),
+        ("over-budget repair", 4, "repair_effect_unestablished", "episode_reveal_over_budget"),
+        ("clean check", 4, "repair_confirmed", None),
+        ("clean check", 0, "escalated_unrepaired", None),
+    ],
+)
+def test_cold_check_feedback_obeys_the_final_repair_claim(
+    tmp_path, monkeypatch, scenario, points, expected_claim, expected_reason,
+):
+    vault, repository, misconception_id = _setup(tmp_path, third_item=True)
+    repair_clock = FrozenClock(NOW)
+    episode = start_remediation_episode(repository, misconception_id, clock=repair_clock)
+    prescribe_remediation(vault, repository, episode["id"], clock=repair_clock)
+    treatment = start_remediation_treatment(vault, repository, episode["id"], clock=repair_clock)
+    if scenario == "over-budget repair":
+        repository.insert_reveal_event(
+            {
+                "practice_item_id": treatment["primed_item_id"],
+                "learning_object_id": LO_ID,
+                "source_kind": "repair_display",
+                "amount": 0.9,
+                "basis": "test",
+                "remediation_episode_id": episode["id"],
+            },
+            clock=repair_clock,
+        )
+    failed_attempt_with_repair(
+        vault, repository, "att_primed_receipt",
+        item_id=treatment["primed_item_id"], primed=True, clock=repair_clock,
+    )
+    cold_item = treatment["cold_item_id"]
+    task = repository.active_followup_task_for_item(
+        cold_item, kind="cold_retry", at=(NOW + timedelta(days=1)).isoformat().replace("+00:00", "Z"),
+    )
+    assert task["context"]["repair_class_id"]
+    day1 = FrozenClock(NOW + timedelta(days=1))
+    record_administration_snapshot(vault, repository, task=task, clock=day1)
+    if scenario == "interleaved practice":
+        other_item = next(
+            item for item in (ITEM, "pi_svd_define_002", THIRD_ITEM)
+            if item not in (treatment["primed_item_id"], cold_item)
+        )
+        _attempt(vault, repository, other_item, clock=day1)
+
+    if scenario == "no final receipt":
+        monkeypatch.setattr(
+            "learnloop.attempts.coldness_receipt.record_final_receipt", lambda *_args, **_kwargs: None,
+        )
+    day2 = FrozenClock(NOW + timedelta(days=2))
+    cold = _attempt(vault, repository, cold_item, clock=day2, points=points)
+    run_post_attempt_pipeline(vault, repository, result=cold, clock=day2)
+    receipt = repository.coldness_receipt_for_task_stage(task["id"], "final")
+    if scenario == "no final receipt":
+        assert receipt is None
+    else:
+        assert receipt["derived"]["qualifies_as_repair_effect_verification"] is (scenario == "clean check")
+
+    result = feedback_bundle(vault, repository, cold.attempt_id)["coldCheckResult"]
+    assert result["passed"] is (points == 4)
+    assert result["outcome"] == ("cold_success" if points else "cold_failure")
+    assert result["claim"] == expected_claim
+    assert result["claimDowngradedReason"] == expected_reason
 
 
 def test_the_primed_repair_attempt_gets_no_cold_check_result(tmp_path):

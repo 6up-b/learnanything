@@ -2170,6 +2170,17 @@ class Repository(
                   WHERE e.attempt_id = a.id
                     AND e.grader_tier = 1
                     AND e.superseded_at IS NULL
+                    -- Tier 1 also includes simulated grades and imported scores.
+                    -- Keep answer-bearing imports eligible, but grading the
+                    -- seeder's score placeholder would overwrite real evidence.
+                    AND (
+                      e.local_grader_id = 'self'
+                      OR (
+                        e.local_grader_id = 'exam_import'
+                        AND trim(a.learner_answer_md) != ''
+                        AND a.learner_answer_md NOT LIKE '[imported exam outcome: score %]'
+                      )
+                    )
                 )
                 AND NOT EXISTS (
                   SELECT 1 FROM grading_evidence e2

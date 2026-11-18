@@ -55,6 +55,7 @@ import {
   FIX_MIX_UP_LABEL,
   type FeedbackOrigin,
   simplePracticeFeedback,
+  unestablishedRepairCopy,
   VERDICT_TEXT,
   verdictOf
 } from "../app/practiceFeedback";
@@ -204,16 +205,16 @@ function ColdCheckBanner({ result }: { result: ColdCheckResultDto }) {
     ? "unassisted check · passed"
     : failed
       ? "unassisted check · did not hold"
-      : result.claim === "downgraded"
-        ? "unassisted check · recorded, not counted"
+      : result.claim === "repair_effect_unestablished"
+        ? "unassisted check"
         : "unassisted check · no verdict";
   const when = fmtDay(result.instructedAt);
   const body = confirmed
     ? `This was the unassisted check for the repair you did on ${when} — you answered it without help, so the repair is confirmed and the factor is closed.`
     : failed
       ? `This was the unassisted check for the repair you did on ${when}. It did not hold on your own, so the case stays open and comes back with more support — nothing you did on ${when} is lost.`
-      : result.claim === "downgraded"
-        ? `This was the unassisted check for the repair you did on ${when}. Your answer is recorded, but that repair had already shown more of the solution than this check can hold constant, so it does not count as independent confirmation. Another check will be scheduled.`
+      : result.claim === "repair_effect_unestablished"
+        ? unestablishedRepairCopy(result)
         : `This was the unassisted check for the repair you did on ${when}. It did not produce a verdict${result.outcome ? ` (${result.outcome.replace(/_/g, " ")})` : ""}, so the repair stays unconfirmed.`;
   return (
     <div
@@ -235,11 +236,6 @@ function ColdCheckBanner({ result }: { result: ColdCheckResultDto }) {
         <Faint>what it checked</Faint>{"  "}
         <Dim>{result.caseSummary}</Dim>
       </div>
-      {result.claimDowngradedReason ? (
-        <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 11 }}>
-          <Faint>downgraded · {result.claimDowngradedReason.replace(/_/g, " ")}</Faint>
-        </div>
-      ) : null}
     </div>
   );
 }

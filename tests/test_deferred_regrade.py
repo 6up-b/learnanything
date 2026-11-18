@@ -9,11 +9,13 @@ import threading
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from learnloop.ai.routing import AIProviderSelection, ResolvedClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
 from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
+from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.learner.facet_state_reader import facet_recall_state_for_lo, facet_uncertainty_states_for_lo
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.regrade import run_deferred_ai_regrades, run_deferred_regrades
@@ -22,6 +24,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
+from tests.exam_seeding_helpers import _exam_vault, _outcomes
 from tests.helpers import NOW, configure_codex_http, create_basic_vault, write_facets
 from tests.http_provider_double import serve_structured
 
@@ -416,6 +419,77 @@ def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_pa
     assert result.deferred_regrades.regraded == 1
     assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
     assert repository.fetch_grading_evidence(attempt.attempt_id)[0].grader_tier == 3
+
+
+@pytest.mark.parametrize("provider_name", ["codex", "deepseek_flash"])
+def test_startup_regrades_real_answers_but_leaves_score_only_exam_import(tmp_path, monkeypatch, provider_name):
+    _, vault, repository = _exam_vault(tmp_path)
+    clock = FrozenClock(NOW)
+    seeded = seed_exam_attempts(
+        vault,
+        repository,
+        outcomes=_outcomes(outcomes={
+            "1": {"score": 1.0},
+            "3": {"score": 0.25, "answer_md": "SVD factors a matrix into U, Sigma, and V transpose."},
+        }),
+        clock=clock,
+    )
+    imported = {entry.question: entry.attempt_id for entry in seeded.entries if entry.status == "seeded"}
+    score_only_id = imported["1"]
+    with_answer_id = imported["3"]
+    self_grade = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="SVD is U Sigma V^T."),
+        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+        clock=clock,
+    )
+
+    def imported_snapshot():
+        attempt = repository.fetch_practice_attempt(score_only_id)
+        return (
+            attempt["rubric_score"],
+            attempt["correctness"],
+            repository.fetch_grading_evidence(score_only_id, include_superseded=True),
+            repository.raw_attempt_feedback_metadata(score_only_id),
+            repository.observation_by_attempt(score_only_id),
+            repository.latest_blind_grade_record(score_only_id),
+            repository.practice_item_state("pi_exam_q1").due_at,
+        )
+
+    before = imported_snapshot()
+    assert before[:2] == (4, 1.0)
+    assert len(before[2]) == 1 and before[2][0].local_grader_id == "exam_import"
+    assert before[3]["grading_source"] == "self"
+    assert before[4:6] == (None, None)
+    seen = set()
+
+    class _AnswerOnlyClient(_RegradeClient):
+        def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+            assert context.attempt_id in {self_grade.attempt_id, with_answer_id}, context.learner_answer_md
+            seen.add(context.attempt_id)
+            return super().run_grading_proposal(context)
+
+    runtime = _ready_runtime()
+    resolved = ResolvedClient(
+        selection=AIProviderSelection(provider_name=provider_name),
+        provider_name=provider_name,
+        runtime=runtime,
+        client=_AnswerOnlyClient(score=4, points=4),
+    )
+    monkeypatch.setattr("learnloop.ops.startup.runtime_for_provider", lambda *_args: runtime)
+    monkeypatch.setattr("learnloop.ops.startup.ready_client_for_task", lambda *_args: resolved)
+
+    result = run_startup_maintenance(vault, repository, clock=clock)
+
+    assert result.deferred_regrades.as_dict() == {
+        "attempted": 2, "regraded": 2, "failed": 0, "skipped_reason": None,
+    }
+    assert seen == {self_grade.attempt_id, with_answer_id}
+    for attempt_id in seen:
+        assert repository.fetch_practice_attempt(attempt_id)["rubric_score"] == 4
+        assert repository.fetch_grading_evidence(attempt_id)[0].grader_tier == 3
+    assert imported_snapshot() == before
 
 
 class _RegradeClient(JointGraderAlsoBlind, StructuredClientFake):
