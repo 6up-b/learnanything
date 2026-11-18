@@ -262,12 +262,13 @@ def test_f6_a_fractional_delay_is_scored_on_the_goals_own_date():
 
 def test_f7_the_trace_freezes_every_dated_goals_forecast_beyond_the_window():
     from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.router_objective import trace_assembly
 
     far = V.DatedUse(goal_id="g1", lo="L", at_days=30.0, weight=1.0)
     numeric = OC.NumericPolicy(status="answered", inputs=SimpleNamespace(dated=(far,), horizon_days=90.0),
                                baselines={"dated": {"g1:L": 0.62}},
                                sources={"goals": {"g1": {"due_at": "2026-02-01T12:00:00Z"}}})
-    frozen = OC._goal_dates(numeric)
+    frozen = trace_assembly.goal_dates(numeric)
     assert frozen["uses"] == [{"goal_id": "g1", "lo": "L", "at_days": 30.0, "due_at": "2026-02-01T12:00:00Z",
                                "m0": 0.62}]
 

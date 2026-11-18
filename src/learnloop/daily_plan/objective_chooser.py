@@ -34,11 +34,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import timedelta
 from functools import partial
 import json
 import logging
-import math
 import time
 from typing import Any
 
@@ -97,6 +95,7 @@ from learnloop.router_objective import choose as C
 from learnloop.router_objective import mix
 from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
+from learnloop.router_objective import trace_assembly as T
 from learnloop.router_objective import value as V
 from learnloop.router_objective import weight as W
 from learnloop.router_objective_switches import failure_share_to_other_policy_on, stop_coin_rate
@@ -221,15 +220,6 @@ def _held_link(config: Any) -> bool:
     return followup_on(config, "held_ad_link")
 
 
-def _serving_switches(config: Any) -> dict[str, Any]:
-    """The trace's ``versions.serving_switches`` (landing ruling R8), or nothing below the batch's tag."""
-
-    from learnloop.router_objective_switches import followup_generator_switches
-
-    switches = followup_generator_switches(config) if config is not None else None
-    return {"serving_switches": switches} if switches is not None else {}
-
-
 def _rollout_options(config: Any) -> dict[str, bool]:
     """The rollouts' serving options, for every rollout of one decision (its evaluation and refinement, the
     correction, the carried valuation, the baselines and the day's gain curve) or for none: one place."""
@@ -256,7 +246,6 @@ def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_da
     day, for display. None in the seed regime (the coin off, or no randomized response yet)."""
 
     from learnloop.db.stores import router_objective as store
-    from learnloop.router_objective import stop_coin as SC
     from learnloop.router_objective_switches import stop_coin_rate
 
     if config is None or stop_coin_rate(config) <= 0:
@@ -689,54 +678,6 @@ def _policy_request(vault: Any, repository: Any, entry: Prefetch) -> rq.PolicyRe
 # -- the decision -------------------------------------------------------------------------------------------
 
 
-def _support_labels(support: Sequence[str], by_id: Mapping[str, BlockCandidate], titles: Mapping[str, str]) -> dict[str, str]:
-    out = {}
-    for ref in support:
-        if ref == STOP_FOR_TODAY:
-            out[ref] = "stop for today"
-        elif ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE:
-            # Teacher TE3b: the offer card, in plain words.
-            candidate = by_id[ref]
-            topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
-            out[ref] = f"offer a lesson on {topic} (about {max(1, round(candidate.est_minutes))} min)"
-        elif ref in by_id:
-            candidate = by_id[ref]
-            what = candidate.reading.section_title if candidate.reading is not None else ", ".join(
-                dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids)) or candidate.lane
-            out[ref] = f"{candidate.lane}: {what} ({max(1, round(candidate.est_minutes))} min)"
-    return out
-
-
-def _score_note(config: Any) -> str:
-    from learnloop.router_objective_switches import CHECKS_OFF, check_mode
-
-    if check_mode(config)[0] != CHECKS_OFF:
-        return ("forms when the window closes, from the randomized checks it holds (r = the day's assignment "
-                "probability x the running completion rate)")
-    return "none forms until RO5's randomized checks: no valued use has r > 0"
-
-
-def _goal_dates(numeric: "NumericPolicy | None") -> dict[str, Any]:
-    """RO5 §9 item 3's sensor input: each active dated goal's uses with the memory model's frozen forecast at the
-    goal's date (``m⁰``, from the pre-action belief under the tail, the same number the policy comparison logs) and
-    the goal's absolute ``due_at``, for every dated goal the rollouts value, beyond the evaluation window too
-    (Codex review F7). A date past the tail's horizon has no forecast and says so."""
-
-    inputs = numeric.inputs if numeric is not None else None
-    if inputs is None:
-        return {"uses": [], "status": "no_inputs"}
-    baselines = (numeric.baselines or {}).get("dated") or {} if numeric is not None else {}
-    goals = (numeric.sources or {}).get("goals") or {} if numeric is not None else {}
-    uses = []
-    for use in inputs.dated:
-        m0 = baselines.get(f"{use.goal_id}:{use.lo}")
-        uses.append({"goal_id": use.goal_id, "lo": use.lo, "at_days": use.at_days,
-                     "due_at": (goals.get(use.goal_id) or {}).get("due_at"), "m0": m0,
-                     **({} if m0 is not None else {"status": "no_forecast_beyond_horizon"})})
-    return {"uses": uses, "horizon_days": float(inputs.horizon_days),
-            "basis": "the pre-action belief under the tail, at each goal's date (sensor for the goal-date read)"}
-
-
 def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption:
     """Teacher TE3b: the lesson offer as one more option of the LLM policy's existing request (and the Decider's
     advice): its target, its reason, its minutes and ``P(accept)`` (spec §15.1a; no new request)."""
@@ -768,261 +709,6 @@ def _contest_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.
     return rq.BlockOption(ref=candidate.candidate_id, description=(
         f"Ask the follow-up question now, on {topic}, from the learner's last answer (about "
         f"{max(1, round(candidate.est_minutes))} min). If the lesson is chosen instead, this question stays for later."))
-
-
-def _offer_trace(candidate: BlockCandidate, valued: Any, action: Any, inputs: Any,
-                 topic_by_lo: Mapping[str, Any], terms: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a, "what the trace records"): for a lesson offer, its sensors
-    (``P(accept)`` with its posterior mean and sd and the priors version, the reason, AD's ``p̄`` for the target, the
-    lesson curve's moments and version or ``placeholder``, the lesson-check mass posterior, the duration and its
-    source), its terms (each branch's ``Q̄``, ``p``, the accepted branch's κ integral of the lesson's minutes, its
-    ``E[V(x′)]`` with the delayed checks and ``T_C``, ``Q̄ − Q̄(stop)``, the residual's ``V_residual``) and the
-    split (display only). The binding (decision → response → lesson → receipt → delayed checks) is a read over
-    existing ids at print time (``learnloop router trace``)."""
-
-    record = dict((candidate.annotations or {}).get("lesson_offer") or {})
-    lo = str(record.get("learning_object_id") or (candidate.learning_object_ids or ("",))[0])
-    topic = topic_by_lo.get(lo)
-    curve = inputs.learning.lesson if inputs is not None else None
-    extra = dict(getattr(valued, "extra", None) or {})
-    branches = dict(extra.get("branches") or {})
-    branch_terms = dict(extra.get("branch_terms") or {})
-    accepted = dict(branch_terms.get("accepted") or {})
-    declined = dict(branch_terms.get("declined") or {})
-    p_bar = (1.0 / (1.0 + math.exp(-float(topic.eta_mean)))) if topic is not None else None
-    return {
-        "version": record.get("version"),
-        "sensors": {
-            "p_accept": {**dict(record.get("p_accept") or {}), "priors_version": record.get("priors_version"),
-                         "updates": (record.get("model") or {}).get("updates"),
-                         # IH4: how many of those were requests with no offer on screen (only when any were).
-                         **({"unprompted_updates": (record.get("model") or {})["unprompted_updates"]}
-                            if (record.get("model") or {}).get("unprompted_updates") else {})},
-            "reason": record.get("reason"), "context": record.get("context"),
-            "ad_p_bar": p_bar,
-            "lesson_curve": ({"version": curve.version, "mean": list(curve.mean), "cov": [list(r) for r in curve.cov],
-                              "position": dict(curve.positions).get(lo, 0.0)} if curve is not None
-                             else "placeholder"),
-            "check_mass": record.get("mass"), "duration": record.get("duration"), "checks": record.get("checks"),
-            "ceiling": record.get("ceiling"),
-        },
-        "terms": {
-            "q_accepted": branches.get("accepted"), "q_declined": branches.get("declined"),
-            "p": branches.get("p_accept"), "p_sd": branch_terms.get("p_accept_sd"),
-            "kappa_integral_accepted": accepted.get("kappa_integral"),
-            "after_accepted": accepted.get("after"), "terminal_accepted": accepted.get("terminal"),
-            "after_declined": declined.get("after"),
-            "q_minus_stop": (terms or {}).get("q_minus_stop"), "v_residual": (terms or {}).get("v_residual"),
-        },
-        "split": {"learning": None, "information": None, "return_effect": 0.0,
-                  "note": "display only, never added: the accepted branch's learning and its checks' information are "
-                          "inside its E[V(x')]"},
-        "alternatives": [entry.get("ref") for entry in list((record.get("card") or {}).get("candidates") or [])[1:]],
-        "action": {"minutes": getattr(action, "minutes", None), "minutes_log_sd": getattr(action, "minutes_log_sd", None),
-                   "mass": getattr(action, "mass", None), "accept": list(getattr(action, "accept", None) or ()),
-                   "commitments": [list(c) for c in getattr(action, "commitments", ()) or ()]},
-    }
-
-
-def _failure_rule_field(to_other: bool) -> dict[str, str]:
-    """IH5: the failure rule a decision was drawn under, logged only where it is not staged's (a record without the
-    key was drawn before the tag, or with the switch off, and replays under staged's rule: ``mix.recompute``)."""
-
-    return {"failure_rule": mix.OTHER_POLICY_RULE} if to_other else {}
-
-
-def _trace(*, support: Sequence[str], by_id: Mapping[str, BlockCandidate], feasible: Sequence[BlockCandidate],
-           titles: Mapping[str, str], numeric: NumericPolicy | None, llm: ComponentResult | None,
-           decider: ComponentResult | None, staged_ref: str, weight: tuple[float, Mapping[str, Any]],
-           effective: Mapping[str, float], pi: Mapping[str, float], drawn: Any, seed: str, config: Any,
-           now_iso: str, guard: Mapping[str, Any], stop_in_support: bool, card_version: str | None) -> dict[str, Any]:
-    labels = _support_labels(support, by_id, titles)
-    evaluation = numeric.evaluation if numeric is not None else None
-    rows = evaluation.by_ref() if evaluation is not None else {}
-    v = evaluation.v if evaluation is not None else None
-    stop_q = rows[STOP_FOR_TODAY].q if STOP_FOR_TODAY in rows else None
-    order = sorted(rows, key=lambda ref: -rows[ref].q)
-    top = rows[order[0]] if order else None
-    inputs = numeric.inputs if numeric is not None else None
-    # Landing ruling R12: the generator switches the numeric answer was computed under (frozen with it); with no
-    # numeric answer, the serving config's (R8's ``followup_generator_switches``; None below the batch's tag).
-    served_switches = (numeric.switches if numeric is not None and numeric.switches is not None
-                       else _serving_switches(config).get("serving_switches"))
-    topic_by_lo = {topic.lo: topic for topic in (inputs.topics if inputs is not None else ())}
-    actions = {action.ref: action for action in (numeric.actions if numeric is not None else ())}
-    llm_parsed = getattr(llm, "parsed", None) if llm is not None and llm.status == ANSWERED else None
-    residual_record = numeric.residual if numeric is not None else None
-    residual_applied = bool(residual_record) and residual_record.get("status") == "applied"  # type: ignore[union-attr]
-    # Slip or gap SG1: the sensor the numeric policy's inputs read (absent off, or below the tag: no key anywhere).
-    miss_cause = ((numeric.sources if numeric is not None else {}) or {}).get(OI.MISS_CAUSE_SOURCE)
-    miss_topics = dict((miss_cause or {}).get("topics") or {})
-    candidates: dict[str, Any] = {}
-    for ref in support:
-        valued = rows.get(ref)
-        action = actions.get(ref)
-        sensors = {}
-        for lo in dict.fromkeys(action.item_los if action is not None else ()):
-            topic = topic_by_lo.get(lo)
-            if topic is None:
-                continue
-            sensors[lo] = {"ad_eta": topic.eta_mean, "ad_eta_var": topic.eta_var, "fsrs_stability": topic.stability,
-                           "fsrs_elapsed_days": topic.elapsed_days, "practiced": topic.practiced,
-                           "source": ((numeric.sources if numeric is not None else {}).get("topics") or {}).get(lo),
-                           "reached_qbar": True}
-            if lo in miss_topics:
-                # SG1 (spec_slip_vs_gap_v1 §3 item 2): beside RO's per-topic sensors. It reaches Q̄ only with SG2 on
-                # and a diagnosis in force (the split's record, ``miss_cause.in_value``, says how).
-                sensors[lo]["miss_cause"] = {
-                    **dict(miss_topics[lo]),
-                    "reached_qbar": bool((miss_cause or {}).get("in_value"))
-                    and lo in (((miss_cause or {}).get("in_value") or {}).get("topics") or {})}
-        if isinstance(llm_parsed, rq.ParsedPolicy) and ref in llm_parsed.forecasts:
-            sensors["llm_forecast"] = {**dict(llm_parsed.forecasts[ref]), "schema": rq.LLM_POLICY_SCHEMA,
-                                       "model": getattr(llm, "model", None),
-                                       "reached_qbar": bool(numeric is not None and numeric.corrected)}
-        terms = None
-        if valued is not None:
-            terms = {**dict(valued.terms), "q": valued.q,
-                     "q_minus_v": (valued.q - v) if v is not None else None,
-                     "q_minus_stop": (valued.q - stop_q) if stop_q is not None else None,
-                     "paired_se_vs_top": V.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
-            if residual_applied:
-                # RO6 (§10): ŵ, V_tail (the tail's Q̄ above), V_residual and Ṽ per candidate.
-                from learnloop.router_objective import tail_serve
-
-                terms.update(tail_serve.candidate_terms(numeric.residual, ref, valued.q))  # type: ignore[union-attr, arg-type]
-        candidates[ref] = {
-            "label": labels.get(ref, ref), "kind": action.kind if action is not None else None,
-            # The option's main topic, the one the LLM policy's forecasts are about (§8.9's binding).
-            "main_lo": (action.item_los[0] if action is not None and action.item_los else None),
-            "minutes": action.minutes if action is not None else None, "sensors": sensors, "terms": terms,
-            "split": ({"learning": None, "information": valued.extra.get("information"),
-                       "return_effect": valued.extra["return_effect"], "return_model": valued.extra.get("return_model"),
-                       "note": "display only, never added: the return effect is the return model's difference to "
-                               "stopping now, inside the accepted branch's transition"}
-                      if valued is not None and "return_effect" in valued.extra else
-                      {"learning": None, "information": (valued.extra.get("information") if valued is not None else None),
-                       "return_effect": 0.0, "note": "display only, never added; the return effect is zero until RO5 "
-                                                     "fits a return model"}),
-            "branches": dict(valued.extra.get("branches") or {}) if valued is not None else None,
-        }
-        if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE:
-            # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the offer's sensors, its branches' terms and the split.
-            candidates[ref]["offer"] = _offer_trace(by_id[ref], valued, action, inputs, topic_by_lo,
-                                                    candidates[ref].get("terms"))
-    filtered = {candidate.candidate_id: ("beyond_top_k" if (candidate.annotations or {}).get("reversible", True)
-                                         else "irreversible")
-                for candidate in feasible if candidate.candidate_id not in support}
-    llm_dist = dict(llm_parsed.distribution) if isinstance(llm_parsed, rq.ParsedPolicy) else None
-    favoured = max(llm_dist, key=lambda ref: llm_dist[ref]) if llm_dist else None
-    section = config.router_objective
-    window = int(section.evaluation_window_days)
-    decided = parse_utc(now_iso)
-    window_closes = (decided + timedelta(days=window)).strftime("%Y-%m-%dT%H:%M:%SZ") if decided is not None else None
-    baselines = numeric.baselines if numeric is not None else {}
-    sources = dict(numeric.sources) if numeric is not None else {}
-    # §8.7's population, frozen from the goals and retention commitments alone (F11): a candidate-only topic is
-    # valued in the rollouts but is not one of the uses either policy is scored on.
-    population = (sources.get("population") or {}).get("los") or {}
-    uses = {
-        "topics": [{"lo": lo, "c": c, "m0": (baselines.get("topics") or {}).get(lo)}
-                   for lo, c in population.items() if c > 0],
-        "population_basis": (sources.get("population") or {}).get("basis"),
-        "dated": [{"goal_id": use.goal_id, "lo": use.lo, "at_days": use.at_days, "omega": use.weight,
-                   "m0": (baselines.get("dated") or {}).get(f"{use.goal_id}:{use.lo}")}
-                  for use in (inputs.dated if inputs is not None else ()) if use.at_days <= window],
-    }
-    price = numeric.price.as_dict() if numeric is not None and numeric.price is not None else None
-    mbar = inputs.price.remembered if inputs is not None else None
-    kappa0 = price["kappa0"] if price else 0.0
-    c0 = (window * kappa0 * float(mbar) / 2.0) if mbar else None
-    extra: dict[str, Any] = {}
-    if residual_record is not None:
-        # RO6 (§10): the learned tail's record, frozen (ŵ with its slope and rank, the fit, each candidate's features,
-        # V_tail, V_residual and Ṽ), so the terms recompute from the trace alone.
-        section_record = dict(residual_record)
-        if residual_applied:
-            from learnloop.router_objective import tail_serve
-
-            section_record["candidates"] = {
-                ref: {**dict(entry), **tail_serve.candidate_terms(residual_record, ref,
-                                                                    rows[ref].q if ref in rows else None)}
-                for ref, entry in (residual_record.get("candidates") or {}).items()}
-        extra["residual"] = section_record
-    if miss_cause is not None:
-        # SG1/SG2: the whole sensor and, with SG2, beta's fit, each topic's calibration and the cause slopes.
-        extra["miss_cause"] = dict(miss_cause)
-    preference_record = numeric.preference if numeric is not None else None
-    if preference_record is not None:
-        # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen, with V_pref at this Q̄.
-        from learnloop.router_objective import preferences as PF
-
-        extra["preference"] = (PF.with_values(preference_record, {ref: rows[ref].q for ref in rows})
-                               if preference_record.get("status") == "applied" else dict(preference_record))
-    return {
-        **extra,
-        "candidates": candidates,
-        "reference": ({"ref": evaluation.reference.ref, "q": evaluation.reference.q,
-                       "terms": dict(evaluation.reference.terms)} if evaluation is not None and evaluation.reference else None),
-        "v": v, "cutoff_days": evaluation.cutoff if evaluation is not None else None,
-        "precision": {"draws": evaluation.draws if evaluation is not None else 0,
-                      "paired_se_top_two": (numeric.tie or {}).get("paired_se_top_two") if numeric else None},
-        "filtered": filtered,
-        "stop_in_support": stop_in_support,
-        "session": {"minutes": inputs.session_minutes if inputs is not None else None, "remembered_minutes": mbar,
-                    "remembered_source": inputs.price.remembered_source if inputs is not None else None, **dict(guard)},
-        "policies": {
-            "llm": {"status": llm.status if llm is not None else NOT_READY, "distribution": llm_dist,
-                    "favoured": favoured, "rationale": getattr(llm_parsed, "rationale", None),
-                    "evidence_ids": list(getattr(llm_parsed, "evidence_ids", ()) or ()),
-                    "reference_forecast": dict(llm_parsed.reference) if isinstance(llm_parsed, rq.ParsedPolicy) else None,
-                    "model": getattr(llm, "model", None) if llm is not None else None,
-                    "latency_ms": getattr(llm, "latency_ms", None) if llm is not None else None,
-                    "cost_usd": getattr(llm, "cost_usd", None) if llm is not None else None,
-                    "error": getattr(llm, "error", None) if llm is not None else None},
-            "numeric": {"status": numeric.status if numeric is not None else NOT_READY,
-                        "choice": numeric.choice if numeric is not None else None,
-                        "tie": dict(numeric.tie) if numeric is not None else None,
-                        "corrected_by_llm_forecasts": bool(numeric.corrected) if numeric is not None else False,
-                        "stage": numeric.stage if numeric is not None else None,
-                        "latency_ms": numeric.latency_ms if numeric is not None else None,
-                        "error": numeric.error if numeric is not None else None},
-            "staged": {"advice": staged_ref},
-            "decider": {"status": decider.status if decider is not None else NOT_READY,
-                        "advice": (dict(decider.parsed.distribution) if decider is not None and decider.status == ANSWERED
-                                   and getattr(decider, "parsed", None) is not None else None)},
-        },
-        "mixing": {"posterior": weight[1].get("posterior"), "seeds": weight[1].get("seeds"),
-                   "weight_note": weight[1].get("note"), "w": weight[0], "effective": dict(effective),
-                   "mu": dict(pi), "seed": seed, "chosen": drawn.chosen, "drawn_component": drawn.component,
-                   "propensity": drawn.propensity, "u1": drawn.u1, "u2": drawn.u2,
-                   "epsilon": float(config.router.epsilon_min),
-                   **_failure_rule_field(failure_share_to_other_policy_on(config))},
-        "evaluation": {"uses": uses, "window_days": window, "window_closes_at": window_closes, "c0": c0,
-                       "c0_basis": "the tail's cost at the remembered minutes (no earlier window of costs at this version)",
-                       "objective_version": V.OBJECTIVE_VERSION,
-                       "score": _score_note(config)},
-        "frontier": dict(numeric.frontier) if numeric is not None else {},
-        "inputs_sources": {key: value for key, value in sources.items()
-                           if key not in ("population", OI.MISS_CAUSE_SOURCE)},
-        "versions": {"objective": V.OBJECTIVE_VERSION, "tail": V.TAIL_VERSION, "terminal": V.TERMINAL_VERSION,
-                     "horizon_days": float(section.horizon_days), "memory_model": inputs.combiner.as_dict()
-                     if inputs is not None else None, "kappa": price,
-                     "learning": inputs.learning.source if inputs is not None else None,
-                     "card": card_version, "llm_schema": rq.LLM_POLICY_SCHEMA,
-                     "goals": {goal_id: {"source": goal.get("source"), "contract": goal.get("contract_version_id")}
-                               for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
-                     # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
-                     # (below the tag, or off, the trace keeps mvp-0.49's bytes).
-                     **({"review_draw": V.REVIEW_DRAW_VERSION}
-                        if served_switches is not None and served_switches.get("consistent_review_draw") else {}),
-                     # Landing ruling R9: AD's own predictive in the rollouts, named only when it serves.
-                     **({"ad_link": V.AD_LINK_VERSION}
-                        if inputs is not None and inputs.ad_link is not None else {}),
-                     # Landing ruling R8: the batch's serving switches as they served, part of the generator
-                     # payload (``tail_data.generator``); only at the batch's tag. R12: the numeric answer's own.
-                     **({"serving_switches": dict(served_switches)} if served_switches is not None else {})},
-    }
 
 
 @dataclass
@@ -1214,39 +900,15 @@ class ObjectiveChooser(RouterChooser):
         # -- the writes -------------------------------------------------------------------------------------
         drawn, coin = choice.drawn, choice.coin
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        session_minutes = numeric.inputs.session_minutes if numeric is not None and numeric.inputs is not None else None
-        mbar = numeric.inputs.price.remembered if numeric is not None and numeric.inputs is not None else None
-        guard_at = P.guard_minutes(config, float(mbar)) if mbar else None
-        guard_state = {"guard_minutes": guard_at, "guard_crossed": bool(guard_at and session_minutes is not None
-                                                                         and session_minutes >= guard_at)}
-        trace = _trace(support=support, by_id=by_id, feasible=feasible, titles=titles, numeric=numeric, llm=llm,
-                       decider=results.get(DECIDER), staged_ref=staged_ref, weight=(w, weight_record),
-                       effective=choice.effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
-                       guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
         contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
-        if policy_card.get("statements"):
-            # IH4 §7 item 6: which card the LLM read, its entries and what the budget left out of them.
-            trace["learner_statements"] = dict(policy_card["statements"])
-        if contested is not None:
-            # IH2 §5: a lesson offer against the boundary's follow-ups: the offer's declined branch is the follow-up.
-            trace["followup_contest"] = {"candidate_id": contested, "item_ids": list(by_id[contested].item_ids),
-                                         "offer_declined_branch": "the follow-up (it stays available)"}
-        # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
-        # whatever its distance; the policy comparison's uses keep only the window's.
-        trace["goal_dates"] = _goal_dates(numeric)
-        if carry:
-            # The follow-up batch's item 4: earlier decisions' carried valuations a later prefetch ran, recorded
-            # here (read as of this trace's own time; the transition into each is then no longer censored).
-            carried_for = J.carried_for(self.repository, decision_id)
-            if carried_for:
-                trace["carried_for"] = carried_for
-        if coin is not None:
-            # RO5: what was served and its exact probability under the coin and the mix together; the mix's own
-            # draw and μ stay beside it (a ``policy`` decision's score reads μ, exact given the independent coin).
-            trace["mixing"].update(drawn_chosen=drawn.chosen, chosen=choice.served, propensity=coin.served_propensity)
-            trace["stop_coin"] = coin.as_dict()
-            if coin.arm != SC.POLICY:
-                trace["evaluation"]["score"] = f"none: {SC.FORCED} (the coin chose what was served)"
+        # Earlier decisions' carried valuations a later prefetch ran, recorded in this trace (read as of the trace's
+        # own time; the transition into each is then no longer censored).
+        carried_for = J.carried_for(self.repository, decision_id) if carry else []
+        trace = T.objective_trace(choice, support=support, by_id=by_id, feasible=feasible, titles=titles,
+                                  numeric=numeric, llm=llm, decider=results.get(DECIDER), staged_ref=staged_ref,
+                                  weight=(w, weight_record), seed=seed, config=config, now_iso=now_iso,
+                                  card_version=card.version, policy_card=policy_card, contested=contested,
+                                  carried_for=carried_for)
         decider = results.get(DECIDER)
         decider_dist = (dict(decider.parsed.distribution) if decider is not None and decider.status == ANSWERED
                         and getattr(decider, "parsed", None) is not None else None)
@@ -1264,7 +926,7 @@ class ObjectiveChooser(RouterChooser):
                 "boundary_key": entry.key, "support": list(support), "staged_ref": staged_ref, "k": settings["k"],
                 "epsilon": settings["epsilon_min"], "ties_only": settings["ties_only"],
                 "effective_weights": choice.effective, "w": w, "failed": list(choice.failed), "llm_distribution": llm_dist,
-                **_failure_rule_field(to_other),
+                **T.failure_rule_field(to_other),
                 "numeric_choice": choice.numeric_choice,
                 "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                 "models": {name: result.summary() for name, result in sorted(results.items())},
@@ -1498,11 +1160,11 @@ class ObjectiveRestraintGate(RestraintGate):
         card = entry.material["card"]
         decider = results.get(DECIDER)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        trace = _trace(support=support, by_id={**by_id, **(dict(valued) if valued is not None else {})},
-                       feasible=candidates, titles=titles, numeric=numeric, llm=None,
-                       decider=None, staged_ref=INSERT_NOW, weight=(w, weight_record), effective=effective,
-                       pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso, guard={},
-                       stop_in_support=False, card_version=card.version)
+        trace = T.decision_trace(support=support, by_id={**by_id, **(dict(valued) if valued is not None else {})},
+                                 feasible=candidates, titles=titles, numeric=numeric, llm=None,
+                                 decider=None, staged_ref=INSERT_NOW, weight=(w, weight_record),
+                                 effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config,
+                                 now_iso=now_iso, guard={}, stop_in_support=False, card_version=card.version)
         trace["policies"]["llm"] = {"status": llm.status, "distribution": llm_dist, "rationale": rationale,
                                     "schema": llm_schema, "model": llm.model}
         trace["policies"]["decider"] = {"status": decider.status if decider is not None else NOT_READY,
@@ -1516,7 +1178,7 @@ class ObjectiveRestraintGate(RestraintGate):
             fallback_reasons={name: (llm.status if name == mix.LLM else numeric.status) for name in failed},
             mixture={"boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW, "k": len(support),
                      "epsilon": settings["epsilon_min"], "effective_weights": effective, "w": w, "failed": failed,
-                     **_failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
+                     **T.failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": numeric.choice if numeric_ok else None,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                      "models": {name: result.summary() for name, result in sorted(results.items())},
                      "rationale": {"text": rationale}},

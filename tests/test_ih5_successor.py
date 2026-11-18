@@ -20,10 +20,11 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import RouterObjectiveConfig
-from learnloop.daily_plan.objective_chooser import _failure_rule_field, objective_settings
+from learnloop.daily_plan.objective_chooser import objective_settings
 from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router import mixture as mx
 from learnloop.router_objective import mix
+from learnloop.router_objective.trace_assembly import failure_rule_field
 from learnloop.router_objective_switches import failure_share_to_other_policy_on
 from learnloop.vault.loader import load_vault
 
@@ -169,8 +170,8 @@ def test_a_lesson_offer_in_the_support_can_be_drawn_when_the_llm_has_no_answer()
 
 def test_switch_off_or_below_the_tag_the_mix_is_the_predecessors_exactly(tmp_path):
     # The chooser asks the gate; its answer picks the rule, and a False gate adds nothing to the record.
-    assert _failure_rule_field(False) == {}
-    assert _failure_rule_field(True) == {"failure_rule": mix.OTHER_POLICY_RULE}
+    assert failure_rule_field(False) == {}
+    assert failure_rule_field(True) == {"failure_rule": mix.OTHER_POLICY_RULE}
     for failed in ([], ["llm"], ["numeric"], ["llm", "numeric"]):
         assert mix.recompute(_record(failed)) == mix.recompute(_record(failed, rule=mix.STAGED_RULE))
         assert mix.effective_weights(W, failed, to_other_policy=False) == mix.effective_weights(W, failed)
