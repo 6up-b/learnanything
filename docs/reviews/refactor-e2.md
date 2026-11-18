@@ -131,7 +131,14 @@ Commits, in order (each in this worktree, on `refactor/e2-choice-pure`):
      and infeasible alternatives, waits, `card_error`, forced items, the offer it supersedes, a crash's type and
      place) is added once, for both.
 4. `5704038e61`: the tests (§6).
-5. The record, the vault note, the status row and the ledger's SR-1 pointer; then the generated references.
+5. `681f26b223`: this record (first part), the vault's router note (Concepts/Scheduling and Selection, "The daily
+   plan's block router": how the choice is made now), the status row, and the ledger's SR-1 pointer to where the
+   guard is decided now (its row is otherwise untouched).
+6. `bc5e38eb0b`: the generated references.
+7. `1f7aff8730`: comments and docstrings only. The touched comments no longer name a ruling or a finding, and the
+   structure golden is lowered: stage-naming comment lines 2,370 to 2,368, 38 to 36 in `objective_chooser.py`.
+8. `cd6f8edd88`: the references regenerated after 7, which moved line numbers. A second run changed nothing.
+9. This record's proofs and results.
 
 `daily_plan/plan_records.py` is unchanged: it builds the restraint gate's record, and nothing of this method's was
 there. The plan_block record's builder is `boundary_records.py`; what moved out of it is the decision's own part for
@@ -216,7 +223,7 @@ thread during `_decide_objective`, equal at the base and the tip on every scenar
 
 ## 6. Tests added
 
-- **`tests/test_choose.py`** (26 tests, no vault): the statuses it compares are the runtime's; one per rule code
+- **`tests/test_choose.py`** (23 tests, no vault): the statuses it compares are the runtime's; one per rule code
   (`stop_offer`, a block's own code and sentence, no code: no rule and staged's why); IH5 (LLM failed with the switch
   on and off, numeric choice outside the support, both failed with a missing answer as `not_ready`); the propensities
   (μ and the draw's propensity, the alternatives' `p`, a one-hot mix served at 1.0); the coin (drawn after the mix on
@@ -237,3 +244,166 @@ thread during `_decide_objective`, equal at the base and the tip on every scenar
   patch `OC._hash`, `OC._latest_attempt`, `OC.run_numeric`, `OC._drain_carry`, `OC._await`, `ObjectiveChooser._defer_carry`
   patch names the shell keeps). No assertion changed.
 
+## 7. Proofs
+
+**P1. P-draw.** The harness of `docs/reviews/router-speed2.md` ("Identity") is not in the repository (I2 found the
+same), so it was rebuilt from that description as a scratch script (`pdraw.py` in the step's scratch directory). It
+runs on synthetic vaults, not the owner's copies (see §9). Each run:
+
+- a plan journey on the wide vault (`router_mixture_helpers.mixture_env`) at the head tag, the objective serving,
+  with fake models (`router_model_fakes`);
+- every seed pinned (`tests/pinned_draws.py`: the mix's, the numeric policy's, picks, the check day, lessons) and one
+  batch of numeric draws, so the draw count is fixed;
+- the shared ULID stream and the records' stream seeded, so every draw seeded on a fresh id repeats;
+- each served item answered and the feedback prefetch run, as the desktop does.
+
+After each run it dumps every table of the vault's database, every LLM request's prompt, every Decider call's state
+and questions, and `learnloop why <trace> --json`. The code under test is the base's (a `git archive` of
+`931c8d072e`'s `src/`, `tests/` and `migrations/`) or the branch's at `5704038e61` (the later source commit,
+`1f7aff8730`, changes comments and docstrings only).
+
+Before comparing, these were normalized: ULIDs, UUIDs, 32- and 64-hex digests and `sha256:` short refs (numbered by
+first appearance); wall-clock stamps from the real date; keys ending in `_ms` (latencies, waits, the residual fit's
+`fit_ms`); the code stamp (`git:<commit>` against the archive's `package:0.1.0`) and the two blob sizes it changes.
+Compressed state blobs (`*_z`) were compared by their decompressed content.
+
+Two base runs of `both` agree byte for byte, so the normalization leaves nothing that varies by run. Base and branch
+then agree byte for byte on all nine scenarios (26 runs):
+
+| Scenario | Runs | What it reaches |
+|---|---|---|
+| `both` | 3 | both models answering (`policy_answer`); llm, numeric and uniform components; coin arms `policy`, `present_next`; guard shown and `another_option` |
+| `coin` | 6 | `stop_coin = 0.45`: `offer_stop`, `present_next`, `policy`; `stop_offer` rule codes |
+| `llm_fails` | 3 | the LLM raising; IH5 on: numeric takes the mix (`fallback = llm`), coin arms all three |
+| `llm_fails_ih5_off` | 3 | the same with `failure_share_to_other_policy = false`: staged takes the share |
+| `no_models` | 3 | no model set up: `objective_no_models`, the carried valuation's thread (joined, as `router_mixture_helpers.join_carried_valuations` does) |
+| `guard` | 3 | a rationale with internal terms and an id not on the card: `jargon` |
+| `evidence` | 3 | a rationale citing an id on the card: shown, with its evidence label |
+| `offers` | 3 | TE1b's candidates pinned (`te3b_offers_helpers._candidates`): lesson offers in the support, `lesson_offer` codes |
+| `contest` | 2 | IH2: an open offer, then a probe made ready while it waits (`ih2_lessons_compete_helpers._open_offer`, `_ready_probe`): the contest's support and `repair_followup` |
+
+Rule codes seen across them: `stop_offer`, `repair_open_problem`, `repair_followup`, `review`, `new_material`,
+`goal_step`, `lesson_offer`. Not reached by the harness: both policies failed at once, and a numeric policy that
+failed. `tests/test_choose.py` covers both with literals, and `tests/test_ih5_successor.py` covers them in the
+chooser.
+
+**Decision-path cost.** In the same runs, connection opens and statements on the deciding thread while
+`_decide_objective` ran (another thread's, such as the carried valuation's, not counted). The counts are equal at
+the base and the tip:
+
+| Scenario | Decisions | Opens | Statements |
+|---|---|---|---|
+| both | 13 | 57 | 436 |
+| coin | 11 | 44 | 352 |
+| llm_fails | 13 | 57 | 436 |
+| llm_fails_ih5_off | 13 | 55 | 428 |
+| no_models | 16 | 74 | 552 |
+| guard | 8 | 34 | 264 |
+| evidence | 12 | 52 | 400 |
+| offers | 13 | 55 | 428 |
+| contest | 6 | 20 | 168 |
+
+**P2. The pinned draws and the router's goldens.** None regenerated; no golden file or pin changed in the diff.
+They ran unchanged in §8's targeted runs: `tests/pinned_draws.py`'s wrappers (installed by `conftest.py` for every
+test); the router mixture, objective and lesson files that read them; the ih2 `draw` fixture's users
+(`test_ih2_lessons_compete.py`, `test_why_cases.py`); `test_ro4_objective_serving.py`, `test_ro5_stop_coin.py`,
+`test_ro5_landing.py`, `test_ro6_serving.py`, `test_ih5_successor.py`, `test_router_failure_records.py` (plan log
+rows, traces, why sentences, decision records); `test_due_queue_golden.py` (the due queue's goldens, reached through
+`types.py`).
+
+**P3. Identity pins and the structure ratchet.** `tests/test_identity_pins.py` passes with nothing written (§8). Import
+cycles, measured with untracked files included (`scripts/refactor_measures.py`'s sweep over tracked plus untracked
+source): the largest component is 84 → 84, modules in any cycle 220 → 220, and both member lists are identical.
+`router_objective.choose` is in no cycle; its imports are `provenance`, `router.mixture`, `router.why`,
+`router_objective.mix` and `router_objective.stop_coin`, none of which is in one either. `tests/test_structure_ratchets.py`:
+§8.
+
+**P4. P-shadow: not required.** Replay and rebuild (`substrate/replay.py`, `substrate/rebuild_orchestrator.py`, the
+replayers and `ops/upgrades.py`) import none of the changed modules: `objective_chooser`, `router_objective.choose`,
+`boundary_records`, `provenance` or `daily_plan.types`. What replay reads of the router is `router_decisions` and the
+outcome rows (the `router_outcomes` replayer), whose bytes P1 shows unchanged. `decision_records` is a RECEIPT nothing
+replays. The step touched nothing replay reads.
+
+**P5. Decision records.** In every P1 run, the `decision_records` table (every `plan_block`, `model_answer` and
+other record, field for field) and the `why <trace> --json` output are byte-equal after normalization between base
+and tip. `tests/test_objective_decision_record.py` checks the same in the suite: on every boundary of two journeys,
+the record written from the core equals the container's own derivation.
+
+## 8. Targeted gate
+
+All through the scratch directory's `t.sh`, one command at a time, `-m "not arc_close" -n 3`, inside a 5 GB memory
+scope.
+
+| Selection | Files | Result |
+|---|---|---|
+| The gate's own files: `test_identity_pins`, `test_retired_config_identities`, `test_architecture`, `test_test_layout`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_structure_ratchets`, `test_public_tip_guards`, and the three added or edited (`test_choose`, `test_objective_decision_record`, `test_why_cases`) | 11 | 468 passed (at the final tip, after the comment commit; also before it) |
+| Every `tests/test_*.py` naming `objective_chooser`, `ObjectiveChooser`, `router_objective.mix` (or importing `mix` from it), `stop_coin`, `plan_records`, `rationale_guard`, `boundary_records` or `choose` | 52 | 856 passed, 3 skipped |
+| The rest of `scripts/affected_tests.py --base 931c8d072e` over the diff (869 files; `provenance.py` and `daily_plan/types.py` reach most of the suite), in 14 chunks of at most 60 | 815 | 14,012 passed, 45 skipped, 5 xfailed, 0 failed |
+
+- `tests/test_identity_pins.py` passes with nothing written. `tests/test_structure_ratchets.py` passes; its golden
+  was lowered with `--write` (stage-naming comments 2,370 to 2,368). Functions over 200 lines: 71, unchanged.
+  The largest import component: 84, unchanged.
+- `lint-imports --no-cache`: 43 kept, 0 broken. `ruff check`: all checks passed.
+- The four vault validators pass (`db_validate_reference`: no errors; `desktop_validate`, `module_validate` and
+  `validate_vault`: pass). `scripts/check_gate_partition.py`: 31,103 collected, landing 31,038 + arc_close 65.
+- The references were regenerated after the source commits, and again after the comment commit. A further run
+  changed nothing.
+- Fail-first for the added tests: with the core's `option_count` off by one, both cases of
+  `test_objective_decision_record.py` fail. The new module's own tests cannot fail at the base, because the module
+  does not exist there. Their seeds are found by search, not patched.
+
+## 9. Judgment calls, observations, and what E3 and E4 should know
+
+**Judgment calls.**
+
+1. **The record is built in two places, on purpose.** The core builds its decision's part directly from its
+   values. `boundary_records._derived_part` still derives the same part from the chooser's record dict, because
+   staged, the R2 mixture and every fallback have no core. The container's part is shared. The two derivations
+   must agree on objective decisions; `tests/test_objective_decision_record.py` holds them equal on real journeys,
+   and P1/P5 hold the written records byte-equal. When the R2 mixture leaves (or gets a core), `_derived_part`
+   shrinks to fallbacks.
+2. **`provenance.ref` moved out of `boundary_records`** so the core, which may not import `daily_plan`, builds ids
+   by the same rule. `boundary_records` imports it, so its name is kept.
+3. **The carry registration (`_defer_carry`) stays before the call.** It is a write (the process-wide carry
+   list, and a thread with no models), but it needs only the served answer and the decision id, the choice never
+   reads what it changes, and keeping its place keeps what a choice that raises leaves behind exactly as today.
+   Moving it after the call would read more cleanly; E3, which owns the carry, can make that move.
+4. **The restraint gate's `_mixed` is not on the core.** It draws the same mix with no coin, a different staged
+   ref, its own LLM parse per schema, its own why (`FOLLOWUP_WAITS`, or an offer's guarded why over the card's
+   evidence) and its own record (`plan_records.plan_interrupt`). The brief names `_decide_objective`. Putting
+   `_mixed` on `choose` needs a second mode in the core, or a smaller shared core (failure share, weights, draw)
+   that both call. That is a later step's decision.
+5. **Two named predicates for the coin's reads** (`coin_reads_minutes`, `coin_applies`) rather than reading the
+   availability ahead. That is the second pure stage step 0 allowed, and it adds no query. `choose` flips the coin
+   under the same `coin_applies`, so the shell and the core cannot disagree about whether the availability was
+   needed. If they ever did, the core refuses: `ValueError`.
+
+**Observation (no ledger row).** `effective_weights` and `components` used to run before the decision's id was
+minted and its carry registered. They now run inside the call, after both. They can raise only on inputs the
+configuration and the support already rule out: `w` outside [0, 1], or staged's ref outside the support. So the
+only path where this order is visible is one that does not occur. `mix.draw`, whose raise `test_router_failure_records`
+plants, was already after both, and still is.
+
+**For E3 (job control and the clock).** The `_NoModels` name check now feeds one input (`ChoiceInputs.no_models`),
+and `_defer_carry` keeps its own copy. `_numeric_answer` (the final answer or the early publication) is job-side and
+belongs in `objective_job.py`. The shell's clock reads are `wall_now()` (`results_at`) before the call and
+`runtime.clock()` (`waited_ms`) after it. Neither reaches `choose`. The mix's seed is still minted in the shell
+(`new_ulid` then `_seed`), so E3's seed module can produce it without touching the core.
+
+**For E4 (trace assembly).** After the call, the shell builds the trace (`_trace`, `learner_statements`,
+`followup_contest`, `goal_dates`, `carried_for`, the coin's trace fields and the score note) and the router's record
+dict from `Choice` fields only: `drawn`, `coin`, `served`, `effective`, `failed`, `numeric_choice`, `components`,
+`guard`, `shown`, `favoured`. `_carried_for` is the one read in the write phase. It reads the carry list and
+`router_objective_traces`, and only the trace uses it. The record dict's key order is what the router's ledger
+stores, so its writer keeps it.
+
+## 10. Not verified
+
+- **The owner's copies.** P-draw ran on synthetic vaults, not on the three owner copies `router-speed2.md` used.
+  Building that harness on the copies (a real journey per copy with fake models) was more than this step's budget.
+  The synthetic scenarios do reach every component, every coin arm, the failure-share switch both ways, no models,
+  the guard's shown and refused paths, offers and IH2's contest.
+- **The whole suite, durability, `--fresh-connections` and `arc_close`**: the orchestrator's gate.
+- **The restraint gate's paths** (`_mixed`): unchanged code, run only by the targeted files that reach it.
+- **Both policies failing together, and a numeric policy that failed**, were not reached by the P-draw scenarios.
+  `tests/test_choose.py` and `tests/test_ih5_successor.py` cover them.
