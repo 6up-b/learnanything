@@ -35,11 +35,13 @@ from tests.te3b_offers_helpers import offerable  # noqa: F401 - the fixture
 from tests.why_cases_helpers import (
     CASE1_PREFETCH_WAIT_S,
     CASE1_WAIT_S,
+    RULE_CASES,
     of_kind,
     stage_case_1,
     stage_case_2,
     stage_case_3,
     stage_case_4,
+    stage_rule_case,
     why,
 )
 
@@ -200,3 +202,22 @@ def test_case_4_first_build_names_the_last_skip_the_first_build_and_the_measurem
     assert build["inputs"]["wait_min"] > 0 and build["inputs"]["p_open"] is not None
     assert build["seed"] and str(build["seed"]).isdigit()
     assert built["by_trigger_kind"]["offer"]["skips_before_first_non_skip"] == len(skips)
+
+
+# -- the objective's choice: one case per rule code its core returns (refactor rule L6) ---------------------------
+
+
+@pytest.mark.parametrize(("prefer", "code"), RULE_CASES, ids=[code for _prefer, code in RULE_CASES])
+def test_the_objective_choice_names_its_rule_code(tmp_path, draw, request, prefer, code):
+    if code == "lesson_offer":
+        request.getfixturevalue("offerable")
+    root = stage_rule_case(tmp_path, draw, prefer)
+    blocks = [block for block in of_kind(why(root, "TRACE_RULE"), "plan_block")
+              if block["decided_by"] == "objective" and str(block["chosen"]).startswith(prefer)]
+    assert blocks, "no objective decision served the case"
+    for block in blocks:
+        assert (block["status"], block["rule"]) == ("chosen", code)
+        assert block["versions"]["why_version"] == "router_why_v3" and block["seed"] is not None
+        # The support's other options lost the draw, each with its probability under the mix.
+        assert block["alternatives"] and all(alt["lost_by"] for alt in block["alternatives"])
+        assert any(alt["lost_by"] == "not_drawn" and alt["p"] is not None for alt in block["alternatives"])

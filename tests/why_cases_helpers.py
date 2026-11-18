@@ -141,3 +141,42 @@ def stage_case_4(tmp_path) -> tuple[Path, list[dict[str, Any]], str]:
     finally:
         P.set_power_reader(None)
     return paths.root, skips, measured
+
+
+#: The objective's rule codes (refactor rule L6): what the mix serves, staged per code, and the code its record names.
+RULE_CASES = (("stop_for_today", "stop_offer"), ("repair:", "repair_open_problem"), ("maintain:", "review"),
+              ("lesson_offer:", "lesson_offer"))
+
+
+def stage_rule_case(tmp_path, draw, prefer: str) -> Path:
+    """Boundaries the objective decides with both models answering, under ``TRACE_RULE``, the mix serving the first
+    option that starts with ``prefer`` whenever one is in the support (the ih2 ``draw`` fixture). No stop coin and no
+    day's check, so what the mix draws is what is served. Answers what is served until such a boundary is decided."""
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from tests.daily_plan_fakes import record_attempt
+
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer)),
+                      version=LATEST_ALGORITHM_VERSION,
+                      toml='[router_objective]\nstop_coin = 0.0\ncheck_rate = "off"\n')
+    draw.prefer = (prefer,)
+
+    def decided() -> bool:
+        with env.repository.connection() as connection:
+            return connection.execute(
+                "SELECT COUNT(*) FROM router_decisions WHERE decision_kind = 'plan_block' AND policy = "
+                "'router_objective_v1' AND chosen_ref LIKE ?", (f"{prefer}%",)).fetchone()[0] > 0
+
+    with provenance.trace_scope("TRACE_RULE"):
+        build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+        for _ in range(8):
+            if decided():
+                break
+            _record, step = advance(env, serve=True)
+            if decided() or step is None or step["kind"] != "item":
+                break
+            env.clock.advance(2)
+            record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                           session_id=env.session_id)
+    assert decided(), f"no boundary served {prefer}"
+    return env.vault.root
