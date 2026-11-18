@@ -1,0 +1,298 @@
+# Refactor status
+
+- S1, S2 and M1 are in flight. The rebuild fix is in flight for `mvp-0.60`.
+- L2c and L2d come next. L1b and the first L2 batch are on main. Further cycle cuts wait for arc G.
+- Run E1–E6, then E7 as the evidence view. Run G1 and G3, then K6 and G6 with K5 alongside. G2 follows. G4 runs only if G3 finds disagreement. H1 and H2 follow.
+- The owner still needs to decide I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, and the diagnosis questions for K9.4, K9.13 and K9.17.
+- Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
+
+The orchestrator updates this file in each landing commit. The first snapshot uses main at `c1e3706164` and the owner's Nov 17 decisions.
+
+## Baseline and arc A
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| S0 | Measure the baseline and refresh the map | landed | `7a2b108e16` | [refactor-baseline.md](refactor-baseline.md) | — |
+| A1 | Remove per-note stamps from generated reference notes | landed | `1c0e9653c1` | [refactor-a1.md](refactor-a1.md) | — |
+| A2 | Give the head test fixture a stable name | landed | `f52d13b937` | [refactor-a2.md](refactor-a2.md) | — |
+| A3 | Replace frozen digests with one readable defaults file | landed | `00d1a77885` | [refactor-a3.md](refactor-a3.md) | — |
+| A4 | Correct privacy guidance and refresh developer directions | landed | `9ce90f7e96` | [refactor-a4.md](refactor-a4.md) | — |
+| A5 | Add bug-finding lint rules to every gate | landed | `14722beef0` | [refactor-a5.md](refactor-a5.md) | — |
+| A6 | Shorten landing gates and move simulations to arc close | landed | `1fcce2517e` | [refactor-a6.md](refactor-a6.md) | — |
+
+## Arc B
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| B1 | Add decision records, trace IDs and read-only why | landed | `0f309956e3` | [refactor-b1.md](refactor-b1.md) | — |
+| B2 | Record router failures and their causes | landed | `52ecd640ca` | [refactor-b2.md](refactor-b2.md) | — |
+| B3 | Record forced items, withdrawals and boundary failures | landed | `1ddf7c88ed` | [refactor-b3.md](refactor-b3.md) | — |
+| B4 | Record figure builds, exclusions and author attempts | landed | `0ed4761bf0` | [refactor-b4.md](refactor-b4.md) | — |
+| B5 | Record Decider refusals and spending refusals | landed | `45d56d6dc4` | [refactor-b5.md](refactor-b5.md) | — |
+| B6 | Record scheduler slates and serving exclusions | landed | `ac370fb4f0` | [refactor-b6.md](refactor-b6.md) | — |
+| B7 | Record the attempt chain and continue job traces | landed | `837a4e63bc` | [refactor-b7.md](refactor-b7.md) | — |
+| B8 | Record the remaining high-value decision boundaries | landed | `7ad0437811` | [refactor-b8.md](refactor-b8.md) | — |
+| B9 | Use one why reader and test real cases | landed | `a8b3ab6f68` | [refactor-b9.md](refactor-b9.md) | — |
+
+## Arc C
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| C1 | Delete proven dead modules and leaf definitions | landed | `d728249360` | [refactor-c1.md](refactor-c1.md) | — |
+| C2 | Remove dead modules with their registry entries | landed | `11c3bfaa2b` | [refactor-c2.md](refactor-c2.md) | — |
+| C3 | Remove unused calls and unread config keys | landed | `c08fe44d94` | [refactor-c3.md](refactor-c3.md) | — |
+| C4 | Retire the Codex transport and its configuration | landed | `f93a483ef7` | [refactor-c4.md](refactor-c4.md) | — |
+| C5 | Remove Golden Path screens, RPCs and code | landed | `5ba0fded47` | [refactor-c5.md](refactor-c5.md) | — |
+| C6 | Remove dead controller and kinship-era code | landed | `4857bd99ab` | [refactor-c6.md](refactor-c6.md) | — |
+| C7 | Apply the owner's choices about conditional removals | landed | `2564375ac3` | [refactor-c7a.md](refactor-c7a.md) | — |
+| C7a | Move the terminal UI dependency to an extra | landed | `2564375ac3` | [refactor-c7a.md](refactor-c7a.md) | — |
+
+## Arc J
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| J1 | List candidate tables and correct their roles | landed | `f930ecb2cf` | [refactor-j1.md](refactor-j1.md) | — |
+| J2 | Drop the first approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
+| J3 | Drop the next approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
+| J4 | Drop the final approved family of tables | waiting on | — | — | Owner's approval and removal of readers and writers |
+
+## Arc D
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| D1 | Enforce the oldest supported tag at vault doors | landed | `1da959e7d7` | [refactor-d1.md](refactor-d1.md) | — |
+| D2a | Run basic test vaults at the head tag | landed | `72ace2968a` | [refactor-d2a.md](refactor-d2a.md) | — |
+| D2b | Move tests off old tags in passes | waiting on | — | [refactor-d2b4.md](refactor-d2b4.md) | Third old-tag pass |
+| D2b part 1 | Retag shared fixtures and older successor test builders | landed | `16a9e3fd48` | [refactor-d2b.md](refactor-d2b.md) | — |
+| D2b part 2a | Build the shared plan test vault at head | landed | `33c10723f2` | [refactor-d2b2.md](refactor-d2b2.md) | — |
+| D2b part 2b | Move plan tests off old tags where possible | landed | `5f0d44269e` | [refactor-d2b3.md](refactor-d2b3.md) | — |
+| D2b part 2c | Run the second pass over old-tag tests | landed | `6c114e2ae1` | [refactor-d2b4.md](refactor-d2b4.md) | — |
+| D2b third pass | Review the remaining tests that name old tags | not started | — | [refactor-d2b4.md](refactor-d2b4.md) | — |
+| D3 | Replace the upgrade chain with one table | landed | `9eb0194c2c` | [refactor-d3.md](refactor-d3.md) | — |
+| D4 | Remove constant attempt, mastery and grading gates | landed | `41387e1236` | [refactor-d4.md](refactor-d4.md) | — |
+| D5 | Remove constant rebuild, projection and doctor gates | landed | `a4bd9f2b77` | [part 1](refactor-d5.md), [part 2](refactor-d5b.md) | — |
+| D6 | Remove remaining constant gates and unused version sets | landed | `b4c8fbad98` | [refactor-d6.md](refactor-d6.md) | — |
+| D7 | Retire eligible switches and record the kept groups | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
+| D7 inventory | List switches and their readers before removal | landed | `00bdf58da8` | [refactor-d7-inventory.md](refactor-d7-inventory.md) | — |
+| D7.0 | Report vault switches and hold the version floor | landed | `3405215424` | [refactor-d7.0.md](refactor-d7.0.md) | — |
+| D7 batch 1 part 1 | Retire teacher weights and five practice switches | landed | `72b771471a` | [refactor-d7a.md](refactor-d7a.md) | — |
+| D7 batch 1 part 2 | Retire cold-help and stuck prompt switches | landed | `5c561264c7` | [refactor-d7a.md](refactor-d7a.md) | — |
+| D7 batch 1 part 3 | Retire eligibility and its predecessor cold lane | landed | `1d122fee33` | [refactor-d7a.md](refactor-d7a.md) | — |
+| D7 batch 1 part 4 | Retire diagnosis split and shadow switches | landed | `250b0e16fe` | [refactor-d7a.md](refactor-d7a.md) | — |
+| D7 batch 1 part 5 | Retire bounded replay and claim fixes switches | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | Switch work moved out of D7 |
+| D7 batch 2 | Retire placement, follow-up and stopping switches | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | D7 closed. Simulation needs the switches. |
+| D7 batch 3 part 1 | Retire seven Today switches and their old paths | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
+| D7 batch 3 part 2 | Retire the lesson, teacher and data capture switches | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
+| D7 batch 3 last group | Retire the plan, router and restraint switches | dropped | — | [refactor-d7e.md](refactor-d7e.md) | Owner kept all three, Nov 17 |
+| D7 batch 4 | Retire router objective switches at the floor | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | Arc E opens their file |
+| D8 | Fix the four replay gaps pinned by tests | not started | — | — | — |
+| D8 retired items | Replay retirement at the correct point in history | not started | — | — | — |
+| D8 same-second grades | Preserve commit order for grades sharing a timestamp | not started | — | — | — |
+| D8 claims | Re-anchor claims created after replay materializes state | not started | — | — | Design for re-anchoring |
+| D8 provenance | Fix the two reopened input provenance gaps | waiting on | — | — | One capture point for diagnosis inputs |
+| D close fix 1 | Fix arc close serving and test gaps | landed | `7131b464c5` | [refactor-adfix1.md](refactor-adfix1.md) | — |
+| D close fix 2 | Fix diagnosis stops, clocks and vault switching | landed | `6fffbc20c8` | [refactor-adfix2.md](refactor-adfix2.md) | — |
+| D close rebuild fix | Preserve adjudications and avoid duplicate rebuild history (D-36, D-52) | in flight | — | [ledger D-36](refactor-bug-ledger.md) | Landing as `mvp-0.60` |
+
+## Arc E
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| E1 | Move AD availability beside its reader | waiting on | — | — | L2 |
+| E2 | Extract the chooser's pure decision function | waiting on | — | — | E1 |
+| E3 | Move job control and clocks out of choice | waiting on | — | — | E2 |
+| E4 | Move trace assembly out of the chooser | waiting on | — | — | E3 |
+| E5 | Separate objective terms from rollout arithmetic | waiting on | — | — | E4 |
+| E6 | Put each router action in one place | waiting on | — | — | E5 |
+| E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
+| E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
+| E8 | Remove performance switches from learned model identity | deferred | — | — | Goes with F2 (owner, Nov 17: F2 only if Next after feedback is slow) |
+| E9 | Rename misleading modules and move feature-owned files | not started | — | — | E1–E7 |
+
+## Arc F and RE2
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| F1 | Remove redundant column checks on current schemas | landed | `2b161923e6` | [refactor-f1.md](refactor-f1.md) | — |
+| RE2 | Use one FSRS function for retrievability | landed | `68c61b9f1a` | [refactor-re2.md](refactor-re2.md) | — |
+| F2 | Profile and streamline numeric policy arithmetic | deferred | — | — | Slow Next after feedback. Needs E5 and E8. |
+| F3 | Profile and reduce the costliest SQLite reads | deferred | — | — | Revisit if F2 misses its target |
+
+## Arc I
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| I1 | Extract the pure core of grade application | landed | `67a5364df0` | [refactor-i1.md](refactor-i1.md) | — |
+| I2 | Extract pure due queue ranking from persistence | waiting on | — | [refactor-i2.md](refactor-i2.md) | Owner's call about reading more rows on the decision path |
+| I2-1 | Split serving writes from due queue reads | landed | `e1df438a03` | [refactor-i2.md](refactor-i2.md) | — |
+
+## Arc G
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| G1 | Extract probe facts and hard stops | waiting on | — | — | Arc E |
+| G2 | Make the action router the probe decider | waiting on | — | — | G1, K6 and G6 |
+| G3 | Measure disagreement between the two diagnosis beliefs | waiting on | — | — | Arc E. Runs with G1. |
+| G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | — | G3 shows disagreement |
+| G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
+| G6 | Use one authority for each protection question | waiting on | — | — | G1 and G3. Runs with K6. |
+
+## Arc H
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| H1 | Distinguish the old scalar from FSRS difficulty | waiting on | — | — | Arc G |
+| H2 | Compare four ways to use difficulty in replay | waiting on | — | — | H1 |
+| H3 | Retire scalar difficulty from mastery and surprise | waiting on | — | — | H2 and owner's call with the [AD memory spec](../specs/spec_ad_memory_v1.md) |
+| H4 | Retire the model-estimated difficulty signal from AD | waiting on | — | — | Owner's call with the AD memory spec |
+| H5 | Update exam strata, retrieval filters and authoring | waiting on | — | — | Owner's call with the AD memory spec |
+| H6 | Remove scalar writers and DTOs, preserving hashes | waiting on | — | — | Owner's call with the AD memory spec |
+
+## Arc Z
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| Z1 | Write and verify the modelling paper | waiting on | — | — | E5, arc G's belief decision and arc H |
+| Z2 | Measure the refactor and report the savings | waiting on | — | — | Refactor close |
+| Z3 | Archive superseded and abandoned specs after documentation | waiting on | — | — | Documentation rewrite and owner's archive review |
+
+## Arc K: identity and protection
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| K0 | Pin compared identities through their production paths | landed | `2bc93d4d2b` | [refactor-k0.md](refactor-k0.md) | — |
+| K1 | Inventory protection questions, authorities and reading sets | landed | `565aee8724` | [refactor-k1.md](refactor-k1.md) | — |
+| K1 fixes | Fix metadata gates, reservation gaps and docstrings | landed | `412cc63b4b` | [refactor-k1-fixes.md](refactor-k1-fixes.md) | — |
+
+## Arc K: ingestion
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| K2 | Map ingestion and write its structure strategy | landed | `d1c3ee7c78` | [ingestion strategy](k2-ingestion-strategy-2026-11-11.md) | — |
+| K2.1 | Use one checkpoint helper for structured calls | landed | `9eb0194c2c` | [refactor-k2.1.md](refactor-k2.1.md) | — |
+| K2.2 | Key inventory and shard reuse on rendered inputs | landed | `ff8b42530b` | [refactor-k2.2.md](refactor-k2.2.md) | — |
+| K2.3 | Record exact manifest inputs and reuse checkpoints | landed | `6daf76d9cb` | [refactor-k2.3.md](refactor-k2.3.md) | — |
+| K2.4 | Share the synthesis run between two modes | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md) | Part B of K2.4c |
+| K2.4a | Share normalization, gates, persistence and apply | landed | `fea17dccae` | [refactor-k2.4a.md](refactor-k2.4a.md) | — |
+| K2.4b | Share synthesis inputs, scope and manifest resolution | landed | `cb8bcb9a7f` | [refactor-k2.4b.md](refactor-k2.4b.md) | — |
+| K2.4c | Run append through the shared shard runner | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md) | Part B |
+| K2.4c part A | Drive append calls through the shard runner | landed | `2f35db5173` | [refactor-k2.4c.md](refactor-k2.4c.md) | — |
+| K2.4c part B | Split oversized appends into checkpointed passes | waiting on | — | [refactor-k2.4c.md](refactor-k2.4c.md#part-b-splitting-an-oversized-append-design-only-not-built) | Owner's call on splitting append |
+| K2.5 | Split normalization into named stages with one state | landed | `f623e525ac` | [refactor-k2.5.md](refactor-k2.5.md) | — |
+| K2.6 | Share the judge heartbeat and lapse checks | not started | — | — | — |
+| K2.7 | Put each job type in one table row | not started | — | — | — |
+| K2.8 | Give each source kind one definition | not started | — | — | — |
+| K2.9 | Centralize extractor choice and consent checks | not started | — | — | — |
+| K2.10 | Fold small fixes for conflicts, estimates and comments | not started | — | — | — |
+| K2.11 | Have desktop read ingest eligibility from the sidecar | not started | — | — | Due before the UX overhaul |
+| K2.12 | Record why ingest made its key decisions | not started | — | — | — |
+| K3 | Fix ingestion defects that cost money or data | landed | `dcf1eb5301` | [refactor-k3.md](refactor-k3.md), [final fix](refactor-k3.5.md) | — |
+| K3.1 | Choose the current inventory row for synthesis | landed | `46b13f53c7` | [refactor-k3.md](refactor-k3.md) | — |
+| K3.2 | Keep appends scoped to newly inventoried units | landed | `a83beeee84` | [refactor-k3.md](refactor-k3.md) | — |
+| K3.3 | Send every missing unit in collection builds | landed | `84d2614688` | [refactor-k3.md](refactor-k3.md) | — |
+| K3.4 | Bound and checkpoint the synthesis append call | landed | `5302288318` | [refactor-k3.4.md](refactor-k3.4.md) | — |
+| K3.5 | Recover interrupted applies without overwriting changed files | landed | `4f85aa885e` | [refactor-k3.5.md](refactor-k3.5.md) | — |
+
+## Arc K: other reviews
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| K4 | Map writers outside the ingestion pipeline | deferred | — | — | Owner's Nov 17 queue |
+| K5 | Map grading, regrade, coldness and certification | waiting on | — | — | G1 and G3. Runs alongside K6 and G6. |
+| K6 | Map Reader Ask and retrieval side effects | waiting on | — | — | G1 and G3 |
+| K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
+| K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
+| K11 | Map the daily plan engine before moving code | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on placing the map before E2 |
+
+## Arc K: diagnosis
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| K9 | Map diagnosis and write its structure strategy | landed | `31787227e2` | [diagnosis strategy](k9-diagnosis-strategy-2026-11-14.md) | — |
+| K9.0 | Investigate the planted-type simulation's robust probe path | landed | `ed96d1b9d0` | [refactor-k9.0.md](refactor-k9.0.md) | — |
+| K9.0b | Correct the robust probe gate and instrument ranking | landed | `7bdec7edb5` | [refactor-k9.0b.md](refactor-k9.0b.md) | — |
+| K9.1 | Settle block answers on a mid-check stop | landed | `55205863a2` | [refactor-adfix2.md](refactor-adfix2.md) | — |
+| K9.2 | Explain why a check was withheld | landed | `4f5b325939` | [refactor-adfix2.md](refactor-adfix2.md) | — |
+| K9.3 | Use an injected clock for primed-sibling ranking | landed | `ce11173c99` | [refactor-adfix2.md](refactor-adfix2.md) | — |
+| K9.4 | Expire an untaken primed repair episode | waiting on | — | [ledger R1-2](refactor-bug-ledger.md) | Owner's answer to K9 Q1 |
+| K9.5 | Pin diagnosis identities and golden its journeys | landed | `4874f304e8` | [part 1](refactor-k9.5a.md), [part 2](refactor-k9.5b.md) | — |
+| K9.5 part 1 | Pin the diagnosis package's compared identities | landed | `9cb87cfa16` | [refactor-k9.5a.md](refactor-k9.5a.md) | — |
+| K9.5 part 2 | Golden the diagnosis journeys before moving code | landed | `4874f304e8` | [refactor-k9.5b.md](refactor-k9.5b.md) | — |
+| K9.6 | Extract causal reads and hard stop checks | landed | `3c713310a6` | [refactor-k9.6.md](refactor-k9.6.md) | — |
+| K9.7 | Extract machine checks and cold verification | landed | `f719b52f58` | [refactor-k9.7.md](refactor-k9.7.md) | — |
+| K9.8 | Extract discriminating observations and learner offer actions | landed | `0678b5309c` | [refactor-k9.8.md](refactor-k9.8.md) | — |
+| K9.9 | Extract probe completion policy and stopping rules | landed | `ebdb550566` | [refactor-k9.9.md](refactor-k9.9.md) | — |
+| K9.10 | Extract presentations and delete dead block planning | landed | `f104eabe79` | [refactor-k9.10.md](refactor-k9.10.md) | — |
+| K9.11 | Extract probe evidence and learner controls | landed | `753b68eac4` | [refactor-k9.11.md](refactor-k9.11.md) | — |
+| K9.12 | Record declined probe answers and failed hooks | landed | `8311e90261` | [refactor-k9.12.md](refactor-k9.12.md) | — |
+| K9.13 | Separate episode posterior reads from its fold | waiting on | — | — | Arc G and owner's answer to K9 Q2 |
+| K9.14 | Update the Diagnosis note to match code | landed | `1d3edadcfe` | [Diagnosis and Remediation](../learnloop-architecture-vault/Concepts/Diagnosis%20and%20Remediation.md) | — |
+| K9.15 | Remove failure triage and its registry entries | landed | `be3cb2ac11` | [refactor-k9.15.md](refactor-k9.15.md) | — |
+| K9.16 | Remove EVSI shadow selection and its panel | landed | `1fad9526bd` | [refactor-k9.16.md](refactor-k9.16.md) | — |
+| K9.17 | Feed released holds and regrades into belief | waiting on | — | [ledger K9-3](refactor-bug-ledger.md) | Arc G and owner's answer to K9 Q2 |
+
+## Arc K: figures
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| K10 | Map figures and write their structure strategy | landed | `92a871d915` | [figures strategy](k10-figures-strategy-2026-11-14.md) | — |
+| K10.1 | Stop building when a figure request is cancelled | landed | `7f96c0a5c7` | [refactor-k10-bugs.md](refactor-k10-bugs.md) | — |
+| K10.2 | Tell the Reader when figures are withheld | landed | `ffc1cd94c5` | [refactor-k10-bugs.md](refactor-k10-bugs.md) | — |
+| K10.3 | Continue the request trace in video jobs | landed | `d327f4b130` | [refactor-k10-bugs.md](refactor-k10-bugs.md) | — |
+| K10.4 | Pin figure identities and golden the build | landed | `15075cca37` | [refactor-k10.4.md](refactor-k10.4.md) | — |
+| K10.5 | Give each figure switch one predicate | landed | `b562858238` | [refactor-k10.5-6.md](refactor-k10.5-6.md) | — |
+| K10.6 | Centralize figure protection and cut its cycle | landed | `66cad2da41` | [refactor-k10.5-6.md](refactor-k10.5-6.md) | — |
+| K10.7 | Extract figure request and grounding functions | landed | `8d775a4456` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
+| K10.8 | Extract presentation, listing and predictions from build | landed | `150b14ae3e` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
+| K10.9 | Extract pure reading of the figure author's answer | not started | — | — | — |
+| K10.10 | Share the presentation chain and shown set | waiting on | — | — | K10.9 |
+| K10.11 | Record figure refusals, reuse and available tiers | waiting on | — | — | K10.10 |
+| K10.12 | Record each attempt by a rich figure job | waiting on | — | — | K10.11 |
+| K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
+| K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
+| K10.15 | Write the Figures note and correct stale lines | not started | — | [ledger K10-4](refactor-bug-ledger.md) | — |
+| K10.16 | Retire the eight figure content switches | waiting on | — | — | Owner's count for removing legacy reuse reads |
+| K10.17 | Remove the dormant JavaScript animation tier | not started | — | — | — |
+
+## Measure and layout steps
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| M0 | Hold the structure measures in a golden | landed | `9042ca91f3` | [refactor-m0.md](refactor-m0.md) | — |
+| M1 | Hold serving file sizes and golden JSON lines | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
+| L1 | Cut the import cycle at measured edges | waiting on | — | [refactor-l1b.md](refactor-l1b.md) | Arc G for the remaining knot |
+| L1a | Cut two import edges with pure moves | landed | `572d40b9fa` | [refactor-l1a.md](refactor-l1a.md) | — |
+| L1b | Cut three more edges and measure the component | landed | `914145d0b9` | [refactor-l1b.md](refactor-l1b.md) | — |
+| L2 | Move repository methods into named store files | in flight | — | [pilot](refactor-l2a.md), [first batch](refactor-l2b.md) | L2c and L2d |
+| L2a | Pilot a store for reading request methods | landed | `400dfeb2be` | [refactor-l2a.md](refactor-l2a.md) | — |
+| L2b | Split five store groups from the repository | landed | `914145d0b9` | [refactor-l2b.md](refactor-l2b.md) | — |
+| L2c | Split attempt, grade and diagnostic store groups | waiting on | — | — | Rebuild fix lands first |
+| L2d | Split content, scheduling and other repository groups | waiting on | — | — | L2c |
+| L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner's list of CLI-only code that stays |
+| L4 | Review which learned models need pure cores | not started | — | — | — |
+| L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
+| L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
+| L6a | Return records from the already extracted cores | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval and the I2 core |
+| L7 | Move the support floor as vaults advance | landed | `1da959e7d7` | [refactor-d1.md](refactor-d1.md) | — |
+
+## Tests and phase reviews
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| T1 | Stop test files importing one another | landed | `732fe09aaf` | [refactor-t1.md](refactor-t1.md) | — |
+| T2 | Rename tests for the behavior they prove | waiting on | — | — | Documentation stage at the close |
+| T3 | Pin seeded draws in tests by default | landed | `412cc63b4b` | [refactor-t3.md](refactor-t3.md) | — |
+| T4 | Port private patches and ratchet their counts | waiting on | — | [ledger K9-8](refactor-bug-ledger.md) | Ratchet decision. Porting rule already applies. |
+| T5 | Merge stage-named tests and review slow tests and goldens | waiting on | — | — | Arc E and the refactor close |
+| Phase 1 review | Review the first phase and land its fixes | landed | `04a0154c0d` | [refactor-phase-1-review.md](refactor-phase-1-review.md) | — |
+| Phase 2 review | Review the second phase and land its fixes | waiting on | — | — | Arc D close |
+
+## Second audit
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| S1 | Keep one status table in the repository | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
+| S2 | Stop batches when cost per removal more than doubles | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
+| S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
+| S4 | Name the next features and their prerequisites | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval of the strategy edits |
+| P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on packet records before the evidence packet build |

@@ -1,4 +1,4 @@
-"""Structure numbers that only go down: the largest import cycle, first-level names, long functions, history comments.
+"""Structure ceilings for import cycles, first-level names, function and file sizes, and history comments.
 
 ``scripts/refactor_measures.py`` counts them from the tracked source (the test reads files and imports nothing from
 ``learnloop``); ``tests/goldens/structure.toml`` holds the numbers the tree is held to, with the members behind them so
@@ -53,6 +53,8 @@ def current() -> dict[str, Any]:
             "functions_over_200_lines": len(swept["functions_over_200_lines"]),
             "comment_lines_naming_a_stage_artifact": swept["stage_comments"]["naming_a_stage_artifact"],
             "test_files_named_for_a_stage": swept["stage_test_files"]["count"],
+            **swept["file_lines"],
+            "golden_json_lines": swept["golden_json_lines"],
         },
         "members": {
             "import_component": swept["import_component"]["members"],
@@ -72,7 +74,7 @@ def _toml(payload: dict[str, Any]) -> str:
             if isinstance(value, list):
                 out.append(f"{key} = [" + "".join(f"\n    {json.dumps(item)}," for item in value) + "\n]")
             else:
-                out.append(f"{json.dumps(key) if table == 'stage_comments_by_file' else key} = {value}")
+                out.append(f"{json.dumps(key) if '/' in key else key} = {value}")
     return "\n".join(out) + "\n"
 
 
@@ -91,11 +93,11 @@ EXPLAIN = {
                                               "landing, an F- or R-number)", None, ""),
     "test_files_named_for_a_stage": ("test files named for a stage or a fix round", "stage_test_files",
                                      "new stage-named test files"),
+    "golden_json_lines": ("the line count for test golden JSON files", None, ""),
 }
 
 
-def _new(key: str, now: dict[str, Any], golden: dict[str, Any]) -> list[str]:
-    members = EXPLAIN[key][1]
+def _new(key: str, members: str | None, now: dict[str, Any], golden: dict[str, Any]) -> list[str]:
     if members:
         before, after = Counter(golden.get("members", {}).get(members, [])), Counter(now["members"][members])
         return sorted((after - before).elements())
@@ -115,8 +117,8 @@ def failures(now: dict[str, Any], golden: dict[str, Any]) -> list[str]:
             continue
         if value <= held:
             continue
-        what, _members, verb = EXPLAIN[key]
-        new = _new(key, now, golden)
+        what, members, verb = EXPLAIN.get(key, (f"the line count for {key}", None, ""))
+        new = _new(key, members, now, golden)
         listing = f"\n  {verb}:\n    " + "\n    ".join(new[:40]) + ("\n    ..." if len(new) > 40 else "") if new else ""
         messages.append(
             f"structure ratchet '{key}' rose: {what} is {value}, the golden holds {held} (+{value - held}).{listing}"
