@@ -23,11 +23,11 @@ source_paths:
   - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/goals/goal_contracts.py"
-  - "src/learnloop/substrate/activities.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/calibration_streams.py`
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
@@ -133,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_rebuild_history_appends.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/certain_grade_helpers.py`

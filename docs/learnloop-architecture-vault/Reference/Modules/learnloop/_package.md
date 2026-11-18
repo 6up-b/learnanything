@@ -82,12 +82,12 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/__main__|learnloop.__main__]] | [[Reference/Modules/learnloop/__main__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] | [[Reference/Modules/learnloop/activation_journal#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/adf_numeric|learnloop.adf_numeric]] | [[Reference/Modules/learnloop/adf_numeric#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
-| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 17 | 250 |
+| [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] | [[Reference/Modules/learnloop/algorithm_versions#^module-purpose|purpose]] | `ACTIVE` | 18 | 251 |
 | [[Reference/Modules/learnloop/app_launch|learnloop.app_launch]] | [[Reference/Modules/learnloop/app_launch#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 10 | 2 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 411 | 601 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 411 | 602 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] | [[Reference/Modules/learnloop/decider_judgments#^module-purpose|purpose]] | `ACTIVE` | 22 | 10 |
 | [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] | [[Reference/Modules/learnloop/delayed_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
@@ -195,7 +195,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 56 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 50 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 45 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 42 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 43 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 38 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 36 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 34 static module edges
@@ -275,7 +275,7 @@ flowchart LR
     n_learnloop_db_stores -->|45| center
     center -->|9| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|50| center
-    n_learnloop_attempts -->|42| center
+    n_learnloop_attempts -->|43| center
     n_learnloop_scheduling -->|36| center
     center -->|2| n_learnloop_scheduling
     n_learnloop_source_retrieval -->|38| center

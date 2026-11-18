@@ -47,14 +47,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1031 |
+| Source lines | 1050 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 985) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
+- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 999) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
 
 ### Module constants
 
@@ -111,15 +111,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SLIP_GAP_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 901)
 - `FIGURE_WAIT_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 912)
 - `FACET_BELIEF_FIX_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 923)
-- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 931)
-- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 993)
-- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 999)
-- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1003)
-- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1009)
-- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1014)
-- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1019)
-- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1026)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1031)
+- `GRADE_CHANNEL_FIX_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 936)
+- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 944)
+- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1007)
+- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1013)
+- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1017)
+- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1023)
+- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1028)
+- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1033)
+- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1040)
+- `GRADE_CHANNEL_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1045)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1050)
 
 ## Internal implementation anchors
 
@@ -131,6 +133,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `GRADE_CHANNEL_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `FAILURE_SHARE_VERSIONS`
@@ -141,7 +144,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `PLACEMENT_VERSIONS`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `DECIDER_TIER1_VERSIONS`
@@ -170,7 +173,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/config/template|learnloop.config.template]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -285,7 +288,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
-  - `test_the_successor_is_one_constant_after_the_figure_wait_estimate_and_the_latest`
+  - `test_the_successor_is_one_constant_after_the_figure_wait_estimate`
 - [tests/test_facet_belief_successor_derivation.py](../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
 - [tests/test_facet_state_write_on_change.py](../../../../../tests/test_facet_state_write_on_change.py) — direct import
 - [tests/test_field_split_outcomes.py](../../../../../tests/test_field_split_outcomes.py) — direct import
@@ -419,6 +422,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`
 - [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_the_successor_is_one_constant_after_its_predecessor`
+- [tests/test_rebuild_history_appends.py](../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_a_regrade_appends_its_grade_once_and_rebuilds_add_nothing`
+  - `test_an_adjudication_survives_rebuilds`
+  - `test_below_the_tag_every_rebuild_re_mints_each_answers_chain`
+  - `test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds`
 - [tests/test_receipt_exactness.py](../../../../../tests/test_receipt_exactness.py) — direct import
 - [tests/test_recurrence_benchmarks.py](../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b3_replays_the_vaults_labelled_pairs`

@@ -139,7 +139,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] | [[Reference/Modules/learnloop/db/stores/lessons#^module-purpose|purpose]] | `ACTIVE` | 10 | 9 |
 | [[Reference/Modules/learnloop/db/stores/library_asks|learnloop.db.stores.library_asks]] | [[Reference/Modules/learnloop/db/stores/library_asks#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] | [[Reference/Modules/learnloop/db/stores/model_calls#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
-| [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] | [[Reference/Modules/learnloop/db/stores/observation_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
+| [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] | [[Reference/Modules/learnloop/db/stores/observation_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/db/stores/pf|learnloop.db.stores.pf]] | [[Reference/Modules/learnloop/db/stores/pf#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop/db/stores/placement|learnloop.db.stores.placement]] | [[Reference/Modules/learnloop/db/stores/placement#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] | [[Reference/Modules/learnloop/db/stores/plan_presentations#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |

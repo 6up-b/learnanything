@@ -1692,8 +1692,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_new_vaults_read_on_from_the_furthest_section`
 - [tests/test_rebuild_equivalence_review.py](../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_an_interrupted_integration_backfill_replay_publishes_nothing`
+- [tests/test_rebuild_history_appends.py](../../../../../tests/test_rebuild_history_appends.py) — direct import
+  - `test_a_regrade_appends_its_grade_once_and_rebuilds_add_nothing`
 - [tests/test_rebuild_orchestrator.py](../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_a_rebuild_that_changes_no_value_re_stamps_no_cell`
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
+  - `test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given`
 - [tests/test_recall_coverage_interventions.py](../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
