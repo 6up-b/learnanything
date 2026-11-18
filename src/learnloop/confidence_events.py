@@ -234,7 +234,7 @@ def taps_before(connection: Any, before_iso: str, config: Any) -> list[int]:
     at RO1's tag with ``available_at_reads`` on, known before it (``attempt_time_sql``; ``config`` None
     or the gate off: the predecessor's SQL)."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     known = attempt_time_sql(config)
     rows = connection.execute(
@@ -270,7 +270,7 @@ def learner_events(vault: Any, repository: Any, *, learning_object_ids: Sequence
 
     from learnloop import learner_protection as protection
     from learnloop.db.stores.write_provenance import read_snapshot
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     if not enabled(vault):
         return None

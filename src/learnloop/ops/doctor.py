@@ -55,6 +55,11 @@ from learnloop.substrate.instrument_serving import (
     unservable_reason,
 )
 from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
+from learnloop.substrate.projection_switches import (
+    FACET_BELIEF_FIXES_SNAPSHOT_KEY,
+    INTERVAL_FACTOR_SNAPSHOT_KEY,
+    projection_switches,
+)
 from learnloop.substrate.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
@@ -1647,11 +1652,6 @@ def _check_projection_switches(vault: LoadedVault, repository: Repository, issue
 
     if not repository.sqlite_path.exists() or not repository.learning_object_ids_with_attempts():
         return
-    from learnloop.router_objective_switches import (
-        FACET_BELIEF_FIXES_SNAPSHOT_KEY,
-        INTERVAL_FACTOR_SNAPSHOT_KEY,
-        projection_switches,
-    )
 
     marker = repository.latest_whole_vault_rebuild()
     recorded = (marker or {}).get("projection_switches")

@@ -89,7 +89,7 @@ from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, refusal_status
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
 from learnloop.adaptive_difficulty.material_view import current_view
-from learnloop.router_objective_switches import known_at
+from learnloop.db.attempt_availability import known_at
 
 LOG = logging.getLogger(__name__)
 

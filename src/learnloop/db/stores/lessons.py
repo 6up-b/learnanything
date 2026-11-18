@@ -177,7 +177,7 @@ def pending_delayed_checks(connection: sqlite3.Connection, *, at: str, config: A
     at or before ``at``: RO1's availability predicate, a decision-time read), oldest receipt first: ``{lesson_id,
     learning_object_id, item_id, purpose, due}``. None before migration 234. Ids, dates and purposes only."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lesson_receipts'"
                           ).fetchone() is None:

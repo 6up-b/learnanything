@@ -48,7 +48,7 @@ from learnloop import confidence_events
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
-from learnloop.router_objective_switches import attempt_time_sql, known_at, validated_resolution_ids
+from learnloop.db.attempt_availability import attempt_time_sql, known_at, validated_resolution_ids
 from learnloop.substrate.canonical_projection import (
     UNVERIFIED_CRITERION_BLOCK,
     held_for_review_attempts,

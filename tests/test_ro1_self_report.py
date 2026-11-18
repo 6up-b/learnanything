@@ -16,7 +16,7 @@ import pytest
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.split.history import AttemptRef, VaultHistoryStore
-from learnloop.router_objective_switches import validated_resolution_ids
+from learnloop.db.attempt_availability import validated_resolution_ids
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 

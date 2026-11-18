@@ -476,6 +476,16 @@ forbidden_modules = ["learnloop.daily_plan"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "evidence-does-not-import-objective-switches"
+name = "Attempts, learner state and substrate do not import objective router switches"
+type = "forbidden"
+# Adaptive difficulty still reads followup_on for the reading-map cache.
+# Diagnosis still reads pick_open_share for the deliberately open pick arm.
+source_modules = ["learnloop.attempts", "learnloop.learner", "learnloop.substrate"]
+forbidden_modules = ["learnloop.router_objective_switches"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "tui-keeps-the-open-queue"
 name = "The TUI keeps the open queue: no plan view (DL1, owner decision 2026-10-12)"
 type = "forbidden"

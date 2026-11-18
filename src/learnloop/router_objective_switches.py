@@ -1,134 +1,15 @@
-"""Router objective RO1's switches and the availability time (spec_router_objective_v1 §5). A leaf.
+"""Configuration gates and parameters for the objective router and daily plan.
 
-Each gate is the successor mvp-0.46's own kill switch, default true; off, the predecessor's behaviour:
-
-* :func:`interval_factor_removed`: the surprise factor is not applied to the FSRS interval (§5.1). The
-  attempt path asks it once per review, live and in replay alike, so a rebuild re-derives due dates under
-  the vault's config;
-* :func:`available_at_reads_on`: decision-time reads of attempts use :func:`available_at` (§5.3),
-  through the one predicate, :func:`attempt_time_sql` in SQL and :func:`known_at` over a loaded row
-  (landing ruling R1: every decision-time read of ``practice_attempts`` with a time cutoff asks it;
-  outcomes, FSRS, mastery, write paths and reports keep occurrence time, named with their reasons in
-  ``tests/test_ro1_availability_reads.py``);
-* :func:`self_report_not_validated_on`: a ``learner_report:*`` resolution id is no validated evidence (§5.4).
-
-Router objective RO4's (§8; mvp-0.47): :func:`objective_on` (``[router_objective] enabled``), :func:`objective_scores_on` (and RO0's receipts: a comparison score needs
-them) and :func:`sensors_in_value_on`.
-
-Router objective RO5's (§9; mvp-0.48): each arm is the objective serving (the coin and the checks live in its
-frame; the open picks need only their rate) and its own rate:
-:func:`stop_coin_rate` (0: no coin), :func:`check_mode` (``"embedded"``, ``"rate"`` or ``"off"``),
-:func:`pick_open_share`; :func:`fitted_models_on` for RO4's follow-ups (§9 item 7).
-
-Router objective RO6's (§10; mvp-0.49): :func:`learned_tail_on` (the objective serving and
-``[router_objective] learned_tail``).
-
-The follow-up batch's (mvp-0.50): :func:`followup_on` (the objective serving
-and the part's own ``[router_objective]`` switch).
-
-:func:`projection_switches` is what a whole-vault rebuild's receipt records (the projection's defaults
-snapshot, §5.5), so ``doctor`` can say when persisted due dates were derived under another setting.
+Selects objective serving, scoring, and which signals and models enter value.
+Reads the stop coin, randomized checks, and deliberately open pick rates.
+Gates lesson offers, plan handoffs, learner preferences, and miss-cause inputs.
+Defines the switch snapshots used by the follow-up generator and prefetch
+boundary, and the keys excluded when deriving common draw seeds.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
 from typing import Any
-
-from learnloop.algorithm_versions import (
-    FACET_BELIEF_FIX_VERSIONS,
-)
-
-#: The resolution-id prefix a learner's own report carries (``record_unresolved_cause_self_report``).
-LEARNER_REPORT_PREFIX = "learner_report:"
-
-#: The SQL form of :func:`available_at`, for a ``practice_attempts`` row (optionally aliased).
-AVAILABLE_AT_SQL = "COALESCE(received_at, created_at)"
-
-#: ``practice_attempts.received_at_source``: written at the time of the write, or inferred by the
-#: migration from the attempt id's ULID time (imported exam rows).
-RECEIVED_AT_RECORDED = "recorded"
-RECEIVED_AT_INFERRED = "inferred"
-
-#: The key a rebuild receipt's ``projection_switches_json`` records the factor's gate under.
-INTERVAL_FACTOR_SNAPSHOT_KEY = "scheduler.surprise.remove_interval_factor"
-
-#: The key it records the facet-belief successor's switch under (from mvp-0.59 only).
-FACET_BELIEF_FIXES_SNAPSHOT_KEY = "facet_diagnostic.canonical_belief_fixes"
-
-
-def interval_factor_removed(config: Any) -> bool:
-    """§5.1: True when the FSRS interval carries no surprise factor (the switch)."""
-
-    scheduler = getattr(config, "scheduler", None)
-    surprise = getattr(scheduler, "surprise", None)
-    return bool(getattr(surprise, "remove_interval_factor", False))
-
-
-def available_at_reads_on(config: Any) -> bool:
-    """§5.3: True when decision-time attempt reads use the availability time."""
-
-    section = getattr(config, "router_objective", None)
-    return bool(getattr(section, "available_at_reads", False))
-
-
-def self_report_not_validated_on(config: Any) -> bool:
-    """§5.4: True when a learner's pick is not counted as validated evidence."""
-
-    section = getattr(config, "router_objective", None)
-    return bool(getattr(section, "self_report_not_validated", False))
-
-
-def available_at(row: Mapping[str, Any]) -> str | None:
-    """``coalesce(received_at, created_at)``: when the attempt became known to the system.
-
-    ``created_at`` is when it happened (an exam sat on its date); ``received_at`` is set only where the
-    two differ (exam seeding writes a past ``created_at``)."""
-
-    received = row.get("received_at")
-    if received:
-        return str(received)
-    created = row.get("created_at")
-    return str(created) if created else None
-
-
-def attempt_time_sql(config: Any, *, alias: str | None = None) -> str:
-    """THE availability predicate's SQL form: the expression a decision-time read of
-    ``practice_attempts`` compares its time cutoff with (``<expr> < ?``, ``<expr> <= ?``).
-
-    With ``[router_objective] available_at_reads`` on, ``COALESCE(received_at, created_at)``:
-    an attempt counts at a cutoff only once it was known (an exam sat May 1 and imported May 19 is not
-    there on May 5). Otherwise ``created_at``: the predecessor's column, so the read's SQL is
-    the predecessor's text byte for byte. ``alias`` prefixes the columns (``a.created_at``).
-
-    A window's lower bound (``created_at >= since``) and the order rows are shown in stay by when the
-    work happened; only the cutoff asks this."""
-
-    prefix = f"{alias}." if alias else ""
-    occurrence = f"{prefix}created_at"
-    if not available_at_reads_on(config):
-        return occurrence
-    return f"COALESCE({prefix}received_at, {occurrence})"
-
-
-def known_at(row: Mapping[str, Any], config: Any) -> str | None:
-    """THE availability predicate over a loaded ``practice_attempts`` row: the time a decision-time
-    cutoff compares with. :func:`available_at` with the switch on (a row read without
-    ``received_at`` falls back to ``created_at``), otherwise ``created_at``, as the predecessor."""
-
-    if available_at_reads_on(config):
-        return available_at(row)
-    created = row.get("created_at")
-    return str(created) if created else None
-
-
-def validated_resolution_ids(ids: Iterable[Any], config: Any) -> list[Any]:
-    """The resolution ids that count as validated evidence: all of them with the switch off; otherwise all but a learner's own reports (§5.4)."""
-
-    values = list(ids or [])
-    if not self_report_not_validated_on(config):
-        return values
-    return [value for value in values if not str(value).startswith(LEARNER_REPORT_PREFIX)]
 
 
 def objective_on(config: Any) -> bool:
@@ -392,35 +273,10 @@ def miss_cause_in_value_on(config: Any) -> bool:
     return miss_cause_sensor_on(config) and bool(getattr(section, "miss_cause_in_value", False))
 
 
-def projection_switches(config: Any) -> dict[str, bool]:
-    """What a whole-vault rebuild derived persisted state under (§5.5): whether the factor was removed, and from the
-    facet-belief successor (mvp-0.59) whether its fixes were on (the per-LO facet uncertainty and every attempt's
-    stored reading of the belief follow a switch change only at the next whole-vault rebuild). Below that tag the
-    record is the predecessor's, one key."""
-
-    switches = {INTERVAL_FACTOR_SNAPSHOT_KEY: interval_factor_removed(config)}
-    algorithms = getattr(config, "algorithms", None)
-    if getattr(algorithms, "algorithm_version", None) in FACET_BELIEF_FIX_VERSIONS:
-        # At the tag, ``learner.facet_state_reader.facet_belief_fixes_on`` is the switch itself (read here
-        # directly: this module sits below the learner package).
-        section = getattr(config, "facet_diagnostic", None)
-        switches[FACET_BELIEF_FIXES_SNAPSHOT_KEY] = bool(getattr(section, "canonical_belief_fixes", False))
-    return switches
-
-
 __all__ = [
-    "AVAILABLE_AT_SQL",
-    "FACET_BELIEF_FIXES_SNAPSHOT_KEY",
-    "INTERVAL_FACTOR_SNAPSHOT_KEY",
-    "LEARNER_REPORT_PREFIX",
-    "RECEIVED_AT_INFERRED",
-    "RECEIVED_AT_RECORDED",
-    "attempt_time_sql",
-    "available_at",
     "CHECKS_EMBEDDED",
     "CHECKS_OFF",
     "CHECKS_RATE",
-    "available_at_reads_on",
     "calibrated_weight_on",
     "check_mode",
     "fitted_models_on",
@@ -437,7 +293,6 @@ __all__ = [
     "lessons_compete_with_followups_on",
     "lesson_offers_on",
     "monotone_combiner_on",
-    "interval_factor_removed",
     "learned_tail_on",
     "pick_open_share",
     "stop_coin_rate",
@@ -450,11 +305,7 @@ __all__ = [
     "MISS_CAUSE_OFFER_KEY",
     "miss_cause_in_value_on",
     "miss_cause_sensor_on",
-    "known_at",
     "objective_on",
     "objective_scores_on",
-    "projection_switches",
     "sensors_in_value_on",
-    "self_report_not_validated_on",
-    "validated_resolution_ids",
 ]

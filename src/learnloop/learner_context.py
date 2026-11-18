@@ -1320,7 +1320,7 @@ def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, gu
 
 def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
             now_iso: str, config: Any = None) -> list[dict[str, Any]]:
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     if not los:
         return []

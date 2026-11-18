@@ -81,7 +81,8 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
 from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.learner_protection import PastWork, Withheld, attempt_result, past_work_text, statement_text
-from learnloop.router_objective_switches import attempt_time_sql, objective_on
+from learnloop.db.attempt_availability import attempt_time_sql
+from learnloop.router_objective_switches import objective_on
 from learnloop.router.card import (
     EXCERPT_LIMIT,
     STATEMENT_LIMIT,

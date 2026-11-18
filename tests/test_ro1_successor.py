@@ -19,11 +19,8 @@ from learnloop.algorithm_versions import (
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.config.template import default_config_text
 from learnloop.params.parameter_registry import classify_config_path
-from learnloop.router_objective_switches import (
-    available_at_reads_on,
-    interval_factor_removed,
-    self_report_not_validated_on,
-)
+from learnloop.config.scheduler_switches import interval_factor_removed
+from learnloop.db.attempt_availability import available_at_reads_on, self_report_not_validated_on
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version

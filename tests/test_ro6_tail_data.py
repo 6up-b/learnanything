@@ -3,7 +3,7 @@
 * **Frozen-logger invariance**: refitting after a later generator version exists does not change version ``k``'s
   evaluation; the transition across the change point is censored ``change_point``;
 * **availability**: a trace, an RO0 receipt or an imported result received after the moment never enters a feature
-  or a reward (THE availability predicate, ``router_objective_switches.known_at`` / ``attempt_time_sql``);
+  or a reward (THE availability predicate, ``learnloop.db.attempt_availability.known_at`` / ``attempt_time_sql``);
 * the transitions carry this objective's reward (the attention cost, the randomized checks at ``c/r``), never
   ``S``, each censored by a named reason;
 * the report states the narrow claim and no guarantee, and lists the versions, change points and ŵ's history;

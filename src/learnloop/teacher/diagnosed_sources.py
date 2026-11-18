@@ -229,7 +229,7 @@ def _miss(connection: Any, config: Any, learning_object_ids: Sequence[str], deci
     """The latest attempt on the lesson's topics known at the offer's decision (THE availability predicate: a
     backdated import that arrived later was not what the offer was made on)."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     ids = sorted(set(learning_object_ids))
     if not ids:
@@ -368,7 +368,7 @@ def _asked_miss(connection: Any, repository: Any, config: Any, preference: Mappi
     first with one is the miss: its live diagnosis in force (``Repository.current_live_diagnosis``), or why it has none
     (pending, failed, superseded), and then no older miss is read. No score, stuck flag or time constant is read."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     ids = sorted(set(learning_object_ids))
     passed: list[dict[str, str]] = []

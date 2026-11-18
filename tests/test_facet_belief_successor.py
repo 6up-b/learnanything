@@ -32,7 +32,7 @@ from learnloop.learner.facet_state_reader import (
 )
 from learnloop.ops.doctor import run_doctor
 from learnloop.params.parameter_registry import classify_config_path
-from learnloop.router_objective_switches import (
+from learnloop.substrate.projection_switches import (
     FACET_BELIEF_FIXES_SNAPSHOT_KEY,
     INTERVAL_FACTOR_SNAPSHOT_KEY,
     projection_switches,

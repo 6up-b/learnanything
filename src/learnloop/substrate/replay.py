@@ -470,7 +470,7 @@ def rebuild_derived_state(
     # content-addressed on the effective frontier, so an ordinary rebuild that
     # changes no cells re-stamps the same value and emits no entry.
     from learnloop.learner.facet_diagnostics import coverage_denominator_version
-    from learnloop.router_objective_switches import projection_switches
+    from learnloop.substrate.projection_switches import projection_switches
 
     marker_id = None
     if record_receipt:

@@ -16,7 +16,7 @@ from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
 from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock, parse_utc
-from learnloop.router_objective_switches import interval_factor_removed
+from learnloop.config.scheduler_switches import interval_factor_removed
 from learnloop.scheduling.fsrs import interval_for_retention
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.vault.loader import load_vault

@@ -26,7 +26,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ids import _decode_ulid, new_ulid
-from learnloop.router_objective_switches import AVAILABLE_AT_SQL, attempt_time_sql, available_at
+from learnloop.db.attempt_availability import AVAILABLE_AT_SQL, attempt_time_sql, available_at
 from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 

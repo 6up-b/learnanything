@@ -206,12 +206,12 @@ def _exam_result(connection: Any, lo: str, on: str, closure: C.Closure | None = 
 def exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str,
                       closure: C.Closure | None = None) -> float | None:
     """RO6: a dated use's ``Y`` as known at ``at``: the results imported for the goal's date that THE availability
-    predicate (``router_objective_switches.attempt_time_sql``) admits by ``at``, their mean. ``closure`` (a closed
+    predicate (``learnloop.db.attempt_availability.attempt_time_sql``) admits by ``at``, their mean. ``closure`` (a closed
     window's, RO6's landing ruling R4): each result is also admitted through :meth:`checks.Closure.admits` on its
     occurrence and received time, as RO5's scores read it, so a closed window's return never moves with a later
     import."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     known = attempt_time_sql(config)
     rows = [float(row[0]) for row in connection.execute(

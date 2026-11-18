@@ -1,5 +1,5 @@
 """Router objective RO1 §5.3, landing ruling R1: every decision-time read of ``practice_attempts`` with a
-time cutoff goes through one availability predicate (``router_objective_switches.attempt_time_sql`` in
+time cutoff goes through one availability predicate (``learnloop.db.attempt_availability.attempt_time_sql`` in
 SQL, ``known_at`` over a loaded row).
 
 * Codex's reproductions (scoped verify 20261104-185356-AhtxsL): an exam that happened May 1 and was
@@ -190,7 +190,7 @@ def test_the_learner_contexts_traces_exclude_an_exam_not_yet_imported(tmp_path, 
 
 @GATES
 def test_the_predicate_is_the_predecessors_column_below_the_tag_or_switched_off(tmp_path, version, toml, sees_exam):
-    from learnloop.router_objective_switches import AVAILABLE_AT_SQL, attempt_time_sql, known_at
+    from learnloop.db.attempt_availability import AVAILABLE_AT_SQL, attempt_time_sql, known_at
 
     vault, repository = _seeded(tmp_path, version, toml)
     row = {"created_at": "2026-05-01T12:00:00Z", "received_at": "2026-05-19T15:30:07Z"}

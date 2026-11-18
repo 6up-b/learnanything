@@ -11,8 +11,7 @@ package's ``__init__``, which loads the schema.
 Two tables, because the standing rule needs a tag:
 
 * TAGGED_SWITCHES: the switch of an algorithm successor, with the tag it ships with. A field is one of
-  these when algorithm_versions.py, its tag predicate in router_objective_switches.py or its own
-  documentation names it as that tag's kill switch.
+  these when algorithm_versions.py, its tag predicate or its own documentation names it as that tag's kill switch.
 * UNTAGGED_SWITCHES: a field whose documentation says its off value restores the previous behaviour but that
   has no successor tag (or, for four rows, is a per-task switch that is a content task at every version), so no
   floor can pass it. A removal needs an owner decision by name.

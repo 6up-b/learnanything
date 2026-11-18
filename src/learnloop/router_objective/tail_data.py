@@ -1,7 +1,7 @@
 """RO6 (spec_router_objective_v1 §10): the learned tail's data, read as of a moment. Reads only.
 
 **What a decision was** (:func:`logged`). Every ``plan_block`` trace known at the moment (THE availability predicate,
-``router_objective_switches.known_at``, over the trace row and over RO0's receipt row: a row received later never
+``learnloop.db.attempt_availability.known_at``, over the trace row and over RO0's receipt row: a row received later never
 enters a feature) becomes a :class:`Logged`: its generator version, its support, the logger's exact served
 distribution (the mix's ``μ`` under the stop coin, §9.1), the tail's ``Q̄`` per candidate, and each candidate's
 features (:mod:`learnloop.router_objective.learned_tail`). At RO6's tag the features are the ones the decision froze
@@ -366,7 +366,7 @@ def _served(trace: Mapping[str, Any]) -> tuple[dict[str, float], str]:
 def _receipt(connection: Any, decision_id: str, config: Any, at: str) -> dict[str, Any] | None:
     """RO0's decision-time snapshot of one decision, if it was known at ``at`` (the availability predicate)."""
 
-    from learnloop.router_objective_switches import known_at
+    from learnloop.db.attempt_availability import known_at
 
     row = connection.execute(
         "SELECT pending_reports, state_z, created_at FROM decision_state_receipts WHERE decision_id = ?",
@@ -541,7 +541,7 @@ def logged(connection: Any, config: Any, *, at: str) -> list[Logged]:
     """Every ``plan_block`` trace known at ``at``, oldest first (module docstring)."""
 
     from learnloop.db.stores import router_objective as store
-    from learnloop.router_objective_switches import known_at
+    from learnloop.db.attempt_availability import known_at
 
     if not store.table_present(connection, store.TRACES):
         return []

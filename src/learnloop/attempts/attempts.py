@@ -4909,7 +4909,7 @@ def _belief_update(
         # prediction error, so neither the follow-up gate nor the re-probe
         # trigger reads it as one, and it stretches no interval.
         surprise = replace(surprise, surprise_direction="none", fsrs_interval_factor=1.0)
-    from learnloop.router_objective_switches import interval_factor_removed
+    from learnloop.config.scheduler_switches import interval_factor_removed
 
     if interval_factor_removed(config):
         # FSRS already rewards an unlikely success through 1 - R, so applying

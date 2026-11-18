@@ -735,7 +735,7 @@ def rebuild_all_derived_state(
     # Receipt ownership stays centralized here.  The LO replay run from this
     # umbrella suppresses its own marker; direct callers of
     # ``rebuild_derived_state`` still record one.
-    from learnloop.router_objective_switches import projection_switches
+    from learnloop.substrate.projection_switches import projection_switches
     from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
     scope = "learning_object" if learning_object_ids else "all"
     marker_id = repository.record_derived_state_rebuild(

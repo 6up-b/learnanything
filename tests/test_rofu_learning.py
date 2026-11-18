@@ -118,7 +118,7 @@ def test_the_join_takes_the_drawn_blocks_untouched_topics_as_of_the_moment():
 
 def test_the_join_rows_count_one_outcome_once_per_protocol_and_only_when_known():
     from learnloop.router_objective import combiner_data as CD
-    from learnloop.router_objective_switches import available_at
+    from learnloop.db.attempt_availability import available_at
 
     connection = _join_db()
     connection.executemany("INSERT INTO practice_attempts VALUES (?, ?, ?)", [

@@ -30,7 +30,7 @@ What it reads, and what it never does:
   no answer, on every rung.
 * **Only what was known at the serve**: an event enters only when its availability time is at or
   before ``served_at``: for ``practice_attempts`` RO1's predicate
-  (``router_objective_switches.attempt_time_sql``) and, at every version, ``coalesce(received_at,
+  (``learnloop.db.attempt_availability.attempt_time_sql``) and, at every version, ``coalesce(received_at,
   created_at)`` (so a backdated import is out until it arrived, whatever the tag); per table
   ``coalesce(received_at, created_at)`` where it has ``received_at``, else ``created_at`` (a help row,
   which has neither, its ``coalesce(shown_at, requested_at)``; a reading receipt its source's write
@@ -54,7 +54,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from learnloop.clock import parse_utc
-from learnloop.router_objective_switches import attempt_time_sql
+from learnloop.db.attempt_availability import attempt_time_sql
 
 from learnloop.adaptive_difficulty.operation import entry
 from learnloop.adaptive_difficulty.outside import HISTORY_STEM_LIMIT, answer_excerpts_enabled, history_card, item_view

@@ -418,7 +418,7 @@ def _combiner_with_traces(vault: Any, repository: Any, now_iso: str, check_rows:
     from learnloop.adaptive_difficulty.history_resolve import resolve_curves
     from learnloop.params.fitted_params import resolve_fsrs_weights
     from learnloop.router_objective import combiner_data as CD
-    from learnloop.router_objective_switches import known_at
+    from learnloop.db.attempt_availability import known_at
     from learnloop.scheduling.fsrs import retrievability_array
 
     joined: list[tuple[float, Any, int]] = []

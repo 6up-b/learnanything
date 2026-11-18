@@ -160,7 +160,7 @@ def latest_misses(connection: Any, config: Any, learning_object_ids: Iterable[st
     """Per topic, its latest missed cold check since its last lesson ended, known at ``now_iso`` (THE availability
     predicate); topics with none are absent."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     ids = sorted({str(lo) for lo in learning_object_ids if lo})
     if not ids or not _table(connection, "practice_attempts"):
@@ -450,7 +450,7 @@ def surprise_reference(connection: Any, config: Any, now_iso: str) -> list[float
     """The Bayesian surprise of every missed cold check on record at ``now_iso`` (any topic): the learner's own
     distribution a miss's surprise is standardized and ranked against."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     if not (_table(connection, "attempt_surprise") and _table(connection, "practice_attempts")):
         return []
@@ -512,7 +512,7 @@ def _between(connection: Any, config: Any, lo: str, after: str, before: str, aft
     (RO1's availability predicate, landing ruling R1: an attempt imported later is not there yet; the window
     itself stays by when the work happened), or a lesson opened."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     known = attempt_time_sql(config, alias="a")
     row = connection.execute(
@@ -536,7 +536,7 @@ def beta_rows(connection: Any, config: Any, now_iso: str) -> tuple[list[dict[str
     attempt was a cold check, with nothing on the topic in between. Rows whose diagnosis puts all its mass on one
     side (``p_gap`` 0 or 1: ``logit p_gap`` infinite) carry no information about ``β`` and are counted apart."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     counts = {"misses": 0, "undiagnosed": 0, "no_next_check": 0, "intervening": 0, "uninformative": 0,
               "no_surprise": 0, "rows": 0}
@@ -661,7 +661,7 @@ def _offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, An
     outcome is known at the decision (THE availability predicate; Codex F3): until then the lesson is unresolved."""
 
     from learnloop.learner.lesson_weight import qualifying_outcomes
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     if not (_table(connection, "lessons") and _table(connection, "router_decisions")):
         return []

@@ -49,7 +49,7 @@ from learnloop import confidence_events
 from learnloop import learner_protection as protection
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
-from learnloop.router_objective_switches import attempt_time_sql
+from learnloop.db.attempt_availability import attempt_time_sql
 
 _LOG = logging.getLogger(__name__)
 

@@ -150,7 +150,7 @@ def features_at(connection: Any, config: Any, *, at: str, minutes_left: float | 
     left, and how far the latest graded answer known by then fell short (0 with none; through THE availability
     predicate). A number for a learned effect: nothing here picks an action."""
 
-    from learnloop.router_objective_switches import attempt_time_sql
+    from learnloop.db.attempt_availability import attempt_time_sql
 
     known = attempt_time_sql(config)
     row = connection.execute(

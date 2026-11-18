@@ -32,7 +32,7 @@ from learnloop.diagnosis.split.settings import DiagnosisSettings
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ops.doctor import run_doctor
 from learnloop.params.fitted_params import resolve_fsrs_weights
-from learnloop.router_objective_switches import INTERVAL_FACTOR_SNAPSHOT_KEY
+from learnloop.substrate.projection_switches import INTERVAL_FACTOR_SNAPSHOT_KEY
 from learnloop.scheduling.fsrs import interval_for_retention
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
@@ -209,11 +209,8 @@ def test_every_switch_combination_moves_exactly_its_own_part(tmp_path, predecess
     assert (got["items"] == expected["items"]) is factor_off
     assert got["mastery"] == expected["mastery"]
     config = load_vault(paths.root).config
-    from learnloop.router_objective_switches import (
-        available_at_reads_on,
-        interval_factor_removed,
-        self_report_not_validated_on,
-    )
+    from learnloop.config.scheduler_switches import interval_factor_removed
+    from learnloop.db.attempt_availability import available_at_reads_on, self_report_not_validated_on
 
     assert interval_factor_removed(config) is not factor_off
     assert available_at_reads_on(config) is ("available_at" not in off)

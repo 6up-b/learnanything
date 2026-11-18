@@ -461,7 +461,7 @@ class Closure:
     date) or the window's (:meth:`at`, its closing moment). :meth:`admits` is the one test every event it counts
     passes: the slots and the days drawn (their assignment rows), the sessions, the administrations (the
     ``item_planned`` receipts), the skips and displacements, the help shown and the answers, an answer on both its
-    occurrence time and its received time (RO1's availability predicate, ``router_objective_switches.available_at``:
+    occurrence time and its received time (RO1's availability predicate, ``learnloop.db.attempt_availability.available_at``:
     it counts at a cutoff only once it happened and was known). So a closed rate or score never moves with later
     activity.
 

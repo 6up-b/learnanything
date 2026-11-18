@@ -213,7 +213,13 @@ def _owners() -> dict[str, list[str]]:
 
 def test_every_switch_the_schema_or_a_tags_comment_names_is_in_the_table() -> None:
     named = _fields_named_as_kill_switches(Path(schema_module.__file__).read_text(encoding="utf-8"), _owners())
-    for module in ("algorithm_versions.py", "router_objective_switches.py"):
+    for module in (
+        "algorithm_versions.py",
+        "config/scheduler_switches.py",
+        "db/attempt_availability.py",
+        "router_objective_switches.py",
+        "substrate/projection_switches.py",
+    ):
         named |= _config_paths_named_in((SRC / module).read_text(encoding="utf-8"))
     missing = sorted(named - TABLED - set(NOT_A_TABLED_SWITCH))
     assert not missing, (
