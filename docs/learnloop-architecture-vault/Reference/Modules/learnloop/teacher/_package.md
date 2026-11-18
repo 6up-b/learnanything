@@ -94,10 +94,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 4 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 3 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge

@@ -74,9 +74,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 2 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
@@ -106,7 +106,7 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
-    n_learnloop_vault["learnloop.vault"]
+    n_learnloop_router_objective["learnloop.router_objective"]
     center -->|20| n_learnloop_diagnosis
     center -->|16| n_learnloop_followup_serve
     center -->|10| n_learnloop
@@ -116,7 +116,7 @@ flowchart LR
     center -->|6| n_learnloop_db_stores
     center -->|4| n_learnloop_ai
     center -->|4| n_learnloop_content_authoring
-    center -->|4| n_learnloop_vault
+    center -->|4| n_learnloop_router_objective
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -47,20 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py) |
-| Source lines | 241 |
+| Source lines | 243 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None, forecasts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 37) — The report over every trace (``connection`` read-only; the traces table at migration 246).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 199)
+- `build(connection: Any, *, now: str, weight: Mapping[str, Any] | None=None, forecasts: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 39) — The report over every trace (``connection`` read-only; the traces table at migration 246).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 201)
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 30)
-- `_POSTERIOR_MARK` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 142)
+- `REPORT_VERSION` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 32)
+- `_POSTERIOR_MARK` ([src/learnloop/router_objective/objective_report.py](../../../../../../src/learnloop/router_objective/objective_report.py), line 144)
 
 ### Explicit exports
 
@@ -72,10 +72,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 33)
-- `_memory_model(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 145) — RO4's landing ruling R3, closed: what the rollouts' learning parameters and the memory combiner were, per decision, read from each trace's ``versions`` (``learning``: AD's fitted posterior moments of ``γ`` and the reading curve, or its priors; ``memory_model``: the combiner's ve…
-- `_kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 168) — Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value, the tail's average marginal gain (accepted until RO5), or no…
-- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 194)
+- `_share(counter: Counter, total: int) -> dict[str, float]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 35)
+- `_memory_model(blocks: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 147) — RO4's landing ruling R3, closed: what the rollouts' learning parameters and the memory combiner were, per decision, read from each trace's ``versions`` (``learning``: AD's fitted posterior moments of ``γ`` and the reading curve, or its priors; ``memory_model``: the combiner's ve…
+- `_kappa_seed(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 170) — Landing ruling R5: how each day's ``κ0`` seed was formed, counted over days (the first decision of a day that did not carry the day's seed), so the owner sees how often it fell back: floored at the last positive value, the tail's average marginal gain (accepted until RO5), or no…
+- `_llm_favoured(row: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router_objective/objective_report.py), line 196)
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `module`; calls `summary`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

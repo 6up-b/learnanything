@@ -77,12 +77,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Module constants
 
-- `LABEL` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 31)
-- `ROUTER_OWNER` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 34)
-- `FIGURE_OWNER_PREFIX` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 36)
-- `FIGURE_AUTHOR_OWNER` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 37)
-- `WITHDRAWN_KEY` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 39)
-- `SUPERSEDED_KEY` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 40)
+- `LABEL` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 32)
+- `ROUTER_OWNER` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 35)
+- `FIGURE_OWNER_PREFIX` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 37)
+- `FIGURE_AUTHOR_OWNER` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 38)
+- `WITHDRAWN_KEY` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 40)
+- `SUPERSEDED_KEY` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 41)
 - `OFFER_PREFIX` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 42)
 - `PREDICTION_INVALID` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 47)
 - `VERIFICATION_FAILED` ([src/learnloop/why/reconstructed.py](../../../../../../src/learnloop/why/reconstructed.py), line 48)
@@ -127,6 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `time_precision_ms`; calls `time_precision_ms`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `cap_alternatives`, `is_code`
 - [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `recompute`; calls `recompute`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 

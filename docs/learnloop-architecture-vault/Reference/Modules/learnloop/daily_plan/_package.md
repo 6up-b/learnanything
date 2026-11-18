@@ -107,7 +107,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] | [[Reference/Modules/learnloop/daily_plan/reentry#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] | [[Reference/Modules/learnloop/daily_plan/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] | [[Reference/Modules/learnloop/daily_plan/router_card#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
-| [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] | [[Reference/Modules/learnloop/daily_plan/router_chooser#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
+| [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] | [[Reference/Modules/learnloop/daily_plan/router_chooser#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
 | [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] | [[Reference/Modules/learnloop/daily_plan/router_reader#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] | [[Reference/Modules/learnloop/daily_plan/router_retrieval#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] | [[Reference/Modules/learnloop/daily_plan/router_runtime#^module-purpose|purpose]] | `ACTIVE` | 8 | 21 |
@@ -117,7 +117,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/slot_facts_schema|learnloop.daily_plan.slot_facts_schema]] | [[Reference/Modules/learnloop/daily_plan/slot_facts_schema#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/split|learnloop.daily_plan.split]] | [[Reference/Modules/learnloop/daily_plan/split#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] | [[Reference/Modules/learnloop/daily_plan/staged_frame#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
-| [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] | [[Reference/Modules/learnloop/daily_plan/types#^module-purpose|purpose]] | `ACTIVE` | 17 | 31 |
+| [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] | [[Reference/Modules/learnloop/daily_plan/types#^module-purpose|purpose]] | `ACTIVE` | 16 | 32 |
 | [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] | [[Reference/Modules/learnloop/daily_plan/view#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies
@@ -125,7 +125,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 58 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 40 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 45 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 20 static module edges
@@ -180,7 +180,7 @@ flowchart LR
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop -->|1| center
     center -->|58| n_learnloop
-    center -->|40| n_learnloop_router_objective
+    center -->|45| n_learnloop_router_objective
     center -->|23| n_learnloop_db_stores
     center -->|21| n_learnloop_adaptive_difficulty
     center -->|20| n_learnloop_router

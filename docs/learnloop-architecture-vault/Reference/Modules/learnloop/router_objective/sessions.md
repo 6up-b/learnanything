@@ -62,23 +62,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Module constants
 
-- `RECEIPT_VERSION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 30)
-- `AVAILABILITY` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 31)
-- `END` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 32)
-- `STOP_RESPONSE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 33)
-- `EXPLICIT` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 34)
-- `INFERRED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 35)
-- `OFFERED_STOP_ACCEPTED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 36)
-- `OFFERED_STOP_OVERRIDDEN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 37)
-- `UNPROMPTED_STOP` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 38)
-- `APP_CLOSED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 39)
-- `FOREGROUND_LOST` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 40)
-- `EXTERNAL_INTERRUPTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 41)
-- `RULE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 42)
-- `UNKNOWN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 43)
-- `CLIENT_END_REASONS` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 45)
-- `MISSING` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 48)
-- `_STOP_ACTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 50)
+- `RECEIPT_VERSION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 32)
+- `AVAILABILITY` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 33)
+- `END` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 34)
+- `STOP_RESPONSE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 35)
+- `EXPLICIT` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 36)
+- `INFERRED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 37)
+- `OFFERED_STOP_ACCEPTED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 38)
+- `OFFERED_STOP_OVERRIDDEN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 39)
+- `UNPROMPTED_STOP` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 40)
+- `APP_CLOSED` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 41)
+- `FOREGROUND_LOST` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 42)
+- `EXTERNAL_INTERRUPTION` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 43)
+- `RULE` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 44)
+- `UNKNOWN` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 45)
+- `CLIENT_END_REASONS` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 47)
+- `MISSING` ([src/learnloop/router_objective/sessions.py](../../../../../../src/learnloop/router_objective/sessions.py), line 50)
 
 ### Explicit exports
 
@@ -134,6 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`; calls `objective_receipts_on`
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `insert_session_receipt`, `table_present`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

@@ -47,25 +47,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py) |
-| Source lines | 211 |
+| Source lines | 228 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Topic` ([source](../../../../../../src/learnloop/router_objective/types.py), line 37) — One valued topic (an LO) as the decision believed it.
-- `class DatedUse` ([source](../../../../../../src/learnloop/router_objective/types.py), line 59)
-- `class CauseSplit` ([source](../../../../../../src/learnloop/router_objective/types.py), line 69) — Slip or gap SG2 (``docs/specs/spec_slip_vs_gap_v1.md`` §3): on a topic whose latest miss has a diagnosis, a lesson's and a repair's effect slope is the mixture over the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ``, instead of ``γ``.
-  - `at_mean(self) -> 'CauseSplit'` (line 86; public) — The believed parameters (each posterior's mean, no parameter draw), as the belief's own world reads γ.
-- `class Learning` ([source](../../../../../../src/learnloop/router_objective/types.py), line 93) — AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder); from slip or gap SG2, the lesson's and the repair's slope by the miss's caus…
-- `class EffectSlope` ([source](../../../../../../src/learnloop/router_objective/types.py), line 107) — ``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance.
-- `class Price` ([source](../../../../../../src/learnloop/router_objective/types.py), line 117) — The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes.
-- `class Action` ([source](../../../../../../src/learnloop/router_objective/types.py), line 127) — One candidate as the value estimator sees it.
-  - `__post_init__(self) -> None` (line 157; internal)
-- `class Inputs` ([source](../../../../../../src/learnloop/router_objective/types.py), line 167) — The frozen belief one decision values its candidates on (every number the trace reports).
-  - `cutoff(self) -> float` (line 196; public) — ``C`` in days from the decision (§3.2): carried through every rollout.
-- `cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float` ([source](../../../../../../src/learnloop/router_objective/types.py), line 203)
+- `is_offer(subtype: str | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/types.py), line 47) — Tell an offer block apart by its subtype.
+- `class Topic` ([source](../../../../../../src/learnloop/router_objective/types.py), line 54) — One valued topic (an LO) as the decision believed it.
+- `class DatedUse` ([source](../../../../../../src/learnloop/router_objective/types.py), line 76)
+- `class CauseSplit` ([source](../../../../../../src/learnloop/router_objective/types.py), line 86) — Slip or gap SG2 (``docs/specs/spec_slip_vs_gap_v1.md`` §3): on a topic whose latest miss has a diagnosis, a lesson's and a repair's effect slope is the mixture over the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip + p_unknown·γ``, instead of ``γ``.
+  - `at_mean(self) -> 'CauseSplit'` (line 103; public) — The believed parameters (each posterior's mean, no parameter draw), as the belief's own world reads γ.
+- `class Learning` ([source](../../../../../../src/learnloop/router_objective/types.py), line 110) — AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder); from slip or gap SG2, the lesson's and the repair's slope by the miss's caus…
+- `class EffectSlope` ([source](../../../../../../src/learnloop/router_objective/types.py), line 124) — ``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance.
+- `class Price` ([source](../../../../../../src/learnloop/router_objective/types.py), line 134) — The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes.
+- `class Action` ([source](../../../../../../src/learnloop/router_objective/types.py), line 144) — One candidate as the value estimator sees it.
+  - `__post_init__(self) -> None` (line 174; internal)
+- `class Inputs` ([source](../../../../../../src/learnloop/router_objective/types.py), line 184) — The frozen belief one decision values its candidates on (every number the trace reports).
+  - `cutoff(self) -> float` (line 213; public) — ``C`` in days from the decision (§3.2): carried through every rollout.
+- `cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float` ([source](../../../../../../src/learnloop/router_objective/types.py), line 220)
 
 ### Module constants
 
@@ -80,6 +81,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SEQUENCE` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 31)
 - `PRACTICE_KINDS` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 32)
 - `KINDS` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 33)
+- `LESSON_OFFER_SUBTYPE` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 41)
+- `LESSON_OFFER_PREFIX` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 42)
+- `STOP_FOR_TODAY` ([src/learnloop/router_objective/types.py](../../../../../../src/learnloop/router_objective/types.py), line 44)
 
 ### Explicit exports
 
@@ -104,7 +108,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `STOP`
 - `TEACH_BACK`
 - `Topic`
+- `LESSON_OFFER_PREFIX`
+- `LESSON_OFFER_SUBTYPE`
+- `STOP_FOR_TODAY`
 - `cutoff_for`
+- `is_offer`
 
 ## Internal implementation anchors
 
@@ -115,10 +123,29 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `EffectSlope`
-- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Action`, `CauseSplit`, `DatedUse`, `Inputs`, `Learning`, `Price`, `Topic`
+- [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `is_offer`; statically calls `is_offer`
+- [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `is_offer`
+- [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `is_offer`; statically calls `is_offer`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `EffectSlope`, `is_offer`
+- [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `module`; statically calls `Action`, `CauseSplit`, `DatedUse`, `Inputs`, `Learning`, `Price`, `Topic`, `is_offer`
 - [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]] — imports `module`
+- [[Reference/Modules/learnloop/daily_plan/records|learnloop.daily_plan.records]] — imports `is_offer`; statically calls `is_offer`
+- [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LESSON_OFFER_PREFIX`, `LESSON_OFFER_SUBTYPE`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/router_objective/forecast_resolve|learnloop.router_objective.forecast_resolve]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/router_objective/learned_tail|learnloop.router_objective.learned_tail]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] — imports `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/router_objective/offer_report|learnloop.router_objective.offer_report]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `module`; statically calls `is_offer`
 - [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] — imports `Action`, `DatedUse`, `Inputs`, `LESSON`, `NEW_PRACTICE`, `PRACTICE_KINDS`, `PROBE`, `READING`, `REPAIR`, `REVIEW`, `STOP`; statically calls `Action`
+- [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] — imports `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `LESSON_OFFER_SUBTYPE`, `STOP_FOR_TODAY`, `module`; statically calls `is_offer`
+- [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `LESSON_OFFER_PREFIX`
+- [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `LESSON_OFFER_PREFIX`
 
 ## Dependencies
 
@@ -139,7 +166,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]], [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] and 18 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -148,6 +175,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
 - [tests/ro6_codex_review_helpers.py](../../../../../../tests/ro6_codex_review_helpers.py) — direct import
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
+- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
+  - `test_action_kind_has_a_rollout_effect`
+  - `test_action_kind_has_its_existing_learned_tail_group`
+  - `test_action_kind_trace_label_and_reversibility`
+  - `test_ref_copies_across_import_boundaries_stay_equal`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle`
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`

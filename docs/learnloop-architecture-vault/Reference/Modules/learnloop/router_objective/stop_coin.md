@@ -74,15 +74,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 67)
-- `KAPPA_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 68)
-- `RETURN_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 69)
-- `RETURN_ASSUMPTION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 72)
-- `OFFER_STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 73)
-- `PRESENT_NEXT` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 74)
-- `POLICY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 75)
-- `ARMS` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 76)
-- `STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 77)
+- `VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 68)
+- `KAPPA_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 69)
+- `RETURN_VERSION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 70)
+- `RETURN_ASSUMPTION` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 73)
+- `OFFER_STOP` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 74)
+- `PRESENT_NEXT` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 75)
+- `POLICY` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 76)
+- `ARMS` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 77)
 - `FORCED` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 79)
 - `SEED_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 81)
 - `POSTERIOR_REGIME` ([src/learnloop/router_objective/stop_coin.py](../../../../../../src/learnloop/router_objective/stop_coin.py), line 82)
@@ -167,6 +166,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`; calls `_pick`, `uniform`
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `module`; calls `rows`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `session_active_minutes`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

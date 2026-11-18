@@ -140,6 +140,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ro4_value_helpers.py](../../../../../../tests/ro4_value_helpers.py) — direct import
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
+- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
+  - `test_action_kind_has_a_rollout_effect`
 - [tests/test_administration_adapters.py](../../../../../../tests/test_administration_adapters.py) — direct import
   - `test_ineligible_practice_observation_leaves_card_state_untouched`
   - `test_only_practice_eligible_updates_card_state`

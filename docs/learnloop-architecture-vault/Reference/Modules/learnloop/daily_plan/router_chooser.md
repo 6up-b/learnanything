@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
+  - `test_action_kind_trace_label_and_reversibility`
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_followup_router.py](../../../../../../tests/test_followup_router.py) — direct import

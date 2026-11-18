@@ -47,21 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py) |
-| Source lines | 135 |
+| Source lines | 136 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `binding(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 27) — A drawn offer's chain of ids and outcomes, or None when the decision drew no offer.
-- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 76) — The lesson-offer rows (module docstring).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 126)
+- `binding(connection: Any, decision_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 28) — A drawn offer's chain of ids and outcomes, or None when the decision drew no offer.
+- `build(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 77) — The lesson-offer rows (module docstring).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 127)
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py), line 18)
-- `PREFIX` ([src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py), line 19)
+- `VERSION` ([src/learnloop/router_objective/offer_report.py](../../../../../../src/learnloop/router_objective/offer_report.py), line 20)
 
 ### Explicit exports
 
@@ -74,7 +73,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_has(connection: Any, table: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 22)
+- `_has(connection: Any, table: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/offer_report.py), line 23)
 
 ## Who imports or calls it
 
@@ -88,7 +87,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 

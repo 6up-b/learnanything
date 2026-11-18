@@ -47,24 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py) |
-| Source lines | 229 |
+| Source lines | 230 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `section(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 128) — The section (module docstring), read-only.
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 209)
+- `section(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 129) — The section (module docstring), read-only.
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 210)
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 31)
-- `SELF_SELECTED` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 32)
-- `COMPARISON_LABEL` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 33)
-- `NOT_USING` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 35)
-- `OFFER_PREFIX` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 36)
-- `WHAT_MOVES_W_PREF` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 37)
+- `VERSION` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 33)
+- `SELF_SELECTED` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 34)
+- `COMPARISON_LABEL` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 35)
+- `NOT_USING` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 37)
+- `WHAT_MOVES_W_PREF` ([src/learnloop/router_objective/preference_report.py](../../../../../../src/learnloop/router_objective/preference_report.py), line 38)
 
 ### Explicit exports
 
@@ -80,13 +79,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_later_cold(connection: Any, lo: str | None, after: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 44)
-- `_block(connection: Any, decision_id: str | None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 54)
-- `_topic_of(connection: Any, ref: Any, decision_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 62) — The topic a choice or a draw names: a lesson's from its ref, else the decision's, else its block's first.
-- `_lesson_opened(connection: Any, lo: str | None, after: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 78)
-- `_followed(connection: Any, row: Mapping[str, Any], lo: str | None) -> bool | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 86) — Whether what the choice asked for happened; None where nothing could say (no decision logged, no block placed).
-- `_mean(values: list[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 106)
-- `_standing(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 110) — ``w_pref`` as the latest ``plan_block`` trace froze it, and how many decisions carry the sensor.
+- `_later_cold(connection: Any, lo: str | None, after: str) -> float | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 45)
+- `_block(connection: Any, decision_id: str | None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 55)
+- `_topic_of(connection: Any, ref: Any, decision_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 63) — The topic a choice or a draw names: a lesson's from its ref, else the decision's, else its block's first.
+- `_lesson_opened(connection: Any, lo: str | None, after: str) -> bool` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 79)
+- `_followed(connection: Any, row: Mapping[str, Any], lo: str | None) -> bool | None` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 87) — Whether what the choice asked for happened; None where nothing could say (no decision logged, no block placed).
+- `_mean(values: list[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 107)
+- `_standing(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/preference_report.py), line 111) — ``w_pref`` as the latest ``plan_block`` trace froze it, and how many decisions carry the sensor.
 
 ## Who imports or calls it
 
@@ -102,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `learner_preference_rows`, `preferences_present`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `DELAYED_LABEL`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `KINDS`, `STOP`, `kind_of`; calls `kind_of`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
 
 ### Platform and third-party dependencies
 

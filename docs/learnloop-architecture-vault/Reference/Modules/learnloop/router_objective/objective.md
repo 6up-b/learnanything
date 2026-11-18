@@ -119,6 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
+- [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
+  - `test_action_kind_has_a_rollout_effect`
 - [tests/test_objective_terms.py](../../../../../../tests/test_objective_terms.py) — direct import
   - `test_a_candidates_value_is_the_mean_of_its_draws_and_v_is_the_reference_rows`
   - `test_the_ledger_holds_every_term_and_nothing_else`

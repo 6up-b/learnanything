@@ -47,74 +47,74 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py) |
-| Source lines | 564 |
+| Source lines | 565 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PlannedItem` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 39)
-  - `displaced(self) -> bool` (line 74; public)
-  - `done(self) -> bool` (line 78; public)
-  - `skipped(self) -> bool` (line 82; public)
-  - `resolved(self) -> bool` (line 86; public)
-  - `state(self) -> str` (line 90; public)
-- `class PlannedBlock` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 121)
-  - `is_reading(self) -> bool` (line 153; public)
-  - `is_lesson_offer(self) -> bool` (line 157; public) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the block is a lesson offer's card (no items, no reading); it ends with the learner's answer (or ``ignored``).
-  - `interrupts(self) -> bool` (line 164; public) — IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson offer drawn after a miss with questions left in the block below it: it comes first while it is open, and the block resumes after its answer.
-  - `followups_lost(self) -> tuple[str, ...]` (line 171; public) — IH2: the follow-ups this offer's draw beat: they wait while it is open, then a later decision has them.
-  - `withdrawn_path_reading(self) -> bool` (line 179; public) — A path reading taken back unread (RW7b F1): a path switch turned off, or curriculum C1's fresh choice moved the plan's reading, before it was read.
-  - `deferred_followups(self) -> set[str]` (line 186; public) — Follow-ups the restraint let wait for the next block (R2c).
-  - `reading_target(self) -> ReadingTarget | None` (line 192; public)
-  - `est_minutes(self) -> float` (line 205; public)
-  - `finished(self) -> bool` (line 217; public)
-  - `next_item(self) -> PlannedItem | None` (line 224; public) — The block's next item to serve: a served-but-unanswered item first (resume), then mid-plan follow-ups, then planned order.
-- `class PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 241)
-  - `stops(self) -> list[PlannedBlock]` (line 250; public)
-  - `id(self) -> str` (line 254; public)
-  - `kind(self) -> str` (line 258; public)
-  - `status(self) -> str` (line 262; public)
-  - `is_open(self) -> bool` (line 266; public)
-  - `budget(self) -> float` (line 270; public)
-  - `split(self) -> dict[str, Any]` (line 274; public)
-  - `admission(self) -> dict[str, Any]` (line 278; public)
-  - `lanes_allowed(self) -> tuple[str, ...]` (line 282; public)
-  - `items(self) -> list[PlannedItem]` (line 286; public)
-  - `active_items(self) -> list[PlannedItem]` (line 289; public)
-  - `minutes_planned(self) -> float` (line 292; public)
-  - `minutes_left(self) -> float` (line 295; public)
-  - `current_block(self) -> PlannedBlock | None` (line 298; public)
-  - `block_below_offer(self) -> PlannedBlock | None` (line 308; public) — IH2: the unfinished block an open offer interrupted, or None.
-  - `followups_lost_to_open_offer(self) -> set[str]` (line 314; public) — IH2: what an unanswered offer's draw beat.
-  - `open_lesson_offer(self) -> PlannedBlock | None` (line 319; public)
-  - `open_lesson_offers(self) -> list[PlannedBlock]` (line 322; public) — Every unanswered offer's block.
-  - `next_ordinal(self) -> int` (line 327; public)
-  - `refused_followups(self) -> set[str]` (line 330; public) — Follow-ups a hard constraint refused in this plan (R2c): never placed again in it.
-  - `planned_ids(self) -> set[str]` (line 337; public) — Items this plan has taken (displaced items go back to the pool).
-  - `ad_deferrals(self) -> dict[str, dict[str, Any]]` (line 342; public) — Adaptive difficulty's active deferrals (spec §6.1 step 0), folded from the plan's own events: an item displaced with ``ad_ineligible`` joins, a later boundary that re-read its checks and cleared it (``block_chosen`` detail ``ad_deferrals.cleared``) releases it.
-  - `exclusion_ids(self) -> set[str]` (line 360; public) — What a pool source never offers this plan whatever the switches say: its planned and skipped items.
-  - `item_count(self) -> int` (line 371; public)
-  - `ledger(self) -> tuple[dict[str, float], dict[str, float]]` (line 374; public) — (allotment, spent) per lane, §6.2 / §6.8 rule 1.
-  - `lane_left(self) -> dict[str, float]` (line 431; public)
-- `assemble(plan_rows: Sequence[Mapping[str, Any]], block_rows: Sequence[Mapping[str, Any]], event_rows: Sequence[Mapping[str, Any]]) -> list[PlanRecord]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 436) — Fold persisted rows into records (events in ordinal order).
-- `day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 543)
+- `class PlannedItem` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 40)
+  - `displaced(self) -> bool` (line 75; public)
+  - `done(self) -> bool` (line 79; public)
+  - `skipped(self) -> bool` (line 83; public)
+  - `resolved(self) -> bool` (line 87; public)
+  - `state(self) -> str` (line 91; public)
+- `class PlannedBlock` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 122)
+  - `is_reading(self) -> bool` (line 154; public)
+  - `is_lesson_offer(self) -> bool` (line 158; public) — Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the block is a lesson offer's card (no items, no reading); it ends with the learner's answer (or ``ignored``).
+  - `interrupts(self) -> bool` (line 165; public) — IH2 (spec_instruct_handoff_v1 §5 item 3): a lesson offer drawn after a miss with questions left in the block below it: it comes first while it is open, and the block resumes after its answer.
+  - `followups_lost(self) -> tuple[str, ...]` (line 172; public) — IH2: the follow-ups this offer's draw beat: they wait while it is open, then a later decision has them.
+  - `withdrawn_path_reading(self) -> bool` (line 180; public) — A path reading taken back unread (RW7b F1): a path switch turned off, or curriculum C1's fresh choice moved the plan's reading, before it was read.
+  - `deferred_followups(self) -> set[str]` (line 187; public) — Follow-ups the restraint let wait for the next block (R2c).
+  - `reading_target(self) -> ReadingTarget | None` (line 193; public)
+  - `est_minutes(self) -> float` (line 206; public)
+  - `finished(self) -> bool` (line 218; public)
+  - `next_item(self) -> PlannedItem | None` (line 225; public) — The block's next item to serve: a served-but-unanswered item first (resume), then mid-plan follow-ups, then planned order.
+- `class PlanRecord` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 242)
+  - `stops(self) -> list[PlannedBlock]` (line 251; public)
+  - `id(self) -> str` (line 255; public)
+  - `kind(self) -> str` (line 259; public)
+  - `status(self) -> str` (line 263; public)
+  - `is_open(self) -> bool` (line 267; public)
+  - `budget(self) -> float` (line 271; public)
+  - `split(self) -> dict[str, Any]` (line 275; public)
+  - `admission(self) -> dict[str, Any]` (line 279; public)
+  - `lanes_allowed(self) -> tuple[str, ...]` (line 283; public)
+  - `items(self) -> list[PlannedItem]` (line 287; public)
+  - `active_items(self) -> list[PlannedItem]` (line 290; public)
+  - `minutes_planned(self) -> float` (line 293; public)
+  - `minutes_left(self) -> float` (line 296; public)
+  - `current_block(self) -> PlannedBlock | None` (line 299; public)
+  - `block_below_offer(self) -> PlannedBlock | None` (line 309; public) — IH2: the unfinished block an open offer interrupted, or None.
+  - `followups_lost_to_open_offer(self) -> set[str]` (line 315; public) — IH2: what an unanswered offer's draw beat.
+  - `open_lesson_offer(self) -> PlannedBlock | None` (line 320; public)
+  - `open_lesson_offers(self) -> list[PlannedBlock]` (line 323; public) — Every unanswered offer's block.
+  - `next_ordinal(self) -> int` (line 328; public)
+  - `refused_followups(self) -> set[str]` (line 331; public) — Follow-ups a hard constraint refused in this plan (R2c): never placed again in it.
+  - `planned_ids(self) -> set[str]` (line 338; public) — Items this plan has taken (displaced items go back to the pool).
+  - `ad_deferrals(self) -> dict[str, dict[str, Any]]` (line 343; public) — Adaptive difficulty's active deferrals (spec §6.1 step 0), folded from the plan's own events: an item displaced with ``ad_ineligible`` joins, a later boundary that re-read its checks and cleared it (``block_chosen`` detail ``ad_deferrals.cleared``) releases it.
+  - `exclusion_ids(self) -> set[str]` (line 361; public) — What a pool source never offers this plan whatever the switches say: its planned and skipped items.
+  - `item_count(self) -> int` (line 372; public)
+  - `ledger(self) -> tuple[dict[str, float], dict[str, float]]` (line 375; public) — (allotment, spent) per lane, §6.2 / §6.8 rule 1.
+  - `lane_left(self) -> dict[str, float]` (line 432; public)
+- `assemble(plan_rows: Sequence[Mapping[str, Any]], block_rows: Sequence[Mapping[str, Any]], event_rows: Sequence[Mapping[str, Any]]) -> list[PlanRecord]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 437) — Fold persisted rows into records (events in ordinal order).
+- `day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 544)
 
 ### Module constants
 
-- `_EPS` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 18)
-- `ORIGIN_CHOOSER` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 21)
-- `ORIGIN_REQUESTED` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 22)
-- `ORIGIN_FOLLOWUP` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 23)
-- `ORIGIN_LEARNER_PICK` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 24)
-- `LANE_ORIGINS` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 27)
-- `AD_INELIGIBLE` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 30)
-- `RECEIPT_STOP` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 34)
-- `RECEIPT_OPEN_LIST_PICK` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 35)
-- `READING_PATH_OFF` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 106)
-- `DELIVERABLE_PATH_OFF` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 113)
-- `DELIVERABLE_PATH_MOVED` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 117)
+- `_EPS` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 19)
+- `ORIGIN_CHOOSER` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 22)
+- `ORIGIN_REQUESTED` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 23)
+- `ORIGIN_FOLLOWUP` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 24)
+- `ORIGIN_LEARNER_PICK` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 25)
+- `LANE_ORIGINS` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 28)
+- `AD_INELIGIBLE` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 31)
+- `RECEIPT_STOP` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 35)
+- `RECEIPT_OPEN_LIST_PICK` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 36)
+- `READING_PATH_OFF` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 107)
+- `DELIVERABLE_PATH_OFF` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 114)
+- `DELIVERABLE_PATH_MOVED` ([src/learnloop/daily_plan/records.py](../../../../../../src/learnloop/daily_plan/records.py), line 118)
 
 ### Explicit exports
 
@@ -139,7 +139,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 476)
+- `_apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/daily_plan/records.py), line 477)
 
 ## Who imports or calls it
 
@@ -156,7 +156,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LANES`, `LESSON_OFFER_SUBTYPE`, `ReadingTarget`; calls `ReadingTarget`
+- [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LANES`, `ReadingTarget`, `STOP_FOR_TODAY`; calls `ReadingTarget`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `is_offer`; calls `is_offer`
 
 ### Platform and third-party dependencies
 

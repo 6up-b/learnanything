@@ -59,8 +59,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Module constants
 
-- `VERSION` ([src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 26)
-- `OFFER_PREFIX` ([src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 27)
+- `VERSION` ([src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 27)
 - `WHAT_MOVES` ([src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 28)
 
 ### Explicit exports
@@ -89,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `qualifying_outcomes`; calls `qualifying_outcomes`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 

@@ -106,12 +106,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `module`; calls `_Days`, `_excerpt`, `_topic`, `decision_sections_entry`
-- [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `LESSON_OFFER_SUBTYPE`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `recent_learner_preferences`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `WITHHELD_UNREADABLE`; calls `PastWork`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `CARD_NOTE`, `module`; calls `card_entry`, `sensor`, `surprise_reference`
 - [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] — imports `WORDS`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `is_offer`; calls `is_offer`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `miss_cause_sensor_on`, `preferences_inform_router_on`; calls `miss_cause_sensor_on`, `preferences_inform_router_on`
 
 ### Platform and third-party dependencies

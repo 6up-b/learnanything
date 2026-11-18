@@ -47,21 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py) |
-| Source lines | 107 |
+| Source lines | 108 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `show_router_decisions(vault: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 26)
-- `decision_view(repository: Repository, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 49) — The line and its *details*, or None for a decision the ledger doesn't hold.
+- `show_router_decisions(vault: Any) -> bool` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 27)
+- `decision_view(repository: Repository, decision_id: str | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 50) — The line and its *details*, or None for a decision the ledger doesn't hold.
 
 ### Module constants
 
-- `_ARMS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 17)
-- `_DRAWS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 20)
-- `_MODELS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 23)
+- `_ARMS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 18)
+- `_DRAWS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 21)
+- `_MODELS` ([src/learnloop/followup_run/decision_view.py](../../../../../../src/learnloop/followup_run/decision_view.py), line 24)
 
 ### Explicit exports
 
@@ -72,9 +72,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_parsed(value: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 30)
-- `_label(ref: str) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 39)
-- `_percent(value: float) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 45)
+- `_parsed(value: Any) -> Any` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 31)
+- `_label(ref: str) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 40)
+- `_percent(value: float) -> str` ([source](../../../../../../src/learnloop/followup_run/decision_view.py), line 46)
 
 ## Who imports or calls it
 
@@ -90,6 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `any_feedback_held`, `present`
+- [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `LESSON_OFFER_PREFIX`
 
 ### Platform and third-party dependencies
 
