@@ -102,7 +102,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E2 | Extract the chooser's pure decision function | landed | `2bc640bf05` | [refactor-e2.md](refactor-e2.md) | — |
 | E3 | Move job control and clocks out of choice | landed | `13925e8bbf` | [refactor-e3.md](refactor-e3.md) | — |
 | E4 | Move trace assembly out of the chooser | landed | `8eb1c94b4d` | [refactor-e4.md](refactor-e4.md) | — |
-| E5 | Separate objective terms from rollout arithmetic | waiting on | — | — | E4 |
+| E5 | Separate objective terms from rollout arithmetic | in the gate | — | [refactor-e5.md](refactor-e5.md) | — |
 | E6 | Put each router action in one place | waiting on | — | — | E5 |
 | E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
 | E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
