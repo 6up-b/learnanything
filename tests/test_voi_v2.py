@@ -437,22 +437,28 @@ def test_each_switch_alone_moves_only_its_own_decisions(switch, default, method_
 
 
 def _gate_abstains(monkeypatch):
-    from learnloop.diagnosis import probe_episodes as pe
+    from learnloop.diagnosis import probe_robust
+    from learnloop.diagnosis.robust_composition import RobustDecision
 
     calls = []
 
-    def gate(*_args, **_kwargs):
+    def select(_channel, candidates, _posterior, **_kwargs):
         calls.append(1)
-        return "couldnt_reliably_distinguish"
+        return RobustDecision(candidates[0].identifier, 0.0, 0.0, 0.5, True, True, "couldnt_reliably_distinguish")
 
-    monkeypatch.setattr(pe, "_robust_completion_override", gate)
+    monkeypatch.setattr(probe_robust, "robust_selection", select)
     return calls
 
 
 def _gate_vault(tmp_path, version="mvp-0.21", toml=""):
     from tests.voi_stopping_helpers import _long_probe_vault
 
-    return _long_probe_vault(tmp_path, version, toml)
+    vault, repository = _long_probe_vault(tmp_path, version, toml)
+    # The gate needs a qualifying observation before it reads the selection result.
+    with repository.connection() as connection:
+        connection.execute("UPDATE probe_episodes SET minimum_independent_observations = 1")
+        connection.commit()
+    return vault, repository
 
 
 def test_the_robust_gate_does_not_end_an_episode_while_value_decides(tmp_path, monkeypatch):
@@ -520,13 +526,12 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     gate abstention and the episode continues, the next committed
     observation's receipt says what the gate would have said ("later")."""
 
-    from learnloop.diagnosis import probe_episodes as pe
+    from learnloop.diagnosis import probe_completion as completion
     from learnloop.scheduling import scheduler as S
     from tests.voi_stopping_helpers import CLOCK, _answer_probe, _minutes
 
     vault, repository = _gate_vault(tmp_path)
     _gate_abstains(monkeypatch)
-    monkeypatch.setattr(pe, "_robust_gate_verdict", lambda *_a, **_k: "couldnt_reliably_distinguish")
     _minutes(monkeypatch, 0.0001)
     episode = _answer_probe(vault, repository, score=0)
     assert episode.status == "in_progress"
@@ -542,7 +547,7 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     restored, restored_repository = _gate_vault(tmp_path / "restored", toml="[voi_stopping]\nrobust_gate_with_value = true\n")
     first = restored_repository.open_probe_episode("lo_svd_definition")
     rows = restored_repository.probe_observations_for_episode(first.id)
-    assert pe.robust_gate_counterfactual(restored, restored_repository, first, {"a": 0.5, "b": 0.5}) == (False, None)
+    assert completion.robust_gate_counterfactual(restored, restored_repository, first, {"a": 0.5, "b": 0.5}) == (False, None)
     assert rows == []
 
 

@@ -35,9 +35,7 @@ from learnloop.diagnosis.causal_attribution import (
     normalized_prior_weights,
     record_eliciting_response,
 )
-from learnloop.diagnosis.causal_orchestrator import (
-    record_learner_embedded_prediction,
-)
+from learnloop.diagnosis.causal_discrimination import record_learner_embedded_prediction
 from learnloop.diagnosis.causal_probe_coherence import build_causal_hypothesis_set
 from learnloop.diagnosis.error_taxonomy_map import project_mechanism
 from learnloop.attempts.reveal_ledger import production_admissibility, record_reveal
@@ -449,7 +447,7 @@ def test_question_join_is_silent_when_the_tutor_extracts_nothing(tmp_path, monke
 def test_question_join_never_fails_the_learners_answer(tmp_path, monkeypatch):
     """Best-effort means best-effort: bookkeeping cannot cost an answer."""
 
-    import learnloop.diagnosis.causal_orchestrator as orchestrator
+    import learnloop.diagnosis.causal_discrimination as orchestrator
 
     def _boom(*args, **kwargs):
         raise RuntimeError("ledger exploded")

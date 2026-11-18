@@ -104,7 +104,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_historical_regrade_reads_its_current_epoch_not_a_surviving_obsolete_criterion`
 - [tests/test_observation_ledger_bulk.py](../../../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_observation_ledgers_have_constant_query_budget_and_stable_order`
-- [tests/test_rebuild_history_appends.py](../../../../../../../tests/test_rebuild_history_appends.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_regrade_against_an_edited_unverified_key_never_certifies`
   - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`

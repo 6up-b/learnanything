@@ -105,7 +105,7 @@ their meaning, and consumers distinguish eras by receipt presence and
 observable when it was written. The existing enforcement (the §6.2 guards)
 stays; this is the recorded line-item layer above it, plus exactly two NEW
 hard-fail causes
-(applied by ``causal_orchestrator.record_cold_verification_from_task``): the
+(applied by ``causal_cold_verification.record_cold_verification_from_task``): the
 cold item's own answer revealed post-primed, and a hard same-surface exposure
 post-primed. Everything else records without blocking, so the lane is never
 starved by its own receipts.
@@ -1294,8 +1294,8 @@ def _context_blinding(
     Answered from the Phase-C receipt (migration 144), which records what the
     grading call was actually handed: the grader provider/model, the prompt
     version, and the prior-attempt ids whose raw traces were attached as C4
-    history. ``augment_grading_context`` attaches those traces WITHOUT their
-    diagnoses by contract, so a receipt naming no prior attempt from this repair
+    history. The joint grader was handed those traces WITHOUT their diagnoses
+    by contract, so a receipt naming no prior attempt from this repair
     chain is positive evidence of blinding. No receipt (self-graded, manual, or
     a pre-Stage-7 attempt) is ``unknown``, never a pass.
     """

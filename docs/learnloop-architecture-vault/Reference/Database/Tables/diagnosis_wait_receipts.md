@@ -18,6 +18,7 @@ source_paths:
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/diagnosis/split/reports.py"
+  - "src/learnloop_sidecar/handlers/queue.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -77,7 +78,8 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.diagnosis_wait_receipts()`
+- `Repository.insert_diagnosis_wait_receipt()`
 
 ### Direct SQL readers
 
@@ -89,7 +91,8 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop_sidecar/handlers/queue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -97,6 +100,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_reports.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

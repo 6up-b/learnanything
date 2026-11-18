@@ -156,6 +156,16 @@ longer give a cold reading is ended with a typed disposition when a serve sees
 it, never re-timed into a check the practice answer would contaminate. See
 `docs/reviews/serve-eligibility-decision-codex-review.md`.
 
+Recorded rule, 2026-11-16 (owner; `docs/specs/refactor_strategy_v3.md` §2.20): a
+new successor ships with its tag, its upgrade row and its test row, and with no
+kill switch unless the owner asks for one to monitor it. The 2026-10-17 rule's
+tag requirement stands; its "with a kill switch" no longer binds a new
+successor. Without a switch there is no off path to keep or test. Undoing a
+successor: before a vault is upgraded to its tag, revert the landing; after, a
+follow-up successor that restores the old behaviour (a tag is never reused or
+stepped back), or a restore of a copy taken before the upgrade. Existing
+switches are not affected: they go by ADR-019's rule as the floor moves.
+
 Recorded rule, 2026-11-04 (router objective RO1, successor mvp-0.46;
 `docs/specs/spec_router_objective_v1.md` §5, `docs/reviews/router-ro1.md`): a
 config switch that changes how a projection is derived is a projection change.

@@ -105,8 +105,8 @@ class PlannedItem:
 #: the day (the plan's reading goes back to the predecessor's).
 READING_PATH_OFF = "reading_path_off"
 #: Curriculum C1: a move's reason (the v2 receipt's ``moves``) when the plan's reading,
-#: without reading history, moved to the fresh choice with ``curriculum.plan_uses_path``
-#: (or ``curriculum.enabled``) off and RW7b's path on: RW7b's choice. With RW7b's path off
+#: without reading history, moved to the fresh choice with ``curriculum.enabled`` off and
+#: RW7b's path on: RW7b's choice. With RW7b's path off
 #: too the reason is :data:`READING_PATH_OFF` (the order's choice). The withdrawn block's
 #: own ``block_ended`` reason is :data:`READING_PATH_OFF` (a path reading taken back
 #: unread, whichever path chose it).

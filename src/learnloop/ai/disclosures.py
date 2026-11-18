@@ -187,7 +187,7 @@ _WHEN = {
         "teaches with your status on each (shown on your own, assumed known, learning, new), the depth you "
         "chose and your active goal's title, so LearnLoop's model can say which sections are core, "
         "prerequisite or enrichment. No passage text, nothing you wrote, never material held out for an "
-        "exam. It never grades you; with reading_paths.plan_uses_path on, today's plan reads the labels "
+        "exam. It never grades you; today's plan reads the labels "
         "(no further call) so your reading block opens the next core or prerequisite section."
     ),
     "curriculum_scope": (

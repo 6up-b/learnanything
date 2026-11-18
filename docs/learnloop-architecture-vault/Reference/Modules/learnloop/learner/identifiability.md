@@ -146,8 +146,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_registry_view_rank_counts_items_and_criteria`
   - `test_two_facets_sharing_an_observing_signature_are_one_dimension`
   - `test_unobserved_facet_contributes_no_dimension_and_the_deficit_is_split`
-- [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
-  - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
   - `test_measurement_rank_is_composed_from_identifiability`
   - `test_measurement_rank_is_unavailable_with_no_declared_facet`

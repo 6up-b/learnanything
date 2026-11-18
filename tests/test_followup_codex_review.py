@@ -565,18 +565,6 @@ def test_f6_a_job_that_ended_with_its_workflow_pending_says_it_failed(journey):
     assert row["state"] == wf.FAILED and row["release_reason"] == wf.RELEASE_GENERATION_FAILED
 
 
-def test_f6_a_shadow_vault_has_its_workflows_job_at_once(tmp_path, monkeypatch):
-    from learnloop.attempts import post_attempt
-    from tests.causal_p2_acceptance_helpers import _divergent_failure
-
-    vault, repository, _paths = rival_causes_vault(tmp_path)
-    monkeypatch.setattr(post_attempt, "_shadow_diagnosis_enabled", lambda _vault: True)
-    monkeypatch.setattr(post_attempt, "enqueue_post_attempt_diagnosis", lambda *_a, **_k: None)
-    result = _divergent_failure(vault, repository, attempt_id="att_shadow")
-    outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)
-    assert _job(repository, outcome.workflow_id)["state"] == "queued"
-
-
 # -- F7: the switch off, with a probe already prepared --------------------------------------------
 
 
@@ -889,14 +877,14 @@ def test_f7_rereview_skipping_a_workflows_probe_through_the_sidecar_closes_it(jo
 
 
 def _not_now(repository, factor_id, session_id):
-    from learnloop.diagnosis.causal_orchestrator import record_learner_preference
+    from learnloop.diagnosis.probe_hard_stops import record_learner_preference
 
     record_learner_preference(repository, preference="decline", factor_id=factor_id, session_id=session_id,
                               source="learner_action", clock=CLOCK)
 
 
 def _blocking_check(repository, factor_id):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_REPAIR_MAPPING
 
     repository.enqueue_causal_machine_check(check_id="mc_blocks", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
                                             source="test", factor_id=factor_id, clock=CLOCK)
@@ -1051,7 +1039,7 @@ def test_f10_a_closed_probes_candidate_leaves_the_factors_active_set(journey):
     """Serving accepts only ``active`` candidates, so a retired probe's mustn't stay one: the
     predecessor's offer would pin a question every door refuses, after the switch goes off."""
 
-    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
 
     row = _workflow_probe(journey)
     repository = journey.repository
@@ -1374,7 +1362,7 @@ def test_f7_verify_the_scan_leaves_what_isnt_a_writer(source):
 
 
 def _blocking_check_on_the_object(repository, learning_object_id):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_REPAIR_MAPPING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_REPAIR_MAPPING
 
     repository.enqueue_causal_machine_check(check_id="mc_blocks_object", kind=MACHINE_CHECK_REPAIR_MAPPING, payload={},
                                             source="test", learning_object_id=learning_object_id, clock=CLOCK)
@@ -1417,7 +1405,7 @@ def test_f9_verify_a_check_on_the_object_that_arrives_during_authoring_stops_the
 
 
 def test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing(tmp_path):
-    from learnloop.diagnosis.causal_orchestrator import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository)

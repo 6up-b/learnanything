@@ -21,6 +21,11 @@ source_paths:
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
+  - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/diagnosis/split/card.py"
+  - "src/learnloop/diagnosis/split/jobs.py"
+  - "src/learnloop/diagnosis/split/reports.py"
+  - "src/learnloop/substrate/recurrence_groups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -91,7 +96,11 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.diagnoses_in_force()`
+- `Repository.diagnosis_context_receipt()`
+- `Repository.diagnosis_with_citations()`
+- `Repository.input_fingerprint_parts()`
+- `Repository.insert_attempt_diagnosis()`
 
 ### Direct SQL readers
 
@@ -105,7 +114,11 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/attempts/coldness_receipt.py`
+- `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/diagnosis/split/jobs.py`
+- `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/substrate/recurrence_groups.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -114,6 +127,16 @@ None found by exact static reference scan.
 
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/diagnosis_input_provenance_helpers.py`
+- `tests/mcp_world.py`
+- `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_embeddings.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_diagnosis_reports.py`
+- `tests/test_held_grade_composition.py`
+- `tests/test_learner_blindness_relax.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_recurrence_live.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

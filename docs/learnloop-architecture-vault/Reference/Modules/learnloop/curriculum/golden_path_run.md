@@ -88,7 +88,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `module`; statically calls `advance`, `project_run`
 - [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `module`; statically calls `advance`, `project_run`
-- [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `module`; statically calls `advance`, `project_run`
 
 ## Dependencies
 
@@ -97,7 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] — imports `module`; calls `snapshot_baseline_boundary`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; calls `close_diagnostic_segment`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `module`; calls `close_diagnostic_segment`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_json`; calls `canonical_json`
 
 ### Platform and third-party dependencies
@@ -111,22 +110,13 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]], [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]].
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — direct import
-- [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
-  - `test_concentrated_signature_distribution_stays_tier_one`
-  - `test_decide_commits_the_aid_and_routes_the_run`
-  - `test_diffuse_signature_distribution_downgrades_to_tier_two`
-  - `test_dont_know_on_never_exposed_routes_unfamiliar_decisively`
-  - `test_high_confidence_signature_takes_intended_route`
-  - `test_low_confidence_yields_decision_aid_that_never_auto_commits`
-- [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_golden_path_assessment.py](../../../../../../tests/test_golden_path_assessment.py) — direct import
   - `test_accept_records_draft_intent_without_successor`
   - `test_burned_surface_refuses_and_run_degrades`

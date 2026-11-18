@@ -32,7 +32,7 @@ def test_nothing_in_src_consults_the_retired_keep_local():
     ``sources_with_retired_keep_local``); the other mentions are prose. The
     Decider landing's span-support guard (``source_kept_local``) is gone."""
 
-    readers = {"src/learnloop/db/repositories.py", "src/learnloop/ops/doctor.py"}
+    readers = {"src/learnloop/db/stores/source_documents.py", "src/learnloop/ops/doctor.py"}
     prose = {"src/learnloop/content/pipeline/add_source.py",
              "src/learnloop/content/facet_identity/span_support.py",
              # The AD guard's column registry names every column (AD23 redesign round 5); it reads nothing.

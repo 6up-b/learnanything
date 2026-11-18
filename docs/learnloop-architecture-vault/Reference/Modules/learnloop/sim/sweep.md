@@ -89,8 +89,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]] — imports `SweepSpecError`, `load_sweep_spec`, `run_sweep`; statically calls `load_sweep_spec`, `run_sweep`
-- [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `SweepEntry`, `run_sweep`; statically calls `SweepEntry`, `run_sweep`
 - [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]] — imports `run_sweep`
+- [[Reference/Modules/learnloop/sim/certify|learnloop.sim.certify]] — imports `SweepEntry`, `run_sweep`; statically calls `SweepEntry`, `run_sweep`
 
 ## Dependencies
 
@@ -109,7 +109,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 No direct learner/operator workflow is assigned. This module is offline, shadow-only, dormant, or a dependency reached only through the static consumers below.
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]], [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]], [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]], [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]], [[Reference/Modules/learnloop/sim/certify|learnloop.sim.certify]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

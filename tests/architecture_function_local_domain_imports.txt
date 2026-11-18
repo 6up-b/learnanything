@@ -10,7 +10,8 @@ learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution
 learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation
 learnloop.attempts.attempts -> learnloop.diagnosis.discrimination_profiles
 learnloop.attempts.attempts -> learnloop.diagnosis.error_hunt
-learnloop.attempts.attempts -> learnloop.diagnosis.probe_episodes
+learnloop.attempts.attempts -> learnloop.diagnosis.probe_evidence
+learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations
 learnloop.attempts.attempts -> learnloop.diagnosis.remediation
 learnloop.attempts.attempts -> learnloop.goals.certification_cold_probe
 learnloop.attempts.attempts -> learnloop.learner.assessment_contracts
@@ -50,7 +51,7 @@ learnloop.content.proposals.proposals -> learnloop.diagnosis.missing_vocabulary
 learnloop.content.synthesis.source_set_synthesis -> learnloop.learner.capability_mapping
 learnloop.content.synthesis.synthesis_gates -> learnloop.curriculum.curriculum_locks
 learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack
-learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_episodes
+learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_completion
 learnloop.curriculum.integration_backfill -> learnloop.learner.facet_diagnostics
 learnloop.curriculum.integration_backfill -> learnloop.substrate.replay
 learnloop.curriculum.subject_registry -> learnloop.learner.identifiability
@@ -58,10 +59,11 @@ learnloop.diagnosis.calibration_sessions -> learnloop.learner.mastery
 learnloop.diagnosis.causal_activity_policy -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.causal_attribution -> learnloop.attempts.reveal_ledger
 learnloop.diagnosis.causal_attribution -> learnloop.substrate.canonical_projection
-learnloop.diagnosis.causal_orchestrator -> learnloop.attempts.coldness_receipt
-learnloop.diagnosis.causal_orchestrator -> learnloop.attempts.reveal_ledger
-learnloop.diagnosis.causal_orchestrator -> learnloop.substrate.canonical_projection
-learnloop.diagnosis.causal_orchestrator -> learnloop.substrate.instrument_serving
+learnloop.diagnosis.causal_cold_verification -> learnloop.attempts.coldness_receipt
+learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.canonical_projection
+learnloop.diagnosis.causal_cold_verification -> learnloop.substrate.instrument_serving
+learnloop.diagnosis.causal_discrimination -> learnloop.attempts.reveal_ledger
+learnloop.diagnosis.causal_discrimination -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.contrast_pairs -> learnloop.learner.identifiability
 learnloop.diagnosis.diagnosis_adjudication -> learnloop.tutor.durable_promotion
 learnloop.diagnosis.diagnostic_pack -> learnloop.curriculum.golden_path_assessment
@@ -74,11 +76,11 @@ learnloop.diagnosis.guided_redo -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.misconceptions -> learnloop.substrate.canonical_projection
 learnloop.diagnosis.misconceptions -> learnloop.tutor.durable_promotion
 learnloop.diagnosis.probe_audit -> learnloop.attempts.grading
-learnloop.diagnosis.probe_episodes -> learnloop.attempts.grade_resolution
-learnloop.diagnosis.probe_episodes -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.probe_episodes -> learnloop.goals.goal_contracts
 learnloop.diagnosis.probe_episodes -> learnloop.learner.facet_diagnostics
 learnloop.diagnosis.probe_episodes -> learnloop.scheduling.controller_ownership
+learnloop.diagnosis.probe_evidence -> learnloop.attempts.grade_resolution
+learnloop.diagnosis.probe_evidence -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.probe_outcome_mapping -> learnloop.attempts.outcome_schemas
 learnloop.diagnosis.remediation -> learnloop.attempts.coldness_receipt
 learnloop.diagnosis.remediation -> learnloop.substrate.canonical_projection
@@ -118,10 +120,9 @@ learnloop.ops.maintenance_feed -> learnloop.content.sources.source_outcome_analy
 learnloop.ops.maintenance_feed -> learnloop.curriculum.graph_edit_proposals
 learnloop.ops.maintenance_feed -> learnloop.diagnosis.diagnostic_surface_supply
 learnloop.ops.startup -> learnloop.attempts.clarification
-learnloop.params.sensitivity_certificates -> learnloop.sim.sweep
 learnloop.reader.reader_authoring -> learnloop.attempts.salience_firewall
 learnloop.reader.reader_authoring -> learnloop.substrate.activities
-learnloop.reader.reader_progression -> learnloop.content.authoring.practice_generation
+learnloop.reader.section_generation -> learnloop.content.authoring.practice_generation
 learnloop.scheduling.controller_snapshot -> learnloop.substrate.instrument_serving
 learnloop.scheduling.evaluation -> learnloop.attempts.attempts
 learnloop.scheduling.kinship_feature -> learnloop.params.sensitivity_certificates
@@ -158,5 +159,5 @@ learnloop.tutor.teach_back -> learnloop.goals.goal_projection
 learnloop.tutor.teach_back -> learnloop.learner.facet_diagnostics
 learnloop.tutor.tutor_qa -> learnloop.content.authoring.practice_leakage
 learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_attribution
-learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_orchestrator
+learnloop.tutor.tutor_qa -> learnloop.diagnosis.causal_discrimination
 learnloop.tutor.tutor_qa -> learnloop.reader.reader_progression

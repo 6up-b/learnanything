@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `Repository.agent_run()`
 - `Repository.complete_agent_run()`
 - `Repository.completed_agent_run_by_context()`
+- `Repository.diagnosis_calls_since()`
 - `Repository.find_record()`
 - `Repository.insert_agent_run()`
 
@@ -124,6 +125,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/proposals/required_method_override.py`
+- `src/learnloop/content/proposals/self_tagged_fatal.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
@@ -132,7 +134,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/teacher/checks.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -147,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_ingest_m3.py`
+- `tests/test_joint_grading_builder.py`
 - `tests/test_migrations.py`
 - `tests/test_proposal_dependencies.py`
 - `tests/test_question_signal.py`
@@ -158,7 +160,6 @@ Indexes and uniqueness:
 - `tests/test_stuck_prompt.py`
 - `tests/test_synthesis_manifests.py`
 - `tests/test_synthesis_tail_golden.py`
-- `tests/test_teach_back.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

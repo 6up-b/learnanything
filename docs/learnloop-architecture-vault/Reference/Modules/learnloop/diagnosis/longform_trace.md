@@ -84,7 +84,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`; statically calls `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`; statically calls `assess_trace`, `classify_trace_outcome`, `obligations_from_bindings`, `outcomes_from_grading_evidence`
 
 ## Dependencies
 
@@ -104,7 +104,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

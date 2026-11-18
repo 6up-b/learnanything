@@ -18,6 +18,7 @@ source_paths:
   - "migrations/089_source_block_health.sql"
   - "src/learnloop/content/sources/block_health.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/figures/source_check.py"
   - "src/learnloop/reader/source_render_views.py"
@@ -89,11 +90,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 

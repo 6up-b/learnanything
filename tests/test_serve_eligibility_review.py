@@ -291,7 +291,11 @@ def test_f4_new_vaults_start_at_the_successor(tmp_path):
 
 
 def test_f4_a_probe_of_an_item_submit_would_prime_is_refused(tmp_path):
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from learnloop.vault.loader import load_vault
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 

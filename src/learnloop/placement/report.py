@@ -20,7 +20,6 @@ from learnloop.placement.rules import RULES_VERSION
 from learnloop.placement.state import (
     INTENT_ASSUMED,
     INTENT_MAINTENANCE,
-    diagnosis_can_arrive,
     load_placement_state_from_connection,
     placement_tables_present,
 )
@@ -96,7 +95,7 @@ def placement_report(connection: Any, vault: Any, *, now_iso: str | None = None)
     if not placement_tables_present(connection):
         return {"manifest": manifest, "status": "no_placement_tables", "sources": {}, "counts": {}}
     state = load_placement_state_from_connection(
-        connection, active=False, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso or utc_now_iso(),
+        connection, active=False, now_iso=now_iso or utc_now_iso(),
     )
     returns = connection.execute(
         "SELECT assumption_id FROM assumption_returns ORDER BY created_at, id"

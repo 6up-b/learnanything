@@ -19,7 +19,9 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/db/stores/reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -96,17 +98,20 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reading_requests.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reading_requests.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
+- `src/learnloop/db/stores/reading_requests.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

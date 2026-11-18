@@ -59,14 +59,14 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] | [[Reference/Modules/learnloop/followup_run/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] | [[Reference/Modules/learnloop/followup_run/lesson_probe#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] | [[Reference/Modules/learnloop/followup_run/marks#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
-| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 14 |
+| [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] | [[Reference/Modules/learnloop/followup_run/router#^module-purpose|purpose]] | `ACTIVE` | 2 | 15 |
 | [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] | [[Reference/Modules/learnloop/followup_run/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 19 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 20 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 16 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
@@ -81,7 +81,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
-- [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
@@ -108,7 +107,7 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_vault["learnloop.vault"]
-    center -->|19| n_learnloop_diagnosis
+    center -->|20| n_learnloop_diagnosis
     center -->|16| n_learnloop_followup_serve
     center -->|10| n_learnloop
     center -->|9| n_learnloop_db

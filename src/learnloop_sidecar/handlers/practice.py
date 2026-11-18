@@ -37,19 +37,20 @@ from learnloop.hints.telemetry import (
     stamp_window_submission,
     telemetry_enabled,
 )
-from learnloop.diagnosis.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_hypothesis_set
+from learnloop.diagnosis.probe_controls import (
+    episode_contract,
+    next_probe_item,
+    stop_diagnosing_and_teach,
+)
+from learnloop.diagnosis.probe_presentations import (
     PROBE_ITEM_ANSWER_SHOWN,
     RoutineDisplayCovered,
     commit_item_presentation,
-    enter_episode,
-    episode_contract,
-    episode_hypothesis_set,
-    next_probe_item,
     probe_serving_block_reason,
     probe_value_block_reason,
     routine_display_covers_item,
     serve_presentation,
-    stop_diagnosing_and_teach,
     validate_presentation_for_submission,
 )
 from learnloop.diagnosis.probes import probe_posterior
@@ -474,7 +475,7 @@ def _committed_presentation(repository, episode, session_id: str | None):
 
     Routine probes are precommitted alongside a `scheduler_slate_candidates`
     row, so `active_probe_presentation_for_session` finds them by joining the
-    session's slate. A CAUSAL probe (`causal_orchestrator.accept_probe_offer`)
+    session's slate. A CAUSAL probe (`probe_offer.accept_probe_offer`)
     has no scheduler candidate at all — it is minted by a learner action, not
     by the planner — so that join misses it. Committing a SECOND presentation
     for the same item would drop the `causal_probe` selection component pinning

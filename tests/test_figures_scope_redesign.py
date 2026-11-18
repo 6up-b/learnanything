@@ -25,7 +25,9 @@ import pytest
 
 from learnloop.ai.execution import model_call
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import request as FQ
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
     EQUATION_TEXT,
@@ -83,7 +85,7 @@ def test_no_figure_is_labelled_checked(tmp_path, spec):
     figure = build(ctx)["figure"]
     assert figure["verification"] == "illustrative"
     assert "checked" not in figure["label"].replace("not checked", "")
-    assert figure["reason"] == FS.RECONSTRUCTION_REASON and verifier.calls == 0
+    assert figure["reason"] == FV.RECONSTRUCTION_REASON and verifier.calls == 0
     (row,) = rows(repository, "interactive_figures")
     assert row["verification"] == "illustrative"
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
@@ -100,7 +102,7 @@ def test_a_stored_verified_row_is_rendered_as_an_illustration(tmp_path):
         connection.execute("UPDATE interactive_figures SET verification = 'verified'")
         connection.commit()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
-    assert listed["verification"] == "illustrative" and listed["reason"] == FS.RECONSTRUCTION_REASON
+    assert listed["verification"] == "illustrative" and listed["reason"] == FV.RECONSTRUCTION_REASON
     assert listed["label"] == "AI-built illustration of an interpretation · not checked against the book"
 
 
@@ -209,8 +211,8 @@ def test_the_build_control_makes_every_request(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     counter = _Counter()
     author = _GatedAuthor(list(BUILD_ANSWERS), counter)
-    outcome = FS.build_figure(load_vault(paths.root), repository,
-                              FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
+    outcome = FB.build_figure(load_vault(paths.root), repository,
+                              FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert counter.admitted == BUILD_REQUESTS == author.calls
     assert outcome.view["verification"] == "illustrative" and len(rows(repository, "interactive_figures")) == 1
 
@@ -224,9 +226,9 @@ def test_a_build_makes_no_request_after_its_configuration_changes(tmp_path, flip
     paths, repository = build_figure_vault(tmp_path / "vault")
     counter = _Counter(lambda: FLIPS[flip](paths.root), after)
     author = _GatedAuthor(list(BUILD_ANSWERS), counter)
-    with pytest.raises(FS.FigureRefused) as caught:
-        FS.build_figure(load_vault(paths.root), repository,
-                        FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
+    with pytest.raises(FQ.FigureRefused) as caught:
+        FB.build_figure(load_vault(paths.root), repository,
+                        FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=author)
     assert caught.value.code == "figures_changed"
     assert counter.admitted == after and author.calls == after
     assert rows(repository, "interactive_figures") == []

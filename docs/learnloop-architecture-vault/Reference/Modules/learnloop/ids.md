@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `new_ulid`, `snake_case`; statically calls `new_ulid`, `snake_case`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `new_ulid`, `snake_case`; statically calls `new_ulid`, `snake_case`
 - [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] — imports `snake_case`; statically calls `snake_case`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `new_ulid`; statically calls `new_ulid`
@@ -135,6 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `new_ulid`; statically calls `new_ulid`
@@ -143,13 +145,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/voi_forecasts|learnloop.db.stores.voi_forecasts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `new_ulid`; statically calls `new_ulid`
@@ -164,9 +170,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/split/pfc_report|learnloop.diagnosis.split.pfc_report]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `new_ulid`; statically calls `new_ulid`
@@ -270,7 +277,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 164 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 171 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -281,6 +288,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/figure_build_golden_helpers.py](../../../../../tests/figure_build_golden_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/normalize_helpers.py](../../../../../tests/normalize_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../tests/notes_fixtures.py) — direct import
 - [tests/p2_acceptance_helpers.py](../../../../../tests/p2_acceptance_helpers.py) — direct import

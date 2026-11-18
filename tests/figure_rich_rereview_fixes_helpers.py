@@ -4,7 +4,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 from __future__ import annotations
 
 from learnloop.db.stores import figures as store
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
 
 from tests import rich_fixtures as RF
 
@@ -27,6 +27,6 @@ def _first_animation(rig):
 
 
 def _revision(rig, figure_id, note, *, different_kind=False):
-    revision = FS.revision_request(rig.repository, _base(rig, figure_id), note)
+    revision = FB.revision_request(rig.repository, _base(rig, figure_id), note)
     revision.different_kind = different_kind
     return revision

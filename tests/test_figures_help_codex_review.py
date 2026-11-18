@@ -131,12 +131,13 @@ def _manim_row(**changes: Any) -> dict[str, Any]:
 
     from learnloop.figures import manim_figure as M
     from learnloop.figures import rich as RICH
+    from learnloop.figures.spec import MANIM_FIG_VERSION
 
     figure = M.ManimFigure(scene_code=changes.pop("scene_code", SCENE), scene_class="Area",
                            title=changes.pop("title", "zebra stripes"),
                            narration_md=changes.pop("narration_md", "zebra stripes"))
     spec = RICH.canonical_spec(figure, {"demonstrates": "zebra stripes", "brief": "b"}, [], [])
-    return {"spec_json": spec, "spec_version": M.MANIM_FIG_VERSION, "tier": "manim"}
+    return {"spec_json": spec, "spec_version": MANIM_FIG_VERSION, "tier": "manim"}
 
 
 def test_s0_f13_an_undisplayed_string_in_a_scene_is_not_reveal_text():
@@ -272,17 +273,17 @@ def test_f5_switched_off_between_the_build_and_the_delivery_nothing_is_shown_or_
 
 
 def test_f5_an_attempt_builds_admission_key_carries_the_switch(tmp_path):
-    from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
     from learnloop.vault.loader import load_vault
     from tests.hint_fakes import hint_vault
 
     paths = hint_vault(tmp_path, config="[figures]\nsketch_enabled = false\nrich_tiers_enabled = false\n")
     on = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=None, span_ids=[], origin="ask", goal_text=GOAL, goal_author="learner",
+    request = FQ.FigureRequest(extraction_id=None, span_ids=[], origin="ask", goal_text=GOAL, goal_author="learner",
                                host_ref={"item_id": ITEM, "submission_id": "k1"})
-    reader = FS.FigureRequest(extraction_id="e", span_ids=[], origin="show_me", goal_text=GOAL,
+    reader = FQ.FigureRequest(extraction_id="e", span_ids=[], origin="show_me", goal_text=GOAL,
                               goal_author="learner", reading_at={"extraction_id": "e", "span_id": "s"})
-    key, reader_key = FS.key_for(request), FS.key_for(reader)
+    key, reader_key = FQ.key_for(request), FQ.key_for(reader)
     set_config(paths, "figures", help_kind_enabled=False)
     off = load_vault(paths.root)
     assert key(on) != key(off)
@@ -411,7 +412,7 @@ def test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit(t
     from learnloop.clock import FrozenClock
     from learnloop.db.repositories import Repository
     from learnloop.diagnosis.split.figure_trace import figure_trace_for_attempt
-    from learnloop.figures import service as FS
+    from learnloop.figures import predictions as FPR
     from learnloop.vault.loader import load_vault
 
     paths, ctx, session, figure = _homeless_figure(tmp_path)
@@ -426,7 +427,7 @@ def test_f7_the_trace_reads_only_what_this_attempt_wrote_as_it_stood_at_submit(t
     second = figure["predictions"][1]["choices"][0]["value"]
     _call(ctx, "reader.figure_predict", {"figureId": figure["figureId"], "predictionIndex": 1, "answer": second})
     later = FrozenClock(datetime(2999, 1, 1, tzinfo=UTC))
-    FS.record_explanation(vault, repository, made["predictionId"], "it moved left", clock=later)
+    FPR.record_explanation(vault, repository, made["predictionId"], "it moved left", clock=later)
     after = figure_trace_for_attempt(vault, repository, _attempt(paths, attempt_id))
     assert after == before
     assert [row["assist_id"] for row in _predictions(paths)][1] is None

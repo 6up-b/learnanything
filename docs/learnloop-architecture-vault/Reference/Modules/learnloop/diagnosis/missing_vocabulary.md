@@ -111,6 +111,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_missing_vocabulary_notes.py](../../../../../../tests/test_missing_vocabulary_notes.py) — direct import
   - `test_authoring_facet_abstention_notes_read_the_criteria`
   - `test_authoring_note_carries_the_proposal_run_version_set`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/report.py](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py) |
-| Source lines | 298 |
+| Source lines | 297 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,11 +55,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `wilson(successes: int, trials: int, z: float=1.96) -> list[float] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 41)
-- `build_report(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 139)
-- `batch_review(repository: Repository, *, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 212) — Slip, wording and unmatched readings, with the learner's text (owner only).
-- `plan_report(repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 226) — The dry run: population sizes only, nothing written.
-- `render_markdown(report: Mapping[str, Any], review: list[dict[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 236)
-- `write_report(vault: LoadedVault, repository: Repository, out: Path, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 291)
+- `build_report(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 138)
+- `batch_review(repository: Repository, *, since: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 211) — Slip, wording and unmatched readings, with the learner's text (owner only).
+- `plan_report(repository: Repository, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 225) — The dry run: population sizes only, nothing written.
+- `render_markdown(report: Mapping[str, Any], review: list[dict[str, Any]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 235)
+- `write_report(vault: LoadedVault, repository: Repository, out: Path, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 290)
 
 ### Module constants
 
@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_pair_agreement(connection: Any, task: str, *, since: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 56) — LLM vs Decider on the same pair (latest standing verdict of each).
 - `_check_counts(rows: list[Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 83)
 - `_first_checks(vault: LoadedVault, repository: Repository, gaps: list[dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 91) — The created prerequisites' light commitments and their delayed checks.
-- `_card_taps(connection: Any, attempt_ids: set[str], *, since: str | None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 121) — T1's diagnosis-card "not the same mistake" taps on these answers.
+- `_card_taps(connection: Any, attempt_ids: set[str], *, since: str | None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/report.py), line 120) — T1's diagnosis-card "not the same mistake" taps on these answers.
 
 ## Who imports or calls it
 
@@ -102,7 +102,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `module`; calls `gaps`, `jobs`, `reversals`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `FAILURE_VERDICTS`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `NEEDED_TASK`, `SAME_BELIEF_TASK`, `SAME_PREREQUISITE_TASK`
-- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `LEARNER_TEXT_GAP_SOURCE`, `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_active`; calls `diagnosis_can_arrive`, `load_placement_state_from_connection`, `placement_active`
+- [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `LEARNER_TEXT_GAP_SOURCE`, `load_placement_state_from_connection`, `placement_active`; calls `load_placement_state_from_connection`, `placement_active`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies

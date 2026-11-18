@@ -64,7 +64,7 @@ proof_check = "chatgpt_low"
 merged_sessions = false
 failure_share_to_other_policy = false
 
-[followups]
+[curriculum]
 enabled = false
 """
 
@@ -116,7 +116,7 @@ def test_the_report_names_what_the_removals_touch_and_nothing_else(tmp_path, vau
         "ai.routing.proof_check", "codex", "codex.model", "ai.providers.my_codex", "ai.active_provider",
         "ai.routing.grading", "ai.routing.tutor_qa"])
     assert [(row["path"], row["tag"], row["value"], row["differs"]) for row in with_keys["tagged_switches"]] == [
-        ("followups.enabled", "mvp-0.39", False, True),
+        ("curriculum.enabled", "mvp-0.40", False, True),
         ("router_objective.merged_sessions", "mvp-0.50", False, True),
         ("router_objective.failure_share_to_other_policy", "mvp-0.55", False, True)]
     assert with_keys["untagged_switches"] == []

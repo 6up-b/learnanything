@@ -266,7 +266,6 @@ def m2_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
             "algorithm_version": vault.config.algorithms.algorithm_version,
             "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
             "history_mode": getattr(config, "history_mode", None),
-            "split_enabled": getattr(config, "split_enabled", None),
             "history_includes_prior_analysis": getattr(config, "history_includes_prior_analysis", None),
             "embedding_model": vault.config.embedding.model if vault.config.embedding.enabled else None,
             "config_hash": content_key(vault.config.model_dump(mode="json")),
@@ -306,7 +305,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "## Manifest",
         "",
         f"- algorithm {manifest['algorithm_version']}, history mode {manifest['history_mode']}, "
-        f"split enabled {manifest['split_enabled']}, embedding model {manifest['embedding_model']}",
+        f"embedding model {manifest['embedding_model']}",
         f"- blind-graded attempts {manifest['blind_graded_attempts']}; grading prompts "
         f"{json.dumps(manifest['grading_prompt_versions'], sort_keys=True)}",
         "",

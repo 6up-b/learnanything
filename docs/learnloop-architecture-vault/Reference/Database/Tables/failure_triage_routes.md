@@ -18,8 +18,7 @@ source_paths:
   - "migrations/083_diagnostic_pack_and_triage.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_completion.py"
   - "src/learnloop/diagnosis/probe_hypotheses.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
   - "src/learnloop/scheduling/action_loss.py"
@@ -99,8 +98,7 @@ None found by exact static reference scan.
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
-- `src/learnloop/diagnosis/failure_triage.py`
-- `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/voi_forecasting.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
 
@@ -109,7 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-- `tests/test_failure_triage.py`
+- `tests/test_triage_routes.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/voi_restore_scenarios.py`
 - `tests/voi_stopping_helpers.py`

@@ -18,6 +18,8 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/probe_blocks.py"
+  - "src/learnloop/diagnosis/probe_completion.py"
+  - "src/learnloop/diagnosis/probe_controls.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
 tags:
   - "learnloop/database/table"
@@ -90,6 +92,8 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/probe_completion.py`
+- `src/learnloop/diagnosis/probe_controls.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 
 > [!note] Static-reference boundary

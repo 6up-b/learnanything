@@ -75,7 +75,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `coarse_class_for_outcome`, `coarse_schema_slug`, `mapping_snapshot`; statically calls `coarse_class_for_outcome`, `coarse_schema_slug`, `mapping_snapshot`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `coarse_class_for_outcome`, `coarse_schema_slug`, `mapping_snapshot`; statically calls `coarse_class_for_outcome`, `coarse_schema_slug`, `mapping_snapshot`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `PROBE_COARSE_MAPPING_VERSION`, `coarse_class_for_outcome`, `coarse_instrument_rows`; statically calls `coarse_class_for_outcome`, `coarse_instrument_rows`
 
 ## Dependencies
@@ -97,7 +97,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

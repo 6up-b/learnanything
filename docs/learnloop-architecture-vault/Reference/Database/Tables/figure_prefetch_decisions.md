@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/stores/figure_prefetch.py"
+  - "src/learnloop/figures/listing.py"
   - "src/learnloop/figures/prefetch.py"
   - "src/learnloop/figures/prefetch_ledger.py"
-  - "src/learnloop/figures/records.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -102,8 +102,8 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/figures/listing.py`
 - `src/learnloop/figures/prefetch.py`
-- `src/learnloop/figures/service.py`
 - `src/learnloop/why/reconstructed.py`
 
 ### Direct SQL writers

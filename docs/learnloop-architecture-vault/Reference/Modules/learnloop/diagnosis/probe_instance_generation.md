@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f3_the_mint_and_the_batch_write_the_identity_before_the_file`
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — direct import

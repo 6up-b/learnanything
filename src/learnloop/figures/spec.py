@@ -47,6 +47,17 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from learnloop.figures import grammar as G
 
 SPEC_VERSION = "ifs-v1"
+# A stored figure's ``spec_version`` for each kind, and the lists of them, live here rather than beside the sketch
+# and Manim parsers: those modules import this one, and the lists' readers (the build, the pre-build ledger) reach
+# them without importing the build.
+SKETCH_VERSION = "sketch-v1"
+MANIM_FIG_VERSION = "manim-fig-v1"
+#: RW5d P2: the spec versions a stored figure may have (a grammar spec or a sketch).
+SPEC_VERSIONS = (SPEC_VERSION, SKETCH_VERSION)
+#: RW5d P2b: a rich figure's versions (a Manim figure); listed under its quick
+#: figure when it follows one (``fuller_of_id``), else on its own line.
+RICH_SPEC_VERSIONS = (MANIM_FIG_VERSION,)
+ALL_SPEC_VERSIONS = SPEC_VERSIONS + RICH_SPEC_VERSIONS
 #: Samples per function plot (``SAMPLES + 1`` points), identical in figureGrammar.ts.
 SAMPLES = 120
 MAX_PARAMETERS = 4
@@ -1222,7 +1233,12 @@ __all__ = [
     "derived_bounds",
     "DIRECTION_LABELS",
     "SAMPLES",
+    "ALL_SPEC_VERSIONS",
+    "MANIM_FIG_VERSION",
+    "RICH_SPEC_VERSIONS",
+    "SKETCH_VERSION",
     "SPEC_VERSION",
+    "SPEC_VERSIONS",
     "CompiledFigure",
     "CompiledPanel",
     "InteractiveFigureSpecV1",

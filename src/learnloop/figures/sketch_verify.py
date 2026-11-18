@@ -77,7 +77,7 @@ VERIFY_SEED = 1
 #: round 3), stored in every report. **Bump it whenever verification's
 #: semantics change** (what passes, what a check line or *not covered* says),
 #: even when the engine is the same: a stored report from another version is
-#: verified again by code before it is shown (``service.sketch_rechecked``),
+#: verified again by code before it is shown (``view.sketch_rechecked``),
 #: as one from another engine is. Reports without it are from before it
 #: existed (round 2's verifier and earlier). v3 (fix round 4, the independent
 #: sandbox review): every init on a freshly loaded program, the read schedule,

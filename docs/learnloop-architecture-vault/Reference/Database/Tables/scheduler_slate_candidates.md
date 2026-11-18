@@ -105,13 +105,17 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository._link_attempt_to_scheduler_candidate()`
+- `Repository._offer_open()`
 - `Repository.active_probe_presentation_for_session()`
 - `Repository.calibration_duel_pairs()`
 - `Repository.candidate_propensity_rows()`
 - `Repository.chosen_candidate_outcomes()`
+- `Repository.finalize_scheduler_offer()`
 - `Repository.find_record()`
 - `Repository.record_scheduler_slate()`
+- `Repository.scheduler_offer_answered()`
 - `Repository.scheduler_slate_candidates()`
+- `Repository.submission_offer_answered_elsewhere()`
 
 ### Direct SQL readers
 
@@ -140,6 +144,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
+- `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/phone_reader.py`
 - `src/learnloop_sidecar/serving.py`
 

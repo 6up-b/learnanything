@@ -104,7 +104,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] | [[Reference/Modules/learnloop/source_retrieval/note_gaps#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] | [[Reference/Modules/learnloop/source_retrieval/note_links#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] | [[Reference/Modules/learnloop/source_retrieval/passage_cues#^module-purpose|purpose]] | `ACTIVE` | 4 | 14 |
-| [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] | [[Reference/Modules/learnloop/source_retrieval/policy#^module-purpose|purpose]] | `ACTIVE` | 23 | 22 |
+| [[Reference/Modules/learnloop/source_retrieval/policy|learnloop.source_retrieval.policy]] | [[Reference/Modules/learnloop/source_retrieval/policy#^module-purpose|purpose]] | `ACTIVE` | 24 | 22 |
 | [[Reference/Modules/learnloop/source_retrieval/queries|learnloop.source_retrieval.queries]] | [[Reference/Modules/learnloop/source_retrieval/queries#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/source_retrieval/query_student|learnloop.source_retrieval.query_student]] | [[Reference/Modules/learnloop/source_retrieval/query_student#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] | [[Reference/Modules/learnloop/source_retrieval/reader_tutor#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
@@ -164,8 +164,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 19 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 11 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 11 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 11 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 9 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 8 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges

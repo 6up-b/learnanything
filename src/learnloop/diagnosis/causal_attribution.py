@@ -8,7 +8,6 @@ durable-belief or negative-facet authority.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -18,6 +17,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.content_ids import content_id
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.error_taxonomy_map import (
     MECHANISM_PROJECTION_OPEN_SET,
@@ -90,8 +90,7 @@ CAUSAL_DECISION_POLICY_VERSION = "causal_p2_v1"
 #: The open-world arm's placeholder id on a *candidate cause row* (§5.1: a
 #: candidate cause set is never closed).  Written by
 #: ``canonical_projection._open_candidate_causes`` and by the receipt-derived
-#: factor below; read by ``failure_triage``, ``probe_targeting``, and
-#: ``causal_probe_coherence``.
+#: factor below; read by ``probe_targeting`` and ``causal_probe_coherence``.
 #:
 #: This is a DIFFERENT namespace from ``probe_hypotheses.H_OTHER``
 #: (``"other_or_unknown"``), which is the open-set *label* inside a probe
@@ -191,7 +190,7 @@ SUPPORT_BASIS_AUTHORITY: dict[str, str] = {
     # exact-key comparison.  The prediction was committed before the response
     # existed, is content-addressed and append-only, and was reviewed through
     # the register -> review -> activate ladder; the match itself runs no model.
-    # See `causal_orchestrator.record_probe_classification` for the sensor
+    # See `causal_discrimination.record_probe_classification` for the sensor
     # condition this grant is contingent on.
     "blind_probe_match": "validator_owned",
     "learner_confirmation": "learner_confirmed",
@@ -220,13 +219,6 @@ VERIFICATION_STATUSES = frozenset(
         "assumption_missing",
     }
 )
-
-
-def _content_id(prefix: str, value: Any) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), default=str
-    ).encode("utf-8")
-    return f"{prefix}_{hashlib.sha256(encoded).hexdigest()[:26]}"
 
 
 @dataclass(frozen=True)
@@ -282,7 +274,7 @@ class RepairValidationResult:
             "verification": self.verification.as_dict(),
         }
         return {
-            "id": _content_id("rv", body),
+            "id": content_id("rv", body),
             "authority": "learnloop_validator",
             **body,
         }
@@ -685,7 +677,7 @@ def _repair_class(
             suggestion.get("answer_reveal_budget") or 0.0
         ),
     }
-    return {"id": _content_id("rc", definition), **definition}
+    return {"id": content_id("rc", definition), **definition}
 
 
 def select_minimal_repair(
@@ -912,7 +904,7 @@ def repair_equivalence_id(repair_class: Mapping[str, Any]) -> str:
     re-fragment the synonyms A2 exists to collapse.
     """
 
-    return _content_id(
+    return content_id(
         "re",
         {
             "operator": str(
@@ -1102,7 +1094,7 @@ def mint_causal_mechanism_taxonomy(
                 }
             )
             continue
-        mechanism_id = _content_id(
+        mechanism_id = content_id(
             "mech",
             {
                 "repair_equivalence_id": equivalence,
@@ -1162,7 +1154,7 @@ def mint_causal_mechanism_taxonomy(
         }
         for value in hypotheses
     ]
-    source_head_hash = _content_id("ch", source_heads)
+    source_head_hash = content_id("ch", source_heads)
     taxonomy = {
         "schema_version": 2,
         "algorithm": MECHANISM_TAXONOMY_ALGORITHM,
@@ -1172,7 +1164,7 @@ def mint_causal_mechanism_taxonomy(
         "abstained": abstained,
     }
     status = "active" if activate else "draft"
-    taxonomy_version_id = _content_id(
+    taxonomy_version_id = content_id(
         "ctv",
         {
             "taxonomy": taxonomy,
@@ -1467,7 +1459,7 @@ def _candidate_key(
 
     if status == "open_set":
         return "open_set"
-    return _content_id(
+    return content_id(
         "ck",
         {
             "statement_normalized": _normalized(
@@ -2629,9 +2621,8 @@ def materialize_causal_episode(
         "model_reported_support_proposals": (
             model_reported_support_proposals
         ),
-        # A single attempt earns no approved authority.  The honest value is the
-        # one that keeps `failure_triage` from PROMOTING on it (§2); it may still
-        # veto.
+        # A single attempt earns no approved authority; consumers must not
+        # treat its model-reported support as deterministic evidence.
         "support_authority": support_authority,
         "trace_consistency": trace_consistency,
         "trace_consistency_detail": trace_consistency_detail,
@@ -2684,7 +2675,7 @@ def materialize_causal_episode(
         "created_at": created_at,
     }
     receipt = {
-        "id": _content_id("dr", receipt_body),
+        "id": content_id("dr", receipt_body),
         **receipt_body,
     }
     if repository.attempt_debug_payload(attempt_id) is not None:

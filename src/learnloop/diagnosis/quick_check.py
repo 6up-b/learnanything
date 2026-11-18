@@ -64,7 +64,6 @@ from learnloop.placement.decisions import (
 from learnloop.placement.predictor import active_predictor
 from learnloop.placement.signals import blocking_signals_by_lo
 from learnloop.placement.state import (
-    diagnosis_can_arrive,
     load_answers,
     load_placement_state_from_connection,
     placement_active,
@@ -351,7 +350,7 @@ def quick_check_progress(
             presentations = quick_check_presentations(connection, calibration_session_id)
             answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
             state = load_placement_state_from_connection(
-                connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+                connection, active=placement_active(vault),
                 now_iso=utc_now_iso(clock),
             )
             blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))

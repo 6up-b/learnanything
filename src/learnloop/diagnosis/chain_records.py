@@ -7,15 +7,17 @@ pure builder and a writer that never raises:
 * ``diagnosis``: one per persisted diagnosis row, its status and why, in the
   row's own transaction (``split.jobs._persist``), child of the job's
   ``job_enqueued``;
-* ``diagnosis_step``: a post-diagnosis step that failed to a log line before
-  (the machine-check sweep, the common-repair consultation, the escalation
-  receipt, the learner-text enqueue, the causal shadow selector);
+* ``diagnosis_step``: a grade-keyed or post-diagnosis step that failed to a log line before
+  (the machine-check sweep, cold-verification wiring, probe classification,
+  common-repair consultation, escalation receipt, learner-text enqueue);
 * ``followup_value``: each follow-up value decision, beside its receipt
   (``followup_value_decisions``), so the follow-up's later router decision is
   reached through the trace (break 6);
 * ``voi_forecast``: a forecast writer that failed (it logged only);
 * ``probe_value``: an opened item value rejected as the episode's next
   observation (it left no row);
+* ``probe_classification``: a consumed pinned causal probe answer the deterministic classifier
+  declined to read, with its decline code and counts, never feature values;
 * ``probe_offer``: every acceptance of a causal probe offer, with the id that
   decided it (the learner lane's causal receipt, or FG1's router decision), so a
   learner-lane probe has a row at acceptance (break 5).
@@ -41,6 +43,15 @@ FOLLOWUP_VALUE = "followup_value"
 VOI_FORECAST = "voi_forecast"
 PROBE_VALUE = "probe_value"
 PROBE_OFFER = "probe_offer"
+PROBE_CLASSIFICATION = "probe_classification"
+
+PINNED_BUNDLES_EMPTY = "pinned_bundles_empty"
+CANDIDATE_NOT_CURRENT = "candidate_not_current"
+ALREADY_OBSERVED = "already_observed"
+NO_DETERMINISTIC_RUBRIC = "no_deterministic_rubric"
+NO_ASSESSED_CRITERION = "no_assessed_criterion"
+PINNED_BUNDLE_MISSING = "pinned_bundle_missing"
+DECLARED_FEATURES_NOT_COVERED = "declared_features_not_covered"
 
 #: Alternatives and ids kept per record (the receipts keep the rest).
 ALTERNATIVES_KEPT = 10
@@ -262,6 +273,25 @@ def record_probe_value(repository: Any, *, practice_item_id: str, episode_id: st
                        decision: Mapping[str, Any] | None) -> str | None:
     return _write(repository, PROBE_VALUE, lambda: probe_value_record(
         practice_item_id=practice_item_id, episode_id=episode_id, reason=reason, decision=decision))
+
+
+def probe_classification_declined_record(*, attempt_id: str, presentation_id: str, reason: str,
+                                        candidate_id: str | None = None, declared_keys_n: int | None = None,
+                                        supplied_keys_n: int | None = None) -> provenance.DecisionRecord:
+    """One declined probe answer (pure); a successful reading already has its observation row."""
+
+    return provenance.DecisionRecord(
+        kind=PROBE_CLASSIFICATION, status="excluded", subject_kind="attempt", subject_id=attempt_id,
+        decided_by="deterministic_probe_classifier", rule=reason,
+        facts={"attempt_id": _code(attempt_id), "presentation_id": _code(presentation_id),
+               "candidate_id": _code(candidate_id), "declared_keys_n": declared_keys_n,
+               "supplied_keys_n": supplied_keys_n}, parent_id=provenance.current_cause(),
+    )
+
+
+def record_probe_classification_declined(repository: Any, **values: Any) -> str | None:
+    return _write(repository, PROBE_CLASSIFICATION,
+                  lambda: probe_classification_declined_record(**values))
 
 
 # -- the causal probe offer ------------------------------------------------------------------------------------

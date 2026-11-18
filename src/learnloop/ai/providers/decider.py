@@ -9,8 +9,10 @@ Pinned from the providers' documentation (checked 2026-10-12, recorded in
   the Decisions router"), ``Authorization: Bearer $OPENROUTER_API_KEY``. The
   model is ``perplexity/pplx-decider-v1.2`` (output modality ``decisions``;
   providers Perplexity and Makora). The response adds
-  ``id``, ``provider`` and ``usage.cost`` to Perplexity's shape, and ``model``
-  is the dated slug that answered.
+  ``id``, ``provider``, ``usage.cost``, ``usage.is_byok`` and
+  ``usage.cost_details`` to Perplexity's shape, and ``model`` is the dated
+  slug that answered. Billing metadata stays in the raw receipt; ``cost``
+  alone is the amount charged, never the sum of the upstream cost details.
 * **Perplexity direct** (``api = "perplexity"``): ``POST
   https://api.perplexity.ai/v1/decisions``, ``Authorization: Bearer
   $PERPLEXITY_API_KEY``, model ``pplx-decider-v1.2``. Unknown top-level

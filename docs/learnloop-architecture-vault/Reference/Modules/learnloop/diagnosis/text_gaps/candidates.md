@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/mcp_world.py](../../../../../../../tests/mcp_world.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../../tests/test_diagnosis_input_provenance_landing.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/actions|learnloop.diagnosis.text_gaps.actions]]
@@ -139,7 +140,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/figures_codex_review_helpers.py](../../../../../../../tests/figures_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
 - [tests/figures_scope_redesign_helpers.py](../../../../../../../tests/figures_scope_redesign_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../../../tests/learner_text_gaps_flow_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
-- [tests/learner_text_gaps_helpers.py](../../../../../../../tests/learner_text_gaps_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]]
 
 ## Modification guidance
 

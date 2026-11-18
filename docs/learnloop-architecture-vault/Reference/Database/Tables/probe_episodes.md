@@ -23,11 +23,10 @@ source_paths:
   - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/confusable_concepts.py"
-  - "src/learnloop/curriculum/golden_path_run.py"
+  - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/daily_plan/router_reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -125,6 +124,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 
 ### Upstream callers of the repository access surface
@@ -136,29 +136,31 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
+- `src/learnloop/diagnosis/probe_completion.py`
+- `src/learnloop/diagnosis/probe_controls.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
+- `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
-- `src/learnloop/followup_run/jobs.py`
-- `src/learnloop/followup_run/router.py`
-- `src/learnloop/followup_serve/workflow.py`
-- `src/learnloop/goals/goal_contracts.py`
-- `src/learnloop/instructional/needs.py`
+- `src/learnloop/diagnosis/probe_offer.py`
+- `src/learnloop/diagnosis/probe_presentations.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_journey_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/p2_acceptance_helpers.py`
 - `tests/probe_block_end_helpers.py`
 - `tests/probe_episodes_helpers.py`
+- `tests/probe_records_helpers.py`
 - `tests/probe_robust_cutover_helpers.py`
 - `tests/router_probe_ties_helpers.py`
 - `tests/sim_probe_validation_helpers.py`
@@ -173,8 +175,6 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_submission.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_device_eligibility.py`
-- `tests/test_diagnostic_probe_freshness.py`
-- `tests/test_dual_authority_administration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

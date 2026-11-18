@@ -87,7 +87,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CausalRepairError`, `accept_probe_offer`, `causal_repair_status`, `defer_probe_offer`, `request_teaching_now`; calls `accept_probe_offer`, `causal_repair_status`, `defer_probe_offer`, `request_teaching_now`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `causal_repair_status`; calls `causal_repair_status`
+- [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CausalRepairError`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `accept_probe_offer`, `defer_probe_offer`, `request_teaching_now`; calls `accept_probe_offer`, `defer_probe_offer`, `request_teaching_now`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `RemediationBlocked`, `RemediationError`, `case_value`, `episode_case`, `misconception_status_history`, `prescribe_remediation`, `record_prescription_delivery`, `start_remediation_episode`, `start_remediation_treatment`; calls `case_value`, `episode_case`, `misconception_status_history`, `prescribe_remediation`, `record_prescription_delivery`, `start_remediation_episode`, `start_remediation_treatment`
 - [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] — imports `record_remediation_delivery`; calls `record_remediation_delivery`
 - [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] — imports `remediation_passage_provider`

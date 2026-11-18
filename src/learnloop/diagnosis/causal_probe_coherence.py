@@ -25,13 +25,13 @@ probe.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-import hashlib
 import json
 import math
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.content_ids import content_id
 from learnloop.substrate.canonical_projection import surface_group_id, unassessed_evidence_row
 from learnloop.diagnosis.causal_activity_policy import assess_near_clone
 from learnloop.diagnosis.causal_attribution import (
@@ -184,13 +184,6 @@ def resolve_causal_probe_parameters(
         fitted_set_id=str(record["id"]),
         invalid_keys=tuple(sorted(invalid)),
     )
-
-
-def _content_id(prefix: str, value: Any) -> str:
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), default=str
-    ).encode("utf-8")
-    return f"{prefix}_{hashlib.sha256(encoded).hexdigest()[:26]}"
 
 
 def _jsonable(value: Any) -> Any:
@@ -429,8 +422,9 @@ def decide_probe(
 
     Information gain by itself is never sufficient.  The gain is discounted by
     the probability that it changes the selected repair, then valued only by
-    avoided over-teaching.  Every threshold is resolved from the fitted store and
-    returned on the decision as a parameter manifest for the receipt.
+    avoided over-teaching. The resolver reads a fitted scope that nothing writes
+    today (see cli/fit.py), so the defaults serve. Resolved thresholds are returned
+    on the decision as a parameter manifest for the receipt.
     """
 
     resolved = parameters or resolve_causal_probe_parameters(repository)
@@ -986,7 +980,7 @@ def generate_blind_prediction_bundle(
             "blind prediction bundle declared no usable feature rows: "
             f"{[entry['reason'] for entry in report.skipped] or 'no rows'}"
         )
-    input_hash = _content_id("bpi", safe_input)
+    input_hash = content_id("bpi", safe_input)
     identity = {
         "hypothesis_id": hypothesis_id,
         "hypothesis_version": blind_input.hypothesis_version,
@@ -997,7 +991,7 @@ def generate_blind_prediction_bundle(
         "outcome_schema_version": outcome_schema_version,
     }
     return repository.insert_causal_blind_prediction_bundle(
-        bundle_id=_content_id("bpb", identity),
+        bundle_id=content_id("bpb", identity),
         hypothesis_id=hypothesis_id,
         hypothesis_version=blind_input.hypothesis_version,
         practice_item_id=item_id,
@@ -1475,7 +1469,7 @@ def audit_manipulation_contract(
         "reviewer_agent_run_id": reviewer_agent_run_id,
     }
     return repository.insert_probe_manipulation_audit(
-        audit_id=_content_id("pma", body),
+        audit_id=content_id("pma", body),
         source_kind=source_kind,
         source_item_id=body["source_item_id"],
         candidate_item_id=body["candidate_item_id"],
@@ -1559,7 +1553,7 @@ def create_probe_candidate(
         "blind_input_contract_version": BLIND_INPUT_CONTRACT_VERSION,
     }
     return repository.insert_causal_probe_candidate(
-        candidate_id=_content_id("cpc", identity),
+        candidate_id=content_id("cpc", identity),
         factor_id=factor_id,
         practice_item_id=practice_item_id,
         hypothesis_set_id=hypothesis_set_id,
@@ -1809,7 +1803,7 @@ def record_causal_cold_outcome(
         "outcome": outcome,
     }
     return repository.insert_causal_cold_outcome(
-        outcome_id=_content_id("cco", identity),
+        outcome_id=content_id("cco", identity),
         outcome=outcome,
         followup_task_id=followup_task_id,
         remediation_episode_id=remediation_episode_id,
@@ -1959,7 +1953,7 @@ def record_delayed_cold_verification(
         "avoided_affordances": avoided,
     }
     receipt = repository.insert_causal_cold_verification(
-        verification_id=_content_id("ccv", identity),
+        verification_id=content_id("ccv", identity),
         source_attempt_id=source_attempt_id,
         cold_attempt_id=cold_attempt_id,
         repair_class_id=repair_class_id,

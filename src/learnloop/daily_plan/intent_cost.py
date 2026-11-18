@@ -69,7 +69,6 @@ def projected_cost(
         if minutes is None:
             return None, "one check"
         return float(minutes), f"one check, about {max(1, round(minutes))} min"
-    recall_on = bool(vault.config.intent.recall_targets_enabled)
     reviews = []
     for item_id, intent in after.items():
         state = context.states.get(item_id)
@@ -77,7 +76,7 @@ def projected_cost(
             continue
         if intent.excluded:
             continue
-        target = intent.recall_target if recall_on else 0.90
+        target = intent.recall_target
         anchor = context.anchors.get(item_id)
         due = effective_due(
             due_at=state.due_at, anchor_at=anchor[0] if anchor else None, target=target, weights=context.weights

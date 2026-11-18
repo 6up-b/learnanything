@@ -232,16 +232,26 @@ def test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_
 
 
 def test_a_joint_stuck_reading_survives_rebuild_with_no_model_call(tmp_path, monkeypatch):
-    """Review F3/F6: with the split off the reading lives only in its
-    judgment_ledger verdict (a raw ledger), so rebuild reads it back as is."""
+    """Review F3/F6: a joint grade's reading (stored history: no door grades
+    jointly now) lives only in its judgment_ledger verdict (a raw ledger), so
+    rebuild reads it back as is."""
 
-    _paths, vault, repository = split_vault(
-        tmp_path, version=LATEST_ALGORITHM_VERSION, config="[diagnosis]\nsplit_enabled = false"
-    )
-    confused = StuckFake(
-        reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}
-    )
-    _grade(vault, repository, confused, _draft("I can't see where Sigma comes from"), when=20)
+    from learnloop.attempts.ai_contracts import StuckGradingProposal
+    from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+
+    from tests.joint_grading_helpers import review_fake_joint_proposal, write_joint_graded_attempt
+
+    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
+    reading = {"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}
+
+    def confused(context):
+        return StuckGradingProposal.model_validate(
+            {**review_fake_joint_proposal(context).model_dump(mode="json"), "stuck_reading": reading}
+        )
+
+    clock = FrozenClock(at(20))
+    result = write_joint_graded_attempt(vault, repository, _draft("I can't see where Sigma comes from"), confused, clock=clock)
+    run_post_attempt_pipeline(vault, repository, result=result, clock=clock)
     live = _field(vault, repository)
 
     def refuse(*_args, **_kwargs):

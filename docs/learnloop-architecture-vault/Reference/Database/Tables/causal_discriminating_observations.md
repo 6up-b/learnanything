@@ -18,11 +18,11 @@ source_paths:
   - "migrations/130_causal_discriminating_observations.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/hypothesis_marks.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_health.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
+  - "src/learnloop/diagnosis/scoreboard.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -122,10 +122,9 @@ None found by exact static reference scan.
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 
 > [!note] Static-reference boundary
@@ -133,10 +132,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_journey_helpers.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_dialogue_causal_join.py`
-- `tests/test_failure_triage_causal_gate.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_fg1d_probe_shadow.py`

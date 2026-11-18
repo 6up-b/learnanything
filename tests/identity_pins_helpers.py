@@ -34,6 +34,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from tests import diagnosis_identity_helpers as diagnosis_pins
+
 REPO = Path(__file__).resolve().parent.parent
 GOLDENS = Path(__file__).resolve().parent / "goldens"
 IDENTITIES_PATH = GOLDENS / "identities.toml"
@@ -970,13 +972,13 @@ FIGURE_LEARNER = {"topics": [{"learning_object_id": "lo_pin_svd", "title": "Two-
 
 
 def _figure_request(**changes: Any) -> Any:
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     return FigureRequest(**{"extraction_id": "ext_pin", "span_ids": ["s3"], **changes})
 
 
 def _figure_context() -> Any:
-    from learnloop.figures.service import SourceContext
+    from learnloop.figures.grounding import SourceContext
 
     return SourceContext(passage=copy.deepcopy(FIGURE_PASSAGE), around=copy.deepcopy(FIGURE_AROUND),
                          span_texts={item["span_id"]: item["text"] for item in FIGURE_PASSAGE + FIGURE_AROUND})
@@ -985,7 +987,7 @@ def _figure_context() -> Any:
 def _reuse_key(request: dict[str, Any] | None = None, *, image: str | None = None, grounding: Any = None,
                **settings: Any) -> Callable[[], Any]:
     def compute() -> Any:
-        from learnloop.figures.service import request_hash
+        from learnloop.figures.build import request_hash
 
         return request_hash(_figure_request(**(request or {})), _figure_context(), image, grounding=grounding,
                             **settings)
@@ -993,7 +995,7 @@ def _reuse_key(request: dict[str, Any] | None = None, *, image: str | None = Non
 
 
 def _grounding(mode: str) -> Any:
-    from learnloop.figures.service import Grounding
+    from learnloop.figures.grounding import Grounding
 
     keys = [("ext_pin", "s3"), ("ext_two", "q1")] if mode == "retrieved" else []
     return Grounding(mode, keys=keys)
@@ -1002,10 +1004,10 @@ def _grounding(mode: str) -> Any:
 def _alternate_keys(*, learner: bool) -> list[str]:
     """The keys a build looks a shown figure up under besides its own: the same input under the other settings of the
     panels, the sketch tier and the rich menu, each followed by its recorded-inputs twin when a learner state was
-    sent. Production assembles this list inline in ``figures.service._build``; the setting tuples are copied from
+    sent. Production assembles this list inline in ``figures.build._build``; the setting tuples are copied from
     there (the panels on, the sketch tier on, the rich menu with Manim: the default build)."""
 
-    from learnloop.figures.service import _recorded_input_key, request_hash
+    from learnloop.figures.build import _recorded_input_key, request_hash
 
     advanced, sketch, tiers = True, True, FIGURE_MENU
     state = FIGURE_LEARNER if learner else None
@@ -1021,7 +1023,7 @@ def _alternate_keys(*, learner: bool) -> list[str]:
 
 
 def _recorded_twin() -> Any:
-    from learnloop.figures.service import _recorded_input_key
+    from learnloop.figures.build import _recorded_input_key
 
     return _recorded_input_key(_reuse_key(advanced=True, sketch=True, tiers=FIGURE_MENU, rich_runtime=FIGURE_RUNTIME,
                                           learner_state=FIGURE_LEARNER)())
@@ -1031,7 +1033,7 @@ def _request_fields() -> Any:
     """The FigureRequest fields the reuse key reads, with their defaults: a request built without one hashes its
     default, so a renamed field or a changed default moves every key built from such requests."""
 
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     read = ("extraction_id", "span_ids", "region", "supersedes_id", "revision_note", "source_check_id",
             "different_kind", "goal_text", "goal_author")
@@ -1074,7 +1076,7 @@ def _figure_reuse_keys() -> dict[str, Callable[[], Any]]:
 
 
 def _figure_request_identity(generation: int) -> Callable[[], Any]:
-    """``figures.service._build``'s request identity, assembled there inline: the input and its retry generation."""
+    """``figures.build._build``'s request identity, assembled there inline: the input and its retry generation."""
 
     def compute() -> Any:
         from learnloop.ai.execution import content_key
@@ -1142,6 +1144,116 @@ def _rich_build_key(**figures: Any) -> Callable[[], Any]:
 
 
 IDENTITY_SITES: tuple[IdentitySite, ...] = (
+    IdentitySite(
+        "K9.5m", "pattern, card, reversal and pack-card ledger identities",
+        ("src/learnloop/diagnosis/split/jobs.py::record_pattern_verdicts",
+         "src/learnloop/diagnosis/recurrence/guard.py::record_diagnoser_links",
+         "src/learnloop/diagnosis/split/card.py::record_card_tap",
+         "src/learnloop/diagnosis/text_gaps/actions.py::not_this_belief",
+         "src/learnloop/diagnosis/text_gaps/actions.py::reversal_verdict",
+         "src/learnloop/diagnosis/diagnostic_pack.py::assemble_pack"),
+        "judgment deduplication and diagnostic pack card revisions", "old verdicts or cards stop matching",
+        {"pattern": diagnosis_pins.pattern_verdict, "guard_link": diagnosis_pins.guard_link,
+         "card": diagnosis_pins.card_verdict, "belief_reversal": diagnosis_pins.belief_reversal,
+         "prerequisite_reversal": diagnosis_pins.prerequisite_reversal, "pack_card": diagnosis_pins.pack_card}),
+    IdentitySite(
+        "K9.5l", "probe families, instances, causal emissions and text-gap creation",
+        ("src/learnloop/diagnosis/probe_families.py::ProbeFamilyTemplate.schema_hash",
+         "src/learnloop/diagnosis/probe_families.py::CompiledInstrument.compiled_likelihood_hash",
+         "src/learnloop/diagnosis/probe_instance_generation.py::_instance_payload",
+         "src/learnloop/diagnosis/causal_diagnostic_selector.py::_stable_emission_key",
+         "src/learnloop/diagnosis/text_gaps/actions.py::creation_ids",
+         "src/learnloop/diagnosis/text_gaps/actions.py::edge_id_for",
+         "src/learnloop/diagnosis/recurrence/guard.py::_case",
+         "src/learnloop/diagnosis/recurrence/guard.py::suite_hash",
+         "src/learnloop/diagnosis/text_gaps/tier1.py::ask_needed"),
+        "pinned instrument snapshots, generated item and prerequisite inserts, guard and judge reuse",
+        "replays diverge or retries create duplicate entities",
+        {"family": diagnosis_pins.family_schema, "compiled": diagnosis_pins.compiled_likelihood,
+         "instances": diagnosis_pins.parametric_ids, "emissions": diagnosis_pins.emission_keys,
+         "creation": diagnosis_pins.gap_creation, "guard_suite": diagnosis_pins.guard_suite_identity,
+         "needed_tier1": diagnosis_pins.needed_tier1}),
+    IdentitySite(
+        "K9.5a", "causal discriminating observations and machine checks",
+        ("src/learnloop/diagnosis/causal_discrimination.py::record_learner_embedded_prediction",
+         "src/learnloop/diagnosis/causal_discrimination.py::record_probe_classification",
+         "src/learnloop/diagnosis/machine_checks.py::_machine_check_id"),
+        "idempotent observation and machine-check inserts", "duplicate observations or obligations",
+        {"cdo_question": diagnosis_pins.embedded_prediction, "cdo_probe": diagnosis_pins.probe_classification,
+         "cmc": diagnosis_pins.machine_check}),
+    IdentitySite(
+        "K9.5b", "blind bundles, probe candidates, audits and cold observations",
+        tuple("src/learnloop/diagnosis/causal_probe_coherence.py::" + name for name in (
+            "generate_blind_prediction_bundle", "audit_manipulation_contract", "create_probe_candidate",
+            "record_causal_cold_outcome", "record_delayed_cold_verification")),
+        "idempotent causal stores and pinned bundle references", "old bundles and repair observations no longer match",
+        {"bpb": lambda: diagnosis_pins.blind_bundle("bundle_id"), "bpi": lambda: diagnosis_pins.blind_bundle("input_hash"),
+         "pma": diagnosis_pins.manipulation_audit, "cpc": diagnosis_pins.probe_candidate,
+         "cco": diagnosis_pins.cold_outcome, "ccv": diagnosis_pins.cold_verification}),
+    IdentitySite(
+        "K9.5c", "attribution validation, repair classes, receipts and taxonomy",
+        tuple("src/learnloop/diagnosis/causal_attribution.py::" + name for name in (
+            "RepairValidationResult.as_dict", "_repair_class", "repair_equivalence_id", "_candidate_key",
+            "materialize_causal_episode", "mint_causal_mechanism_taxonomy")),
+        "repair equivalence, hypothesis deduplication and immutable taxonomy snapshots",
+        "identical facts fork their stored identities",
+        {"rv": diagnosis_pins.repair_validation, "rc": diagnosis_pins.repair_class,
+         "dr": diagnosis_pins.diagnosis_receipt, "re": diagnosis_pins.repair_equivalence,
+         "ck": diagnosis_pins.dialogue_candidate, "mechanism": lambda: diagnosis_pins.taxonomy("mechanism"),
+         "ch": lambda: diagnosis_pins.taxonomy("source_head_hash"),
+         "ctv": lambda: diagnosis_pins.taxonomy("taxonomy_version_id")}),
+    IdentitySite(
+        "K9.5d", "missing-vocabulary refusal identity",
+        ("src/learnloop/diagnosis/missing_vocabulary.py::_note_id",),
+        "missing vocabulary note inserts", "re-materialization duplicates an abstention",
+        {"mvn": diagnosis_pins.missing_vocabulary}),
+    IdentitySite(
+        "K9.5e", "prior-analysis assignment and correct-answer sample",
+        ("src/learnloop/diagnosis/split/prior_analysis.py::assign",
+         "src/learnloop/diagnosis/split/live.py::sampled_correct_answer"),
+        "diagnosis experiment assignment and shadow sample", "the same attempt switches experiment arms",
+        {"prior_draw": diagnosis_pins.prior_draw, "correct_sample": diagnosis_pins.correct_sample}),
+    IdentitySite(
+        "K9.5f", "text-gap judge checkpoint keys",
+        ("src/learnloop/diagnosis/text_gaps/judges.py::kind_input_hash",
+         "src/learnloop/diagnosis/text_gaps/judges.py::ask_needed"),
+        "judgment ledger reuse", "paid judgments stop matching",
+        {"kind": diagnosis_pins.text_kind, "needed": diagnosis_pins.text_needed}),
+    IdentitySite(
+        "K9.5g", "recurrence guard verdict reuse",
+        ("src/learnloop/diagnosis/recurrence/guard.py::_subject",),
+        "matching.judge.already_judged under GUARD_KIND", "standing guard verdicts stop matching",
+        {"pair": diagnosis_pins.recurrence_reuse}),
+    IdentitySite(
+        "K9.5h", "diagnosis prompt version and ordered suffixes",
+        ("src/learnloop/diagnosis/split/jobs.py::_diagnose",),
+        "diagnosis rows and agent run prompt versions", "existing diagnoses stop matching the current prompt",
+        {f"workbench{w}_figures{f}_prior{p}": lambda w=w, f=f, p=p: diagnosis_pins.prompt_version(w, f, p)
+         for w in (False, True) for f in (False, True) for p in (False, True)}),
+    IdentitySite(
+        "K9.5i", "robust composition decision context and ensemble seed",
+        ("src/learnloop/diagnosis/robust_composition.py::decision_context_hash",
+         "src/learnloop/diagnosis/robust_composition.py::_seed_int"),
+        "committed robust selection snapshots", "identical decisions draw different ensembles",
+        {"context": diagnosis_pins.robust_context, "seed": diagnosis_pins.robust_seed}),
+    IdentitySite(
+        "K9.5j", "diagnosis retrieval and embedding cache keys",
+        ("src/learnloop/diagnosis/split/retrieval.py::content_hash",
+         "src/learnloop/diagnosis/split/embeddings.py::_record",
+         "src/learnloop/diagnosis/text_gaps/kinds.py::query_hash"),
+        "embedding cache lookup", "paid vectors stop being reused",
+        {"retrieval": diagnosis_pins.retrieval_hash, "embedding": diagnosis_pins.embedding_hash,
+         "gap_query": diagnosis_pins.gap_query_hash}),
+    IdentitySite(
+        "K9.5k", "assessment contract, pack identity and contrast assignment",
+        ("src/learnloop/diagnosis/voi_forecasting.py::facet_contract_criteria_hash",
+         "src/learnloop/diagnosis/diagnostic_pack.py::pack_content_hash",
+         "src/learnloop/diagnosis/contrast_pairs.py::randomization_draw"),
+        "forecast contract comparison, pack reuse and recorded pair randomization",
+        "contracts or packs fork and contrast order changes",
+        {"criteria": diagnosis_pins.criteria_hash, "pack": diagnosis_pins.pack_hash,
+         "contrast_draw": diagnosis_pins.contrast_draw}),
+
     IdentitySite(
         "A1", "facet identity config in the synthesis manifest scope",
         ("src/learnloop/content/facet_identity/judge.py::manifest_identity",),
@@ -1445,15 +1557,15 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         _per_config(_lesson_draw)),
     IdentitySite(
         "K10.4a", "figure reuse key (request_hash) over the build's matrix, its alternates and recorded twins",
-        ("src/learnloop/figures/service.py::request_hash", "src/learnloop/figures/service.py::_build",
-         "src/learnloop/figures/service.py::_recorded_input_key", "src/learnloop/figures/learner_state.py::state_hash"),
+        ("src/learnloop/figures/build.py::request_hash", "src/learnloop/figures/build.py::_build",
+         "src/learnloop/figures/build.py::_recorded_input_key", "src/learnloop/figures/learner_state.py::state_hash"),
         "interactive_figures.input_hash: the reuse index (db/stores/figures.py reusable, latest_for_input) every "
         "press and pre-build looks its figure up by, under its own setting and the five others",
         "every stored figure is orphaned: each later press of the same input pays for a new build",
         _figure_reuse_keys()),
     IdentitySite(
         "K10.4b", "figure request identity (content_key of the input and its retry generation)",
-        ("src/learnloop/figures/service.py::_build",),
+        ("src/learnloop/figures/build.py::_build",),
         "the author route's owner and checkpoints: a build rerun after a crash recovers its paid answers by it",
         "a build interrupted after a paid answer pays for it again",
         {f"generation.{generation}": _figure_request_identity(generation) for generation in (0, 1)}),
@@ -1530,6 +1642,7 @@ def current_digests() -> dict[str, str]:
 #: Each type a compared identity dumps whole (sweep §1E), with the sites that dump it. Nested pydantic models and
 #: dataclasses are pinned too, under the root that reaches them.
 SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
+    "learnloop.vault.models:TraceContract": ("K9.5b",),
     "learnloop.config.schema:FacetIdentityConfig": ("A1",),
     "learnloop.config.schema:GraphNominationConfig": ("A3",),
     "learnloop.config.schema:MasteryConfig": ("C1", "C2"),

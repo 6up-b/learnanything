@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
@@ -102,11 +103,11 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/content/sources/exam_material.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 

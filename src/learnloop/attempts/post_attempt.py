@@ -182,7 +182,7 @@ def run_post_attempt_pipeline(
                 defer_diagnosis_hooks=blind,
                 clock=clock,
             )
-            if not deferred and (blind or _shadow_diagnosis_enabled(vault)):
+            if not deferred and blind:
                 # A diagnostic block still measuring is diagnosed at block end
                 # (``probe_blocks``), exactly as it is normalized there today.
                 enqueue_post_attempt_diagnosis(vault, repository, attempt_id=result.attempt_id, clock=clock)
@@ -197,8 +197,8 @@ def run_post_attempt_pipeline(
                            attempt_id=result.attempt_id, clock=clock,
                            link_exposures=hypothesis_marks_on(vault.config))
             if workflow is not None and not blind:
-                # A joint vault has no live diagnosis job, and a shadow one never moves a
-                # workflow (spec §3.1): selection uses what normalization has already written.
+                # An attempt without a blind grade has no live diagnosis job (spec §3.1):
+                # selection uses what normalization has already written.
                 enqueue_workflow(repository, str(workflow["id"]), clock=clock)
             repository.complete_attempt_work(
                 result.attempt_id,
@@ -250,10 +250,6 @@ def _open_followup_workflow(
         vault, repository, result=result, surface=surface, session_id=session_id, grade=grade, origin=origin,
         hold_feedback=origin != "exam", clock=clock,
     )
-
-
-def _shadow_diagnosis_enabled(vault: LoadedVault) -> bool:
-    return bool(getattr(getattr(vault.config, "diagnosis", None), "shadow", False))
 
 
 def _applied_probe_episode_id(

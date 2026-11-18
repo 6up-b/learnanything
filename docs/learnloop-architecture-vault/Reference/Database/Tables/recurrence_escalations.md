@@ -88,7 +88,10 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.escalation_for_diagnosis()`
+- `Repository.escalation_rows()`
+- `Repository.insert_escalation()`
+- `Repository.recurrence_escalations()`
 
 ### Direct SQL readers
 
@@ -100,7 +103,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/diagnosis/recurrence/report.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

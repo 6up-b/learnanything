@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/hint_telemetry_helpers.py](../../../../../tests/hint_telemetry_helpers.py) — direct import
+- [tests/probe_records_helpers.py](../../../../../tests/probe_records_helpers.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_a_plan_block_names_the_attempt_its_chooser_saw_not_one_committed_while_it_waited`
   - `test_a_record_under_a_pin_with_nothing_open_commits_alone`
@@ -183,6 +184,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_builders_keep_ids_numbers_and_codes_only`
+- [tests/test_probe_records.py](../../../../../tests/test_probe_records.py) — direct import
+  - `test_block_settlement_decline_precedes_grade_and_is_reachable`
+  - `test_grade_hook_failure_completes_the_attempt`
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
   - `test_a_phone_request_births_its_trace_and_hands_it_to_the_sidecar`
@@ -242,6 +246,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rule_that_put_the_head_first`
 - [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
   - `test_case_3_a_figure_stored_failed_has_one_author_record_per_attempt_with_typed_codes`
+  - `test_why_wasnt_this_probe_answer_read`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_a_follow_up_gate_call_that_answered_after_the_gate_is_discarded`
   - `test_case_3_aged_the_failed_figure_its_typed_codes_and_its_author_calls`

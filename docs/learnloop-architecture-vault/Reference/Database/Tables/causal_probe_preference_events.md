@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/124_causal_probe_decisions.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/probe_hard_stops.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -92,7 +92,7 @@ Database triggers:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/probe_hard_stops.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

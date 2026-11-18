@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/canonical_projection.py](../../../../../../src/learnloop/substrate/canonical_projection.py) |
-| Source lines | 1345 |
+| Source lines | 1344 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,9 +62,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `load_canonical_projection_snapshot(repository: Repository, *, algorithm_version: str) -> CanonicalProjectionSnapshot` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 299) — Read replay inputs once, before the pure attempt fold begins.
 - `attribution_weights(raw: object, targets: list[CriterionTarget]) -> dict[tuple[str, str], float]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 411) — Normalize persisted failure attribution over the criterion targets.
 - `observed_unresolved_failure(observed_fraction: float, targets: Sequence[CriterionTarget], attribution: Mapping[tuple[str, str], float]) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 441) — True when an OBSERVED failure has multiple candidate causes and no resolving attribution (§5.3) — the condition that opens an unresolved-cause factor.
-- `configured_repeat_discount(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 606)
-- `project_canonical_facet_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, refresh_factor_candidates_for: Collection[str] | None=None, before: tuple[str, str] | None=None, through: tuple[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 614) — Recompute and persist the canonical belief cache.
-- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1159) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
+- `configured_repeat_discount(vault: LoadedVault) -> float` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 605)
+- `project_canonical_facet_state(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, refresh_factor_candidates_for: Collection[str] | None=None, before: tuple[str, str] | None=None, through: tuple[str, str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 613) — Recompute and persist the canonical belief cache.
+- `project_capability_residuals(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1158) — Derive lazy capability-residual activation state (§4.2, KM5; DEFAULT OFF).
 
 ### Module constants
 
@@ -85,9 +85,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_target_ref_key(target_ref: Any) -> str` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 460) — Identity of a candidate cause's declared target, for union de-duplication.
 - `_facet_target_cause(target: CriterionTarget) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 476) — One synthesized open-world arm for a criterion target.
 - `_open_candidate_causes(error_events: Sequence[Mapping[str, Any]], targets: Sequence[CriterionTarget]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 501) — Thin candidate set for an unresolved factor, always open-world.
-- `_adjudicated_score_fraction(adjudication: Mapping[str, Any] | None, interpretation: Mapping[str, Any] | None, score_fraction: Mapping[str, float]) -> float | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 570) — Observed-outcome override when an adjudication heads the interpretation chain.
-- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1146) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
-- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1282) — Idempotently reconcile open unresolved-cause factors with the projection.
+- `_adjudicated_score_fraction(adjudication: Mapping[str, Any] | None, interpretation: Mapping[str, Any] | None, score_fraction: Mapping[str, float]) -> float | None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 569) — Observed-outcome override when an adjudication heads the interpretation chain.
+- `_ledger_position_within(row: Mapping[str, Any], bound: tuple[str, str], *, inclusive: bool) -> bool` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1145) — Whether a ledger row lies before (or, inclusive, at) ``bound``.
+- `_sync_unresolved_cause_factors(repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None, refresh_attempt_ids: Collection[str] | None=None, retire_within_attempt_ids: Collection[str] | None=None) -> None` ([source](../../../../../../src/learnloop/substrate/canonical_projection.py), line 1281) — Idempotently reconcile open unresolved-cause factors with the projection.
 
 ## Who imports or calls it
 
@@ -104,12 +104,14 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]] — imports `held_for_review_attempts`, `pfc_assessments`; statically calls `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `surface_group_id`; statically calls `surface_group_id`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `surface_group_id`, `unassessed_evidence_row`; statically calls `surface_group_id`, `unassessed_evidence_row`
+- [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `surface_group_id`; statically calls `surface_group_id`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `surface_group_id`, `unassessed_evidence_row`; statically calls `surface_group_id`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/planted|learnloop.diagnosis.offline_review.planted]] — imports `surface_group_id`; statically calls `surface_group_id`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `surface_group_id`; statically calls `surface_group_id`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `surface_group_id`; statically calls `surface_group_id`
@@ -170,7 +172,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 37 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 39 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -286,9 +288,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_r2_a_later_regrade_does_not_rewrite_the_credit_banked_before_the_cutoff`
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_a_bounded_fold_equals_the_fold_live_left_and_reconciles_no_factor`
-- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
-  - `test_an_adjudication_survives_rebuilds`
-  - `test_an_adjudication_that_flips_the_grade_is_not_taken_for_a_regrade`
 - [tests/test_receipt_derivation.py](../../../../../../tests/test_receipt_derivation.py) — direct import
   - `test_per_observation_itemization_sums_to_banked_credit`
   - `test_ready_derivation_matches_canonical_recall_slices`

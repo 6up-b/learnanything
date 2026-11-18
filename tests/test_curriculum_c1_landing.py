@@ -3,7 +3,7 @@ its interactions with Reader RW6b part 1 (mvp-0.39), the successor C1 is renumbe
 
 (i) RW6b's automatic follow-ups sit in DL2's maintain lane next to C1's reading block: a follow-up
     the plan serves is a planned check while the reading block is C1's step; the follow-up never
-    changes C1's choice or receipt (nor ``followups.enabled``), and C1's switch never changes the
+    changes C1's choice or receipt, and C1's switch never changes the
     checks. A follow-up RW6b's own gate holds (no digest: fail closed) is recorded unplanned, the
     reading unchanged.
 (ii) The activation chain mvp-0.38 -> mvp-0.39 -> mvp-0.40: a bare upgrade from mvp-0.38 activates
@@ -27,7 +27,7 @@ from learnloop.curriculum import commitments as C
 from learnloop.instructional import reader_followups as RF
 from tests.helpers import append_config_toml
 from tests.reading_path_fixtures import call, context
-from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, _at, _c1, _split
+from tests.curriculum_c1_plan_follows_path_helpers import CURRICULUM_OFF, _at, _c1, _split
 
 C1 = DELIVERABLE_PLAN_ALGORITHM_VERSION
 RW6B = READER_FOLLOWUPS_ALGORITHM_VERSION
@@ -82,22 +82,17 @@ def test_i_a_served_follow_up_is_a_planned_check_next_to_c1s_reading(tmp_path, m
     assert {k: v for k, v in split["reading_path"].items()} == without["reading_path"]
     # C1's switch moves the reading, never the checks.
     _reset(c1)
-    append_config_toml(c1.paths.root, C1_OFF)
+    append_config_toml(c1.paths.root, CURRICULUM_OFF)
     off = _plan(c1)
     assert off["checks"] == split["checks"] and _at(off["reading"]) == ("ext_book", "ch_eigen")
 
 
-def test_i_a_follow_up_rw6bs_gate_holds_leaves_c1s_reading_and_followups_off_changes_nothing_of_it(
-        tmp_path, monkeypatch):
+def test_i_a_follow_up_rw6bs_gate_holds_leaves_c1s_reading(tmp_path, monkeypatch):
     c1 = _c1(tmp_path, monkeypatch)
     followup = _followup(c1)
     split = _plan(c1)
     assert [row["commitment_id"] for row in split["checks_unplanned"]] == [followup]  # held: no digest
     assert _at(split["reading"]) == ("ext_book", "ch_det") and split["reading_path"]["chosen_by"] == "deliverable"
-    _reset(c1)
-    append_config_toml(c1.paths.root, "[followups]\nenabled = false\n")
-    off = _plan(c1)
-    assert off["reading"] == split["reading"] and off["reading_path"] == split["reading_path"]
 
 
 # -- (ii) the activation chain -----------------------------------------------------------------------------

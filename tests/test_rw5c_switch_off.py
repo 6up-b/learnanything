@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.db.stores import figures as store
-from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
+from learnloop.figures import view as FV
 from learnloop.figures import source_check as SC
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import AuthorFake, build, call, context, rows
@@ -56,8 +57,8 @@ def test_nothing_reads_the_ledger_while_the_switch_is_off(tmp_path, monkeypatch)
     assert listed["verification"] == "illustrative" and "the model's own name" in listed["specJson"]
     assert "elements" not in listed and "sourceCheck" not in listed
     vault = load_vault(paths.root)
-    assert FS.source_rejected(vault, repository, store.figure(repository.connection(), figure["figureId"])) is False
-    assert FS.shown_figure(vault, repository, figure["figureId"])
+    assert FV.source_rejected(vault, repository, store.figure(repository.connection(), figure["figureId"])) is False
+    assert FL.shown_figure(vault, repository, figure["figureId"])
 
 
 def test_a_row_written_just_before_a_switch_off_is_never_shown_while_it_is_off(tmp_path):

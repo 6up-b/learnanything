@@ -18,7 +18,7 @@ source_paths:
   - "migrations/107_depth_edge_templates.sql"
   - "src/learnloop/ai/routing.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/cli/depth.py"
 tags:
   - "learnloop/database/table"
@@ -96,12 +96,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/curriculum/depth_edge_authoring.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 

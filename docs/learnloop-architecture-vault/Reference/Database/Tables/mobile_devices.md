@@ -18,6 +18,7 @@ source_paths:
   - "migrations/171_mobile_capture.sql"
   - "src/learnloop/capture/devices.py"
   - "src/learnloop/db/stores/session_ownership.py"
+  - "src/learnloop_sidecar/context.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -76,7 +77,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.device_label()`
 
 ### Direct SQL readers
 
@@ -89,7 +90,8 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/db/stores/session_ownership.py`
+- `src/learnloop_sidecar/context.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

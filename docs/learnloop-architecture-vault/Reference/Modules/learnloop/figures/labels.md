@@ -146,9 +146,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `json_fields`, `label_like`, `label_problems`, `strip_json`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `module`; statically calls `label_problems`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `json_fields`, `label_like`, `label_problems`, `strip_json`, `strip_lines`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `label_like`, `strip_json`, `strip_lines`
 
 ## Dependencies
 
@@ -168,7 +169,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -1,9 +1,7 @@
 """What serving reads from intent (spec §5.2, §5.3, §6.1): one object per build.
 
-:func:`intent_serving` returns ``None`` when intent changes nothing: the
-vault is below the successor ``mvp-0.29``, the kill switch ``intent.enabled``
-is off, or no commitment covers any item and the
-uncommitted target is 0.90 (or recall targets are off). The scheduler and the
+:func:`intent_serving` returns ``None`` when intent changes nothing: no
+commitment covers any item and the uncommitted target is 0.90. The scheduler and the
 plan then take exactly their pre-DL2 paths, which is how byte-identity with no
 commitments is kept by construction rather than by coincidence.
 
@@ -67,11 +65,8 @@ candidate keeps its refusal (``CheckState.refused``), and
 :meth:`IntentServing.due_checks` returns every due, unanswered, unreplaced
 check, servable or not, so the plan accounts for each one.
 
-**The successor** (DL2 Codex re-review F2): intent is ``mvp-0.29``, behind
-the kill switch ``intent.enabled``. Below the tag, or switched off,
-:func:`intent_enabled` is False, :func:`intent_serving` returns None and
-every scheduler and plan path runs the predecessor's code; the desktop
-control answers ``enabled: false``.
+**The successor** (DL2 Codex re-review F2): intent is ``mvp-0.29``; its kill
+switches went once every vault was past the tag.
 """
 
 from __future__ import annotations
@@ -113,13 +108,6 @@ def on_your_own(row: Mapping[str, Any]) -> bool:
         primed=bool(row.get("primed") or 0),
         hints_used=int(row.get("hints_used") or 0),
     )
-
-
-def intent_enabled(config: Any) -> bool:
-    """Is intent live for this config: ``intent.enabled`` on (the successor ``mvp-0.29``'s switch)?"""
-
-    intent = getattr(config, "intent", None)
-    return bool(getattr(intent, "enabled", False))
 
 
 def check_date(snapshot: CommitmentSnapshot, *, default_days: int) -> tuple[datetime, str]:
@@ -214,7 +202,6 @@ class IntentServing:
     resolution: Resolution
     now: datetime
     item_learning_objects: Mapping[str, str]
-    recall_targets_enabled: bool
     weights: tuple[float, ...]
     #: Every pending check, dated and answered, before the split (R1).
     raw_checks: dict[str, CheckState]
@@ -354,7 +341,7 @@ class IntentServing:
         return result
 
     def target_for(self, item_id: str) -> float:
-        return self.intent(item_id).recall_target if self.recall_targets_enabled else 0.90
+        return self.intent(item_id).recall_target
 
     @property
     def fallbacks(self) -> dict[str, int]:
@@ -644,14 +631,11 @@ def intent_serving(
     """The build's intent view, or None when intent changes nothing."""
 
     config = vault.config
-    if not intent_enabled(config):
-        return None
     targets = dict(config.intent.recall_targets)
-    recall_on = bool(config.intent.recall_targets_enabled)
     with repository.connection() as connection:
         snapshots = load_snapshots(connection)
     covering = [snapshot for snapshot in snapshots if not snapshot.retired and snapshot.covers_items]
-    if not covering and not force and (not recall_on or float(targets.get("uncommitted", 0.90)) == 0.90):
+    if not covering and not force and float(targets.get("uncommitted", 0.90)) == 0.90:
         return None
     if weights is None:
         weights = resolve_fsrs_weights(repository)
@@ -733,7 +717,6 @@ def intent_serving(
         resolution=resolution,
         now=now,
         item_learning_objects=item_los,
-        recall_targets_enabled=recall_on,
         weights=tuple(weights),
         raw_checks=checks,
         _anchor_loader=anchors,
@@ -752,7 +735,6 @@ __all__ = [
     "IntentServing",
     "build_checks",
     "check_date",
-    "intent_enabled",
     "intent_serving",
     "on_your_own",
     "check_feasibility",

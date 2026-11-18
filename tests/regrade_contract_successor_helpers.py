@@ -14,7 +14,6 @@ from tests.held_grade_evidence_helpers import T
 
 
 VERSION = REGRADE_CONTRACT_ALGORITHM_VERSION
-JOINT = "[diagnosis]\nsplit_enabled = false"
 
 
 def _vault(tmp_path, *, version=VERSION, config=""):

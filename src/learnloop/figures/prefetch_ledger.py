@@ -153,8 +153,8 @@ def call_build_modes(connection: Any) -> dict[str, str]:
     same owner kind as a press's).
 
     The figure author's receipts are owned by ``figure:<content_key(input_hash, generation)>``
-    (``service.build_figure``), the generation being how many figures of that input were stored
-    before the build (``store.builds_for_input`` over ``service.ALL_SPEC_VERSIONS``); the rich
+    (``build.build_figure``), the generation being how many figures of that input were stored
+    before the build (``store.builds_for_input`` over ``spec.ALL_SPEC_VERSIONS``); the rich
     author's by ``figure_rich:<rich.content_key_for(payload)>`` (the input, the quick figure it
     follows, the quick build's generation). So each stored figure names its build's owner, and its
     building request (``interactive_figures.request_id``, never a later reuse's row) the mode; a
@@ -166,7 +166,7 @@ def call_build_modes(connection: Any) -> dict[str, str]:
     if not _table(connection, "interactive_figures") or not _table(connection, "figure_requests"):
         return {}
     from learnloop.ai.execution import content_key
-    from learnloop.figures.service import ALL_SPEC_VERSIONS
+    from learnloop.figures.spec import ALL_SPEC_VERSIONS
 
     marks = ",".join("?" for _ in ALL_SPEC_VERSIONS)
     rows = _dicts(connection.execute(

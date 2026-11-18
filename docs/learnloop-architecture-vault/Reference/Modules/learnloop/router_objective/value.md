@@ -288,7 +288,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_moves_no_decision`
   - `test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does`
 - [tests/test_te3b_population.py](../../../../../../tests/test_te3b_population.py) — direct import
-  - `test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052`
+  - `test_with_lessons_off_the_same_database_is_valued_without_lessons`
 - [tests/test_te3b_value.py](../../../../../../tests/test_te3b_value.py) — direct import
   - `test_a_committed_delayed_check_enters_the_value_and_none_changes_nothing`
   - `test_offer_branches_match_a_hand_computed_case_for_a_lesson`

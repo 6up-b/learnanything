@@ -23,7 +23,6 @@ from learnloop.attempts.ai_contracts import (
     GRADING_PROMPT_VERSION,
     GradingContext,
     GradingProposal,
-    grading_prompt_version,
 )
 from learnloop.ai.schemas import CandidateCause
 from learnloop.ai.transport import STRUCTURED_COMPLETION
@@ -51,15 +50,14 @@ from learnloop.vault.required_method import presented_prompt
 
 DIAGNOSTIC_EVAL_HARNESS_VERSION = "blind_planted_diagnostician_v1"
 PHASE_C_VERSION = "diagnostic_augmentation_c1_c4_v1"
-#: The LIVE C3 default: one diagnosis call per graded attempt.  k>1 is a
-#: promotion of C3, not its baseline (see ``DiagnosticAugmentationConfig``), and
-#: is opted into per vault.
+#: :func:`run_diagnosis_samples`' default, C3's baseline: one diagnosis call per
+#: graded answer (the joint grader's, when it graded live).  k>1 is a promotion
+#: of C3, not its baseline.
 DEFAULT_DIAGNOSIS_SAMPLES = 1
 #: The planted-eval harness default.  Measuring whether k-sample agreement tracks
 #: adjudicated correctness is exactly what the harness is for, so it keeps k=3
 #: while the live path stays at the baseline.
 EVAL_DIAGNOSIS_SAMPLES = 3
-DEFAULT_HISTORY_LIMIT = 4
 
 #: How ``DiagnosisConsensus.agreement_support`` was obtained.  A k=1 run has no
 #: agreement to report: 1/1 is arithmetic, not consensus, and downstream readers
@@ -328,78 +326,6 @@ def diagnostic_verifier_observations(
         }
     )
     return [body]
-
-
-def diagnostic_history_context(
-    vault: LoadedVault,
-    repository: Repository,
-    item: PracticeItem,
-    *,
-    limit: int = DEFAULT_HISTORY_LIMIT,
-) -> list[dict[str, Any]]:
-    """C4 raw prior traces on the same facet and surface family.
-
-    Prior diagnoses are deliberately omitted.  The grader gets evidence of
-    recurrence, not the system's old answer to copy.
-    """
-
-    wanted_facets = {
-        vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets
-    }
-    wanted_surface = item.surface_family or item.id
-    history: list[dict[str, Any]] = []
-    for attempt in repository.list_recent_attempts_by_learning_object(
-        item.learning_object_id, limit=max(limit * 5, limit)
-    ):
-        previous = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
-        if previous is None:
-            continue
-        previous_facets = {
-            vault.canonical_facet_id(str(facet))
-            for facet in previous.evidence_facets
-        }
-        previous_surface = previous.surface_family or previous.id
-        if not (wanted_facets & previous_facets):
-            continue
-        if previous_surface != wanted_surface:
-            continue
-        trace = str(attempt.get("learner_answer_md") or "").strip()
-        if not trace:
-            continue
-        history.append(
-            {
-                "attempt_id": str(attempt["id"]),
-                "learner_trace_md": trace,
-                "created_at": attempt.get("created_at"),
-                "surface_family": previous_surface,
-                "shared_facets": sorted(wanted_facets & previous_facets),
-            }
-        )
-        if len(history) >= limit:
-            break
-    history.reverse()
-    return history
-
-
-def augment_grading_context(
-    vault: LoadedVault,
-    repository: Repository,
-    item: PracticeItem,
-    context: GradingContext,
-    *,
-    history_limit: int = DEFAULT_HISTORY_LIMIT,
-) -> GradingContext:
-    """Attach C2/C4 evidence before the model call."""
-
-    return replace(
-        context,
-        verifier_observations=diagnostic_verifier_observations(
-            context.learner_answer_md, context.expected_answer
-        ),
-        diagnostic_history=diagnostic_history_context(
-            vault, repository, item, limit=history_limit
-        ),
-    )
 
 
 def _primary_attribution(proposal: GradingProposal) -> Any | None:
@@ -1162,45 +1088,6 @@ def commission_planted_diagnostic_evaluation(
         "persona_realism": realism.as_dict(),
         "evaluation": evaluation.as_dict(),
     }
-
-
-def record_phase_c_receipt(
-    repository: Repository,
-    *,
-    attempt_id: str,
-    context: GradingContext,
-    consensus: DiagnosisConsensus,
-    grader_provider: str | None,
-    grader_model: str | None,
-    clock: Clock | None = None,
-) -> str | None:
-    """Append the hypothesis/revert manifest for one live augmented diagnosis."""
-
-    return repository.insert_diagnostic_augmentation_receipt(
-        {
-            "attempt_id": attempt_id,
-            # The joint prompt that ran (``+stuck-v1`` for a stuck answer).
-            "grading_prompt_version": grading_prompt_version(context),
-            "grader_provider": grader_provider,
-            "grader_model": grader_model,
-            "c1_repair_before_structure": True,
-            "c2_verifier_observations": context.verifier_observations,
-            "c3_sample_count": consensus.sample_count,
-            # NOT NULL column: the receipt stores winner-votes/k so the cost
-            # ledger stays readable.  ``c3_sample_count`` is the disambiguator --
-            # 1.0 at k=1 is arithmetic, not measured agreement.
-            "c3_agreement_support": consensus.receipt_agreement_support,
-            "c3_disagreement_causes": list(consensus.disagreement_causes),
-            "c4_history_attempt_ids": [
-                row["attempt_id"]
-                for row in context.diagnostic_history
-                if row.get("attempt_id")
-            ],
-            "hypotheses": PHASE_C_HYPOTHESES,
-            "revert_criteria": PHASE_C_REVERT_CRITERIA,
-        },
-        clock=clock,
-    )
 
 
 def diagnostic_augmentation_report(repository: Repository) -> dict[str, Any]:

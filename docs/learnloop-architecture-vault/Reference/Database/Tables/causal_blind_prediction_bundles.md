@@ -18,8 +18,8 @@ source_paths:
   - "migrations/121_causal_probe_coherence.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
 tags:
   - "learnloop/database/table"
@@ -105,8 +105,8 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_diagnostic_selector.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_health.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 
 > [!note] Static-reference boundary
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/diagnosis_identity_helpers.py`
 - `tests/test_causal_attribution_p2.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

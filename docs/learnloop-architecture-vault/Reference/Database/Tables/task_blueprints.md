@@ -18,6 +18,7 @@ source_paths:
   - "migrations/081_task_blueprints.sql"
   - "src/learnloop/curriculum/golden_path_fixture.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/curriculum/task_blueprints.py"
   - "src/learnloop/reader/reader_guidance.py"
 tags:
@@ -78,11 +79,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Upstream callers of the repository access surface
 
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/reader_guidance_helpers.py`
+- `tests/test_architecture.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`

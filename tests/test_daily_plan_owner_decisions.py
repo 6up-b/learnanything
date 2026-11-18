@@ -4,9 +4,7 @@
    hypothesis (a learner-state head still ``candidate`` or ``validated``,
    whose promoted misconception, if any, is not resolved) or an open
    unresolved-cause factor, from Slice 1 M2 and Slice 2 T1. A recent error
-   alone is no longer repair. ``REPAIR_MIN_RECENT_ERROR`` is only the fallback
-   while the diagnosis split is off (a vault below mvp-0.10, or
-   ``diagnosis.split_enabled = false``). Follow-ups are still repair, and a
+   alone is no longer repair. Follow-ups are still repair, and a
    never-attempted item is still new material (DL1's F1 fix).
 2. **Re-entry stays short** (repair and maintain only), and "keep going"
    after a re-entry plan offers new material easily: the plan for the day's
@@ -140,16 +138,6 @@ def test_repair_is_an_open_diagnosed_problem_not_a_recent_error(tmp_path):
     assert lanes["pi_err_follow"] == "repair"
     assert lanes["pi_hyp_unseen"] == "new"
     assert record.split["repair_rule"] == "open_diagnosis"
-
-
-def test_repair_falls_back_to_recent_error_only_while_the_split_is_off(tmp_path):
-    env = _repair_env(tmp_path, plan_toml="[diagnosis]\nsplit_enabled = false\n")
-    record = get_or_create_today(env)
-    lanes = _pool_lanes(record)
-    for item_id in ("pi_hyp", "pi_fac", "pi_err", "pi_retired", "pi_fixed", "pi_closed_factor", "pi_slip"):
-        assert lanes[item_id] == "repair", item_id
-    assert lanes["pi_hyp_unseen"] == "new"
-    assert record.split["repair_rule"] == "recent_error_fallback"
 
 
 # -- 2. keep going after re-entry offers new material ----------------------------

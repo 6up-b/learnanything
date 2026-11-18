@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_diagnosis_embeddings.py](../../../../../../../tests/test_diagnosis_embeddings.py) — direct import
   - `test_backfill_embeds_db_recipes_only_when_named`
   - `test_embed_on_write_is_idempotent_and_logs_would_merge_against_earlier_hypotheses`

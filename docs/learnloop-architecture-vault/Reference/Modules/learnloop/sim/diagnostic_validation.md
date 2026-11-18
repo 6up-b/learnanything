@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py) |
-| Source lines | 644 |
+| Source lines | 646 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
@@ -56,37 +56,37 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Public API
 
-- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 109)
-- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 133) — Behavioral response of one planted student to one instrument.
-- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 194)
-  - `as_dict(self) -> dict[str, Any]` (line 209; public)
-- `class SimulationRefusal` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 228) — Why the simulation ran no episode on a vault: switches it cannot run with.
-  - `message(self) -> str` (line 242; public)
-  - `as_dict(self) -> dict[str, Any]` (line 251; public)
-- `class NotRun` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 256) — A requested (planted, seed) run that produced no episode, and why.
-  - `as_dict(self) -> dict[str, Any]` (line 263; public)
-- `simulation_refusal(vault) -> SimulationRefusal | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 267) — The switches on in this (overridden) config that leave the simulation nothing to run, or None.
-- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 293)
-  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 300; public)
-  - `as_dict(self) -> dict[str, Any]` (line 316; public)
-  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 330; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
-- `seeded_ulids(seed: int, start: datetime) -> Iterator[None]` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 367) — Every ULID this process mints inside the block comes from a stream ``seed`` fixes.
-- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 403) — Run the planted-type episode validation against copies of one vault.
+- `class PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 111)
+- `planted_response(planted: str, instrument: CompiledInstrument, rng: random.Random) -> PlantedResponse` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 135) — Behavioral response of one planted student to one instrument.
+- `class EpisodeValidationResult` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 196)
+  - `as_dict(self) -> dict[str, Any]` (line 211; public)
+- `class SimulationRefusal` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 230) — Why the simulation ran no episode on a vault: switches it cannot run with.
+  - `message(self) -> str` (line 244; public)
+  - `as_dict(self) -> dict[str, Any]` (line 253; public)
+- `class NotRun` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 258) — A requested (planted, seed) run that produced no episode, and why.
+  - `as_dict(self) -> dict[str, Any]` (line 265; public)
+- `simulation_refusal(vault) -> SimulationRefusal | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 269) — The switches on in this (overridden) config that leave the simulation nothing to run, or None.
+- `class ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 295)
+  - `by_planted(self) -> dict[str, dict[str, Any]]` (line 302; public)
+  - `as_dict(self) -> dict[str, Any]` (line 318; public)
+  - `passes(self, *, label_accuracy_threshold: float, action_accuracy_threshold: float) -> bool` (line 332; public) — Checkpoint 4 entry gate: every planted type classified at or above threshold within the budget, with matching instructional actions.
+- `seeded_ulids(seed: int, start: datetime) -> Iterator[None]` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 369) — Every ULID this process mints inside the block comes from a stream ``seed`` fixes.
+- `run_probe_validation(source_vault: Path, workdir: Path, *, planted_types: tuple[str, ...]=PLANTED_TYPES, seeds: tuple[int, ...]=(11, 12, 13), learning_object_id: str | None=None, claim_level: float=0.7, config_overrides: Mapping[str, Any] | None=None) -> ValidationReport` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 405) — Run the planted-type episode validation against copies of one vault.
 
 ### Module constants
 
-- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 73)
-- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 75)
-- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 83)
-- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 95)
+- `VALIDATION_START` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 75)
+- `PLANTED_TYPES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 77)
+- `_CORRECT_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 85)
+- `_WEAK_OUTCOMES` ([src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 97)
 
 ## Internal implementation anchors
 
-- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 115)
-- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 348)
-- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 356)
-- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | SimulationRefusal | str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 451) — One planted run: its result, the refusal, or why it opened no episode.
-- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 583)
+- `_effective_slot(planted: str, instrument: CompiledInstrument) -> str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 117)
+- `_expected_label(planted: str, diagnosed: str | None) -> bool` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 350)
+- `_action_for_label(label: str | None) -> str | None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 358)
+- `_run_one_episode(vault_root: Path, *, planted: str, seed: int, learning_object_id: str | None, claim_level: float, config_overrides: Mapping[str, Any] | None) -> EpisodeValidationResult | SimulationRefusal | str` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 453) — One planted run: its result, the refusal, or why it opened no episode.
+- `_submit_response(vault, repository: Repository, practice_item_id: str, presentation_id: str, response: PlantedResponse, *, clock: FrozenClock) -> None` ([source](../../../../../../src/learnloop/sim/diagnostic_validation.py), line 585)
 
 ## Who imports or calls it
 
@@ -103,10 +103,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`; calls `FrozenClock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RoutineDisplayCovered`, `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`; calls `commit_presentation`, `eligible_instruments`, `episode_posterior`, `serve_presentation`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`, `episode_posterior`; calls `eligible_instruments`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `CompiledInstrument`, `DEFAULT_INSTRUCTIONAL_ACTIONS`, `builtin_family_templates`; calls `builtin_family_templates`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `CONFUSES_PREFIX`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `generate_instances_for_episode`; calls `generate_instances_for_episode`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; calls `commit_presentation`, `serve_presentation`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `generate_and_serve_on`; calls `generate_and_serve_on`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `module`, `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `initial_probes_enabled`; calls `initial_probes_enabled`

@@ -22,7 +22,10 @@ import sqlite3
 import pytest
 
 from learnloop.figures import routes as R
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import grounding as FGR
+from learnloop.figures import request as FQ
+from learnloop.figures import view as FV
 from learnloop.figures import sketch as K
 from learnloop_sidecar.errors import SidecarError
 from tests import sketch_fixtures as F
@@ -70,7 +73,7 @@ def test_a_sketch_answer_is_verified_stored_and_shown_with_its_check_lines(tmp_p
     figure = build(ctx)["figure"]
     assert author.calls == 1
     assert figure["tier"] == "sketch" and figure["verification"] == "illustrative"
-    assert figure["label"] == FS.SKETCH_LABEL == "AI-written simulation · sandboxed · not checked against the book"
+    assert figure["label"] == FV.SKETCH_LABEL == "AI-written simulation · sandboxed · not checked against the book"
     assert "checked against the book" in figure["label"] and "matches" not in figure["label"]
     sketch = figure["sketch"]
     assert sketch["engineSha256"] and sketch["seed"] == 1 and sketch["settings"] == 27
@@ -139,10 +142,10 @@ def test_off_the_contract_prompt_and_key_are_rw5bs_byte_for_byte(tmp_path):
     assert _ledger(repository, "figure_tier") == []
     (row,) = rows(repository, "interactive_figures")
     assert row["prompt_version"] == R.author_prompt_version(advanced=True) == R.ADVANCED_PROMPT_VERSION
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    context_ = FS.SourceContext()
-    assert FS.request_hash(request, context_, None) == FS.request_hash(request, context_, None, sketch=False)
-    assert FS.request_hash(request, context_, None) != FS.request_hash(request, context_, None, sketch=True)
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    context_ = FGR.SourceContext()
+    assert FB.request_hash(request, context_, None) == FB.request_hash(request, context_, None, sketch=False)
+    assert FB.request_hash(request, context_, None) != FB.request_hash(request, context_, None, sketch=True)
 
 
 def test_off_a_stored_sketch_lists_as_cant_draw_this_yet(tmp_path):
@@ -218,7 +221,7 @@ def test_an_engine_upgrade_reverifies_with_no_model_call(tmp_path, monkeypatch):
         connection.execute("UPDATE interactive_figures SET engine_sha256 = 'an-older-engine' WHERE id = ?",
                            (good["figureId"],))
         connection.commit()
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "illustrative" and listed["sketch"]["checks"]
     assert author.calls == 1
@@ -233,10 +236,10 @@ def test_an_engine_upgrade_reverifies_with_no_model_call(tmp_path, monkeypatch):
         return report
 
     monkeypatch.setattr(SV, "verify_sketch", failing)
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "failed" and listed["specJson"] is None
-    assert listed["label"] == FS.ENGINE_CHANGED_REASON == "couldn't run under this version · rebuild"
+    assert listed["label"] == FV.ENGINE_CHANGED_REASON == "couldn't run under this version · rebuild"
     with pytest.raises(SidecarError):
         call(ctx, "reader.figure_predict", {"figureId": good["figureId"], "predictionIndex": 0, "answer": "rises"})
     assert author.calls == 1
@@ -271,7 +274,7 @@ def test_not_right_on_a_sketch_sends_the_program_and_the_note(tmp_path):
 def test_a_sketch_built_with_nothing_from_the_books_quotes_nothing(tmp_path):
     program = F.walk(source_claims=[{"span_id": "p2", "quote": "made up"}],
                      assumptions=[{"text": "fair steps", "span_id": "p2", "quote": "made up"}])
-    raw = FS._ungrounded_sketch(json.dumps(program))
+    raw = FB._ungrounded_sketch(json.dumps(program))
     assert raw["source_claims"] == [] and raw["assumptions"][0]["quote"] is None
     compiled = K.parse_sketch(raw)
     assert compiled.program.source_claims == []
@@ -334,7 +337,7 @@ def _as_older_engine(repository, figure_id, **report_changes):
         connection.execute("UPDATE interactive_figures SET engine_sha256 = 'an-older-engine', "
                            "verification_report_json = ? WHERE id = ?", (json.dumps(report), figure_id))
         connection.commit()
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
 
 
 def test_an_engine_reverification_is_a_verifier_judgment_recorded_once(tmp_path):
@@ -353,12 +356,12 @@ def test_an_engine_reverification_is_a_verifier_judgment_recorded_once(tmp_path)
     assert built_again["id"] == built["id"]
     assert rechecked["judge"] == "verifier" and rechecked["verdict"] == "illustrative"
     assert rechecked["supersedes_id"] == built["id"] and rechecked["left_id"] == figure["figureId"]
-    assert rechecked["input_hash"] == FS.reverify_hash(figure["specJson"], ENGINE_SHA256)
+    assert rechecked["input_hash"] == FV.reverify_hash(figure["specJson"], ENGINE_SHA256)
     assert ENGINE_SHA256[:12] in rechecked["rationale"] and "an-older-en" in rechecked["rationale"]
     assert "2 checks" in rechecked["rationale"]
     # Listed again, and after a "restart" (the in-process memory cleared): no second row.
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     assert len(_verdicts(repository)) == 2
     assert author.calls == 1
@@ -453,7 +456,7 @@ def test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown(tmp_pa
         connection.execute("UPDATE interactive_figures SET verification_report_json = ? WHERE id = ?",
                            (json.dumps(report), figure["figureId"]))
         connection.commit()
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     runs = []
     real = SV.verify_sketch
     monkeypatch.setattr(SV, "verify_sketch", lambda compiled, **kw: runs.append(1) or real(compiled, **kw))
@@ -464,11 +467,11 @@ def test_a_report_from_an_older_verifier_is_reverified_before_it_is_shown(tmp_pa
     assert listed["sketch"]["notCovered"] == ["walkers"]
     rechecked = _verdicts(repository)[-1]
     assert rechecked["judge"] == "verifier"
-    assert rechecked["input_hash"] == FS.reverify_hash(figure["specJson"], ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION)
+    assert rechecked["input_hash"] == FV.reverify_hash(figure["specJson"], ENGINE_SHA256, SV.VERIFIER_REPORT_VERSION)
     assert "an unversioned verifier" in rechecked["rationale"]
     # Listed again, and after a "restart": no second run, no second verdict.
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     assert len(_verdicts(repository)) == 2 and runs == [1, 1]
 
@@ -478,7 +481,7 @@ def test_a_report_from_this_verifier_and_engine_is_not_reverified(tmp_path, monk
 
     paths, repository, ctx, author = _setup(tmp_path, [("sketch", F.walk(), WHY)])
     build(ctx)
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     monkeypatch.setattr(SV, "verify_sketch", lambda *a, **k: pytest.fail("re-verified a current report"))
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "illustrative"
@@ -495,7 +498,7 @@ def test_a_verifier_version_bump_reverifies_a_current_engines_report(tmp_path, m
     figure = build(ctx)["figure"]
     built_under = SV.VERIFIER_REPORT_VERSION
     monkeypatch.setattr(SV, "VERIFIER_REPORT_VERSION", "sketch-verify-next")
-    FS._RECHECKED.clear()
+    FV._RECHECKED.clear()
     (listed,) = call(ctx, "reader.figures", {"extractionId": EXTRACTION})["figures"]
     assert listed["verification"] == "illustrative"
     rechecked = _verdicts(repository)[-1]

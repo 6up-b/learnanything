@@ -929,7 +929,7 @@ def test_doctor_names_a_configured_slug_the_account_does_not_list(tmp_path):
         assert not [i for i in run_doctor(vault).issues if i.code == "ai:chatgpt_plan_model_not_listed"]
         list_plan_models(server.base_url)  # `learnloop ai models chatgpt` remembers the list
         issues = [i for i in run_doctor(vault).issues if i.code == "ai:chatgpt_plan_model_not_listed"]
-        assert {issue.details["model"] for issue in issues} == {"gpt-5.6-sol", "gpt-6-luna"}
+        assert {issue.details["model"] for issue in issues} == {"gpt-6.1-sol", "gpt-6-luna"}
         assert any("[ai.providers.chatgpt] model" in issue.message for issue in issues)
         fixed = _vault(tmp_path, extra={"ai.providers.chatgpt.model": "gpt-test-fast",
                                         "ai.providers.chatgpt_luna.type": "chatgpt_plan",

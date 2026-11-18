@@ -29,6 +29,7 @@ from collections import deque
 from typing import Any
 
 from learnloop import provenance
+from learnloop.figure_admission import offers_enabled, rich_tiers_enabled
 from learnloop.figures import power as P
 
 _LOG = logging.getLogger(__name__)
@@ -106,9 +107,7 @@ def environment(ctx: Any, epoch: int | None) -> Any:
     def cancelled() -> bool:
         return epoch is not None and jobs.closed_since(epoch)
 
-    from learnloop.figures import service as FS
-
-    spawn = _rich_spawner(ctx, vault, granted=False) if FS.rich_enabled(vault) else None
+    spawn = _rich_spawner(ctx, vault, granted=False) if rich_tiers_enabled(vault) else None
     return PF.PrefetchEnv(
         vault=vault, repository=repository, judge_client=getattr(ctx, "figure_prefetch_judge_client", None),
         author_client=getattr(ctx, "figure_author_client", None), spawn_rich=spawn,
@@ -180,7 +179,7 @@ def notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool:
     try:
         vault, repository = getattr(ctx, "vault", None), getattr(ctx, "repository", None)
         if (vault is None or repository is None or not offer_ref or not runs_here(ctx)
-                or not vault.config.figures.offers_enabled):
+                or not offers_enabled(vault)):
             return False
         runtime = _runtime(ctx)
         key = (origin, str(offer_ref))

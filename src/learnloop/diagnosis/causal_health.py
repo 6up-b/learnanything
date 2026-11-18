@@ -27,12 +27,11 @@ honest and healthy.  A MISSING value is an untyped null, which is not.  The two
 are counted separately on purpose -- collapsing them is how the original defect
 stayed invisible.
 
-The triage section is the §8 hard-assertion target.  ``tier_one_basis`` records
-which arm of the §2.1 AND gate committed a tier-one route.  ``causal_authority``
-is expected to be ~absent until a validator-owned support channel exists (a
-single-attempt receipt can never promote), so the metric that matters is that
-the LEGACY arm survived: ``tier_one_without_basis`` must be 0 and
-``tier_one_events`` must be non-zero wherever tier one used to fire.
+The triage section reads history only: the triage module that wrote
+``failure_triage_events`` is gone, so a vault's counts stop growing and a fresh
+vault reports zero. ``tier_one_basis`` says which arm committed each recorded
+tier-one route; ``tier_one_without_basis`` counts recorded routes that cannot
+say why.
 """
 
 from __future__ import annotations
@@ -312,12 +311,11 @@ def causal_lane_health(
 
 
 def triage_tier_one_health(repository: Repository) -> dict[str, Any]:
-    """Which arm of the §2.1 gate committed each tier-one route.
+    """Count historical triage receipts by the arm that committed each route.
 
     ``tier_one_without_basis > 0`` means a tier-one route fired that cannot say
-    why -- the §8 metric's failure mode.  ``tier_one_events == 0`` on a vault
-    that used to route tier one means the causal channel silently disabled the
-    legacy arm, which is the original defect.
+    why. The receipts remain readable after the triage writer's removal; a
+    fresh vault has no such events.
     """
 
     by_basis: dict[str, int] = {}

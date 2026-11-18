@@ -649,20 +649,18 @@ def test_a_regrade_appends_a_superseding_stuck_judgment(tmp_path):
     assert not [signal for signal in signals if signal.signal_type == STUCK_CONFUSION_SIGNAL]
 
 
-# -- review F3: joint grading (split off) reads the stuck answer too -------------------
+# -- review F3: the grader reads the stuck answer ------------------------------------
 
 
-@pytest.mark.parametrize("split", [True, False], ids=["split", "joint"])
-def test_confusion_is_read_and_signalled_in_both_grading_modes(tmp_path, split):
-    config = "" if split else "[diagnosis]\nsplit_enabled = false"
-    _paths, vault, repository = _stuck_vault(tmp_path, config=config)
+def test_confusion_is_read_and_signalled(tmp_path):
+    _paths, vault, repository = _stuck_vault(tmp_path)
     answer = "Why is V transposed?"
     client = StuckFake(
         reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "Why is V transposed?"}
     )
     result = _grade(vault, repository, client, _draft(answer))
 
-    assert client.calls[0] == ("blind_grading" if split else "grading")
+    assert client.calls[0] == "blind_grading"
     assert "STUCK PROMPT" in client.prompts[0]
     assert client.contexts[0]["answer_prompt"]["prompt"] == STUCK_PROMPT_TEXT
     with connect(repository.sqlite_path, read_only=True) as connection:
@@ -682,45 +680,20 @@ def test_confusion_is_read_and_signalled_in_both_grading_modes(tmp_path, split):
     assert judgment["prompt_version"] == run[0]
 
 
-def test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly(tmp_path):
+def test_an_ordinary_grading_context_carries_no_stuck_field(tmp_path):
     from dataclasses import asdict
 
-    from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, grading_prompt
+    from learnloop.attempts.ai_contracts import grading_prompt
     from learnloop.attempts.grading import build_grading_context, grading_context_hash
 
-    _paths, vault, repository = _stuck_vault(tmp_path, config="[diagnosis]\nsplit_enabled = false")
-    client = StuckFake()
-    result = _grade(vault, repository, client, _draft("A = U Sigma V wrong", stuck=False))
-    assert client.calls[0] == "grading"
-    assert "answer_prompt" not in client.contexts[0]
-    assert "STUCK PROMPT" not in client.prompts[0]
-    assert f"prompt_version: {GRADING_PROMPT_VERSION}\n" in client.prompts[0]
-    assert _stuck_judgments(repository, result.attempt_id) == []
-    # The context, its rendered prompt and its hash carry no stuck field.
+    _paths, vault, _repository = _stuck_vault(tmp_path)
+    # The context, its rendered (joint) prompt and its hash carry no stuck field.
     item = vault.practice_items[ITEM]
     context = build_grading_context(vault, item, attempt_id="att_x", learner_answer_md="A")
     assert "answer_prompt" not in grading_prompt(context)
     payload = asdict(context)
     payload.pop("answer_prompt", None)
     assert grading_context_hash(context) == grading_context_hash(type(context)(**payload))
-
-
-def test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes(tmp_path):
-    from learnloop.attempts.regrade import regrade_attempt
-
-    _paths, vault, repository = _stuck_vault(tmp_path, config="[diagnosis]\nsplit_enabled = false")
-    result = _grade(vault, repository, StuckFake(reading=CONFUSED), _draft("I don't get why the last factor is transposed"))
-    first = _stuck_judgments(repository, result.attempt_id)[0]
-    calm = StuckFake(reading={"attempts_answer": True, "describes_confusion": False, "confusion_quote": ""})
-    attempt = repository.fetch_practice_attempt(result.attempt_id)
-    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=calm, grading_source="ai", clock=None)
-
-    assert calm.calls == ["grading"] and "STUCK PROMPT" in calm.prompts[0]
-    judgments = _stuck_judgments(repository, result.attempt_id)
-    latest = [row for row in judgments if row["id"] != first["id"]]
-    assert len(latest) == 1 and latest[0]["supersedes_id"] == first["id"]
-    with connect(repository.sqlite_path, read_only=True) as connection:
-        assert stuck_answers(connection)[0]["describes_confusion"] is False
 
 
 # -- review F4: the TUI shows the worked answer after an empty stuck answer -----------

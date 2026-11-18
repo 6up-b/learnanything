@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_diagnosis_card.py](../../../../../../../tests/test_diagnosis_card.py) — direct import
   - `test_card_summary_names_earlier_answers_by_date_not_id`
 - [tests/test_diagnosis_reports.py](../../../../../../../tests/test_diagnosis_reports.py) — direct import

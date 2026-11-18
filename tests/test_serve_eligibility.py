@@ -84,7 +84,7 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_i
     receipt (the expiry sweep adds nothing), the practice answer is accepted,
     and no cold retry on the item is ever served after it."""
 
-    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
+    from learnloop.diagnosis.causal_cold_verification import sweep_expired_cold_retries
     from learnloop.scheduling.scheduler import build_due_queue
     from tests.remediation_cold_retry_helpers import NOW, _drive_to_cold_scheduled
 
@@ -535,7 +535,11 @@ def test_no_probe_is_committed_for_an_item_submit_would_prime(tmp_path, revealed
     never-attempted probe item, at any age (only an attempt absorbs it), means
     a probe of it cannot test the learner, so none is committed."""
 
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from learnloop.vault.loader import load_vault
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 

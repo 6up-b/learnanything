@@ -247,7 +247,7 @@ def test_a_sweep_queues_no_mapping_this_factor_doesnt_need_and_a_retry_still_ask
     from datetime import timedelta
 
     from learnloop.clock import FrozenClock
-    from learnloop.diagnosis.causal_orchestrator import sweep_machine_checks
+    from learnloop.diagnosis.machine_checks import sweep_machine_checks
 
     from tests.followup_serve_helpers import CLOCK
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/help.py](../../../../../../src/learnloop/figures/help.py) |
-| Source lines | 461 |
+| Source lines | 463 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `open_assist_for(connection: Any, figure_id: str) -> str | None` ([source](../../../../../../src/learnloop/figures/help.py), line 252) — The figure row of the open attempt a prediction on ``figure_id`` is made under (Codex review F7, spec §11.2 "linked to the assist row"), or None: the newest figure row attached to no attempt yet, requested after its item's last attempt, whose figure is in the same chain (a "not…
 - `figure_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/figures/help.py), line 277) — Every ``(extraction_id, span_id)`` a figure is placed at or built from: its anchor, its region and crop, the passages around it, its retrieved passages and (a goal-only figure) where it was asked.
 - `qualifying_figure(vault: Any, repository: Repository, item: Any, *, exclude_roots: Sequence[str]=()) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/figures/help.py), line 383) — The newest shown figure the chooser may offer for ``item`` as ``explore_figure`` (§11.4), or None: its place in the books treats the item's learning object; none of the passages it was placed at or built from is the item's own (``item_exclusions``: its exercise, solution or work…
-- `offer_view(row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/help.py), line 439) — What the chooser's served line carries (§11.4: one line that opens the figure).
+- `offer_view(row: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/figures/help.py), line 441) — What the chooser's served line carries (§11.4: one line that opens the figure).
 
 ### Module constants
 
@@ -122,9 +122,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `has_tables`, `shown_figures`
-- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `help_kind_enabled`; calls `figure_home_keys`, `help_kind_enabled`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `advanced_off_row`, `drawable_now`, `rich_row`, `row_withheld`, `show_me_enabled`, `show_me_row`, `sketch_off_row`, `source_rejected`
-- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`; calls `evaluate_figure`, `parse_spec`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `help_kind_enabled`, `show_me_enabled`; calls `figure_home_keys`, `help_kind_enabled`, `show_me_enabled`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `row_withheld`, `show_me_row`; calls `row_withheld`, `show_me_row`
+- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `SPEC_VERSIONS`, `module`; calls `evaluate_figure`, `parse_spec`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; calls `advanced_off_row`, `drawable_now`, `rich_row`, `sketch_off_row`, `source_rejected`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `extraction_sections`; calls `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_section`; calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/source_retrieval/corpus|learnloop.source_retrieval.corpus]] — imports `item_exclusions`; calls `item_exclusions`

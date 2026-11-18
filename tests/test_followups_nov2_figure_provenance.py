@@ -13,7 +13,7 @@ protected now.
 * **Presentation-time recheck** (``row_withheld``, behind every listing and
   delivery): the figure and every figure it was made from (its earlier versions,
   a fuller version's quick figure and that figure's rich intent), read from the
-  current rows (``FS.learner_state_withheld``). So a revision inherits its
+  current rows (``protection.learner_state_withheld``). So a revision inherits its
   base's protection, and a fuller version stored with no record of its own is
   checked by what its job carried.
 * **A kept build result is rebuilt from the current rows as it goes out**
@@ -29,8 +29,10 @@ import copy
 from types import SimpleNamespace
 
 from learnloop.db.stores import figures as store
-from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import protection as FP
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import EXTRACTION, AuthorFake, build, context, flagship, rows
 from tests.reading_path_fixtures import call
@@ -64,7 +66,7 @@ def test_a_quick_figure_keeps_the_inputs_of_the_learner_state_it_was_written_fro
     world, ctx, author, _job = _quick_world(tmp_path, monkeypatch)
     assert author.contexts[0]["learner_state"]["recent_answers"]
     report = _quick_row(world.repository)["verification_report"]
-    inputs = report[RICH.LEARNER_STATE_INPUTS_KEY]
+    inputs = report[FP.LEARNER_STATE_INPUTS_KEY]
     assert "att_unpinned" in inputs["answers"]
 
 
@@ -73,8 +75,8 @@ def test_a_quick_figure_with_no_learner_state_keeps_its_report_as_before(tmp_pat
     ctx = context(paths.root, author=AuthorFake([flagship(kind="illustrative")]))
     build(ctx)
     report = _quick_row(repository)["verification_report"]
-    assert RICH.LEARNER_STATE_INPUTS_KEY not in report
-    assert FS.learner_state_withheld(load_vault(paths.root), repository, _quick_row(repository)) is None
+    assert FP.LEARNER_STATE_INPUTS_KEY not in report
+    assert FP.learner_state_withheld(load_vault(paths.root), repository, _quick_row(repository)) is None
 
 
 # ---------------------------------------------------------------------------
@@ -88,12 +90,12 @@ def test_a_quick_figure_whose_learner_inputs_became_protected_is_not_presented(t
     world, ctx, _author, job = _quick_world(tmp_path, monkeypatch)
     figure_id = job["result"]["figure"]["figureId"]
     vault = load_vault(world.root)
-    assert not FS.figure_withheld(vault, world.repository, figure_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
+    assert not FP.figure_withheld(vault, world.repository, figure_id)
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [figure_id]
     _make_exam_material(SimpleNamespace(paths=world.paths))
     vault = load_vault(world.root)
-    assert FS.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FP.figure_withheld(vault, world.repository, figure_id)
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
     # The kept build result is not delivered either.
     ctx.load(world.root)
     delivered = call(ctx, "reader.figure_job", {"jobId": job["jobId"]})["result"]
@@ -110,18 +112,18 @@ def test_a_revision_inherits_its_bases_learner_state_protection(tmp_path, monkey
     base = _quick_row(world.repository)
     _switch_off(world.paths)
     vault = load_vault(world.root)
-    revision = FS.build_figure(vault, world.repository, FS.revision_request(world.repository, base, "bigger axes"),
+    revision = FB.build_figure(vault, world.repository, FB.revision_request(world.repository, base, "bigger axes"),
                                author_client=AuthorFake([flagship(kind="illustrative", title="Bigger")]))
     revised_id = revision.view["figure_id"]
     with world.repository.connection() as connection:
         revised = store.figure(connection, revised_id)
     assert revised["supersedes_id"] == base["id"]
-    assert RICH.LEARNER_STATE_INPUTS_KEY not in revised["verification_report"]  # no state of its own
-    assert not FS.figure_withheld(vault, world.repository, revised_id)
+    assert FP.LEARNER_STATE_INPUTS_KEY not in revised["verification_report"]  # no state of its own
+    assert not FP.figure_withheld(vault, world.repository, revised_id)
     _make_exam_material(SimpleNamespace(paths=world.paths))
     vault = load_vault(world.root)
-    assert FS.row_withheld(vault, world.repository, revised) is not None
-    assert FS.figure_withheld(vault, world.repository, revised_id)
+    assert FP.row_withheld(vault, world.repository, revised) is not None
+    assert FP.figure_withheld(vault, world.repository, revised_id)
 
 
 def test_a_fuller_version_with_no_record_of_its_own_is_checked_by_its_jobs_payload(tmp_path, monkeypatch):
@@ -134,11 +136,11 @@ def test_a_fuller_version_with_no_record_of_its_own_is_checked_by_its_jobs_paylo
     rig.ingest.drain()
     rich = _rich_row(rig.repository)
     report = dict(rich["verification_report"])
-    report.pop(RICH.LEARNER_STATE_INPUTS_KEY)
+    report.pop(FP.LEARNER_STATE_INPUTS_KEY)
     unrecorded = {**rich, "verification_report": report}
-    assert FS.row_withheld(rig.vault, rig.repository, unrecorded) is None
+    assert FP.row_withheld(rig.vault, rig.repository, unrecorded) is None
     _make_exam_material(rig)
-    assert FS.row_withheld(rig.vault, rig.repository, unrecorded) is not None
+    assert FP.row_withheld(rig.vault, rig.repository, unrecorded) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -209,11 +211,11 @@ def test_a_marked_quick_figure_with_no_record_is_withheld(tmp_path, monkeypatch)
     figure_id = job["result"]["figure"]["figureId"]
     _strip_record(world.repository, figure_id)
     row = _quick_row(world.repository)
-    assert "+learner-v1" in row["prompt_version"] and RICH.LEARNER_STATE_INPUTS_KEY not in row["verification_report"]
+    assert "+learner-v1" in row["prompt_version"] and FP.LEARNER_STATE_INPUTS_KEY not in row["verification_report"]
     vault = load_vault(world.root)
-    assert FS.learner_state_withheld(vault, world.repository, row) == FS.LEARNER_STATE_UNRECORDED
-    assert FS.figure_withheld(vault, world.repository, figure_id)
-    assert FS.list_figures(vault, world.repository, EXTRACTION) == []
+    assert FP.learner_state_withheld(vault, world.repository, row) == FP.LEARNER_STATE_UNRECORDED
+    assert FP.figure_withheld(vault, world.repository, figure_id)
+    assert FL.list_figures(vault, world.repository, EXTRACTION) == []
 
 
 def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_reading(tmp_path):
@@ -226,8 +228,8 @@ def test_an_unmarked_quick_figure_with_no_record_keeps_the_no_learner_state_read
     row = _quick_row(repository)
     assert "+learner-v1" not in row["prompt_version"]
     vault = load_vault(paths.root)
-    assert FS.learner_state_withheld(vault, repository, row) is None
-    assert not FS.figure_withheld(vault, repository, row["id"])
+    assert FP.learner_state_withheld(vault, repository, row) is None
+    assert not FP.figure_withheld(vault, repository, row["id"])
 
 
 def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afresh(tmp_path, monkeypatch):
@@ -244,7 +246,7 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
 
     world, ctx, author, job = _quick_world(tmp_path, monkeypatch)
     legacy_id = job["result"]["figure"]["figureId"]
-    recorded = _quick_row(world.repository)["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY]
+    recorded = _quick_row(world.repository)["verification_report"][FP.LEARNER_STATE_INPUTS_KEY]
     _strip_record(world.repository, legacy_id)
     # The same state, read from different sources this time.
     other_sources = Inputs.of(answers=[("att_unpinned", None)]).as_json()
@@ -265,12 +267,12 @@ def test_a_press_of_the_same_input_never_backfills_the_marked_row_and_builds_afr
     with world.repository.connection() as connection:
         legacy = store.figure(connection, legacy_id)
         fresh = store.figure(connection, fresh_id)
-    assert RICH.LEARNER_STATE_INPUTS_KEY not in legacy["verification_report"]  # never inferred
-    assert fresh["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY] == other_sources
+    assert FP.LEARNER_STATE_INPUTS_KEY not in legacy["verification_report"]  # never inferred
+    assert fresh["verification_report"][FP.LEARNER_STATE_INPUTS_KEY] == other_sources
     vault = load_vault(world.root)
-    assert FS.figure_withheld(vault, world.repository, legacy_id)
-    assert not FS.figure_withheld(vault, world.repository, fresh_id)
-    assert [view["figure_id"] for view in FS.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
+    assert FP.figure_withheld(vault, world.repository, legacy_id)
+    assert not FP.figure_withheld(vault, world.repository, fresh_id)
+    assert [view["figure_id"] for view in FL.list_figures(vault, world.repository, EXTRACTION)] == [fresh_id]
     # The next press of the same input reuses the fresh figure, with no call.
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
@@ -301,17 +303,17 @@ def test_a_fresh_figure_for_a_marked_row_is_reused_after_the_panels_are_switched
     vault = load_vault(world.root)
     with world.repository.connection() as connection:
         fresh = store.figure(connection, fresh_id)
-    assert FS.drawable_now(vault, fresh)
+    assert FV.drawable_now(vault, fresh)
     panels = bool(vault.config.figures.advanced_panels_enabled)
     _panels(world.paths, not panels)
     vault = load_vault(world.root)
     assert bool(vault.config.figures.advanced_panels_enabled) is not panels
-    assert FS.drawable_now(vault, fresh)  # still drawable under the other setting
+    assert FV.drawable_now(vault, fresh)  # still drawable under the other setting
     ctx.load(world.root)
     third = call(ctx, "reader.figure_request", {"extractionId": EXTRACTION, "spanIds": ["p3"]})
     assert third["state"] == "done" and third["result"]["figure"]["figureId"] == fresh_id, third
     assert author.calls == calls + 1  # no second author call
-    assert FS.figure_withheld(vault, world.repository, legacy_id)  # the marked row is still never reused
+    assert FP.figure_withheld(vault, world.repository, legacy_id)  # the marked row is still never reused
 
 
 # ---------------------------------------------------------------------------
@@ -330,13 +332,13 @@ def _rich_revision_queued(tmp_path, monkeypatch):
     rig.build()
     rig.ingest.drain()
     rich = _rich_row(rig.repository)
-    assert rich["verification_report"][RICH.LEARNER_STATE_INPUTS_KEY]
+    assert rich["verification_report"][FP.LEARNER_STATE_INPUTS_KEY]
     _switch_off(rig.paths)
-    outcome = rig.build(FS.revision_request(rig.repository, rich, "red please"))
+    outcome = rig.build(FB.revision_request(rig.repository, rich, "red please"))
     assert outcome.rich["state"] == "pending"
     payload = rig.job()["payload"]
     assert "learner_state" not in payload["author_context"]  # nothing of its own
-    assert payload[RICH.INHERITED_LEARNER_INPUTS_KEY]
+    assert payload[FP.INHERITED_LEARNER_INPUTS_KEY]
     return rig
 
 
@@ -390,8 +392,8 @@ def test_a_rich_revision_with_nothing_inherited_carries_no_record(tmp_path, monk
     (first,) = rig.listed()
     with rig.repository.connection() as connection:
         base = store.figure(connection, first["figure_id"])
-    rig.build(FS.revision_request(rig.repository, base, "red"))
-    assert RICH.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]
+    rig.build(FB.revision_request(rig.repository, base, "red"))
+    assert FP.INHERITED_LEARNER_INPUTS_KEY not in rig.job()["payload"]
 
 
 # ---------------------------------------------------------------------------
@@ -405,10 +407,17 @@ def test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs
     once that state's inputs are protected the lesson stops showing it, exactly
     as a Reader figure."""
 
+    from learnloop.db.stores.write_provenance import Inputs
+    from learnloop.figures import learner_state as LS
     from learnloop.teacher import service as S
     from learnloop.teacher import visuals as V
     from tests.reader_rw5d_p4b_teacher_visuals_helpers import _open, visual_turn
 
+    # The lesson's learner has a state on the visual's topics (the read's own owner, which no step moves), so its
+    # author is sent one and the figure keeps what it was read from.
+    sent = LS.LearnerStateRead({"topics": [{"topic": "eigenvalues", "status": "practising"}]},
+                               Inputs.of(topics=["lo_eigen"]).as_json())
+    monkeypatch.setattr(LS, "read_learner_state", lambda vault, repository, los: sent)
     paths, repository, _fake, _author, view, _ = _open(tmp_path, [visual_turn])
     [entry] = [e for e in view["feed"] if e["kind"] == "figure"]
     assert entry["status"] == V.SHOWN
@@ -418,17 +427,15 @@ def test_a_lesson_figure_keeps_its_record_and_is_rechecked_by_its_learner_inputs
     assert row["origin"] == "teacher"
     report = row["verification_report"]
     # The record is kept exactly when a learner state was sent (the "+learner-v1" prompt).
-    assert ("+learner-v1" in row["prompt_version"]) == (RICH.LEARNER_STATE_INPUTS_KEY in report)
+    assert ("+learner-v1" in row["prompt_version"]) == (FP.LEARNER_STATE_INPUTS_KEY in report)
     vault = load_vault(paths.root)
-    assert FS.learner_state_withheld(vault, repository, row) is None
-    real = FS.learner_state_withheld
-
-    def protected_since(vault, repository, found):
-        if found.get("id") == figure_id:
-            return "Something that figure was written from is protected now."
-        return real(vault, repository, found)
-
-    monkeypatch.setattr(FS, "learner_state_withheld", protected_since)
-    assert FS.figure_withheld(load_vault(paths.root), repository, figure_id)
+    assert FP.learner_state_withheld(vault, repository, row) is None
+    # What the state was read from becomes protected: the check below the lineage (``inputs_withheld``, the one
+    # owner every place asks) says so, and the figure goes out nowhere, the lesson included.
+    assert report[FP.LEARNER_STATE_INPUTS_KEY] == sent.inputs
+    monkeypatch.setattr(LS, "inputs_withheld",
+                        lambda vault, repository, inputs: "Something that figure was written from is protected now.")
+    assert FP.learner_state_withheld(load_vault(paths.root), repository, row) is not None
+    assert FP.figure_withheld(load_vault(paths.root), repository, figure_id)
     again = S.view_lesson(load_vault(paths.root), repository, view["lesson_id"])
     assert [(e["status"], e["figure"]) for e in again["feed"] if e["kind"] == "figure"] == [(V.WITHHELD, None)]

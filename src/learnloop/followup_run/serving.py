@@ -228,7 +228,7 @@ def _diagnosis_timed_out(vault: Any, repository: Repository, row: Mapping[str, A
 def continue_without(repository: Repository, attempt_id: str, *, clock: Clock | None = None) -> bool:
     """§6.1: logged, it retires the probe, and §5.1 records today's *Teach me now* authorisation."""
 
-    from learnloop.diagnosis.causal_orchestrator import record_learner_preference
+    from learnloop.diagnosis.probe_hard_stops import record_learner_preference
     from learnloop.followup_run import router
 
     row = wf.attempt_workflow(repository, attempt_id)

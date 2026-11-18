@@ -23,6 +23,9 @@ source_paths:
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/cli/ingest_batches.py"
+  - "src/learnloop/cli/runtime.py"
+  - "src/learnloop/content/pipeline/add_source.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -85,7 +88,19 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.batch_outcome()`
+- `Repository.claim_next_ingest_job()`
+- `Repository.clear_ingest_batch_cancel_requested()`
+- `Repository.delete_finished_ingest_batches()`
+- `Repository.get_ingest_batch()`
+- `Repository.has_runnable_ingest_job()`
+- `Repository.ingest_batch_origin()`
+- `Repository.ingest_batches_by_workflow()`
+- `Repository.insert_ingest_batch()`
+- `Repository.list_ingest_batches()`
+- `Repository.live_ingest_batch_for_subject()`
+- `Repository.request_ingest_batch_cancel()`
+- `Repository.update_ingest_batch_status()`
 
 ### Direct SQL readers
 
@@ -97,7 +112,13 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/cli/ingest_batches.py`
+- `src/learnloop/cli/runtime.py`
+- `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop_sidecar/handlers/capture.py`
+- `src/learnloop_sidecar/handlers/ingest.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -116,6 +137,14 @@ None found by exact static reference scan.
 - `tests/test_sidecar_stops_serving.py`
 - `tests/test_t1_batch_origin_migration.py`
 - `tests/test_ux_phase1_usability_round2.py`
+- `tests/test_ad23_owner_decisions.py`
+- `tests/test_capture_desktop.py`
+- `tests/test_ingest_jobs.py`
+- `tests/test_ingest_ownership.py`
+- `tests/test_ingest_runner.py`
+- `tests/test_mobile_host_coexistence.py`
+- `tests/test_mobile_two_process.py`
+- `tests/test_plan_first_transport_offer_grants.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

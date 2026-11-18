@@ -42,6 +42,12 @@ REGISTERED_SQL_OWNERS = frozenset(
     {
         "src/learnloop/db/migrate.py",
         "src/learnloop/db/repositories.py",
+        "src/learnloop/db/stores/reading_requests.py",
+        "src/learnloop/db/stores/activity.py",
+        "src/learnloop/db/stores/source_documents.py",
+        "src/learnloop/db/stores/reader.py",
+        "src/learnloop/db/stores/goals.py",
+        "src/learnloop/db/stores/task_blueprints.py",
         "src/learnloop/db/stores/ingest_queue.py",
         # Teacher TE1 (migration 230): the lesson ledger and receipts, and the DERIVED weight state.
         "src/learnloop/db/stores/lessons.py",
@@ -190,6 +196,7 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/scheduling/kinship_feature.py",
         "src/learnloop/scheduling/shadow_components.py",
         "src/learnloop/diagnosis/probe_episodes.py",
+        "src/learnloop/diagnosis/probe_completion.py",
         "src/learnloop/curriculum/concepts.py",
         "src/learnloop/curriculum/depth_edge_authoring.py",
         "src/learnloop/goals/goal_series_store.py",
@@ -666,7 +673,7 @@ _SYMBOLIC_FIELD_ALLOWED: dict[tuple[str, str], set[str]] = {
     ("src/learnloop/content/synthesis/graph_nomination.py", "*"): {"claims_key"},
     ("src/learnloop/content/synthesis/source_coverage.py", "*"): {"claims_key"},
     ("src/learnloop/content/synthesis/source_unit_inventory.py", "*"): {"claims_key"},
-    ("src/learnloop/db/repositories.py", "*"): {"claims_key"},
+    ("src/learnloop/db/stores/source_documents.py", "SourceDocumentStoreMixin.source_unit_inventory_claims"): {"claims_key"},
     # Reader RW5d P2b: a Manim figure's declared claims (the rich author's output JSON).
     ("src/learnloop/figures/manim_figure.py", "*"): {"claims_key"},
 }

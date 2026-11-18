@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/rebuild_orchestrator.py](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py) |
-| Source lines | 810 |
+| Source lines | 804 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `derived_table_owners(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> dict[str, tuple[str, ...]]` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 224) — Return all declared owners, retaining duplicates for validation.
 - `validate_replayer_registry(replayers: Sequence[DerivedStateReplayer]=DERIVED_STATE_REPLAYERS) -> None` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 236) — Require exact, unique DERIVED ownership and valid dependency order.
 - `rebuild_all_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, require_complete_attempt_coverage: bool=True) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 672) — Run all registered replayers and append exactly one rebuild receipt.
-- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 767) — Rebuild a vault's live database, then truncate the WAL it grew.
+- `rebuild_live_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None) -> OrchestratedRebuildResult` ([source](../../../../../../src/learnloop/substrate/rebuild_orchestrator.py), line 761) — Rebuild a vault's live database, then truncate the WAL it grew.
 
 ### Module constants
 
@@ -137,7 +137,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`
 - [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `checkpoint_wal`; calls `checkpoint_wal`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `REBUILD_STAMPED_TABLES`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `atomic_repository_call`
 - [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] — imports `rebuild_source_block_fts`; calls `rebuild_source_block_fts`
 - [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TableRole`, `tables_for_role`; calls `tables_for_role`
@@ -206,7 +206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_rebuild_with_no_decisions_needs_no_read`
   - `test_f1_a_rebuild_with_no_sweep_cannot_bring_back_the_cold_label`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
-  - `test_the_outcomes_cache_is_rebuilt_under_the_vaults_version`
+  - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
@@ -305,17 +305,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_reads_no_attempt_recorded_after_the_one_it_recomputes`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
   - `test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live`
-- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
-  - `test_a_contest_flag_survives_rebuilds`
-  - `test_a_projection_version_change_reinterprets_once`
-  - `test_a_regrade_appends_its_grade_once_and_rebuilds_add_nothing`
-  - `test_a_second_rebuild_appends_no_history_row`
-  - `test_an_adjudication_survives_rebuilds`
-  - `test_an_adjudication_that_flips_the_grade_is_not_taken_for_a_regrade`
-  - `test_off_or_at_the_floor_every_rebuild_re_mints_each_answers_chain`
-  - `test_the_first_rebuild_of_a_vault_written_at_the_head_appends_no_grade_channel_row`
-  - `test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan`
-  - `test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
   - `test_live_rebuild_completeness_failure_publishes_nothing`
@@ -362,7 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
-  - `test_router_outcomes_v2_replay_twice_with_no_model_call`
+  - `test_router_outcomes_replay_twice_with_no_model_call`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_tables`
   - `test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call`
@@ -382,7 +371,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`
 - [tests/test_teacher_te2_landing_r1.py](../../../../../../tests/test_teacher_te2_landing_r1.py) — direct import
-  - `test_a_lesson_probe_regraded_blind_after_split_is_switched_on_carries_the_blind_calibration`
+  - `test_a_lesson_probe_graded_jointly_then_regraded_blind_carries_the_blind_calibration`
   - `test_a_lesson_probe_regraded_blind_under_a_newer_prompt_carries_the_newer_calibration`
   - `test_an_ordinary_practice_regrade_already_carries_the_newer_calibration`
   - `test_fg1s_presentation_path_stamps_the_submissions_identity_and_its_regrade_the_replacements`

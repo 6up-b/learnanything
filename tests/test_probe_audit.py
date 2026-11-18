@@ -29,10 +29,12 @@ from learnloop.diagnosis.probe_audit import (
     time_calibration_report,
 )
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.vault.loader import load_vault

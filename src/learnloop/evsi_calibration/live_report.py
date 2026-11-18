@@ -719,21 +719,6 @@ def realized_emission(
         if emission is None:
             return None, why
         alphabet = alphabet or set((body.get("predicted_outcomes") or {}).keys())
-    elif site == "causal_shadow_selection":
-        if not _has(connection, "causal_discriminating_observations"):
-            return None, "no_discriminating_observation"
-        row = connection.execute(
-            "SELECT outcome, classified_as_json FROM causal_discriminating_observations "
-            "WHERE probe_attempt_id = ? ORDER BY created_at LIMIT 1",
-            (attempt_id,),
-        ).fetchone()
-        if row is None:
-            return None, "no_discriminating_observation"
-        classified = _loads(row["classified_as_json"], [])
-        emissions = ((body.get("extra") or {}).get("emission_by_hypothesis")) or {}
-        if row["outcome"] != "matched_single" or not isinstance(classified, list) or len(classified) != 1:
-            return None, f"unmatched:{row['outcome']}"
-        emission = emissions.get(str(classified[0]))
     else:
         return None, "site_without_outcome_mapping"
     if emission is None or (alphabet and emission not in alphabet):

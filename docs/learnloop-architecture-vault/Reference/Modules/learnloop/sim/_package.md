@@ -8,6 +8,7 @@ source_paths:
   - "src/learnloop/sim/__init__.py"
   - "src/learnloop/sim/ad_gates.py"
   - "src/learnloop/sim/ad_synthetic.py"
+  - "src/learnloop/sim/certify.py"
   - "src/learnloop/sim/diagnostic_validation.py"
   - "src/learnloop/sim/grader_confusion.py"
   - "src/learnloop/sim/kinship_admission.py"
@@ -55,6 +56,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]] | [[Reference/Modules/learnloop/sim/__init__#^module-purpose|purpose]] | `EVALUATION` | 0 | 0 |
 | [[Reference/Modules/learnloop/sim/ad_gates|learnloop.sim.ad_gates]] | [[Reference/Modules/learnloop/sim/ad_gates#^module-purpose|purpose]] | `EVALUATION` | 0 | 2 |
 | [[Reference/Modules/learnloop/sim/ad_synthetic|learnloop.sim.ad_synthetic]] | [[Reference/Modules/learnloop/sim/ad_synthetic#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
+| [[Reference/Modules/learnloop/sim/certify|learnloop.sim.certify]] | [[Reference/Modules/learnloop/sim/certify#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
 | [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] | [[Reference/Modules/learnloop/sim/diagnostic_validation#^module-purpose|purpose]] | `EVALUATION` | 1 | 5 |
 | [[Reference/Modules/learnloop/sim/grader_confusion|learnloop.sim.grader_confusion]] | [[Reference/Modules/learnloop/sim/grader_confusion#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/sim/kinship_admission|learnloop.sim.kinship_admission]] | [[Reference/Modules/learnloop/sim/kinship_admission#^module-purpose|purpose]] | `EVALUATION` | 1 | 0 |
@@ -71,9 +73,9 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 12 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 7 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
@@ -83,13 +85,13 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
+- [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
-- [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 8 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -102,19 +104,19 @@ flowchart LR
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_config["learnloop.config"]
     center -->|12| n_learnloop_adaptive_difficulty
     center -->|10| n_learnloop_vault
-    n_learnloop_cli -->|7| center
+    n_learnloop_cli -->|8| center
+    center -->|7| n_learnloop_diagnosis
     center -->|7| n_learnloop_learner
     center -->|6| n_learnloop_attempts
-    center -->|6| n_learnloop_diagnosis
     center -->|5| n_learnloop
     center -->|5| n_learnloop_db
     n_learnloop_scheduling -->|1| center

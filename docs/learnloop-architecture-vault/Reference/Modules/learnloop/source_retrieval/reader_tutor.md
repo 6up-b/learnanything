@@ -127,8 +127,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `passage_learning_objects`; statically calls `passage_learning_objects`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `passage_learning_objects`; statically calls `passage_learning_objects`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `passage_learning_objects`; statically calls `passage_learning_objects`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `shown_span_keys`; statically calls `shown_span_keys`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `NEXT_STEP_ROLES`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `module`; statically calls `ItemBoundGuard`, `ReaderLookup`, `explorable_buttons`, `inquiry_exchanges`, `learner_work`, `named_gap_hypotheses`, `next_step_buttons`, `offer_shown_span_keys`, `passage_learning_objects`, `shown_source_ids`, `shown_span_keys`
@@ -167,7 +167,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]], [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]], [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]], [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

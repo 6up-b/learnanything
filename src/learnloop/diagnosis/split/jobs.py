@@ -26,7 +26,6 @@ from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.runs import finish_agent_run
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
-from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -60,9 +59,8 @@ DIAGNOSE_LEASE_SECONDS = 1_200
 EMBED_LEASE_SECONDS = 300
 BACKOFF_BASE_SECONDS = 30
 BACKOFF_MAX_SECONDS = 3_600
-#: Provider not ready / kill switch off: look again later, no attempt spent.
+#: Provider not ready: look again later, no attempt spent.
 NOT_READY_RECHECK_SECONDS = 60
-SPLIT_OFF_RECHECK_SECONDS = 3_600
 MODEL_CALL_OWNER_KIND = "attempt_diagnosis"
 #: ``diagnosis_status`` values (§11 UI).
 PENDING, NOT_NEEDED, DONE, FAILED = "pending", "not_needed", "done", "failed"
@@ -121,10 +119,9 @@ def enqueue_diagnosis(
 
     Live: a blind grade with a non-pass criterion, a fatal error or an
     attribution. Correct blind answers are sampled at
-    ``correct_answer_sample_rate`` as SHADOW diagnoses (never routed).
-    Shadow on a joint vault (``diagnosis.shadow``): the same trigger over the
-    stored joint grade. Self-graded and deterministic attempts have neither a
-    blind record nor a model grade and are never diagnosed.
+    ``correct_answer_sample_rate`` as SHADOW diagnoses (never routed). An
+    attempt with no blind record (a joint grade, a self-grade, a deterministic
+    one) is never diagnosed.
     ``rediagnose`` (a regrade, or ``learnloop diagnose retry``) keys the job on
     the current blind record so it runs again and supersedes.
     """
@@ -134,25 +131,17 @@ def enqueue_diagnosis(
         return None
     config = getattr(vault.config, "diagnosis", None)
     row = repository.latest_blind_grade_record(attempt_id)
-    if row is not None:
-        record = dict(row.get("record") or {})
-        mode = "live"
-        if not needs_diagnosis(record):
-            rate = float(getattr(config, "correct_answer_sample_rate", 0.0) or 0.0)
-            if not sampled_correct_answer(attempt_id, rate):
-                return None
-            mode = "shadow"
-        record_id = str(row["id"])
-    else:
-        if not bool(getattr(config, "shadow", False)):
+    if row is None:
+        return None
+    record = dict(row.get("record") or {})
+    mode = "live"
+    if not needs_diagnosis(record):
+        rate = float(getattr(config, "correct_answer_sample_rate", 0.0) or 0.0)
+        if not sampled_correct_answer(attempt_id, rate):
             return None
-        metadata = repository.raw_attempt_feedback_metadata(attempt_id) or {}
-        if str(metadata.get("grading_source") or "") not in {"ai", "codex"}:
-            return None
-        if not needs_diagnosis(joint_grade_record(vault, repository, attempt)):
-            return None
-        mode, record_id = "shadow", None
-    job_key = attempt_id if not rediagnose else f"{attempt_id}:{record_id or 'joint'}:{new_ulid()}"
+        mode = "shadow"
+    record_id = str(row["id"])
+    job_key = attempt_id if not rediagnose else f"{attempt_id}:{record_id}:{new_ulid()}"
     return repository.enqueue_post_attempt_job(
         attempt_id=attempt_id,
         kind=DIAGNOSE_KIND,
@@ -311,11 +300,6 @@ def process_next_job(
 
     if cancelled is not None and cancelled():
         return None
-    if kind == DIAGNOSE_KIND and not split_grading_active(vault):
-        # The switch is off: record that every queued live diagnosis is held,
-        # including those behind the head of the line that will not be leased
-        # (write-once; placement decides a held miss there).
-        repository.hold_queued_live_diagnoses(clock=clock)
     lease = DIAGNOSE_LEASE_SECONDS if kind == DIAGNOSE_KIND else EMBED_LEASE_SECONDS
     job = repository.lease_next_post_attempt_job(
         kind=kind, owner=owner, lease_seconds=lease, clock=clock, attempt_id=attempt_id
@@ -713,16 +697,6 @@ def run_diagnose_job(
     try:
         existing = _existing_diagnosis(repository, job)
         if existing is None:
-            if mode == "live" and not split_grading_active(vault):
-                # Kill switch off (or the vault no longer splits): the diagnoser
-                # does not run; the job waits rather than failing.
-                _release(repository, job, not_before=_later(SPLIT_OFF_RECHECK_SECONDS, clock),
-                         error="split_disabled", refund=True, clock=clock)
-                # Queued again: stamp it held (a no-op once it was stamped).
-                repository.hold_queued_live_diagnoses(clock=clock)
-                outcome.state, outcome.error = "released", "split_disabled"
-                _workflow_diagnosis_ended(vault, repository, attempt_id, mode, clock)
-                return outcome
             record_row = repository.latest_blind_grade_record(attempt_id) if mode == "live" else None
             if record_row is not None and not needs_diagnosis(record_row.get("record") or {}):
                 # A regrade left nothing to explain (§5.1): record that, so the
@@ -1556,10 +1530,6 @@ def plan_diagnosis_jobs(
             entry["action"] = "skip:attempt_missing"
         elif _existing_diagnosis(repository, job) is not None:
             entry["action"] = "resume:no_call"
-        elif mode == "live" and not split_grading_active(vault):
-            entry["action"] = "hold:split_disabled"
-            planned.append(entry)
-            break
         elif record_row is not None and not needs_diagnosis(record_row.get("record") or {}):
             entry["action"] = "skip:not_needed"
         elif used_today + calls >= limit:

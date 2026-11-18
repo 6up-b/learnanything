@@ -110,6 +110,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/exam_protection_helpers.py](../../../../../../tests/exam_protection_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/figures_codex_review_helpers.py](../../../../../../tests/figures_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
@@ -121,7 +122,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/question_context_helpers.py](../../../../../../tests/question_context_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
-- [tests/reader_tutor_fakes.py](../../../../../../tests/reader_tutor_fakes.py) — imports consumer [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]]
 
 ## Modification guidance
 

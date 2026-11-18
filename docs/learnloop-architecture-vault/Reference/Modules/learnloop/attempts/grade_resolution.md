@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py) |
-| Source lines | 1534 |
+| Source lines | 1238 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,18 +56,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `class GradeResolution` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 59)
 - `resolve_grade(vault: LoadedVault, repository: Repository, *, item: PracticeItem, purpose: str, grading_source: str, attempt_id: str, response_text: str | None, rubric_score: int | None, max_points: int, grader_confidence: float | None=None, has_fatal: bool=False, signature_matched: bool=False, criterion_points: Mapping[str, float] | None=None, criterion_max: Mapping[str, float] | None=None, raw_output: Mapping[str, Any] | None=None, criterion_evidence: Any=None, agent_run_id: str | None=None, role: str='primary', domain: str | None=None, declared_length_bucket: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, observed_class_override: str | None=None, grader_model_revision: str | None=None, administration_id: str | None=None, observation_id: str | None=None, surface_id: str | None=None, feedback_condition: str | None=None, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> GradeResolution` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 77) — The §4.1 pipeline for one graded response.
-- `class GradeReading` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 194) — What one graded response reads as before anything is written (§4.1 steps 4-7).
-- `read_grade(repository: Repository, *, purpose: str, grading_source: str, attempt_id: str, response_text: str | None, rubric_score: int | None, max_points: int, grader_confidence: float | None=None, has_fatal: bool=False, signature_matched: bool=False, criterion_points: Mapping[str, float] | None=None, criterion_max: Mapping[str, float] | None=None, raw_output: Mapping[str, Any] | None=None, criterion_evidence: Any=None, agent_run_id: str | None=None, role: str='primary', domain: str | None=None, declared_length_bucket: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, observed_class_override: str | None=None, grader_model_revision: str | None=None, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> GradeReading` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 217) — Classify one graded response and interpret it under the current calibration, writing nothing but what resolving the outcome schema writes.
-- `grade_channel_fixes_on(config: Any) -> bool` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 491) — The grade channel fixes (mvp-0.59, ``replay.grade_channel_fixes``): replay keeps each practice answer's observation and appends only what changed.
-- `record_replayed_grade(vault: LoadedVault, repository: Repository, *, observation: Mapping[str, Any], **kwargs: Any) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 535) — Replay's grade channel for an answer that already has an observation (the grade channel fixes; fail-safe like :func:`record_grade_dual_write`).
-- `response_certainty_lcb(vault: LoadedVault, repository: Repository, *, item: PracticeItem, grading_source: str, rubric_score: int | None, max_points: int, grader_confidence: float | None, has_fatal: bool=False, response_text: str | None=None, domain: str | None=None, grader_model_revision: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 633) — The certainty LCB of this response's calibrated interpretation, computed WITHOUT persisting anything (P0.3 §4.4 mastery wiring).
-- `response_soft_score(vault: LoadedVault, repository: Repository, *, item: PracticeItem, grading_source: str, rubric_score: int | None, max_points: int, grader_confidence: float | None, has_fatal: bool=False, response_text: str | None=None, domain: str | None=None, grader_model_revision: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 703) — (E[s(Z)|E], Var[s(Z)|E]) of the calibrated true-score, without persisting.
-- `ensure_administration_identity(vault: LoadedVault, repository: Repository, *, item: PracticeItem, purpose: str, attempt_id: str, feedback_condition: str | None=None, clock: Clock | None=None) -> tuple[str, str, str]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 825) — Resolve (or reuse) the surface + administration and append the observation for one response (§4.1 steps 1-2).
-- `record_grade_dual_write(vault: LoadedVault, repository: Repository, **kwargs: Any) -> GradeResolution | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 861) — Fail-safe dual-write wrapper (§7.3).
-- `quarantine_observation(repository: Repository, *, observation_id: str, surface_id: str | None, reason: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 938) — Immediately quarantine the observation's active interpretation (§4.4).
-- `flag_observation_for_review(repository: Repository, *, observation_id: str, reason: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 998) — Queue the observation's active grade for review (§4.4), keeping its authority.
-- `append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1089) — Ruling A (2026-07-27): write the adjudicated DIRECTION into the ledger.
-- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1338) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
+- `response_certainty_lcb(vault: LoadedVault, repository: Repository, *, item: PracticeItem, grading_source: str, rubric_score: int | None, max_points: int, grader_confidence: float | None, has_fatal: bool=False, response_text: str | None=None, domain: str | None=None, grader_model_revision: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 337) — The certainty LCB of this response's calibrated interpretation, computed WITHOUT persisting anything (P0.3 §4.4 mastery wiring).
+- `response_soft_score(vault: LoadedVault, repository: Repository, *, item: PracticeItem, grading_source: str, rubric_score: int | None, max_points: int, grader_confidence: float | None, has_fatal: bool=False, response_text: str | None=None, domain: str | None=None, grader_model_revision: str | None=None, outcome_schema_slug: str=COARSE_RESPONSE_SLUG, grading_prompt_version: str | None=None, grader_output_schema_version: str | None=None, clock: Clock | None=None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 407) — (E[s(Z)|E], Var[s(Z)|E]) of the calibrated true-score, without persisting.
+- `ensure_administration_identity(vault: LoadedVault, repository: Repository, *, item: PracticeItem, purpose: str, attempt_id: str, feedback_condition: str | None=None, clock: Clock | None=None) -> tuple[str, str, str]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 529) — Resolve (or reuse) the surface + administration and append the observation for one response (§4.1 steps 1-2).
+- `record_grade_dual_write(vault: LoadedVault, repository: Repository, **kwargs: Any) -> GradeResolution | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 565) — Fail-safe dual-write wrapper (§7.3).
+- `quarantine_observation(repository: Repository, *, observation_id: str, surface_id: str | None, reason: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 642) — Immediately quarantine the observation's active interpretation (§4.4).
+- `flag_observation_for_review(repository: Repository, *, observation_id: str, reason: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 702) — Queue the observation's active grade for review (§4.4), keeping its authority.
+- `append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 793) — Ruling A (2026-07-27): write the adjudicated DIRECTION into the ledger.
+- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1042) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
 
 ### Module constants
 
@@ -76,35 +72,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `REVIEW_CONFIDENCE_THRESHOLD` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 49)
 - `INFLUENCE_CERTAINTY_FLOOR` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 52)
 - `BOUNDED_TRUST_WEIGHT_DEFAULT` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 55)
-- `_RAW_GRADE_COLUMNS` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 508)
-- `_INTERPRETATION_COLUMNS` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 516)
-- `_FLAG_COLUMNS` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 522)
-- `ADJUDICATION_GRADER_TIER` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1086)
-- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1315)
+- `ADJUDICATION_GRADER_TIER` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 790)
+- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1019)
 
 ## Internal implementation anchors
 
-- `_append_raw_grade_event(repository: Repository, reading: GradeReading, *, administration_id: str, observation_id: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 382) — Step 3: the raw grade event and its two measurement events.
-- `_interpretation_values(repository: Repository, reading: GradeReading, *, raw_event_id: str, observation_id: str, administration_id: str, review_flag: bool, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 417)
-- `_append_interpretation(repository: Repository, reading: GradeReading, *, raw_event_id: str, observation_id: str, administration_id: str, review_flag: bool, clock: Clock | None, values: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 451) — Steps 8-9: the calibrated interpretation, made the observation's head.
-- `_same_columns(stored: Mapping[str, Any], values: Mapping[str, Any], columns: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 525)
-- `_replay_grade(vault: LoadedVault, repository: Repository, *, observation: Mapping[str, Any], item: PracticeItem, clock: Clock | None=None, **kwargs: Any) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 572)
-- `_adjudication_wrote_the_grade(repository: Repository, attempt_id: str, adjudication_id: str) -> bool` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 622) — Whether the attempt's current grading epoch is the revision this adjudication wrote (``append_adjudication_evidence_revision``).
-- `_persist_fallback_model(repository: Repository, resolved_model: gc.ResolvedModel, schema_id: str, schema_version: int, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 785) — The uniform fallback has no persisted model row; the interpretation FK still needs one.
-- `_record_dual_write_degradation(repository: Repository, kwargs: Mapping[str, Any], exc: Exception) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 904)
-- `_leading_class(posterior: Mapping[str, float]) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1067) — The unique argmax of a class posterior; ``None`` on empty or tied.
-- `_append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None', clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1134) — :func:`append_adjudication_evidence_revision` inside its transaction.
-- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1318) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
+- `_persist_fallback_model(repository: Repository, resolved_model: gc.ResolvedModel, schema_id: str, schema_version: int, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 489) — The uniform fallback has no persisted model row; the interpretation FK still needs one.
+- `_record_dual_write_degradation(repository: Repository, kwargs: Mapping[str, Any], exc: Exception) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 608)
+- `_leading_class(posterior: Mapping[str, float]) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 771) — The unique argmax of a class posterior; ``None`` on empty or tied.
+- `_append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None', clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 838) — :func:`append_adjudication_evidence_revision` inside its transaction.
+- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1022) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `grade_channel_fixes_on`, `record_grade_dual_write`, `record_replayed_grade`, `response_soft_score`; statically calls `grade_channel_fixes_on`, `record_grade_dual_write`, `record_replayed_grade`, `response_soft_score`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `record_grade_dual_write`, `response_soft_score`; statically calls `record_grade_dual_write`, `response_soft_score`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `append_adjudication`; statically calls `append_adjudication`
 - [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `PROJECTION_ALGORITHM_VERSION`, `resolve_grade`; statically calls `resolve_grade`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `record_grade_dual_write`; statically calls `record_grade_dual_write`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `flag_observation_for_review`; statically calls `flag_observation_for_review`
 
@@ -112,7 +99,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `GRADE_CHANNEL_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]] — imports `module`; calls `shared_certainty_lcb`
 - [[Reference/Modules/learnloop/attempts/grade_classifier|learnloop.attempts.grade_classifier]] — imports `CRITERION_CLASSIFIER_VERSION`, `RESPONSE_CLASSIFIER_VERSION`, `bucket_confidence`, `classify_criteria`, `classify_response`, `length_bucket_for_text`, `schema_shape_from_row`; calls `bucket_confidence`, `classify_criteria`, `classify_response`, `length_bucket_for_text`, `schema_shape_from_row`
 - [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `module`; calls `certainty`, `credible_interval`, `grader_identity_hash`, `posterior_over_true_class`, `resolve_calibration_model`
@@ -140,13 +126,14 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/certain_grade_helpers.py](../../../../../../tests/certain_grade_helpers.py) — direct import
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/grade_application_golden_helpers.py](../../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/test_effective_observation.py](../../../../../../tests/test_effective_observation.py) — direct import
   - `test_adjudicated_grade_has_higher_certainty_than_heuristic`
@@ -172,9 +159,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_mvp08_mastery_reliability_sources_certainty_lcb`
   - `test_ruling_a_superseded_rows_inert_nonsuperseded_rows_authoritative`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
-- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
-  - `test_a_contest_flag_survives_rebuilds`
-  - `test_a_projection_version_change_reinterprets_once`
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_key_based_adjudication_is_bound_like_a_regrade`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import

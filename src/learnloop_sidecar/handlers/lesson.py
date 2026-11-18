@@ -21,8 +21,7 @@ Teacher TE1b (spec_teacher_v1 §15.1, §19; ``learnloop.daily_plan.lesson_sugges
 * ``lesson.suggestion``: Today's suggestion card (no model call). The day's
   first call draws the day's decision and writes it; later calls read it back.
   ``null`` when there is no card (none today, already answered, or switched
-  off: ``router.lesson_suggestions.enabled``, the router, its decision log or
-  lessons off, or the vault below TE1b's tag; then nothing is written).
+  off: the router, its decision log or lessons off; then nothing is written).
 * ``lesson.suggestion_respond``: Start (``accepted``), an alternative
   (``chose_alternative``) or "Not now" (``declined``), appended once to
   ``router_suggestion_responses``. Start returns the lesson to open:
@@ -39,7 +38,7 @@ input or not, the client's ``occurred_at`` and the sidecar's ``received_at``) to
 only while the switch is on, so the screen sends nothing otherwise.
 
 Reader RW5d P4b: a teacher turn's ``visual`` is built inside ``lesson.turn`` by the
-figure service (``learnloop.figures.service.build_figure``, origin ``teacher``,
+figure service (``learnloop.figures.build.build_figure``, origin ``teacher``,
 the author route and live configuration the Reader's builds use), grammar and
 sketch tiers only (no rich job is spawned from a lesson), so the lesson's grant
 covers it and the lesson's spend envelope admits its requests.
@@ -175,11 +174,11 @@ def _figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any:
     """Reader RW5d P4b: how a lesson builds its teacher's visual (inline: the turn waits on it)."""
 
     def build(request: Any) -> Any:
-        from learnloop.figures import service as FS
+        from learnloop.figures import build as FB
 
         # Every request is admitted against the vault loaded NOW (the build's FiguresGate); no rich
-        # spawner: a lesson host is grammar and sketch only (FS.LESSON_TIERS).
-        return FS.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
+        # spawner: a lesson host is grammar and sketch only (``figures.request.LESSON_TIERS``).
+        return FB.build_figure(vault, repository, request, author_client=getattr(ctx, "figure_author_client", None),
                                live_vault=getattr(ctx, "loaded_vault", None),
                                find=getattr(ctx, "figure_find_sources", None),
                                spawn_rich=None)
@@ -291,14 +290,11 @@ def lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]:
     the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing
     matched with a proposed topic. Nothing is written but the resolution and its ledger verdict."""
 
-    from learnloop.teacher import te2 as T2
     from learnloop.teacher import topics as TP
 
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        if not T2.on(vault):
-            raise SidecarError("teacher_unavailable", "Typing a goal is switched off (teacher.probes = false).")
         return versioned(TP.resolve(vault, repository, params.text))
     except S.LessonError as exc:
         raise _error(exc) from exc

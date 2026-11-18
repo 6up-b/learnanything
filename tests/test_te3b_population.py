@@ -8,11 +8,10 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 
 TAG = LATEST_ALGORITHM_VERSION
-OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 
 # --- the population -------------------------------------------------------------------------------------------
 
@@ -66,8 +65,6 @@ def test_the_population_holds_los_with_a_pending_lesson_check(tmp_path):
         assert [entry["learning_object_id"] for entry in pending] == [lo]
         assert lesson_store.pending_delayed_checks(connection, at="2026-11-05T09:00:00Z") == []
     assert lo in OI.population(vault, repository, "2026-11-06T10:00:00Z")
-    old_vault, old_repository, old_lo = _pending_check_vault(tmp_path, OLD)
-    assert old_lo not in OI.population(old_vault, old_repository, "2026-11-06T10:00:00Z")
 
 
 def test_the_population_change_moves_the_objectives_definition_once(tmp_path):
@@ -80,7 +77,7 @@ def test_the_population_change_moves_the_objectives_definition_once(tmp_path):
 
 
 
-# --- switched off or below the tag: the same database valued as mvp-0.52 (every part together) ----------------
+# --- with lessons off: the same database valued without lessons (every part together) ---------------------------
 from typing import Any  # noqa: E402
 
 from learnloop.daily_plan import lesson_suggestion as SG  # noqa: E402
@@ -88,16 +85,13 @@ from tests.router_mixture_helpers import mixture_env  # noqa: E402
 from tests.router_model_fakes import fake_runtime  # noqa: E402
 from tests.te3b_offers_helpers import _first_decision, offerable  # noqa: E402,F401
 
-def _with(vault, *, version: str | None = None, in_objective: bool | None = None):
-    """The same vault (the same database, the same pinned state) under another version or switch."""
+def _lessons_off(vault):
+    """The same vault (the same database, the same pinned state) with lessons off."""
 
     from dataclasses import replace
 
     config = vault.config.model_copy(deep=True)
-    if version is not None:
-        config.algorithms.algorithm_version = version
-    if in_objective is not None:
-        config.router.lesson_suggestions.in_objective = in_objective
+    config.teacher.enabled = False
     return replace(vault, config=config)
 
 
@@ -132,10 +126,9 @@ def _lesson_activity(env) -> None:
                                   length * 60.0, stamp(now), stamp(now)))
 
 
-def test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052(tmp_path, offerable, monkeypatch):
-    """§24: off, or below the tag, the objective's inputs, its value and its support are mvp-0.52's on the same
-    database: the same session minutes (no lesson minutes on the clock), the same population (no pending-check LO),
-    the same features version and generator, no offer builder, TE1b's daily gate; on, each one moves."""
+def test_with_lessons_off_the_same_database_is_valued_without_lessons(tmp_path, offerable, monkeypatch):
+    """§24 on the same database: with lessons off, no lesson minutes on the clock, no pending-check LO in the
+    population, RO6's features version and no offer builder; with lessons on, each one moves."""
 
     from learnloop.daily_plan import objective_inputs as OI
     from learnloop.daily_plan.policy import policy_for
@@ -158,27 +151,22 @@ def test_switch_off_or_below_the_tag_values_the_same_database_as_mvp052(tmp_path
     now_iso = env.clock.now().strftime("%Y-%m-%dT%H:%M:%SZ")
     kwargs["now_iso"] = now_iso
     on = env.vault
-    off = _with(env.vault, in_objective=False)
-    # The predecessor's tag reaches it through the switch (its tag half is gone), beside the switch at the tag.
-    old = _with(env.vault, version=OLD, in_objective=False)
+    off = _lessons_off(env.vault)
 
     def valued(vault):
         inputs, actions, sources = real_build(vault, env.repository, **kwargs)
         evaluation = V.evaluate(inputs, actions, draws=4, seed="pinned")
         return inputs, sources, {row.ref: row.q_draws for row in evaluation.valued}
 
-    old_inputs, old_sources, old_q = valued(old)
-    off_inputs, off_sources, off_q = valued(off)
-    on_inputs, on_sources, on_q = valued(on)
-    assert off_inputs == old_inputs and off_q == old_q
-    assert off_sources["population"] == old_sources["population"] and off_sources["session"] == old_sources["session"]
+    off_inputs, off_sources, _off_q = valued(off)
+    on_inputs, on_sources, _on_q = valued(on)
     # On: the lesson's 20 foreground minutes are on the clock, the pending check's LO is in the population.
-    assert on_inputs.session_minutes == pytest.approx(old_inputs.session_minutes + 20.0)
-    assert "lo_diag" in on_sources["population"]["los"] and "lo_diag" not in old_sources["population"]["los"]
-    assert TD.features_version(off.config) == TD.features_version(old.config) != TD.features_version(on.config)
-    assert OI.population(off, env.repository, now_iso) == OI.population(old, env.repository, now_iso)
+    assert on_inputs.session_minutes == pytest.approx(off_inputs.session_minutes + 20.0)
+    assert "lo_diag" in on_sources["population"]["los"] and "lo_diag" not in off_sources["population"]["los"]
+    assert "lo_diag" not in OI.population(off, env.repository, now_iso)
+    assert TD.features_version(off.config) != TD.features_version(on.config)
     assert policy_for(off, env.repository, runtime=fake_runtime()).lesson_offer is None
-    assert policy_for(old, env.repository, runtime=fake_runtime()).lesson_offer is None
-    assert SG.suggestions_active(off) == SG.suggestions_enabled(off) and SG.suggestions_active(old)
+    assert policy_for(on, env.repository, runtime=fake_runtime()).lesson_offer is not None
+    assert not SG.suggestions_active(off)
 
 

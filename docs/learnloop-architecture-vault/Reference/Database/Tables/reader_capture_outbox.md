@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/091_interaction_events_reader_envelope.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/reader/reader_capture.py"
   - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -99,12 +100,13 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 

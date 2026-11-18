@@ -315,7 +315,7 @@ def test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading(
 def test_f8_a_stuck_answer_is_queued_at_recording_without_a_diagnosis(tmp_path, monkeypatch):
     from learnloop.diagnosis.text_gaps import sources
 
-    root, repository = _vault(tmp_path, sync=True, toml="[diagnosis]\nsplit_enabled = false\n")
+    root, repository = _vault(tmp_path, sync=True)
     stuck = _StuckSource()
     monkeypatch.setattr(sources, "DEFAULT_STUCK_SOURCE", stuck)
     first = _self_graded(root, repository, minutes=1, complete=True)
@@ -439,7 +439,7 @@ def _accept_seed(root, learning_object_id, item_id="pi_ltg_seed_accepted"):
 
 
 def _created_and_checked(tmp_path, points, *, toml=""):
-    root, repository = _vault(tmp_path, sync=True, toml="[diagnosis]\nsplit_enabled = false\n" + toml)
+    root, repository = _vault(tmp_path, sync=True, toml=toml)
     _source_note(root)
     tutor = GapTutor(EIGENVECTOR_GAP)
     event_id = _ask(root, repository, tutor)

@@ -280,9 +280,11 @@ def _answer_probe(vault, repository, *, score: int = 1):
     from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, apply_attempt
     from learnloop.attempts.attempts import ResolvedGrade
     from learnloop.diagnosis.probe_episodes import (
-        commit_presentation,
         eligible_instruments,
         episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import (
+        commit_presentation,
         serve_presentation,
     )
     from learnloop.ids import new_ulid

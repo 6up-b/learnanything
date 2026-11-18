@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/capture_report.py](../../../../../../src/learnloop/ops/capture_report.py) |
-| Source lines | 655 |
+| Source lines | 654 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -109,7 +109,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] — imports `DISCRIMINATING_OUTCOMES`
-- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `receipts_on`, `serving_on`; calls `objective_receipts_on`, `receipts_on`, `serving_on`
+- [[Reference/Modules/learnloop/data_capture/gates|learnloop.data_capture.gates]] — imports `objective_receipts_on`, `receipts_on`; calls `objective_receipts_on`, `receipts_on`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `module`; calls `for_version`, `not_yet_swept`, `read`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `module`; calls `measurement_events`, `objectives`, `objectives_present`, `receipts_present`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `all_exposures`, `all_marks`, `decode_ids`, `present`, `probe_links`

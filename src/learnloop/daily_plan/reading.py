@@ -23,7 +23,7 @@ Reader workbench RW7b (spec_reader_workbench_v1 §10.2, a successor):
 ``section_filter`` narrows, per reading, which sections the step may open
 (the reading path's core and prerequisite sections), after the order and the
 exam filter above; ``None`` for a reading keeps that order's own choice. The
-engine passes it only at RW7b's tag with ``reading_paths.plan_uses_path`` on
+engine passes it only with the Guide's paths on
 (``engine.reading_path_plan_active``); without it this module is DL1's and
 U4's exactly.
 

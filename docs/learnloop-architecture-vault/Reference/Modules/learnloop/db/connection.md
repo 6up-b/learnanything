@@ -165,13 +165,18 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/runner|learnloop.experiments.contextual_embeddings.runner]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `connect`; statically calls `connect`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/hints/discriminating|learnloop.hints.discriminating]] — imports `connect`; statically calls `connect`
@@ -294,7 +299,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 176 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 181 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -497,8 +502,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answered_on_the_phone_a_check_measures_its_objective`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_reads_are_untouched_by_the_overlay`
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
@@ -534,6 +537,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rebuild_never_reads_the_workbench_tables`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_the_recorded_seed_redraws_the_pass_exactly`
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
   - `test_each_author_call_is_named_by_its_builds_mode_from_the_ledger`
@@ -780,12 +784,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_replay_never_reads_the_switch`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
-- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
-  - `test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
-  - `test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given`
   - `test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_rebuild_makes_no_model_call_and_is_a_fixed_point`
@@ -856,7 +857,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_writer_commits_while_the_watcher_is_open_and_the_watcher_never_writes`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_proof_item_is_graded_in_exactly_one_model_call`
-  - `test_f5_a_joint_regrade_supersedes_a_route_verdict`
   - `test_migration_186_keeps_its_trigger_which_nothing_writes_now`
 - [tests/test_router_g4_restraint.py](../../../../../../tests/test_router_g4_restraint.py) — direct import
   - `test_an_inserted_follow_up_is_bound_to_its_own_decision_by_its_presentation`
@@ -948,12 +948,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
   - `test_review_parking_after_the_lifecycle_reads_keeps_the_item_inactive`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
-  - `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`
   - `test_a_regrade_appends_a_superseding_stuck_judgment`
   - `test_a_stuck_attempt_without_confusion_writes_no_signal`
   - `test_an_empty_stuck_answer_scores_zero_without_a_model_call`
   - `test_cli_subscription_grading_counts_calls_without_a_token_bound`
-  - `test_confusion_is_read_and_signalled_in_both_grading_modes`
+  - `test_confusion_is_read_and_signalled`
   - `test_confusion_text_is_marked_and_becomes_a_fast_track_blocking_signal`
   - `test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger`
   - `test_sidecar_dont_know_records_an_empty_stuck_answer_in_an_active_vault`

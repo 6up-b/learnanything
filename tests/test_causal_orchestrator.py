@@ -20,21 +20,24 @@ from learnloop.attempts.attempts import (
     SelfGradeInput,
     complete_self_graded_attempt,
 )
+from learnloop.diagnosis.causal_reads import CAUSAL_ORCHESTRATOR_FORMULA_VERSION
 from learnloop.diagnosis.causal_orchestrator import (
-    CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
     EVSI_PROVENANCE,
     NEEDS_DISAMBIGUATION_MESSAGE,
-    accept_probe_offer,
     causal_repair_status,
-    classify_probe_response,
-    cold_verification_context,
+)
+from learnloop.diagnosis.probe_offer import (
+    accept_probe_offer,
     defer_probe_offer,
-    enqueue_backfill_obligation,
-    learner_preference,
-    pinned_causal_probe,
     request_teaching_now,
+)
+from learnloop.diagnosis.causal_discrimination import classify_probe_response, pinned_causal_probe
+from learnloop.diagnosis.causal_cold_verification import cold_verification_context
+from learnloop.diagnosis.machine_checks import (
+    enqueue_backfill_obligation,
     sweep_machine_checks,
 )
+from learnloop.diagnosis.probe_hard_stops import learner_preference
 from learnloop.diagnosis.causal_probe_coherence import (
     generate_blind_prediction_bundle,
 )

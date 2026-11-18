@@ -175,8 +175,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_vault_repository_upgrades_a_vault_that_is_behind_through_the_coordinator`
 - [tests/test_daily_loop_start_minutes.py](../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
   - `test_the_streak_count_is_unchanged_on_fixture_copies`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_exam_protection_identity.py](../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit`
 - [tests/test_goal_decay_projection.py](../../../../../../tests/test_goal_decay_projection.py) — direct import

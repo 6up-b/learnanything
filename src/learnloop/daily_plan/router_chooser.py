@@ -14,8 +14,10 @@ plan boundary it starts from R2a's staged rule (``staged_v1``: DL1's
    then the rest by the lane-quota key, then ``stop for today`` when the plan
    offers it. Feasible candidates beyond k have propensity 0 (R3 evaluates on
    the top-k support). ``router.ties_only`` keeps only the rule's lane.
-3. **Readiness.** With no model set up, the rule chooses deterministically
-   (``decided_by = not_ready``); nothing is explored without a model.
+3. **Readiness.** With no model set up, none is asked: the decision is the
+   full fallback's own distribution (every model's weight on the staged rule,
+   the floor kept), with its logged draw (``decided_by = not_ready``; data
+   capture A5).
 4. **The models** (prefetched, :mod:`learnloop.daily_plan.router_runtime`):
    the Decider's and the LLM's distributions over the options, the sensors
    (R2c, logged only), the similar decisions behind the inclusion coin (R2c).
@@ -53,7 +55,6 @@ from typing import Any
 
 from learnloop.daily_plan.chooser import unspent_share
 from learnloop.daily_plan import measurement as objectives
-from learnloop.data_capture.gates import serving_on
 from learnloop.daily_plan.staged_frame import CardBuilder, StagedChooser
 from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
@@ -406,9 +407,9 @@ class RouterChooser:
         staged_candidate = by_id.get(staged.candidate_id)
         stop_offered = state.minutes_left < STOP_OFFER_MINUTES or not feasible
 
-        def deterministic(decided_by: str, **extra: Any) -> BlockChoice:
+        def deterministic(decided_by: str) -> BlockChoice:
             card = _build_card(self.card_builder, state, feasible)
-            record.update(policy=mx.STAGED_POLICY, decided_by=decided_by, **_card_fields(card), **extra)
+            record.update(policy=mx.STAGED_POLICY, decided_by=decided_by, **_card_fields(card))
             return replace(staged, router_record=record)
 
         if staged_candidate is None:
@@ -421,9 +422,6 @@ class RouterChooser:
             return deterministic("single_option")
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        if not ready and not serving_on(config):
-            return deterministic("not_ready", models={name: {"status": NOT_READY, "error": readiness.get(name)}
-                                                      for name in (DECIDER, LLM)})
         as_of = _latest_attempt(self.repository)
         key = _hash({
             "v": KEY_VERSION, "kind": "plan_block", "plan_id": state.plan_id,
@@ -435,7 +433,7 @@ class RouterChooser:
             "version": config.algorithms.algorithm_version, "settings": settings, "ready": ready,
         })
         if not ready:
-            # Data capture A5 (mvp-0.44, ``data_capture.serving``): no model is set up, so none is
+            # Data capture A5 (mvp-0.44): no model is set up, so none is
             # asked; the decision is the full fallback's own distribution (every model's weight on
             # the staged rule, owner Q7's floor kept), with its logged draw and exact propensity.
             card = _build_card(self.card_builder, state, feasible)
@@ -484,11 +482,10 @@ class RouterChooser:
         """Data capture A2: the objective the arms are evaluated on, frozen from pre-draw inputs only, just
         before the draw (a read whose models are still out reaches neither)."""
 
-        if serving_on(self.vault.config):
-            record["objective"] = objectives.freeze(
-                self.vault, self.repository, staged_ref=staged.candidate_id, candidates=feasible, support=support,
-                stop_ref=STOP_FOR_TODAY,
-            ).as_dict()
+        record["objective"] = objectives.freeze(
+            self.vault, self.repository, staged_ref=staged.candidate_id, candidates=feasible, support=support,
+            stop_ref=STOP_FOR_TODAY,
+        ).as_dict()
 
     def _start(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str],
                by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...]) -> Prefetch:
@@ -715,10 +712,6 @@ class RestraintGate:
             return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
-        if not ready and not serving_on(config):
-            card = _build_card(self.card_builder, state, candidates)
-            base.update(policy=mx.STAGED_POLICY, decided_by="not_ready", **_card_fields(card))
-            return RestraintOutcome(INSERT_NOW, 1.0, base, why="")
         key = _hash({
             "v": KEY_VERSION, "kind": "plan_interrupt", "plan_id": record.id, "block": current.id,
             "item": item.practice_item_id, "as_of": _latest_attempt(self.repository),

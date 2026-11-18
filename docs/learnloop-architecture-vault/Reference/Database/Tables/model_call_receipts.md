@@ -24,6 +24,10 @@ source_paths:
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/adaptive_difficulty/claims.py"
+  - "src/learnloop/ai/execution.py"
+  - "src/learnloop/cli/probability_arms.py"
+  - "src/learnloop/content/authoring/source_exercise_import.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -112,7 +116,12 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.finish_receipt()`
+- `Repository.ingest_batch_spend_rows()`
+- `Repository.model_call_roots_since()`
+- `Repository.model_call_spend_rows()`
+- `Repository.model_route_receipts()`
+- `Repository.record_model_event()`
 
 ### Direct SQL readers
 
@@ -144,7 +153,26 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/adaptive_difficulty/claims.py`
+- `src/learnloop/ai/execution.py`
+- `src/learnloop/cli/probability_arms.py`
+- `src/learnloop/cli/receipts.py`
+- `src/learnloop/content/authoring/source_exercise_import.py`
+- `src/learnloop/content/facet_identity/judge.py`
+- `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/synthesis/graph_nomination.py`
+- `src/learnloop/daily_plan/router_runtime.py`
+- `src/learnloop/decider_judgments.py`
+- `src/learnloop/diagnosis/offline_review/runner.py`
+- `src/learnloop/diagnosis/recurrence/benchmarks.py`
+- `src/learnloop/diagnosis/recurrence/judging.py`
+- `src/learnloop/diagnosis/split/jobs.py`
+- `src/learnloop/field/classification.py`
+- `src/learnloop/field/probability_prep.py`
+- `src/learnloop/hints/map_builder.py`
+- `src/learnloop/ops/contamination/decider.py`
+- `src/learnloop/ops/contamination/judge.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

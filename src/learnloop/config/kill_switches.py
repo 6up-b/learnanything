@@ -42,8 +42,6 @@ OUTSIDE_LEARNLOOP_TOML: tuple[str, ...] = ("phone_probes (mvp-0.54), in the phon
 
 TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     # Grading, attempts, replay
-    KillSwitch("diagnosis.split_enabled", "mvp-0.10", True),
-    KillSwitch("diagnosis.shadow", "mvp-0.10", False),
     KillSwitch("mastery.claim_fixes_enabled", "mvp-0.33", True),
     KillSwitch("replay.ledger_bounded", "mvp-0.34", True),
     # Placement, recurrence, learner-text gaps, sources, value of information, the Decider
@@ -73,27 +71,16 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("plan.enabled", "mvp-0.14", True),
     KillSwitch("plan.new_admission_enabled", "mvp-0.14", True),
     KillSwitch("plan.reading_blocks", "mvp-0.14", True),
-    KillSwitch("router.probe_tie_admission", "mvp-0.15", True),
     KillSwitch("router.enabled", "mvp-0.23", True),
     KillSwitch("router.mode", "mvp-0.24", "mixture"),
     KillSwitch("router.restraint", "mvp-0.24", True),
-    KillSwitch("router.lesson_suggestions.enabled", "mvp-0.43", True),
-    KillSwitch("router.lesson_suggestions.in_objective", "mvp-0.53", True),
-    KillSwitch("reading_paths.plan_uses_path", "mvp-0.32", True),
-    KillSwitch("curriculum.plan_uses_path", "mvp-0.40", True),
     KillSwitch("curriculum.enabled", "mvp-0.40", True),
-    KillSwitch("followups.enabled", "mvp-0.39", True),
-    KillSwitch("intent.enabled", "mvp-0.29", True),
-    KillSwitch("intent.recall_targets_enabled", "mvp-0.29", True),
-    KillSwitch("data_capture.serving", "mvp-0.44", True),
     KillSwitch("followup.generate_and_serve", "mvp-0.45", True),
     KillSwitch("workbench.field_signals_enabled", "mvp-0.31", True),
     # The teacher and adaptive difficulty
     KillSwitch("teacher.enabled", "mvp-0.41", True),
-    KillSwitch("teacher.probes", "mvp-0.51", True),
     KillSwitch("adaptive_difficulty.enabled", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.selection", "mvp-0.30", True),
-    KillSwitch("adaptive_difficulty.generation_contract", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.promoted_predictor", "mvp-0.30", True),
     KillSwitch("adaptive_difficulty.learned_coupling", "mvp-0.30", False),
     KillSwitch("adaptive_difficulty.reading_opportunities", "mvp-0.30", True),

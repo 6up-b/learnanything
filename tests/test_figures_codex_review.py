@@ -25,10 +25,12 @@ import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
 from learnloop.diagnosis.text_gaps.provenance import formative_record
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import request as FQ
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import figures as FH
@@ -134,7 +136,7 @@ def test_f5_an_explanation_after_the_reading_is_read_as_its_own_text(tmp_path):
     first = process_next_gap_job(paths.root, repository, owner="t", clients=clients)
     assert first.state == "done" and first.source_id == prediction_id
     call(ctx, "reader.figure_explain", {"predictionId": prediction_id, "text": "p sets the split, not λ"})
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert _gap_jobs(repository) == [("reader_formative", prediction_id, "done"),
                                      ("reader_formative", explained, "queued")]
     second = process_next_gap_job(paths.root, repository, owner="t", clients=clients)
@@ -163,7 +165,7 @@ def test_f5_an_explanation_before_the_reading_is_read_with_it_once(tmp_path):
 def test_f5_an_explained_source_with_no_explanation_reads_nothing(tmp_path):
     paths, repository, _ctx, found = _missed_prediction(tmp_path)
     vault = load_vault(paths.root)
-    explained = found["predictionId"] + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = found["predictionId"] + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert gap_sources.learner_text(vault, repository, "reader_formative", explained) is None
 
 
@@ -224,13 +226,13 @@ def test_f7_identical_concurrent_builds_join_one_build(tmp_path):
         return flagship(kind="illustrative")
 
     author = AuthorFake([slow])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    outcomes: list[FS.BuildOutcome] = []
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    outcomes: list[FB.BuildOutcome] = []
     errors: list[BaseException] = []
 
     def run():
         try:
-            outcomes.append(FS.build_figure(vault, Repository.attach(repository.sqlite_path), request,
+            outcomes.append(FB.build_figure(vault, Repository.attach(repository.sqlite_path), request,
                                             author_client=author))
         except BaseException as exc:  # noqa: BLE001 - reported below
             errors.append(exc)
@@ -257,7 +259,7 @@ def test_f7_a_paid_answer_survives_a_crash_before_the_row(tmp_path, monkeypatch)
     paths, repository = build_figure_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     author = AuthorFake([flagship(kind="illustrative"), flagship(kind="illustrative")])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     real_insert = store.insert_figure
 
     def crash(*_args, **_kwargs):
@@ -265,10 +267,10 @@ def test_f7_a_paid_answer_survives_a_crash_before_the_row(tmp_path, monkeypatch)
 
     monkeypatch.setattr(store, "insert_figure", crash)
     with pytest.raises(RuntimeError):
-        FS.build_figure(vault, repository, request, author_client=author)
+        FB.build_figure(vault, repository, request, author_client=author)
     assert author.calls == 1 and not rows(repository, "interactive_figures")
     monkeypatch.setattr(store, "insert_figure", real_insert)
-    outcome = FS.build_figure(vault, repository, request, author_client=author)
+    outcome = FB.build_figure(vault, repository, request, author_client=author)
     # The same request is the same paid answer: recovered, not asked again.
     assert author.calls == 1 and outcome.reused is False
     assert outcome.view["verification"] == "illustrative" and len(rows(repository, "interactive_figures")) == 1
@@ -280,9 +282,9 @@ def test_f7_a_stored_failure_is_a_new_generation_that_asks_afresh(tmp_path):
     paths, repository = build_figure_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     author = AuthorFake([half_density(), half_density(), flagship(kind="illustrative")])
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    assert FS.build_figure(vault, repository, request, author_client=author).view["verification"] == "failed"
-    again = FS.build_figure(vault, repository, request, author_client=author)
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    assert FB.build_figure(vault, repository, request, author_client=author).view["verification"] == "failed"
+    again = FB.build_figure(vault, repository, request, author_client=author)
     assert again.view["verification"] == "illustrative" and author.calls == 3
     ids = [context["request_id"] for context in author.contexts]
     assert ids[0] == ids[1] != ids[2]

@@ -50,43 +50,43 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py) |
-| Source lines | 361 |
+| Source lines | 357 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class LessonSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 76)
-- `class LessonTurnInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 81)
-- `class LessonViewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 109)
-- `class LessonGoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 113) — TE2 (§11.5): the typed goal to resolve (C0b's resolver; no lesson is written).
-- `class LessonOpenLessonsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 119)
-- `class LessonActivityInterval(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 123) — One interval of the lesson screen (TE2-log, spec §11.6): on the client's clock, foreground with input or not.
-- `class LessonActivityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 133)
-- `route_unavailable_message(label: str, *, saved: bool) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 147) — The unavailable route's line, true to what exists (followups batch 5, C: an opening that failed before its lesson was saved said "your lesson is saved").
-- `class LessonSuggestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 156)
-- `class LessonSuggestionRespondInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 160)
-- `lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 218) — One step of a lesson; see the module docstring.
-- `lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 277) — The lesson as the screen shows it (no model call).
-- `lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 289) — Teacher TE2 (§11.5): a typed goal resolved by C0b's resolver (one plan call; none when the same words over the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing matched with a proposed topic.
-- `lesson_open_lessons(ctx: SidecarContext, params: LessonOpenLessonsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 310) — Teacher TE2 (§11.8): Today's *Continue your lesson on X* (no model call; empty unless TE2 serves).
-- `lesson_activity(ctx: SidecarContext, params: LessonActivityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 318) — Teacher TE2-log (spec §11.6): append the lesson screen's activity intervals (no model call, never evidence, never a decision).
-- `lesson_suggestion(ctx: SidecarContext, params: LessonSuggestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 336) — Today's suggestion card, or ``null`` (TE1b; no model call).
-- `lesson_suggestion_respond(ctx: SidecarContext, params: LessonSuggestionRespondInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 346) — The learner's one response to the card (TE1b); a Start returns the lesson to open.
+- `class LessonSelection(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 75)
+- `class LessonTurnInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 80)
+- `class LessonViewInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 108)
+- `class LessonGoalInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 112) — TE2 (§11.5): the typed goal to resolve (C0b's resolver; no lesson is written).
+- `class LessonOpenLessonsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 118)
+- `class LessonActivityInterval(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 122) — One interval of the lesson screen (TE2-log, spec §11.6): on the client's clock, foreground with input or not.
+- `class LessonActivityInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 132)
+- `route_unavailable_message(label: str, *, saved: bool) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 146) — The unavailable route's line, true to what exists (followups batch 5, C: an opening that failed before its lesson was saved said "your lesson is saved").
+- `class LessonSuggestionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 155)
+- `class LessonSuggestionRespondInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 159)
+- `lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 217) — One step of a lesson; see the module docstring.
+- `lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 276) — The lesson as the screen shows it (no model call).
+- `lesson_goal(ctx: SidecarContext, params: LessonGoalInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 288) — Teacher TE2 (§11.5): a typed goal resolved by C0b's resolver (one plan call; none when the same words over the same topics were resolved before): the topics it needs, each with the phrase it answers, and what nothing matched with a proposed topic.
+- `lesson_open_lessons(ctx: SidecarContext, params: LessonOpenLessonsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 306) — Teacher TE2 (§11.8): Today's *Continue your lesson on X* (no model call; empty unless TE2 serves).
+- `lesson_activity(ctx: SidecarContext, params: LessonActivityInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 314) — Teacher TE2-log (spec §11.6): append the lesson screen's activity intervals (no model call, never evidence, never a decision).
+- `lesson_suggestion(ctx: SidecarContext, params: LessonSuggestionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 332) — Today's suggestion card, or ``null`` (TE1b; no model call).
+- `lesson_suggestion_respond(ctx: SidecarContext, params: LessonSuggestionRespondInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 342) — The learner's one response to the card (TE1b); a Start returns the lesson to open.
 
 ### Module constants
 
-- `LESSON_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 67)
-- `LESSON_ACTIVITY_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 70)
-- `LESSON_TE2_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 73)
+- `LESSON_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 66)
+- `LESSON_ACTIVITY_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 69)
+- `LESSON_TE2_RPCS` ([src/learnloop_sidecar/handlers/lesson.py](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 72)
 
 ## Internal implementation anchors
 
-- `class _RouteUnavailable(SidecarError)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 141) — The teacher's route is not ready; :func:`lesson_turn` words it by whether the lesson exists yet.
-- `_error(exc: S.LessonError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 168)
-- `_figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 174) — Reader RW5d P4b: how a lesson builds its teacher's visual (inline: the turn waits on it).
-- `_clients(ctx: SidecarContext, vault: Any) -> S.Clients` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 190)
+- `class _RouteUnavailable(SidecarError)` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 140) — The teacher's route is not ready; :func:`lesson_turn` words it by whether the lesson exists yet.
+- `_error(exc: S.LessonError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 167)
+- `_figure_builder(ctx: SidecarContext, vault: Any, repository: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 173) — Reader RW5d P4b: how a lesson builds its teacher's visual (inline: the turn waits on it).
+- `_clients(ctx: SidecarContext, vault: Any) -> S.Clients` ([source](../../../../../../src/learnloop_sidecar/handlers/lesson.py), line 189)
 
 ## Who imports or calls it
 
@@ -102,10 +102,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `SuggestionError`, `respond`, `today_suggestion`; calls `respond`, `today_suggestion`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; calls `build_figure`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; calls `build_figure`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; calls `record_intervals`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; calls `Clients`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
-- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `module`; calls `on`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `module`; calls `resolve`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
@@ -158,7 +157,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_start_opens_a_lesson_whose_origin_is_the_decision`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
-  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
   - `test_lesson_goal_and_open_lessons_through_the_handlers`
   - `test_the_rpcs_are_registered_desktop_only`
 - [tests/test_teacher_te2log_activity.py](../../../../../../tests/test_teacher_te2log_activity.py) — direct import

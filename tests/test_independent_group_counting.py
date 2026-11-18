@@ -16,7 +16,7 @@ compare the raw string instead, and each got the same class of thing wrong:
   learner-wide belief from what is really one observation;
 * **probe exposure** (`probe_episodes.eligible_instruments`) — re-served a
   near-clone inside one episode as though it were a fresh surface;
-* **probe completion** (`probe_episodes._surface_key`) — believed an episode had
+* **probe completion** (`probe_completion._surface_key`) — believed an episode had
   covered two surfaces when it had asked one question twice;
 * **exam novelty** (`exam_pool`) — reserved a near-clone of an item the learner
   had already practised, which is the leakage a held-out pool exists to prevent.
@@ -170,7 +170,7 @@ def test_unverifiable_provenance_fails_closed(candidate):
 
 
 def test_probe_completion_keys_on_the_group_not_the_authored_string():
-    from learnloop.diagnosis.probe_episodes import _surface_key
+    from learnloop.diagnosis.probe_completion import _surface_key
 
     vault = _Vault(
         _item("pi_part_state", surface="svd_state", stimulus="stem_svd_1"),
@@ -188,7 +188,7 @@ def test_an_unknown_probe_item_stays_distinct_rather_than_collapsing():
     covered than it is, so distinct-by-default is the safe reading.
     """
 
-    from learnloop.diagnosis.probe_episodes import _surface_key
+    from learnloop.diagnosis.probe_completion import _surface_key
 
     vault = _Vault()
 

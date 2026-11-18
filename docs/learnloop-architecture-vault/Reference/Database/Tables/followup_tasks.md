@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -135,7 +135,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`

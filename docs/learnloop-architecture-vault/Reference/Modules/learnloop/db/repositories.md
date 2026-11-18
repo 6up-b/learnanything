@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps repositories behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `StaleContractHead`, `BlueprintNotReviewed`, `GoalAlreadyConfirmed`, `PracticeItemState`, `MasteryState`, `ItemParameterState`, `ActiveErrorEvent`, `MisconceptionRecord` and 18 more public symbols.
+This module keeps repositories behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `BlueprintNotReviewed`, `GoalAlreadyConfirmed`, `PracticeItemState`, `MasteryState`, `ItemParameterState`, `ActiveErrorEvent`, `MisconceptionRecord`, `ItemMisconceptionDiscrimination` and 17 more public symbols.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -48,1092 +48,750 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py) |
-| Source lines | 27580 |
+| Source lines | 19536 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class StaleContractHead(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 92) — The predecessor a successor was built against is no longer the head (L3, §3.4).
-  - `__init__(self, goal_id: str, *, expected: str | None, actual: str | None)` (line 97; internal)
-- `class BlueprintNotReviewed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 107) — A golden-path confirmation named a blueprint version that is not reviewed/active (spec_p2 §3.1 step 1).
-  - `__init__(self, blueprint_version_id: str, *, status: str | None)` (line 111; internal)
-- `class GoalAlreadyConfirmed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 119) — The goal already has a confirmed contract head whose content differs from the v1 this confirmation would mint (spec_p2 §1.2 invariant 2).
-  - `__init__(self, goal_id: str, *, head_version_id: str | None)` (line 124; internal)
-- `class PracticeItemState` ([source](../../../../../../src/learnloop/db/repositories.py), line 507)
-- `class MasteryState` ([source](../../../../../../src/learnloop/db/repositories.py), line 520)
-- `class ItemParameterState` ([source](../../../../../../src/learnloop/db/repositories.py), line 531) — Per-item empirical-Bayes difficulty posterior (b in the 2PL link).
-- `class ActiveErrorEvent` ([source](../../../../../../src/learnloop/db/repositories.py), line 543)
-- `class MisconceptionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 558) — A normalized, content-bearing belief scoped to a learning object.
-- `class ItemMisconceptionDiscrimination` ([source](../../../../../../src/learnloop/db/repositories.py), line 596) — Estimated discrimination of an item's keyed fatal error vs a misconception.
-  - `sensitivity_mean(self) -> float` (line 617; public)
-  - `specificity_mean(self) -> float` (line 621; public)
-  - `sensitivity_lb(self, q: float=0.25) -> float` (line 624; public)
-  - `specificity_lb(self, q: float=0.25) -> float` (line 627; public)
-  - `youden_j(self) -> float` (line 631; public) — Discrimination power J = E[sens] + E[spec] - 1.
-  - `youden_j_lb(self, q: float=0.25) -> float` (line 635; public) — Conservative J from the sensitivity/specificity lower bounds.
-- `class ProbeStateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 641)
-- `class ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 656) — One first-class diagnostic episode (probe redesign spec §5.1).
-- `class ProbePresentationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 684) — A durable committed probe assignment (probe redesign spec §5.1).
-- `class ProbeObservationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 715) — The grading result + posterior transition for one consumed presentation (§5.1).
-- `class ProbeStateSegmentRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 737) — A learner-state segment boundary event (probe redesign spec §5.1).
-- `class ProbeFamilyTemplateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 750)
-- `class ProbeInstrumentCardRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 761)
-- `class ProbeItemFamilyLinkRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 775)
-- `class ProbeGenerationNeedRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 787)
-- `class ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 799) — A learner-initiated calibration session (probe redesign spec §5.9).
-- `class GradingEvidenceRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 816)
-- `class FacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 842)
-- `class CanonicalFacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 862) — Canonical shared facet belief (KM2 §7.1), keyed on the post-merge facet id and observed capability.
-- `class FacetCapabilityEvidence` ([source](../../../../../../src/learnloop/db/repositories.py), line 885) — Capability-sliced certification ledger (KM2 §7.1).
-- `class FacetUncertaintyState` ([source](../../../../../../src/learnloop/db/repositories.py), line 912)
-- `class PracticeItemQualityState` ([source](../../../../../../src/learnloop/db/repositories.py), line 928)
-- `class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin, DiagnosisStoreMixin, RecurrenceStoreMixin, SessionOwnershipStoreMixin)` ([source](../../../../../../src/learnloop/db/repositories.py), line 1071)
-  - `__init__(self, sqlite_path: Path)` (line 1080; internal) — Create the database, or attach to one at this code's migrations.
-  - `attach(cls, sqlite_path: Path, *, read_only: bool=False) -> Repository` (line 1095; public) — Attach to an existing database without applying migrations.
-  - `_initialize(self, sqlite_path: Path, *, read_only: bool) -> None` (line 1113; internal)
-  - `connection(self) -> sqlite3.Connection` (line 1122; public)
-  - `in_atomic(self) -> bool` (line 1130; public) — This thread is inside an ``atomic()`` block (a new one would be a savepoint of it).
-  - `atomic(self) -> Iterator[None]` (line 1138; public) — Commit a local operation once, including its nested store writes.
-  - `pinned(self) -> Iterator[None]` (line 1182; public) — Reuse one connection for the block, on this thread only.
-  - `practice_item_state(self, practice_item_id: str) -> PracticeItemState | None` (line 1213; public)
-  - `practice_item_states(self) -> dict[str, PracticeItemState]` (line 1221; public)
-  - `initialize_practice_item_state(self, practice_item_id: str, *, content_hash: str | None=None, active: bool=True, clock: Clock | None=None) -> bool` (line 1226; public) — Insert a fresh scheduling row only when none exists.
-  - `update_practice_item_content_state(self, practice_item_id: str, *, active: bool, content_hash: str | None, clock: Clock | None=None) -> bool` (line 1256; public) — Set only ``active`` and ``content_hash`` on an existing row.
-  - `upsert_practice_item_state(self, practice_item_id: str, *, difficulty: float | None=None, stability: float | None=None, retrievability: float | None=None, due_at: str | None=None, active: bool=True, content_hash: str | None=None, last_attempt_at: str | None=None, clock: Clock | None=None) -> None` (line 1284; public)
-  - `inactive_practice_item_ids(self, practice_item_ids: Iterable[str]) -> frozenset[str]` (line 1330; public) — The given items whose scheduling row exists and is inactive.
-  - `keep_practice_items_inactive(self, practice_item_ids: Iterable[str]) -> int` (line 1345; public) — Close the given items' rows again after replay rewrote them active.
-  - `set_practice_item_active(self, practice_item_id: str, *, active: bool, clock: Clock | None=None) -> None` (line 1365; public) — Flip only the active flag, preserving scheduling state on the row.
-  - `deactivate_practice_item_serving(self, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, int]` (line 1386; public) — Atomically close every serving door for one terminal item.
-  - `mastery_state(self, learning_object_id: str) -> MasteryState | None` (line 1432; public)
-  - `mastery_states(self) -> dict[str, MasteryState]` (line 1440; public)
-  - `upsert_mastery_state(self, mastery: MasteryState) -> None` (line 1445; public)
-  - `insert_practice_attempt(self, attempt: Mapping[str, Any]) -> None` (line 1477; public)
-  - `fetch_practice_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 1482; public)
-  - `practice_attempt_by_submission_id(self, submission_id: str) -> dict[str, Any] | None` (line 1490; public)
-  - `attempt_submission_receipt(self, submission_id: str) -> dict[str, Any] | None` (line 1498; public)
-  - `insert_attempt_submission_receipt(self, *, submission_id: str, attempt_id: str, practice_item_id: str, result: Mapping[str, Any], clock: Clock | None=None) -> None` (line 1510; public)
-  - `upsert_attempt_feedback_metadata(self, *, attempt_id: str, grading_source: str, fallback_reason: str | None=None, agent_run_id: str | None=None, fatal_errors: list[str] | None=None, feedback_md: str | None=None, repair_suggestions: list[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> None` (line 1537; public)
-  - `fetch_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None` (line 1582; public) — The attempt's feedback metadata, as the causal consumers read it.
-  - `raw_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None` (line 1598; public) — The persisted feedback row exactly as written (no diagnosis overlay).
-  - `record_feedback_shown(self, attempt_id: str, *, session_id: str | None=None, clock: Clock | None=None) -> bool` (line 1608; public)
-  - `attempts_with_feedback_shown_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 1632; public) — Attempts whose feedback screen was last opened inside the interval.
-  - `list_recent_attempts_by_practice_item(self, practice_item_id: str, limit: int=10, *, until: str | None=None, before: tuple[str, str] | None=None) -> list[dict[str, Any]]` (line 1667; public) — The item's latest attempts, newest first.
-  - `list_recent_attempts_by_learning_object(self, learning_object_id: str, limit: int=10, *, before: tuple[str, str] | None=None) -> list[dict[str, Any]]` (line 1722; public)
-  - `list_recent_attempts_by_learning_objects(self, learning_object_ids: Iterable[str], *, limit: int=10, before: tuple[str, str] | None=None) -> dict[str, list[dict[str, Any]]]` (line 1733; public) — Load the latest ``limit`` attempts for each requested LO at once.
-  - `list_attempts_by_learning_object(self, learning_object_id: str) -> list[dict[str, Any]]` (line 1795; public)
-  - `learning_object_ids_with_attempts(self) -> list[str]` (line 1807; public)
-  - `list_attempt_history(self) -> list[dict[str, Any]]` (line 1818; public) — Every attempt (time-ordered) with its posterior delta, if recorded.
-  - `count_attempts_with_error_type(self, practice_item_id: str, error_type: str) -> int` (line 1858; public) — Attempts on an item carrying ``error_type`` — the §12.4 promotion signal.
-  - `insert_grading_evidence(self, attempt_id: str, evidence_rows: Iterable[Mapping[str, Any]]) -> None` (line 1871; public)
-  - `fetch_grading_evidence(self, attempt_id: str, *, include_superseded: bool=False) -> list[GradingEvidenceRecord]` (line 1877; public)
-  - `insert_grading_clarification(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` (line 1897; public) — Append one clarification request; None when the attempt already has one.
-  - `grading_clarification_for_attempt(self, attempt_id: str) -> sqlite3.Row | None` (line 1932; public)
-  - `unanswered_grading_clarifications(self) -> list[sqlite3.Row]` (line 1946; public)
-  - `grading_clarifications_awaiting_regrade(self, *, limit: int | None=None) -> list[sqlite3.Row]` (line 1960; public) — Clarifications whose answer landed but whose re-grade has not resolved.
-  - `insert_grading_clarification_response(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 1990; public)
-  - `stamp_grading_clarification_outcome(self, clarification_id: str, *, outcome: str, resolved_grading_revision: int | None) -> None` (line 2014; public) — Stamp the regrade result onto an already-recorded answer.
-  - `attempts_pending_clarification_review(self) -> list[str]` (line 2039; public) — Attempts whose grade advertises a pending clarification (Meas §3.A8).
-  - `clarification_rate_counts(self) -> dict[str, int]` (line 2052; public) — Counts for §3.A8's revert criterion.
-  - `insert_trace_exercised_facets(self, attempt_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 2103; public) — Append A6 trace observations for one attempt; returns rows written.
-  - `trace_exercised_facets(self, attempt_id: str) -> list[dict[str, Any]]` (line 2153; public)
-  - `all_trace_exercised_facets(self) -> dict[str, list[dict[str, Any]]]` (line 2165; public) — Every A6 observation, grouped by attempt.
-  - `list_grading_evidence_history(self, *, include_superseded: bool=False) -> list[GradingEvidenceRecord]` (line 2181; public) — Every grading-evidence row in stable replay order.
-  - `find_attempt_id_by_evidence_agent_run(self, *, practice_item_id: str, agent_run_id: str, attempt_type: str | None=None) -> str | None` (line 2203; public) — Latest attempt on an item whose grading evidence carries ``agent_run_id``.
-  - `supersede_self_grade_rows(self, attempt_id: str, *, superseded_by_evidence_id: str, clock: Clock | None=None) -> int` (line 2237; public)
-  - `pending_self_grade_regrade_attempts(self, limit: int | None=None) -> list[dict[str, Any]]` (line 2257; public)
-  - `update_attempt_grade(self, attempt_id: str, *, rubric_score: int, correctness: float, grader_confidence: float, manual_review: bool, manual_review_reason: str | None, error_type: str | None, clock: Clock | None=None) -> bool` (line 2287; public)
-  - `record_deferred_regrade(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, mastery_state: MasteryState, attempt_update: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]]=(), clock: Clock | None=None) -> None` (line 2327; public)
-  - `active_error_events(self) -> list[ActiveErrorEvent]` (line 2398; public)
-  - `active_errors_by_learning_object(self, learning_object_id: str) -> list[ActiveErrorEvent]` (line 2405; public) — The LO's active error events exactly as stored (no diagnosis overlay).
-  - `active_errors_by_learning_object_overlaid(self, learning_object_id: str) -> list[ActiveErrorEvent]` (line 2417; public) — The LO's active error events as the diagnosis overlay shows them.
-  - `active_error_events_overlaid(self) -> list[ActiveErrorEvent]` (line 2447; public) — Every active error event as the diagnosis overlay shows it.
-  - `_active_error_rows(self, learning_object_id: str) -> list[sqlite3.Row]` (line 2475; internal)
-  - `error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 2486; public) — The attempt's error events, as the causal consumers read them.
-  - `raw_error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 2506; public) — The persisted error-event rows exactly as written (no overlay).
-  - `all_error_events_by_attempt(self) -> dict[str, list[dict[str, Any]]]` (line 2520; public) — Decode the complete error-event ledger in one ordered scan.
-  - `attempt_ids_for_misconception(self, misconception_id: str, *, event_ids: Sequence[str]=(), limit: int=5) -> list[str]` (line 2548; public) — Attempt ids whose error events minted/fed this misconception, newest first.
-  - `insert_error_event(self, event: Mapping[str, Any]) -> None` (line 2585; public)
-  - `set_error_event_misconception(self, event_id: str, misconception_id: str | None, *, clock: Clock | None=None) -> bool` (line 2590; public) — Link (or unlink) an error event to a normalized registry belief.
-  - `insert_misconception(self, *, learning_object_id: str, statement: str, id: str | None=None, concept_id: str | None=None, signature: str | None=None, facet_ids: Iterable[str] | None=None, severity: float=0.0, status: str='active', source_error_event_ids: Iterable[str] | None=None, mechanism: str | None=None, operation: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, trigger_conditions: Iterable[str] | None=None, expected_signatures: Iterable[str] | None=None, first_divergence: Iterable[str] | None=None, non_applicable_controls: Iterable[str] | None=None, promotion_reason: str | None=None, correction_statement: str | None=None, correction_source_span_ids: Iterable[str] | None=None, provenance: Any=None, correction_provenance: Any=None, provenance_writer: str='misconception', clock: Clock | None=None) -> str` (line 2610; public) — Insert a registry belief.
-  - `_record_text_provenance(connection: Any, kind: str, record_id: str, text: Any, record: Any, writer: str, clock: Clock | None) -> None` (line 2707; internal) — One write-time provenance row for a text this transaction writes (diagnosis input provenance), when its writer passed a record.
-  - `misconception(self, misconception_id: str) -> MisconceptionRecord | None` (line 2719; public)
-  - `misconceptions_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('active', 'resolving')) -> list[MisconceptionRecord]` (line 2737; public)
-  - `misconceptions_for_concepts(self, concept_ids: Iterable[str], statuses: Iterable[str]=('active', 'resolving')) -> list[MisconceptionRecord]` (line 2769; public)
-  - `facet_ids_with_recall_evidence(self) -> set[str]` (line 2805; public) — Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
-  - `update_misconception(self, misconception_id: str, *, statement: str | None=None, signature: str | None=None, facet_ids: Iterable[str] | None=None, severity: float | None=None, status: str | None=None, append_source_error_event_ids: Iterable[str] | None=None, correction_statement: str | None=None, correction_source_span_ids: Iterable[str] | None=None, transition_source: str='repository', statement_provenance: Any=None, correction_provenance: Any=None, clock: Clock | None=None) -> MisconceptionRecord | None` (line 2820; public)
-  - `misconception_transition_events(self, misconception_id: str) -> list[dict[str, Any]]` (line 2926; public)
-  - `_projected_causal_candidates(self, learning_object_id: str, *, statement_normalized: str | None=None) -> list[dict[str, Any]]` (line 2939; internal) — Compatibility projection over P1's single hypothesis owner.
-  - `misconception_candidate_by_normalized(self, learning_object_id: str, statement_normalized: str) -> dict[str, Any] | None` (line 3109; public) — The open candidate for one normalized statement on an LO, if any.
-  - `misconception_candidates_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('candidate',)) -> list[dict[str, Any]]` (line 3148; public)
-  - `insert_misconception_candidate(self, *, learning_object_id: str, statement: str, statement_normalized: str, id: str | None=None, concept_id: str | None=None, signature: str | None=None, mechanism: str | None=None, operation: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, facet_ids: Iterable[str] | None=None, source_error_event_ids: Iterable[str] | None=None, surface_families: Iterable[str] | None=None, item_ids: Iterable[str] | None=None, occurrence_count: int=1, severity: float=0.0, provenance: Any=None, provenance_writer: str='misconception_candidate', clock: Clock | None=None) -> str` (line 3179; public) — Insert a holding-pen candidate.
-  - `update_misconception_candidate(self, candidate_id: str, *, severity: float | None=None, occurrence_count: int | None=None, append_source_error_event_ids: Iterable[str] | None=None, add_surface_families: Iterable[str] | None=None, add_item_ids: Iterable[str] | None=None, signature: str | None=None, mechanism: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, status: str | None=None, promoted_misconception_id: str | None=None, promotion_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 3245; public)
-  - `misconception_candidate_by_id(self, candidate_id: str) -> dict[str, Any] | None` (line 3395; public)
-  - `upsert_item_misconception_discrimination(self, row: ItemMisconceptionDiscrimination, *, clock: Clock | None=None) -> None` (line 3417; public)
-  - `discrimination_row(self, practice_item_id: str, misconception_id: str) -> ItemMisconceptionDiscrimination | None` (line 3459; public)
-  - `count_clean_attempts_since(self, learning_object_id: str, *, since: str, until: str, min_correctness: float, exclude_attempt_ids: Iterable[str]=()) -> int` (line 3472; public) — Count "clean" attempts on a learning object in ``(since, until]``.
-  - `clean_attempt_ids_since(self, learning_object_id: str, *, since: str, until: str, min_correctness: float) -> list[str]` (line 3513; public) — The attempts :meth:`count_clean_attempts_since` would count.
-  - `resolve_error_event(self, event_id: str, *, clock: Clock | None=None) -> bool` (line 3538; public)
-  - `insert_attempt_surprise(self, surprise: Mapping[str, Any]) -> None` (line 3552; public)
-  - `latest_attempt_surprise(self, attempt_id: str) -> dict[str, Any] | None` (line 3557; public)
-  - `attempt_innovation_samples(self) -> list[dict[str, Any]]` (line 3565; public) — Per-attempt rows for the difficulty-miscalibration monitor (spec §7.4).
-  - `calibration_duel_pairs(self) -> list[dict[str, Any]]` (line 3588; public) — Matched pre-outcome learner/model predictions on ordinary cold attempts.
-  - `answer_confidence_presence(self, *, exclude_attempt_ids: Iterable[str]=()) -> dict[str, int]` (line 3615; public) — How often an ordinary graded attempt carries a pre-answer confidence tap.
-  - `pending_followup_practice_item_ids(self, *, clock: Clock | None=None) -> list[str]` (line 3645; public) — Return queued follow-up item ids that have not yet been attempted.
-  - `pending_followup_practice_items(self, *, clock: Clock | None=None) -> list[dict[str, str]]` (line 3653; public) — Return queued follow-ups that have not yet been attempted.
-  - `create_remediation_episode(self, *, case_kind: str, case_ref: str, passages_shown: Sequence[Mapping[str, Any]]=(), state: str='diagnosis', clock: Clock | None=None) -> dict[str, Any]` (line 3711; public)
-  - `remediation_episode(self, episode_id: str) -> dict[str, Any] | None` (line 3737; public)
-  - `get_or_create_open_remediation_episode(self, *, case_kind: str, case_ref: str, states: Sequence[str], clock: Clock | None=None) -> dict[str, Any]` (line 3744; public) — The newest episode for the case in one of ``states``, else a new one.
-  - `update_remediation_episode(self, episode_id: str, *, clock: Clock | None=None, **changes: Any) -> dict[str, Any] | None` (line 3796; public)
-  - `open_remediation_episode_for_case(self, *, case_kind: str, case_ref: str) -> dict[str, Any] | None` (line 3823; public) — The newest episode for the case that has not yet recorded a primed attempt.
-  - `open_remediation_episode_for_primed_item(self, practice_item_id: str) -> dict[str, Any] | None` (line 3846; public)
-  - `open_remediation_episodes_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 3859; public) — Live episodes that bound this item as their primed or cold surface.
-  - `create_followup_task(self, *, kind: str, case_kind: str, case_ref: str, not_before: str, selected_item_id: str | None, source_attempt_id: str | None=None, remediation_episode_id: str | None=None, expires_at: str | None=None, context: Mapping[str, Any] | None=None, learning_object_id: str | None=None, measurement_opportunity_id: str | None=None, measurement_decision_reason: str | None=None, measurement_candidate_summary: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 3883; public) — Schedule one delayed follow-up.
-  - `get_or_create_cold_measurement_opportunity(self, *, lane: str, trigger_kind: str, trigger_ref: str, policy_version: str, learning_object_id: str | None=None, case_kind: str | None=None, case_ref: str | None=None, remediation_episode_id: str | None=None, source_attempt_id: str | None=None, certificate_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 3972; public) — Create the denominator row before candidate selection.
-  - `cold_measurement_opportunity(self, opportunity_id: str) -> dict[str, Any] | None` (line 4033; public)
-  - `record_cold_measurement_opportunity_decision(self, *, measurement_opportunity_id: str, decision: str, reason: str, followup_task_id: str | None=None, selected_item_id: str | None=None, candidate_summary: Mapping[str, Any] | None=None, scheduled_not_before: str | None=None, scheduled_expires_at: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 4043; public) — Settle an opportunity once, preserving the first terminal decision.
-  - `_decode_cold_measurement_opportunity_decision(row: Any) -> dict[str, Any]` (line 4093; internal)
-  - `cold_measurement_opportunity_decision(self, measurement_opportunity_id: str) -> dict[str, Any] | None` (line 4102; public)
-  - `followup_task(self, task_id: str) -> dict[str, Any] | None` (line 4119; public)
-  - `attach_followup_task_measurement_opportunity(self, task_id: str, measurement_opportunity_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 4124; public) — Prospectively attach lineage to a pre-151 task, without replacing it.
-  - `due_followup_tasks(self, *, clock: Clock | None=None) -> list[dict[str, Any]]` (line 4141; public) — The due tasks, each marked served, and the expired ones marked so.
-  - `active_followup_task_for_item(self, practice_item_id: str, *, kind: str | None=None, at: str | None=None) -> dict[str, Any] | None` (line 4189; public) — The due, unconsumed follow-up task selecting ``practice_item_id``.
-  - `followup_task_for_case(self, *, kind: str, case_ref: str) -> dict[str, Any] | None` (line 4220; public) — Any task of ``kind`` for ``case_ref``, whatever its status.
-  - `_release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool` (line 4241; internal) — End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item stops being reserved.
-  - `release_cold_reservation(self, episode_id: str, *, clock: Clock | None=None) -> bool` (line 4258; public) — :meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal).
-  - `_remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]` (line 4266; internal) — Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``) those still waiting for the primed attempt, before any task exists.
-  - `open_remediation_cold_item_ids(self) -> set[str]` (line 4286; public) — The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold item is held from the moment the episode chooses it, while its primed attempt is…
-  - `pending_remediation_cold_item_ids(self) -> set[str]` (line 4293; public) — The narrower reservation Today's routine queue honours: only an open cold retry.
-  - `open_followup_tasks_of_kind(self, kind: str, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 4300; public) — Tasks of ``kind`` still awaiting an attempt (``pending`` or ``served``).
-  - `open_followup_tasks_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 4320; public) — Every task of any kind still awaiting an attempt on this item, in ``active_followup_task_for_item``'s order (``serve_eligibility`` judges them all: the first due one is the task submit answers).
-  - `followup_tasks_of_kind(self, kind: str) -> list[dict[str, Any]]` (line 4336; public) — Every task of ``kind``, any status — the metric's denominator read.
-  - `expire_followup_task(self, task_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 4349; public) — Retire an un-taken task.
-  - `defer_followup_task(self, task_id: str, *, not_before: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 4370; public) — Push an un-taken task's ``not_before`` later.
-  - `consume_followup_task(self, task_id: str, attempt_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 4397; public)
-  - `followup_source_attempt(self, attempt_id: str) -> str | None` (line 4413; public) — Gate-decision attempt whose queued follow-up this attempt answered.
-  - `upsert_followup_rating(self, *, attempt_id: str, gate_attempt_id: str | None, useful: bool, source: str='user', clock: Clock | None=None) -> None` (line 4462; public)
-  - `followup_rating(self, attempt_id: str) -> dict[str, Any] | None` (line 4487; public)
-  - `gate_training_rows(self) -> list[dict[str, Any]]` (line 4499; public) — Every persisted gate evaluation LEFT JOINed to its usefulness rating (via gate_attempt_id) — the gate fitter's raw input, oldest first.
-  - `insert_question_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 4527; public) — Append a learner question.
-  - `insert_source_exposure_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 4611; public) — Record one Open-in-source view (§9.2).
-  - `source_exposure_events(self, *, extraction_id: str | None=None, span_id: str | None=None, entity_type: str | None=None, entity_id: str | None=None, after: str | None=None, before: str | None=None, limit: int | None=None) -> list[dict[str, Any]]` (line 4655; public)
-  - `update_question_event_answer(self, event_id: str, *, answer_md: str | None, question_type: str | None, facets: list[str] | None, hint_equivalent: bool, leak_suspected: bool, answer_status: str, signal_channel: str | None=None, source_context: Mapping[str, Any] | None=None, leak_overlap: float | None=None, remediation_episode_id: str | None=None, answered_at: str | None=None) -> bool` (line 4703; public) — Complete (or fail) a pending question event after the provider call.
-  - `question_events(self, *, context: str | None=None, note_id: str | None=None, practice_item_id: str | None=None, attempt_id: str | None=None, session_id: str | None=None, since: str | None=None, until: str | None=None, answer_status: str | None=None, resolution: str | None=None) -> list[dict[str, Any]]` (line 4762; public)
-  - `count_question_events(self, *, context: str | None=None, note_id: str | None=None, practice_item_id: str | None=None, attempt_id: str | None=None, session_id: str | None=None, since: str | None=None, answer_status: str | None=None, resolution: str | None=None) -> int` (line 4803; public)
-  - `question_event(self, event_id: str) -> dict[str, Any] | None` (line 4828; public)
-  - `set_question_event_rating(self, event_id: str, *, useful: bool) -> bool` (line 4835; public)
-  - `set_question_event_resolution(self, event_id: str, *, resolution: str) -> bool` (line 4844; public) — Learner-facing queue state (migration 102): open | resolved | dismissed.
-  - `count_hint_equivalent_question_events(self, practice_item_id: str, session_id: str | None, *, since: str | None=None, until: str | None=None, item_window_only: bool=False) -> int` (line 4855; public) — Substantive questions on this item in the hint-equivalence window.
-  - `insert_reveal_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 4912; public) — Append one answer-exposure entry to the cross-channel reveal ledger.
-  - `reveal_events(self, *, practice_item_id: str | None=None, remediation_episode_id: str | None=None, source_kind: str | None=None, attempt_id: str | None=None, since: str | None=None, until: str | None=None) -> list[dict[str, Any]]` (line 4950; public)
-  - `reveal_events_for_target(self, *, practice_item_id: str | None=None, learning_object_id: str | None=None, since: str | None=None, until: str | None=None) -> list[dict[str, Any]]` (line 4985; public) — Reveals on this item OR anywhere in this learning object (OR, not AND).
-  - `total_reveal_amount(self, practice_item_id: str, *, since: str | None=None, until: str | None=None, linked_attempt_id: str | None=None, linked_kinds: Sequence[str]=(), routine_basis_prefixes: Sequence[str]=(), routine_covered_from: str | None=None) -> float` (line 5030; public) — Summed reveal amount for one item in a window.
-  - `question_counts_by_facet(self) -> dict[str, int]` (line 5099; public) — Total question_events touching each classified facet.
-  - `set_question_event_saved_note(self, event_id: str, note_id: str | None) -> bool` (line 5112; public) — Persist the tutor-turn -> saved-note link (migration 027, spec §5).
-  - `insert_question_promotion(self, *, question_event_id: str, intent: str, route: str, attributed_facets: list[str] | None=None, question_nature: str | None=None, attempted_in_thread: bool | None=None, learner_claim_id: str | None=None, intervention_need_id: str | None=None, proposed_patch_id: str | None=None, saved_note_id: str | None=None, existing_practice_item_id: str | None=None, created_practice_item_id: str | None=None, created_learning_object_id: str | None=None, clock: Clock | None=None) -> str` (line 5128; public) — Insert the promotion ledger row for a tutor turn (§4 step 4).
-  - `update_question_promotion(self, question_event_id: str, *, route: Any=_UNSET, attributed_facets: Any=_UNSET, question_nature: Any=_UNSET, attempted_in_thread: Any=_UNSET, learner_claim_id: Any=_UNSET, intervention_need_id: Any=_UNSET, proposed_patch_id: Any=_UNSET, saved_note_id: Any=_UNSET, existing_practice_item_id: Any=_UNSET, created_practice_item_id: Any=_UNSET, created_learning_object_id: Any=_UNSET, clock: Clock | None=None) -> bool` (line 5186; public) — Fill created ids / transition the route on an existing promotion row.
-  - `question_promotion(self, event_id: str) -> dict[str, Any] | None` (line 5255; public)
-  - `question_promotions(self) -> list[dict[str, Any]]` (line 5263; public) — All promotion rows, oldest first (requested-floor + signal joins).
-  - `question_promotions_for_events(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5272; public) — Promotion rows keyed by question_event_id, for the tutor transcript.
-  - `question_promotions_for_patch(self, patch_id: str) -> list[dict[str, Any]]` (line 5289; public) — Promotion rows awaiting or completed through one proposal patch.
-  - `insert_question_promotion_request(self, *, question_event_id: str, intent: str, subject_id: str | None=None, learning_object_id: str | None=None, status: str='queued', stage: str='queued', batch_id: str | None=None, clock: Clock | None=None) -> str` (line 5305; public)
-  - `update_question_promotion_request(self, question_event_id: str, *, status: Any=_UNSET, stage: Any=_UNSET, batch_id: Any=_UNSET, promotion_route: Any=_UNSET, error_code: Any=_UNSET, error_message: Any=_UNSET, retryable: Any=_UNSET, subject_id: Any=_UNSET, learning_object_id: Any=_UNSET, clock: Clock | None=None) -> bool` (line 5342; public)
-  - `question_promotion_request(self, event_id: str) -> dict[str, Any] | None` (line 5392; public)
-  - `question_promotion_requests_for_events(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5403; public)
-  - `retry_question_promotion_request(self, event_id: str, *, clock: Clock | None=None) -> bool` (line 5423; public) — Re-open a failed durable request without losing its selected target.
-  - `requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str]=()) -> list[str]` (line 5446; public) — Practice items with a learner request not yet consumed by a later attempt.
-  - `queue_revision(self) -> dict[str, Any]` (line 5522; public)
-  - `bump_queue_revision(self, *, clock: Clock | None=None) -> int` (line 5532; public)
-  - `insert_rung_variant_request(self, request: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5553; public)
-  - `rung_variant_request(self, request_id: str) -> dict[str, Any] | None` (line 5590; public)
-  - `rung_variant_requests(self, request_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5597; public) — Bulk-load rung requests used by ingest progress views.
-  - `update_rung_variant_request(self, request_id: str, *, clock: Clock | None=None, **fields: Any) -> bool` (line 5613; public)
-  - `retry_failed_rung_variant_request(self, request_id: str, *, clock: Clock | None=None) -> bool` (line 5632; public) — Return one failed generation request to its pre-generation state.
-  - `pending_rung_variant_requests(self, source_practice_item_id: str) -> list[dict[str, Any]]` (line 5658; public) — Non-terminal requests for one item — the per-item request lock.
-  - `insert_concept_animation(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5684; public)
-  - `concept_animation(self, animation_id: str) -> dict[str, Any] | None` (line 5728; public)
-  - `update_concept_animation(self, animation_id: str, *, clock: Clock | None=None, **fields: Any) -> bool` (line 5735; public)
-  - `concept_animations_for_concept(self, concept_id: str, limit: int=10) -> list[dict[str, Any]]` (line 5750; public)
-  - `pending_concept_animations(self, concept_id: str) -> list[dict[str, Any]]` (line 5763; public) — Non-terminal animations for one concept — the per-concept lock.
-  - `pending_gap_need_for_facets(self, facet_ids: Iterable[str]) -> dict[str, Any] | None` (line 5777; public) — A pending tutor-gap need already targeting any of ``facet_ids``.
-  - `update_attempt_surprise_actions(self, attempt_id: str, *, triggered_actions: list[str] | None=None, suppressed_actions: list[str] | None=None, gate_diagnostics: Mapping[str, Any] | None=None) -> bool` (line 5802; public)
-  - `insert_observation_template(self, template: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5832; public)
-  - `observation_templates(self, *, active_only: bool=False) -> list[dict[str, Any]]` (line 5859; public)
-  - `fetch_observation_template(self, template_id: str) -> dict[str, Any] | None` (line 5868; public)
-  - `insert_observation_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5876; public)
-  - `observation_events(self) -> list[dict[str, Any]]` (line 5906; public)
-  - `insert_learner_claim(self, claim: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5913; public)
-  - `record_learner_claim_application(self, claim_id: str, learning_object_id: str) -> int` (line 5940; public) — Record how many of the LO's attempts were applied when the claim was; that count.
-  - `learner_claims(self, *, include_superseded: bool=False) -> list[dict[str, Any]]` (line 5958; public) — The claims in force (newest first); ``include_superseded`` adds the replaced ones.
-  - `replace_learner_claim(self, claim: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5975; public) — The replace seam: ``claim`` replaces the in-force claims of its source on its scope; its id.
-  - `delete_learner_claims(self, *, source: str, scope_type: str, scope_id: str | None=None) -> int` (line 6004; public) — Delete claims by (source, scope_type[, scope_id]) — the replace seam for init-wizard (global) and rung-variant (per-LO) re-claims.
-  - `record_attempt_outcome(self, *, attempt: Mapping[str, Any], evidence_rows: Iterable[Mapping[str, Any]], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 6027; public) — The live attempt's write.
-  - `insert_regrade_evidence(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, supersede_tiers: tuple[int, ...]=(1,), clock: Clock | None=None) -> None` (line 6089; public)
-  - `reset_learning_object_derived_state(self, learning_object_id: str) -> None` (line 6118; public)
-  - `clear_derived_projection_tables(self, table_names: Iterable[str]) -> dict[str, int]` (line 6171; public) — Atomically clear explicitly registered DERIVED projection tables.
-  - `replace_attempt_derived_outcome(self, *, attempt: Mapping[str, Any], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 6201; public)
-  - `facet_recall_state(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 6330; public)
-  - `canonical_facet_recall_states(self) -> list[CanonicalFacetRecallState]` (line 6361; public)
-  - `canonical_facet_recall_state(self, facet_id: str, capability_key: str='shared', practice_item_id: str | None=None) -> CanonicalFacetRecallState | None` (line 6368; public)
-  - `facet_capability_evidence(self, facet_id: str, capability: str) -> FacetCapabilityEvidence | None` (line 6393; public)
-  - `facet_capability_evidence_all(self) -> list[FacetCapabilityEvidence]` (line 6403; public)
-  - `facet_capability_evidence_for_facet(self, facet_id: str) -> list[FacetCapabilityEvidence]` (line 6410; public)
-  - `facet_independence_evidence(self, facet_id: str) -> tuple[int, float]` (line 6420; public) — (#distinct direct surface/correlation groups, independent mass) for the independence-gated lock trigger (§3.4).
-  - `canonical_observation_ledger(self) -> list[dict[str, Any]]` (line 6438; public) — Every graded attempt in global chronological order with its non-superseded grading evidence (KM2 projection input).
-  - `canonical_observation_ledger_v2(self) -> list[dict[str, Any]]` (line 6458; public) — P0.3 (§4.3) authoritative-events ledger.
-  - `replace_canonical_facet_state(self, *, recall_rows: Iterable[Mapping[str, Any]], capability_rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 6474; public) — Make the canonical belief cache equal a derived projection.
-  - `rebuild_stamp_snapshot(self, tables: Iterable[str]) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]` (line 6560; public) — The cells of these derived tables as a rebuild found them (see :meth:`keep_unchanged_rebuild_stamps`).
-  - `keep_unchanged_rebuild_stamps(self, snapshot: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]) -> int` (line 6575; public) — Give each cell a rebuild left as it found it the stamps it had then.
-  - `replace_capability_residual_state(self, *, rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 6612; public) — Make the derived capability-residual activation state equal a projection (§4.2).
-  - `capability_residual_states(self) -> list[dict[str, Any]]` (line 6659; public)
-  - `capability_residual_state(self, facet_id: str, capability: str) -> dict[str, Any] | None` (line 6666; public)
-  - `identifiability_watermark(self, subject_id: str) -> dict[str, Any] | None` (line 6678; public)
-  - `upsert_identifiability_watermark(self, *, subject_id: str, registry_hash: str, finding_count: int, clock: Clock | None=None) -> None` (line 6693; public)
-  - `facet_merge_map(self, *, include_in_flight: bool=False) -> dict[str, str]` (line 6719; public) — The settled merge map, retired facet -> survivor.
-  - `resolve_facet_merge(self, facet_id: str, merge_map: Mapping[str, str] | None=None) -> str` (line 6736; public) — Resolve a facet id transitively to its terminal survivor (§7.1).
-  - `insert_facet_merge(self, *, retired_facet_id: str, surviving_facet_id: str, proposal_item_id: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> None` (line 6742; public) — Record a pre-lock reviewed merge; reject a row that creates a cycle.
-  - `facet_recall_states(self, learning_object_id: str | None=None) -> list[FacetRecallState]` (line 6782; public)
-  - `facet_uncertainty_state(self, learning_object_id: str, facet_id: str) -> FacetUncertaintyState | None` (line 6799; public)
-  - `facet_uncertainty_states(self, learning_object_id: str | None=None, *, statuses: Iterable[str] | None=None) -> list[FacetUncertaintyState]` (line 6814; public)
-  - `upsert_facet_uncertainty_state(self, state: Mapping[str, Any]) -> None` (line 6840; public)
-  - `practice_item_quality_state(self, practice_item_id: str) -> PracticeItemQualityState | None` (line 6845; public)
-  - `practice_item_quality_states(self) -> dict[str, PracticeItemQualityState]` (line 6853; public) — All item-quality projections keyed for a scheduler vault sweep.
-  - `upsert_practice_item_quality_state(self, state: Mapping[str, Any]) -> None` (line 6865; public)
-  - `attempt_debug_payload(self, attempt_id: str) -> dict[str, Any] | None` (line 6870; public)
-  - `append_attempt_diagnosis_receipt(self, attempt_id: str, receipt: Mapping[str, Any]) -> dict[str, Any]` (line 6878; public) — Append one immutable P1 decision snapshot to the attempt payload.
-  - `ability_transition_event(self, attempt_id: str) -> dict[str, Any] | None` (line 6947; public)
-  - `learning_outcome_labels_for_source(self, attempt_id: str) -> list[dict[str, Any]]` (line 6955; public)
-  - `latest_whole_vault_rebuild(self) -> dict[str, Any] | None` (line 6967; public) — The latest rebuild that replayed every learning object (scope ``all``), or None.
-  - `record_derived_state_rebuild(self, *, scope: str, learning_object_ids: list[str], algorithm_version: str, rebuilt_learning_objects: int, replayed_attempts: int, canonical_projection_version: str | None=None, coverage_denominator_version: str | None=None, projection_switches: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 6976; public)
-  - `upsert_parameter_registry_entry(self, *, entry: dict[str, Any], clock: Clock | None=None) -> None` (line 7027; public)
-  - `parameter_registry_entry(self, path: str) -> dict[str, Any] | None` (line 7078; public)
-  - `parameter_registry_entries(self) -> list[dict[str, Any]]` (line 7085; public)
-  - `insert_parameter_registry_manifest(self, *, algorithm_version: str, manifest_hash: str, entries: dict[str, Any], clock: Clock | None=None) -> str | None` (line 7092; public) — Freeze one immutable manifest per algorithm version.
-  - `parameter_registry_manifest(self, algorithm_version: str) -> dict[str, Any] | None` (line 7123; public)
-  - `insert_sensitivity_certificate(self, *, certificate: dict[str, Any], clock: Clock | None=None) -> str` (line 7131; public)
-  - `sensitivity_certificates_for_path(self, path: str) -> list[dict[str, Any]]` (line 7157; public)
-  - `record_parameter_bind_event(self, *, path: str, bound_context: dict[str, Any], observation_ref: str | None=None, clock: Clock | None=None) -> str` (line 7165; public)
-  - `parameter_bind_events_for_path(self, path: str) -> list[dict[str, Any]]` (line 7187; public)
-  - `recent_surprise_signals(self, *, limit: int=200, exclude_attempt_id: str | None=None) -> list[dict[str, Any]]` (line 7195; public) — Most recent attempt_surprise signal rows for quantile-threshold resolution (newest first).
-  - `chosen_candidate_outcomes(self) -> list[dict[str, Any]]` (line 7223; public) — Slate candidates joined to their realized attempts (`learnloop eval` prediction-calibration input), oldest first.
-  - `prediction_interval_rows(self) -> list[dict[str, Any]]` (line 7242; public) — Per-attempt predicted score distribution joined to the realized outcome (`learnloop eval` coverage input), oldest first per LO.
-  - `retention_label_rows(self) -> list[dict[str, Any]]` (line 7271; public)
-  - `item_attempt_history(self) -> list[dict[str, Any]]` (line 7289; public) — Graded attempts ordered for per-item FSRS replay (`learnloop eval`).
-  - `candidate_propensity_rows(self) -> list[dict[str, Any]]` (line 7303; public)
-  - `insert_fitted_parameters(self, *, scope: str, params: Mapping[str, Any], algorithm_version: str, training_rows_count: int, training_data_through: str | None=None, metrics: Mapping[str, Any] | None=None, activate: bool=True, clock: Clock | None=None) -> str` (line 7315; public) — Insert a fitted parameter set; when ``activate``, atomically replace the currently active set for the scope (history rows are kept).
-  - `active_fitted_parameters(self, scope: str) -> dict[str, Any] | None` (line 7363; public)
-  - `list_fitted_parameters(self, scope: str | None=None, limit: int=50) -> list[dict[str, Any]]` (line 7376; public)
-  - `deactivate_fitted_parameters(self, scope: str, *, fitted_id: str | None=None, clock: Clock | None=None) -> int` (line 7388; public)
-  - `list_all_attempts(self) -> list[dict[str, Any]]` (line 7402; public) — Every practice attempt ordered for per-item replay (fitting jobs).
-  - `item_parameter_state(self, practice_item_id: str) -> ItemParameterState | None` (line 7411; public)
-  - `item_parameter_states(self) -> dict[str, ItemParameterState]` (line 7419; public)
-  - `_upsert_item_parameter_state_record(self, connection: sqlite3.Connection, state: ItemParameterState) -> None` (line 7424; internal)
-  - `latest_derived_state_rebuild(self) -> dict[str, Any] | None` (line 7450; public)
-  - `has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool` (line 7461; public) — Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
-  - `latest_canonical_projection_rebuild(self) -> dict[str, Any] | None` (line 7475; public) — Latest rebuild that explicitly names its projection semantics.
-  - `upsert_intervention_need(self, need: Mapping[str, Any]) -> str` (line 7497; public)
-  - `pending_intervention_needs(self, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 7573; public)
-  - `intervention_need(self, need_id: str) -> dict[str, Any] | None` (line 7590; public)
-  - `update_intervention_need_diagnostic_focus(self, need_id: str, diagnostic_focus: dict[str, Any] | None, *, clock: Clock | None=None) -> bool` (line 7598; public) — Replace a need's diagnostic_focus snapshot in place (spec §6 reopen).
-  - `intervention_need_for_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 7624; public)
-  - `update_intervention_need_status(self, need_id: str, *, status: str, blocked_reason: str | None=None, clock: Clock | None=None) -> bool` (line 7637; public)
-  - `append_intervention_need_target_facets(self, need_id: str, facets: list[str], *, clock: Clock | None=None) -> bool` (line 7662; public) — Union extra facets into an existing need's target_facets in place.
-  - `intervention_needs_for_diagnostic_proposal(self, patch_id: str) -> list[dict[str, Any]]` (line 7694; public)
-  - `probe_state(self, learning_object_id: str) -> ProbeStateRecord | None` (line 7708; public)
-  - `upsert_probe_state(self, *, learning_object_id: str, status: str, algorithm_version: str, probe_phase_id: str | None=None, hypothesis_set_id: str | None=None, probe_attempts_completed: int=0, probe_attempts_target: int=3, families_converged: list[str] | None=None, entered_at: str | None=None, completed_at: str | None=None, clock: Clock | None=None) -> None` (line 7716; public)
-  - `insert_hypothesis_set(self, *, learning_object_id: str, probe_phase_id: str | None, hypotheses: list[Mapping[str, Any]], prior: Mapping[str, float], algorithm_version: str, prior_basis: str | None=None, clock: Clock | None=None) -> str` (line 7770; public)
-  - `fetch_hypothesis_set(self, hypothesis_set_id: str) -> dict[str, Any] | None` (line 7806; public)
-  - `insert_probe_episode(self, *, learning_object_id: str, status: str, trigger: str, hypothesis_set_id: str | None, active_state_segment_id: str | None, algorithm_version: str, target_decision: Mapping[str, Any] | None=None, origin: str | None=None, required_facets: list[str] | None=None, minimum_independent_observations: int=2, maximum_observations: int=4, entered_at: str | None=None, episode_id: str | None=None, target_contract_version_id: str | None=None, target_support_hash: str | None=None, calibration_model_id: str | None=None, calibration_model_hash: str | None=None, probe_mapping_version: str | None=None, clock: Clock | None=None) -> str` (line 7816; public)
-  - `probe_episode(self, episode_id: str) -> ProbeEpisodeRecord | None` (line 7881; public)
-  - `open_probe_episode(self, learning_object_id: str) -> ProbeEpisodeRecord | None` (line 7888; public) — The single open (`pending_items` / `in_progress`) episode for an LO, if any.
-  - `open_probe_episodes(self) -> dict[str, ProbeEpisodeRecord]` (line 7903; public)
-  - `probe_episodes_for_learning_object(self, learning_object_id: str) -> list[ProbeEpisodeRecord]` (line 7910; public)
-  - `update_probe_episode_status(self, episode_id: str, *, status: str, completion_reason: str | None=None, completed_at: str | None=None, active_state_segment_id: str | None=None, completion_posterior_json: str | None=None, completion_detail_json: str | None=None, clock: Clock | None=None) -> None` (line 7918; public)
-  - `latest_completed_probe_episode(self, learning_object_id: str) -> dict[str, Any] | None` (line 7958; public) — Latest complete episode's conclusion for entry-rung selection: completion_reason plus the argmax of the persisted completion posterior.
-  - `open_state_segment(self, *, learning_object_id: str, probe_episode_id: str | None, reason: str, opened_by_attempt_id: str | None=None, clock: Clock | None=None) -> str` (line 7986; public) — Mint the next state segment for an LO and persist its opening event.
-  - `state_segments_for_learning_object(self, learning_object_id: str) -> list[ProbeStateSegmentRecord]` (line 8030; public)
-  - `insert_probe_presentation(self, *, probe_episode_id: str, practice_item_id: str, state_segment_id: str, scheduler_candidate_id: str | None=None, probe_family_template_id: str | None=None, probe_family_template_version: int | None=None, instrument_card_id: str | None=None, instrument_card_version: int | None=None, instrument_card_snapshot: Mapping[str, Any] | None=None, target_hypothesis_pairs: list[list[str]] | None=None, target_facets: list[str] | None=None, posterior_at_selection: Mapping[str, float] | None=None, entropy_at_selection: float | None=None, expected_information_gain: float | None=None, selection_policy_version: str | None=None, selection_components: Mapping[str, Any] | None=None, expires_at: str | None=None, clock: Clock | None=None) -> str` (line 8040; public)
-  - `probe_presentation(self, presentation_id: str) -> ProbePresentationRecord | None` (line 8092; public)
-  - `probe_presentations_for_episode(self, probe_episode_id: str) -> list[ProbePresentationRecord]` (line 8099; public)
-  - `active_probe_presentation(self, probe_episode_id: str, practice_item_id: str | None=None) -> ProbePresentationRecord | None` (line 8107; public) — The most recent committed-but-unconsumed presentation for an episode.
-  - `active_probe_presentation_for_item(self, practice_item_id: str) -> ProbePresentationRecord | None` (line 8128; public) — The latest committed-but-unconsumed diagnostic presentation of an item, in any episode (Reader CA1: the item is being measured on your own, so nothing may locate it).
-  - `active_probe_presentation_for_session(self, session_id: str) -> ProbePresentationRecord | None` (line 8144; public) — The scheduler-backed assignment currently owned by one session.
-  - `mark_probe_presentation_served(self, presentation_id: str, *, clock: Clock | None=None) -> None` (line 8164; public)
-  - `consume_probe_presentation(self, presentation_id: str, *, clock: Clock | None=None) -> bool` (line 8177; public) — Atomically move a presentation to `submitted`; False if not consumable.
-  - `end_probe_presentation(self, presentation_id: str, *, end_reason: str, clock: Clock | None=None) -> None` (line 8193; public)
-  - `insert_probe_observation(self, *, attempt_id: str, posterior_before: Mapping[str, float], posterior_after: Mapping[str, float], entropy_before: float, entropy_after: float, realized_information_gain: float, independent_evidence_discount: float | None=None, contamination: Mapping[str, Any] | None=None, grader_channel: Mapping[str, Any] | None=None, updates_belief: bool=True, eligible_for_completion: bool=False, features: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 8210; public)
-  - `qualifying_probe_observation_count_for_session(self, session_id: str) -> int` (line 8260; public) — Qualifying diagnostic observations recorded in one session (§5.9 cap).
-  - `qualifying_probe_observation_count(self) -> int` (line 8284; public) — Qualifying diagnostic observations across the whole vault (§5.9 time-to-first-ordinary-practice ceiling), held ones excluded (review F3).
-  - `ordinary_practice_attempt_count(self) -> int` (line 8302; public) — Attempts recorded outside the diagnostic/exam channels (§5.9): the signal that ordinary practice has started in this vault.
-  - `probe_observation_for_attempt(self, attempt_id: str) -> ProbeObservationRecord | None` (line 8316; public) — One observation AS RECORDED (its receipt): existence checks and the grader-agreement regrade check read it.
-  - `probe_observations_for_episode(self, probe_episode_id: str, *, as_recorded: bool=False) -> list[dict[str, Any]]` (line 8327; public) — Observations joined through attempt → presentation → episode (§5.1).
-  - `list_probe_episodes(self, *, statuses: tuple[str, ...] | None=None) -> list[ProbeEpisodeRecord]` (line 8375; public) — All episodes, oldest first, optionally filtered by status.
-  - `upsert_probe_family_template(self, *, family_id: str, version: int, status: str, template: Mapping[str, Any], schema_hash: str, clock: Clock | None=None) -> None` (line 8391; public)
-  - `probe_family_template(self, family_id: str, version: int) -> ProbeFamilyTemplateRecord | None` (line 8414; public)
-  - `latest_probe_family_template(self, family_id: str, *, statuses: tuple[str, ...]=('provisional', 'trusted')) -> ProbeFamilyTemplateRecord | None` (line 8422; public)
-  - `update_probe_family_template_status(self, family_id: str, version: int, *, status: str, clock: Clock | None=None) -> None` (line 8437; public) — Lifecycle transition for one family version (§9.7, Checkpoint 4.7).
-  - `all_probe_family_templates(self) -> list[ProbeFamilyTemplateRecord]` (line 8456; public)
-  - `insert_probe_family_lifecycle_event(self, *, probe_family_template_id: str, probe_family_template_version: int, from_status: str, to_status: str, reason: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 8463; public)
-  - `probe_family_lifecycle_events(self, probe_family_template_id: str, probe_family_template_version: int | None=None) -> list[dict[str, Any]]` (line 8496; public)
-  - `insert_probe_instrument_card(self, *, card_id: str, version: int, probe_family_template_id: str, probe_family_template_version: int, learning_object_id: str, hypothesis_scope: list[str], card: Mapping[str, Any], compiled_likelihood_hash: str, clock: Clock | None=None) -> None` (line 8516; public)
-  - `probe_instrument_card(self, card_id: str, version: int) -> ProbeInstrumentCardRecord | None` (line 8554; public)
-  - `probe_instrument_cards_for_learning_object(self, learning_object_id: str) -> list[ProbeInstrumentCardRecord]` (line 8562; public)
-  - `link_probe_item_family(self, *, practice_item_id: str, instrument_card_id: str, instrument_card_version: int, generator_id: str | None=None, generator_version: str | None=None, generation_seed: str | None=None, instance_metadata: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` (line 8576; public)
-  - `probe_item_family_links(self, practice_item_id: str) -> list[ProbeItemFamilyLinkRecord]` (line 8612; public)
-  - `probe_items_for_card(self, instrument_card_id: str, instrument_card_version: int) -> list[str]` (line 8620; public)
-  - `upsert_probe_family_calibration(self, *, probe_family_template_id: str, probe_family_template_version: int, evidence_source: str, parameter_posterior: Mapping[str, Any], sample_size: int, effective_sample_size: float | None=None, generator_version: str | None=None, grader_version: str | None=None, clock: Clock | None=None) -> None` (line 8632; public)
-  - `probe_family_calibration(self, probe_family_template_id: str, probe_family_template_version: int, *, evidence_source: str, generator_version: str | None=None, grader_version: str | None=None) -> dict[str, Any] | None` (line 8697; public)
-  - `probe_family_calibrations_for_family(self, probe_family_template_id: str, probe_family_template_version: int) -> list[dict[str, Any]]` (line 8729; public) — Every calibration row for one family version, all evidence sources.
-  - `upsert_probe_item_calibration(self, *, practice_item_id: str, probe_family_template_id: str, probe_family_template_version: int, evidence_source: str, parameter_posterior: Mapping[str, Any], sample_size: int, effective_sample_size: float | None=None, grader_version: str | None=None, clock: Clock | None=None) -> None` (line 8750; public) — Item-instance residual layer under the family posterior (§9.7).
-  - `probe_item_calibration(self, practice_item_id: str, probe_family_template_id: str, probe_family_template_version: int, *, evidence_source: str, grader_version: str | None=None) -> dict[str, Any] | None` (line 8817; public)
-  - `insert_probe_regrade_check(self, *, attempt_id: str, probe_family_template_id: str, probe_family_template_version: int, original_outcome: str, regrade_outcome: str, grader_version: str | None=None, clock: Clock | None=None) -> str` (line 8851; public)
-  - `probe_regrade_checks(self, probe_family_template_id: str | None=None, probe_family_template_version: int | None=None) -> list[dict[str, Any]]` (line 8887; public)
-  - `upsert_probe_generation_need(self, *, probe_episode_id: str, learning_object_id: str, target_key: str, missing_capability: str, clock: Clock | None=None) -> str` (line 8910; public) — Create one deduplicated pending generation need per episode target.
-  - `probe_generation_needs(self, *, learning_object_id: str | None=None, probe_episode_id: str | None=None, status: str | None=None) -> list[ProbeGenerationNeedRecord]` (line 8943; public)
-  - `resolve_probe_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 8968; public)
-  - `upsert_diagnostic_surface_generation_need(self, *, learning_object_id: str, consumed_practice_item_id: str, target_key: str, missing_capability: str='diagnostic_probe_surface', facet_ids: list[str] | None=None, misconception_ids: list[str] | None=None, clock: Clock | None=None) -> str` (line 8981; public) — Record one deduplicated replacement need per consumed diagnostic surface.
-  - `diagnostic_surface_generation_needs(self, *, learning_object_id: str | None=None, status: str | None=None) -> list[dict[str, Any]]` (line 9034; public)
-  - `resolve_diagnostic_surface_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 9071; public)
-  - `upsert_synthesis_generation_need(self, *, subject_id: str, need_kind: str, target_key: str, missing_capability: str, facet_ids: list[str] | None=None, source_set_id: str | None=None, synthesis_run_id: str | None=None, detail: str | None=None, clock: Clock | None=None) -> str` (line 9084; public) — Record one deduplicated synthesis-time generation/coarsen need.
-  - `synthesis_generation_needs(self, *, subject_id: str | None=None, status: str | None=None, need_kind: str | None=None) -> list[dict[str, Any]]` (line 9137; public)
-  - `resolve_synthesis_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 9178; public)
-  - `update_probe_item_family_metadata(self, *, practice_item_id: str, instrument_card_id: str, instrument_card_version: int, instance_metadata: Mapping[str, Any]) -> None` (line 9189; public)
-  - `probe_instance_ids_with_review_status(self, review_status: str) -> set[str]` (line 9208; public)
-  - `insert_probe_calibration_session(self, *, session_id: str, learning_object_ids: list[str], planned_episode_ids: list[str], time_budget_minutes: int, goal_id: str | None=None, clock: Clock | None=None) -> str` (line 9221; public)
-  - `probe_calibration_session(self, calibration_id: str) -> ProbeCalibrationSessionRecord | None` (line 9258; public)
-  - `active_probe_calibration_session(self, session_id: str) -> ProbeCalibrationSessionRecord | None` (line 9265; public)
-  - `end_probe_calibration_session(self, calibration_id: str, *, status: str, clock: Clock | None=None) -> None` (line 9273; public)
-  - `upsert_state_belief(self, *, scope_type: str, scope_id: str, belief_key: str, mean: float, variance: float, evidence_count: int, algorithm_version: str, subject: str | None=None, last_surprise: float | None=None, last_evidence_at: str | None=None, stale_after_days: int | None=None, clock: Clock | None=None) -> str` (line 9288; public) — Insert or update a `learner_state_beliefs` row.
-  - `state_beliefs(self, *, subject: str | None=None, scope_type: str | None=None, scope_id: str | None=None, belief_key: str | None=None) -> list[dict[str, Any]]` (line 9373; public)
-  - `insert_elicitation_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 9400; public)
-  - `record_decision_features(self, *, decision_id: str, decision_type: str, ability_vector: Mapping[str, Any], item_demand_vector: Mapping[str, Any] | None=None, context: Mapping[str, Any] | None=None, algorithm_version: str, clock: Clock | None=None) -> str` (line 9434; public)
-  - `decision_features(self, *, decision_id: str, decision_type: str) -> dict[str, Any] | None` (line 9480; public)
-  - `elicitation_events(self, session_id: str | None=None) -> list[dict[str, Any]]` (line 9491; public)
-  - `insert_scheduler_explanations(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, retention_limit: int | None=None, clock: Clock | None=None) -> None` (line 9504; public)
-  - `record_scheduler_slate(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, requested_limit: int | None=None, session_context: Mapping[str, Any] | None=None, config_snapshot: Mapping[str, Any] | None=None, selection_policy: str='selection_reward_v1', probe_presentation: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 9556; public)
-  - `latest_scheduler_slate_by_session(self, session_id: str) -> dict[str, Any] | None` (line 9738; public)
-  - `all_scheduler_slates(self) -> list[dict[str, Any]]` (line 9751; public) — Every scheduler slate in chronological order (for shadow reports).
-  - `scheduler_slate_candidates(self, slate_id: str) -> list[dict[str, Any]]` (line 9760; public)
-  - `latest_scheduler_explanation(self, practice_item_id: str) -> dict[str, Any] | None` (line 9772; public)
-  - `latest_scheduler_explanations_by_session(self, session_id: str) -> list[dict[str, Any]]` (line 9797; public)
-  - `create_session(self, *, energy: str | None=None, sleep_quality: float | None=None, available_minutes: int | None=None, notes_md_path: str | None=None, clock: Clock | None=None) -> str` (line 9809; public)
-  - `fetch_session(self, session_id: str) -> dict[str, Any] | None` (line 9834; public)
-  - `most_recent_open_session(self) -> dict[str, Any] | None` (line 9842; public)
-  - `most_recent_ended_at(self, *, stale_open_before: str | None=None) -> str | None` (line 9854; public) — When the learner was last really active outside an open session, or None.
-  - `latest_session_minutes(self) -> tuple[int, str] | None` (line 9897; public) — ``(minutes, started_at)`` of the latest session begun with minutes, or None.
-  - `session_day_streak(self, *, clock: Clock | None=None) -> dict[str, Any]` (line 9919; public) — Consecutive-day study streak derived from session start timestamps.
-  - `attempt_count_for_learning_objects(self, learning_object_ids: list[str]) -> int` (line 9960; public)
-  - `daily_qualifying_attempt_counts_for_learning_objects(self, learning_object_ids: list[str], *, days: int=14, not_before: str | None=None, clock: Clock | None=None) -> dict[date, int]` (line 9971; public) — Zero-filled, goal-scoped certification-capable attempts by local day.
-  - `practice_attempt_outcomes_for_items(self, item_ids: list[str]) -> list[dict[str, Any]]` (line 10032; public) — Time-ordered attempt outcomes for a set of practice items.
-  - `end_open_sessions_except(self, session_id: str, *, clock: Clock | None=None) -> int` (line 10065; public) — End every other open (stale) session at its own last activity.
-  - `end_session(self, session_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 10093; public)
-  - `session_learner_answers(self, session_id: str) -> list[str]` (line 10111; public) — Every answer body recorded against this session, in submission order.
-  - `session_attempt_counts(self, session_id: str) -> dict[str, int] | None` (line 10134; public)
-  - `session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]` (line 10159; public) — The session's attempts, oldest first, with what the session finish reads (the same session window as :meth:`session_attempt_counts`).
-  - `review_session_rows(self) -> list[dict[str, Any]]` (line 10185; public) — Reverse-chronological session spine for the Review surface.
-  - `grading_correction_count_between(self, started_at: str, ended_at: str) -> int` (line 10217; public) — Count grading epochs after the original grade in a time window.
-  - `misconception_transition_counts_between(self, started_at: str, ended_at: str) -> dict[str, int]` (line 10245; public)
-  - `insert_hypothesis_event(self, *, event_type: str, claim_class: str, claim_type: str, claim_ref: str, claim_version: str, producer_version: str, surface: str, temperature: str, presentation_id: str | None=None, visible_at: str | None=None, suppression_reason: str | None=None, response_payload: Mapping[str, Any] | None=None, session_id: str | None=None, visit_id: str | None=None, claim_text: str | None=None, belief_kind: str | None=None, belief_id: str | None=None, surfaced_to_learner: bool=False, id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 10268; public)
-  - `hypothesis_event(self, event_id: str) -> dict[str, Any] | None` (line 10335; public)
-  - `find_hypothesis_presentation(self, *, claim_ref: str, claim_version: str, surface: str, session_id: str | None, visit_id: str | None) -> dict[str, Any] | None` (line 10342; public)
-  - `mark_hypothesis_visible(self, presentation_id: str, visible_at: str, *, claim_text: str | None=None, belief_kind: str | None=None, belief_id: str | None=None) -> dict[str, Any] | None` (line 10366; public) — Patch actual viewport exposure onto a debounced presentation.
-  - `soliciting_hypothesis_count(self, *, session_id: str | None=None, visit_id: str | None=None) -> int` (line 10412; public)
-  - `cold_hypothesis_count_for_visit(self, visit_id: str) -> int` (line 10431; public)
-  - `last_hypothesis_response_at(self, claim_ref: str, claim_version: str) -> str | None` (line 10443; public)
-  - `list_hypothesis_events(self) -> list[dict[str, Any]]` (line 10456; public)
-  - `purge_hypothesis_events(self) -> int` (line 10463; public)
-  - `record_surfaced_belief_presentation(self, *, id: str, belief_kind: str, belief_id: str, claim_text: str, surface: str, claim_class: str='diagnosis', claim_type: str='misconception', claim_version: str='surfaced-1', producer_version: str='surfaced_beliefs', clock: Clock | None=None) -> str` (line 10473; public) — Record a belief shown on a surface that does NOT dispatch claims.
-  - `insert_misconception_disposition(self, *, misconception_id: str, disposition: str, reason: str, replacement_misconception_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 10536; public) — Append one demotion/supersession to the append-only lifecycle stream.
-  - `misconception_dispositions(self, misconception_id: str | None=None) -> list[dict[str, Any]]` (line 10583; public)
-  - `surfaced_beliefs(self) -> list[dict[str, Any]]` (line 10605; public) — Distinct beliefs the learner was actually SHOWN (migration 132).
-  - `attempt_count(self) -> int` (line 10636; public) — Every attempt ever served — the "questions served" denominator.
-  - `surfaced_belief_withdrawals(self) -> list[dict[str, Any]]` (line 10650; public) — The A6 join: dispositions on beliefs the learner was actually SHOWN.
-  - `insert_forecast(self, values: Mapping[str, Any]) -> dict[str, Any]` (line 10728; public)
-  - `forecast(self, forecast_id: str) -> dict[str, Any] | None` (line 10763; public)
-  - `due_forecasts(self, at: str) -> list[dict[str, Any]]` (line 10768; public)
-  - `update_forecast_resolution(self, forecast_id: str, *, status: str, resolved_at: str, resolved_value: float | None=None, projection_drift: float | None=None) -> dict[str, Any] | None` (line 10780; public)
-  - `list_forecasts(self, goal_id: str | None=None) -> list[dict[str, Any]]` (line 10801; public)
-  - `open_forecasts(self, goal_id: str) -> list[dict[str, Any]]` (line 10814; public) — Read-only: open (unresolved) forecast rows for a goal, oldest first.
-  - `update_session_checkpoint(self, session_id: str, *, current_practice_item_id: str | None=None, current_answer: str | None=None, focus_block_state: Mapping[str, Any] | None=None, pending_grading_proposal: Mapping[str, Any] | None=None, readiness: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` (line 10832; public)
-  - `fetch_session_checkpoint(self, session_id: str) -> dict[str, Any] | None` (line 10873; public)
-  - `open_session_checkpoints_except(self, session_id: str) -> list[dict[str, Any]]` (line 10887; public) — The checkpoints of every OTHER open session (the ones :meth:`end_open_sessions_except` is about to end), decoded like :meth:`fetch_session_checkpoint`.
-  - `clear_session_checkpoint(self, session_id: str) -> bool` (line 10906; public)
-  - `clear_practice_checkpoint_for_item(self, session_id: str, practice_item_id: str) -> bool` (line 10915; public) — Clear this session's draft only while it still points at this card.
-  - `acknowledge_practice_checkpoint(self, session_id: str, *, practice_item_id: str, submission_id: str) -> str` (line 10931; public) — Atomically clear only the practice checkpoint the client received.
-  - `insert_agent_run(self, run: Mapping[str, Any]) -> str` (line 10975; public)
-  - `complete_agent_run(self, run_id: str, *, status: str='completed', error_message: str | None=None, usage: TokenUsage | None=None, clock: Clock | None=None) -> bool` (line 11015; public) — Finalize a run, optionally recording what the provider charged for it.
-  - `add_agent_run_usage(self, run_id: str, usage: TokenUsage) -> bool` (line 11067; public) — Add tokens to a run that was already finalized (A7).
-  - `completed_agent_run_by_context(self, purpose: str, input_context_hash: str) -> dict[str, Any] | None` (line 11097; public)
-  - `agent_run(self, run_id: str) -> dict[str, Any] | None` (line 11110; public)
-  - `proposal_batch_for_agent_run(self, agent_run_id: str) -> dict[str, Any] | None` (line 11118; public)
-  - `proposal_batch(self, patch_id: str) -> dict[str, Any] | None` (line 11131; public)
-  - `persist_proposal_batch(self, batch: Mapping[str, Any], items: Iterable[Mapping[str, Any]], *, join_pending: Mapping[str, Any] | None=None) -> str` (line 11139; public) — Write one proposal batch and its items.
-  - `proposal_item_dependencies(self, item_id: str) -> list[str]` (line 11326; public) — DB ids this proposal item depends on (source-ingestion §10.2).
-  - `set_proposal_item_dependency_status(self, item_id: str, *, dependency_status: str, block_reason: Mapping[str, Any] | None=None) -> None` (line 11341; public)
-  - `ensure_assessment_contract_version(self, *, practice_item_id: str, contract_hash: str, contract_json: str, schema_version: int, clock: Clock | None=None) -> str` (line 11363; public) — Content-addressed assessment-contract snapshot (§5.2), idempotent.
-  - `fetch_assessment_contract_version(self, version_id: str) -> dict[str, Any] | None` (line 11410; public)
-  - `fetch_assessment_contract_versions(self, version_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 11422; public) — Bulk-load content-addressed assessment contracts by id.
-  - `assessment_contract_versions_for_practice_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 11443; public) — Immutable contract snapshots ever presented for one PracticeItem.
-  - `append_measurement_contract_corrections(self, *, correction_set_id: str, source_practice_item_id: str, source_contract_version_ids: Iterable[str], corrected_practice_item_id: str, corrected_contract_version_id: str, consuming_projection_version: str, historical_evidence_policy: str, reason: str, correction: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` (line 11464; public) — Append one immutable correction edge per historical contract version.
-  - `measurement_contract_corrections(self, *, source_practice_item_id: str | None=None, correction_set_id: str | None=None) -> list[dict[str, Any]]` (line 11524; public)
-  - `effective_assessment_contract_version(self, source_version_id: str, *, projection_version: str) -> dict[str, Any] | None` (line 11551; public) — Resolve the contract a named projection is authorized to consume.
-  - `effective_assessment_contract_versions(self, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` (line 11584; public) — Bulk form of :meth:`effective_assessment_contract_version`.
-  - `superseded_measurement_item_ids(self) -> set[str]` (line 11607; public) — Attempted item files superseded by an accepted correction set.
-  - `ensure_activity_family(self, *, purpose: str, legacy_kind: str | None, title: str | None, clock: Clock | None=None) -> str` (line 11626; public) — Content-addressed activity family, idempotent on ``(purpose, legacy_kind, title)``.
-  - `ensure_activity_family_version(self, *, family_id: str, version: int, family_spec_json: str, clock: Clock | None=None) -> str` (line 11677; public) — Immutable family-spec snapshot, idempotent on ``(family_id, version)``.
-  - `ensure_activity_card(self, *, family_id: str, clock: Clock | None=None) -> str` (line 11707; public) — The family's canonical card (one card per family in the P0.1 legacy world).
-  - `ensure_activity_card_version(self, *, card_id: str, version: int, card_contract_hash: str, contract_json: str, schema_version: int, predecessor_card_version_id: str | None=None, lineage_kind: str | None=None, legacy_contract_version_id: str | None=None, clock: Clock | None=None) -> str` (line 11742; public) — Content-addressed card version, idempotent on ``(card_id, card_contract_hash)``.
-  - `ensure_activity_surface(self, *, card_version_id: str, surface_hash: str, fingerprint: str | None, surface_json: str, legacy_practice_item_id: str | None=None, legacy_surface_unverifiable: bool=False, clock: Clock | None=None) -> str` (line 11817; public) — Content-addressed surface, idempotent on ``(card_version_id, surface_hash)``.
-  - `insert_surface_reservation(self, *, surface_id: str, goal_id: str | None, target_contract_version_id: str | None, target_support_hash: str | None, purpose: str, eligibility_json: str, clock: Clock | None=None) -> str` (line 11867; public) — Reserve a surface (§4.5).
-  - `close_surface_reservation(self, *, reservation_id: str, status: str, administration_id: str | None=None, expected_status: str | None=None, clock: Clock | None=None) -> bool` (line 11915; public) — Transition a reservation to a terminal status (the one permitted mutation on this append-mostly substrate).
-  - `open_administration_atomic(self, *, reservation_id: str | None, surface_id: str, card_version_id: str, family_id: str, purpose: str, surface_hash: str, fingerprint: str | None, snapshot_hash: str, snapshot_json: str, consumes_unseen: bool, pins: Mapping[str, Any] | None=None, algorithm_version: str, enforce_eligibility: bool=False, clock: Clock | None=None) -> dict[str, Any]` (line 11951; public) — The render burn boundary (§4.5).
-  - `write_administration_lineage_atomic(self, *, surface_id: str, card_version_id: str, family_id: str, purpose: str, surface_hash: str, fingerprint: str | None, snapshot_hash: str, snapshot_json: str, consumes_unseen: bool, algorithm_version: str, evidence_eligibility: str | None, eligibility_reason: str | None, reading_phase: str | None=None, admin_context: Mapping[str, Any] | None=None, attempt_id: str | None=None, response_ref: str | None=None, response_ledger_json: str | None=None, fault_after: 'frozenset[str]'=frozenset(), clock: Clock | None=None) -> dict[str, Any]` (line 12150; public) — Write the full RAW-EVENT lineage for one administration as ONE transaction (§7.4/§7.5): administration (+ its context, folded in so no NULL-context window exists) + rendered & submitted exposures + expose/consume lifecycle + observation + measurement events (administration_opene…
-  - `append_exposure_event(self, *, surface_id: str, administration_id: str | None, surface_hash: str, fingerprint: str | None, kind: str, purpose: str, consumes_unseen: bool=False, detail_json: str | None=None, clock: Clock | None=None) -> str` (line 12337; public)
-  - `append_surface_lifecycle_event(self, *, surface_id: str, kind: str, reservation_id: str | None=None, administration_id: str | None=None, reason: str | None=None, detail_json: str | None=None, clock: Clock | None=None) -> str` (line 12376; public)
-  - `insert_activity_observation(self, *, administration_id: str, surface_id: str, attempt_id: str | None=None, response_ref: str | None=None, evidence_eligibility: str | None=None, eligibility_reason: str | None=None, clock: Clock | None=None) -> str` (line 12411; public)
-  - `append_goal_contract_version(self, *, goal_id: str, version: int, predecessor_version_id: str | None, contract_json: str, content_hash: str, support_hash: str, contract_schema_version: int, change_class: str, envelope_version: str | None=None, predecessor_milestone: str | None=None, activated_edge_id: str | None=None, evidence_receipt_json: str | None=None, burden_delta_json: str | None=None, author: str, reason: str | None=None, head_envelope_version: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 12454; public) — Append an immutable version row and rewrite the head projection in one transaction.
-  - `fetch_goal_contract_head(self, goal_id: str) -> dict[str, Any] | None` (line 12572; public)
-  - `fetch_goal_contract_version(self, version_id: str) -> dict[str, Any] | None` (line 12579; public)
-  - `goal_contract_versions_for_goal(self, goal_id: str) -> list[dict[str, Any]]` (line 12586; public)
-  - `insert_goal_contract_draft(self, *, goal_id: str, predecessor_version_id: str | None, proposed_contract_json: str, proposed_change_class: str | None, rejection_reason: str, requires: str, author: str, evidence_receipt_json: str | None=None, clock: Clock | None=None) -> str` (line 12594; public)
-  - `goal_contract_drafts_for_goal(self, goal_id: str) -> list[dict[str, Any]]` (line 12627; public)
-  - `consumer_pins_for_versions(self, version_ids: Sequence[str]) -> list[dict[str, Any]]` (line 12635; public) — UNION projection (§1.5) of every consumer pin whose ``target_contract_version_id`` is in ``version_ids``: probe episodes, assessment reservations, and administrations.
-  - `insert_retirement_record(self, *, scope: str, family_id: str | None, card_version_id: str | None, surface_id: str | None, reason: str, provenance: str, replacement_proposal_json: str | None=None, lifecycle_event_id: str | None=None, interaction_event_id: str | None=None, clock: Clock | None=None) -> str` (line 12672; public)
-  - `append_interaction_event(self, *, kind: str, origin: str, subject_type: str | None=None, subject_id: str | None=None, administration_id: str | None=None, surface_id: str | None=None, attempt_id: str | None=None, affect_tap_kind: str | None=None, attempt_duration_ms: int | None=None, payload_json: str | None=None, occurred_at: str | None=None, received_at: str | None=None, actor: str | None=None, client_id: str | None=None, session_id: str | None=None, visit_id: str | None=None, payload_schema_version: str | None=None, source_id: str | None=None, revision_id: str | None=None, render_view_id: str | None=None, locator_json: str | None=None, annotation_id: str | None=None, commitment_id: str | None=None, activity_id: str | None=None, payload_hash: str | None=None, client_idempotency_key: str | None=None, privacy_locality: str | None=None, consent_context: str | None=None, producer_version: str | None=None, app_version: str | None=None, policy_version: str | None=None, supersedes_event_id: str | None=None, clock: Clock | None=None) -> str` (line 12714; public)
-  - `insert_render_view(self, view: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 12817; public)
-  - `get_render_view(self, render_view_id: str) -> dict[str, Any] | None` (line 12857; public)
-  - `render_view_by_request_hash(self, request_hash: str) -> dict[str, Any] | None` (line 12864; public)
-  - `insert_render_crosswalk_nodes(self, render_view_id: str, nodes: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 12871; public)
-  - `render_crosswalk(self, render_view_id: str) -> list[dict[str, Any]]` (line 12905; public)
-  - `upsert_block_health(self, health: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 12916; public)
-  - `block_health(self, extraction_id: str, span_id: str) -> dict[str, Any] | None` (line 12952; public)
-  - `block_health_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]` (line 12961; public)
-  - `create_annotation(self, *, source_id: str, clock: Clock | None=None) -> str` (line 12971; public)
-  - `next_annotation_version_ordinal(self, annotation_id: str) -> int` (line 12981; public)
-  - `annotation_head(self, annotation_id: str) -> dict[str, Any] | None` (line 12990; public) — Rebuildable annotation-head projection: the latest version + anchor + segments.
-  - `annotations_for_source(self, source_id: str) -> list[dict[str, Any]]` (line 13024; public) — Annotation heads for a source, omitting delete-intended annotations.
-  - `standing_annotation_ids(self) -> set[str]` (line 13042; public) — Every annotation the Reader lists (no standing delete intent): curriculum C2b's vault notes read the learner's annotations by this rule.
-  - `withdraw_annotation_delete(self, *, annotation_id: str, delete_event_id: str, clock: Clock | None=None) -> tuple[str, str | None, bool]` (line 13053; public) — Undo one delete intent of an annotation: checked and written in one immediate transaction, so no other write lands between the check and the undo.
-  - `search_source_blocks(self, *, query: str, extraction_ids: Sequence[str], limit: int=80) -> list[dict[str, Any]]` (line 13090; public) — Case-insensitive substring search over document blocks of the given extractions (no FTS index exists; ``instr`` over ``text`` is adequate at local-vault scale).
-  - `annotation_history(self, annotation_id: str) -> dict[str, Any]` (line 13113; public)
-  - `append_annotation_event(self, *, annotation_id: str, event_type: str, payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 13141; public)
-  - `_write_annotation_version(self, connection: sqlite3.Connection, *, annotation_id: str, version_ordinal: int, version: Mapping[str, Any], now: str) -> str` (line 13155; internal)
-  - `_write_anchor_version(self, connection: sqlite3.Connection, *, annotation_id: str, version_ordinal: int, anchor: Mapping[str, Any], now: str) -> str` (line 13183; internal)
-  - `append_annotation_version(self, *, annotation_id: str, version: Mapping[str, Any], anchor: Mapping[str, Any], event_type: str='edit', event_payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, str]` (line 13240; public)
-  - `capture_by_client_key(self, client_idempotency_key: str) -> dict[str, Any] | None` (line 13265; public)
-  - `capture_local_transaction(self, *, source_id: str, client_idempotency_key: str, annotation: Mapping[str, Any] | None, anchor: Mapping[str, Any] | None, interaction_event: Mapping[str, Any], outbox: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 13273; public) — The one local-first capture transaction (§5.3): create annotation + version + anchor + segments, append the typed interaction event, and write ONE durable outbox row -- all in a SINGLE SQLite transaction.
-  - `pending_capture_outbox(self, *, limit: int=100) -> list[dict[str, Any]]` (line 13398; public)
-  - `recoverable_capture_outbox(self, *, limit: int=100) -> list[dict[str, Any]]` (line 13407; public) — Rows a drain may claim: `pending` plus stale `draining` rows left behind by a crash mid-drain.
-  - `get_capture_outbox(self, outbox_id: str) -> dict[str, Any] | None` (line 13420; public)
-  - `mark_capture_outbox(self, outbox_id: str, *, state: str, target_ref: str | None=None, last_error: str | None=None, bump_attempts: bool=False, clock: Clock | None=None) -> None` (line 13427; public)
-  - `enqueue_reader_request(self, *, request_key: str, fields: Mapping[str, Any], revive_cancelled: bool=False, clock: Clock | None=None) -> dict[str, Any]` (line 13454; public) — Idempotent enqueue keyed on ``request_key`` (§6.2): the same contract reuses the standing row; a material version change has a different key -> a new row.
-  - `has_queued_reader_requests(self) -> bool` (line 13543; public)
-  - `reader_request_by_key(self, request_key: str) -> dict[str, Any] | None` (line 13550; public)
-  - `get_reader_request(self, request_id: str) -> dict[str, Any] | None` (line 13557; public)
-  - `reader_requests_for_source(self, source_id: str) -> list[dict[str, Any]]` (line 13564; public)
-  - `claim_next_reader_request(self, *, worker_id: str, now_iso: str, lease_expires_at: str, lease_cutoff_iso: str) -> dict[str, Any] | None` (line 13573; public) — Claim the highest-priority runnable request under a fenced lease.
-  - `resolve_reader_request(self, *, request_id: str, status: str, result: Mapping[str, Any] | None=None, error: Mapping[str, Any] | None=None, actual_input_tokens: int=0, actual_output_tokens: int=0, cache_hit: bool=False, expected_lease_epoch: int | None=None, clock: Clock | None=None) -> bool` (line 13619; public) — Terminal/complete transition; releases the lease.
-  - `cancel_reader_request(self, request_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 13651; public) — Request cancellation.
-  - `reader_request_still_held(self, request_id: str, *, releasing_annotation_id: str) -> bool` (line 13667; public) — Whether a synthesis request is still wanted once the capture ``releasing_annotation_id`` lets go of it (Codex re-review of RW1b, F15).
-  - `reader_request_standing_holder(self, request_id: str, *, releasing_annotation_id: str) -> dict[str, Any] | None` (line 13692; public) — The latest capture other than ``releasing_annotation_id`` whose outbox row converted onto this request and whose annotation has no standing delete: the capture a request is rebound to when the capture it is bound to is reverted while another still holds it (Codex final verify of…
-  - `rebind_reader_request(self, request_id: str, *, annotation_id: str, commitment_id: str | None, clock: Clock | None=None) -> None` (line 13711; public) — Bind a request to the capture it now serves (F16): the annotation whose instructions the model reads and the commitment its result maps to.
-  - `rekey_reader_request(self, request_id: str, *, request_key: str, clock: Clock | None=None) -> str` (line 13725; public) — Move a request to the key its own instructions give it, freeing the key it held for a capture asking something else (Codex verify of RW1b fix round 3, F16 legacy rows).
-  - `append_reader_request_proposal(self, request_id: str, proposal: Mapping[str, Any]) -> None` (line 13748; public) — Record one more proposal in a completed request's result: the commitment mapping a rebind adds when the result had none to move (Codex verify of RW1b fix round 3, F16).
-  - `capture_reverted(self, annotation_id: str, *, reason: str) -> bool` (line 13767; public) — Whether a delete of the annotation with this ``reason`` stands (one no undo names): the capture was reverted, so its outbox row converts to no work (Codex re-review of RW1b, F14).
-  - `retry_reader_request(self, request_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 13783; public) — Reset a failed request to ``queued`` for another drain.
-  - `insert_reader_authored_question(self, *, fields: Mapping[str, Any], clock: Clock | None=None) -> str` (line 13804; public) — Insert one authored question.
-  - `inquiry_reader_authored_question(self, *, inquiry_root_event_id: str, prompt_version: str) -> dict[str, Any] | None` (line 13883; public) — RW1a: the newest inquiry-scoped question for one root exchange and prompt version, any status -- its reuse key (a dismissed row suppresses re-authoring for its own key).
-  - `selection_reader_authored_question(self, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], question_style: str, prompt_version: str) -> dict[str, Any] | None` (line 13899; public) — RW1b: the selection-scoped question for one reuse key (extraction, anchor spans in reading order, style, prompt version), any status -- a dismissed row suppresses re-authoring for its own key.
-  - `get_reader_authored_question(self, question_id: str) -> dict[str, Any] | None` (line 13915; public)
-  - `upsert_reader_section_progress(self, *, extraction_id: str, section_id: str, spans_seen: int | None=None, span_count: int | None=None, revealed: bool=False, completed: bool=False, keep_ahead_request: bool=False, clock: Clock | None=None) -> dict[str, Any]` (line 13924; public) — Monotone upsert: spans_seen/span_count only grow; revealed_at / completed_at stamp once and never clear; generation_batch_id untouched.
-  - `reader_section_progress_row(self, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 13979; public)
-  - `reader_section_progress_for(self, extraction_id: str) -> list[dict[str, Any]]` (line 13987; public)
-  - `carry_reader_section_progress(self, extraction_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 13995; public) — Carry section progress onto a new reading of the same book (re-read safety, 2026-10-14).
-  - `mark_section_generation(self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 14038; public) — Stamp the generation batch id exactly once.
-  - `set_section_generation_batch(self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None=None) -> None` (line 14056; public) — Unconditional stamp update (replaces the 'enqueuing' placeholder with the real batch id after a successful enqueue).
-  - `swap_section_generation(self, *, extraction_id: str, section_id: str, from_batch_id: str, batch_id: str, clock: Clock | None=None) -> bool` (line 14073; public) — Mobile v2 D6: move a section's generation stamp from ``from_batch_id`` to ``batch_id``, once: False when the stamp is no longer ``from_batch_id`` (another process took it).
-  - `deferred_section_generations(self, stamp: str, *, extraction_id: str | None=None) -> list[dict[str, Any]]` (line 14094; public) — Mobile v2 D6: the completed sections whose generation stamp is ``stamp`` (left for the primary by the phone host), oldest first.
-  - `reader_authored_questions_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]` (line 14108; public) — All authored questions for an extraction, newest first per section.
-  - `latest_reader_authored_question(self, *, extraction_id: str, section_id: str) -> dict[str, Any] | None` (line 14124; public) — The newest authored question for one section, any status — the idempotency anchor: a dismissed row suppresses re-authoring.
-  - `insert_vault_epigraphs(self, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, epigraphs: Sequence[Mapping[str, Any]], prompt_version: str, provider: str | None, model: str | None, clock: Clock | None=None) -> list[str]` (line 14147; public) — Persist one synthesis's batch.
-  - `recent_vault_epigraphs(self, *, subject_id: str | None=None, limit: int=12) -> list[dict[str, Any]]` (line 14194; public) — Newest first; ``subject_id=None`` spans the whole vault.
-  - `transition_reader_authored_question(self, *, question_id: str, status: str, response_md: str | None=None, practice_item_id: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> bool` (line 14210; public) — Row-status transition (proposed -> answered | dismissed | escalated).
-  - `create_source_object(self, *, source_id: str, clock: Clock | None=None) -> str` (line 14253; public)
-  - `append_source_object_version(self, *, source_object_id: str, version: Mapping[str, Any], citations: list[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 14263; public)
-  - `source_object_head(self, source_object_id: str) -> dict[str, Any] | None` (line 14317; public)
-  - `source_objects_for_source(self, source_id: str) -> list[dict[str, Any]]` (line 14345; public)
-  - `create_source_object_relation(self, *, source_object_id: str, related_object_id: str | None, relation_type: str, learner_text: str | None=None, authorship: str='learner', review_status: str='proposed', clock: Clock | None=None, version_ordinal: int=1) -> str` (line 14353; public)
-  - `source_object_relation(self, relation_id: str) -> dict[str, Any] | None` (line 14373; public)
-  - `create_mapping_proposal(self, *, source_object_id: str | None=None, annotation_id: str | None=None, target_kind: str, target_ref: str | None=None, confidence: float | None=None, rationale: str | None=None, provenance: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 14380; public)
-  - `mapping_proposals(self, *, status: str | None=None, source_object_id: str | None=None) -> list[dict[str, Any]]` (line 14401; public)
-  - `decide_mapping_proposal(self, *, proposal_id: str, status: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 14420; public)
-  - `repoint_mapping_proposal(self, proposal_id: str, *, target_ref: str) -> bool` (line 14436; public) — Point an undecided mapping proposal at another target: a completed synthesis request rebound to the capture that still holds it moves its commitment mapping to that capture's commitment (Codex verify of RW1b fix round 3, F16).
-  - `set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 14450; public) — Append a status-only successor version carrying the head content forward.
-  - `_set_source_object_status(self, *, source_object_id: str, status: str, clock: Clock | None=None) -> dict[str, Any]` (line 14463; internal)
-  - `create_commitment_arc(self, *, commitment_id: str, source_id: str | None=None, clock: Clock | None=None) -> str` (line 14496; public)
-  - `append_commitment_arc_version(self, *, arc_id: str, version: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 14509; public)
-  - `append_commitment_arc_event(self, *, arc_id: str, kind: str, detail: Mapping[str, Any] | None=None, receipt_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 14552; public) — Append an arc event.
-  - `commitment_arc_head_version(self, arc_id: str) -> dict[str, Any] | None` (line 14594; public)
-  - `commitment_arc(self, arc_id: str) -> dict[str, Any] | None` (line 14603; public)
-  - `commitment_arc_events(self, arc_id: str) -> list[dict[str, Any]]` (line 14610; public)
-  - `arcs_for_commitment(self, commitment_id: str) -> list[str]` (line 14618; public)
-  - `append_measurement_event(self, *, administration_id: str, kind: str, algorithm_version: str, observation_id: str | None=None, payload_json: str | None=None, clock: Clock | None=None) -> str` (line 14626; public)
-  - `measurement_events_for_administration(self, administration_id: str) -> list[dict[str, Any]]` (line 14661; public) — The administration's measurement events in append order (ledger read).
-  - `ensure_outcome_schema(self, *, slug: str, kind: str, clock: Clock | None=None) -> str` (line 14684; public)
-  - `ensure_outcome_schema_version(self, *, schema_id: str, version: int, observed_classes_json: str, true_classes_json: str, has_signature_error: bool, has_unanswered: bool, score_fraction_json: str, content_hash: str, clock: Clock | None=None) -> str` (line 14701; public)
-  - `fetch_outcome_schema_version(self, *, slug: str, version: int | None=None) -> dict[str, Any] | None` (line 14747; public)
-  - `fetch_outcome_schema_version_by_id(self, schema_id: str, version: int) -> dict[str, Any] | None` (line 14772; public)
-  - `find_calibration_model_by_hash(self, content_hash: str) -> dict[str, Any] | None` (line 14780; public)
-  - `calibration_models_by_hashes(self, content_hashes: Iterable[str]) -> dict[str, dict[str, Any]]` (line 14788; public) — Bulk calibration-model lookup for a whole projection replay.
-  - `insert_calibration_model(self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]], clock: Clock | None=None) -> str` (line 14807; public) — Insert one immutable model version + its per-Z Dirichlet alpha rows.
-  - `fetch_calibration_alphas(self, model_id: str) -> dict[str, dict[str, float]]` (line 14885; public)
-  - `calibration_alphas_by_model_ids(self, model_ids: Iterable[str]) -> dict[str, dict[str, dict[str, float]]]` (line 14893; public) — Bulk Dirichlet rows keyed by model id, preserving empty models.
-  - `find_calibration_models(self, *, scope_level: str | None=None, grader_identity_hash: Any=_UNSET, outcome_schema_id: Any=_UNSET, outcome_schema_version: Any=_UNSET, domain: Any=_UNSET, length_bucket: Any=_UNSET, status: str | None=None) -> list[dict[str, Any]]` (line 14921; public)
-  - `insert_raw_grade_event(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 14963; public)
-  - `raw_grade_events_for_observation(self, observation_id: str) -> list[dict[str, Any]]` (line 15011; public)
-  - `latest_raw_grade_identity(self, attempt_id: str) -> tuple[str | None, str | None] | None` (line 15019; public) — (prompt, output schema) calibration identity of the attempt's newest primary raw grade.
-  - `raw_grade_event(self, event_id: str) -> dict[str, Any] | None` (line 15030; public)
-  - `raw_grade_events_by_ids(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 15037; public) — Bulk raw-grade lookup for legacy certainty-LCB reconstruction.
-  - `insert_grade_interpretation(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 15053; public)
-  - `grade_interpretation(self, interpretation_id: str) -> dict[str, Any] | None` (line 15099; public)
-  - `grade_interpretations_for_observation(self, observation_id: str) -> list[dict[str, Any]]` (line 15106; public)
-  - `set_active_interpretation(self, *, observation_id: str, interpretation_id: str) -> None` (line 15114; public) — Point the observation's projection head at an interpretation.
-  - `active_interpretation_for_observation(self, observation_id: str) -> dict[str, Any] | None` (line 15126; public)
-  - `grade_head_review(self, observation_id: str, interpretation_id: str) -> dict[str, Any] | None` (line 15138; public) — How a review made this interpretation the observation's head, or None when the grade pipeline wrote it: ``{"kind": "adjudication", "adjudication_id": ...}`` for an adjudication's result, ``{"kind": "quarantine"}`` for a quarantined head, ``{"kind": "review_flag"}`` for a head a…
-  - `pending_grade_reviews(self) -> list[dict[str, Any]]` (line 15166; public) — Active-head grade interpretations flagged for review or quarantined (§4.4, §5).
-  - `insert_grade_adjudication(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 15203; public)
-  - `insert_calibration_stream_sample(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 15235; public)
-  - `calibration_stream_samples(self, *, stream: str | None=None, sampling_frame_id: str | None=None) -> list[dict[str, Any]]` (line 15264; public)
-  - `list_all_probe_presentations(self) -> list[dict[str, Any]]` (line 15283; public)
-  - `administration_by_legacy_presentation(self, presentation_id: str) -> dict[str, Any] | None` (line 15290; public) — Idempotency lookup for the §7.1 step-3 presentation backfill: the synthetic administration stores the presentation id in its snapshot.
-  - `exposures_for_surface(self, surface_id: str) -> list[dict[str, Any]]` (line 15305; public)
-  - `exposures_by_surface_hash(self, surface_hash: str) -> list[dict[str, Any]]` (line 15316; public)
-  - `exposures_by_fingerprint(self, fingerprint: str) -> list[dict[str, Any]]` (line 15327; public)
-  - `fetch_surface(self, surface_id: str) -> dict[str, Any] | None` (line 15340; public)
-  - `reserved_assessment_surfaces(self) -> list[dict[str, Any]]` (line 15347; public) — Surfaces holding a LIVE assessment reservation (§8.1).
-  - `fetch_administration(self, administration_id: str) -> dict[str, Any] | None` (line 15362; public)
-  - `observations_for_administration(self, administration_id: str) -> list[dict[str, Any]]` (line 15374; public) — All observation rows recorded under an administration, oldest first.
-  - `fetch_reservation(self, reservation_id: str) -> dict[str, Any] | None` (line 15385; public)
-  - `surface_lifecycle_history(self, surface_id: str) -> list[dict[str, Any]]` (line 15393; public)
-  - `retirement_records_for_surface(self, surface_id: str) -> list[dict[str, Any]]` (line 15404; public)
-  - `retirement_records_for_card_version(self, card_version_id: str) -> list[dict[str, Any]]` (line 15412; public)
-  - `surfaces_for_card_version(self, card_version_id: str) -> list[dict[str, Any]]` (line 15425; public)
-  - `surfaces_for_legacy_practice_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 15433; public) — Existing substrate surfaces backed by one legacy Practice Item.
-  - `surfaces_for_family(self, family_id: str) -> list[dict[str, Any]]` (line 15454; public)
-  - `observation_by_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 15468; public) — The attempt's newest observation (None when it has none): the one the authoritative ledger reads (``observation_ledger``, same order).
-  - `observation_attempt_id(self, observation_id: str) -> str | None` (line 15483; public) — Reverse of :meth:`observation_by_attempt` — the practice attempt an activity observation was minted for (ruling A: the grade-points adjudication lane needs the attempt to write its superseding ``grading_evidence`` revision).
-  - `mark_surface_unverifiable(self, surface_id: str) -> None` (line 15497; public)
-  - `insert_legacy_administration(self, *, surface_id: str, card_version_id: str, family_id: str, purpose: str, snapshot_hash: str, snapshot_json: str, target_contract_version_id: str | None=None, target_support_hash: str | None=None, eligibility_json: str | None=None, created_at: str) -> str` (line 15505; public) — Direct (non-atomic) administration insert for §7.1 backfill, timestamped at the recorded historical time (never now()) so re-runs stay byte-stable.
-  - `append_exposure_event_at(self, *, surface_id: str, administration_id: str | None, surface_hash: str, fingerprint: str | None, kind: str, purpose: str, consumes_unseen: bool, created_at: str, detail_json: str | None=None) -> str` (line 15553; public) — Exposure insert timestamped at a recorded historical time (backfill).
-  - `list_all_assessment_contract_versions(self) -> list[dict[str, Any]]` (line 15594; public)
-  - `list_all_probe_instrument_cards(self) -> list[dict[str, Any]]` (line 15601; public)
-  - `interaction_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 15608; public)
-  - `latest_causal_hypothesis_for_episode(self, episode_key: str) -> dict[str, Any] | None` (line 15618; public)
-  - `append_causal_hypothesis(self, *, episode_key: str, attempt_id: str, learning_object_id: str, cause_scope: str, statement: str, statement_normalized: str, error_event_id: str | None=None, mechanism: str | None=None, operation: str | None=None, target_ref: Mapping[str, Any] | None=None, applicability: Mapping[str, Any] | None=None, postdictive_claims: Sequence[Mapping[str, Any]]=(), evidence: Mapping[str, Any] | None=None, repair_class_id: str | None=None, repair_class_basis: str | None=None, repair_class_unresolved_reason: str | None=None, status: str='candidate', generation_agent_run_id: str | None=None, model: str | None=None, hypothesis_id: str | None=None, provenance: Any=None, provenance_writer: str='causal_hypothesis', clock: Clock | None=None) -> dict[str, Any]` (line 15633; public) — Append a changed hypothesis version, or return the identical head.
-  - `causal_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None` (line 15780; public)
-  - `causal_hypotheses_for_attempt(self, attempt_id: str, *, latest_only: bool=True) -> list[dict[str, Any]]` (line 15788; public)
-  - `all_causal_hypotheses(self, *, latest_only: bool=True) -> list[dict[str, Any]]` (line 15816; public) — Return causal-hypothesis rows across episodes in stable order.
-  - `causal_hypotheses_for_learning_object(self, learning_object_id: str, *, statuses: Iterable[str]=('candidate',), latest_only: bool=True, statement_normalized: str | None=None, groups: Mapping[str, str] | None=None) -> list[dict[str, Any]]` (line 15848; public) — Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
-  - `causal_hypotheses_with_statement(self, statement_normalized: str, *, statuses: Sequence[str]=('candidate', 'validated'), cause_scope: str | None='learner_state') -> list[dict[str, Any]]` (line 15900; public) — Episode heads, vault-wide, of one exact statement class (Slice 2 T1).
-  - `causal_hypotheses_with_operations(self, *, latest_only: bool=True, require_operation: bool=True) -> list[dict[str, Any]]` (line 15938; public) — Hypothesis heads for taxonomy minting.
-  - `insert_missing_vocabulary_notes(self, notes: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 15974; public) — Append missing-vocabulary notes (migration 134, Aug A5).
-  - `missing_vocabulary_notes(self, *, source: str | None=None, learning_object_id: str | None=None, limit: int | None=None) -> list[dict[str, Any]]` (line 16032; public)
-  - `record_causal_repair_class_definitions(self, definitions: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 16068; public) — Persist repair-class definitions durably (migration 133, Aug A2).
-  - `causal_repair_class_definitions(self, repair_class_ids: Sequence[str] | None=None) -> dict[str, dict[str, Any]]` (line 16117; public) — Durable repair-class definitions keyed by ``repair_class_id``.
-  - `retired_causal_mechanism_taxonomy_versions(self) -> dict[str, dict[str, Any]]` (line 16144; public) — Taxonomy versions withdrawn from new receipts, keyed by version id.
-  - `retire_causal_mechanism_taxonomy_version(self, taxonomy_version_id: str, *, reason: str, clock: Clock | None=None) -> bool` (line 16156; public) — Withdraw a taxonomy version from NEW receipts (migration 133).
-  - `insert_causal_mechanism_taxonomy_version(self, *, taxonomy_version_id: str, algorithm: str, min_cluster_size: int, source_head_hash: str, status: str, taxonomy: Mapping[str, Any], assignments: Sequence[Mapping[str, str]], clock: Clock | None=None) -> dict[str, Any]` (line 16185; public) — Insert an immutable taxonomy snapshot and its hypothesis assignments.
-  - `causal_mechanism_taxonomy_version(self, taxonomy_version_id: str, *, include_assignments: bool=False) -> dict[str, Any] | None` (line 16266; public)
-  - `latest_active_causal_mechanism_taxonomy(self) -> dict[str, Any] | None` (line 16298; public) — The taxonomy a NEW receipt may adopt.
-  - `causal_mechanism_assignment(self, taxonomy_version_id: str, hypothesis_id: str) -> str | None` (line 16327; public)
-  - `insert_causal_blind_prediction_bundle(self, *, bundle_id: str, hypothesis_id: str, hypothesis_version: int, practice_item_id: str, input_hash: str, predictions: Mapping[str, Any], model_revision: str, outcome_schema_version: str, blind_input_contract_version: str | None=None, generation_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 16345; public) — Insert one content-addressed, observation-blind prediction bundle.
-  - `causal_blind_prediction_bundle(self, bundle_id: str) -> dict[str, Any] | None` (line 16393; public)
-  - `causal_blind_prediction_bundles(self, *, practice_item_id: str | None=None, hypothesis_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` (line 16414; public)
-  - `insert_probe_manipulation_audit(self, *, audit_id: str, source_kind: str, source_item_id: str, candidate_item_id: str, contract: Mapping[str, Any], structural_diff: Mapping[str, Any], adversarial_review: Mapping[str, Any] | None, status: str, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 16452; public)
-  - `probe_manipulation_audit(self, audit_id: str) -> dict[str, Any] | None` (line 16501; public)
-  - `insert_causal_probe_candidate(self, *, candidate_id: str, factor_id: str, practice_item_id: str, hypothesis_set_id: str, manipulation_audit_id: str, measurement_contract: Mapping[str, Any], blind_bundle_ids: Sequence[str], discrimination: Mapping[str, Any] | None=None, blind_input_contract_version: str | None=None, status: str='candidate', clock: Clock | None=None) -> dict[str, Any]` (line 16516; public)
-  - `causal_probe_candidate(self, candidate_id: str) -> dict[str, Any] | None` (line 16585; public)
-  - `update_causal_probe_candidate(self, candidate_id: str, *, status: str, discrimination: Mapping[str, Any] | None=None, reviewer: str | None=None, review_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 16607; public)
-  - `causal_probe_candidate_events(self, candidate_id: str) -> list[dict[str, Any]]` (line 16679; public)
-  - `record_causal_activity_classification(self, *, attempt_id: str, contamination_class: str, near_clone: bool=False, closes_pre_intervention_segment: bool | None=None, eligible_for_fsrs: bool | None=None, eligible_for_certification: bool | None=None, near_clone_basis: str | None=None, source: str='unknown', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 16693; public) — Append one classification event; NEVER raises on a conflict (§4.2).
-  - `causal_activity_classification_events(self, attempt_id: str) -> list[dict[str, Any]]` (line 16793; public)
-  - `causal_activity_classification(self, attempt_id: str) -> dict[str, Any] | None` (line 16810; public) — The current classification, DERIVED from the event log (§4.2).
-  - `all_causal_activity_classifications(self) -> dict[str, dict[str, Any]]` (line 16826; public) — Resolve every attempt's current activity policy in one DB read.
-  - `insert_causal_cold_verification(self, *, verification_id: str, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], source_surface_family: str, cold_surface_family: str, avoided_affordances: Sequence[str], success: bool, capability_update: Mapping[str, Any], diagnosis_support_update: Mapping[str, Any], repair_effect_support: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 16852; public)
-  - `causal_cold_verification_for_attempt(self, cold_attempt_id: str) -> dict[str, Any] | None` (line 16919; public)
-  - `insert_causal_cold_outcome(self, *, outcome_id: str, outcome: str, followup_task_id: str | None, remediation_episode_id: str | None, case_kind: str | None, case_ref: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, repair_class_id: str | None, hypothesis_ids: Sequence[str], cold_verification_id: str | None, servable_opportunity: bool, duration_state: str | None, detail: Mapping[str, Any], store_version: str, scheduled_not_before: str | None, scheduled_expires_at: str | None, clock: Clock | None=None) -> dict[str, Any] | None` (line 16950; public)
-  - `_decode_causal_cold_outcome(row: Any) -> dict[str, Any]` (line 17010; internal)
-  - `causal_cold_outcome(self, outcome_id: str) -> dict[str, Any] | None` (line 17017; public)
-  - `causal_cold_outcome_for_task(self, followup_task_id: str) -> dict[str, Any] | None` (line 17025; public)
-  - `causal_cold_outcomes(self, *, outcome: str | None=None, remediation_episode_id: str | None=None) -> list[dict[str, Any]]` (line 17035; public)
-  - `expired_cold_retry_tasks_without_outcome(self) -> list[dict[str, Any]]` (line 17057; public) — Expired repair-lane retries whose terminal disposition is unrecorded.
-  - `insert_coldness_receipt(self, *, receipt_id: str, lane: str, stage: str, measurement_opportunity_id: str | None=None, followup_task_id: str | None, remediation_episode_id: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, cold_verification_id: str | None, dimensions: Mapping[str, Any], derived: Mapping[str, Any], telemetry_coverage: Mapping[str, Any], receipt_version: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 17084; public)
-  - `_decode_coldness_receipt(row: Any) -> dict[str, Any]` (line 17143; internal)
-  - `coldness_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 17152; public)
-  - `coldness_receipt_for_task_stage(self, followup_task_id: str, stage: str) -> dict[str, Any] | None` (line 17159; public)
-  - `coldness_receipt_for_opportunity_stage(self, measurement_opportunity_id: str, stage: str) -> dict[str, Any] | None` (line 17172; public)
-  - `coldness_receipts_for_task(self, followup_task_id: str) -> list[dict[str, Any]]` (line 17185; public)
-  - `coldness_receipt_for_verification(self, cold_verification_id: str) -> dict[str, Any] | None` (line 17199; public)
-  - `practice_attempts_between(self, *, after: str | None, before: str | None) -> list[dict[str, Any]]` (line 17209; public) — Attempts in an open interval, oldest first — the exposure-scan read.
-  - `practice_attempts_for_items_before(self, practice_item_ids: Sequence[str], *, before: str) -> list[dict[str, Any]]` (line 17239; public) — Prior administrations for a bounded candidate surface family.
-  - `remediation_episodes_created_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 17268; public) — Episodes CREATED inside the interval, for the prepared-passages scan.
-  - `insert_certification_cold_probe_outcome(self, *, outcome_id: str, certificate_id: str, learning_object_id: str, blueprint_id: str, recipe_id: str, certificate_receipt: Mapping[str, Any], certified_at: str | None, followup_task_id: str, scheduled_not_before: str, scheduled_expires_at: str | None, horizon_days: float, window_days: float, probe_practice_item_id: str, probe_attempt_id: str, probe_surface_group: str, excluded_surface_groups: Sequence[str], held_out_basis: str, avoided_affordances: Sequence[str], verdict: str, indeterminate_reason: str | None, success: bool | None, correctness: float | None, success_threshold: float, assisted: bool, certificate_state_at_probe: str, store_version: str, policy_version: str, certification_algorithm_version: str | None, parameters: Mapping[str, Any], grading_source: str | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, grader_provider: str | None=None, grader_provider_revision: str | None=None, grading_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 17297; public)
-  - `certification_cold_probe_outcome_for_attempt(self, probe_attempt_id: str) -> dict[str, Any] | None` (line 17400; public)
-  - `certification_cold_probe_outcomes(self) -> list[dict[str, Any]]` (line 17413; public)
-  - `insert_causal_discriminating_observation(self, *, observation_id: str, factor_id: str, presentation_id: str, hypothesis_set_id: str, outcome: str, classified_as: Sequence[str], supports_open_set: bool, feature_source: str, observed_features: Mapping[str, Any], declared_keys_observed: bool, admitted: bool, admission_reason: str, support_scores: Mapping[str, Any], resolved_factor: bool, detail: Mapping[str, Any], decision_policy_version: str, formula_version: str, blind_bundle_ids: Sequence[str]=(), attempt_id: str | None=None, probe_attempt_id: str | None=None, candidate_id: str | None=None, support_authority: str | None=None, channel: str | None=None, admissible_as_independent: bool | None=None, inadmissibility_reason: str | None=None, contaminating_reveal_event_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 17425; public) — Append one discriminating-observation receipt (idempotent on id).
-  - `causal_discriminating_observation(self, observation_id: str) -> dict[str, Any] | None` (line 17520; public)
-  - `causal_discriminating_observations(self, *, factor_id: str | None=None, attempt_id: str | None=None, presentation_id: str | None=None, admitted_only: bool=False, probe_channel_only: bool=False) -> list[dict[str, Any]]` (line 17534; public) — Observation receipts, oldest first.
-  - `set_unresolved_cause_hypothesis_refs(self, factor_id: str, refs: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 17580; public) — Replace P0 duplicated candidate prose with P1 hypothesis references.
-  - `insert_unresolved_cause_factor(self, *, attempt_id: str, candidate_causes: Any, algorithm_version: str, observation_id: str | None=None, status: str='open', clock: Clock | None=None) -> str` (line 17602; public)
-  - `refresh_open_unresolved_cause_candidates(self, observation_id: str, candidate_causes: Any, *, clock: Clock | None=None) -> bool` (line 17639; public) — Replace an OPEN factor's candidate set when it differs (Slice 1 M2).
-  - `open_unresolved_cause_observation_ids(self) -> set[str]` (line 17666; public)
-  - `open_unresolved_cause_factor_attempts(self) -> dict[str, str]` (line 17676; public) — Each open observation-keyed factor's attempt id, by observation id.
-  - `unresolved_cause_observation_ids(self) -> set[str]` (line 17688; public) — Observation ids the projection sync must NOT (re-)insert a factor for.
-  - `unresolved_cause_factors_for_attempt(self, attempt_id: str, *, status: str='open') -> list[dict[str, Any]]` (line 17712; public) — Open unresolved-cause factors for an attempt (the §9.6 diagnostic card).
-  - `_presented_causal_candidates(self, candidates: Sequence[Any]) -> list[dict[str, Any]]` (line 17778; internal) — Hydrate P1 refs for presentation without duplicating stored claims.
-  - `open_unresolved_cause_factors(self, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 17829; public) — Open positional-ambiguity factors, optionally one learning object.
-  - `unresolved_cause_factors(self, *, status: str | None='open') -> list[dict[str, Any]]` (line 17878; public) — Vault-wide unresolved-cause factors (readiness reads; EVSI-2).
-  - `unresolved_cause_factor(self, factor_id: str) -> dict[str, Any] | None` (line 17904; public)
-  - `resolve_unresolved_cause_factor(self, factor_id: str, *, resolution_observation_ids: Iterable[str], clock: Clock | None=None) -> bool` (line 17931; public)
-  - `insert_causal_attribution_report(self, *, factor_id: str, attempt_id: str, response: str, candidate_index: int | None, payload: Mapping[str, Any] | None=None, report_id: str | None=None, clock: Clock | None=None) -> str` (line 17956; public)
-  - `retire_unresolved_cause_factor(self, observation_id: str, *, clock: Clock | None=None) -> None` (line 17989; public)
-  - `close_unresolved_cause_factor(self, factor_id: str, *, status: str, resolution_kind: str, resolution_detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> bool` (line 18006; public) — Close an OPEN factor with an explicit evidence label.
-  - `remediation_episodes_for_case_refs(self, case_refs: Sequence[str]) -> list[dict[str, Any]]` (line 18047; public) — Remediation episodes (any state) whose case_ref is in ``case_refs``.
-  - `causal_attribution_reports_for_factor(self, factor_id: str) -> list[dict[str, Any]]` (line 18072; public) — Learner self-reports on one factor's diagnostic card, oldest first.
-  - `primed_attempt_exists_for_learning_object(self, learning_object_id: str, *, since: str) -> bool` (line 18088; public) — Any primed attempt on the learning object at/after ``since``.
-  - `proposal_batches(self) -> list[dict[str, Any]]` (line 18110; public)
-  - `proposal_items(self, patch_id: str) -> list[dict[str, Any]]` (line 18117; public)
-  - `persona_gate_audit_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 18129; public) — Every proposal item carrying a §3.0 persona-gate audit (plan item 5.3).
-  - `proposal_item(self, item_id: str) -> dict[str, Any] | None` (line 18165; public)
-  - `proposal_items_by_client_id(self, client_item_id: str) -> list[dict[str, Any]]` (line 18173; public) — All proposal items sharing a ``client_item_id`` (used to dedupe re-proposals).
-  - `pending_invalid_proposal_items(self) -> list[dict[str, Any]]` (line 18183; public)
-  - `update_proposal_item_edited_payload(self, item_id: str, *, edited_payload: Mapping[str, Any], validation_status: str, validation_errors: list[str], clock: Clock | None=None) -> bool` (line 18194; public)
-  - `update_proposal_item_validation(self, item_id: str, *, validation_status: str, validation_errors: list[str], clock: Clock | None=None) -> bool` (line 18225; public)
-  - `pending_proposal_items(self, patch_id: str, item_ids: list[str] | None=None) -> list[dict[str, Any]]` (line 18254; public)
-  - `record_applied_proposal_item(self, *, proposal_item_id: str, change_batch: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]], clock: Clock | None=None) -> None` (line 18272; public)
-  - `record_content_events(self, events: Iterable[Mapping[str, Any]]) -> int` (line 18340; public)
-  - `content_events_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 18369; public)
-  - `active_source_events_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 18381; public)
-  - `reject_applied_proposal_item(self, proposal_item_id: str, *, content_event: Mapping[str, Any], decided_by: str='learner', clock: Clock | None=None) -> bool` (line 18419; public)
-  - `set_proposal_item_decision(self, patch_id: str, decision: str, item_ids: list[str] | None=None, *, decided_by: str='learner', clock: Clock | None=None) -> int` (line 18474; public)
-  - `delete_proposal_item(self, item_id: str, *, clock: Clock | None=None) -> bool` (line 18503; public) — Permanently remove a proposal item row, refreshing its batch status.
-  - `reset_proposal_item_decision(self, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` (line 18522; public) — Reset a decided item back to ``pending`` — the inbox "undo" action.
-  - `find_record(self, identifier: str) -> tuple[str, dict[str, Any]] | None` (line 18560; public)
-  - `_refresh_proposal_status(self, connection: sqlite3.Connection, patch_id: str, *, updated_at: str) -> None` (line 18598; internal)
-  - `_insert_practice_attempt(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 18632; internal)
-  - `_insert_grading_evidence(self, connection: sqlite3.Connection, attempt_id: str, row: Mapping[str, Any]) -> None` (line 18722; internal)
-  - `_insert_error_event(self, connection: sqlite3.Connection, event: Mapping[str, Any]) -> None` (line 18764; internal)
-  - `_insert_attempt_surprise(self, connection: sqlite3.Connection, surprise: Mapping[str, Any]) -> None` (line 18791; internal)
-  - `_record_attempt_practice_item_state(self, connection: sqlite3.Connection, state: PracticeItemState) -> None` (line 18821; internal) — A live attempt's write to its item's scheduling row.
-  - `_upsert_practice_item_state_record(self, connection: sqlite3.Connection, state: PracticeItemState) -> None` (line 18874; internal)
-  - `_upsert_mastery_state_record(self, connection: sqlite3.Connection, mastery: MasteryState) -> None` (line 18909; internal)
-  - `_upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 18940; internal)
-  - `_upsert_practice_item_quality_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 19009; internal)
-  - `_upsert_ability_transition_event(self, connection: sqlite3.Connection, event: Mapping[str, Any]) -> None` (line 19036; internal)
-  - `_link_attempt_to_scheduler_candidate(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 19077; internal)
-  - `_insert_learning_outcome_labels(self, connection: sqlite3.Connection, attempt: Mapping[str, Any], *, algorithm_version: str, max_sources: int=20) -> None` (line 19125; internal)
-  - `attempted_practice_item_ids(self) -> set[str]` (line 19219; public) — Practice item ids that have at least one recorded attempt.
-  - `reserved_exam_pool_items(self, goal_id: str) -> list[dict[str, Any]]` (line 19228; public) — Unreleased pool reservations for a goal, in reservation order.
-  - `reserved_exam_pool_item_ids(self) -> set[str]` (line 19242; public) — All practice item ids currently reserved (unreleased) across goals.
-  - `insert_exam_pool_items(self, rows: Iterable[Mapping[str, Any]]) -> None` (line 19251; public)
-  - `release_exam_pool(self, goal_id: str, *, clock: Clock | None=None) -> list[str]` (line 19274; public) — Release every unreleased reservation for a goal; return the item ids.
-  - `release_exam_pool_items(self, goal_id: str, practice_item_ids: Iterable[str], *, clock: Clock | None=None) -> list[str]` (line 19291; public) — Release some of a goal's unreleased reservations (the rows stay, with ``released_at``); return the item ids released.
-  - `insert_exam_session(self, session: Mapping[str, Any]) -> None` (line 19320; public)
-  - `exam_session(self, session_id: str) -> dict[str, Any] | None` (line 19343; public)
-  - `exam_session_in_progress_for_goal(self, goal_id: str) -> dict[str, Any] | None` (line 19351; public)
-  - `latest_completed_exam_session(self, goal_id: str) -> dict[str, Any] | None` (line 19364; public)
-  - `update_exam_session(self, session_id: str, *, status: str | None=None, report: Any | None=None, completed_at: str | None=None, clock: Clock | None=None) -> None` (line 19377; public)
-  - `insert_exam_predictions(self, rows: Iterable[Mapping[str, Any]]) -> None` (line 19406; public)
-  - `exam_predictions(self, session_id: str) -> list[dict[str, Any]]` (line 19430; public)
-  - `all_exam_predictions(self) -> list[dict[str, Any]]` (line 19438; public)
-  - `upsert_exam_answer(self, answer: Mapping[str, Any], *, clock: Clock | None=None) -> None` (line 19445; public)
-  - `set_exam_answer_attempt_id(self, session_id: str, practice_item_id: str, attempt_id: str) -> None` (line 19478; public)
-  - `exam_answer(self, session_id: str, practice_item_id: str) -> dict[str, Any] | None` (line 19486; public)
-  - `exam_answers(self, session_id: str) -> list[dict[str, Any]]` (line 19499; public)
-  - `upsert_source_artifact(self, *, id: str, acquisition_kind: str, canonical_uri: str | None=None, work_id: str | None=None, current_revision_id: str | None=None, display_title: str | None=None, reader_enabled: bool | None=None, clock: Clock | None=None) -> None` (line 19511; public)
-  - `set_source_reader_enabled(self, source_id: str, enabled: bool, *, clock: Clock | None=None) -> None` (line 19551; public)
-  - `sources_with_retired_keep_local(self) -> list[str]` (line 19561; public) — Books that still carry the retired "Keep this book on this computer" (``source_artifacts.keep_local``, migration 198; retired by the owner 2026-10-13): nothing consults the column now (generic ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them.
-  - `source_auto_build_state(self, source_id: str) -> dict[str, Any]` (line 19575; public) — The book's automatic-build generation and pending reading position (generation 0 and nothing pending when the book has no row yet).
-  - `advance_source_auto_build_generation(self, source_id: str, *, clock: Clock | None=None) -> int` (line 19591; public) — Undo: start a new generation (older builds never apply) and drop any pending reading position.
-  - `record_reading_request(self, source_id: str, extraction_id: str, section_id: str, *, clock: Clock | None=None) -> int` (line 19637; public) — Record the Reader's newest position as the book's reading request (it replaces a pending one: a new revision, no failed attempts, due at once).
-  - `_record_reading_request_for_extraction(cls, connection: sqlite3.Connection, extraction_id: str, section_id: str, now: str) -> None` (line 19667; internal) — The same request, recorded inside the caller's transaction for the source an extraction belongs to (nothing when it has none).
-  - `pending_reading_request(self, source_id: str) -> dict[str, Any] | None` (line 19688; public) — The book's reading request still to act on, or ``None``.
-  - `settle_reading_request(self, source_id: str, revision: int, *, clock: Clock | None=None) -> bool` (line 19698; public) — The request at ``revision`` was acted on (a build queued, or nothing to do): forget it, unless a newer one replaced it.
-  - `fail_reading_request(self, source_id: str, revision: int, *, attempts: int, retry_at: str | None, clock: Clock | None=None) -> bool` (line 19716; public) — Acting on the request at ``revision`` failed: count it and set when the reading sweep acts on it next (``None``: due at once).
-  - `defer_reading_request(self, source_id: str, revision: int, *, retry_at: str, clock: Clock | None=None) -> bool` (line 19735; public) — The request at ``revision`` waits behind its book's own work: not a failure, so its failed attempts are forgotten (the Reader stops asking again) and it is due from ``retry_at``, for the reading sweep to act on once that work ends.
-  - `pending_reading_requests(self) -> list[dict[str, Any]]` (line 19754; public) — Every book's pending reading request, due first (reading-hardening, part 1): the reading sweep's one query per pass.
-  - `due_reading_requests(self, now: str) -> list[dict[str, Any]]` (line 19771; public) — The pending requests due at ``now`` (ISO UTC): a retry time passed, or none.
-  - `reading_request_unsettled(self, extraction_id: str) -> bool` (line 19780; public) — Whether the book this extraction belongs to has a request whose last attempt failed: the Reader's next report asks again (F8).
-  - `get_source_artifact(self, source_id: str) -> dict[str, Any] | None` (line 19798; public)
-  - `source_artifact_by_uri(self, acquisition_kind: str, canonical_uri: str) -> dict[str, Any] | None` (line 19805; public)
-  - `set_source_current_revision(self, source_id: str, revision_id: str, *, clock: Clock | None=None) -> None` (line 19813; public)
-  - `insert_source_revision(self, *, id: str, source_id: str, asset_hash: str, note_id: str | None=None, original_uri: str | None=None, retrieved_at: str | None=None, supersedes_revision_id: str | None=None, clock: Clock | None=None) -> None` (line 19823; public)
-  - `get_source_revision(self, revision_id: str) -> dict[str, Any] | None` (line 19857; public)
-  - `source_revision_by_asset_hash(self, source_id: str, asset_hash: str) -> dict[str, Any] | None` (line 19864; public)
-  - `source_revisions_for(self, source_id: str) -> list[dict[str, Any]]` (line 19872; public)
-  - `all_source_artifacts(self) -> list[dict[str, Any]]` (line 19880; public)
-  - `delete_source_artifact(self, source_id: str) -> dict[str, int]` (line 19887; public) — Remove a source artifact and everything derived from it, atomically.
-  - `extraction_runs_for_revision(self, revision_id: str) -> list[dict[str, Any]]` (line 20038; public)
-  - `document_ir_counts(self, extraction_id: str) -> dict[str, int]` (line 20046; public)
-  - `insert_extraction_run(self, *, id: str, revision_id: str, extractor: str, extractor_version: str, extraction_request_hash: str, ir_schema_version: str, model_versions: Mapping[str, str] | None=None, config: Mapping[str, Any] | None=None, page_selection: Iterable[int] | None=None, parent_extraction_id: str | None=None, status: str='queued', clock: Clock | None=None) -> None` (line 20058; public)
-  - `get_extraction_run(self, extraction_id: str) -> dict[str, Any] | None` (line 20102; public)
-  - `extraction_run_by_request_hash(self, revision_id: str, extraction_request_hash: str) -> dict[str, Any] | None` (line 20109; public)
-  - `complete_extraction_run(self, extraction_id: str, *, extraction_result_hash: str, status: str='completed', health: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` (line 20119; public)
-  - `persist_document_ir(self, extraction_id: str, ir: DocumentIR) -> None` (line 20146; public)
-  - `block_content_hashes(self, extraction_id: str) -> dict[str, str]` (line 20239; public) — ``{span_id: content_hash}`` of a reading's blocks in reading order, without loading its IR (the Reader asks on every annotation refresh).
-  - `document_blocks(self, extraction_id: str, span_ids: Sequence[str]) -> list[DocumentBlock]` (line 20250; public) — The named blocks of one extraction in reading order (ordinal), without loading its IR; ids it lacks are left out (Reader CA1, the problem as printed).
-  - `document_blocks_on_pages(self, extraction_id: str, pages: Sequence[int]) -> list[DocumentBlock]` (line 20266; public) — Every block of one extraction on the given pages, in reading order.
-  - `load_document_ir(self, extraction_id: str) -> DocumentIR | None` (line 20281; public)
-  - `insert_span_reanchor(self, *, from_extraction_id: str, from_span_id: str, to_extraction_id: str, to_span_id: str, match_kind: str, confidence: float | None=None, clock: Clock | None=None) -> None` (line 20310; public)
-  - `span_reanchors_from(self, from_extraction_id: str) -> list[dict[str, Any]]` (line 20342; public)
-  - `record_span_reanchors(self, from_extraction_id: str, to_extraction_id: str, aliases: Iterable[tuple[str, str, str, float | None]], *, clock: Clock | None=None) -> int` (line 20350; public) — Persist one re-read's span aliases ``(from span, to span, match kind, confidence)`` in one transaction.
-  - `span_reanchors_between(self, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]` (line 20384; public)
-  - `span_reanchor_origins(self, to_extraction_id: str) -> list[str]` (line 20393; public) — The readings with recorded aliases into ``to_extraction_id``, the most recently recorded first.
-  - `backfill_locator_schemes(self, locators: Iterable[str], *, clock: Clock | None=None) -> dict[str, str]` (line 20405; public) — Shape-detect and stamp a declared scheme onto each existing ref.
-  - `locator_scheme(self, locator: str) -> str | None` (line 20433; public)
-  - `upsert_unit_selection(self, *, extraction_id: str, source_id: str | None, revision_id: str | None, selected_unit_ids: list[str], boundary_overrides: list[dict] | None=None, needs_review: list[str] | None=None, exam_use_modes: Mapping[str, str] | None=None, exam_paper_metadata: Mapping[str, Any] | None=None, role_override: str | None=None, clock: Clock | None=None) -> None` (line 20447; public)
-  - `get_unit_selection(self, extraction_id: str) -> dict[str, Any] | None` (line 20511; public)
-  - `insert_unit_inventory(self, *, id: str, source_revision_id: str, extraction_id: str, unit_id: str, unit_semantic_hash: str, inventory_profile: str, inventory_schema_version: int, prompt_version: str, provider: str, model: str, inventory: Mapping[str, Any], usage: Mapping[str, Any] | None=None, made_as_role: str | None=None, reused_from_inventory_id: str | None=None, clock: Clock | None=None) -> str` (line 20522; public) — Write one cached inventory (§7) and, for a model run on ``extraction_id`` (not a reuse), its held-out signals into the append-only ``source_held_out_signal_marks`` ledger, in one transaction (exam protection by extraction identity).
-  - `held_out_signal_marks(self) -> list[dict[str, Any]]` (line 20626; public) — Every row of the held-out signal ledger (exam protection by extraction identity), with its book's source id, oldest first.
-  - `reusable_unit_inventories(self, *, source_revision_id: str, unit_id: str, unit_semantic_hash: str, inventory_schema_version: int, prompt_version: str, provider: str, model: str, request_key: str) -> list[dict[str, Any]]` (line 20637; public) — Cached rows sharing the non-profile semantic identity (§7).
-  - `get_unit_inventory(self, inventory_id: str) -> dict[str, Any] | None` (line 20689; public)
-  - `unit_inventories_for_extraction(self, extraction_id: str) -> list[dict[str, Any]]` (line 20696; public)
-  - `unit_inventories_for_revision(self, revision_id: str) -> list[dict[str, Any]]` (line 20704; public)
-  - `source_unit_inventory_claims(self) -> list[dict[str, Any]]` (line 20712; public) — Facet-candidate harvesting seam (knowledge-model §3.3).
-  - `upsert_exam_profile(self, *, id: str, scope_kind: str, scope_id: str, profile_hash: str, profile: Mapping[str, Any], clock: Clock | None=None) -> None` (line 20745; public)
-  - `get_exam_profile(self, scope_kind: str, scope_id: str) -> dict[str, Any] | None` (line 20770; public)
-  - `insert_entity_source_link(self, *, entity_type: str, entity_id: str, locator: str, relation: str, source_id: str | None=None, revision_id: str | None=None, locator_scheme: str | None=None, extraction_id: str | None=None, asset_hash: str | None=None, span_hash: str | None=None, patch_id: str | None=None, status: str='current', link_id: str | None=None, created_at: str | None=None, clock: Clock | None=None) -> str` (line 20787; public) — Insert an entity_source_links row (§9.1).
-  - `entity_source_links(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 20843; public)
-  - `entity_source_links_for_revision(self, revision_id: str) -> list[dict[str, Any]]` (line 20857; public)
-  - `insert_notation_mapping(self, *, entity_type: str, entity_id: str, canonical_notation: str, alternate_notation: str, subject_id: str | None=None, context: str | None=None, source_id: str | None=None, revision_id: str | None=None, locator: str | None=None, patch_id: str | None=None, status: str='active', mapping_id: str | None=None, clock: Clock | None=None) -> str` (line 20865; public)
-  - `notation_mappings_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 20912; public)
-  - `insert_source_conflict(self, *, entity_type: str, entity_id: str, statement: str, subject_id: str | None=None, left_source_id: str | None=None, left_revision_id: str | None=None, left_locator: str | None=None, right_source_id: str | None=None, right_revision_id: str | None=None, right_locator: str | None=None, status: str='open', resolution: Any=None, patch_id: str | None=None, conflict_id: str | None=None, clock: Clock | None=None) -> str` (line 20926; public)
-  - `source_conflicts_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 20979; public)
-  - `entity_source_links_for_sources(self, source_ids: list[str]) -> list[dict[str, Any]]` (line 20993; public) — All entity_source_links whose ``source_id`` is in ``source_ids``.
-  - `stale_entity_source_links(self, statuses: tuple[str, ...]=('stale', 'needs_reanchor')) -> list[dict[str, Any]]` (line 21011; public) — Links whose spans went stale / need re-anchoring (§10.4 revision refresh).
-  - `mark_entity_source_link_status(self, link_id: str, *, status: str, superseded_by_link_id: str | None=None, clock: Clock | None=None) -> None` (line 21024; public)
-  - `all_notation_mappings(self, status: str | None='active') -> list[dict[str, Any]]` (line 21048; public)
-  - `source_conflict(self, conflict_id: str) -> dict[str, Any] | None` (line 21059; public)
-  - `source_conflicts_by_status(self, status: str='open') -> list[dict[str, Any]]` (line 21066; public)
-  - `resolve_source_conflict(self, conflict_id: str, *, status: str, resolution: Any, resolution_kind: str, actor: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> str` (line 21074; public) — Persist a conflict resolution + an immutable audit row (§10.2).
-  - `source_conflict_resolutions(self, conflict_id: str) -> list[dict[str, Any]]` (line 21113; public)
-  - `upsert_maintenance_notice(self, *, notice_type: str, dedup_key: str, title: str, action: Mapping[str, Any], aging_policy: str, severity: str='info', subject_id: str | None=None, entity_type: str | None=None, entity_id: str | None=None, detail: Any=None, clock: Clock | None=None) -> str` (line 21131; public) — Insert or refresh a notice (idempotent on ``(notice_type, dedup_key)``).
-  - `maintenance_notices(self, *, subject_id: str | None=None, include_hidden: bool=False) -> list[dict[str, Any]]` (line 21189; public)
-  - `maintenance_notice(self, notice_id: str) -> dict[str, Any] | None` (line 21207; public)
-  - `set_maintenance_notice_status(self, notice_id: str, *, status: str, snoozed_until: str | None=None, bump_snooze: bool=False, clock: Clock | None=None) -> None` (line 21214; public)
-  - `resolve_maintenance_notice_if_detail(self, notice_id: str, *, detail_key: str, expected: Any, clock: Clock | None=None) -> bool` (line 21237; public) — Resolve a live notice only while its stored ``detail[detail_key]`` is still ``expected`` (one guarded statement: a write that changed the detail since the caller read it keeps the notice).
-  - `insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str` (line 21262; public) — Persist an immutable synthesis manifest (§8.4).
-  - `synthesis_manifest(self, manifest_id: str) -> dict[str, Any] | None` (line 21320; public)
-  - `synthesis_manifest_by_hash(self, manifest_hash: str) -> dict[str, Any] | None` (line 21328; public)
-  - `completed_synthesis_manifests(self, source_set_id: str) -> list[dict[str, Any]]` (line 21336; public) — The manifest of each completed synthesis run of a source set, oldest first, with the run's ``proposal_id`` beside it.
-  - `insert_synthesis_run(self, *, manifest_id: str, mode: str, agent_run_id: str | None=None, proposal_id: str | None=None, span_request: Any=None, status: str='created', run_id: str | None=None, clock: Clock | None=None) -> str` (line 21352; public)
-  - `complete_synthesis_run(self, run_id: str, *, status: str, proposal_id: str | None=None, resolved_span_hashes: Any=None, coverage_decisions: Any=None, actual_usage: Any=None, clock: Clock | None=None) -> None` (line 21394; public)
-  - `synthesis_run(self, run_id: str) -> dict[str, Any] | None` (line 21429; public)
-  - `synthesis_run_for_agent_run(self, agent_run_id: str) -> dict[str, Any] | None` (line 21436; public)
-  - `save_synthesis_candidate(self, run_id: str, candidate: Mapping[str, Any]) -> None` (line 21444; public) — Stage model output before gates and proposal persistence.
-  - `save_synthesis_shard_result(self, *, shard_key: str, shard_ordinal: int, shard_count: int, result: Mapping[str, Any], manifest_hash: str | None=None, clock: Clock | None=None) -> None` (line 21454; public) — Persist one completed synthesis shard's model output (durable checkpoint).
-  - `synthesis_shard_result(self, shard_key: str) -> dict[str, Any] | None` (line 21494; public)
-  - `discard_synthesis_shard_result(self, shard_key: str, *, output: Mapping[str, Any] | None=None) -> None` (line 21505; public) — Delete one shard's saved output, so the next synthesis pays for a fresh answer instead of replaying one the quality gates rejected.
-  - `finalize_stale_synthesis_runs(self, *, before_iso: str, clock: Clock | None=None) -> list[str]` (line 21524; public) — Mark abandoned non-terminal synthesis runs failed (startup hygiene).
-  - `synthesis_run_introducing_entity(self, entity_type: str, entity_id: str) -> dict[str, Any] | None` (line 21554; public) — The synthesis run whose proposal introduced an entity (patch -> run -> manifest lineage, §9.2).
-  - `insert_apply_intent(self, *, proposed_patch_id: str, item_ids: list[str], targets: list[Mapping[str, Any]], db_plan: list[Mapping[str, Any]], intent_id: str | None=None, clock: Clock | None=None) -> str` (line 21583; public) — Durably commit the write-ahead apply intent BEFORE any YAML is staged (§10.2).
-  - `mark_apply_intent_applied(self, intent_id: str, *, clock: Clock | None=None) -> None` (line 21618; public)
-  - `pending_apply_intents(self) -> list[dict[str, Any]]` (line 21626; public)
-  - `outstanding_apply_intents(self) -> list[dict[str, Any]]` (line 21633; public) — Intents that refuse the next accept: ``pending`` (mid-flight) and ``conflicted`` (K3.5).
-  - `apply_intent(self, intent_id: str) -> dict[str, Any] | None` (line 21645; public)
-  - `mark_apply_intent_conflicted(self, intent_id: str, conflicts: list[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 21650; public) — Recovery found target files changed since the intent (K3.5): nothing was written.
-  - `mark_apply_intent_rolled_back(self, intent_id: str, *, clock: Clock | None=None) -> None` (line 21663; public) — The accept stopped before writing any file (K3.5: a target changed under it).
-  - `mark_apply_intent_set_aside(self, intent_id: str, *, clock: Clock | None=None) -> bool` (line 21673; public) — The owner kept the files as they are (K3.5); True when a conflicted intent was settled.
-  - `_grading_epoch_transitions(self, rows: list[sqlite3.Row]) -> dict[str, list[dict[str, Any]]]` (line 21693; internal) — Group ordered ``grading_evidence`` rows into per-attempt epochs and return, per attempt, the ordered old→new transitions (each grading epoch after the first).
-  - `regrade_epoch_transitions(self) -> list[dict[str, Any]]` (line 21739; public) — Every post-original grading epoch across all attempts, as an old→new transition with the attempt's item/LO references and the epoch time.
-  - `attempt_regrade_marker(self, attempt_id: str) -> dict[str, Any] | None` (line 21762; public) — The most recent regrade (old→new score) persisted for one attempt, or ``None`` when the attempt has only its original grading epoch.
-  - `derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]` (line 21785; public) — Recalibration boundaries: each derived-state rebuild whose ``algorithm_version`` OR ``canonical_projection_version`` differs from the immediately preceding rebuild.
-  - `ensure_depth_policy_version(self, *, policy: str, body_json: str, content_hash: str, clock: Clock | None=None) -> str` (line 21909; public) — Immutable, content-addressed depth policy version (idempotent on hash).
-  - `ensure_depth_envelope_version(self, *, envelope_version: str, bounds_json: str, reviewed_edges_json: str, content_hash: str, clock: Clock | None=None) -> str` (line 21931; public)
-  - `depth_policy_version(self, policy_version_id: str) -> dict[str, Any] | None` (line 21962; public)
-  - `depth_envelope_version(self, envelope_version_id: str) -> dict[str, Any] | None` (line 21969; public)
-  - `insert_depth_edge_template(self, *, template_slug: str, domain_scope: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 21978; public)
-  - `depth_edge_template_by_slug(self, template_slug: str) -> dict[str, Any] | None` (line 21991; public)
-  - `depth_edge_templates(self) -> list[dict[str, Any]]` (line 21998; public)
-  - `insert_depth_edge_template_version(self, *, template_id: str, version: int, body_json: str, content_hash: str, status: str='draft', clock: Clock | None=None) -> str` (line 22005; public)
-  - `depth_edge_template_version(self, version_id: str) -> dict[str, Any] | None` (line 22028; public)
-  - `depth_edge_template_versions_for(self, template_id: str) -> list[dict[str, Any]]` (line 22035; public)
-  - `review_depth_edge_template_version(self, version_id: str, *, status: str, reviewed_by: str, clock: Clock | None=None) -> bool` (line 22043; public)
-  - `insert_depth_edge_instance(self, instance: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 22055; public)
-  - `depth_edge_instance(self, instance_id: str) -> dict[str, Any] | None` (line 22094; public)
-  - `depth_edge_instances_for(self, commitment_id: str, *, status: str | None=None) -> list[dict[str, Any]]` (line 22101; public)
-  - `update_depth_edge_instance_status(self, instance_id: str, *, status: str, admission_report_json: str | None=None, pinned_envelope_version_id: str | None=None, clock: Clock | None=None) -> bool` (line 22114; public)
-  - `depth_milestone_version_for(self, envelope_version_id: str, milestone_slug: str) -> dict[str, Any] | None` (line 22138; public) — Latest milestone version for (envelope version, slug) — the rung projection seam (``learnloop.curriculum.depth_rungs``).
-  - `insert_depth_milestone_version(self, *, envelope_version_id: str, milestone_slug: str, task_contract_json: str, entry_evidence_json: str | None=None, exit_evidence_json: str | None=None, fresh_proof_json: str | None=None, expected_burden_json: str | None=None, content_hash: str, clock: Clock | None=None) -> str` (line 22155; public)
-  - `_insert_commitment_version_rows(self, connection: sqlite3.Connection, *, commitment_id: str, predecessor_version_id: str | None, version: int, version_fields: Mapping[str, Any], targets: Sequence[Mapping[str, Any]], author: str, change_reason: str | None, events: Sequence[Mapping[str, Any]], now: str) -> str` (line 22188; internal)
-  - `create_commitment(self, *, learner_id: str, created_action: str, idempotency_key: str | None, version_fields: Mapping[str, Any], targets: Sequence[Mapping[str, Any]], author: str, change_reason: str | None, clock: Clock | None=None) -> tuple[str, bool]` (line 22256; public) — Atomically insert the stable commitment, its v1 version, target rows, and the ``created`` event in one transaction.
-  - `append_commitment_version(self, *, commitment_id: str, predecessor_version_id: str | None, version: int, version_fields: Mapping[str, Any], targets: Sequence[Mapping[str, Any]], author: str, change_reason: str | None, events: Sequence[Mapping[str, Any]], clock: Clock | None=None) -> str` (line 22331; public)
-  - `append_commitment_event(self, *, commitment_id: str, commitment_version_id: str | None, kind: str, detail_json: str | None, clock: Clock | None=None) -> str` (line 22369; public)
-  - `record_depth_transition_atomic(self, *, commitment_id: str, milestone_slug: str, milestone_detail_json: str | None, transition_detail_json: str | None, receipt_key: str, fork_spec: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 22392; public) — B4: append the step-7 ``depth_milestone_reached`` + ``depth_transition_committed`` events AND (when supplied) the step-6 fork lineage/edge/state in ONE transaction.
-  - `commitment(self, commitment_id: str) -> dict[str, Any] | None` (line 22523; public)
-  - `commitment_head(self, commitment_id: str) -> dict[str, Any] | None` (line 22530; public)
-  - `commitment_versions_for(self, commitment_id: str) -> list[dict[str, Any]]` (line 22542; public)
-  - `commitment_targets_for_version(self, commitment_version_id: str) -> list[dict[str, Any]]` (line 22550; public)
-  - `commitment_events_for(self, commitment_id: str) -> list[dict[str, Any]]` (line 22561; public)
-  - `commitments_targeting(self, target_ref: str) -> list[str]` (line 22572; public) — Commitment ids whose HEAD version carries a target with this ref (any target kind).
-  - `find_commitment_by_idempotency(self, *, learner_id: str, created_action: str, target_set_hash: str, idempotency_key: str) -> dict[str, Any] | None` (line 22593; public)
-  - `find_commitment_candidate(self, *, learner_id: str, created_action: str, target_set_hash: str) -> dict[str, Any] | None` (line 22610; public)
-  - `upsert_capability_alias(self, *, registry_version: int, legacy_value: str, canonical: str | None, clock: Clock | None=None) -> str` (line 22631; public)
-  - `capability_alias(self, *, registry_version: int, legacy_value: str) -> dict[str, Any] | None` (line 22659; public)
-  - `ensure_task_feature_schema_version(self, *, schema_slug: str, version: int, dimensions_json: str, content_hash: str, clock: Clock | None=None) -> str` (line 22667; public)
-  - `task_feature_schema_version(self, schema_version_id: str) -> dict[str, Any] | None` (line 22696; public)
-  - `ensure_activity_pattern(self, *, pattern_slug: str, clock: Clock | None=None) -> str` (line 22703; public)
-  - `ensure_activity_pattern_version(self, *, pattern_id: str, version: int, content_hash: str, fields: Mapping[str, Any], status: str, clock: Clock | None=None) -> dict[str, Any]` (line 22718; public) — Content-addressed pattern version, idempotent on ``(pattern_id, content_hash)``.
-  - `activity_pattern_version(self, pattern_version_id: str) -> dict[str, Any] | None` (line 22793; public)
-  - `activity_pattern_versions(self, *, status: str | None=None) -> list[dict[str, Any]]` (line 22800; public)
-  - `activity_pattern_version_by_slug(self, *, pattern_slug: str, status: str | None=None) -> dict[str, Any] | None` (line 22813; public)
-  - `upsert_activity_family_authoring(self, *, family_version_id: str, fields: Mapping[str, Any], clock: Clock | None=None) -> None` (line 22841; public) — Insert/replace the authoring side row keyed by the immutable P0 family version id.
-  - `set_activity_family_authoring_status(self, *, family_version_id: str, status: str) -> None` (line 22891; public)
-  - `activity_family_authoring(self, family_version_id: str) -> dict[str, Any] | None` (line 22901; public)
-  - `upsert_activity_card_authoring(self, *, card_version_id: str, fields: Mapping[str, Any], clock: Clock | None=None) -> None` (line 22909; public)
-  - `activity_card_authoring(self, card_version_id: str) -> dict[str, Any] | None` (line 22952; public)
-  - `activity_family_authoring_purposes(self, family_id: str) -> dict[str, str]` (line 22960; public) — Authoring purposes across every version of one stable family (§1.1 invariant 2 / §9.1 purpose-immutability check), keyed by family_version_id.
-  - `activity_family_version_family_id(self, family_version_id: str) -> str | None` (line 22976; public)
-  - `create_card_lineage(self, *, card_id: str | None=None, family_id: str | None=None, clock: Clock | None=None) -> str` (line 22988; public)
-  - `card_lineage(self, lineage_id: str) -> dict[str, Any] | None` (line 23004; public)
-  - `append_card_lineage_edge(self, *, lineage_id: str, to_card_version_id: str, edge_kind: str, classifier_version: str, from_card_version_id: str | None=None, rationale: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 23011; public)
-  - `card_lineage_edges(self, lineage_id: str) -> list[dict[str, Any]]` (line 23046; public)
-  - `lineage_for_card_version(self, card_version_id: str) -> str | None` (line 23054; public) — Resolve the lineage a card version belongs to via its lineage edges.
-  - `upsert_activity_card_state(self, *, card_lineage_id: str, scheduler_algorithm_version: str, model_label: str, learner_id: str='local', difficulty: float | None=None, stability: float | None=None, retrievability: float | None=None, due_at: str | None=None, last_eligible_review_at: str | None=None, lapse_episode_id: str | None=None, active: bool=True, projection_head: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 23068; public)
-  - `activity_card_state(self, *, card_lineage_id: str, scheduler_algorithm_version: str, learner_id: str='local') -> dict[str, Any] | None` (line 23137; public)
-  - `activity_administration(self, administration_id: str) -> dict[str, Any] | None` (line 23157; public)
-  - `set_administration_context(self, *, administration_id: str, reading_phase: str | None=None, admin_context: Mapping[str, Any] | None=None) -> None` (line 23164; public)
-  - `record_fingerprint_membership(self, *, surface_id: str, namespace: str, value_hash: str, provenance: str | None=None, status: str | None=None, confidence: float | None=None, clock: Clock | None=None) -> str` (line 23190; public)
-  - `fingerprint_memberships_for_surface(self, surface_id: str) -> list[dict[str, Any]]` (line 23233; public)
-  - `surfaces_sharing_membership(self, *, namespace: str, value_hash: str, exclude_surface_id: str | None=None) -> list[str]` (line 23241; public) — All surfaces in a given (namespace, value_hash) hard group.
-  - `upsert_soft_kinship_features(self, *, surface_id: str, feature_schema_version: str, features: Mapping[str, Any], clock: Clock | None=None) -> str` (line 23261; public)
-  - `soft_kinship_features_for_surface(self, *, surface_id: str, feature_schema_version: str | None=None) -> dict[str, Any] | None` (line 23298; public)
-  - `upsert_activity_surface_authoring(self, *, surface_id: str, fields: Mapping[str, Any], clock: Clock | None=None) -> None` (line 23320; public)
-  - `activity_surface_authoring(self, surface_id: str) -> dict[str, Any] | None` (line 23370; public)
-  - `activity_exposure_events_for_surface(self, surface_id: str) -> list[dict[str, Any]]` (line 23377; public)
-  - `enqueue_surface_mint_request(self, *, card_version_id: str, generator_version: str, gate_policy_version: str, anchor_surface_id: str | None=None, requested_angle_json: str='', token_cost_json: str | None=None, clock: Clock | None=None) -> str` (line 23390; public) — Idempotent on ``(card_version, anchor, requested_angle, generator, gate_policy)`` (§5.6).
-  - `surface_mint_request(self, request_id: str) -> dict[str, Any] | None` (line 23459; public)
-  - `surface_mint_requests_for_card_version(self, card_version_id: str, *, statuses: Sequence[str] | None=None) -> list[dict[str, Any]]` (line 23466; public)
-  - `claim_next_surface_mint_request(self, *, worker_id: str, now_iso: str, lease_expires_at: str, lease_cutoff_iso: str) -> dict[str, Any] | None` (line 23487; public) — Atomically claim the next ``pending`` mint request for ``worker_id``.
-  - `claim_surface_mint_request(self, request_id: str, *, worker_id: str, now_iso: str, lease_expires_at: str, reclaim_statuses: Sequence[str]=('pending', 'failed')) -> dict[str, Any] | None` (line 23553; public) — Claim ONE named request under a fenced lease (PF-b, 078 pattern).
-  - `release_surface_mint_request(self, request_id: str, *, expected_lease_epoch: int, clock: Clock | None=None) -> bool` (line 23586; public) — Return a cancelled, still-leased request to ``pending`` (resumable).
-  - `set_surface_mint_candidate(self, *, request_id: str, candidate_surface_id: str, gate_results_json: str | None=None, token_cost_json: str | None=None, expected_lease_epoch: int | None=None, clock: Clock | None=None) -> bool` (line 23604; public) — Record the gated candidate and move the request to ``candidate_ready``.
-  - `resolve_surface_mint_request(self, *, request_id: str, status: str, gate_results_json: str | None=None, failure_reason: str | None=None, candidate_surface_id: str | None=None, expected_lease_epoch: int | None=None, require_active: bool=False, clock: Clock | None=None) -> bool` (line 23642; public) — Terminal transition to ``admitted`` / ``rejected`` / ``failed``.
-  - `obsolete_surface_mint_requests_for_card_versions(self, card_version_ids: Sequence[str], *, clock: Clock | None=None) -> int` (line 23687; public) — Mark all not-yet-terminal mint work for the given card versions ``obsolete`` (§5.6: card/family retirement makes pending work obsolete).
-  - `ensure_task_blueprint(self, *, blueprint_slug: str, source_rev: str, unit_id: str, family_key: str, clock: Clock | None=None) -> str` (line 23714; public)
-  - `register_task_blueprint_version(self, *, blueprint_id: str, spec_json: str, content_hash: str, canonical_hash: str, authoring_version: str, model_version: str | None, provenance_version: str, exemplars: Sequence[Mapping[str, Any]], detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> dict[str, Any]` (line 23743; public) — Register an immutable, content-addressed draft blueprint version + its exemplar link rows + a ``registered`` review event, all in one transaction.
-  - `transition_task_blueprint_version(self, *, blueprint_version_id: str, status: str, event_kind: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> dict[str, Any]` (line 23830; public) — Advance a blueprint version's status (reviewed/active/retired) and append the matching review event atomically.
-  - `append_task_blueprint_review_event(self, *, blueprint_version_id: str, kind: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> str` (line 23874; public)
-  - `task_blueprint_version(self, blueprint_version_id: str) -> dict[str, Any] | None` (line 23897; public)
-  - `task_blueprint_versions_for(self, blueprint_id: str) -> list[dict[str, Any]]` (line 23904; public)
-  - `target_exemplars_for(self, blueprint_version_id: str) -> list[dict[str, Any]]` (line 23912; public)
-  - `task_blueprint_review_events_for(self, blueprint_version_id: str) -> list[dict[str, Any]]` (line 23920; public)
-  - `reviewed_reading_question_placements(self, *, source_revs: Sequence[str], unit_ids: Sequence[str], blueprint_version_ids: Sequence[str]=()) -> list[dict[str, Any]]` (line 23928; public) — Return the reviewed blueprint artifacts that can appear in a Reader.
-  - `confirm_golden_path_atomic(self, *, receipt_key: str, blueprint_version_id: str, goal_id: str, goal_contract: Mapping[str, Any], commitment: Mapping[str, Any], run: Mapping[str, Any], reservation: Mapping[str, Any] | None=None, fault_hook: Any=None, clock: Clock | None=None) -> dict[str, Any]` (line 23997; public) — The ONE atomic confirmation (spec_p2 §3.1).
-  - `golden_path_run(self, run_id: str) -> dict[str, Any] | None` (line 24253; public)
-  - `golden_path_runs_all(self) -> list[dict[str, Any]]` (line 24260; public)
-  - `golden_path_run_for_goal(self, goal_id: str) -> dict[str, Any] | None` (line 24267; public) — The earliest golden-path run for a goal (the golden path is one run per goal).
-  - `golden_path_run_events_for(self, run_id: str) -> list[dict[str, Any]]` (line 24279; public)
-  - `append_golden_path_run_event(self, *, run_id: str, to_state: str, reason: str, expected_head_event_id: str | None=None, idempotency_key: str | None=None, feasible_alternatives_json: str | None=None, evidence_ids_json: str | None=None, goal_contract_head_version_id: str | None=None, depth_policy_version_id: str | None=None, depth_envelope_version_id: str | None=None, predecessor_milestone: str | None=None, successor_milestone: str | None=None, selected_activity_json: str | None=None, policy_calibration_json: str | None=None, burden_json: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 24287; public) — Append one transition event and update the run's cached head state, in one transaction.
-  - `ensure_diagnostic_pack(self, *, pack_slug: str, blueprint_version_id: str, content_hash: str, clock: Clock | None=None) -> dict[str, Any]` (line 24382; public) — Register/return the stable diagnostic pack row.
-  - `register_diagnostic_pack_card(self, *, pack_id: str, card_slug: str, coverage_json: str, content_hash: str, instrument_ref: str | None=None, clock: Clock | None=None) -> str` (line 24426; public) — Register a candidate diagnostic-purpose card.
-  - `set_diagnostic_pack_card_admission(self, *, pack_id: str, card_slug: str, admission_status: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 24461; public)
-  - `transition_diagnostic_pack(self, *, pack_id: str, status: str, kind: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 24489; public)
-  - `diagnostic_pack(self, pack_id: str) -> dict[str, Any] | None` (line 24515; public)
-  - `diagnostic_packs_for_blueprint(self, blueprint_version_id: str) -> list[dict[str, Any]]` (line 24522; public)
-  - `diagnostic_pack_cards_for(self, pack_id: str) -> list[dict[str, Any]]` (line 24530; public)
-  - `diagnostic_pack_events_for(self, pack_id: str) -> list[dict[str, Any]]` (line 24538; public)
-  - `pin_diagnostic_pack(self, *, run_id: str, pack_id: str, goal_contract_version_id: str, visible_cap: int, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 24546; public) — Pin exactly one reviewed pack to a run at diagnostic entry (§5.2).
-  - `diagnostic_pack_pin_for_run(self, run_id: str) -> dict[str, Any] | None` (line 24583; public)
-  - `failure_triage_routes(self, *, active_only: bool=True) -> list[dict[str, Any]]` (line 24592; public)
-  - `failure_triage_route_for_reason(self, reason: str) -> dict[str, Any] | None` (line 24604; public)
-  - `append_failure_triage_event(self, *, run_id: str, kind: str, tier: str, decisive: bool, attempt_id: str | None=None, route_id: str | None=None, selected_reason: str | None=None, distribution_json: str | None=None, alternatives_json: str | None=None, inputs_snapshot_json: str | None=None, routing_prior_json: str | None=None, override_actor: str | None=None, override_reason: str | None=None, anchor_sample_id: str | None=None, auto_committed: bool=False, goal_contract_head_version_id: str | None=None, idempotency_key: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 24613; public) — Append one triage decision to the append-only ledger (§6.1).
-  - `failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]` (line 24691; public)
-  - `failure_triage_event(self, event_id: str) -> dict[str, Any] | None` (line 24699; public)
-  - `reader_interaction_events(self, *, kind: str | None=None, subject_id: str | None=None, subject_type: str | None=None, since: str | None=None) -> list[dict[str, Any]]` (line 24713; public) — Reader interaction events (payload_json decoded), oldest first.
-  - `first_cold_observation_for_target(self, target_contract_version_id: str) -> str | None` (line 24747; public) — created_at of the FIRST cold administration pinned to this target contract version (design A.1 supersession).
-  - `active_ladder_policy(self, policy_slug: str) -> dict[str, Any] | None` (line 24782; public)
-  - `ladder_stages_for_policy(self, policy_id: str) -> list[dict[str, Any]]` (line 24791; public)
-  - `activity_family_purpose_for_card_version(self, card_version_id: str) -> str | None` (line 24799; public) — The immutable family purpose backing a card version (§12.4 role check).
-  - `ensure_practice_pool(self, *, pool_slug: str, blueprint_version_id: str, content_hash: str, clock: Clock | None=None) -> dict[str, Any]` (line 24821; public) — Register/return the stable practice pool row.
-  - `register_practice_pool_surface(self, *, pool_id: str, surface_slug: str, angle: str, content_hash: str, provenance: str='llm_within_bounds', surface_id: str | None=None, clock: Clock | None=None) -> str` (line 24865; public) — Register a candidate practice surface.
-  - `set_practice_pool_surface_admission(self, *, pool_id: str, surface_slug: str, admission_status: str, surface_id: str | None=None, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 24901; public)
-  - `transition_practice_pool(self, *, pool_id: str, status: str, kind: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 24938; public)
-  - `append_practice_pool_event(self, *, pool_id: str, kind: str, surface_slug: str | None=None, detail_json: str | None=None, author: str='system', clock: Clock | None=None) -> str` (line 24964; public) — Append one pool ledger event (§7.3 audit) -- e.g.
-  - `practice_pool(self, pool_id: str) -> dict[str, Any] | None` (line 24992; public)
-  - `practice_pools_for_blueprint(self, blueprint_version_id: str) -> list[dict[str, Any]]` (line 24999; public)
-  - `practice_pool_surfaces_for(self, pool_id: str) -> list[dict[str, Any]]` (line 25007; public)
-  - `practice_pool_events_for(self, pool_id: str) -> list[dict[str, Any]]` (line 25015; public)
-  - `resolved_activity_for_surface(self, surface_id: str) -> dict[str, Any] | None` (line 25029; public) — Reconstruct the family/card identity of an existing surface (for opening a reserved assessment administration from the run's stored ``reserved_surface_id`` alone).
-  - `append_golden_path_artifact(self, *, run_id: str, kind: str, payload_json: str, idempotency_key: str | None=None, administration_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 25053; public) — Append one inspectable run artifact (§8.4).
-  - `golden_path_artifacts_for(self, run_id: str, *, kind: str | None=None) -> list[dict[str, Any]]` (line 25113; public)
-  - `latest_golden_path_artifact(self, run_id: str, *, kind: str) -> dict[str, Any] | None` (line 25129; public)
-  - `insert_causal_probe_decision_receipt(self, *, factor_id: str, decision: str, reason: str, repair_status: str, decision_policy_version: str, formula_version: str, inputs: Mapping[str, Any], parameters: Mapping[str, Any], hypothesis_ids: Sequence[str]=(), repair_class_ids: Sequence[str]=(), blind_bundle_ids: Sequence[str]=(), machine_check_ids: Sequence[str]=(), learning_object_id: str | None=None, attempt_id: str | None=None, misconception_id: str | None=None, candidate_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 25149; public) — Append one probe decision.
-  - `_decode_causal_probe_decision_receipt(self, row: sqlite3.Row) -> dict[str, Any]` (line 25233; internal)
-  - `causal_probe_decision_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 25251; public)
-  - `causal_probe_decision_receipts(self, *, factor_id: str | None=None, decision: str | None=None, limit: int=200) -> list[dict[str, Any]]` (line 25263; public)
-  - `insert_causal_shadow_selection_receipt(self, *, decision_receipt_id: str, factor_id: str, incumbent_decision: str, incumbent_reason: str, shadow_verdict: str, likelihood_regime: str, loss_table_regime: str, baselines: Mapping[str, Any], body: Mapping[str, Any], shadow_policy_version: str, prior_basis: str | None=None, learning_object_id: str | None=None, attempt_id: str | None=None, candidate_id: str | None=None, would_change_candidate: bool | None=None, would_change_measure_vs_repair: bool | None=None, would_change_repair: bool | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 25299; public) — Append one shadow receipt; returns None when the live decision receipt already carries one (UNIQUE decision_receipt_id — a shadow is 1:1 with the live decision it rode along with).
-  - `_decode_causal_shadow_selection_receipt(self, row: sqlite3.Row) -> dict[str, Any]` (line 25370; internal)
-  - `causal_shadow_selection_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 25385; public)
-  - `causal_shadow_selection_receipts(self, *, factor_id: str | None=None, limit: int=500) -> list[dict[str, Any]]` (line 25397; public)
-  - `median_attempt_latency_seconds(self) -> tuple[float | None, int]` (line 25423; public) — Pooled median of captured attempt latencies + the sample count.
-  - `record_causal_probe_preference(self, *, scope: str, scope_ref: str, preference: str, source: str, session_id: str | None=None, expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 25451; public) — Persist one learner probe preference ("Not now" and friends).
-  - `causal_probe_preference(self, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, at: str | None=None) -> dict[str, Any] | None` (line 25498; public) — The newest applicable, unexpired preference across the given scopes.
-  - `enqueue_causal_machine_check(self, *, check_id: str, kind: str, payload: Mapping[str, Any], source: str, learning_object_id: str | None=None, factor_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 25544; public) — Queue one machine-side obligation, idempotently.
-  - `causal_machine_check(self, check_id: str) -> dict[str, Any] | None` (line 25598; public)
-  - `causal_machine_checks(self, *, status: str | None='pending', learning_object_id: str | None=None, factor_id: str | None=None) -> list[dict[str, Any]]` (line 25610; public)
-  - `close_causal_machine_check(self, check_id: str, *, status: str, resolution: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 25646; public)
-  - `consumed_followup_task_for_attempt(self, attempt_id: str, *, kind: str | None=None) -> dict[str, Any] | None` (line 25676; public) — The delayed task this attempt discharged, with its carried context.
-  - `causal_probe_candidates_for_factor(self, factor_id: str, *, statuses: Sequence[str] | None=None) -> list[dict[str, Any]]` (line 25706; public) — Probe candidates minted for one unresolved-cause factor.
-  - `insert_diagnosis_adjudication(self, *, values: Mapping[str, Any], adjudication_id: str | None=None, clock: Clock | None=None) -> str` (line 25745; public) — Append one immutable verdict on a diagnosis (A4).
-  - `diagnosis_adjudication(self, adjudication_id: str) -> dict[str, Any] | None` (line 25805; public)
-  - `diagnosis_adjudications_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 25815; public) — The whole supersession chain for one attempt, oldest first.
-  - `active_diagnosis_adjudication(self, attempt_id: str) -> dict[str, Any] | None` (line 25831; public) — The head of the chain: the row nothing else supersedes.
-  - `adjudicated_attempt_ids(self) -> set[str]` (line 25852; public) — Attempts already carrying a verdict — the queue's exclusion set.
-  - `list_diagnosis_adjudications(self, *, active_only: bool=True, attempt_ids: Sequence[str] | None=None, verdicts: Sequence[str] | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, queue_reasons: Sequence[str] | None=None, limit: int | None=None) -> list[dict[str, Any]]` (line 25861; public) — Scoreboard/eval read.
-  - `insert_discrimination_profile_match(self, *, attempt_id: str, practice_item_id: str, outcome: str, attempt_failed: bool, profile_id: str | None=None, misconception_id: str | None=None, evidence: str | None=None, grading_prompt_version: str | None=None, agent_run_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 25928; public) — Record A5's per-attempt profile judgement; ``None`` when one exists.
-  - `discrimination_profile_match_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 25978; public) — Every recorded A5 judgement, oldest first.
-  - `discrimination_profile_match(self, attempt_id: str) -> dict[str, Any] | None` (line 25996; public)
-  - `insert_contrast_pair_serving(self, *, pair_key: str, practice_item_id: str, counterpart_item_id: str, serve_position: int, randomization_seed: str, randomization_value: float, separated: bool, adjacency_basis: str, session_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 26004; public) — Record which member of an A4 pair this session's queue offered first.
-  - `contrast_pair_serving_rows(self, *, since: str | None=None, pair_key: str | None=None) -> list[dict[str, Any]]` (line 26053; public)
-  - `insert_error_hunt_outcome(self, *, attempt_id: str, practice_item_id: str, clean_solution: bool, planted_total: int, planted_repaired: int, planted_flagged_not_repaired: int, planted_missed: int, false_positive_reports: int, misconception_candidate_id: str | None=None, facet_failure_suppressed: bool=False, grading_prompt_version: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 26076; public) — Record one A3 attempt's outcome; ``None`` when the attempt already has one.
-  - `error_hunt_outcome_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 26125; public)
-  - `error_hunt_outcome(self, attempt_id: str) -> dict[str, Any] | None` (line 26141; public)
-  - `insert_persona_realism_run(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 26151; public) — Append one blinded B2 matcher result.
-  - `persona_realism_run_rows(self, *, generator_family: str | None=None, persona_source: str | None=None, persona_corpus_hash: str | None=None) -> list[dict[str, Any]]` (line 26202; public)
-  - `latest_persona_realism_run(self, *, generator_family: str | None=None, persona_source: str | None=None, persona_corpus_hash: str | None=None) -> dict[str, Any] | None` (line 26232; public)
-  - `real_attempt_trace_rows(self, *, limit: int=500) -> list[dict[str, Any]]` (line 26246; public) — Recent non-empty real learner traces for B2, newest first.
-  - `insert_diagnostic_eval_run(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 26270; public)
-  - `insert_diagnostic_eval_case(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 26311; public)
-  - `diagnostic_eval_run_rows(self) -> list[dict[str, Any]]` (line 26380; public)
-  - `diagnostic_eval_case_rows(self, *, run_id: str | None=None, licensed_only: bool=False) -> list[dict[str, Any]]` (line 26390; public)
-  - `insert_diagnostic_augmentation_receipt(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` (line 26418; public) — Append Phase-C provenance; idempotent for one live attempt.
-  - `diagnostic_augmentation_receipt_for_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 26461; public) — The Phase-C receipt for one graded attempt, or None.
-  - `diagnostic_augmentation_receipt_rows(self) -> list[dict[str, Any]]` (line 26484; public)
+- `class BlueprintNotReviewed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 71) — A golden-path confirmation named a blueprint version that is not reviewed/active (spec_p2 §3.1 step 1).
+  - `__init__(self, blueprint_version_id: str, *, status: str | None)` (line 75; internal)
+- `class GoalAlreadyConfirmed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 83) — The goal already has a confirmed contract head whose content differs from the v1 this confirmation would mint (spec_p2 §1.2 invariant 2).
+  - `__init__(self, goal_id: str, *, head_version_id: str | None)` (line 88; internal)
+- `class PracticeItemState` ([source](../../../../../../src/learnloop/db/repositories.py), line 374)
+- `class MasteryState` ([source](../../../../../../src/learnloop/db/repositories.py), line 387)
+- `class ItemParameterState` ([source](../../../../../../src/learnloop/db/repositories.py), line 398) — Per-item empirical-Bayes difficulty posterior (b in the 2PL link).
+- `class ActiveErrorEvent` ([source](../../../../../../src/learnloop/db/repositories.py), line 410)
+- `class MisconceptionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 425) — A normalized, content-bearing belief scoped to a learning object.
+- `class ItemMisconceptionDiscrimination` ([source](../../../../../../src/learnloop/db/repositories.py), line 463) — Estimated discrimination of an item's keyed fatal error vs a misconception.
+  - `sensitivity_mean(self) -> float` (line 484; public)
+  - `specificity_mean(self) -> float` (line 488; public)
+  - `sensitivity_lb(self, q: float=0.25) -> float` (line 491; public)
+  - `specificity_lb(self, q: float=0.25) -> float` (line 494; public)
+  - `youden_j(self) -> float` (line 498; public) — Discrimination power J = E[sens] + E[spec] - 1.
+  - `youden_j_lb(self, q: float=0.25) -> float` (line 502; public) — Conservative J from the sensitivity/specificity lower bounds.
+- `class ProbeStateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 508)
+- `class ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 523) — One first-class diagnostic episode (probe redesign spec §5.1).
+- `class ProbePresentationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 551) — A durable committed probe assignment (probe redesign spec §5.1).
+- `class ProbeObservationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 582) — The grading result + posterior transition for one consumed presentation (§5.1).
+- `class ProbeStateSegmentRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 604) — A learner-state segment boundary event (probe redesign spec §5.1).
+- `class ProbeFamilyTemplateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 617)
+- `class ProbeInstrumentCardRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 628)
+- `class ProbeItemFamilyLinkRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 642)
+- `class ProbeGenerationNeedRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 654)
+- `class ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 666) — A learner-initiated calibration session (probe redesign spec §5.9).
+- `class GradingEvidenceRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 683)
+- `class FacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 709)
+- `class CanonicalFacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 729) — Canonical shared facet belief (KM2 §7.1), keyed on the post-merge facet id and observed capability.
+- `class FacetCapabilityEvidence` ([source](../../../../../../src/learnloop/db/repositories.py), line 752) — Capability-sliced certification ledger (KM2 §7.1).
+- `class FacetUncertaintyState` ([source](../../../../../../src/learnloop/db/repositories.py), line 779)
+- `class PracticeItemQualityState` ([source](../../../../../../src/learnloop/db/repositories.py), line 795)
+- `class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin, DiagnosisStoreMixin, RecurrenceStoreMixin, SessionOwnershipStoreMixin, ReadingRequestStoreMixin, ActivityStoreMixin, SourceDocumentStoreMixin, ReaderStoreMixin, GoalStoreMixin, TaskBlueprintStoreMixin)` ([source](../../../../../../src/learnloop/db/repositories.py), line 933)
+  - `__init__(self, sqlite_path: Path)` (line 948; internal) — Create the database, or attach to one at this code's migrations.
+  - `attach(cls, sqlite_path: Path, *, read_only: bool=False) -> Repository` (line 963; public) — Attach to an existing database without applying migrations.
+  - `_initialize(self, sqlite_path: Path, *, read_only: bool) -> None` (line 981; internal)
+  - `connection(self) -> sqlite3.Connection` (line 990; public)
+  - `in_atomic(self) -> bool` (line 998; public) — This thread is inside an ``atomic()`` block (a new one would be a savepoint of it).
+  - `atomic(self) -> Iterator[None]` (line 1006; public) — Commit a local operation once, including its nested store writes.
+  - `pinned(self) -> Iterator[None]` (line 1050; public) — Reuse one connection for the block, on this thread only.
+  - `practice_item_state(self, practice_item_id: str) -> PracticeItemState | None` (line 1081; public)
+  - `practice_item_states(self) -> dict[str, PracticeItemState]` (line 1089; public)
+  - `initialize_practice_item_state(self, practice_item_id: str, *, content_hash: str | None=None, active: bool=True, clock: Clock | None=None) -> bool` (line 1094; public) — Insert a fresh scheduling row only when none exists.
+  - `update_practice_item_content_state(self, practice_item_id: str, *, active: bool, content_hash: str | None, clock: Clock | None=None) -> bool` (line 1124; public) — Set only ``active`` and ``content_hash`` on an existing row.
+  - `upsert_practice_item_state(self, practice_item_id: str, *, difficulty: float | None=None, stability: float | None=None, retrievability: float | None=None, due_at: str | None=None, active: bool=True, content_hash: str | None=None, last_attempt_at: str | None=None, clock: Clock | None=None) -> None` (line 1152; public)
+  - `inactive_practice_item_ids(self, practice_item_ids: Iterable[str]) -> frozenset[str]` (line 1198; public) — The given items whose scheduling row exists and is inactive.
+  - `keep_practice_items_inactive(self, practice_item_ids: Iterable[str]) -> int` (line 1213; public) — Close the given items' rows again after replay rewrote them active.
+  - `set_practice_item_active(self, practice_item_id: str, *, active: bool, clock: Clock | None=None) -> None` (line 1233; public) — Flip only the active flag, preserving scheduling state on the row.
+  - `deactivate_practice_item_serving(self, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, int]` (line 1254; public) — Atomically close every serving door for one terminal item.
+  - `mastery_state(self, learning_object_id: str) -> MasteryState | None` (line 1300; public)
+  - `mastery_states(self) -> dict[str, MasteryState]` (line 1308; public)
+  - `upsert_mastery_state(self, mastery: MasteryState) -> None` (line 1313; public)
+  - `insert_practice_attempt(self, attempt: Mapping[str, Any]) -> None` (line 1345; public)
+  - `fetch_practice_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 1350; public)
+  - `practice_attempt_by_submission_id(self, submission_id: str) -> dict[str, Any] | None` (line 1358; public)
+  - `attempt_submission_receipt(self, submission_id: str) -> dict[str, Any] | None` (line 1366; public)
+  - `insert_attempt_submission_receipt(self, *, submission_id: str, attempt_id: str, practice_item_id: str, result: Mapping[str, Any], clock: Clock | None=None) -> None` (line 1378; public)
+  - `upsert_attempt_feedback_metadata(self, *, attempt_id: str, grading_source: str, fallback_reason: str | None=None, agent_run_id: str | None=None, fatal_errors: list[str] | None=None, feedback_md: str | None=None, repair_suggestions: list[Mapping[str, Any]] | None=None, clock: Clock | None=None) -> None` (line 1405; public)
+  - `fetch_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None` (line 1450; public) — The attempt's feedback metadata, as the causal consumers read it.
+  - `raw_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None` (line 1466; public) — The persisted feedback row exactly as written (no diagnosis overlay).
+  - `record_feedback_shown(self, attempt_id: str, *, session_id: str | None=None, clock: Clock | None=None) -> bool` (line 1476; public)
+  - `attempts_with_feedback_shown_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 1500; public) — Attempts whose feedback screen was last opened inside the interval.
+  - `list_recent_attempts_by_practice_item(self, practice_item_id: str, limit: int=10, *, until: str | None=None, before: tuple[str, str] | None=None) -> list[dict[str, Any]]` (line 1535; public) — The item's latest attempts, newest first.
+  - `list_recent_attempts_by_learning_object(self, learning_object_id: str, limit: int=10, *, before: tuple[str, str] | None=None) -> list[dict[str, Any]]` (line 1590; public)
+  - `list_recent_attempts_by_learning_objects(self, learning_object_ids: Iterable[str], *, limit: int=10, before: tuple[str, str] | None=None) -> dict[str, list[dict[str, Any]]]` (line 1601; public) — Load the latest ``limit`` attempts for each requested LO at once.
+  - `list_attempts_by_learning_object(self, learning_object_id: str) -> list[dict[str, Any]]` (line 1663; public)
+  - `learning_object_ids_with_attempts(self) -> list[str]` (line 1675; public)
+  - `list_attempt_history(self) -> list[dict[str, Any]]` (line 1686; public) — Every attempt (time-ordered) with its posterior delta, if recorded.
+  - `count_attempts_with_error_type(self, practice_item_id: str, error_type: str) -> int` (line 1726; public) — Attempts on an item carrying ``error_type`` — the §12.4 promotion signal.
+  - `insert_grading_evidence(self, attempt_id: str, evidence_rows: Iterable[Mapping[str, Any]]) -> None` (line 1739; public)
+  - `fetch_grading_evidence(self, attempt_id: str, *, include_superseded: bool=False) -> list[GradingEvidenceRecord]` (line 1745; public)
+  - `insert_grading_clarification(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` (line 1765; public) — Append one clarification request; None when the attempt already has one.
+  - `grading_clarification_for_attempt(self, attempt_id: str) -> sqlite3.Row | None` (line 1800; public)
+  - `unanswered_grading_clarifications(self) -> list[sqlite3.Row]` (line 1814; public)
+  - `grading_clarifications_awaiting_regrade(self, *, limit: int | None=None) -> list[sqlite3.Row]` (line 1828; public) — Clarifications whose answer landed but whose re-grade has not resolved.
+  - `insert_grading_clarification_response(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 1858; public)
+  - `stamp_grading_clarification_outcome(self, clarification_id: str, *, outcome: str, resolved_grading_revision: int | None) -> None` (line 1882; public) — Stamp the regrade result onto an already-recorded answer.
+  - `attempts_pending_clarification_review(self) -> list[str]` (line 1907; public) — Attempts whose grade advertises a pending clarification (Meas §3.A8).
+  - `clarification_rate_counts(self) -> dict[str, int]` (line 1920; public) — Counts for §3.A8's revert criterion.
+  - `insert_trace_exercised_facets(self, attempt_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 1971; public) — Append A6 trace observations for one attempt; returns rows written.
+  - `trace_exercised_facets(self, attempt_id: str) -> list[dict[str, Any]]` (line 2021; public)
+  - `all_trace_exercised_facets(self) -> dict[str, list[dict[str, Any]]]` (line 2033; public) — Every A6 observation, grouped by attempt.
+  - `list_grading_evidence_history(self, *, include_superseded: bool=False) -> list[GradingEvidenceRecord]` (line 2049; public) — Every grading-evidence row in stable replay order.
+  - `find_attempt_id_by_evidence_agent_run(self, *, practice_item_id: str, agent_run_id: str, attempt_type: str | None=None) -> str | None` (line 2071; public) — Latest attempt on an item whose grading evidence carries ``agent_run_id``.
+  - `supersede_self_grade_rows(self, attempt_id: str, *, superseded_by_evidence_id: str, clock: Clock | None=None) -> int` (line 2105; public)
+  - `pending_self_grade_regrade_attempts(self, limit: int | None=None) -> list[dict[str, Any]]` (line 2125; public)
+  - `update_attempt_grade(self, attempt_id: str, *, rubric_score: int, correctness: float, grader_confidence: float, manual_review: bool, manual_review_reason: str | None, error_type: str | None, clock: Clock | None=None) -> bool` (line 2155; public)
+  - `record_deferred_regrade(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, mastery_state: MasteryState, attempt_update: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]]=(), clock: Clock | None=None) -> None` (line 2195; public)
+  - `active_error_events(self) -> list[ActiveErrorEvent]` (line 2266; public)
+  - `active_errors_by_learning_object(self, learning_object_id: str) -> list[ActiveErrorEvent]` (line 2273; public) — The LO's active error events exactly as stored (no diagnosis overlay).
+  - `active_errors_by_learning_object_overlaid(self, learning_object_id: str) -> list[ActiveErrorEvent]` (line 2285; public) — The LO's active error events as the diagnosis overlay shows them.
+  - `active_error_events_overlaid(self) -> list[ActiveErrorEvent]` (line 2315; public) — Every active error event as the diagnosis overlay shows it.
+  - `_active_error_rows(self, learning_object_id: str) -> list[sqlite3.Row]` (line 2343; internal)
+  - `error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 2354; public) — The attempt's error events, as the causal consumers read them.
+  - `raw_error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 2374; public) — The persisted error-event rows exactly as written (no overlay).
+  - `all_error_events_by_attempt(self) -> dict[str, list[dict[str, Any]]]` (line 2388; public) — Decode the complete error-event ledger in one ordered scan.
+  - `attempt_ids_for_misconception(self, misconception_id: str, *, event_ids: Sequence[str]=(), limit: int=5) -> list[str]` (line 2416; public) — Attempt ids whose error events minted/fed this misconception, newest first.
+  - `insert_error_event(self, event: Mapping[str, Any]) -> None` (line 2453; public)
+  - `set_error_event_misconception(self, event_id: str, misconception_id: str | None, *, clock: Clock | None=None) -> bool` (line 2458; public) — Link (or unlink) an error event to a normalized registry belief.
+  - `insert_misconception(self, *, learning_object_id: str, statement: str, id: str | None=None, concept_id: str | None=None, signature: str | None=None, facet_ids: Iterable[str] | None=None, severity: float=0.0, status: str='active', source_error_event_ids: Iterable[str] | None=None, mechanism: str | None=None, operation: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, trigger_conditions: Iterable[str] | None=None, expected_signatures: Iterable[str] | None=None, first_divergence: Iterable[str] | None=None, non_applicable_controls: Iterable[str] | None=None, promotion_reason: str | None=None, correction_statement: str | None=None, correction_source_span_ids: Iterable[str] | None=None, provenance: Any=None, correction_provenance: Any=None, provenance_writer: str='misconception', clock: Clock | None=None) -> str` (line 2478; public) — Insert a registry belief.
+  - `_record_text_provenance(connection: Any, kind: str, record_id: str, text: Any, record: Any, writer: str, clock: Clock | None) -> None` (line 2575; internal) — One write-time provenance row for a text this transaction writes (diagnosis input provenance), when its writer passed a record.
+  - `misconception(self, misconception_id: str) -> MisconceptionRecord | None` (line 2587; public)
+  - `misconceptions_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('active', 'resolving')) -> list[MisconceptionRecord]` (line 2605; public)
+  - `misconceptions_for_concepts(self, concept_ids: Iterable[str], statuses: Iterable[str]=('active', 'resolving')) -> list[MisconceptionRecord]` (line 2637; public)
+  - `facet_ids_with_recall_evidence(self) -> set[str]` (line 2673; public) — Facet ids with legacy per-LO recall evidence (mvp-0.6 first-touch lock).
+  - `update_misconception(self, misconception_id: str, *, statement: str | None=None, signature: str | None=None, facet_ids: Iterable[str] | None=None, severity: float | None=None, status: str | None=None, append_source_error_event_ids: Iterable[str] | None=None, correction_statement: str | None=None, correction_source_span_ids: Iterable[str] | None=None, transition_source: str='repository', statement_provenance: Any=None, correction_provenance: Any=None, clock: Clock | None=None) -> MisconceptionRecord | None` (line 2688; public)
+  - `misconception_transition_events(self, misconception_id: str) -> list[dict[str, Any]]` (line 2794; public)
+  - `_projected_causal_candidates(self, learning_object_id: str, *, statement_normalized: str | None=None) -> list[dict[str, Any]]` (line 2807; internal) — Compatibility projection over P1's single hypothesis owner.
+  - `misconception_candidate_by_normalized(self, learning_object_id: str, statement_normalized: str) -> dict[str, Any] | None` (line 2977; public) — The open candidate for one normalized statement on an LO, if any.
+  - `misconception_candidates_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('candidate',)) -> list[dict[str, Any]]` (line 3016; public)
+  - `insert_misconception_candidate(self, *, learning_object_id: str, statement: str, statement_normalized: str, id: str | None=None, concept_id: str | None=None, signature: str | None=None, mechanism: str | None=None, operation: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, facet_ids: Iterable[str] | None=None, source_error_event_ids: Iterable[str] | None=None, surface_families: Iterable[str] | None=None, item_ids: Iterable[str] | None=None, occurrence_count: int=1, severity: float=0.0, provenance: Any=None, provenance_writer: str='misconception_candidate', clock: Clock | None=None) -> str` (line 3047; public) — Insert a holding-pen candidate.
+  - `update_misconception_candidate(self, candidate_id: str, *, severity: float | None=None, occurrence_count: int | None=None, append_source_error_event_ids: Iterable[str] | None=None, add_surface_families: Iterable[str] | None=None, add_item_ids: Iterable[str] | None=None, signature: str | None=None, mechanism: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, status: str | None=None, promoted_misconception_id: str | None=None, promotion_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 3113; public)
+  - `misconception_candidate_by_id(self, candidate_id: str) -> dict[str, Any] | None` (line 3263; public)
+  - `upsert_item_misconception_discrimination(self, row: ItemMisconceptionDiscrimination, *, clock: Clock | None=None) -> None` (line 3285; public)
+  - `discrimination_row(self, practice_item_id: str, misconception_id: str) -> ItemMisconceptionDiscrimination | None` (line 3327; public)
+  - `count_clean_attempts_since(self, learning_object_id: str, *, since: str, until: str, min_correctness: float, exclude_attempt_ids: Iterable[str]=()) -> int` (line 3340; public) — Count "clean" attempts on a learning object in ``(since, until]``.
+  - `clean_attempt_ids_since(self, learning_object_id: str, *, since: str, until: str, min_correctness: float) -> list[str]` (line 3381; public) — The attempts :meth:`count_clean_attempts_since` would count.
+  - `resolve_error_event(self, event_id: str, *, clock: Clock | None=None) -> bool` (line 3406; public)
+  - `insert_attempt_surprise(self, surprise: Mapping[str, Any]) -> None` (line 3420; public)
+  - `latest_attempt_surprise(self, attempt_id: str) -> dict[str, Any] | None` (line 3425; public)
+  - `attempt_innovation_samples(self) -> list[dict[str, Any]]` (line 3433; public) — Per-attempt rows for the difficulty-miscalibration monitor (spec §7.4).
+  - `calibration_duel_pairs(self) -> list[dict[str, Any]]` (line 3456; public) — Matched pre-outcome learner/model predictions on ordinary cold attempts.
+  - `answer_confidence_presence(self, *, exclude_attempt_ids: Iterable[str]=()) -> dict[str, int]` (line 3483; public) — How often an ordinary graded attempt carries a pre-answer confidence tap.
+  - `pending_followup_practice_item_ids(self, *, clock: Clock | None=None) -> list[str]` (line 3513; public) — Return queued follow-up item ids that have not yet been attempted.
+  - `pending_followup_practice_items(self, *, clock: Clock | None=None) -> list[dict[str, str]]` (line 3521; public) — Return queued follow-ups that have not yet been attempted.
+  - `create_remediation_episode(self, *, case_kind: str, case_ref: str, passages_shown: Sequence[Mapping[str, Any]]=(), state: str='diagnosis', clock: Clock | None=None) -> dict[str, Any]` (line 3579; public)
+  - `remediation_episode(self, episode_id: str) -> dict[str, Any] | None` (line 3605; public)
+  - `get_or_create_open_remediation_episode(self, *, case_kind: str, case_ref: str, states: Sequence[str], clock: Clock | None=None) -> dict[str, Any]` (line 3612; public) — The newest episode for the case in one of ``states``, else a new one.
+  - `update_remediation_episode(self, episode_id: str, *, clock: Clock | None=None, **changes: Any) -> dict[str, Any] | None` (line 3664; public)
+  - `open_remediation_episode_for_case(self, *, case_kind: str, case_ref: str) -> dict[str, Any] | None` (line 3691; public) — The newest episode for the case that has not yet recorded a primed attempt.
+  - `open_remediation_episode_for_primed_item(self, practice_item_id: str) -> dict[str, Any] | None` (line 3714; public)
+  - `open_remediation_episodes_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 3727; public) — Live episodes that bound this item as their primed or cold surface.
+  - `create_followup_task(self, *, kind: str, case_kind: str, case_ref: str, not_before: str, selected_item_id: str | None, source_attempt_id: str | None=None, remediation_episode_id: str | None=None, expires_at: str | None=None, context: Mapping[str, Any] | None=None, learning_object_id: str | None=None, measurement_opportunity_id: str | None=None, measurement_decision_reason: str | None=None, measurement_candidate_summary: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 3751; public) — Schedule one delayed follow-up.
+  - `get_or_create_cold_measurement_opportunity(self, *, lane: str, trigger_kind: str, trigger_ref: str, policy_version: str, learning_object_id: str | None=None, case_kind: str | None=None, case_ref: str | None=None, remediation_episode_id: str | None=None, source_attempt_id: str | None=None, certificate_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 3840; public) — Create the denominator row before candidate selection.
+  - `cold_measurement_opportunity(self, opportunity_id: str) -> dict[str, Any] | None` (line 3901; public)
+  - `record_cold_measurement_opportunity_decision(self, *, measurement_opportunity_id: str, decision: str, reason: str, followup_task_id: str | None=None, selected_item_id: str | None=None, candidate_summary: Mapping[str, Any] | None=None, scheduled_not_before: str | None=None, scheduled_expires_at: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 3911; public) — Settle an opportunity once, preserving the first terminal decision.
+  - `_decode_cold_measurement_opportunity_decision(row: Any) -> dict[str, Any]` (line 3961; internal)
+  - `cold_measurement_opportunity_decision(self, measurement_opportunity_id: str) -> dict[str, Any] | None` (line 3970; public)
+  - `followup_task(self, task_id: str) -> dict[str, Any] | None` (line 3987; public)
+  - `attach_followup_task_measurement_opportunity(self, task_id: str, measurement_opportunity_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 3992; public) — Prospectively attach lineage to a pre-151 task, without replacing it.
+  - `due_followup_tasks(self, *, clock: Clock | None=None) -> list[dict[str, Any]]` (line 4009; public) — The due tasks, each marked served, and the expired ones marked so.
+  - `active_followup_task_for_item(self, practice_item_id: str, *, kind: str | None=None, at: str | None=None) -> dict[str, Any] | None` (line 4057; public) — The due, unconsumed follow-up task selecting ``practice_item_id``.
+  - `followup_task_for_case(self, *, kind: str, case_ref: str) -> dict[str, Any] | None` (line 4088; public) — Any task of ``kind`` for ``case_ref``, whatever its status.
+  - `_release_cold_reservation(connection: Any, episode_id: str, now: str) -> bool` (line 4109; internal) — End a ``cold_scheduled`` episode whose cold retry has no open task left, so its cold item stops being reserved.
+  - `release_cold_reservation(self, episode_id: str, *, clock: Clock | None=None) -> bool` (line 4126; public) — :meth:`_release_cold_reservation` for the caller that ended the retry (a withdrawal).
+  - `_remediation_cold_item_ids(self, *, awaiting_primed: bool) -> set[str]` (line 4134; internal) — Cold items of live remediation episodes: those with a cold retry open, and (``awaiting_primed``) those still waiting for the primed attempt, before any task exists.
+  - `open_remediation_cold_item_ids(self) -> set[str]` (line 4154; public) — The wider reservation, for the learner-initiated selectors and the tutor (``find_practice``, the quick check, practice admission, AD's slot check, ``cold_administration_open``, protection): the cold item is held from the moment the episode chooses it, while its primed attempt is…
+  - `pending_remediation_cold_item_ids(self) -> set[str]` (line 4161; public) — The narrower reservation Today's routine queue honours: only an open cold retry.
+  - `open_followup_tasks_of_kind(self, kind: str, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 4168; public) — Tasks of ``kind`` still awaiting an attempt (``pending`` or ``served``).
+  - `open_followup_tasks_for_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 4188; public) — Every task of any kind still awaiting an attempt on this item, in ``active_followup_task_for_item``'s order (``serve_eligibility`` judges them all: the first due one is the task submit answers).
+  - `followup_tasks_of_kind(self, kind: str) -> list[dict[str, Any]]` (line 4204; public) — Every task of ``kind``, any status — the metric's denominator read.
+  - `expire_followup_task(self, task_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 4217; public) — Retire an un-taken task.
+  - `defer_followup_task(self, task_id: str, *, not_before: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 4238; public) — Push an un-taken task's ``not_before`` later.
+  - `consume_followup_task(self, task_id: str, attempt_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 4265; public)
+  - `followup_source_attempt(self, attempt_id: str) -> str | None` (line 4281; public) — Gate-decision attempt whose queued follow-up this attempt answered.
+  - `upsert_followup_rating(self, *, attempt_id: str, gate_attempt_id: str | None, useful: bool, source: str='user', clock: Clock | None=None) -> None` (line 4330; public)
+  - `followup_rating(self, attempt_id: str) -> dict[str, Any] | None` (line 4355; public)
+  - `gate_training_rows(self) -> list[dict[str, Any]]` (line 4367; public) — Every persisted gate evaluation LEFT JOINed to its usefulness rating (via gate_attempt_id) — the gate fitter's raw input, oldest first.
+  - `insert_question_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 4395; public) — Append a learner question.
+  - `update_question_event_answer(self, event_id: str, *, answer_md: str | None, question_type: str | None, facets: list[str] | None, hint_equivalent: bool, leak_suspected: bool, answer_status: str, signal_channel: str | None=None, source_context: Mapping[str, Any] | None=None, leak_overlap: float | None=None, remediation_episode_id: str | None=None, answered_at: str | None=None) -> bool` (line 4479; public) — Complete (or fail) a pending question event after the provider call.
+  - `question_events(self, *, context: str | None=None, note_id: str | None=None, practice_item_id: str | None=None, attempt_id: str | None=None, session_id: str | None=None, since: str | None=None, until: str | None=None, answer_status: str | None=None, resolution: str | None=None) -> list[dict[str, Any]]` (line 4538; public)
+  - `count_question_events(self, *, context: str | None=None, note_id: str | None=None, practice_item_id: str | None=None, attempt_id: str | None=None, session_id: str | None=None, since: str | None=None, answer_status: str | None=None, resolution: str | None=None) -> int` (line 4579; public)
+  - `question_event(self, event_id: str) -> dict[str, Any] | None` (line 4604; public)
+  - `set_question_event_rating(self, event_id: str, *, useful: bool) -> bool` (line 4611; public)
+  - `set_question_event_resolution(self, event_id: str, *, resolution: str) -> bool` (line 4620; public) — Learner-facing queue state (migration 102): open | resolved | dismissed.
+  - `count_hint_equivalent_question_events(self, practice_item_id: str, session_id: str | None, *, since: str | None=None, until: str | None=None, item_window_only: bool=False) -> int` (line 4631; public) — Substantive questions on this item in the hint-equivalence window.
+  - `insert_reveal_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 4688; public) — Append one answer-exposure entry to the cross-channel reveal ledger.
+  - `reveal_events(self, *, practice_item_id: str | None=None, remediation_episode_id: str | None=None, source_kind: str | None=None, attempt_id: str | None=None, since: str | None=None, until: str | None=None) -> list[dict[str, Any]]` (line 4726; public)
+  - `reveal_events_for_target(self, *, practice_item_id: str | None=None, learning_object_id: str | None=None, since: str | None=None, until: str | None=None) -> list[dict[str, Any]]` (line 4761; public) — Reveals on this item OR anywhere in this learning object (OR, not AND).
+  - `total_reveal_amount(self, practice_item_id: str, *, since: str | None=None, until: str | None=None, linked_attempt_id: str | None=None, linked_kinds: Sequence[str]=(), routine_basis_prefixes: Sequence[str]=(), routine_covered_from: str | None=None) -> float` (line 4806; public) — Summed reveal amount for one item in a window.
+  - `question_counts_by_facet(self) -> dict[str, int]` (line 4875; public) — Total question_events touching each classified facet.
+  - `set_question_event_saved_note(self, event_id: str, note_id: str | None) -> bool` (line 4888; public) — Persist the tutor-turn -> saved-note link (migration 027, spec §5).
+  - `insert_question_promotion(self, *, question_event_id: str, intent: str, route: str, attributed_facets: list[str] | None=None, question_nature: str | None=None, attempted_in_thread: bool | None=None, learner_claim_id: str | None=None, intervention_need_id: str | None=None, proposed_patch_id: str | None=None, saved_note_id: str | None=None, existing_practice_item_id: str | None=None, created_practice_item_id: str | None=None, created_learning_object_id: str | None=None, clock: Clock | None=None) -> str` (line 4904; public) — Insert the promotion ledger row for a tutor turn (§4 step 4).
+  - `update_question_promotion(self, question_event_id: str, *, route: Any=_UNSET, attributed_facets: Any=_UNSET, question_nature: Any=_UNSET, attempted_in_thread: Any=_UNSET, learner_claim_id: Any=_UNSET, intervention_need_id: Any=_UNSET, proposed_patch_id: Any=_UNSET, saved_note_id: Any=_UNSET, existing_practice_item_id: Any=_UNSET, created_practice_item_id: Any=_UNSET, created_learning_object_id: Any=_UNSET, clock: Clock | None=None) -> bool` (line 4962; public) — Fill created ids / transition the route on an existing promotion row.
+  - `question_promotion(self, event_id: str) -> dict[str, Any] | None` (line 5031; public)
+  - `question_promotions(self) -> list[dict[str, Any]]` (line 5039; public) — All promotion rows, oldest first (requested-floor + signal joins).
+  - `question_promotions_for_events(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5048; public) — Promotion rows keyed by question_event_id, for the tutor transcript.
+  - `question_promotions_for_patch(self, patch_id: str) -> list[dict[str, Any]]` (line 5065; public) — Promotion rows awaiting or completed through one proposal patch.
+  - `insert_question_promotion_request(self, *, question_event_id: str, intent: str, subject_id: str | None=None, learning_object_id: str | None=None, status: str='queued', stage: str='queued', batch_id: str | None=None, clock: Clock | None=None) -> str` (line 5081; public)
+  - `update_question_promotion_request(self, question_event_id: str, *, status: Any=_UNSET, stage: Any=_UNSET, batch_id: Any=_UNSET, promotion_route: Any=_UNSET, error_code: Any=_UNSET, error_message: Any=_UNSET, retryable: Any=_UNSET, subject_id: Any=_UNSET, learning_object_id: Any=_UNSET, clock: Clock | None=None) -> bool` (line 5118; public)
+  - `question_promotion_request(self, event_id: str) -> dict[str, Any] | None` (line 5168; public)
+  - `question_promotion_requests_for_events(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5179; public)
+  - `retry_question_promotion_request(self, event_id: str, *, clock: Clock | None=None) -> bool` (line 5199; public) — Re-open a failed durable request without losing its selected target.
+  - `requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str]=()) -> list[str]` (line 5222; public) — Practice items with a learner request not yet consumed by a later attempt.
+  - `queue_revision(self) -> dict[str, Any]` (line 5298; public)
+  - `bump_queue_revision(self, *, clock: Clock | None=None) -> int` (line 5308; public)
+  - `insert_rung_variant_request(self, request: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5329; public)
+  - `rung_variant_request(self, request_id: str) -> dict[str, Any] | None` (line 5366; public)
+  - `rung_variant_requests(self, request_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 5373; public) — Bulk-load rung requests used by ingest progress views.
+  - `update_rung_variant_request(self, request_id: str, *, clock: Clock | None=None, **fields: Any) -> bool` (line 5389; public)
+  - `retry_failed_rung_variant_request(self, request_id: str, *, clock: Clock | None=None) -> bool` (line 5408; public) — Return one failed generation request to its pre-generation state.
+  - `pending_rung_variant_requests(self, source_practice_item_id: str) -> list[dict[str, Any]]` (line 5434; public) — Non-terminal requests for one item — the per-item request lock.
+  - `insert_concept_animation(self, row: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5460; public)
+  - `concept_animation(self, animation_id: str) -> dict[str, Any] | None` (line 5504; public)
+  - `update_concept_animation(self, animation_id: str, *, clock: Clock | None=None, **fields: Any) -> bool` (line 5511; public)
+  - `concept_animations_for_concept(self, concept_id: str, limit: int=10) -> list[dict[str, Any]]` (line 5526; public)
+  - `pending_concept_animations(self, concept_id: str) -> list[dict[str, Any]]` (line 5539; public) — Non-terminal animations for one concept — the per-concept lock.
+  - `pending_gap_need_for_facets(self, facet_ids: Iterable[str]) -> dict[str, Any] | None` (line 5553; public) — A pending tutor-gap need already targeting any of ``facet_ids``.
+  - `update_attempt_surprise_actions(self, attempt_id: str, *, triggered_actions: list[str] | None=None, suppressed_actions: list[str] | None=None, gate_diagnostics: Mapping[str, Any] | None=None) -> bool` (line 5578; public)
+  - `insert_observation_template(self, template: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5608; public)
+  - `observation_templates(self, *, active_only: bool=False) -> list[dict[str, Any]]` (line 5635; public)
+  - `fetch_observation_template(self, template_id: str) -> dict[str, Any] | None` (line 5644; public)
+  - `insert_observation_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5652; public)
+  - `observation_events(self) -> list[dict[str, Any]]` (line 5682; public)
+  - `insert_learner_claim(self, claim: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5689; public)
+  - `record_learner_claim_application(self, claim_id: str, learning_object_id: str) -> int` (line 5716; public) — Record how many of the LO's attempts were applied when the claim was; that count.
+  - `learner_claims(self, *, include_superseded: bool=False) -> list[dict[str, Any]]` (line 5734; public) — The claims in force (newest first); ``include_superseded`` adds the replaced ones.
+  - `replace_learner_claim(self, claim: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 5751; public) — The replace seam: ``claim`` replaces the in-force claims of its source on its scope; its id.
+  - `delete_learner_claims(self, *, source: str, scope_type: str, scope_id: str | None=None) -> int` (line 5780; public) — Delete claims by (source, scope_type[, scope_id]) — the replace seam for init-wizard (global) and rung-variant (per-LO) re-claims.
+  - `record_attempt_outcome(self, *, attempt: Mapping[str, Any], evidence_rows: Iterable[Mapping[str, Any]], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 5803; public) — The live attempt's write.
+  - `insert_regrade_evidence(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, supersede_tiers: tuple[int, ...]=(1,), clock: Clock | None=None) -> None` (line 5865; public)
+  - `reset_learning_object_derived_state(self, learning_object_id: str) -> None` (line 5894; public)
+  - `clear_derived_projection_tables(self, table_names: Iterable[str]) -> dict[str, int]` (line 5947; public) — Atomically clear explicitly registered DERIVED projection tables.
+  - `replace_attempt_derived_outcome(self, *, attempt: Mapping[str, Any], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 5977; public)
+  - `facet_recall_state(self, learning_object_id: str, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 6106; public)
+  - `canonical_facet_recall_states(self) -> list[CanonicalFacetRecallState]` (line 6137; public)
+  - `canonical_facet_recall_state(self, facet_id: str, capability_key: str='shared', practice_item_id: str | None=None) -> CanonicalFacetRecallState | None` (line 6144; public)
+  - `facet_capability_evidence(self, facet_id: str, capability: str) -> FacetCapabilityEvidence | None` (line 6169; public)
+  - `facet_capability_evidence_all(self) -> list[FacetCapabilityEvidence]` (line 6179; public)
+  - `facet_capability_evidence_for_facet(self, facet_id: str) -> list[FacetCapabilityEvidence]` (line 6186; public)
+  - `facet_independence_evidence(self, facet_id: str) -> tuple[int, float]` (line 6196; public) — (#distinct direct surface/correlation groups, independent mass) for the independence-gated lock trigger (§3.4).
+  - `canonical_observation_ledger(self) -> list[dict[str, Any]]` (line 6214; public) — Every graded attempt in global chronological order with its non-superseded grading evidence (KM2 projection input).
+  - `canonical_observation_ledger_v2(self) -> list[dict[str, Any]]` (line 6234; public) — P0.3 (§4.3) authoritative-events ledger.
+  - `replace_canonical_facet_state(self, *, recall_rows: Iterable[Mapping[str, Any]], capability_rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 6250; public) — Make the canonical belief cache equal a derived projection.
+  - `replace_capability_residual_state(self, *, rows: Iterable[Mapping[str, Any]], algorithm_version: str, clock: Clock | None=None) -> None` (line 6338; public) — Make the derived capability-residual activation state equal a projection (§4.2).
+  - `capability_residual_states(self) -> list[dict[str, Any]]` (line 6385; public)
+  - `capability_residual_state(self, facet_id: str, capability: str) -> dict[str, Any] | None` (line 6392; public)
+  - `identifiability_watermark(self, subject_id: str) -> dict[str, Any] | None` (line 6404; public)
+  - `upsert_identifiability_watermark(self, *, subject_id: str, registry_hash: str, finding_count: int, clock: Clock | None=None) -> None` (line 6419; public)
+  - `facet_merge_map(self, *, include_in_flight: bool=False) -> dict[str, str]` (line 6445; public) — The settled merge map, retired facet -> survivor.
+  - `resolve_facet_merge(self, facet_id: str, merge_map: Mapping[str, str] | None=None) -> str` (line 6462; public) — Resolve a facet id transitively to its terminal survivor (§7.1).
+  - `insert_facet_merge(self, *, retired_facet_id: str, surviving_facet_id: str, proposal_item_id: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> None` (line 6468; public) — Record a pre-lock reviewed merge; reject a row that creates a cycle.
+  - `facet_recall_states(self, learning_object_id: str | None=None) -> list[FacetRecallState]` (line 6508; public)
+  - `facet_uncertainty_state(self, learning_object_id: str, facet_id: str) -> FacetUncertaintyState | None` (line 6525; public)
+  - `facet_uncertainty_states(self, learning_object_id: str | None=None, *, statuses: Iterable[str] | None=None) -> list[FacetUncertaintyState]` (line 6540; public)
+  - `upsert_facet_uncertainty_state(self, state: Mapping[str, Any]) -> None` (line 6566; public)
+  - `practice_item_quality_state(self, practice_item_id: str) -> PracticeItemQualityState | None` (line 6571; public)
+  - `practice_item_quality_states(self) -> dict[str, PracticeItemQualityState]` (line 6579; public) — All item-quality projections keyed for a scheduler vault sweep.
+  - `upsert_practice_item_quality_state(self, state: Mapping[str, Any]) -> None` (line 6591; public)
+  - `attempt_debug_payload(self, attempt_id: str) -> dict[str, Any] | None` (line 6596; public)
+  - `append_attempt_diagnosis_receipt(self, attempt_id: str, receipt: Mapping[str, Any]) -> dict[str, Any]` (line 6604; public) — Append one immutable P1 decision snapshot to the attempt payload.
+  - `ability_transition_event(self, attempt_id: str) -> dict[str, Any] | None` (line 6673; public)
+  - `learning_outcome_labels_for_source(self, attempt_id: str) -> list[dict[str, Any]]` (line 6681; public)
+  - `latest_whole_vault_rebuild(self) -> dict[str, Any] | None` (line 6693; public) — The latest rebuild that replayed every learning object (scope ``all``), or None.
+  - `record_derived_state_rebuild(self, *, scope: str, learning_object_ids: list[str], algorithm_version: str, rebuilt_learning_objects: int, replayed_attempts: int, canonical_projection_version: str | None=None, coverage_denominator_version: str | None=None, projection_switches: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 6702; public)
+  - `upsert_parameter_registry_entry(self, *, entry: dict[str, Any], clock: Clock | None=None) -> None` (line 6753; public)
+  - `parameter_registry_entry(self, path: str) -> dict[str, Any] | None` (line 6804; public)
+  - `parameter_registry_entries(self) -> list[dict[str, Any]]` (line 6811; public)
+  - `insert_parameter_registry_manifest(self, *, algorithm_version: str, manifest_hash: str, entries: dict[str, Any], clock: Clock | None=None) -> str | None` (line 6818; public) — Freeze one immutable manifest per algorithm version.
+  - `parameter_registry_manifest(self, algorithm_version: str) -> dict[str, Any] | None` (line 6849; public)
+  - `insert_sensitivity_certificate(self, *, certificate: dict[str, Any], clock: Clock | None=None) -> str` (line 6857; public)
+  - `sensitivity_certificates_for_path(self, path: str) -> list[dict[str, Any]]` (line 6883; public)
+  - `record_parameter_bind_event(self, *, path: str, bound_context: dict[str, Any], observation_ref: str | None=None, clock: Clock | None=None) -> str` (line 6891; public)
+  - `parameter_bind_events_for_path(self, path: str) -> list[dict[str, Any]]` (line 6913; public)
+  - `recent_surprise_signals(self, *, limit: int=200, exclude_attempt_id: str | None=None) -> list[dict[str, Any]]` (line 6921; public) — Most recent attempt_surprise signal rows for quantile-threshold resolution (newest first).
+  - `chosen_candidate_outcomes(self) -> list[dict[str, Any]]` (line 6949; public) — Slate candidates joined to their realized attempts (`learnloop eval` prediction-calibration input), oldest first.
+  - `prediction_interval_rows(self) -> list[dict[str, Any]]` (line 6968; public) — Per-attempt predicted score distribution joined to the realized outcome (`learnloop eval` coverage input), oldest first per LO.
+  - `retention_label_rows(self) -> list[dict[str, Any]]` (line 6997; public)
+  - `item_attempt_history(self) -> list[dict[str, Any]]` (line 7015; public) — Graded attempts ordered for per-item FSRS replay (`learnloop eval`).
+  - `candidate_propensity_rows(self) -> list[dict[str, Any]]` (line 7029; public)
+  - `insert_fitted_parameters(self, *, scope: str, params: Mapping[str, Any], algorithm_version: str, training_rows_count: int, training_data_through: str | None=None, metrics: Mapping[str, Any] | None=None, activate: bool=True, clock: Clock | None=None) -> str` (line 7041; public) — Insert a fitted parameter set; when ``activate``, atomically replace the currently active set for the scope (history rows are kept).
+  - `active_fitted_parameters(self, scope: str) -> dict[str, Any] | None` (line 7089; public)
+  - `list_fitted_parameters(self, scope: str | None=None, limit: int=50) -> list[dict[str, Any]]` (line 7102; public)
+  - `deactivate_fitted_parameters(self, scope: str, *, fitted_id: str | None=None, clock: Clock | None=None) -> int` (line 7114; public)
+  - `list_all_attempts(self) -> list[dict[str, Any]]` (line 7128; public) — Every practice attempt ordered for per-item replay (fitting jobs).
+  - `item_parameter_state(self, practice_item_id: str) -> ItemParameterState | None` (line 7137; public)
+  - `item_parameter_states(self) -> dict[str, ItemParameterState]` (line 7145; public)
+  - `_upsert_item_parameter_state_record(self, connection: sqlite3.Connection, state: ItemParameterState) -> None` (line 7150; internal)
+  - `latest_derived_state_rebuild(self) -> dict[str, Any] | None` (line 7176; public)
+  - `has_whole_vault_rebuild(self, *, algorithm_version: str) -> bool` (line 7187; public) — Whether a whole-vault rebuild (scope ``all``) ran under ``algorithm_version``.
+  - `latest_canonical_projection_rebuild(self) -> dict[str, Any] | None` (line 7201; public) — Latest rebuild that explicitly names its projection semantics.
+  - `upsert_intervention_need(self, need: Mapping[str, Any]) -> str` (line 7223; public)
+  - `pending_intervention_needs(self, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 7299; public)
+  - `intervention_need(self, need_id: str) -> dict[str, Any] | None` (line 7316; public)
+  - `update_intervention_need_diagnostic_focus(self, need_id: str, diagnostic_focus: dict[str, Any] | None, *, clock: Clock | None=None) -> bool` (line 7324; public) — Replace a need's diagnostic_focus snapshot in place (spec §6 reopen).
+  - `intervention_need_for_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 7350; public)
+  - `update_intervention_need_status(self, need_id: str, *, status: str, blocked_reason: str | None=None, clock: Clock | None=None) -> bool` (line 7363; public)
+  - `append_intervention_need_target_facets(self, need_id: str, facets: list[str], *, clock: Clock | None=None) -> bool` (line 7388; public) — Union extra facets into an existing need's target_facets in place.
+  - `intervention_needs_for_diagnostic_proposal(self, patch_id: str) -> list[dict[str, Any]]` (line 7420; public)
+  - `probe_state(self, learning_object_id: str) -> ProbeStateRecord | None` (line 7434; public)
+  - `upsert_probe_state(self, *, learning_object_id: str, status: str, algorithm_version: str, probe_phase_id: str | None=None, hypothesis_set_id: str | None=None, probe_attempts_completed: int=0, probe_attempts_target: int=3, families_converged: list[str] | None=None, entered_at: str | None=None, completed_at: str | None=None, clock: Clock | None=None) -> None` (line 7442; public)
+  - `insert_hypothesis_set(self, *, learning_object_id: str, probe_phase_id: str | None, hypotheses: list[Mapping[str, Any]], prior: Mapping[str, float], algorithm_version: str, prior_basis: str | None=None, clock: Clock | None=None) -> str` (line 7496; public)
+  - `fetch_hypothesis_set(self, hypothesis_set_id: str) -> dict[str, Any] | None` (line 7532; public)
+  - `insert_probe_episode(self, *, learning_object_id: str, status: str, trigger: str, hypothesis_set_id: str | None, active_state_segment_id: str | None, algorithm_version: str, target_decision: Mapping[str, Any] | None=None, origin: str | None=None, required_facets: list[str] | None=None, minimum_independent_observations: int=2, maximum_observations: int=4, entered_at: str | None=None, episode_id: str | None=None, target_contract_version_id: str | None=None, target_support_hash: str | None=None, calibration_model_id: str | None=None, calibration_model_hash: str | None=None, probe_mapping_version: str | None=None, clock: Clock | None=None) -> str` (line 7542; public)
+  - `probe_episode(self, episode_id: str) -> ProbeEpisodeRecord | None` (line 7607; public)
+  - `open_probe_episode(self, learning_object_id: str) -> ProbeEpisodeRecord | None` (line 7614; public) — The single open (`pending_items` / `in_progress`) episode for an LO, if any.
+  - `open_probe_episodes(self) -> dict[str, ProbeEpisodeRecord]` (line 7629; public)
+  - `probe_episodes_for_learning_object(self, learning_object_id: str) -> list[ProbeEpisodeRecord]` (line 7636; public)
+  - `update_probe_episode_status(self, episode_id: str, *, status: str, completion_reason: str | None=None, completed_at: str | None=None, active_state_segment_id: str | None=None, completion_posterior_json: str | None=None, completion_detail_json: str | None=None, clock: Clock | None=None) -> None` (line 7644; public)
+  - `latest_completed_probe_episode(self, learning_object_id: str) -> dict[str, Any] | None` (line 7684; public) — Latest complete episode's conclusion for entry-rung selection: completion_reason plus the argmax of the persisted completion posterior.
+  - `open_state_segment(self, *, learning_object_id: str, probe_episode_id: str | None, reason: str, opened_by_attempt_id: str | None=None, clock: Clock | None=None) -> str` (line 7712; public) — Mint the next state segment for an LO and persist its opening event.
+  - `state_segments_for_learning_object(self, learning_object_id: str) -> list[ProbeStateSegmentRecord]` (line 7756; public)
+  - `insert_probe_presentation(self, *, probe_episode_id: str, practice_item_id: str, state_segment_id: str, scheduler_candidate_id: str | None=None, probe_family_template_id: str | None=None, probe_family_template_version: int | None=None, instrument_card_id: str | None=None, instrument_card_version: int | None=None, instrument_card_snapshot: Mapping[str, Any] | None=None, target_hypothesis_pairs: list[list[str]] | None=None, target_facets: list[str] | None=None, posterior_at_selection: Mapping[str, float] | None=None, entropy_at_selection: float | None=None, expected_information_gain: float | None=None, selection_policy_version: str | None=None, selection_components: Mapping[str, Any] | None=None, expires_at: str | None=None, clock: Clock | None=None) -> str` (line 7766; public)
+  - `probe_presentation(self, presentation_id: str) -> ProbePresentationRecord | None` (line 7818; public)
+  - `probe_presentations_for_episode(self, probe_episode_id: str) -> list[ProbePresentationRecord]` (line 7825; public)
+  - `active_probe_presentation(self, probe_episode_id: str, practice_item_id: str | None=None) -> ProbePresentationRecord | None` (line 7833; public) — The most recent committed-but-unconsumed presentation for an episode.
+  - `active_probe_presentation_for_item(self, practice_item_id: str) -> ProbePresentationRecord | None` (line 7854; public) — The latest committed-but-unconsumed diagnostic presentation of an item, in any episode (Reader CA1: the item is being measured on your own, so nothing may locate it).
+  - `active_probe_presentation_for_session(self, session_id: str) -> ProbePresentationRecord | None` (line 7870; public) — The scheduler-backed assignment currently owned by one session.
+  - `mark_probe_presentation_served(self, presentation_id: str, *, clock: Clock | None=None) -> None` (line 7890; public)
+  - `consume_probe_presentation(self, presentation_id: str, *, clock: Clock | None=None) -> bool` (line 7903; public) — Atomically move a presentation to `submitted`; False if not consumable.
+  - `end_probe_presentation(self, presentation_id: str, *, end_reason: str, clock: Clock | None=None) -> None` (line 7919; public)
+  - `insert_probe_observation(self, *, attempt_id: str, posterior_before: Mapping[str, float], posterior_after: Mapping[str, float], entropy_before: float, entropy_after: float, realized_information_gain: float, independent_evidence_discount: float | None=None, contamination: Mapping[str, Any] | None=None, grader_channel: Mapping[str, Any] | None=None, updates_belief: bool=True, eligible_for_completion: bool=False, features: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 7936; public)
+  - `qualifying_probe_observation_count_for_session(self, session_id: str) -> int` (line 7986; public) — Qualifying diagnostic observations recorded in one session (§5.9 cap).
+  - `qualifying_probe_observation_count(self) -> int` (line 8010; public) — Qualifying diagnostic observations across the whole vault (§5.9 time-to-first-ordinary-practice ceiling), held ones excluded (review F3).
+  - `ordinary_practice_attempt_count(self) -> int` (line 8028; public) — Attempts recorded outside the diagnostic/exam channels (§5.9): the signal that ordinary practice has started in this vault.
+  - `probe_observation_for_attempt(self, attempt_id: str) -> ProbeObservationRecord | None` (line 8042; public) — One observation AS RECORDED (its receipt): existence checks and the grader-agreement regrade check read it.
+  - `probe_observations_for_episode(self, probe_episode_id: str, *, as_recorded: bool=False) -> list[dict[str, Any]]` (line 8053; public) — Observations joined through attempt → presentation → episode (§5.1).
+  - `list_probe_episodes(self, *, statuses: tuple[str, ...] | None=None) -> list[ProbeEpisodeRecord]` (line 8101; public) — All episodes, oldest first, optionally filtered by status.
+  - `upsert_probe_family_template(self, *, family_id: str, version: int, status: str, template: Mapping[str, Any], schema_hash: str, clock: Clock | None=None) -> None` (line 8117; public)
+  - `probe_family_template(self, family_id: str, version: int) -> ProbeFamilyTemplateRecord | None` (line 8140; public)
+  - `latest_probe_family_template(self, family_id: str, *, statuses: tuple[str, ...]=('provisional', 'trusted')) -> ProbeFamilyTemplateRecord | None` (line 8148; public)
+  - `update_probe_family_template_status(self, family_id: str, version: int, *, status: str, clock: Clock | None=None) -> None` (line 8163; public) — Lifecycle transition for one family version (§9.7, Checkpoint 4.7).
+  - `all_probe_family_templates(self) -> list[ProbeFamilyTemplateRecord]` (line 8182; public)
+  - `insert_probe_family_lifecycle_event(self, *, probe_family_template_id: str, probe_family_template_version: int, from_status: str, to_status: str, reason: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 8189; public)
+  - `probe_family_lifecycle_events(self, probe_family_template_id: str, probe_family_template_version: int | None=None) -> list[dict[str, Any]]` (line 8222; public)
+  - `insert_probe_instrument_card(self, *, card_id: str, version: int, probe_family_template_id: str, probe_family_template_version: int, learning_object_id: str, hypothesis_scope: list[str], card: Mapping[str, Any], compiled_likelihood_hash: str, clock: Clock | None=None) -> None` (line 8242; public)
+  - `probe_instrument_card(self, card_id: str, version: int) -> ProbeInstrumentCardRecord | None` (line 8280; public)
+  - `probe_instrument_cards_for_learning_object(self, learning_object_id: str) -> list[ProbeInstrumentCardRecord]` (line 8288; public)
+  - `link_probe_item_family(self, *, practice_item_id: str, instrument_card_id: str, instrument_card_version: int, generator_id: str | None=None, generator_version: str | None=None, generation_seed: str | None=None, instance_metadata: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` (line 8302; public)
+  - `probe_item_family_links(self, practice_item_id: str) -> list[ProbeItemFamilyLinkRecord]` (line 8338; public)
+  - `probe_items_for_card(self, instrument_card_id: str, instrument_card_version: int) -> list[str]` (line 8346; public)
+  - `upsert_probe_family_calibration(self, *, probe_family_template_id: str, probe_family_template_version: int, evidence_source: str, parameter_posterior: Mapping[str, Any], sample_size: int, effective_sample_size: float | None=None, generator_version: str | None=None, grader_version: str | None=None, clock: Clock | None=None) -> None` (line 8358; public)
+  - `probe_family_calibration(self, probe_family_template_id: str, probe_family_template_version: int, *, evidence_source: str, generator_version: str | None=None, grader_version: str | None=None) -> dict[str, Any] | None` (line 8423; public)
+  - `probe_family_calibrations_for_family(self, probe_family_template_id: str, probe_family_template_version: int) -> list[dict[str, Any]]` (line 8455; public) — Every calibration row for one family version, all evidence sources.
+  - `upsert_probe_item_calibration(self, *, practice_item_id: str, probe_family_template_id: str, probe_family_template_version: int, evidence_source: str, parameter_posterior: Mapping[str, Any], sample_size: int, effective_sample_size: float | None=None, grader_version: str | None=None, clock: Clock | None=None) -> None` (line 8476; public) — Item-instance residual layer under the family posterior (§9.7).
+  - `probe_item_calibration(self, practice_item_id: str, probe_family_template_id: str, probe_family_template_version: int, *, evidence_source: str, grader_version: str | None=None) -> dict[str, Any] | None` (line 8543; public)
+  - `insert_probe_regrade_check(self, *, attempt_id: str, probe_family_template_id: str, probe_family_template_version: int, original_outcome: str, regrade_outcome: str, grader_version: str | None=None, clock: Clock | None=None) -> str` (line 8577; public)
+  - `probe_regrade_checks(self, probe_family_template_id: str | None=None, probe_family_template_version: int | None=None) -> list[dict[str, Any]]` (line 8613; public)
+  - `upsert_probe_generation_need(self, *, probe_episode_id: str, learning_object_id: str, target_key: str, missing_capability: str, clock: Clock | None=None) -> str` (line 8636; public) — Create one deduplicated pending generation need per episode target.
+  - `probe_generation_needs(self, *, learning_object_id: str | None=None, probe_episode_id: str | None=None, status: str | None=None) -> list[ProbeGenerationNeedRecord]` (line 8669; public)
+  - `resolve_probe_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 8694; public)
+  - `upsert_diagnostic_surface_generation_need(self, *, learning_object_id: str, consumed_practice_item_id: str, target_key: str, missing_capability: str='diagnostic_probe_surface', facet_ids: list[str] | None=None, misconception_ids: list[str] | None=None, clock: Clock | None=None) -> str` (line 8707; public) — Record one deduplicated replacement need per consumed diagnostic surface.
+  - `diagnostic_surface_generation_needs(self, *, learning_object_id: str | None=None, status: str | None=None) -> list[dict[str, Any]]` (line 8760; public)
+  - `resolve_diagnostic_surface_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 8797; public)
+  - `upsert_synthesis_generation_need(self, *, subject_id: str, need_kind: str, target_key: str, missing_capability: str, facet_ids: list[str] | None=None, source_set_id: str | None=None, synthesis_run_id: str | None=None, detail: str | None=None, clock: Clock | None=None) -> str` (line 8810; public) — Record one deduplicated synthesis-time generation/coarsen need.
+  - `synthesis_generation_needs(self, *, subject_id: str | None=None, status: str | None=None, need_kind: str | None=None) -> list[dict[str, Any]]` (line 8863; public)
+  - `resolve_synthesis_generation_need(self, need_id: str, *, status: str='resolved', clock: Clock | None=None) -> None` (line 8904; public)
+  - `update_probe_item_family_metadata(self, *, practice_item_id: str, instrument_card_id: str, instrument_card_version: int, instance_metadata: Mapping[str, Any]) -> None` (line 8915; public)
+  - `probe_instance_ids_with_review_status(self, review_status: str) -> set[str]` (line 8934; public)
+  - `insert_probe_calibration_session(self, *, session_id: str, learning_object_ids: list[str], planned_episode_ids: list[str], time_budget_minutes: int, goal_id: str | None=None, clock: Clock | None=None) -> str` (line 8947; public)
+  - `probe_calibration_session(self, calibration_id: str) -> ProbeCalibrationSessionRecord | None` (line 8984; public)
+  - `active_probe_calibration_session(self, session_id: str) -> ProbeCalibrationSessionRecord | None` (line 8991; public)
+  - `end_probe_calibration_session(self, calibration_id: str, *, status: str, clock: Clock | None=None) -> None` (line 8999; public)
+  - `upsert_state_belief(self, *, scope_type: str, scope_id: str, belief_key: str, mean: float, variance: float, evidence_count: int, algorithm_version: str, subject: str | None=None, last_surprise: float | None=None, last_evidence_at: str | None=None, stale_after_days: int | None=None, clock: Clock | None=None) -> str` (line 9014; public) — Insert or update a `learner_state_beliefs` row.
+  - `state_beliefs(self, *, subject: str | None=None, scope_type: str | None=None, scope_id: str | None=None, belief_key: str | None=None) -> list[dict[str, Any]]` (line 9099; public)
+  - `insert_elicitation_event(self, event: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 9126; public)
+  - `record_decision_features(self, *, decision_id: str, decision_type: str, ability_vector: Mapping[str, Any], item_demand_vector: Mapping[str, Any] | None=None, context: Mapping[str, Any] | None=None, algorithm_version: str, clock: Clock | None=None) -> str` (line 9160; public)
+  - `decision_features(self, *, decision_id: str, decision_type: str) -> dict[str, Any] | None` (line 9206; public)
+  - `elicitation_events(self, session_id: str | None=None) -> list[dict[str, Any]]` (line 9217; public)
+  - `insert_scheduler_explanations(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, retention_limit: int | None=None, clock: Clock | None=None) -> None` (line 9230; public)
+  - `record_scheduler_slate(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, requested_limit: int | None=None, session_context: Mapping[str, Any] | None=None, config_snapshot: Mapping[str, Any] | None=None, selection_policy: str='selection_reward_v1', probe_presentation: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 9282; public)
+  - `latest_scheduler_slate_by_session(self, session_id: str) -> dict[str, Any] | None` (line 9464; public)
+  - `all_scheduler_slates(self) -> list[dict[str, Any]]` (line 9477; public) — Every scheduler slate in chronological order (for shadow reports).
+  - `scheduler_slate_candidates(self, slate_id: str) -> list[dict[str, Any]]` (line 9486; public)
+  - `latest_scheduler_explanation(self, practice_item_id: str) -> dict[str, Any] | None` (line 9498; public)
+  - `latest_scheduler_explanations_by_session(self, session_id: str) -> list[dict[str, Any]]` (line 9523; public)
+  - `create_session(self, *, energy: str | None=None, sleep_quality: float | None=None, available_minutes: int | None=None, notes_md_path: str | None=None, clock: Clock | None=None) -> str` (line 9535; public)
+  - `fetch_session(self, session_id: str) -> dict[str, Any] | None` (line 9560; public)
+  - `most_recent_open_session(self) -> dict[str, Any] | None` (line 9568; public)
+  - `most_recent_ended_at(self, *, stale_open_before: str | None=None) -> str | None` (line 9580; public) — When the learner was last really active outside an open session, or None.
+  - `latest_session_minutes(self) -> tuple[int, str] | None` (line 9623; public) — ``(minutes, started_at)`` of the latest session begun with minutes, or None.
+  - `session_day_streak(self, *, clock: Clock | None=None) -> dict[str, Any]` (line 9645; public) — Consecutive-day study streak derived from session start timestamps.
+  - `attempt_count_for_learning_objects(self, learning_object_ids: list[str]) -> int` (line 9686; public)
+  - `daily_qualifying_attempt_counts_for_learning_objects(self, learning_object_ids: list[str], *, days: int=14, not_before: str | None=None, clock: Clock | None=None) -> dict[date, int]` (line 9697; public) — Zero-filled, goal-scoped certification-capable attempts by local day.
+  - `practice_attempt_outcomes_for_items(self, item_ids: list[str]) -> list[dict[str, Any]]` (line 9758; public) — Time-ordered attempt outcomes for a set of practice items.
+  - `end_open_sessions_except(self, session_id: str, *, clock: Clock | None=None) -> int` (line 9791; public) — End every other open (stale) session at its own last activity.
+  - `end_session(self, session_id: str, *, clock: Clock | None=None) -> dict[str, Any] | None` (line 9819; public)
+  - `session_learner_answers(self, session_id: str) -> list[str]` (line 9837; public) — Every answer body recorded against this session, in submission order.
+  - `session_attempt_counts(self, session_id: str) -> dict[str, int] | None` (line 9860; public)
+  - `session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]` (line 9885; public) — The session's attempts, oldest first, with what the session finish reads (the same session window as :meth:`session_attempt_counts`).
+  - `review_session_rows(self) -> list[dict[str, Any]]` (line 9911; public) — Reverse-chronological session spine for the Review surface.
+  - `grading_correction_count_between(self, started_at: str, ended_at: str) -> int` (line 9943; public) — Count grading epochs after the original grade in a time window.
+  - `misconception_transition_counts_between(self, started_at: str, ended_at: str) -> dict[str, int]` (line 9971; public)
+  - `insert_hypothesis_event(self, *, event_type: str, claim_class: str, claim_type: str, claim_ref: str, claim_version: str, producer_version: str, surface: str, temperature: str, presentation_id: str | None=None, visible_at: str | None=None, suppression_reason: str | None=None, response_payload: Mapping[str, Any] | None=None, session_id: str | None=None, visit_id: str | None=None, claim_text: str | None=None, belief_kind: str | None=None, belief_id: str | None=None, surfaced_to_learner: bool=False, id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 9994; public)
+  - `hypothesis_event(self, event_id: str) -> dict[str, Any] | None` (line 10061; public)
+  - `find_hypothesis_presentation(self, *, claim_ref: str, claim_version: str, surface: str, session_id: str | None, visit_id: str | None) -> dict[str, Any] | None` (line 10068; public)
+  - `mark_hypothesis_visible(self, presentation_id: str, visible_at: str, *, claim_text: str | None=None, belief_kind: str | None=None, belief_id: str | None=None) -> dict[str, Any] | None` (line 10092; public) — Patch actual viewport exposure onto a debounced presentation.
+  - `soliciting_hypothesis_count(self, *, session_id: str | None=None, visit_id: str | None=None) -> int` (line 10138; public)
+  - `cold_hypothesis_count_for_visit(self, visit_id: str) -> int` (line 10157; public)
+  - `last_hypothesis_response_at(self, claim_ref: str, claim_version: str) -> str | None` (line 10169; public)
+  - `list_hypothesis_events(self) -> list[dict[str, Any]]` (line 10182; public)
+  - `purge_hypothesis_events(self) -> int` (line 10189; public)
+  - `record_surfaced_belief_presentation(self, *, id: str, belief_kind: str, belief_id: str, claim_text: str, surface: str, claim_class: str='diagnosis', claim_type: str='misconception', claim_version: str='surfaced-1', producer_version: str='surfaced_beliefs', clock: Clock | None=None) -> str` (line 10199; public) — Record a belief shown on a surface that does NOT dispatch claims.
+  - `insert_misconception_disposition(self, *, misconception_id: str, disposition: str, reason: str, replacement_misconception_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 10262; public) — Append one demotion/supersession to the append-only lifecycle stream.
+  - `misconception_dispositions(self, misconception_id: str | None=None) -> list[dict[str, Any]]` (line 10309; public)
+  - `surfaced_beliefs(self) -> list[dict[str, Any]]` (line 10331; public) — Distinct beliefs the learner was actually SHOWN (migration 132).
+  - `attempt_count(self) -> int` (line 10362; public) — Every attempt ever served — the "questions served" denominator.
+  - `surfaced_belief_withdrawals(self) -> list[dict[str, Any]]` (line 10376; public) — The A6 join: dispositions on beliefs the learner was actually SHOWN.
+  - `update_session_checkpoint(self, session_id: str, *, current_practice_item_id: str | None=None, current_answer: str | None=None, focus_block_state: Mapping[str, Any] | None=None, pending_grading_proposal: Mapping[str, Any] | None=None, readiness: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` (line 10452; public)
+  - `fetch_session_checkpoint(self, session_id: str) -> dict[str, Any] | None` (line 10493; public)
+  - `open_session_checkpoints_except(self, session_id: str) -> list[dict[str, Any]]` (line 10507; public) — The checkpoints of every OTHER open session (the ones :meth:`end_open_sessions_except` is about to end), decoded like :meth:`fetch_session_checkpoint`.
+  - `clear_session_checkpoint(self, session_id: str) -> bool` (line 10526; public)
+  - `clear_practice_checkpoint_for_item(self, session_id: str, practice_item_id: str) -> bool` (line 10535; public) — Clear this session's draft only while it still points at this card.
+  - `acknowledge_practice_checkpoint(self, session_id: str, *, practice_item_id: str, submission_id: str) -> str` (line 10551; public) — Atomically clear only the practice checkpoint the client received.
+  - `insert_agent_run(self, run: Mapping[str, Any]) -> str` (line 10595; public)
+  - `complete_agent_run(self, run_id: str, *, status: str='completed', error_message: str | None=None, usage: TokenUsage | None=None, clock: Clock | None=None) -> bool` (line 10635; public) — Finalize a run, optionally recording what the provider charged for it.
+  - `add_agent_run_usage(self, run_id: str, usage: TokenUsage) -> bool` (line 10687; public) — Add tokens to a run that was already finalized (A7).
+  - `completed_agent_run_by_context(self, purpose: str, input_context_hash: str) -> dict[str, Any] | None` (line 10717; public)
+  - `agent_run(self, run_id: str) -> dict[str, Any] | None` (line 10730; public)
+  - `proposal_batch_for_agent_run(self, agent_run_id: str) -> dict[str, Any] | None` (line 10738; public)
+  - `proposal_batch(self, patch_id: str) -> dict[str, Any] | None` (line 10751; public)
+  - `persist_proposal_batch(self, batch: Mapping[str, Any], items: Iterable[Mapping[str, Any]], *, join_pending: Mapping[str, Any] | None=None) -> str` (line 10759; public) — Write one proposal batch and its items.
+  - `proposal_item_dependencies(self, item_id: str) -> list[str]` (line 10946; public) — DB ids this proposal item depends on (source-ingestion §10.2).
+  - `set_proposal_item_dependency_status(self, item_id: str, *, dependency_status: str, block_reason: Mapping[str, Any] | None=None) -> None` (line 10961; public)
+  - `ensure_assessment_contract_version(self, *, practice_item_id: str, contract_hash: str, contract_json: str, schema_version: int, clock: Clock | None=None) -> str` (line 10983; public) — Content-addressed assessment-contract snapshot (§5.2), idempotent.
+  - `fetch_assessment_contract_version(self, version_id: str) -> dict[str, Any] | None` (line 11030; public)
+  - `fetch_assessment_contract_versions(self, version_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 11042; public) — Bulk-load content-addressed assessment contracts by id.
+  - `assessment_contract_versions_for_practice_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 11063; public) — Immutable contract snapshots ever presented for one PracticeItem.
+  - `append_measurement_contract_corrections(self, *, correction_set_id: str, source_practice_item_id: str, source_contract_version_ids: Iterable[str], corrected_practice_item_id: str, corrected_contract_version_id: str, consuming_projection_version: str, historical_evidence_policy: str, reason: str, correction: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` (line 11084; public) — Append one immutable correction edge per historical contract version.
+  - `measurement_contract_corrections(self, *, source_practice_item_id: str | None=None, correction_set_id: str | None=None) -> list[dict[str, Any]]` (line 11144; public)
+  - `effective_assessment_contract_version(self, source_version_id: str, *, projection_version: str) -> dict[str, Any] | None` (line 11171; public) — Resolve the contract a named projection is authorized to consume.
+  - `effective_assessment_contract_versions(self, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` (line 11204; public) — Bulk form of :meth:`effective_assessment_contract_version`.
+  - `superseded_measurement_item_ids(self) -> set[str]` (line 11227; public) — Attempted item files superseded by an accepted correction set.
+  - `consumer_pins_for_versions(self, version_ids: Sequence[str]) -> list[dict[str, Any]]` (line 11239; public) — UNION projection (§1.5) of every consumer pin whose ``target_contract_version_id`` is in ``version_ids``: probe episodes, assessment reservations, and administrations.
+  - `capture_local_transaction(self, *, source_id: str, client_idempotency_key: str, annotation: Mapping[str, Any] | None, anchor: Mapping[str, Any] | None, interaction_event: Mapping[str, Any], outbox: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 11276; public) — The one local-first capture transaction (§5.3): create annotation + version + anchor + segments, append the typed interaction event, and write ONE durable outbox row -- all in a SINGLE SQLite transaction.
+  - `insert_vault_epigraphs(self, *, subject_id: str, source_set_id: str | None, synthesis_run_id: str | None, mode: str, epigraphs: Sequence[Mapping[str, Any]], prompt_version: str, provider: str | None, model: str | None, clock: Clock | None=None) -> list[str]` (line 11407; public) — Persist one synthesis's batch.
+  - `recent_vault_epigraphs(self, *, subject_id: str | None=None, limit: int=12) -> list[dict[str, Any]]` (line 11454; public) — Newest first; ``subject_id=None`` spans the whole vault.
+  - `ensure_outcome_schema(self, *, slug: str, kind: str, clock: Clock | None=None) -> str` (line 11477; public)
+  - `ensure_outcome_schema_version(self, *, schema_id: str, version: int, observed_classes_json: str, true_classes_json: str, has_signature_error: bool, has_unanswered: bool, score_fraction_json: str, content_hash: str, clock: Clock | None=None) -> str` (line 11494; public)
+  - `fetch_outcome_schema_version(self, *, slug: str, version: int | None=None) -> dict[str, Any] | None` (line 11540; public)
+  - `fetch_outcome_schema_version_by_id(self, schema_id: str, version: int) -> dict[str, Any] | None` (line 11565; public)
+  - `find_calibration_model_by_hash(self, content_hash: str) -> dict[str, Any] | None` (line 11573; public)
+  - `calibration_models_by_hashes(self, content_hashes: Iterable[str]) -> dict[str, dict[str, Any]]` (line 11581; public) — Bulk calibration-model lookup for a whole projection replay.
+  - `insert_calibration_model(self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]], clock: Clock | None=None) -> str` (line 11600; public) — Insert one immutable model version + its per-Z Dirichlet alpha rows.
+  - `fetch_calibration_alphas(self, model_id: str) -> dict[str, dict[str, float]]` (line 11678; public)
+  - `calibration_alphas_by_model_ids(self, model_ids: Iterable[str]) -> dict[str, dict[str, dict[str, float]]]` (line 11686; public) — Bulk Dirichlet rows keyed by model id, preserving empty models.
+  - `find_calibration_models(self, *, scope_level: str | None=None, grader_identity_hash: Any=_UNSET, outcome_schema_id: Any=_UNSET, outcome_schema_version: Any=_UNSET, domain: Any=_UNSET, length_bucket: Any=_UNSET, status: str | None=None) -> list[dict[str, Any]]` (line 11714; public)
+  - `insert_raw_grade_event(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 11756; public)
+  - `raw_grade_events_for_observation(self, observation_id: str) -> list[dict[str, Any]]` (line 11804; public)
+  - `latest_raw_grade_identity(self, attempt_id: str) -> tuple[str | None, str | None] | None` (line 11812; public) — (prompt, output schema) calibration identity of the attempt's newest primary raw grade.
+  - `raw_grade_event(self, event_id: str) -> dict[str, Any] | None` (line 11823; public)
+  - `raw_grade_events_by_ids(self, event_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 11830; public) — Bulk raw-grade lookup for legacy certainty-LCB reconstruction.
+  - `insert_grade_interpretation(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 11846; public)
+  - `grade_interpretation(self, interpretation_id: str) -> dict[str, Any] | None` (line 11892; public)
+  - `grade_interpretations_for_observation(self, observation_id: str) -> list[dict[str, Any]]` (line 11899; public)
+  - `active_interpretation_for_observation(self, observation_id: str) -> dict[str, Any] | None` (line 11907; public)
+  - `pending_grade_reviews(self) -> list[dict[str, Any]]` (line 11919; public) — Active-head grade interpretations flagged for review or quarantined (§4.4, §5).
+  - `insert_grade_adjudication(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 11944; public)
+  - `insert_calibration_stream_sample(self, *, values: Mapping[str, Any], clock: Clock | None=None) -> str` (line 11976; public)
+  - `calibration_stream_samples(self, *, stream: str | None=None, sampling_frame_id: str | None=None) -> list[dict[str, Any]]` (line 12005; public)
+  - `list_all_probe_presentations(self) -> list[dict[str, Any]]` (line 12024; public)
+  - `list_all_assessment_contract_versions(self) -> list[dict[str, Any]]` (line 12031; public)
+  - `list_all_probe_instrument_cards(self) -> list[dict[str, Any]]` (line 12038; public)
+  - `latest_causal_hypothesis_for_episode(self, episode_key: str) -> dict[str, Any] | None` (line 12047; public)
+  - `append_causal_hypothesis(self, *, episode_key: str, attempt_id: str, learning_object_id: str, cause_scope: str, statement: str, statement_normalized: str, error_event_id: str | None=None, mechanism: str | None=None, operation: str | None=None, target_ref: Mapping[str, Any] | None=None, applicability: Mapping[str, Any] | None=None, postdictive_claims: Sequence[Mapping[str, Any]]=(), evidence: Mapping[str, Any] | None=None, repair_class_id: str | None=None, repair_class_basis: str | None=None, repair_class_unresolved_reason: str | None=None, status: str='candidate', generation_agent_run_id: str | None=None, model: str | None=None, hypothesis_id: str | None=None, provenance: Any=None, provenance_writer: str='causal_hypothesis', clock: Clock | None=None) -> dict[str, Any]` (line 12062; public) — Append a changed hypothesis version, or return the identical head.
+  - `causal_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None` (line 12209; public)
+  - `causal_hypotheses_for_attempt(self, attempt_id: str, *, latest_only: bool=True) -> list[dict[str, Any]]` (line 12217; public)
+  - `all_causal_hypotheses(self, *, latest_only: bool=True) -> list[dict[str, Any]]` (line 12245; public) — Return causal-hypothesis rows across episodes in stable order.
+  - `causal_hypotheses_for_learning_object(self, learning_object_id: str, *, statuses: Iterable[str]=('candidate',), latest_only: bool=True, statement_normalized: str | None=None, groups: Mapping[str, str] | None=None) -> list[dict[str, Any]]` (line 12277; public) — Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
+  - `causal_hypotheses_with_statement(self, statement_normalized: str, *, statuses: Sequence[str]=('candidate', 'validated'), cause_scope: str | None='learner_state') -> list[dict[str, Any]]` (line 12329; public) — Episode heads, vault-wide, of one exact statement class (Slice 2 T1).
+  - `causal_hypotheses_with_operations(self, *, latest_only: bool=True, require_operation: bool=True) -> list[dict[str, Any]]` (line 12367; public) — Hypothesis heads for taxonomy minting.
+  - `insert_missing_vocabulary_notes(self, notes: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 12403; public) — Append missing-vocabulary notes (migration 134, Aug A5).
+  - `missing_vocabulary_notes(self, *, source: str | None=None, learning_object_id: str | None=None, limit: int | None=None) -> list[dict[str, Any]]` (line 12461; public)
+  - `record_causal_repair_class_definitions(self, definitions: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> int` (line 12497; public) — Persist repair-class definitions durably (migration 133, Aug A2).
+  - `causal_repair_class_definitions(self, repair_class_ids: Sequence[str] | None=None) -> dict[str, dict[str, Any]]` (line 12546; public) — Durable repair-class definitions keyed by ``repair_class_id``.
+  - `retired_causal_mechanism_taxonomy_versions(self) -> dict[str, dict[str, Any]]` (line 12573; public) — Taxonomy versions withdrawn from new receipts, keyed by version id.
+  - `retire_causal_mechanism_taxonomy_version(self, taxonomy_version_id: str, *, reason: str, clock: Clock | None=None) -> bool` (line 12585; public) — Withdraw a taxonomy version from NEW receipts (migration 133).
+  - `insert_causal_mechanism_taxonomy_version(self, *, taxonomy_version_id: str, algorithm: str, min_cluster_size: int, source_head_hash: str, status: str, taxonomy: Mapping[str, Any], assignments: Sequence[Mapping[str, str]], clock: Clock | None=None) -> dict[str, Any]` (line 12614; public) — Insert an immutable taxonomy snapshot and its hypothesis assignments.
+  - `causal_mechanism_taxonomy_version(self, taxonomy_version_id: str, *, include_assignments: bool=False) -> dict[str, Any] | None` (line 12695; public)
+  - `latest_active_causal_mechanism_taxonomy(self) -> dict[str, Any] | None` (line 12727; public) — The taxonomy a NEW receipt may adopt.
+  - `causal_mechanism_assignment(self, taxonomy_version_id: str, hypothesis_id: str) -> str | None` (line 12756; public)
+  - `insert_causal_blind_prediction_bundle(self, *, bundle_id: str, hypothesis_id: str, hypothesis_version: int, practice_item_id: str, input_hash: str, predictions: Mapping[str, Any], model_revision: str, outcome_schema_version: str, blind_input_contract_version: str | None=None, generation_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 12774; public) — Insert one content-addressed, observation-blind prediction bundle.
+  - `causal_blind_prediction_bundle(self, bundle_id: str) -> dict[str, Any] | None` (line 12822; public)
+  - `causal_blind_prediction_bundles(self, *, practice_item_id: str | None=None, hypothesis_ids: Iterable[str] | None=None) -> list[dict[str, Any]]` (line 12843; public)
+  - `insert_probe_manipulation_audit(self, *, audit_id: str, source_kind: str, source_item_id: str, candidate_item_id: str, contract: Mapping[str, Any], structural_diff: Mapping[str, Any], adversarial_review: Mapping[str, Any] | None, status: str, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 12881; public)
+  - `probe_manipulation_audit(self, audit_id: str) -> dict[str, Any] | None` (line 12930; public)
+  - `insert_causal_probe_candidate(self, *, candidate_id: str, factor_id: str, practice_item_id: str, hypothesis_set_id: str, manipulation_audit_id: str, measurement_contract: Mapping[str, Any], blind_bundle_ids: Sequence[str], discrimination: Mapping[str, Any] | None=None, blind_input_contract_version: str | None=None, status: str='candidate', clock: Clock | None=None) -> dict[str, Any]` (line 12945; public)
+  - `causal_probe_candidate(self, candidate_id: str) -> dict[str, Any] | None` (line 13014; public)
+  - `update_causal_probe_candidate(self, candidate_id: str, *, status: str, discrimination: Mapping[str, Any] | None=None, reviewer: str | None=None, review_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 13036; public)
+  - `causal_probe_candidate_events(self, candidate_id: str) -> list[dict[str, Any]]` (line 13108; public)
+  - `record_causal_activity_classification(self, *, attempt_id: str, contamination_class: str, near_clone: bool=False, closes_pre_intervention_segment: bool | None=None, eligible_for_fsrs: bool | None=None, eligible_for_certification: bool | None=None, near_clone_basis: str | None=None, source: str='unknown', detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 13122; public) — Append one classification event; NEVER raises on a conflict (§4.2).
+  - `causal_activity_classification_events(self, attempt_id: str) -> list[dict[str, Any]]` (line 13222; public)
+  - `causal_activity_classification(self, attempt_id: str) -> dict[str, Any] | None` (line 13239; public) — The current classification, DERIVED from the event log (§4.2).
+  - `all_causal_activity_classifications(self) -> dict[str, dict[str, Any]]` (line 13255; public) — Resolve every attempt's current activity policy in one DB read.
+  - `insert_causal_cold_verification(self, *, verification_id: str, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], source_surface_family: str, cold_surface_family: str, avoided_affordances: Sequence[str], success: bool, capability_update: Mapping[str, Any], diagnosis_support_update: Mapping[str, Any], repair_effect_support: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 13281; public)
+  - `causal_cold_verification_for_attempt(self, cold_attempt_id: str) -> dict[str, Any] | None` (line 13348; public)
+  - `insert_causal_cold_outcome(self, *, outcome_id: str, outcome: str, followup_task_id: str | None, remediation_episode_id: str | None, case_kind: str | None, case_ref: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, repair_class_id: str | None, hypothesis_ids: Sequence[str], cold_verification_id: str | None, servable_opportunity: bool, duration_state: str | None, detail: Mapping[str, Any], store_version: str, scheduled_not_before: str | None, scheduled_expires_at: str | None, clock: Clock | None=None) -> dict[str, Any] | None` (line 13379; public)
+  - `_decode_causal_cold_outcome(row: Any) -> dict[str, Any]` (line 13439; internal)
+  - `causal_cold_outcome(self, outcome_id: str) -> dict[str, Any] | None` (line 13446; public)
+  - `causal_cold_outcome_for_task(self, followup_task_id: str) -> dict[str, Any] | None` (line 13454; public)
+  - `causal_cold_outcomes(self, *, outcome: str | None=None, remediation_episode_id: str | None=None) -> list[dict[str, Any]]` (line 13464; public)
+  - `expired_cold_retry_tasks_without_outcome(self) -> list[dict[str, Any]]` (line 13486; public) — Expired repair-lane retries whose terminal disposition is unrecorded.
+  - `insert_coldness_receipt(self, *, receipt_id: str, lane: str, stage: str, measurement_opportunity_id: str | None=None, followup_task_id: str | None, remediation_episode_id: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, cold_verification_id: str | None, dimensions: Mapping[str, Any], derived: Mapping[str, Any], telemetry_coverage: Mapping[str, Any], receipt_version: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 13513; public)
+  - `_decode_coldness_receipt(row: Any) -> dict[str, Any]` (line 13572; internal)
+  - `coldness_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 13581; public)
+  - `coldness_receipt_for_task_stage(self, followup_task_id: str, stage: str) -> dict[str, Any] | None` (line 13588; public)
+  - `coldness_receipt_for_opportunity_stage(self, measurement_opportunity_id: str, stage: str) -> dict[str, Any] | None` (line 13601; public)
+  - `coldness_receipts_for_task(self, followup_task_id: str) -> list[dict[str, Any]]` (line 13614; public)
+  - `coldness_receipt_for_verification(self, cold_verification_id: str) -> dict[str, Any] | None` (line 13628; public)
+  - `practice_attempts_between(self, *, after: str | None, before: str | None) -> list[dict[str, Any]]` (line 13638; public) — Attempts in an open interval, oldest first — the exposure-scan read.
+  - `practice_attempts_for_items_before(self, practice_item_ids: Sequence[str], *, before: str) -> list[dict[str, Any]]` (line 13668; public) — Prior administrations for a bounded candidate surface family.
+  - `remediation_episodes_created_between(self, *, after: str, before: str) -> list[dict[str, Any]]` (line 13697; public) — Episodes CREATED inside the interval, for the prepared-passages scan.
+  - `insert_certification_cold_probe_outcome(self, *, outcome_id: str, certificate_id: str, learning_object_id: str, blueprint_id: str, recipe_id: str, certificate_receipt: Mapping[str, Any], certified_at: str | None, followup_task_id: str, scheduled_not_before: str, scheduled_expires_at: str | None, horizon_days: float, window_days: float, probe_practice_item_id: str, probe_attempt_id: str, probe_surface_group: str, excluded_surface_groups: Sequence[str], held_out_basis: str, avoided_affordances: Sequence[str], verdict: str, indeterminate_reason: str | None, success: bool | None, correctness: float | None, success_threshold: float, assisted: bool, certificate_state_at_probe: str, store_version: str, policy_version: str, certification_algorithm_version: str | None, parameters: Mapping[str, Any], grading_source: str | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, grader_provider: str | None=None, grader_provider_revision: str | None=None, grading_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 13726; public)
+  - `certification_cold_probe_outcome_for_attempt(self, probe_attempt_id: str) -> dict[str, Any] | None` (line 13829; public)
+  - `certification_cold_probe_outcomes(self) -> list[dict[str, Any]]` (line 13842; public)
+  - `insert_causal_discriminating_observation(self, *, observation_id: str, factor_id: str, presentation_id: str, hypothesis_set_id: str, outcome: str, classified_as: Sequence[str], supports_open_set: bool, feature_source: str, observed_features: Mapping[str, Any], declared_keys_observed: bool, admitted: bool, admission_reason: str, support_scores: Mapping[str, Any], resolved_factor: bool, detail: Mapping[str, Any], decision_policy_version: str, formula_version: str, blind_bundle_ids: Sequence[str]=(), attempt_id: str | None=None, probe_attempt_id: str | None=None, candidate_id: str | None=None, support_authority: str | None=None, channel: str | None=None, admissible_as_independent: bool | None=None, inadmissibility_reason: str | None=None, contaminating_reveal_event_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 13854; public) — Append one discriminating-observation receipt (idempotent on id).
+  - `causal_discriminating_observation(self, observation_id: str) -> dict[str, Any] | None` (line 13949; public)
+  - `causal_discriminating_observations(self, *, factor_id: str | None=None, attempt_id: str | None=None, presentation_id: str | None=None, admitted_only: bool=False, probe_channel_only: bool=False) -> list[dict[str, Any]]` (line 13963; public) — Observation receipts, oldest first.
+  - `set_unresolved_cause_hypothesis_refs(self, factor_id: str, refs: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 14009; public) — Replace P0 duplicated candidate prose with P1 hypothesis references.
+  - `insert_unresolved_cause_factor(self, *, attempt_id: str, candidate_causes: Any, algorithm_version: str, observation_id: str | None=None, status: str='open', clock: Clock | None=None) -> str` (line 14031; public)
+  - `refresh_open_unresolved_cause_candidates(self, observation_id: str, candidate_causes: Any, *, clock: Clock | None=None) -> bool` (line 14068; public) — Replace an OPEN factor's candidate set when it differs (Slice 1 M2).
+  - `open_unresolved_cause_observation_ids(self) -> set[str]` (line 14095; public)
+  - `open_unresolved_cause_factor_attempts(self) -> dict[str, str]` (line 14105; public) — Each open observation-keyed factor's attempt id, by observation id.
+  - `unresolved_cause_observation_ids(self) -> set[str]` (line 14117; public) — Observation ids the projection sync must NOT (re-)insert a factor for.
+  - `unresolved_cause_factors_for_attempt(self, attempt_id: str, *, status: str='open') -> list[dict[str, Any]]` (line 14141; public) — Open unresolved-cause factors for an attempt (the §9.6 diagnostic card).
+  - `_presented_causal_candidates(self, candidates: Sequence[Any]) -> list[dict[str, Any]]` (line 14207; internal) — Hydrate P1 refs for presentation without duplicating stored claims.
+  - `open_unresolved_cause_factors(self, *, learning_object_id: str | None=None) -> list[dict[str, Any]]` (line 14258; public) — Open positional-ambiguity factors, optionally one learning object.
+  - `unresolved_cause_factors(self, *, status: str | None='open') -> list[dict[str, Any]]` (line 14307; public) — Vault-wide unresolved-cause factors (readiness reads; EVSI-2).
+  - `unresolved_cause_factor(self, factor_id: str) -> dict[str, Any] | None` (line 14333; public)
+  - `resolve_unresolved_cause_factor(self, factor_id: str, *, resolution_observation_ids: Iterable[str], clock: Clock | None=None) -> bool` (line 14360; public)
+  - `insert_causal_attribution_report(self, *, factor_id: str, attempt_id: str, response: str, candidate_index: int | None, payload: Mapping[str, Any] | None=None, report_id: str | None=None, clock: Clock | None=None) -> str` (line 14385; public)
+  - `retire_unresolved_cause_factor(self, observation_id: str, *, clock: Clock | None=None) -> None` (line 14418; public)
+  - `close_unresolved_cause_factor(self, factor_id: str, *, status: str, resolution_kind: str, resolution_detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> bool` (line 14435; public) — Close an OPEN factor with an explicit evidence label.
+  - `remediation_episodes_for_case_refs(self, case_refs: Sequence[str]) -> list[dict[str, Any]]` (line 14476; public) — Remediation episodes (any state) whose case_ref is in ``case_refs``.
+  - `causal_attribution_reports_for_factor(self, factor_id: str) -> list[dict[str, Any]]` (line 14501; public) — Learner self-reports on one factor's diagnostic card, oldest first.
+  - `primed_attempt_exists_for_learning_object(self, learning_object_id: str, *, since: str) -> bool` (line 14517; public) — Any primed attempt on the learning object at/after ``since``.
+  - `proposal_batches(self) -> list[dict[str, Any]]` (line 14539; public)
+  - `proposal_items(self, patch_id: str) -> list[dict[str, Any]]` (line 14546; public)
+  - `persona_gate_audit_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 14558; public) — Every proposal item carrying a §3.0 persona-gate audit (plan item 5.3).
+  - `proposal_item(self, item_id: str) -> dict[str, Any] | None` (line 14594; public)
+  - `proposal_items_by_client_id(self, client_item_id: str) -> list[dict[str, Any]]` (line 14602; public) — All proposal items sharing a ``client_item_id`` (used to dedupe re-proposals).
+  - `pending_invalid_proposal_items(self) -> list[dict[str, Any]]` (line 14612; public)
+  - `update_proposal_item_edited_payload(self, item_id: str, *, edited_payload: Mapping[str, Any], validation_status: str, validation_errors: list[str], clock: Clock | None=None) -> bool` (line 14623; public)
+  - `update_proposal_item_validation(self, item_id: str, *, validation_status: str, validation_errors: list[str], clock: Clock | None=None) -> bool` (line 14654; public)
+  - `pending_proposal_items(self, patch_id: str, item_ids: list[str] | None=None) -> list[dict[str, Any]]` (line 14683; public)
+  - `record_applied_proposal_item(self, *, proposal_item_id: str, change_batch: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]], clock: Clock | None=None) -> None` (line 14701; public)
+  - `record_content_events(self, events: Iterable[Mapping[str, Any]]) -> int` (line 14769; public)
+  - `content_events_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 14798; public)
+  - `active_source_events_for_entity(self, entity_type: str, entity_id: str) -> list[dict[str, Any]]` (line 14810; public)
+  - `reject_applied_proposal_item(self, proposal_item_id: str, *, content_event: Mapping[str, Any], decided_by: str='learner', clock: Clock | None=None) -> bool` (line 14848; public)
+  - `set_proposal_item_decision(self, patch_id: str, decision: str, item_ids: list[str] | None=None, *, decided_by: str='learner', clock: Clock | None=None) -> int` (line 14903; public)
+  - `delete_proposal_item(self, item_id: str, *, clock: Clock | None=None) -> bool` (line 14932; public) — Permanently remove a proposal item row, refreshing its batch status.
+  - `reset_proposal_item_decision(self, patch_id: str, item_ids: list[str] | None=None, *, clock: Clock | None=None) -> int` (line 14951; public) — Reset a decided item back to ``pending`` — the inbox "undo" action.
+  - `find_record(self, identifier: str) -> tuple[str, dict[str, Any]] | None` (line 14989; public)
+  - `_refresh_proposal_status(self, connection: sqlite3.Connection, patch_id: str, *, updated_at: str) -> None` (line 15027; internal)
+  - `_insert_practice_attempt(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 15061; internal)
+  - `_insert_grading_evidence(self, connection: sqlite3.Connection, attempt_id: str, row: Mapping[str, Any]) -> None` (line 15151; internal)
+  - `_insert_error_event(self, connection: sqlite3.Connection, event: Mapping[str, Any]) -> None` (line 15193; internal)
+  - `_insert_attempt_surprise(self, connection: sqlite3.Connection, surprise: Mapping[str, Any]) -> None` (line 15220; internal)
+  - `_record_attempt_practice_item_state(self, connection: sqlite3.Connection, state: PracticeItemState) -> None` (line 15250; internal) — A live attempt's write to its item's scheduling row.
+  - `_upsert_practice_item_state_record(self, connection: sqlite3.Connection, state: PracticeItemState) -> None` (line 15303; internal)
+  - `_upsert_mastery_state_record(self, connection: sqlite3.Connection, mastery: MasteryState) -> None` (line 15338; internal)
+  - `_upsert_facet_uncertainty_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 15369; internal)
+  - `_upsert_practice_item_quality_state(self, connection: sqlite3.Connection, state: Mapping[str, Any]) -> None` (line 15438; internal)
+  - `_upsert_ability_transition_event(self, connection: sqlite3.Connection, event: Mapping[str, Any]) -> None` (line 15465; internal)
+  - `_link_attempt_to_scheduler_candidate(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 15506; internal)
+  - `_insert_learning_outcome_labels(self, connection: sqlite3.Connection, attempt: Mapping[str, Any], *, algorithm_version: str, max_sources: int=20) -> None` (line 15554; internal)
+  - `attempted_practice_item_ids(self) -> set[str]` (line 15648; public) — Practice item ids that have at least one recorded attempt.
+  - `source_auto_build_state(self, source_id: str) -> dict[str, Any]` (line 15659; public) — The book's automatic-build generation and pending reading position (generation 0 and nothing pending when the book has no row yet).
+  - `advance_source_auto_build_generation(self, source_id: str, *, clock: Clock | None=None) -> int` (line 15675; public) — Undo: start a new generation (older builds never apply) and drop any pending reading position.
+  - `delete_source_artifact(self, source_id: str) -> dict[str, int]` (line 15704; public) — Remove a source artifact and everything derived from it, atomically.
+  - `upsert_maintenance_notice(self, *, notice_type: str, dedup_key: str, title: str, action: Mapping[str, Any], aging_policy: str, severity: str='info', subject_id: str | None=None, entity_type: str | None=None, entity_id: str | None=None, detail: Any=None, clock: Clock | None=None) -> str` (line 15857; public) — Insert or refresh a notice (idempotent on ``(notice_type, dedup_key)``).
+  - `maintenance_notices(self, *, subject_id: str | None=None, include_hidden: bool=False) -> list[dict[str, Any]]` (line 15915; public)
+  - `maintenance_notice(self, notice_id: str) -> dict[str, Any] | None` (line 15933; public)
+  - `set_maintenance_notice_status(self, notice_id: str, *, status: str, snoozed_until: str | None=None, bump_snooze: bool=False, clock: Clock | None=None) -> None` (line 15940; public)
+  - `resolve_maintenance_notice_if_detail(self, notice_id: str, *, detail_key: str, expected: Any, clock: Clock | None=None) -> bool` (line 15963; public) — Resolve a live notice only while its stored ``detail[detail_key]`` is still ``expected`` (one guarded statement: a write that changed the detail since the caller read it keeps the notice).
+  - `insert_synthesis_manifest(self, manifest: Mapping[str, Any]) -> str` (line 15988; public) — Persist an immutable synthesis manifest (§8.4).
+  - `synthesis_manifest(self, manifest_id: str) -> dict[str, Any] | None` (line 16046; public)
+  - `synthesis_manifest_by_hash(self, manifest_hash: str) -> dict[str, Any] | None` (line 16054; public)
+  - `completed_synthesis_manifests(self, source_set_id: str) -> list[dict[str, Any]]` (line 16062; public) — The manifest of each completed synthesis run of a source set, oldest first, with the run's ``proposal_id`` beside it.
+  - `insert_synthesis_run(self, *, manifest_id: str, mode: str, agent_run_id: str | None=None, proposal_id: str | None=None, span_request: Any=None, status: str='created', run_id: str | None=None, clock: Clock | None=None) -> str` (line 16078; public)
+  - `complete_synthesis_run(self, run_id: str, *, status: str, proposal_id: str | None=None, resolved_span_hashes: Any=None, coverage_decisions: Any=None, actual_usage: Any=None, clock: Clock | None=None) -> None` (line 16120; public)
+  - `synthesis_run(self, run_id: str) -> dict[str, Any] | None` (line 16155; public)
+  - `synthesis_run_for_agent_run(self, agent_run_id: str) -> dict[str, Any] | None` (line 16162; public)
+  - `save_synthesis_candidate(self, run_id: str, candidate: Mapping[str, Any]) -> None` (line 16170; public) — Stage model output before gates and proposal persistence.
+  - `save_synthesis_shard_result(self, *, shard_key: str, shard_ordinal: int, shard_count: int, result: Mapping[str, Any], manifest_hash: str | None=None, clock: Clock | None=None) -> None` (line 16180; public) — Persist one completed synthesis shard's model output (durable checkpoint).
+  - `synthesis_shard_result(self, shard_key: str) -> dict[str, Any] | None` (line 16220; public)
+  - `discard_synthesis_shard_result(self, shard_key: str, *, output: Mapping[str, Any] | None=None) -> None` (line 16231; public) — Delete one shard's saved output, so the next synthesis pays for a fresh answer instead of replaying one the quality gates rejected.
+  - `finalize_stale_synthesis_runs(self, *, before_iso: str, clock: Clock | None=None) -> list[str]` (line 16250; public) — Mark abandoned non-terminal synthesis runs failed (startup hygiene).
+  - `synthesis_run_introducing_entity(self, entity_type: str, entity_id: str) -> dict[str, Any] | None` (line 16280; public) — The synthesis run whose proposal introduced an entity (patch -> run -> manifest lineage, §9.2).
+  - `insert_apply_intent(self, *, proposed_patch_id: str, item_ids: list[str], targets: list[Mapping[str, Any]], db_plan: list[Mapping[str, Any]], intent_id: str | None=None, clock: Clock | None=None) -> str` (line 16309; public) — Durably commit the write-ahead apply intent BEFORE any YAML is staged (§10.2).
+  - `mark_apply_intent_applied(self, intent_id: str, *, clock: Clock | None=None) -> None` (line 16344; public)
+  - `pending_apply_intents(self) -> list[dict[str, Any]]` (line 16352; public)
+  - `outstanding_apply_intents(self) -> list[dict[str, Any]]` (line 16359; public) — Intents that refuse the next accept: ``pending`` (mid-flight) and ``conflicted`` (K3.5).
+  - `apply_intent(self, intent_id: str) -> dict[str, Any] | None` (line 16371; public)
+  - `mark_apply_intent_conflicted(self, intent_id: str, conflicts: list[Mapping[str, Any]], *, clock: Clock | None=None) -> None` (line 16376; public) — Recovery found target files changed since the intent (K3.5): nothing was written.
+  - `mark_apply_intent_rolled_back(self, intent_id: str, *, clock: Clock | None=None) -> None` (line 16389; public) — The accept stopped before writing any file (K3.5: a target changed under it).
+  - `mark_apply_intent_set_aside(self, intent_id: str, *, clock: Clock | None=None) -> bool` (line 16399; public) — The owner kept the files as they are (K3.5); True when a conflicted intent was settled.
+  - `_grading_epoch_transitions(self, rows: list[sqlite3.Row]) -> dict[str, list[dict[str, Any]]]` (line 16419; internal) — Group ordered ``grading_evidence`` rows into per-attempt epochs and return, per attempt, the ordered old→new transitions (each grading epoch after the first).
+  - `regrade_epoch_transitions(self) -> list[dict[str, Any]]` (line 16465; public) — Every post-original grading epoch across all attempts, as an old→new transition with the attempt's item/LO references and the epoch time.
+  - `attempt_regrade_marker(self, attempt_id: str) -> dict[str, Any] | None` (line 16488; public) — The most recent regrade (old→new score) persisted for one attempt, or ``None`` when the attempt has only its original grading epoch.
+  - `derived_state_rebuild_version_changes(self) -> list[dict[str, Any]]` (line 16511; public) — Recalibration boundaries: each derived-state rebuild whose ``algorithm_version`` OR ``canonical_projection_version`` differs from the immediately preceding rebuild.
+  - `record_depth_transition_atomic(self, *, commitment_id: str, milestone_slug: str, milestone_detail_json: str | None, transition_detail_json: str | None, receipt_key: str, fork_spec: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 16631; public) — B4: append the step-7 ``depth_milestone_reached`` + ``depth_transition_committed`` events AND (when supplied) the step-6 fork lineage/edge/state in ONE transaction.
+  - `confirm_golden_path_atomic(self, *, receipt_key: str, blueprint_version_id: str, goal_id: str, goal_contract: Mapping[str, Any], commitment: Mapping[str, Any], run: Mapping[str, Any], reservation: Mapping[str, Any] | None=None, fault_hook: Any=None, clock: Clock | None=None) -> dict[str, Any]` (line 16766; public) — The ONE atomic confirmation (spec_p2 §3.1).
+  - `golden_path_runs_all(self) -> list[dict[str, Any]]` (line 17022; public)
+  - `ensure_diagnostic_pack(self, *, pack_slug: str, blueprint_version_id: str, content_hash: str, clock: Clock | None=None) -> dict[str, Any]` (line 17034; public) — Register/return the stable diagnostic pack row.
+  - `register_diagnostic_pack_card(self, *, pack_id: str, card_slug: str, coverage_json: str, content_hash: str, instrument_ref: str | None=None, clock: Clock | None=None) -> str` (line 17078; public) — Register a candidate diagnostic-purpose card.
+  - `set_diagnostic_pack_card_admission(self, *, pack_id: str, card_slug: str, admission_status: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 17113; public)
+  - `transition_diagnostic_pack(self, *, pack_id: str, status: str, kind: str, detail_json: str | None=None, author: str='owner', clock: Clock | None=None) -> None` (line 17141; public)
+  - `diagnostic_pack(self, pack_id: str) -> dict[str, Any] | None` (line 17167; public)
+  - `diagnostic_packs_for_blueprint(self, blueprint_version_id: str) -> list[dict[str, Any]]` (line 17174; public)
+  - `diagnostic_pack_cards_for(self, pack_id: str) -> list[dict[str, Any]]` (line 17182; public)
+  - `diagnostic_pack_events_for(self, pack_id: str) -> list[dict[str, Any]]` (line 17190; public)
+  - `pin_diagnostic_pack(self, *, run_id: str, pack_id: str, goal_contract_version_id: str, visible_cap: int, probe_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 17198; public) — Pin exactly one reviewed pack to a run at diagnostic entry (§5.2).
+  - `diagnostic_pack_pin_for_run(self, run_id: str) -> dict[str, Any] | None` (line 17235; public)
+  - `failure_triage_routes(self, *, active_only: bool=True) -> list[dict[str, Any]]` (line 17244; public)
+  - `failure_triage_route_for_reason(self, reason: str) -> dict[str, Any] | None` (line 17256; public)
+  - `failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]` (line 17265; public)
+  - `insert_causal_probe_decision_receipt(self, *, factor_id: str, decision: str, reason: str, repair_status: str, decision_policy_version: str, formula_version: str, inputs: Mapping[str, Any], parameters: Mapping[str, Any], hypothesis_ids: Sequence[str]=(), repair_class_ids: Sequence[str]=(), blind_bundle_ids: Sequence[str]=(), machine_check_ids: Sequence[str]=(), learning_object_id: str | None=None, attempt_id: str | None=None, misconception_id: str | None=None, candidate_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 17282; public) — Append one probe decision.
+  - `_decode_causal_probe_decision_receipt(self, row: sqlite3.Row) -> dict[str, Any]` (line 17366; internal)
+  - `causal_probe_decision_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 17384; public)
+  - `causal_probe_decision_receipts(self, *, factor_id: str | None=None, decision: str | None=None, limit: int=200) -> list[dict[str, Any]]` (line 17396; public)
+  - `_decode_causal_shadow_selection_receipt(self, row: sqlite3.Row) -> dict[str, Any]` (line 17433; internal)
+  - `causal_shadow_selection_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 17448; public)
+  - `causal_shadow_selection_receipts(self, *, factor_id: str | None=None, limit: int=500) -> list[dict[str, Any]]` (line 17460; public)
+  - `median_attempt_latency_seconds(self) -> tuple[float | None, int]` (line 17486; public) — Pooled median of captured attempt latencies + the sample count.
+  - `record_causal_probe_preference(self, *, scope: str, scope_ref: str, preference: str, source: str, session_id: str | None=None, expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 17514; public) — Persist one learner probe preference ("Not now" and friends).
+  - `causal_probe_preference(self, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, at: str | None=None) -> dict[str, Any] | None` (line 17561; public) — The newest applicable, unexpired preference across the given scopes.
+  - `enqueue_causal_machine_check(self, *, check_id: str, kind: str, payload: Mapping[str, Any], source: str, learning_object_id: str | None=None, factor_id: str | None=None, attempt_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 17607; public) — Queue one machine-side obligation, idempotently.
+  - `causal_machine_check(self, check_id: str) -> dict[str, Any] | None` (line 17661; public)
+  - `causal_machine_checks(self, *, status: str | None='pending', learning_object_id: str | None=None, factor_id: str | None=None) -> list[dict[str, Any]]` (line 17673; public)
+  - `close_causal_machine_check(self, check_id: str, *, status: str, resolution: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 17709; public)
+  - `consumed_followup_task_for_attempt(self, attempt_id: str, *, kind: str | None=None) -> dict[str, Any] | None` (line 17739; public) — The delayed task this attempt discharged, with its carried context.
+  - `causal_probe_candidates_for_factor(self, factor_id: str, *, statuses: Sequence[str] | None=None) -> list[dict[str, Any]]` (line 17769; public) — Probe candidates minted for one unresolved-cause factor.
+  - `insert_diagnosis_adjudication(self, *, values: Mapping[str, Any], adjudication_id: str | None=None, clock: Clock | None=None) -> str` (line 17808; public) — Append one immutable verdict on a diagnosis (A4).
+  - `diagnosis_adjudication(self, adjudication_id: str) -> dict[str, Any] | None` (line 17868; public)
+  - `diagnosis_adjudications_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]` (line 17878; public) — The whole supersession chain for one attempt, oldest first.
+  - `active_diagnosis_adjudication(self, attempt_id: str) -> dict[str, Any] | None` (line 17894; public) — The head of the chain: the row nothing else supersedes.
+  - `adjudicated_attempt_ids(self) -> set[str]` (line 17915; public) — Attempts already carrying a verdict — the queue's exclusion set.
+  - `list_diagnosis_adjudications(self, *, active_only: bool=True, attempt_ids: Sequence[str] | None=None, verdicts: Sequence[str] | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, queue_reasons: Sequence[str] | None=None, limit: int | None=None) -> list[dict[str, Any]]` (line 17924; public) — Scoreboard/eval read.
+  - `insert_discrimination_profile_match(self, *, attempt_id: str, practice_item_id: str, outcome: str, attempt_failed: bool, profile_id: str | None=None, misconception_id: str | None=None, evidence: str | None=None, grading_prompt_version: str | None=None, agent_run_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 17991; public) — Record A5's per-attempt profile judgement; ``None`` when one exists.
+  - `discrimination_profile_match_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 18041; public) — Every recorded A5 judgement, oldest first.
+  - `discrimination_profile_match(self, attempt_id: str) -> dict[str, Any] | None` (line 18059; public)
+  - `insert_contrast_pair_serving(self, *, pair_key: str, practice_item_id: str, counterpart_item_id: str, serve_position: int, randomization_seed: str, randomization_value: float, separated: bool, adjacency_basis: str, session_id: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 18067; public) — Record which member of an A4 pair this session's queue offered first.
+  - `contrast_pair_serving_rows(self, *, since: str | None=None, pair_key: str | None=None) -> list[dict[str, Any]]` (line 18116; public)
+  - `insert_error_hunt_outcome(self, *, attempt_id: str, practice_item_id: str, clean_solution: bool, planted_total: int, planted_repaired: int, planted_flagged_not_repaired: int, planted_missed: int, false_positive_reports: int, misconception_candidate_id: str | None=None, facet_failure_suppressed: bool=False, grading_prompt_version: str | None=None, id: str | None=None, clock: Clock | None=None) -> str | None` (line 18139; public) — Record one A3 attempt's outcome; ``None`` when the attempt already has one.
+  - `error_hunt_outcome_rows(self, *, since: str | None=None) -> list[dict[str, Any]]` (line 18188; public)
+  - `error_hunt_outcome(self, attempt_id: str) -> dict[str, Any] | None` (line 18204; public)
+  - `insert_persona_realism_run(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 18214; public) — Append one blinded B2 matcher result.
+  - `persona_realism_run_rows(self, *, generator_family: str | None=None, persona_source: str | None=None, persona_corpus_hash: str | None=None) -> list[dict[str, Any]]` (line 18265; public)
+  - `latest_persona_realism_run(self, *, generator_family: str | None=None, persona_source: str | None=None, persona_corpus_hash: str | None=None) -> dict[str, Any] | None` (line 18295; public)
+  - `real_attempt_trace_rows(self, *, limit: int=500) -> list[dict[str, Any]]` (line 18309; public) — Recent non-empty real learner traces for B2, newest first.
+  - `insert_diagnostic_eval_run(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 18333; public)
+  - `insert_diagnostic_eval_case(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str` (line 18374; public)
+  - `diagnostic_eval_run_rows(self) -> list[dict[str, Any]]` (line 18443; public)
+  - `diagnostic_eval_case_rows(self, *, run_id: str | None=None, licensed_only: bool=False) -> list[dict[str, Any]]` (line 18453; public)
+  - `insert_diagnostic_augmentation_receipt(self, values: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` (line 18481; public) — Append Phase-C provenance; idempotent for one live attempt.
+  - `diagnostic_augmentation_receipt_for_attempt(self, attempt_id: str) -> dict[str, Any] | None` (line 18524; public) — The Phase-C receipt for one graded attempt, or None.
+  - `diagnostic_augmentation_receipt_rows(self) -> list[dict[str, Any]]` (line 18547; public)
 
 ### Module constants
 
-- `_UNSET` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 57)
-- `OBSERVATION_CHANNEL_BLIND_PROBE` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 61)
-- `OBSERVATION_CHANNEL_LEARNER_QUESTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 63)
-- `ITEM_WINDOW_QUESTION_CONTEXTS` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 69)
-- `_UNDO_OF` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 74)
-- `_STANDING_DELETE` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 84)
-- `_FACET_RECALL_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 177)
-- `_FACET_CAPABILITY_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 186)
-- `_CAPABILITY_RESIDUAL_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 196)
-- `_REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 220)
-- `CANONICAL_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 236)
-- `REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 240)
-- `_MEASUREMENT_EVENT_KINDS` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 395)
+- `_UNSET` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 56)
+- `OBSERVATION_CHANNEL_BLIND_PROBE` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 60)
+- `OBSERVATION_CHANNEL_LEARNER_QUESTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 62)
+- `ITEM_WINDOW_QUESTION_CONTEXTS` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 68)
+- `_FACET_RECALL_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 131)
+- `_FACET_CAPABILITY_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 140)
+- `_CAPABILITY_RESIDUAL_PROJECTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 150)
 
 ## Internal implementation anchors
 
-- `_json(data: Any) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 133)
-- `_loads(value: str | None, default: Any) -> Any` ([source](../../../../../../src/learnloop/db/repositories.py), line 137)
-- `_proposal_item_identity(client_item_id: Any, payload: Any, edited_payload: Any) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 143) — What a proposal item would create: the edited payload's ``id`` when it was edited, else the payload's, else its client id (no ``id`` in either).
-- `_projection_id(prefix: str, *identity: object) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 153) — Content-addressed identity for a row recreated by deterministic replay.
-- `class _ProjectionTable` ([source](../../../../../../src/learnloop/db/repositories.py), line 164) — A derived table a projection persists whole.
-- `class _RebuildStamps` ([source](../../../../../../src/learnloop/db/repositories.py), line 208) — A derived table whose stamps a rebuild keeps on the cells it leaves as they were: ``compared`` says what a cell is (a projected stamp included), ``stamps`` say when it last changed.
-- `class _ProjectionChanges` ([source](../../../../../../src/learnloop/db/repositories.py), line 244)
-- `_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, cells: Sequence[Mapping[str, Any]]) -> _ProjectionChanges` ([source](../../../../../../src/learnloop/db/repositories.py), line 253) — Compare a projection with the stored rows, cell by cell.
-- `_apply_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, changes: _ProjectionChanges, *, now: str) -> None` ([source](../../../../../../src/learnloop/db/repositories.py), line 297)
-- `_write_projection_on_change(connection: sqlite3.Connection, projections: Sequence[tuple[_ProjectionTable, Sequence[Mapping[str, Any]]]], *, now: str) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 333) — Persist whole projections, writing only the cells that changed.
-- `_non_negative_tokens(value: Any) -> int` ([source](../../../../../../src/learnloop/db/repositories.py), line 375) — Coerce a token count for a NOT NULL DEFAULT 0 column (migration 131).
-- `_reading_request(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 415) — A book's pending reading request (``source_auto_build_state``, migration 199).
-- `_decode_exposure_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 429)
-- `_decode_surface(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 436)
-- `_insert_probe_presentation_row(connection: sqlite3.Connection, *, presentation_id: str, now: str, values: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/db/repositories.py), line 443) — Insert one frozen diagnostic assignment using the caller's transaction.
-- `_queued_followup_action(action: Any) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 496)
-- `class _InjectedLineageFault(RuntimeError)` ([source](../../../../../../src/learnloop/db/repositories.py), line 938) — Fault injected inside :meth:`Repository.write_administration_lineage_atomic` to prove the raw-event transaction rolls back as one unit (§7.4 fault injection).
-- `_roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 943) — Roll back after ``failure`` without replacing it; report success.
-- `class _PinnedConnection` ([source](../../../../../../src/learnloop/db/repositories.py), line 966) — Proxy that hands the same SQLite connection to every repository call.
-- `_bindable_plan_presentation(connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 1045) — Router R2a: the ``plan_presentation_id`` an attempt may record, or None.
-- `_decode_diagnosis_adjudication(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26495)
-- `_decode_persona_realism_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26505)
-- `_decode_diagnostic_eval_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26511)
-- `_decode_diagnostic_eval_case(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26519)
-- `_decode_diagnostic_augmentation_receipt(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26539)
-- `_decode_source_conflict(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26557)
-- `_decode_maintenance_notice(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26563)
-- `_decode_synthesis_manifest(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26570)
-- `_decode_synthesis_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26588)
-- `_decode_apply_intent(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26601)
-- `_practice_item_state(row: sqlite3.Row) -> PracticeItemState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26611)
-- `_mastery_state(row: sqlite3.Row) -> MasteryState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26625)
-- `_facet_recall_state(row: sqlite3.Row) -> FacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26637)
-- `_canonical_facet_recall_state(row: sqlite3.Row) -> CanonicalFacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26658)
-- `_required_observation_scope(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 26679) — An A6 observation's scope, which the caller must state (Meas §3.A6).
-- `_facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence` ([source](../../../../../../src/learnloop/db/repositories.py), line 26691)
-- `_capability_residual_row(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26710)
-- `_resolve_merge(facet_id: str, merge_map: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 26732) — Follow retired->surviving edges to the terminal survivor.
-- `_reaches(start: str, target: str, merge_map: Mapping[str, str]) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 26746)
-- `_facet_uncertainty_state(row: sqlite3.Row) -> FacetUncertaintyState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26757)
-- `_practice_item_quality_state(row: sqlite3.Row) -> PracticeItemQualityState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26777)
-- `_decode_ability_transition_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26789)
-- `_decode_learning_outcome_label(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26798)
-- `_decode_fitted_parameters(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26804)
-- `_decode_item_parameter_state(row: sqlite3.Row) -> ItemParameterState` ([source](../../../../../../src/learnloop/db/repositories.py), line 26812)
-- `_decode_derived_state_rebuild(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 26823)
-- `_probe_state_record(row: sqlite3.Row) -> ProbeStateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26831)
-- `_probe_episode_record(row: sqlite3.Row) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26847)
-- `_probe_presentation_record(row: sqlite3.Row) -> ProbePresentationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26872)
-- `_probe_observation_record(row: sqlite3.Row) -> ProbeObservationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26904)
-- `_probe_state_segment_record(row: sqlite3.Row) -> ProbeStateSegmentRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26923)
-- `_probe_family_template_record(row: sqlite3.Row) -> ProbeFamilyTemplateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26935)
-- `_probe_instrument_card_record(row: sqlite3.Row) -> ProbeInstrumentCardRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26947)
-- `_probe_item_family_link_record(row: sqlite3.Row) -> ProbeItemFamilyLinkRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26962)
-- `_probe_generation_need_record(row: sqlite3.Row) -> ProbeGenerationNeedRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26975)
-- `_probe_calibration_session_record(row: sqlite3.Row) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 26988)
-- `_decode_question_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27004)
-- `_decode_question_promotion(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27025)
-- `_decode_question_promotion_request(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27033)
-- `_decode_observation_template(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27039)
-- `_decode_observation_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27046)
-- `_decode_elicitation_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27052)
-- `_decode_decision_features(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27060)
-- `_decode_hypothesis_set(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27068)
-- `_decode_intervention_need(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27075)
-- `_active_error(row: sqlite3.Row | Mapping[str, Any]) -> ActiveErrorEvent` ([source](../../../../../../src/learnloop/db/repositories.py), line 27084) — An :class:`ActiveErrorEvent` from a stored row or a decoded (overlaid) one.
-- `_grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 27101)
-- `_decode_attempt(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27133)
-- `_decode_hypothesis_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27144)
-- `_decode_forecast(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27150)
-- `_decode_remediation_episode(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27156)
-- `_decode_followup_task(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27162)
-- `_decode_certification_cold_probe_outcome(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27170)
-- `_decode_attempt_feedback_metadata(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27187)
-- `_resolve_causal_activity_classification(attempt_id: str, events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27194) — Fold one decoded activity-event history through the policy authority.
-- `_decode_causal_activity_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27232)
-- `_decode_error_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27246)
-- `_decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27253)
-- `_decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27265)
-- `_decode_causal_mechanism_taxonomy(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27292)
-- `_decode_misconception(row: sqlite3.Row) -> MisconceptionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 27300)
-- `_row_opt(row: sqlite3.Row, key: str) -> Any` ([source](../../../../../../src/learnloop/db/repositories.py), line 27332) — Row value for ``key`` or ``None`` when the column is absent.
-- `_decode_misconception_candidate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27344)
-- `_decode_discrimination(row: sqlite3.Row) -> ItemMisconceptionDiscrimination` ([source](../../../../../../src/learnloop/db/repositories.py), line 27370)
-- `_decode_surprise(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27385)
-- `_decode_scheduler_explanation(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27397)
-- `_decode_scheduler_slate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27405)
-- `_decode_scheduler_slate_candidate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27412)
-- `_learning_object_id_from_target_scope(target_scope: Any) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 27422)
-- `_elapsed_seconds_between(start: str | None, end: str | None) -> int | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 27429)
-- `_attempt_label_snapshot(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27437)
-- `_decode_exam_session(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27459)
-- `_decode_exam_prediction(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27466)
-- `_decode_exam_answer(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27472)
-- `_decode_proposal_batch(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27478)
-- `_decode_proposal_item(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27484)
-- `_decode_extraction_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27496)
-- `_decode_unit_selection(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27505)
-- `_decode_unit_inventory(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27515)
-- `_decode_exam_profile(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 27522)
-- `_decode_document_block(row: sqlite3.Row) -> DocumentBlock` ([source](../../../../../../src/learnloop/db/repositories.py), line 27528)
-- `_decode_document_unit(row: sqlite3.Row) -> DocumentUnit` ([source](../../../../../../src/learnloop/db/repositories.py), line 27545)
-- `_decode_document_asset(row: sqlite3.Row) -> DocumentAsset` ([source](../../../../../../src/learnloop/db/repositories.py), line 27559)
-- `_content_event_has_source_grounding(row: sqlite3.Row) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 27572)
+- `_proposal_item_identity(client_item_id: Any, payload: Any, edited_payload: Any) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 97) — What a proposal item would create: the edited payload's ``id`` when it was edited, else the payload's, else its client id (no ``id`` in either).
+- `_projection_id(prefix: str, *identity: object) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 107) — Content-addressed identity for a row recreated by deterministic replay.
+- `class _ProjectionTable` ([source](../../../../../../src/learnloop/db/repositories.py), line 118) — A derived table a projection persists whole.
+- `class _ProjectionChanges` ([source](../../../../../../src/learnloop/db/repositories.py), line 162)
+- `_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, cells: Sequence[Mapping[str, Any]]) -> _ProjectionChanges` ([source](../../../../../../src/learnloop/db/repositories.py), line 171) — Compare a projection with the stored rows, cell by cell.
+- `_apply_projection_changes(connection: sqlite3.Connection, table: _ProjectionTable, changes: _ProjectionChanges, *, now: str) -> None` ([source](../../../../../../src/learnloop/db/repositories.py), line 215)
+- `_write_projection_on_change(connection: sqlite3.Connection, projections: Sequence[tuple[_ProjectionTable, Sequence[Mapping[str, Any]]]], *, now: str) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 251) — Persist whole projections, writing only the cells that changed.
+- `_non_negative_tokens(value: Any) -> int` ([source](../../../../../../src/learnloop/db/repositories.py), line 293) — Coerce a token count for a NOT NULL DEFAULT 0 column (migration 131).
+- `_insert_probe_presentation_row(connection: sqlite3.Connection, *, presentation_id: str, now: str, values: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/db/repositories.py), line 310) — Insert one frozen diagnostic assignment using the caller's transaction.
+- `_queued_followup_action(action: Any) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 363)
+- `_roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 805) — Roll back after ``failure`` without replacing it; report success.
+- `class _PinnedConnection` ([source](../../../../../../src/learnloop/db/repositories.py), line 828) — Proxy that hands the same SQLite connection to every repository call.
+- `_bindable_plan_presentation(connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 907) — Router R2a: the ``plan_presentation_id`` an attempt may record, or None.
+- `_decode_diagnosis_adjudication(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18558)
+- `_decode_persona_realism_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18568)
+- `_decode_diagnostic_eval_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18574)
+- `_decode_diagnostic_eval_case(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18582)
+- `_decode_diagnostic_augmentation_receipt(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18602)
+- `_decode_maintenance_notice(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18620)
+- `_decode_synthesis_manifest(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18627)
+- `_decode_synthesis_run(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18645)
+- `_decode_apply_intent(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18658)
+- `_practice_item_state(row: sqlite3.Row) -> PracticeItemState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18668)
+- `_mastery_state(row: sqlite3.Row) -> MasteryState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18682)
+- `_facet_recall_state(row: sqlite3.Row) -> FacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18694)
+- `_canonical_facet_recall_state(row: sqlite3.Row) -> CanonicalFacetRecallState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18715)
+- `_required_observation_scope(row: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 18736) — An A6 observation's scope, which the caller must state (Meas §3.A6).
+- `_facet_capability_evidence(row: sqlite3.Row) -> FacetCapabilityEvidence` ([source](../../../../../../src/learnloop/db/repositories.py), line 18748)
+- `_capability_residual_row(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18767)
+- `_resolve_merge(facet_id: str, merge_map: Mapping[str, str]) -> str` ([source](../../../../../../src/learnloop/db/repositories.py), line 18789) — Follow retired->surviving edges to the terminal survivor.
+- `_reaches(start: str, target: str, merge_map: Mapping[str, str]) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 18803)
+- `_facet_uncertainty_state(row: sqlite3.Row) -> FacetUncertaintyState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18814)
+- `_practice_item_quality_state(row: sqlite3.Row) -> PracticeItemQualityState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18834)
+- `_decode_ability_transition_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18846)
+- `_decode_learning_outcome_label(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18855)
+- `_decode_fitted_parameters(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18861)
+- `_decode_item_parameter_state(row: sqlite3.Row) -> ItemParameterState` ([source](../../../../../../src/learnloop/db/repositories.py), line 18869)
+- `_decode_derived_state_rebuild(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 18880)
+- `_probe_state_record(row: sqlite3.Row) -> ProbeStateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18888)
+- `_probe_episode_record(row: sqlite3.Row) -> ProbeEpisodeRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18904)
+- `_probe_presentation_record(row: sqlite3.Row) -> ProbePresentationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18929)
+- `_probe_observation_record(row: sqlite3.Row) -> ProbeObservationRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18961)
+- `_probe_state_segment_record(row: sqlite3.Row) -> ProbeStateSegmentRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18980)
+- `_probe_family_template_record(row: sqlite3.Row) -> ProbeFamilyTemplateRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 18992)
+- `_probe_instrument_card_record(row: sqlite3.Row) -> ProbeInstrumentCardRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19004)
+- `_probe_item_family_link_record(row: sqlite3.Row) -> ProbeItemFamilyLinkRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19019)
+- `_probe_generation_need_record(row: sqlite3.Row) -> ProbeGenerationNeedRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19032)
+- `_probe_calibration_session_record(row: sqlite3.Row) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19045)
+- `_decode_question_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19061)
+- `_decode_question_promotion(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19082)
+- `_decode_question_promotion_request(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19090)
+- `_decode_observation_template(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19096)
+- `_decode_observation_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19103)
+- `_decode_elicitation_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19109)
+- `_decode_decision_features(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19117)
+- `_decode_hypothesis_set(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19125)
+- `_decode_intervention_need(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19132)
+- `_active_error(row: sqlite3.Row | Mapping[str, Any]) -> ActiveErrorEvent` ([source](../../../../../../src/learnloop/db/repositories.py), line 19141) — An :class:`ActiveErrorEvent` from a stored row or a decoded (overlaid) one.
+- `_grading_evidence(row: sqlite3.Row) -> GradingEvidenceRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19158)
+- `_decode_attempt(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19190)
+- `_decode_hypothesis_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19201)
+- `_decode_remediation_episode(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19207)
+- `_decode_followup_task(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19213)
+- `_decode_certification_cold_probe_outcome(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19221)
+- `_decode_attempt_feedback_metadata(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19238)
+- `_resolve_causal_activity_classification(attempt_id: str, events: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19245) — Fold one decoded activity-event history through the policy authority.
+- `_decode_causal_activity_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19283)
+- `_decode_error_event(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19297)
+- `_decode_causal_hypothesis(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19304)
+- `_decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19316)
+- `_decode_causal_mechanism_taxonomy(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19343)
+- `_decode_misconception(row: sqlite3.Row) -> MisconceptionRecord` ([source](../../../../../../src/learnloop/db/repositories.py), line 19351)
+- `_row_opt(row: sqlite3.Row, key: str) -> Any` ([source](../../../../../../src/learnloop/db/repositories.py), line 19383) — Row value for ``key`` or ``None`` when the column is absent.
+- `_decode_misconception_candidate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19395)
+- `_decode_discrimination(row: sqlite3.Row) -> ItemMisconceptionDiscrimination` ([source](../../../../../../src/learnloop/db/repositories.py), line 19421)
+- `_decode_surprise(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19436)
+- `_decode_scheduler_explanation(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19448)
+- `_decode_scheduler_slate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19456)
+- `_decode_scheduler_slate_candidate(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19463)
+- `_learning_object_id_from_target_scope(target_scope: Any) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 19473)
+- `_elapsed_seconds_between(start: str | None, end: str | None) -> int | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 19480)
+- `_attempt_label_snapshot(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19488)
+- `_decode_proposal_batch(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19510)
+- `_decode_proposal_item(row: sqlite3.Row) -> dict[str, Any]` ([source](../../../../../../src/learnloop/db/repositories.py), line 19516)
+- `_content_event_has_source_grounding(row: sqlite3.Row) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 19528)
 
 ## Who imports or calls it
 
@@ -1201,6 +859,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `MisconceptionRecord`, `Repository`
 - [[Reference/Modules/learnloop/content/proposals/required_method_override|learnloop.content.proposals.required_method_override]] — imports `Repository`
+- [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/sources/provenance|learnloop.content.sources.provenance]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `Repository`
@@ -1239,13 +898,15 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/daily_plan/router_teach_back|learnloop.daily_plan.router_teach_back]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `ProbeCalibrationSessionRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `OBSERVATION_CHANNEL_BLIND_PROBE`, `OBSERVATION_CHANNEL_LEARNER_QUESTION`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `OBSERVATION_CHANNEL_BLIND_PROBE`, `OBSERVATION_CHANNEL_LEARNER_QUESTION`, `ProbeEpisodeRecord`, `Repository`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/causal_selection_audit|learnloop.diagnosis.causal_selection_audit]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `Repository`
@@ -1255,13 +916,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `MisconceptionRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/grading_hardcases|learnloop.diagnosis.grading_hardcases]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `MisconceptionRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/links|learnloop.diagnosis.offline_review.links]] — imports `Repository`
@@ -1269,13 +930,19 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/offline_review/spot_check|learnloop.diagnosis.offline_review.spot_check]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `ProbeEpisodeRecord`, `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `ProbeEpisodeRecord`, `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `Repository`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `ProbeEpisodeRecord`, `ProbePresentationRecord`, `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `ProbeEpisodeRecord`, `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `ProbeEpisodeRecord`, `ProbePresentationRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `ProbeEpisodeRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_lifecycle|learnloop.diagnosis.probe_lifecycle]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `Repository`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `ProbeEpisodeRecord`, `ProbePresentationRecord`, `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `Repository`
@@ -1312,11 +979,17 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `Repository`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/corpus|learnloop.experiments.contextual_embeddings.corpus]] — imports `Repository`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `Repository`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `Repository`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `Repository`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]] — imports `Repository`
@@ -1420,6 +1093,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `Repository`
+- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] — imports `Repository`
@@ -1499,9 +1173,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `Repository`
-- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `REBUILD_STAMPED_TABLES`, `Repository`
+- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `Repository`
-- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `CANONICAL_STAMPED_TABLES`, `Repository`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `Repository`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `PracticeItemState`, `Repository`
 - [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `Repository`
@@ -1547,26 +1221,30 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `create_or_attach_current`; calls `create_or_attach_current`
+- [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] — imports `_json`, `_loads`; calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `AtomicConnection`, `OwnedConnection`; calls `AtomicConnection`, `OwnedConnection`
+- [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]] — imports `ActivityStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `CollectionStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/completion|learnloop.db.stores.completion]] — imports `AttemptCompletionStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]] — imports `DiagnosisStoreMixin`, `merge_causal_view_into_events`, `merge_causal_view_into_feedback`; calls `merge_causal_view_into_events`, `merge_causal_view_into_feedback`
 - [[Reference/Modules/learnloop/db/stores/facet_identity|learnloop.db.stores.facet_identity]] — imports `settled_merge_rows`; calls `settled_merge_rows`
-- [[Reference/Modules/learnloop/db/stores/held_out_signals|learnloop.db.stores.held_out_signals]] — imports `is_exam_role`, `qualify_unrecorded_signals`; calls `is_exam_role`, `qualify_unrecorded_signals`
+- [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]] — imports `GoalStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] — imports `IngestQueueStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `ModelCallStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] — imports `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`; calls `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`
 - [[Reference/Modules/learnloop/db/stores/plan_presentations|learnloop.db.stores.plan_presentations]] — imports `bindable_presentation`; calls `bindable_presentation`
+- [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `ReaderStoreMixin`
+- [[Reference/Modules/learnloop/db/stores/reading_requests|learnloop.db.stores.reading_requests]] — imports `ReadingRequestStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `RecurrenceStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/router_objective|learnloop.db.stores.router_objective]] — imports `module`; calls `append`, `fill_receipt`, `split_receipt`
 - [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] — imports `SessionOwnershipStoreMixin`
+- [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `SourceDocumentStoreMixin`
+- [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] — imports `TaskBlueprintStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `closure`, `pinned_contract_ids`, `record_text_write`, `stored_record`; calls `closure`, `pinned_contract_ids`, `record_text_write`, `stored_record`
 - [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TableRole`, `tables_for_role`; calls `tables_for_role`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `effective_probe_observation_rows`, `held_for_review_attempts`; calls `effective_probe_observation_rows`, `held_for_review_attempts`
 - [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] — imports `module`; calls `session_clause`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
-- [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] — imports `DocumentAsset`, `DocumentBlock`, `DocumentIR`, `DocumentUnit`, `ExtractionHealth`; calls `DocumentAsset`, `DocumentBlock`, `DocumentIR`, `DocumentUnit`
-- [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `detect_locator_scheme`; calls `detect_locator_scheme`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `beta_mean`, `beta_quantile`; calls `beta_mean`, `beta_quantile`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`
 - [[Reference/Modules/learnloop/recurrence|learnloop.recurrence]] — imports `key_for_statement`, `recurrence_key`; calls `key_for_statement`, `recurrence_key`
@@ -1583,7 +1261,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 387 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness_jobs|learnloop.adaptive_difficulty.relatedness_jobs]], [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] and 403 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1638,6 +1316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ingest_runner_helpers.py](../../../../../../tests/ingest_runner_helpers.py) — direct import
 - [tests/instruct_handoff_ih0_helpers.py](../../../../../../tests/instruct_handoff_ih0_helpers.py) — direct import
 - [tests/intent_fakes.py](../../../../../../tests/intent_fakes.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/km3_projections_helpers.py](../../../../../../tests/km3_projections_helpers.py) — direct import
 - [tests/learner_report_superseded_helpers.py](../../../../../../tests/learner_report_superseded_helpers.py) — direct import
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
@@ -1991,6 +1670,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_classification_is_pinned_and_survives_a_newer_bundle`
   - `test_cold_success_updates_repair_effect_not_diagnosis`
   - `test_empty_feature_row_is_rejected_at_generation_and_skipped_at_read`
+  - `test_real_receipt_from_apply_attempt_has_no_validator_support`
   - `test_repair_class_divergence_locks_existing_hypothesis_set_with_other`
   - `test_rung_divergence_gate_defers_instead_of_buying_learner_effort`
   - `test_subset_rows_without_a_conflicting_shared_key_are_inseparable`
@@ -2218,7 +1898,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
-  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
@@ -2241,14 +1920,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forwarding_happens_only_with_an_open_factor`
   - `test_not_same_mistake_needs_a_validated_citation_and_lands_in_the_ledger`
   - `test_repairs_first_displayed_on_the_card_are_debited_once`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_joint_reads_are_untouched_by_the_overlay`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
-  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_b2_license_cannot_be_reused_for_a_different_b1_corpus`
   - `test_blind_realism_matcher_abstains_on_small_corpus_and_rejects_separable`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
@@ -2357,11 +2033,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_residual_writer_writes_nothing_when_nothing_changed`
   - `test_the_writer_deletes_vanished_cells_inserts_new_ones_and_updates_only_changed_ones`
   - `test_two_projected_rows_for_one_cell_are_refused`
-- [tests/test_failure_triage.py](../../../../../../tests/test_failure_triage.py) — direct import
-  - `test_high_confidence_signature_takes_intended_route`
-- [tests/test_failure_triage_causal_gate.py](../../../../../../tests/test_failure_triage_causal_gate.py) — direct import
-  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
-  - `test_triage_records_tier_one_basis_on_the_result_and_the_event`
 - [tests/test_familiarity.py](../../../../../../tests/test_familiarity.py) — direct import
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — direct import
   - `test_family_projection_durable_repeat`
@@ -2409,7 +2080,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolve_gate_weights_defaults_and_fitted`
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import
-  - `test_append_version_rejects_stale_predecessor`
 - [tests/test_goal_decay_projection.py](../../../../../../tests/test_goal_decay_projection.py) — direct import
   - `test_do_nothing_projection_is_monotone_non_increasing_for_decay_facets`
   - `test_goal_with_zero_decay_estimated_facets_reports_suppressible_coverage`
@@ -2598,6 +2268,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_without_families_has_no_fingerprint_rows`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
   - `test_resolver_uses_posterior_only_when_enabled`
+- [tests/test_joint_grading_builder.py](../../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_receipts_store_labels_and_unlabelled_calls_work_below_175`
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
@@ -3166,14 +2837,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import
   - `test_router_tables_survive_rebuild_under_production_pragmas`
-- [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_plan_block_decisions_get_router_decision_ids_end_to_end`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_presentations_and_cards_survive_production_pragmas`
-  - `test_router_outcomes_v2_replay_twice_with_no_model_call`
+  - `test_router_outcomes_replay_twice_with_no_model_call`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_an_unfinished_request_keeps_its_reservation_after_a_restart`
 - [tests/test_router_r2c_retrieval.py](../../../../../../tests/test_router_r2c_retrieval.py) — direct import
@@ -3453,6 +3122,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_overconfidence_probe_origin_survives_target_selection`
   - `test_overconfidence_probe_records_origin`
   - `test_probe_episode_without_origin_is_null`
+- [tests/test_triage_routes.py](../../../../../../tests/test_triage_routes.py) — direct import
+  - `test_only_false_belief_and_unknown_reopen_a_diagnostic_episode`
+  - `test_route_table_is_seeded_data_over_ten_reasons`
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — direct import
   - `test_tui_today_screen_renders_queue_details_and_refreshes`
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
@@ -3502,6 +3174,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1g_a_display_that_failed_to_persist_is_never_acknowledged`
   - `test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers`
   - `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe`
+  - `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run`
   - `test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together`
   - `test_the_bundle_carries_the_question_as_it_was_given`
 - [tests/test_value_candidates.py](../../../../../../tests/test_value_candidates.py) — direct import

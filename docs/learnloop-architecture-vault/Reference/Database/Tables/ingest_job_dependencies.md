@@ -19,6 +19,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/ingest_queue.py"
+  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/runner.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -70,7 +72,12 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.add_ingest_job_dependency()`
+- `Repository.claim_next_ingest_job()`
+- `Repository.delete_finished_ingest_batches()`
+- `Repository.has_runnable_ingest_job()`
+- `Repository.ingest_job_dependencies_for_jobs()`
+- `Repository.ingest_job_dependents()`
 
 ### Direct SQL readers
 
@@ -82,7 +89,9 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/db/stores/ingest_queue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -91,6 +100,17 @@ None found by exact static reference scan.
 
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
+- `tests/test_ingest_ownership.py`
+- `tests/test_ingest_runner.py`
+- `tests/test_mobile_host_coexistence.py`
+- `tests/test_mobile_two_process.py`
+- `tests/test_quick_add.py`
+- `tests/test_reader_passage_check.py`
+- `tests/test_reading_hardening_2_fixes.py`
+- `tests/test_reading_hardening_review_fixes.py`
+- `tests/test_rebuild_orchestrator.py`
+- `tests/test_secondary_attach.py`
+- `tests/test_synthesis_sweep_primary_only.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

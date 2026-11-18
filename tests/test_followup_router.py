@@ -147,7 +147,7 @@ def test_a_closed_factor_retires_a_waiting_probe_at_the_boundary(tmp_path):
 
 def test_a_hard_refusal_needs_no_model_and_spends_nothing(tmp_path, monkeypatch):
     from tests.followup_serve_helpers import AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs
-    from learnloop.diagnosis.causal_orchestrator import defer_probe_offer
+    from learnloop.diagnosis.probe_offer import defer_probe_offer
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, outcome = miss_with_rivals(vault, repository)

@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] · Root
 
 ## Why this module exists
 
-This module keeps grading behavior inside its owning package, [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]]. Its public surface centers on `request_grading_proposal`, `joint_grading_prompt_tokens`, `request_vault_grading_proposal`, `vault_grading_run_identity`, `vault_grading_calibration_identity`, `QuoteAnchorResolution`, `resolve_quote_anchor`, `confidence_to_grader_confidence` and 13 more public symbols.
+This module keeps grading behavior inside its owning package, [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]]. Its public surface centers on `request_grading_proposal`, `request_vault_grading_proposal`, `vault_grading_run_identity`, `vault_grading_calibration_identity`, `QuoteAnchorResolution`, `resolve_quote_anchor`, `confidence_to_grader_confidence`, `deterministic_recognition_grade` and 10 more public symbols.
 
 The authoritative system-level explanation remains in [[Learning System]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,63 +47,60 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py) |
-| Source lines | 1935 |
+| Source lines | 1897 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_grading_proposal(client: OperationClient, context: GradingContext) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/grading.py), line 60) — Run the feature-owned grading operation on a structured provider.
-- `joint_grading_prompt_tokens(context: GradingContext) -> int` ([source](../../../../../../src/learnloop/attempts/grading.py), line 91) — The joint prompt's input-token estimate for a dry run (no call).
-- `request_vault_grading_proposal(vault: LoadedVault, client: OperationClient, context: GradingContext) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/grading.py), line 103) — The grading call of every grader outside the practice door (Slice 1 §4.1).
-- `vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 134) — The agent-run identity of :func:`request_vault_grading_proposal`'s call.
-- `vault_grading_calibration_identity(vault: LoadedVault) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 159) — The §4.3 calibration identity of :func:`request_vault_grading_proposal`'s grade.
-- `class QuoteAnchorResolution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 180)
-- `resolve_quote_anchor(learner_answer: str, quote: str, *, hint_start: int | None=None, hint_end: int | None=None) -> QuoteAnchorResolution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 232) — Locate ``quote`` in ``learner_answer`` and derive offsets server-side.
-- `confidence_to_grader_confidence(confidence: int) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 291)
-- `class GradingValidationError(ValueError)` ([source](../../../../../../src/learnloop/attempts/grading.py), line 298)
-- `deterministic_recognition_grade(item, rubric, learner_answer_md: str, *, attempt_id: str) -> GradingProposal | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 313) — Exact option-letter grading for recognition/multiple-choice items.
-- `class ValidatedCriterionEvidence` ([source](../../../../../../src/learnloop/attempts/grading.py), line 371)
-- `class ValidatedErrorAttribution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 380)
-- `class ValidatedExercisedFacet` ([source](../../../../../../src/learnloop/attempts/grading.py), line 417) — One accepted A6 trace observation (Meas §3.A6).
-- `class ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 434)
-- `enforce_passed_target_firewall(item: PracticeItem, rubric: Rubric, *, criterion_points: Mapping[str, float], error_attributions: Iterable[Any], repair_suggestions: Iterable[Mapping[str, Any]]=(), vault: LoadedVault | None=None, canonical_facet_id: Callable[[str], str] | None=None) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 529) — Strip negative/repair targets protected by raw criterion outcomes.
-- `build_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None) -> GradingContext` ([source](../../../../../../src/learnloop/attempts/grading.py), line 697)
-- `evidence_coverage(item: PracticeItem, criterion_points: dict[str, float], *, rubric: Rubric | None=None, attempt_type: str='independent_attempt', hints_used: int=0, learner_answer_md: str='__engaged_answer__', evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 790) — Compatibility wrapper for score-independent coverage resolution.
-- `grading_context_hash(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 818)
-- `validate_codex_grading_proposal(proposal: GradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 845)
-- `resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1751)
-- `causal_attribution_audit_report(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1775) — CLI-facing fill/abstention/firewall telemetry grouped by prompt+model.
+- `request_grading_proposal(client: OperationClient, context: GradingContext) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/grading.py), line 62) — Run the feature-owned grading operation on a structured provider.
+- `request_vault_grading_proposal(vault: LoadedVault, client: OperationClient, context: GradingContext) -> GradingProposal` ([source](../../../../../../src/learnloop/attempts/grading.py), line 93) — The grading call of every grader outside the practice door (Slice 1 §4.1).
+- `vault_grading_run_identity(context: GradingContext) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 120) — The agent-run identity of :func:`request_vault_grading_proposal`'s call.
+- `vault_grading_calibration_identity() -> tuple[str, str]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 137) — The §4.3 calibration identity of :func:`request_vault_grading_proposal`'s grade.
+- `class QuoteAnchorResolution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 155)
+- `resolve_quote_anchor(learner_answer: str, quote: str, *, hint_start: int | None=None, hint_end: int | None=None) -> QuoteAnchorResolution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 207) — Locate ``quote`` in ``learner_answer`` and derive offsets server-side.
+- `confidence_to_grader_confidence(confidence: int) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 266)
+- `deterministic_recognition_grade(item, rubric, learner_answer_md: str, *, attempt_id: str) -> GradingProposal | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 284) — Exact option-letter grading for recognition/multiple-choice items.
+- `class ValidatedCriterionEvidence` ([source](../../../../../../src/learnloop/attempts/grading.py), line 342)
+- `class ValidatedErrorAttribution` ([source](../../../../../../src/learnloop/attempts/grading.py), line 351)
+- `class ValidatedExercisedFacet` ([source](../../../../../../src/learnloop/attempts/grading.py), line 388) — One accepted A6 trace observation (Meas §3.A6).
+- `class ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 405)
+- `enforce_passed_target_firewall(item: PracticeItem, rubric: Rubric, *, criterion_points: Mapping[str, float], error_attributions: Iterable[Any], repair_suggestions: Iterable[Mapping[str, Any]]=(), vault: LoadedVault | None=None, canonical_facet_id: Callable[[str], str] | None=None) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 500) — Strip negative/repair targets protected by raw criterion outcomes.
+- `build_grading_context(vault: LoadedVault, item: PracticeItem, *, attempt_id: str, learner_answer_md: str, rubric: Rubric | None=None, assessment_contract: dict[str, Any] | None=None) -> GradingContext` ([source](../../../../../../src/learnloop/attempts/grading.py), line 668)
+- `evidence_coverage(item: PracticeItem, criterion_points: dict[str, float], *, rubric: Rubric | None=None, attempt_type: str='independent_attempt', hints_used: int=0, learner_answer_md: str='__engaged_answer__', evidence: EvidenceConfig | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 761) — Compatibility wrapper for score-independent coverage resolution.
+- `grading_context_hash(context: GradingContext) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 789)
+- `validate_codex_grading_proposal(proposal: GradingProposal, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str | None=None, rubric: Rubric | None=None) -> ValidatedCodexGrade` ([source](../../../../../../src/learnloop/attempts/grading.py), line 816)
+- `causal_attribution_audit_report(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1737) — CLI-facing fill/abstention/firewall telemetry grouped by prompt+model.
 
 ### Module constants
 
-- `ANCHOR_BASES` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 51)
-- `MECHANISM_ERROR_TYPE_DEFAULTS` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 288)
-- `_OPTION_LETTER` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 302)
-- `_OPTION_LINE` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 303)
-- `FIREWALL_CLEAN_PASS_FRACTION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 463)
-- `FIREWALL_FRACTION_EPSILON` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 464)
-- `MAX_EXERCISED_FACETS_PER_ATTEMPT` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1580)
-- `PROVISIONAL_PENDING_CLARIFICATION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1653)
-- `CLARIFICATION_CONFIDENCE_CEILING` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1659)
-- `_RECALL_FAILURE_PATTERN` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1928)
+- `ANCHOR_BASES` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 53)
+- `MECHANISM_ERROR_TYPE_DEFAULTS` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 263)
+- `_OPTION_LETTER` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 273)
+- `_OPTION_LINE` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 274)
+- `FIREWALL_CLEAN_PASS_FRACTION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 434)
+- `FIREWALL_FRACTION_EPSILON` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 435)
+- `MAX_EXERCISED_FACETS_PER_ATTEMPT` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1551)
+- `PROVISIONAL_PENDING_CLARIFICATION` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1624)
+- `CLARIFICATION_CONFIDENCE_CEILING` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1630)
+- `_RECALL_FAILURE_PATTERN` ([src/learnloop/attempts/grading.py](../../../../../../src/learnloop/attempts/grading.py), line 1890)
 
 ## Internal implementation anchors
 
-- `_collapse_whitespace_with_map(text: str) -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 186) — Collapse whitespace runs to single spaces, keeping original indices.
-- `_pick_occurrence(starts: list[int], hint_start: int | None) -> tuple[int, str]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 212)
-- `_all_occurrences(haystack: str, needle: str) -> list[int]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 223)
-- `_option_letter(text: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 306)
-- `_criterion_outcome_state(rubric: Rubric, criterion_points: Mapping[str, float]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 467) — Raw, dependency-localized criterion outcomes used by the P0 firewall.
-- `_direct_criteria_by_facet(item: PracticeItem, rubric: Rubric, *, canonical_facet_id: Callable[[str], str] | None=None) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 493) — Criterion links eligible to protect a facet at the write barrier.
-- `_grading_facet_registry(vault: LoadedVault, item: PracticeItem) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 761) — Facets A6 may report as exercised, with the claim each one names.
-- `_validated_exercised_facets(vault: LoadedVault, item: PracticeItem, rubric: Rubric, proposal: Any) -> list[ValidatedExercisedFacet]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1583) — Accept A6 trace observations that name a registered facet with a citation.
-- `_validated_clarification(proposal: Any, validated_evidence: list[ValidatedCriterionEvidence], validated_errors: list[ValidatedErrorAttribution], rubric: Rubric | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1662) — Accept a clarification request only against a grade that is already unsure.
-- `_resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1760)
-- `_canonical_learner_confidence(value: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1769)
-- `_grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1858)
-- `_normalized_recall_error_type(vault: LoadedVault, error_type: str, *, evidence: str, learner_answer_md: str | None, is_misconception: bool) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1895)
+- `_collapse_whitespace_with_map(text: str) -> tuple[str, list[int]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 161) — Collapse whitespace runs to single spaces, keeping original indices.
+- `_pick_occurrence(starts: list[int], hint_start: int | None) -> tuple[int, str]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 187)
+- `_all_occurrences(haystack: str, needle: str) -> list[int]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 198)
+- `_option_letter(text: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 277)
+- `_criterion_outcome_state(rubric: Rubric, criterion_points: Mapping[str, float]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 438) — Raw, dependency-localized criterion outcomes used by the P0 firewall.
+- `_direct_criteria_by_facet(item: PracticeItem, rubric: Rubric, *, canonical_facet_id: Callable[[str], str] | None=None) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 464) — Criterion links eligible to protect a facet at the write barrier.
+- `_grading_facet_registry(vault: LoadedVault, item: PracticeItem) -> list[dict[str, str]]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 732) — Facets A6 may report as exercised, with the claim each one names.
+- `_validated_exercised_facets(vault: LoadedVault, item: PracticeItem, rubric: Rubric, proposal: Any) -> list[ValidatedExercisedFacet]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1554) — Accept A6 trace observations that name a registered facet with a citation.
+- `_validated_clarification(proposal: Any, validated_evidence: list[ValidatedCriterionEvidence], validated_errors: list[ValidatedErrorAttribution], rubric: Rubric | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1633) — Accept a clarification request only against a grade that is already unsure.
+- `_resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1722)
+- `_canonical_learner_confidence(value: str | None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1731)
+- `_grading_error_taxonomy(vault: LoadedVault) -> dict[str, object]` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1820)
+- `_normalized_recall_error_type(vault: LoadedVault, error_type: str, *, evidence: str, learner_answer_md: str | None, is_misconception: bool) -> str` ([source](../../../../../../src/learnloop/attempts/grading.py), line 1857)
 
 ## Who imports or calls it
 
@@ -111,9 +108,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] — imports `resolved_rubric`; statically calls `resolved_rubric`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `confidence_to_grader_confidence`, `deterministic_recognition_grade`, `enforce_passed_target_firewall`, `grading_context_hash`, `joint_grading_prompt_tokens`, `resolved_rubric`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `confidence_to_grader_confidence`, `deterministic_recognition_grade`, `enforce_passed_target_firewall`, `grading_context_hash`, `joint_grading_prompt_tokens`, `resolved_rubric`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `confidence_to_grader_confidence`, `deterministic_recognition_grade`, `enforce_passed_target_firewall`, `resolved_rubric`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `confidence_to_grader_confidence`, `deterministic_recognition_grade`, `enforce_passed_target_firewall`, `resolved_rubric`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `resolved_rubric`, `validate_codex_grading_proposal`; statically calls `GradingValidationError`, `build_grading_context`, `resolved_rubric`, `validate_codex_grading_proposal`
-- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; statically calls `build_grading_context`, `grading_context_hash`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
+- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GradingValidationError`, `ValidatedCodexGrade`, `build_grading_context`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; statically calls `build_grading_context`, `request_vault_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
 - [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] — imports `GradingValidationError`, `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `causal_attribution_audit_report`; statically calls `causal_attribution_audit_report`
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`; statically calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`
@@ -135,7 +132,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/split/validation|learnloop.diagnosis.split.validation]] — imports `enforce_passed_target_firewall`, `resolve_quote_anchor`; statically calls `enforce_passed_target_firewall`, `resolve_quote_anchor`
 - [[Reference/Modules/learnloop/diagnosis/taxonomy_regrade|learnloop.diagnosis.taxonomy_regrade]] — imports `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `resolved_rubric`; statically calls `resolved_rubric`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `GradingValidationError`, `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`; statically calls `build_grading_context`, `request_vault_grading_proposal`, `validate_codex_grading_proposal`, `vault_grading_calibration_identity`, `vault_grading_run_identity`
@@ -150,9 +146,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `OperationClient`, `STRUCTURED_COMPLETION`, `execute_structured_operation`; calls `execute_structured_operation`
-- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt`, `grading_prompt_version`; calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`, `grading_prompt_version`
-- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `split_grading_active`, `to_grading_proposal`; calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `split_grading_active`, `to_grading_proposal`
-- [[Reference/Modules/learnloop/attempts/grading_admission|learnloop.attempts.grading_admission]] — imports `admit_grading_call`, `estimated_prompt_tokens`; calls `admit_grading_call`, `estimated_prompt_tokens`
+- [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] — imports `CriterionEvidence`, `GradingContext`, `GradingProposal`, `StuckGradingProposal`, `grading_prompt`; calls `CriterionEvidence`, `GradingContext`, `GradingProposal`, `grading_prompt`
+- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `BLIND_CALIBRATION_PROMPT_VERSION`, `BLIND_GRADER_OUTPUT_SCHEMA_VERSION`, `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `to_grading_proposal`; calls `blind_context_from_grading_context`, `blind_grading_context_hash`, `blind_prompt_version`, `request_blind_grading_proposal`, `to_grading_proposal`
+- [[Reference/Modules/learnloop/attempts/grading_admission|learnloop.attempts.grading_admission]] — imports `admit_grading_call`; calls `admit_grading_call`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `EvidenceConfig`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `validate_repair_candidate`; calls `validate_repair_candidate`
 - [[Reference/Modules/learnloop/diagnosis/discrimination_profiles|learnloop.diagnosis.discrimination_profiles]] — imports `ProfileMatchOutcome`, `item_profiles`, `profile_prior_payload`, `validate_profile_match`; calls `item_profiles`, `profile_prior_payload`, `validate_profile_match`
@@ -161,7 +157,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/repair_splice|learnloop.diagnosis.repair_splice]] — imports `is_end_append`, `preserved_prefix_from_refs`, `splice_repaired_answer`; calls `is_end_append`, `preserved_prefix_from_refs`, `splice_repaired_answer`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `CriterionOutcome`, `localize_criterion_outcomes`; calls `CriterionOutcome`, `localize_criterion_outcomes`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `criterion_facet_weights_for_item`, `resolve_coverage`; calls `criterion_facet_weights_for_item`, `resolve_coverage`
-- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`, `Rubric`, `learning_object_facet_union`; calls `learning_object_facet_union`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `GradingValidationError`, `LoadedVault`, `PracticeItem`, `Rubric`, `learning_object_facet_union`, `resolved_rubric`; calls `GradingValidationError`, `learning_object_facet_union`, `resolved_rubric`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `presented_prompt`; calls `presented_prompt`
 
 ### Platform and third-party dependencies
@@ -176,7 +172,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] and 29 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] and 28 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -184,6 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/grade_application_golden_helpers.py](../../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/held_grade_evidence_helpers.py](../../../../../../tests/held_grade_evidence_helpers.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
 - [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
@@ -305,7 +302,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_provider_that_cannot_isolate_is_still_refused_the_blind_grader`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
-  - `test_an_ordinary_joint_answer_keeps_its_prompt_and_hash_exactly`
+  - `test_an_ordinary_grading_context_carries_no_stuck_field`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_repaired_answer_is_composed_from_verbatim_prefix_and_regenerated_work`
   - `test_repaired_answer_without_regenerated_work_still_requires_exact_prefix`

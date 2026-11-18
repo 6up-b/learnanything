@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/facet_identity_fakes.py](../../../../../../tests/facet_identity_fakes.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
   - `test_accounting_state_is_per_instance`

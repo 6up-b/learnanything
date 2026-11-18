@@ -63,7 +63,7 @@ Conflicting writes
 
 Two writers already exist for the same attempt (``attempts.apply_attempt``
 records ``repair_activity`` when the draft is primed;
-``probe_episodes._record_presentation_observation`` records the diagnostic
+``probe_evidence._record_presentation_observation`` records the diagnostic
 class). Classification writes are on the attempt hot path and must never raise,
 so the substrate is an append-only event log and the current classification is
 DERIVED by :data:`CONTAMINATION_PRECEDENCE` — most contaminated wins. See

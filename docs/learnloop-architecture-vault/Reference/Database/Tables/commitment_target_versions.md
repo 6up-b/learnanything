@@ -20,12 +20,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/instructional/reader_followups.py"
-  - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,6 +89,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/reader/reader_authoring.py`
@@ -97,7 +97,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 - `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary

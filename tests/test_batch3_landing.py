@@ -212,7 +212,7 @@ def test_iii_a_figure_grant_never_meters_an_ask_and_an_ask_grant_meters_it_under
 
 def test_iv_with_the_student_off_rw5ds_grounding_retrieval_is_p1s(tmp_path, monkeypatch):
     from learnloop.ai.spend import SpendCaps
-    from learnloop.figures.service import GROUNDING_PASSAGES
+    from learnloop.figures.grounding import GROUNDING_PASSAGES
     from learnloop.ops.embedding_backfill import backfill_embeddings
     from learnloop.source_retrieval import spaces
     from learnloop.source_retrieval import student_encoder as E

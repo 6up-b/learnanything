@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.router_objective import exposure
-from learnloop.diagnosis.causal_orchestrator import (
-    CausalRepairError,
+from learnloop.diagnosis.causal_reads import CausalRepairError
+from learnloop.diagnosis.probe_offer import (
     accept_probe_offer,
-    causal_repair_status,
     defer_probe_offer,
     request_teaching_now,
 )
+from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 from learnloop.diagnosis.remediation import (
     RemediationBlocked,
     RemediationError,

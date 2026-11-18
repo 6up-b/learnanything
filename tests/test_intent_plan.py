@@ -168,16 +168,16 @@ def test_committed_los_reach_the_chooser_state_with_their_intent():
     assert views["lo_y"] == IntentView()
 
 
-def test_with_no_commitment_the_plan_build_equals_intent_off(tmp_path):
-    on = make_intent_vault(tmp_path / "on")
-    off = make_intent_vault(tmp_path / "off")
-    from tests.helpers import append_config_toml
+def test_with_no_commitment_intent_changes_nothing_and_the_plan_build_is_one(tmp_path):
+    from learnloop.scheduling.intent.serving import intent_serving
 
-    append_config_toml(off.root, "[intent]\nenabled = false\n")
-    off.reload()
+    on = make_intent_vault(tmp_path / "on")
+    other = make_intent_vault(tmp_path / "other")
     at = NOW + timedelta(minutes=1)
+    # With no commitment the plan reads no intent at all: the predecessor's path by construction.
+    assert intent_serving(on.vault, on.repository, now=at) is None
     plans = []
-    for iv in (on, off):
+    for iv in (on, other):
         record = build_plan(_env(iv, at), kind="normal", budget=25.0, remembered=25, minutes_source="chip")
         row = dict(record.row)
         for key in ("id", "created_at", "updated_at", "config_hash"):

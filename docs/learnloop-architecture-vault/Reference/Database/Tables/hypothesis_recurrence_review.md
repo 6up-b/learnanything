@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/substrate/recurrence_groups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -79,7 +80,8 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.recurrence_review_rows()`
+- `Repository.replace_recurrence_projection()`
 
 ### Direct SQL readers
 
@@ -91,7 +93,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/substrate/recurrence_groups.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

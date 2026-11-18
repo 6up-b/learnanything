@@ -85,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `parse_block_span`; statically calls `parse_block_span`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `parse_block_span`; statically calls `parse_block_span`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `parse_block_span`; statically calls `parse_block_span`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `detect_locator_scheme`; statically calls `detect_locator_scheme`
+- [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `detect_locator_scheme`; statically calls `detect_locator_scheme`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `parse_block_span`; statically calls `parse_block_span`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `parse_block_span`; statically calls `parse_block_span`
 - [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] — imports `parse_block_span`; statically calls `parse_block_span`

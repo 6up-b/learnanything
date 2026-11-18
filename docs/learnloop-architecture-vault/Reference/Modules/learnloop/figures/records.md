@@ -164,8 +164,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `AuthorAttempts`, `code`, `sketch_problem`, `spec_problem`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `FilterLog`, `build_stop_record`, `in_one_trace`, `prebuild_record`, `write_records`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `AuthorAttempts`, `code`, `sketch_problem`, `spec_problem`
 
 ## Dependencies
 
@@ -187,7 +187,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -210,6 +210,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_records_that_cannot_be_built_or_written_change_no_decision_build_or_prompt`
   - `test_the_recorded_seed_redraws_the_pass_exactly`
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
+  - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
 
 ## Modification guidance

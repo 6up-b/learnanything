@@ -20,13 +20,12 @@ from learnloop.attempts.stuck import (
     STUCK_CONTROL_LABEL,
     STUCK_PROMPT_TEXT,
 )
-from learnloop.diagnosis.probe_episodes import (
+from learnloop.diagnosis.probe_controls import episode_contract, stop_diagnosing_and_teach
+from learnloop.diagnosis.probe_episodes import episode_hypothesis_set
+from learnloop.diagnosis.probe_presentations import (
     commit_item_presentation,
-    episode_contract,
-    episode_hypothesis_set,
     probe_serving_block_reason,
     probe_value_block_reason,
-    stop_diagnosing_and_teach,
 )
 from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling.scheduler import ScheduledItem, cold_check_serve_hold

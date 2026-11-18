@@ -11,6 +11,7 @@ from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.reader import reader_dialogue as RD
 
 from tests.helpers import ALGORITHM_VERSION, NOW_ISO
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import drain_jobs, submit
 from tests.reader_guidance_helpers import (
     _DIAGNOSED,
@@ -104,10 +105,6 @@ def test_timestamp_provenance_anchors_video_transcript_guidance(tmp_path):
 
 # -- the diagnosis overlay (Slice 1 M2 split; reader workbench spec G30) ------
 
-#: A joint vault with shadow diagnosis: the split's kill switch (no vault that opens is below its tag).
-JOINT_SHADOW = "[diagnosis]\nshadow = true\nsplit_enabled = false"
-
-
 def _svd_passage(plan) -> dict:
     passages = [
         passage
@@ -168,19 +165,13 @@ def test_split_guide_falls_back_to_the_error_type_when_the_diagnosis_failed(tmp_
 
 
 def test_joint_guide_plan_is_unchanged_by_the_overlay_read(tmp_path, monkeypatch):
-    """mvp-0.9 parity: the overlaid read returns the raw rows, so the plan is byte-identical.
+    """Joint history: the overlaid read returns the raw rows of a jointly
+    graded attempt (stored history: no door grades jointly now), so the plan
+    is byte-identical."""
 
-    A shadow diagnosis runs too: it stores no causal view, so it must never
-    reach the Guide.
-    """
-
-    _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.9", config=JOINT_SHADOW,
-    )
-    client = _StatementFake()
-    result = submit(vault, repository, client)
-    drain_jobs(vault, repository, client)
-    assert repository.latest_attempt_diagnosis(result.attempt_id, mode="shadow") is not None
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version=ALGORITHM_VERSION)
+    result = write_joint_answer(vault, repository)
+    drain_jobs(vault, repository, _StatementFake())
     joint_statement = repository.raw_error_events_for_attempt(result.attempt_id)[0]["misconception_statement"]
     assert joint_statement
 
@@ -281,21 +272,4 @@ def test_split_guide_plan_waits_only_on_diagnoses_behind_its_passages(tmp_path):
         for section in plan["sections"]
         for passage in section["suggested_passages"]
     )
-    assert plan["pending_diagnosis_attempt_ids"] == []
-
-
-def test_joint_guide_plan_never_waits_on_a_shadow_diagnosis(tmp_path):
-    """A queued shadow diagnosis stores no overlay, so a joint plan waits on nothing."""
-
-    _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.9", config=JOINT_SHADOW,
-    )
-    client = _StatementFake()
-    result = submit(vault, repository, client)
-    queued = repository.post_attempt_jobs(attempt_id=result.attempt_id, kind="diagnose", states=("queued",))
-    assert [job["payload"]["mode"] for job in queued] == ["shadow"]
-
-    _cite_extraction(vault)
-    plan = build_guide_plan(vault, repository, extraction_id="ext1")
-    assert _svd_passage(plan)["learner_signal"] == "recent_misunderstanding"
     assert plan["pending_diagnosis_attempt_ids"] == []

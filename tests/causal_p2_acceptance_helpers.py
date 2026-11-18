@@ -12,7 +12,8 @@ from learnloop.attempts.attempts import (
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.diagnosis.causal_orchestrator import accept_probe_offer, causal_repair_status
+from learnloop.diagnosis.probe_offer import accept_probe_offer
+from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 from learnloop.diagnosis.causal_probe_coherence import (
     audit_manipulation_contract,
     create_probe_candidate,

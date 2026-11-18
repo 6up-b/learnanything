@@ -10,7 +10,7 @@ import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.figures import elements as E
-from learnloop.figures import service as FS
+from learnloop.figures import view as FV
 from learnloop.figures import source_check as SC
 from learnloop.figures import spec as S
 from learnloop.figures.display_format import js_string
@@ -334,7 +334,7 @@ def test_a_figure_with_no_book_element_is_drawn_exactly_as_before(tmp_path, monk
 
 def test_a_sketch_view_has_no_elements_or_source_check():
     assert not SC.grammar_row({"tier": "sketch", "spec_version": "sketch-v1"})
-    assert FS.sketch_row({"tier": "sketch"})
+    assert FV.sketch_row({"tier": "sketch"})
 
 
 # -- every code-owned label's writers (Astra A3, A4): plain parses back to the same value, TeX renders ------

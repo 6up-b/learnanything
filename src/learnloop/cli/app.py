@@ -4410,77 +4410,6 @@ def taxonomy_regrade_check_command(
     if not report["no_regressions"]:
         raise typer.Exit(code=1)
 
-@app.command("causal-selection-readiness")
-def causal_selection_readiness_command(
-    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
-    json_output: Annotated[bool, typer.Option("--json", help="Emit the JSON report.")] = False,
-) -> None:
-    """WP0 readiness for the formal causal selector (decision-value spec §8 Stage 0).
-
-    Candidate multiplicity, likelihood-regime counts, duration-source shares,
-    shadow conversion counts, and repair-linked cold-outcome volume — every
-    empty denominator as a typed unavailable arm, never a favorable zero.
-    """
-
-    from learnloop.diagnosis.causal_selection_audit import causal_selection_readiness
-
-    root = _root(vault)
-    loaded = load_vault(root)
-    repository = _repository(loaded.root)
-    report = causal_selection_readiness(loaded, repository)
-    if json_output:
-        typer.echo(_dump(report))
-        return
-    factors = report["factors"]
-    typer.echo(f"factors · total={factors['total']} open={factors['open']}")
-    for key in ("candidate_multiplicity", "likelihood_regimes"):
-        block = report[key]
-        if not block.get("available"):
-            typer.echo(f"{key} · unavailable ({block['reason']})")
-        else:
-            counts = ", ".join(
-                f"{arm}={count}" for arm, count in sorted(block["counts"].items())
-            )
-            typer.echo(f"{key} · {counts}")
-    durations = report["duration_sources"]
-    if durations.get("available"):
-        shares = ", ".join(
-            f"{source}={count}"
-            for source, count in sorted(durations["source_counts"].items())
-        )
-        typer.echo(
-            f"duration_sources · {shares} · distinct_values="
-            f"{durations['distinct_minute_values']} · pooled_latency_n="
-            f"{durations['pooled_latency']['sample_count']}"
-        )
-    else:
-        typer.echo(f"duration_sources · unavailable ({durations['reason']})")
-    shadows = report["shadow_conversions"]
-    if shadows.get("available"):
-        typer.echo(
-            f"shadow · receipts={shadows['receipts']} formal_available="
-            f"{shadows['formal_arm_available']} would_change(measure="
-            f"{shadows['would_change_measure_vs_repair']}, candidate="
-            f"{shadows['would_change_candidate']}, repair="
-            f"{shadows['would_change_repair']}) full_vs_equal(comparable="
-            f"{shadows['full_vs_equal_cost_comparable']}, diverged="
-            f"{shadows['full_vs_equal_cost_diverged']})"
-        )
-    else:
-        typer.echo(f"shadow · unavailable ({shadows['reason']})")
-    cold = report["cold_outcomes"]
-    if cold.get("available"):
-        outcomes = ", ".join(
-            f"{arm}={count}" for arm, count in sorted(cold["outcomes"].items())
-        )
-        typer.echo(
-            f"cold_outcomes · {outcomes} · training_eligible={cold['training_eligible']}"
-        )
-    else:
-        typer.echo(f"cold_outcomes · unavailable ({cold['reason']})")
-    typer.echo(f"note · {report['expectations_note']}")
-    for finding in report["findings"]:
-        typer.echo(f"finding · {finding['kind']}: {finding['parameter']}")
 
 @app.command("causal-attribution-audit")
 def causal_attribution_audit_command(
@@ -4878,10 +4807,8 @@ def commission_causal_probes_command(
     `review-causal-probe`.
     """
 
-    from learnloop.diagnosis.causal_orchestrator import (
-        MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
-        resolve_machine_check,
-    )
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+    from learnloop.diagnosis.machine_checks import resolve_machine_check
     from learnloop.diagnosis.causal_probe_commissioning import (
         COMMISSIONING_POLICY_VERSION,
         commission_probe_instrument,

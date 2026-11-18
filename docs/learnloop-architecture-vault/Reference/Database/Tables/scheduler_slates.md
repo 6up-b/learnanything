@@ -90,11 +90,14 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository._link_attempt_to_scheduler_candidate()`
+- `Repository._offer_open()`
 - `Repository.active_probe_presentation_for_session()`
 - `Repository.all_scheduler_slates()`
+- `Repository.finalize_scheduler_offer()`
 - `Repository.find_record()`
 - `Repository.latest_scheduler_slate_by_session()`
 - `Repository.record_scheduler_slate()`
+- `Repository.scheduler_offer_answered()`
 
 ### Direct SQL readers
 
@@ -145,7 +148,7 @@ Indexes and uniqueness:
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_due_queue_read_builds.py`
 - `tests/test_e2e_codex_mock.py`
-- `tests/test_evsi_router_composition.py`
+- `tests/test_evaluation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

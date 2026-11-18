@@ -117,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_guided_redo.py`
 - `tests/test_voi_forecasts.py`
+- `tests/diagnosis_journey_helpers.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`

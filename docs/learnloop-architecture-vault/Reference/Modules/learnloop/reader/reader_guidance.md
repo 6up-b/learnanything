@@ -91,8 +91,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `extraction_sections`; statically calls `extraction_sections`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `extraction_sections`; statically calls `extraction_sections`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `extraction_sections`; statically calls `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `held_out_sections`; statically calls `held_out_sections`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`; statically calls `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `extraction_sections`; statically calls `extraction_sections`
@@ -125,7 +125,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/daily_plan/reading|learnloop.daily_plan.reading]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -155,7 +155,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dont_bring_this_back_suppresses_the_exact_reviewed_placement`
   - `test_guide_plan_writes_nothing`
   - `test_joint_guide_plan_is_unchanged_by_the_overlay_read`
-  - `test_joint_guide_plan_never_waits_on_a_shadow_diagnosis`
   - `test_legacy_placement_uses_only_its_reviewed_familiar_exemplar`
   - `test_reviewed_boundary_placement_connects_question_to_active_goal`
   - `test_split_guide_falls_back_to_the_error_type_when_the_diagnosis_failed`

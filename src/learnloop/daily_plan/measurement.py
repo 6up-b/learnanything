@@ -46,7 +46,7 @@ activity: no state or outcome depends on whether it has run.
 :func:`record` with its ``experiment_id`` and the adapter take any decision kind; nothing here knows
 what an experiment assigns.
 
-Serving: only from mvp-0.44 with ``data_capture.serving`` (``gates.serving_on``). Never evidence, FSRS,
+Serving: from mvp-0.44 (its switch went once every vault was past the tag). Never evidence, FSRS,
 the projection or replay: the checks are ordinary commitments and their answers ordinary attempts.
 """
 
@@ -435,16 +435,12 @@ def _unplanned_reasons(connection: Any, today: str) -> dict[str, list[str]]:
 
 def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
     """Write the measurement states the ledgers now show. Idempotent; runs where Today prepares, never
-    in replay. Returns how many states it wrote. A no-op off, or below the tag."""
-
-    from learnloop.data_capture.gates import serving_on
+    in replay. Returns how many states it wrote."""
 
     from learnloop.data_capture import reading_exposures
 
     # Freezes what the read below already sees.
     reading_exposures.sweep_quietly(vault, repository, clock=clock)
-    if not serving_on(vault.config):
-        return 0
     typed = objective_receipts_on(vault.config)
     from learnloop.curriculum import commitments as C
     from learnloop.scheduling.intent.serving import intent_serving

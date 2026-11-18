@@ -54,7 +54,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Public API
 
-- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 52) — TE2 serves: lessons on and ``teacher.probes`` on.
+- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 52) — TE2 serves: lessons are on.
 - `lesson_te2(state: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 59) — The lesson was opened under TE2 (its brief is ``lesson_brief_v2``).
 - `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 66)
 - `instructions(text: str, te2: bool) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 70)
@@ -114,8 +114,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `delayed_check_words`, `module`; statically calls `delayed_check_words`, `where_you_left_off`
 - [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `LESSON_SURFACE`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `doctrine_family`, `instructions`, `learner_ref`, `lesson_te2`, `on`, `prompt_version`, `stored_turn`, `turn_model`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `on`; statically calls `on`
-- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `on`
 
 ## Dependencies
 
@@ -138,18 +136,27 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
+  - `test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions_suppressed`
+  - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
+  - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_on_the_brief_is_v2_and_the_turn_carries_te2s_actions`
-  - `test_switch_off_or_below_the_tag_gives_te1s_lesson_byte_for_byte`
   - `test_the_next_lesson_on_the_same_topics_starts_where_the_last_left_off`
 - [tests/test_teacher_te2_successor.py](../../../../../../tests/test_teacher_te2_successor.py) — direct import
-  - `test_the_gate_reads_off_below_the_tag_switched_off_and_with_lessons_off`
+  - `test_the_gate_reads_on_with_lessons_on_and_off_with_lessons_off`
+- [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+  - `test_switch_off_keeps_the_lesson_without_the_episode_paragraph`
+  - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
+- [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
+  - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
+  - `test_switch_off_has_no_p_held_and_writes_no_forecast`
 
 ## Modification guidance
 

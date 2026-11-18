@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/goals/goal_contracts.py"
@@ -115,12 +116,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

@@ -48,6 +48,7 @@ from learnloop.substrate.shadow_rebuild import _learner_state_snapshot
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
+from tests.joint_grading_helpers import joint_proposal_of, write_joint_regrade
 from tests.split_live_helpers import ReadyRuntime, submit
 from tests.held_grade_evidence_helpers import T, _graded_apply
 from tests.regrade_contract_replay_helpers import (
@@ -61,7 +62,6 @@ from tests.regrade_contract_replay_helpers import (
 )
 from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentUnlocatedGrader
 from tests.regrade_contract_successor_helpers import (
-    JOINT,
     VERSION,
     _rebuild,
     _settle,
@@ -261,17 +261,23 @@ def test_a_method_explicit_regrade_cites_its_frozen_contract_under_a_new_revisio
 # -- replay and the unrecorded hold -------------------------------------------------------------
 
 
-def _legacy_regraded(tmp_path, *, config="", self_graded=False):
+def _legacy_regraded(tmp_path, *, self_graded=False, joint=False):
     """An answer regraded at the predecessor within its original maximum (3
     of 8 under the raised rubric, uncited): the §8.4 case-2 shape, 0.75 as the
-    predecessor replayed it (all live rows over the first cited contract)."""
+    predecessor replayed it (all live rows over the first cited contract).
+    ``joint``: the regrade was joint (stored history: no door regrades jointly
+    now), so it recorded no blind record and no maximum."""
 
-    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR, config=config)
+    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
     apply = _self_graded_apply if self_graded else _graded_apply
     apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_l", when=T)
     _set_result_points(paths, 6)
     vault = load_vault(paths.root)
-    _regrade(vault, repository, "att_l", {"setup": 1.0, "result": 2.0}, when=T + timedelta(days=1))
+    points, when = {"setup": 1.0, "result": 2.0}, T + timedelta(days=1)
+    if joint:
+        write_joint_regrade(vault, repository, "att_l", joint_proposal_of(PointsGrader(points)), clock=FrozenClock(when))
+    else:
+        _regrade(vault, repository, "att_l", points, when=when)
     # The self-graded original was superseded, so the predecessor read the regrade alone, over today's 8.
     as_regraded_before_contracts(repository, "att_l", grade=(3, 0.375) if self_graded else (3, 0.75))
     return paths, vault, repository
@@ -301,7 +307,7 @@ def test_an_unrecorded_joint_regrade_keeps_the_correctness_it_carries_and_never_
     """A joint regrade recorded no maximum: held, with the correctness the
     attempt row carries; lowering the rubric after it never fails a rebuild."""
 
-    paths, vault, repository = _legacy_regraded(tmp_path, config=JOINT, self_graded=True)
+    paths, vault, repository = _legacy_regraded(tmp_path, self_graded=True, joint=True)
     assert repository.latest_blind_grade_record("att_l") is None
     stored = _grade(repository, "att_l")
     vault = _flip(paths, VERSION)
@@ -320,7 +326,7 @@ def test_a_held_unrecorded_grade_is_no_evidence(tmp_path):
     schedule) are exactly those of the same history whose answer carries a
     route-rule hold instead, which every reader already reads as no evidence."""
 
-    paths, vault, repository = _legacy_regraded(tmp_path / "regraded", config=JOINT, self_graded=True)
+    paths, vault, repository = _legacy_regraded(tmp_path / "regraded", self_graded=True, joint=True)
     vault = _flip(paths, VERSION)
     _settle(vault, repository)
     assert attempt_grade_held(repository, "att_l")
@@ -328,7 +334,7 @@ def test_a_held_unrecorded_grade_is_no_evidence(tmp_path):
 
     from tests.held_grade_evidence_helpers import _held_apply
 
-    other_paths, other_vault, other_repository = _vault(tmp_path / "control", version=VERSION, config=JOINT)
+    other_paths, other_vault, other_repository = _vault(tmp_path / "control", version=VERSION)
     _held_apply(other_vault, other_repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_l", when=T)
     _set_result_points(other_paths, 6)
     other_vault = load_vault(other_paths.root)

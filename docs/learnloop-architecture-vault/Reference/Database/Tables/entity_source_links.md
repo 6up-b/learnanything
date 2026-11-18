@@ -109,15 +109,15 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/source_retrieval/reader_tutor.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 

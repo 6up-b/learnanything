@@ -1296,27 +1296,6 @@
       }
     }
   },
-  "causal-selection-readiness": {
-    "arguments": [],
-    "options": {
-      "--json": {
-        "default": false,
-        "flag": true,
-        "multiple": false,
-        "nargs": 1,
-        "required": false,
-        "type": "boolean"
-      },
-      "--vault": {
-        "default": null,
-        "flag": false,
-        "multiple": false,
-        "nargs": 1,
-        "required": false,
-        "type": "path"
-      }
-    }
-  },
   "claims": {
     "arguments": [],
     "options": {}

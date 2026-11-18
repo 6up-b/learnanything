@@ -1,13 +1,9 @@
-"""Data capture's successor mvp-0.44: one constant, its upgrade, its defaults, and its kill switch.
-
-Below the tag, or with ``data_capture.serving`` off, the desktop's serving is mvp-0.43's byte for byte: the plan's
-blocks and the router's rows (receipts stay additive in their own tables).
+"""Data capture's successor mvp-0.44: one constant, its upgrade, the receipts' default, and the outcome version every
+vault's rebuild derives (its kill switch went once every vault was past the tag).
 """
 
 from __future__ import annotations
 
-
-import pytest
 
 from learnloop.algorithm_versions import (
     DATA_CAPTURE_ALGORITHM_VERSION,
@@ -15,19 +11,14 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.config.schema import DataCaptureConfig
-from learnloop.data_capture.gates import receipts_on, serving_on
-from learnloop.daily_plan.engine import advance, build_plan
+from learnloop.data_capture.gates import receipts_on
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import set_algorithm_version
-from tests.router_mixture_helpers import mixture_env, run
-from tests.router_model_fakes import fake_runtime
 from tests.teacher_fakes import build_teacher_vault
-from tests.data_capture_successor_helpers import _blocks, _canonical_rows
 
 TAG = DATA_CAPTURE_ALGORITHM_VERSION
 OLD = LESSON_SUGGESTIONS_ALGORITHM_VERSION
-OFF = "[data_capture]\nserving = false\n"
 
 
 def test_the_successor_is_one_constant_after_te1b_and_the_latest():
@@ -35,22 +26,19 @@ def test_the_successor_is_one_constant_after_te1b_and_the_latest():
     assert SUCCESSOR_CHAIN[position - 1:position + 1] == (OLD, TAG) == ("mvp-0.43", "mvp-0.44")
 
 
-def test_the_switches_are_on_by_default_and_the_gate_is_the_switch():
-    assert DataCaptureConfig().serving is True and DataCaptureConfig().receipts is True
+def test_the_receipts_are_on_by_default_and_their_gate_is_their_switch():
+    assert DataCaptureConfig().receipts is True
 
     class Config:
         data_capture = DataCaptureConfig()
 
-        class algorithms:
-            algorithm_version = TAG
-
-    assert serving_on(Config) and receipts_on(Config)
-    Config.data_capture = DataCaptureConfig(serving=False)
-    assert not serving_on(Config) and receipts_on(Config), "receipts act whatever serving says"
+    assert receipts_on(Config)
+    Config.data_capture = DataCaptureConfig(receipts=False)
+    assert not receipts_on(Config)
 
 
-def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
-    """The one replayer reads the vault's outcome version: v2 below the tag, v3 from it."""
+def test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag(tmp_path):
+    """The one replayer derives every vault's outcomes as v3, a vault at an older tag's too."""
 
     from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -70,23 +58,7 @@ def test_the_outcomes_cache_is_rebuilt_under_the_vaults_version(tmp_path):
         with repository.connection() as connection:
             return {row[0] for row in connection.execute("SELECT outcome_version FROM router_outcomes")}
 
-    assert versions() == {"router_outcomes_v2"}
+    assert versions() == {"router_outcomes_v3"}
     set_algorithm_version(direct, TAG)
     assert versions() == {"router_outcomes_v3"}
 
-
-@pytest.mark.parametrize("variant", ["no_model", "stop_offered"])
-def test_switched_off_at_the_tag_the_plan_and_its_rows_are_the_predecessors(tmp_path, variant):
-    budget = 25.0 if variant == "no_model" else 6.0
-    below = mixture_env(tmp_path / "below", fake_runtime(), version=OLD)
-    off = mixture_env(tmp_path / "off", fake_runtime(), version=TAG, toml=OFF)
-    for env in (below, off):
-        build_plan(env, kind="normal", budget=budget, remembered=int(budget), minutes_source="chip")
-        run(env)
-    record_below, record_off = advance(below, serve=False)[0], advance(off, serve=False)[0]
-    assert _blocks(record_below) == _blocks(record_off)
-    assert _canonical_rows(below) == _canonical_rows(off)
-    for env in (below, off):
-        with env.repository.connection() as connection:
-            assert connection.execute("SELECT COUNT(*) FROM decision_objectives").fetchone()[0] == 0
-            assert connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0] == 0

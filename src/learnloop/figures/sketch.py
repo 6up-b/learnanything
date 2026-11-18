@@ -38,10 +38,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from learnloop.figure_admission import sketch_enabled
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
 
-SKETCH_VERSION = "sketch-v1"
 #: keep (operational): bounds a program to one idea, reviewable.
 SKETCH_MAX_SOURCE_BYTES = 32_768  # 32 KiB
 #: keep (display): renderer cost.
@@ -863,6 +863,20 @@ def element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     return {str(element["id"]): element for element in scene.get("elements") or () if element.get("id") is not None}
 
 
+def sketch_ready(vault: Any) -> bool:
+    """The sketch tier as offered on this machine: its switch, and the engine
+    present with its pinned digest (spec §7.2: an unavailable tier is left
+    out of the author's menu)."""
+
+    if not sketch_enabled(vault):
+        return False
+    # Imported here, not at the top: the sidecar starts without loading the
+    # sealed engine's module (``test_sidecar_start_imports_neither_wasmtime_nor_the_engine``).
+    from learnloop.figures.sketch_engine import engine_ready
+
+    return engine_ready()
+
+
 __all__ = [
     "CHECK_WORDS",
     "CLAIM_REL_TOL",
@@ -886,7 +900,6 @@ __all__ = [
     "SKETCH_PLAY_TICKS",
     "SKETCH_TIME_SAMPLES",
     "SKETCH_VERIFY_SECONDS",
-    "SKETCH_VERSION",
     "SKETCH_WATCHDOG_FRAMES",
     "SketchError",
     "SketchProgramV1",
@@ -905,6 +918,7 @@ __all__ = [
     "read_steps",
     "round_half_up",
     "sample_steps",
+    "sketch_ready",
     "tick_steps",
     "scene_problems",
 ]

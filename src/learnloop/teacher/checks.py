@@ -213,7 +213,7 @@ def grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt
     context = build_grading_context(vault, item, attempt_id=attempt_id, learner_answer_md=answer)
     run_id = repository.insert_agent_run({
         "id": new_ulid(), "purpose": "grading", **agent_run_provider_fields(client, runtime),
-        "prompt_template": "grading", **vault_grading_run_identity(vault, context),
+        "prompt_template": "grading", **vault_grading_run_identity(context),
         "started_at": utc_now_iso(clock), "status": "running",
     })
     try:
@@ -282,7 +282,7 @@ def record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_i
                                hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
                                evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
             attempt_id=attempt_id, grade=grade, grading_source=grading_source,
-            grading_agent_run_id=grading_run_id, grader_identity=vault_grading_calibration_identity(vault),
+            grading_agent_run_id=grading_run_id, grader_identity=vault_grading_calibration_identity(),
         ), clock=clock)
     return result
 

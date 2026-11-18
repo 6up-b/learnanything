@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]]
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]]
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]]
 - [tests/test_ro2_history_protection.py](../../../../../../tests/test_ro2_history_protection.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]]
 - [tests/ad1_codex_rereview_fixes_helpers.py](../../../../../../tests/ad1_codex_rereview_fixes_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
@@ -136,7 +137,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad1_fix_round5.py](../../../../../../tests/test_ad1_fix_round5.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 - [tests/test_ad1_fix_round6.py](../../../../../../tests/test_ad1_fix_round6.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 - [tests/test_ad1_fix_round7.py](../../../../../../tests/test_ad1_fix_round7.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
-- [tests/test_ad1_fix_round8.py](../../../../../../tests/test_ad1_fix_round8.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 
 ## Modification guidance
 

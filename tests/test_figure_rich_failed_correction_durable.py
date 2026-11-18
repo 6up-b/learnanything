@@ -2,7 +2,7 @@
 
 A correction of an animation whose rich job stored a failure lists a failed
 line under its passage (the reason, and "try again"). Before this follow-up
-:func:`learnloop.figures.service.rich_pending` found such corrections only
+:func:`learnloop.figures.listing.rich_pending` found such corrections only
 among the rich jobs the queue's newest-500 window still returned, so once 500
 newer rich jobs ran, the line vanished with no reason and no retry. Now the
 failed correction is discovered from the durable figure and request rows (the
@@ -17,7 +17,8 @@ of :func:`learnloop.figures.rich.rich_jobs` (what 500 newer rich jobs do).
 from __future__ import annotations
 
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship
 from tests.figure_rich_job_helpers import WHY, _Rig
@@ -36,13 +37,13 @@ def test_r1_a_failed_correction_outside_the_job_window_still_says_so(tmp_path, m
     first = _first_animation(rig)
     job_id = rig.build(_revision(rig, first["figure_id"], "red please")).rich["rich_job_id"]
     rig.ingest.drain()
-    (before,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (before,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     _age_out(monkeypatch, job_id)
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line == before
     assert line["state"] == "failed" and line["rich_job_id"] == job_id and line["reason"]
     # "Try again" still works from the line (the job is read by id over the whole queue).
-    retry = FS.rich_revision_retry(rig.vault, rig.repository, job_id)
+    retry = FB.rich_revision_retry(rig.vault, rig.repository, job_id)
     assert retry is not None and retry.supersedes_id == first["figure_id"]
 
 
@@ -53,7 +54,7 @@ def test_r1_a_newer_correction_in_the_window_still_speaks_for_the_figure(tmp_pat
     rig.ingest.drain()
     newer = rig.build(_revision(rig, first["figure_id"], "blue please"))
     _age_out(monkeypatch, failed_job)
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "pending" and line["rich_job_id"] == newer.rich["rich_job_id"]
 
 
@@ -69,7 +70,7 @@ def test_r1_a_failed_correction_of_a_fuller_version_outside_the_window_says_so_t
     _age_out(monkeypatch, job_id)
     (line,) = rig.listed()
     assert line["figure_id"] == quick["figure_id"] and line["fuller"]["figure"]["figure_id"] == old_rich
-    (failed,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (failed,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert failed["state"] == "failed" and failed["rich_job_id"] == job_id and failed["reason"]
 
 
@@ -85,7 +86,7 @@ def test_r1_a_replaced_failed_correction_lists_nothing_outside_the_window(tmp_pa
     again = rig.build(_revision(rig, first["figure_id"], "blue please"))
     rig.ingest.drain()
     _age_out(monkeypatch, failed_job, again.rich["rich_job_id"])
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
 
 
 def test_codex_f4_a_newer_cancelled_correction_still_speaks_for_the_figure_after_500_newer_rich_jobs(
@@ -102,12 +103,12 @@ def test_codex_f4_a_newer_cancelled_correction_still_speaks_for_the_figure_after
     first = _first_animation(rig)
     failed_job = rig.build(_revision(rig, first["figure_id"], "red please")).rich["rich_job_id"]
     rig.ingest.drain()
-    (line,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (line,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert line["state"] == "failed" and line["rich_job_id"] == failed_job
     cancelled_job = rig.build(_revision(rig, first["figure_id"], "blue please")).rich["rich_job_id"]
     rig.ingest.cancel_batch(rig.batches[-1])
     assert rig.repository.get_ingest_job(cancelled_job)["status"] == "cancelled"
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
 
     batch = rig.ingest.enqueue_batch("figure_rich", [
         JobSpec("figure_rich", {"base": {"extraction_id": "ext_elsewhere"}, "input_hash": f"elsewhere-{index}"})
@@ -117,4 +118,4 @@ def test_codex_f4_a_newer_cancelled_correction_still_speaks_for_the_figure_after
         connection.commit()
     window = {job["id"] for job in RICH.rich_jobs(rig.repository)}
     assert len(window) == 500 and failed_job not in window and cancelled_job not in window
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []

@@ -16,6 +16,7 @@ from learnloop.field.outcomes import data_check, load_attempt_rows, load_facet_r
 from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
 
 from tests.diagnosis_fakes import ReviewFakeClient
+from tests.joint_grading_helpers import write_joint_answer
 from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
 from tests.grading_support_helpers import _ZeroWithoutAttribution
 from tests.field_split_outcomes_helpers import _ZeroEverythingWithoutAttribution
@@ -95,8 +96,10 @@ def test_blind_grades_diagnoses_and_regrades_keep_the_epoch_contract(tmp_path):
     leaves a failure re-queues the diagnosis and the field follows the new
     epoch."""
 
+    # Graded jointly (stored history: no door grades jointly now).
     _jpaths, joint_vault, joint_repository = split_vault(tmp_path / "joint", version=LATEST_ALGORITHM_VERSION)
-    joint = submit(joint_vault, joint_repository, ReviewFakeClient())
+    joint = write_joint_answer(joint_vault, joint_repository)
+    assert joint_repository.latest_blind_grade_record(joint.attempt_id) is None
     joint_rows = _rows(joint_repository, joint_vault, joint.attempt_id)
 
     _paths, vault, repository = split_vault(tmp_path / "split")

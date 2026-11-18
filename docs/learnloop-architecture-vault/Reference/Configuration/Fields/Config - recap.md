@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop/reader/recap.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recap"
@@ -50,8 +50,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `recap.enabled` | `true` | boolean | modeled default or validator seed | Turns recap behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2407`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/reader/recap.py:87` |
-| `recap.wrap_up_enabled` | `true` | boolean | modeled default or validator seed | Turns wrap up behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2408`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/reader/recap.py:93` |
+| `recap.enabled` | `true` | boolean | modeled default or validator seed | Turns recap behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2405`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/reader/recap.py:87` |
+| `recap.wrap_up_enabled` | `true` | boolean | modeled default or validator seed | Turns wrap up behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2406`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop/reader/recap.py:93` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -61,6 +61,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -71,7 +72,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
 
 ## Extension and modification guidance
 

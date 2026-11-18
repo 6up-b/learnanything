@@ -145,9 +145,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `add_report_block`, `plan_providers`, `pressed_waits_on`; statically calls `add_report_block`, `plan_providers`, `pressed_waits_on`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `capacity_left`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `_when`, `anchor_of`, `day_load`, `decisions`, `has_tables`, `load_model`, `render_minutes_left`, `render_minutes_today`, `started_today`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `render_minutes_left`; statically calls `render_minutes_left`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `capacity_left`
 
 ## Dependencies
 
@@ -157,7 +157,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `FIGURE_WAIT_VERSIONS`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] — imports `module`; calls `Incremental`, `Model`, `Observation`, `PlanDay`, `open_posterior`, `pause_posterior`, `wait_estimate`, `waits`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `ALL_SPEC_VERSIONS`
+- [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `ALL_SPEC_VERSIONS`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `billing_for`; calls `billing_for`
 
 ### Platform and third-party dependencies
@@ -172,7 +172,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

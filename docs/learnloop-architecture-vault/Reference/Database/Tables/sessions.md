@@ -83,6 +83,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.adopt_session()`
 - `Repository.create_session()`
 - `Repository.end_open_sessions_except()`
 - `Repository.end_session()`
@@ -95,6 +96,7 @@ Indexes and uniqueness:
 - `Repository.review_session_rows()`
 - `Repository.session_day_streak()`
 - `Repository.session_learner_answers()`
+- `Repository.start_session_exclusive()`
 
 ### Direct SQL readers
 

@@ -36,7 +36,7 @@ from typing import Any
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
-from learnloop.figure_admission import help_kind_enabled
+from learnloop.figure_admission import help_kind_enabled, show_me_enabled
 
 #: The ladder level a figure's help row is written at (§11.2): one
 #: hint-equivalent in the fold, the level of ``explore_figure`` (§11.4). A
@@ -390,7 +390,9 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     drawn and shown now (switches, held-out material). ``exclude_roots``:
     figures already opened in this attempt (their chain roots)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import view as FV
+    from learnloop.figures.protection import row_withheld, show_me_row
+    from learnloop.figures.spec import SPEC_VERSIONS
     from learnloop.source_retrieval.corpus import item_exclusions
     from learnloop.tutor.tutor_qa import span_leaks_expected
 
@@ -399,7 +401,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if not store.has_tables(connection):
             return None
-        rows = store.shown_figures(connection, FS.SPEC_VERSIONS, limit=QUALIFYING_SCAN)
+        rows = store.shown_figures(connection, SPEC_VERSIONS, limit=QUALIFYING_SCAN)
         superseded = {str(row[0]) for row in connection.execute(
             "SELECT supersedes_id FROM interactive_figures WHERE supersedes_id IS NOT NULL")}
         roots = {str(row["id"]): chain_root(connection, str(row["id"])) for row in rows}
@@ -410,15 +412,15 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
         figure_id = str(row["id"])
         if figure_id in superseded or roots.get(figure_id) in excluded_roots:
             continue
-        if FS.rich_row(row):
+        if FV.rich_row(row):
             # Ruling R1: attempt hosts are grammar and sketch only.
             continue
-        if FS.show_me_row(row) and not FS.show_me_enabled(vault):
+        if show_me_row(row) and not show_me_enabled(vault):
             continue
-        if not FS.drawable_now(vault, row) or FS.advanced_off_row(vault, row) is not row \
-                or FS.sketch_off_row(vault, row) is not row:
+        if not FV.drawable_now(vault, row) or FV.advanced_off_row(vault, row) is not row \
+                or FV.sketch_off_row(vault, row) is not row:
             continue
-        if FS.source_rejected(vault, repository, row):
+        if FV.source_rejected(vault, repository, row):
             continue  # RW5c: a stated claim proved different is not shown
         placed = _placed_keys(repository, row)
         if not any(item.learning_object_id in topics.treats(key[0], key[1]) for key in placed):
@@ -430,7 +432,7 @@ def qualifying_figure(vault: Any, repository: Repository, item: Any, *,
             continue
         if span_leaks_expected(reveal_text(row), item.expected_answer):
             continue
-        if FS.row_withheld(vault, repository, row) is not None:
+        if row_withheld(vault, repository, row) is not None:
             continue
         return row
     return None

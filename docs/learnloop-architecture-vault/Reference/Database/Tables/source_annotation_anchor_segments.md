@@ -16,12 +16,12 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/source_retrieval/vault_notes.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
   - "src/learnloop/reader/reader_intent.py"
-  - "src/learnloop/reader/reader_requests.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,16 +90,17 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/source_retrieval/vault_notes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_intent.py`

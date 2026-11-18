@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/074_activity_contract_extensions.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/substrate/surface_mint.py"
   - "src/learnloop/substrate/activities.py"
 tags:
@@ -94,11 +94,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

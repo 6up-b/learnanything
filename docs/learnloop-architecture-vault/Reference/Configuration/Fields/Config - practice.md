@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ai/plan_fallback.py"
   - "src/learnloop_sidecar/serving.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figures_fix_round2_helpers.py"
   - "tests/figures_switch_off_helpers.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/mobile_host_helpers.py"
   - "tests/notes_fixtures.py"
   - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/practice"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `practice.as_printed.enabled` | `true` | boolean | modeled default or validator seed | Turns as printed behavior on or off within reader CA1 (ux_reader_compare_ask_v1 §8, K15): the kill switch of the problem as printed (a crop of only an imported problem's own blocks from the page), the original page (one hint-equivalent before Submit, the existing book count of hints_used), the learner's photo for a card written from a phone photo, and the transcription report (a maintenance notice); display and a notice only, no scoring, scheduling, projection or serving change (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2887`; `src/learnloop_sidecar/handlers/as_printed.py:60`; `src/learnloop_sidecar/handlers/reader.py:979` |
-| `practice.device_eligibility_enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the phone's device rules (mobile PR-6, spec_mobile_tailnet_v1 §6.4; learnloop.scheduling.device_eligibility). On, a request with a phone origin never gets an item that needs a desktop: it is held back in the queue build, refused desktop_only at a by-id door and a probe contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2904`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/serving.py:62` |
+| `practice.as_printed.enabled` | `true` | boolean | modeled default or validator seed | Turns as printed behavior on or off within reader CA1 (ux_reader_compare_ask_v1 §8, K15): the kill switch of the problem as printed (a crop of only an imported problem's own blocks from the page), the original page (one hint-equivalent before Submit, the existing book count of hints_used), the learner's photo for a card written from a phone photo, and the transcription report (a maintenance notice); display and a notice only, no scoring, scheduling, projection or serving change (no successor). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2880`; `src/learnloop_sidecar/handlers/as_printed.py:60`; `src/learnloop_sidecar/handlers/reader.py:979` |
+| `practice.device_eligibility_enabled` | `true` | boolean | modeled default or validator seed | Kill switch for the phone's device rules (mobile PR-6, spec_mobile_tailnet_v1 §6.4; learnloop.scheduling.device_eligibility). On, a request with a phone origin never gets an item that needs a desktop: it is held back in the queue build, refused desktop_only at a by-id door and a probe contract, and a draft on one refuses adoption. Off, a phone request is served as the desktop is, and the router's inputs say device_policy off. Never read by a desktop request or by replay; no successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2897`; `src/learnloop/ai/plan_fallback.py:138`; `src/learnloop_sidecar/serving.py:62` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -63,6 +63,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figures_fix_round2_helpers.py`
 - `tests/figures_switch_off_helpers.py`
@@ -73,7 +74,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mobile_host_helpers.py`
 - `tests/notes_fixtures.py`
 - `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
 
 ## Extension and modification guidance
 

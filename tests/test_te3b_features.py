@@ -6,12 +6,11 @@ from __future__ import annotations
 
 
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.router_objective import learned_tail as LT
 
 
 TAG = LATEST_ALGORITHM_VERSION
-OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 
 # --- RO6's features ---------------------------------------------------------------------------------------------
 
@@ -20,7 +19,7 @@ def test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_poi
     from learnloop.router_objective import tail_data as TD
     from learnloop.vault.loader import load_vault
 
-    from tests.helpers import create_basic_vault, set_algorithm_version
+    from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 
     belief = LT.Belief(session_load=0.5, days_to_go=0.0, pending_reports=0.0, mastery_p=0.5, mastery_var=0.1)
     lesson = LT.ActionView(ref="lesson_offer:lo", kind="lesson", minutes=15.0)
@@ -37,7 +36,8 @@ def test_ro6s_features_gain_the_lesson_indicator_and_the_version_is_a_change_poi
     set_algorithm_version(paths, TAG)
     on = load_vault(paths.root).config
     assert TD.features_version(on) == LT.FEATURES_VERSION_LESSON
-    set_algorithm_version(paths, OLD)
+    # With lessons off no offer is a candidate, so the features are RO6's.
+    append_config_toml(paths.root, "[teacher]\nenabled = false\n")
     off = load_vault(paths.root).config
     assert TD.features_version(off) == LT.FEATURES_VERSION
     trace = {"versions": {"objective": "o", "tail": "t", "terminal": "x", "horizon_days": 90.0, "llm_schema": "s"},

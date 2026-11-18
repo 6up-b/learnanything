@@ -101,10 +101,11 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `append_judgment`; statically calls `append_judgment`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `append_judgment`; statically calls `append_judgment`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `append_judgment`; statically calls `append_judgment`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `append_judgment`; statically calls `append_judgment`
 - [[Reference/Modules/learnloop/hints/outcome|learnloop.hints.outcome]] — imports `append_judgment`; statically calls `append_judgment`
@@ -157,13 +158,14 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] and 63 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]] and 64 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/help_outcomes_helpers.py](../../../../../../../tests/help_outcomes_helpers.py) — direct import
 - [tests/recurrence_fakes.py](../../../../../../../tests/recurrence_fakes.py) — direct import
 - [tests/test_activity_families.py](../../../../../../../tests/test_activity_families.py) — direct import
@@ -206,8 +208,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_supersession_is_how_a_judges_different_is_replaced`
 - [tests/test_recurrence_merge_composition.py](../../../../../../../tests/test_recurrence_merge_composition.py) — direct import
   - `test_a_decider_same_cause_verdict_is_logged_but_joins_no_group`
-- [tests/test_route_rules_in_grader.py](../../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_f5_a_joint_regrade_supersedes_a_route_verdict`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_only_new_authoritative_decider_links_reach_recurrence`
   - `test_the_gaps_report_skips_decider_failure_rows`

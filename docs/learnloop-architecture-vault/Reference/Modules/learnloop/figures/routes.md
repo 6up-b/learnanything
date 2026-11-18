@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py) |
-| Source lines | 613 |
+| Source lines | 620 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,24 +62,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class FigureAuthorOutputV3(WireModel)` ([source](../../../../../../src/learnloop/figures/routes.py), line 291) — RW5d P2b: the author's answer with a rich tier on the menu (spec §8.4): the medium chosen by what best explains the idea, with ``why_this_tier``.
 - `rich_status_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 336) — How the status names the medium (only the media on the menu).
 - `tier_menu_text(tiers: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 360) — The media the author may answer with (spec §8.4): one neutral sentence each, in order.
-- `rich_text() -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 367)
-- `rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None` ([source](../../../../../../src/learnloop/figures/routes.py), line 392) — The menu when it includes a rich tier (V3), else None (V1/V2 exactly).
-- `author_instructions(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 400)
-- `author_prompt_version(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 430)
-- `author_prompt(context: dict[str, Any], *, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 440)
-- `output_model(*, sketch: bool=False, tiers: Sequence[str] | None=None) -> type[WireModel]` ([source](../../../../../../src/learnloop/figures/routes.py), line 450) — The author's output contract: RW5b's V1 off, V2 with the sketch tier on, V3 (RW5d P2b) with a rich tier on the menu.
-- `class FigureUnavailable(Exception)` ([source](../../../../../../src/learnloop/figures/routes.py), line 459) — A figure route cannot be called (``reason``: ``models_off`` | ``unrouted`` | ``unpriced`` | ``capped`` | ``unavailable`` | ``no_image_input``); ``message`` is the learner's line.
-  - `__init__(self, reason: str, message: str) -> None` (line 464; internal)
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/figures/routes.py), line 470)
-- `class FigureRoute` ([source](../../../../../../src/learnloop/figures/routes.py), line 477) — The author route pinned for one request, with its call cap.
-  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any, owner_id: str, max_calls: int) -> None` (line 486; internal)
-  - `bind_owner(self, owner_id: str) -> None` (line 500; public) — Name the request the calls' receipts belong to (known only once the input is hashed, after the route was asked whether it reads images).
-  - `subscription(self) -> bool` (line 509; public)
-  - `problem(self) -> FigureUnavailable | None` (line 512; public)
-  - `resolve(self) -> Any` (line 528; public)
-  - `reads_images(self) -> bool` (line 555; public)
-  - `ask(self, prompt: str, result_model: type[WireModel], *, images: tuple[tuple[str, bytes], ...]=(), metadata: dict[str, Any] | None=None) -> Any` (line 562; public)
-  - `model(self) -> str | None` (line 576; public)
+- `rich_text(brief_max: int) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 367) — The rich brief's contract, with its length cap (``rich.RICH_BRIEF_MAX``, passed in by the build: the parameter registry names ``rich`` as the cap's owner, and this module must not import ``rich``).
+- `rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None` ([source](../../../../../../src/learnloop/figures/routes.py), line 393) — The menu when it includes a rich tier (V3), else None (V1/V2 exactly).
+- `author_instructions(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False, rich_brief_max: int | None=None) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 401) — ``rich_brief_max``: the rich brief's cap, required when ``tiers`` puts a rich tier on the menu.
+- `author_prompt_version(*, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 436)
+- `author_prompt(context: dict[str, Any], *, advanced: bool=False, show_me: bool=False, sketch: bool=False, tiers: Sequence[str] | None=None, learner: bool=False, rich_brief_max: int | None=None) -> str` ([source](../../../../../../src/learnloop/figures/routes.py), line 446)
+- `output_model(*, sketch: bool=False, tiers: Sequence[str] | None=None) -> type[WireModel]` ([source](../../../../../../src/learnloop/figures/routes.py), line 457) — The author's output contract: RW5b's V1 off, V2 with the sketch tier on, V3 (RW5d P2b) with a rich tier on the menu.
+- `class FigureUnavailable(Exception)` ([source](../../../../../../src/learnloop/figures/routes.py), line 466) — A figure route cannot be called (``reason``: ``models_off`` | ``unrouted`` | ``unpriced`` | ``capped`` | ``unavailable`` | ``no_image_input``); ``message`` is the learner's line.
+  - `__init__(self, reason: str, message: str) -> None` (line 471; internal)
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/figures/routes.py), line 477)
+- `class FigureRoute` ([source](../../../../../../src/learnloop/figures/routes.py), line 484) — The author route pinned for one request, with its call cap.
+  - `__init__(self, vault: Any, repository: Repository, task: str, *, client: Any | None, envelope: Any, owner_id: str, max_calls: int) -> None` (line 493; internal)
+  - `bind_owner(self, owner_id: str) -> None` (line 507; public) — Name the request the calls' receipts belong to (known only once the input is hashed, after the route was asked whether it reads images).
+  - `subscription(self) -> bool` (line 516; public)
+  - `problem(self) -> FigureUnavailable | None` (line 519; public)
+  - `resolve(self) -> Any` (line 535; public)
+  - `reads_images(self) -> bool` (line 562; public)
+  - `ask(self, prompt: str, result_model: type[WireModel], *, images: tuple[tuple[str, bytes], ...]=(), metadata: dict[str, Any] | None=None) -> Any` (line 569; public)
+  - `model(self) -> str | None` (line 583; public)
 
 ### Module constants
 
@@ -107,8 +107,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TIER_SENTENCES` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 318)
 - `RICH_CHOICE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 330)
 - `RICH_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 350)
-- `LEARNER_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 378)
-- `LEARNER_STATE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 380)
+- `LEARNER_SUFFIX` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 379)
+- `LEARNER_STATE_TEXT` ([src/learnloop/figures/routes.py](../../../../../../src/learnloop/figures/routes.py), line 381)
 
 ### Explicit exports
 
@@ -154,9 +154,11 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `FigureRoute`, `author_prompt`, `author_prompt_version`, `daily_envelope`, `output_model`, `rich_menu`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `FigureRoute`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `module`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `module`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; statically calls `FigureRoute`, `daily_envelope`, `models_off`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `FigureRoute`, `author_prompt`, `author_prompt_version`, `daily_envelope`, `output_model`, `rich_menu`
 
 ## Dependencies
 
@@ -167,7 +169,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `IMAGE_INPUT`, `ISOLATED_TURN`, `render_structured_prompt`; calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
-- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `RICH_BRIEF_MAX`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `module`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; calls `PaidCalls`, `plan_route`, `resolve_client`
@@ -185,7 +186,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]], [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

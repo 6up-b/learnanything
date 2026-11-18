@@ -21,7 +21,7 @@ What is generalized rather than added
 -------------------------------------
 The vault already had a cold-probe lane; it was **repair**-scoped. `remediation
 .record_remediation_attempt` queues a `cold_retry` `followup_tasks` row a day
-after a primed repair attempt, `causal_orchestrator.cold_verification_context`
+after a primed repair attempt, `causal_cold_verification.cold_verification_context`
 resolves the verification inputs NOW and carries them on the task record
 (migration 124 §6.2), and `record_cold_verification_from_task` fires when the
 retry lands. The delay window, the `not_before` invisibility, serve/consume/

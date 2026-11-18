@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py) |
-| Source lines | 1484 |
+| Source lines | 1483 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -92,13 +92,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `app_snapshot(self) -> dict[str, Any]` (line 864; public)
 - `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 965) — Subject ids, the ones the learner practises most first, then by name.
 - `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 988)
-- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1050)
-- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1181) — Selectable grading backends: configured AI providers, manual.
-- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1201)
-- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1334)
-- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1365)
-- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1442) — Parse a teach-back conversation envelope from checkpoint current_answer.
-- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1466)
+- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1049)
+- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1180) — Selectable grading backends: configured AI providers, manual.
+- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1200)
+- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1333)
+- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1364)
+- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1441) — Parse a teach-back conversation envelope from checkpoint current_answer.
+- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1465)
 
 ### Module constants
 
@@ -114,9 +114,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1014)
 - `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1023)
 - `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1029)
-- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1035) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` while lessons may open on a typed goal and Today offers "Continue your lesson" (absent otherwise).
-- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1234) — Whether every distinct provider the app routes to is configured/ready.
-- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1284) — The health.ai dto, honoring the runtime grading override.
+- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1035) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` (lessons may open on a typed goal and Today offers "Continue your lesson") with ``lessons``, which the desktop still reads (absent otherwise).
+- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1233) — Whether every distinct provider the app routes to is configured/ready.
+- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1283) — The health.ai dto, honoring the runtime grading override.
 
 ## Who imports or calls it
 
@@ -240,7 +240,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `forget_fold_memo`, `refresh_canonical_projection_on_startup`; calls `forget_fold_memo`, `refresh_canonical_projection_on_startup`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `reconcile_practice_item_state`, `sync_vault_state`; calls `reconcile_practice_item_state`, `sync_vault_state`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `lessons_active`; calls `lessons_active`
-- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `on`; calls `on`
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `practice_item_hash`; calls `practice_item_hash`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`; calls `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
@@ -466,7 +465,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
 - [tests/test_intent_orchestrator_rulings.py](../../../../../tests/test_intent_orchestrator_rulings.py) — direct import
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
-  - `test_with_intent_off_the_control_answers_off_and_refuses_writes`
 - [tests/test_judge_routes.py](../../../../../tests/test_judge_routes.py) — direct import
   - `test_grading_providers_and_settings_health_ignore_judgment_routes`
 - [tests/test_k1_unreadable_adapters.py](../../../../../tests/test_k1_unreadable_adapters.py) — direct import
@@ -541,7 +539,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_panel_off_the_sidecar_asks_as_before`
   - `test_the_snapshot_carries_the_panel`
-- [tests/test_reader_followups_successor.py](../../../../../tests/test_reader_followups_successor.py) — direct import
 - [tests/test_reader_pdf_selection.py](../../../../../tests/test_reader_pdf_selection.py) — direct import
   - `test_a_reading_held_back_by_rule_4_is_withheld_whole`
   - `test_the_reader_is_told_which_passages_are_held_out`
@@ -635,9 +632,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt.py](../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_the_draft_checkpoint_keeps_the_stuck_marker_across_a_restart`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
-  - `test_with_the_switch_off_the_desktop_config_is_byte_identical`
+  - `test_without_the_decision_log_the_desktop_config_has_no_suggestions`
 - [tests/test_teacher_te2_sidecar.py](../../../../../tests/test_teacher_te2_sidecar.py) — direct import
-  - `test_below_the_tag_the_goal_rpc_refuses_and_the_config_carries_no_te2_key`
+  - `test_the_config_carries_the_te2_key_with_lessons`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
 - [tests/test_ux_phase1_finish.py](../../../../../tests/test_ux_phase1_finish.py) — direct import

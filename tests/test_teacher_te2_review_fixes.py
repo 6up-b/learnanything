@@ -24,7 +24,7 @@ from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, close_turn
-from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
+from tests.teacher_te2_probes_helpers import _Lesson, _probe, as_opened_before_te2, probe_turn
 from tests.teacher_te2_review_fixes_helpers import _cells, _identity_model
 
 
@@ -71,12 +71,10 @@ def test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity(tmp_
     from learnloop.attempts.blind_grading import (
         BLIND_CALIBRATION_PROMPT_VERSION,
         BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
-        split_grading_active,
     )
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 
     lesson, probe = _served(tmp_path)
-    assert split_grading_active(lesson.vault())  # the blind grader grades this vault's probe answers
     blind_gih, blind_model = _identity_model(lesson.repository, prompt=BLIND_CALIBRATION_PROMPT_VERSION,
                                              schema=BLIND_GRADER_OUTPUT_SCHEMA_VERSION, tag="blind")
     joint_gih, joint_model = _identity_model(lesson.repository, prompt=gc.GRADING_PROMPT_VERSION,
@@ -178,7 +176,7 @@ def _half_recorded(lesson, probe):
                            attempt_type=PR.ATTEMPT_TYPE, entry_surface=PR.ENTRY_SURFACE,
                            evidence_origin=PR.EVIDENCE_ORIGIN, awaits_completion=False),
         attempt_id=probe.attempt_id, grade=grade, grading_source="ai", grading_agent_run_id=run_id,
-        grader_identity=vault_grading_calibration_identity(vault)))
+        grader_identity=vault_grading_calibration_identity()))
 
 
 def test_f3_an_answer_already_recorded_is_finished_without_a_second_grade(tmp_path):
@@ -273,21 +271,20 @@ def test_f4_resume_after_teach_it_anyway_whose_teacher_call_never_ran(tmp_path):
 # -- F6 (the review's §11.8 row) ------------------------------------------------------------------------------------
 
 
-def test_f6_today_can_close_a_te1_lesson_left_open_before_te2_was_switched_on(tmp_path):
+def test_f6_today_can_close_a_te1_lesson_left_open_before_te2(tmp_path):
     from tests.teacher_fakes import plan_turn
-    from tests.ux_phase1_support import set_config
 
-    lesson = _Lesson(tmp_path, [plan_turn], config={("teacher", "probes"): False})
+    lesson = _Lesson(tmp_path, [plan_turn])
+    as_opened_before_te2(lesson.repository, lesson.lesson_id)
     assert S.load_state(lesson.repository, lesson.lesson_id).brief["version"] == "lesson_brief_v1"
-    set_config(lesson.paths.root, {("teacher", "probes"): True})
     assert [card["lesson_id"] for card in S.open_lessons(lesson.vault(), lesson.repository)] == [lesson.lesson_id]
     calls = len(lesson.fake.prompts)
     lesson.act("close")
     assert lesson.view["closed"] and lesson.view["close_reason"] == "learner_stop"
     assert len(lesson.fake.prompts) == calls
     # The probe actions stay a TE2 lesson's only.
-    other = _Lesson(tmp_path / "other", [plan_turn], config={("teacher", "probes"): False})
-    set_config(other.paths.root, {("teacher", "probes"): True})
+    other = _Lesson(tmp_path / "other", [plan_turn])
+    as_opened_before_te2(other.repository, other.lesson_id)
     with pytest.raises(S.LessonError):
         other.act("teach_anyway")
 

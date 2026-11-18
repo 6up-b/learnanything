@@ -23,6 +23,10 @@ source_paths:
   - "src/learnloop/placement/state.py"
   - "src/learnloop/remote/views.py"
   - "src/learnloop/router_objective/decision_state.py"
+  - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/regrade.py"
+  - "src/learnloop/cli/app.py"
+  - "src/learnloop/diagnosis/probes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -90,7 +94,20 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.enqueue_post_attempt_job()`
+- `Repository.finish_post_attempt_job()`
+- `Repository.insert_blind_grade_record()`
+- `Repository.lease_next_post_attempt_job()`
+- `Repository.live_diagnosis_jobs_for_session()`
+- `Repository.owns_post_attempt_job()`
+- `Repository.pending_live_diagnoses_for_active_errors()`
+- `Repository.pending_live_diagnoses_for_session()`
+- `Repository.post_attempt_job()`
+- `Repository.post_attempt_job_counts()`
+- `Repository.post_attempt_jobs()`
+- `Repository.release_post_attempt_job()`
+- `Repository.renew_post_attempt_lease()`
+- `Repository.requeue_post_attempt_job()`
 
 ### Direct SQL readers
 
@@ -107,15 +124,29 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/attempts/attempts.py`
+- `src/learnloop/attempts/regrade.py`
+- `src/learnloop/cli/app.py`
+- `src/learnloop/cli/diagnose.py`
+- `src/learnloop/diagnosis/probes.py`
+- `src/learnloop/diagnosis/split/jobs.py`
+- `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/reader_cues.py`
+- `src/learnloop/reader/reader_guidance.py`
+- `src/learnloop_sidecar/context.py`
+- `src/learnloop_sidecar/handlers/daily_plan.py`
+- `src/learnloop_sidecar/handlers/queue.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/joint_grading_helpers.py`
 - `tests/test_curriculum_c1_fix_round3.py`
 - `tests/test_curriculum_c1_fix_round4.py`
+- `tests/test_diagnosis_async_router.py`
 - `tests/test_diagnosis_embeddings.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_pipeline.py`
@@ -126,9 +157,12 @@ None found by exact static reference scan.
 - `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
-- `tests/test_reader_guidance.py`
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_teach_handoff_stop_settles.py`
+- `tests/held_grade_evidence_helpers.py`
+- `tests/test_followup_codex_review.py`
+- `tests/test_followup_reserved_only.py`
+- `tests/test_recurrence_live.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

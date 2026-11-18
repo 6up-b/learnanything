@@ -124,7 +124,6 @@ MODULE_INVENTORY: dict[str, str] = {
     # P2 DIAGNOSTIC track -- pre-authored diagnostic pack baseline cap (§5.2, design §E).
     "diagnostic_pack": "src/learnloop/diagnosis/diagnostic_pack.py",
     # P2 DIAGNOSTIC track -- two-tier triage confidence buckets (§6.1, U-027, design §E).
-    "failure_triage": "src/learnloop/diagnosis/failure_triage.py",
     # P2 step B.11 -- minimal bidirectional reader dialogue (U-033, §7.6).
     "reader_dialogue": "src/learnloop/reader/reader_dialogue.py",
     # P2 ASSESSMENT + RESTORATION + MILESTONE track -- cold assessment + boundary
@@ -1127,19 +1126,6 @@ _reg_const("diagnostic_pack:PACK_SPEC_SCHEMA_VERSION", "version", kind="structur
 _reg_const("diagnostic_pack:BASELINE_VISIBLE_CAP", "constraint", owner="diagnostic_pack",
            rationale="§5.2 visible-administration cap band (2-4); a requested cap is clamped "
            "into this band and the episode's robust stopping rules do the rest.")
-_reg_const("failure_triage:TRIAGE_ROUTES_SCHEMA_VERSION", "version", kind="structural",
-           owner="failure_triage", rationale="failure-triage route-table schema version pin; enum.")
-_reg_const("failure_triage:TRIAGE_CONFIDENCE_BUCKET_EDGES", "threshold", owner="failure_triage",
-           rationale="U-027 grader-confidence bucket edges (low|mid|high); a tier-one signature "
-           "route fires only in the high bucket, else tier two applies.")
-_reg_const("failure_triage:TRIAGE_DOMINANCE_SHARE", "threshold", owner="failure_triage",
-           rationale="C3 owner-flagged default (PENDING OWNER CONFIRMATION): minimum share of the "
-           "supplied provisional reason distribution one signature must own for the "
-           "high-confidence error-signature route to stay tier-one; a diffuse distribution "
-           "downgrades it to a tier-two decision aid. The spec's three decisive triggers are "
-           "unaffected. Cheap to reverse (a bare signature with no supplied distribution still "
-           "routes tier-one).")
-
 # P2 step B.11 -- reader routing prior (U-033, §7.6, design A.1). The prior is a
 # replay-derived decision AID that only reorders triage candidates inside the
 # U-027 channel and is superseded by the first cold observation; reader dialogue
@@ -1325,6 +1311,8 @@ _reg_const("voi_stopping:_ROUND_DIGITS", "numerical", kind="structural", owner="
 _reg_const("voi_stopping:MAX_RECORDED_CANDIDATES", "operational", kind="structural",
            owner="voi_stopping",
            rationale="how many candidates' summaries one value-of-information receipt keeps below "
+           # Kept byte for byte: the rationale is mirrored into each vault's parameter_registry rows (a
+           # rewording changes them), though the switch it names is gone and every receipt keeps every one.
            "mvp-0.44 or with data_capture.serving off (from it, every one; the best keeps its full "
            "forecast); receipt size only, never a decision.")
 _reg_const("voi_stopping:_VARIANCE_FLOOR", "numerical", kind="structural", owner="voi_stopping",
@@ -1910,15 +1898,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "kill switch for teacher TE1's successor: lessons may open / curriculum C4's deliverable and notes in "
         "the brief. Operational only: the learned quantities move with the data, never with these."),
-    # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the successor's kill
-    # switch, and the probes one lesson may ask for (keep: a burden guardrail, the teacher decides when to stop).
+    # Teacher TE2 (spec_teacher_v1 rev 5 §11.3, §11.5, §11.7, §11.8, §18.3, §18.4): the probes one lesson may
+    # ask for (keep: a burden guardrail, the teacher decides when to stop).
     _ConfigRule(_exact(
-        "teacher.probes", "teacher.placement.max_probes",
+        "teacher.placement.max_probes",
     ), "structural", "operational",
-        "kill switch for teacher TE2's successor (generated single-use probes inside lessons, gaps filed from a "
-        "lesson's learner text, typed lesson goals and their new topics, the brief without vault probe headers, "
-        "the resume card; off, or below the tag: TE1's and TE2-log's lessons exactly) / keep: at most 8 probes "
-        "a lesson (a burden guardrail; the teacher decides when to stop, this only bounds it)."),
+        "keep: at most 8 generated single-use probes a TE2 lesson (a burden guardrail; the teacher decides when "
+        "to stop, this only bounds it)."),
     # Teacher TE2-log (spec_teacher_v1 §11.6, §11.9, §20): item 5's logging. A boolean
     # (classified so every new key has a rule); it decides no lesson, only whether the
     # episode rows, the activity intervals and the node forecasts are written.
@@ -1955,22 +1941,12 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "default desired retention; RW6b's valuation replaces it); 3 and 7 days, basis legacy (RW6b's "
         "retention fallback and capture.test_me_later_days), used only while the LO has no FSRS state. "
         "Serving dates, never evidence."),
-    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the successor's kill switch and
-    # the anti-nagging ceiling (keep: never learned, each bind logged). How often a
-    # suggestion comes and how long a "Not now" lasts are learned (the module's
-    # seeded priors); neither is a config value.
-    _ConfigRule(_exact("router.lesson_suggestions.enabled"), "structural", "operational",
-        "kill switch for teacher TE1b's successor: Today may draw one lesson suggestion a day with an exact "
-        "logged propensity; off (or below the tag) nothing is drawn or written and Today is mvp-0.42's."),
+    # Teacher TE1b (spec_teacher_v1 §15.1, §18.4): the anti-nagging ceiling (keep: never learned, each bind
+    # logged). How often a suggestion comes and how long a "Not now" lasts are learned (the module's seeded
+    # priors); neither is a config value.
     _ConfigRule(_exact("router.lesson_suggestions.ceiling_per_day"), "structural", "constraint",
         "keep: an anti-nagging guardrail on shown suggestions a day (spec §18.4: never learned; a bind is logged "
         "on the decision as ceiling_bound, and a ceiling that binds often means the acceptance model is wrong)."),
-    # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): its successor's kill switch.
-    _ConfigRule(_exact("router.lesson_suggestions.in_objective"), "structural", "operational",
-        "kill switch for teacher TE3b's successor: lesson offers are candidates of the router objective at a "
-        "reversible plan block boundary, lesson minutes count on its clock, LOs with a pending lesson check join its "
-        "population, and TE1b's Today-open card is drawn only where the objective does not serve; off (or below the "
-        "tag) TE1b's daily card and RO4's support exactly (mvp-0.52)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the
@@ -2032,12 +2008,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "UTC day of the relevance and exposure calls made for follow-ups (the owner's spending authority; "
         "subscription calls are estimated_only); no measurement, scheduling or serving authority."),
     _ConfigRule(_exact(
-        "followups.enabled",
         "followups.formative_questions_enabled",
         "followups.generate_when_nothing_fits",
     ), "structural", "operational",
-        "kill switches for cold follow-ups (followups.enabled is the kill switch of the successor mvp-0.39; "
-        "off, or below the tag, the predecessor's plan) / formative records adding questions / background "
+        "switches for cold follow-ups: formative records adding questions / background "
         "generation when nothing fits; test_me_later commitments the learner can undo, never evidence."),
     # Reader workbench RW6b part 2 (spec §9.2): the session narrative (one
     # background call per reader session, salience only, never evidence) and
@@ -2187,19 +2161,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the reading-path judge's metered spend a UTC day, checked before the call; a spend bound, no "
         "measurement authority (path labels are display only)."),
-    # Reader workbench RW7b (spec §10.2, G47): the kill switch of the
-    # successor whose plan's reading block opens the next core or
-    # prerequisite section of the reading path. A boolean (classified so
-    # every new key has a rule); the rule is structural (the path's own
-    # labels and the learner's overrides decide, no weight, margin or
-    # threshold to learn). Off restores the predecessor's reading block
-    # exactly.
-    _ConfigRule(_exact(
-        "reading_paths.plan_uses_path",
-    ), "structural", "operational",
-        "kill switch for RW7b's successor: the plan's reading block opens the next unfinished core or "
-        "prerequisite section of the learner's reading path (read it anyway counts as core, skip it and "
-        "enrichment are never planned); off, the predecessor's reading order exactly."),
     # Deliverable curriculum C0a: section coverage and reader.correspondents.
     # The switch is a boolean (classified so every new key has a rule); the
     # two dollar caps are spend guardrails (`keep`: unapproved spend is the
@@ -2293,19 +2254,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for Reader CA6's side by side (two source panes, follow along at section crossings, "
         "exposure rows for the second pane's text); navigation and display, no measurement, scheduling or "
         "serving authority (no algorithm successor)."),
-    # Deliverable curriculum C1 (mvp-0.40; spec §7.6): the kill switch of the
-    # successor whose plan reading block follows the nearest deliverable's
-    # path. A boolean (classified so every new key has a rule); which section
-    # is read is the path judge's order and the existing filters, so no
-    # weight, margin or threshold is added. Off restores RW7b's plans exactly;
-    # replay never reads it.
-    _ConfigRule(_exact(
-        "curriculum.plan_uses_path",
-    ), "structural", "operational",
-        "kill switch for curriculum C1's successor: the plan's reading block opens the next unfinished core or "
-        "prerequisite section in the nearest active deliverable's fresh path order, in whichever book (the "
-        "front-matter rule, exam filter and DL2's reading_allowed first); off, RW7b's plans byte for byte. "
-        "Never read by replay."),
     # Deliverable curriculum C3 (spec §9.2): the kill switch of the scope
     # resolver's past-papers input. A boolean (classified so every new key has
     # a rule); which topics count is the exam predicate's partition (held out
@@ -2805,14 +2753,15 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "daily-plan budget size, duration-estimate winsorizing or reading pace; sizes the "
         "plan and its labels, no measurement authority."),
-    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled and
-    # intent.recall_targets_enabled, Codex re-review F2): the per-intent recall
+    # Daily-loop DL2 (intent; the successor mvp-0.29, Codex re-review F2): the per-intent recall
     # targets (Q8, owner defaults accepted 2026-10-12, checkpoint open) scale
     # an effective due at serving time only; due_at is still written at 0.90
     # and nothing reaches evidence. The "Check once" delay is a timing default.
     _ConfigRule(_prefix("intent.recall_targets."), "decision", "threshold",
                 "per-intent recall target (spec_daily_loop_v1 §5.3, Q8): when an item is served, as "
                 "effective_due = anchor + (due_at - anchor) x ratio(target); serving only, never "
+                # Kept byte for byte: the rationale is mirrored into each vault's parameter_registry rows
+                # (a rewording changes them), though the switch it names is gone.
                 "persisted state or evidence; kill switch intent.recall_targets_enabled."),
     _ConfigRule(_exact("capture.test_me_later_days"), "decision", "threshold",
                 "how long a \"Check once\" waits before its one cold check when its commitment names no "

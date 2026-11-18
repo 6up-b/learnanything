@@ -142,12 +142,17 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `builds_for_input`, `figure`, `figures_for_extraction`, `fuller_rows`, `has_tables`, `insert_figure`, `insert_request`, `latest_for_input`, `reusable`, `set_request_figure`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `module`; statically calls `has_tables`, `shown_figures`
 - [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]] — imports `VERIFIED_RW5C`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `figure`, `figures_for_extraction`, `has_tables`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `module`; statically calls `has_tables`, `insert_prediction`, `prediction`, `prediction_for`, `set_explanation`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `SHOWN`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `module`; statically calls `figure`, `has_tables`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `module`; statically calls `figure`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `module`; statically calls `has_tables`, `insert_figure`, `request`, `reusable`, `set_request_figure`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `builds_for_input`, `figure`, `figure_verdicts`, `figures_for_extraction`, `fuller_rows`, `has_tables`, `insert_figure`, `insert_prediction`, `insert_request`, `latest_for_input`, `prediction`, `prediction_for`, `predictions_for_figure`, `request`, `reusable`, `set_explanation`, `set_request_figure`, `shown_verification`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `module`; statically calls `figure_verdicts`, `has_source_checks`, `insert_source_check`, `latest_source_check`, `latest_source_checks`, `shown_figures`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `figure`, `figure_verdicts`, `fuller_rows`, `has_tables`, `predictions_for_figure`, `request`, `shown_verification`
 - [[Reference/Modules/learnloop/reader/reader_report|learnloop.reader.reader_report]] — imports `shown_verification`; statically calls `shown_verification`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `module`; statically calls `figure`, `has_tables`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `figure`, `has_tables`, `superseding`
@@ -171,7 +176,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]], [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/figures/labels|learnloop.figures.labels]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

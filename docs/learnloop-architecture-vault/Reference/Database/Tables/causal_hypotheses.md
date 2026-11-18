@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_factor_deferral.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -121,6 +121,8 @@ Database triggers:
 - `Repository.causal_hypotheses_with_statement()`
 - `Repository.causal_hypothesis()`
 - `Repository.find_record()`
+- `Repository.hypothesis_episode_rows()`
+- `Repository.input_fingerprint_parts()`
 - `Repository.latest_causal_hypothesis_for_episode()`
 - `Repository.open_unresolved_cause_factors()`
 
@@ -155,13 +157,15 @@ Database triggers:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
-- `src/learnloop/diagnosis/failure_triage.py`
+- `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/guided_redo.py`
+- `src/learnloop/diagnosis/machine_checks.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/recurrence/kind.py`
@@ -169,8 +173,6 @@ Database triggers:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
-- `src/learnloop/diagnosis/text_gaps/actions.py`
-- `src/learnloop/followup_run/admission.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -188,7 +190,6 @@ Database triggers:
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
-- `tests/test_failure_triage_causal_gate.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_hint_discriminating.py`
@@ -197,6 +198,7 @@ Database triggers:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp017_route_check_replay.py`
+- `tests/test_recurrence_benchmarks.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

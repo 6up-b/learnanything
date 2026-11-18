@@ -146,7 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_timeout_reaches_the_staged_rule_with_fallback_llm`
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
   - `test_a_drawn_llm_pick_shows_its_rationale_and_its_cited_answers`
-  - `test_with_no_model_set_up_the_rule_chooses_deterministically`
+  - `test_with_no_model_set_up_the_plan_says_the_models_are_not_set_up`
 - [tests/test_rw7b_fix_round2.py](../../../../../../tests/test_rw7b_fix_round2.py) — direct import
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

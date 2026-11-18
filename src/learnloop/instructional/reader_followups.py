@@ -59,9 +59,8 @@ licensing question, and stays live while any of them needs it.
 
 **The successor** ``mvp-0.39`` (§9.3 "Why no successor", whose fallback
 the Codex review invoked, F4): automatic dated requests change what the
-maintain lane holds and serves, so planning and re-valuation run only at the
-tag or later with ``followups.enabled`` on (:func:`followups_enabled`); off
-or below it, the predecessor's plan exactly. Nothing here writes evidence.
+maintain lane holds and serves (its kill switch went once every vault was past
+the tag). Nothing here writes evidence.
 """
 
 from __future__ import annotations
@@ -150,13 +149,6 @@ class FollowupError(ValueError):
 
 def _config(vault: Any) -> Any:
     return getattr(vault.config, "followups", None)
-
-
-def followups_enabled(vault: Any) -> bool:
-    """Follow-ups are live: ``followups.enabled`` is on (default; the successor mvp-0.39's switch). Off, nothing is
-    planned or re-valued: the predecessor's plan exactly."""
-
-    return bool(getattr(_config(vault), "enabled", True))
 
 
 def formative_questions_enabled(vault: Any) -> bool:
@@ -823,8 +815,6 @@ def plan_session(vault: LoadedVault, repository: Repository, *, extraction_id: s
     commitments, the digest receipt and the queue revision together, so no
     live check exists outside the digest and re-valuation (Codex review F3)."""
 
-    if not followups_enabled(vault):
-        return None
     digest_id = digest_id_for(extraction_id, session.session_id)
     with repository.connection() as connection:
         existing = RDG.digest_for_session(connection, extraction_id, session.session_id)
@@ -1134,8 +1124,6 @@ def sessions_to_plan(vault: LoadedVault, repository: Repository, *, now: datetim
     cap with no planned digest. Cheap: it reads the envelope and the digests
     only; activity is checked when a session is planned."""
 
-    if not followups_enabled(vault):
-        return []
     horizon = now - timedelta(days=max_wait_days(vault))
     with repository.connection() as connection:
         rows = RDG.digests(connection)
@@ -1262,9 +1250,6 @@ def revalue_pending(vault: LoadedVault, repository: Repository, *, now: datetime
     is left for the next pass (``report["deferred"]``)."""
 
     report: dict[str, Any] = {"retired": [], "kept": [], "skipped": None, "deferred": []}
-    if not followups_enabled(vault):
-        report["skipped"] = "followups.enabled is false"
-        return report
     from learnloop.instructional.wiring import disabled_reason
 
     switched_off = disabled_reason(vault, "discriminating_search")
@@ -1449,7 +1434,7 @@ def refresh_exposure(vault: LoadedVault, repository: Repository, *, now: datetim
     from learnloop.instructional import exposure as E
     from learnloop.instructional.wiring import disabled_reason
 
-    if not followups_enabled(vault) or disabled_reason(vault, "discriminating_search") is not None:
+    if disabled_reason(vault, "discriminating_search") is not None:
         return []
     with repository.connection() as connection:
         rows = RDG.digests(connection)
@@ -1854,7 +1839,7 @@ def coming_up(vault: LoadedVault, repository: Repository, *, extraction_id: str 
     lines.sort(key=lambda line: (str(line.get("date") or "9999"), line["commitment_id"]))
     retired.sort(key=lambda line: (str(line.get("retired_at") or ""), line["commitment_id"]))
     pending_digests = sorted({line["digest_id"] for line in lines})
-    return {"followups_version": FOLLOWUPS_VERSION, "enabled": followups_enabled(vault),
+    return {"followups_version": FOLLOWUPS_VERSION,
             "next": lines[:NEXT_SHOWN], "later": lines[NEXT_SHOWN:], "retired": retired,
             "undo_all": [{"digest_id": d} for d in pending_digests], "scale": SCALE_LABEL}
 
@@ -1883,7 +1868,6 @@ __all__ = [
     "digest_id_for",
     "exposure_refresh_waiting",
     "followup_spend",
-    "followups_enabled",
     "open_questions",
     "pending_cold_retry",
     "plan_ended_sessions",

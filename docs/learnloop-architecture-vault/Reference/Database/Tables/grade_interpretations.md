@@ -100,7 +100,6 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.active_interpretation_for_observation()`
-- `Repository.grade_head_review()`
 - `Repository.grade_interpretation()`
 - `Repository.grade_interpretations_for_observation()`
 - `Repository.insert_grade_interpretation()`
@@ -130,7 +129,6 @@ Indexes and uniqueness:
 - `tests/test_ad_guard_reachable_reads.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`
-- `tests/test_rebuild_history_appends.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_teacher_te2_review_fixes.py`
 - `tests/certain_grade_helpers.py`

@@ -217,7 +217,7 @@ def _repair_resolutions(vault):
 
 
 def test_the_fresh_retry_records_its_own_repair_forecast_which_resolves_when_it_is_measured(tmp_path):
-    from learnloop.diagnosis.causal_orchestrator import record_cold_verification_from_task
+    from learnloop.diagnosis.causal_cold_verification import record_cold_verification_from_task
     from learnloop.scheduling import forecast_receipts as FR
 
     vault, repository, episode, primed, cold_item = _repair(tmp_path)

@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_learner_text_gaps.py](../../../../../../../tests/test_learner_text_gaps.py) — direct import
   - `test_the_vault_wide_shortlist_ranks_stored_vectors_and_judges_decide`
 - [tests/test_tier1_decider.py](../../../../../../../tests/test_tier1_decider.py) — direct import

@@ -25,7 +25,7 @@ import pytest
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.content.pipeline.runner import IngestRunner
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.vault.paths import animation_video_path
 from tests import rich_fixtures as RF
 from tests.figure_fixtures import EXTRACTION, flagship, rows
@@ -109,7 +109,7 @@ def test_rich_only_shows_the_pending_line_and_never_asks_twice(tmp_path, monkeyp
     outcome = rig.build()
     assert outcome.view is None and outcome.rich["state"] == "pending"
     assert outcome.rich["anchor_span_id"] == "p3" and outcome.rich["tier"] == "manim"
-    (pending,) = FS.rich_pending(rig.vault, rig.repository, EXTRACTION)
+    (pending,) = FL.rich_pending(rig.vault, rig.repository, EXTRACTION)
     assert pending["request_id"] == outcome.rich["request_id"] and pending["phase"] == "writing"
     assert rig.listed() == []
     again = rig.build()
@@ -117,7 +117,7 @@ def test_rich_only_shows_the_pending_line_and_never_asks_twice(tmp_path, monkeyp
     assert rig.author.calls == 1  # the same input: its pending line, no second call
 
     rig.ingest.drain()
-    assert FS.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
+    assert FL.rich_pending(rig.vault, rig.repository, EXTRACTION) == []
     (line,) = rig.listed()
     assert line["tier"] == "manim" and line["verification"] == "illustrative" and line["fuller"] is None
     assert line["anchor_span_id"] == "p3"

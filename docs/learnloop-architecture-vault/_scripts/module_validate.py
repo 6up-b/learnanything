@@ -49,7 +49,6 @@ EXPECTED_EXPLICIT_STATUS = {
     "src/learnloop/scheduling/intent_planner.py": "EVALUATION",
     "src/learnloop/scheduling/shadow_components.py": "EVALUATION",
     "src/learnloop/diagnosis/causal_diagnostic_selector.py": "EVALUATION",
-    "src/learnloop/diagnosis/causal_selection_audit.py": "EVALUATION",
 }
 CANONICAL_PENDING_TARGETS = {
     "Architecture Overview",

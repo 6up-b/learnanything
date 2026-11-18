@@ -3,6 +3,7 @@ from __future__ import annotations
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 import shutil
+from contextlib import nullcontext
 
 import pytest
 
@@ -46,6 +47,7 @@ from tests.helpers import (
     seed_due_item,
     set_config_switch,
 )
+from tests.joint_grading_helpers import joint_vault_door
 from tests.teach_back_helpers import LO_ID, TEACH_ITEM_ID, _seed_lo_evidence, _setup, _teach_item_payload
 
 class FakeTeachBackClient(JointGraderAlsoBlind, StructuredClientFake):
@@ -1131,18 +1133,12 @@ class BlindTeachBackClient(FakeTeachBackClient):
         )
 
 
-#: Joint grading: the split's kill switch (no vault that opens is below the split's tag).
-JOINT_SWITCH = "\n[diagnosis]\nsplit_enabled = false\n"
-
-
-def _teach_back_vault_at(tmp_path, version: str, *, joint: bool = False):
-    from tests.helpers import append_config_toml, set_algorithm_version
+def _teach_back_vault_at(tmp_path, version: str):
+    from tests.helpers import set_algorithm_version
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     set_algorithm_version(paths, version)
-    if joint:
-        append_config_toml(vault_root, JOINT_SWITCH)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=FrozenClock(NOW))
     return paths, load_vault(vault_root), Repository(paths.sqlite_path)
 
@@ -1189,16 +1185,17 @@ def test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identit
 ):
     """Review F11: a split vault grades teach-back blind, so its raw grade and
     its calibration lookups use the blind identity, live and on replay
-    (teach-back writes no blind record). A joint vault keeps the joint one."""
+    (teach-back writes no blind record). One graded jointly (stored history:
+    no door grades jointly now) keeps the joint one."""
 
-    _paths, vault, repository = _teach_back_vault_at(tmp_path, version, joint=identity == JOINT_CALIBRATION)
+    _paths, vault, repository = _teach_back_vault_at(tmp_path, version)
     lookups = _calibration_lookups(monkeypatch)
     clock = FrozenClock(NOW)
     client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.25})
     item = vault.practice_items[TEACH_ITEM_ID]
-    state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
-
-    result = finish_teach_back(vault, repository, state, client, clock=clock)
+    with joint_vault_door(monkeypatch) if identity == JOINT_CALIBRATION else nullcontext():
+        state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
+        result = finish_teach_back(vault, repository, state, client, clock=clock)
 
     attempt_id = result.attempt.attempt_id
     assert repository.latest_blind_grade_record(attempt_id) is None
@@ -1217,28 +1214,20 @@ def test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identit
 
 
 def test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds(tmp_path, monkeypatch):
-    """Review F11: a teach-back graded jointly and regraded after the split is
-    blind-graded from then on; the regrade's replay and every later rebuild
-    select the blind calibration identity."""
+    """Review F11: a teach-back graded jointly (stored history: no door grades
+    jointly now) and regraded is blind-graded from then on; the regrade's
+    replay and every later rebuild select the blind calibration identity."""
 
     from learnloop.attempts.regrade import regrade_attempt
-    from tests.helpers import set_algorithm_version
 
-    paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.9", joint=True)
+    _paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.10")
     clock = FrozenClock(NOW)
     client = BlindTeachBackClient()
     item = vault.practice_items[TEACH_ITEM_ID]
-    state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
-    attempt_id = finish_teach_back(vault, repository, state, client, clock=clock).attempt.attempt_id
+    with joint_vault_door(monkeypatch):
+        state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
+        attempt_id = finish_teach_back(vault, repository, state, client, clock=clock).attempt.attempt_id
     assert _stamped_identities(repository, attempt_id) == [JOINT_CALIBRATION]
-
-    # After the split: the tag, and the switch back on.
-    set_algorithm_version(paths, "mvp-0.10")
-    config = paths.root / "learnloop.toml"
-    text = config.read_text(encoding="utf-8")
-    assert text.count(JOINT_SWITCH) == 1
-    config.write_text(text.replace(JOINT_SWITCH, ""), encoding="utf-8")
-    vault = load_vault(paths.root)
     lookups = _calibration_lookups(monkeypatch)
     regrade_client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.0})
     regrade_attempt(

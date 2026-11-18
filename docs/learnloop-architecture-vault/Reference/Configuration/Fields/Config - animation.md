@@ -24,6 +24,7 @@ source_paths:
   - "tests/approach_map_fakes.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
   - "tests/deliverable_fixtures.py"
+  - "tests/diagnosis_identity_helpers.py"
   - "tests/due_queue_helpers.py"
   - "tests/figure_fixtures.py"
   - "tests/figures_fix_round2_helpers.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/followup_serve_helpers.py"
   - "tests/hint_fakes.py"
   - "tests/http_provider_double.py"
-  - "tests/identity_pins_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -80,6 +80,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/approach_map_fakes.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
 - `tests/deliverable_fixtures.py`
+- `tests/diagnosis_identity_helpers.py`
 - `tests/due_queue_helpers.py`
 - `tests/figure_fixtures.py`
 - `tests/figures_fix_round2_helpers.py`
@@ -87,7 +88,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/followup_serve_helpers.py`
 - `tests/hint_fakes.py`
 - `tests/http_provider_double.py`
-- `tests/identity_pins_helpers.py`
 
 ## Extension and modification guidance
 

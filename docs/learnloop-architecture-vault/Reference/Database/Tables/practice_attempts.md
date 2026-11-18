@@ -145,6 +145,7 @@ Indexes and uniqueness:
 - `Repository.find_attempt_id_by_evidence_agent_run()`
 - `Repository.find_record()`
 - `Repository.followup_source_attempt()`
+- `Repository.insert_blind_grade_record()`
 - `Repository.item_attempt_history()`
 - `Repository.learning_object_ids_with_attempts()`
 - `Repository.list_all_attempts()`
@@ -152,10 +153,12 @@ Indexes and uniqueness:
 - `Repository.list_attempts_by_learning_object()`
 - `Repository.list_recent_attempts_by_learning_objects()`
 - `Repository.list_recent_attempts_by_practice_item()`
+- `Repository.live_diagnosis_jobs_for_session()`
 - `Repository.median_attempt_latency_seconds()`
 - `Repository.most_recent_ended_at()`
 - `Repository.ordinary_practice_attempt_count()`
 - `Repository.pending_followup_practice_items()`
+- `Repository.pending_live_diagnoses_for_session()`
 - `Repository.pending_self_grade_regrade_attempts()`
 - `Repository.practice_attempt_by_submission_id()`
 - `Repository.practice_attempt_outcomes_for_items()`
@@ -167,6 +170,7 @@ Indexes and uniqueness:
 - `Repository.qualifying_probe_observation_count_for_session()`
 - `Repository.real_attempt_trace_rows()`
 - `Repository.record_deferred_regrade()`
+- `Repository.record_false_remediation()`
 - `Repository.record_learner_claim_application()`
 - `Repository.regrade_epoch_transitions()`
 - `Repository.replace_attempt_derived_outcome()`
@@ -177,6 +181,7 @@ Indexes and uniqueness:
 - `Repository.session_attempt_counts()`
 - `Repository.session_attempt_rows()`
 - `Repository.session_learner_answers()`
+- `Repository.submission_offer_answered_elsewhere()`
 - `Repository.update_attempt_grade()`
 
 ### Direct SQL readers
@@ -313,13 +318,13 @@ Indexes and uniqueness:
 - `src/learnloop/capture/jobs.py`
 - `src/learnloop/cli/ai_compare.py`
 - `src/learnloop/cli/app.py`
+- `src/learnloop/cli/data.py`
 - `src/learnloop/content/authoring/contract_commissioning.py`
 - `src/learnloop/content/authoring/laddered_stems.py`
 - `src/learnloop/content/authoring/persona_realism.py`
 - `src/learnloop/content/proposals/proposals.py`
+- `src/learnloop/content/proposals/self_tagged_fatal.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
-- `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/daily_plan/engine.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

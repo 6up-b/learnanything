@@ -286,17 +286,14 @@ def followup_switch_snapshot(config: Any) -> dict[str, bool]:
 
 def lesson_offers_on(config: Any) -> bool:
     """Teacher TE3b: lesson offers are candidates of the router objective, lesson minutes count on its clock and
-    LOs with a pending lesson check join its population: the tag, the objective serving, TE1b's suggestions on
-    (``router.lesson_suggestions.enabled`` with the router and its decision log, lessons able to open) and
-    ``router.lesson_suggestions.in_objective``. Off, mvp-0.52 exactly."""
+    LOs with a pending lesson check join its population: the objective serving and TE1b's suggestions on (the router
+    and its decision log, lessons able to open). Off, mvp-0.52 exactly."""
 
     if not objective_on(config):
         return False
     router = getattr(config, "router", None)
-    suggestions = getattr(router, "lesson_suggestions", None)
     teacher = getattr(config, "teacher", None)
-    return bool(getattr(suggestions, "enabled", False) and getattr(suggestions, "in_objective", False)
-                and getattr(router, "enabled", False) and getattr(router, "log_decisions", False)
+    return bool(getattr(router, "enabled", False) and getattr(router, "log_decisions", False)
                 and getattr(teacher, "enabled", False))
 
 

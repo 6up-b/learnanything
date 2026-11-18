@@ -33,13 +33,13 @@ class _Sidecar:
         return response["result"]
 
 
-def _submit(sidecar, session_id, key="K1"):
+def _submit(sidecar, session_id, key="K1", answer="A = U Sigma V wrong"):
     return sidecar.result(
         "submit_attempt",
         {
             "sessionId": session_id,
             "practiceItemId": "pi_svd_compute_001",
-            "answerMd": "A = U Sigma V wrong",
+            "answerMd": answer,
             "attemptType": "independent_attempt",
             "submissionId": key,
         },
@@ -88,12 +88,13 @@ def test_a_pick_served_while_the_diagnosis_is_pending_is_receipted(tmp_path, mon
 
 
 def test_no_wait_and_no_receipt_without_a_pending_diagnosis(tmp_path, monkeypatch):
-    # A joint vault, which queues no diagnosis: the split's kill switch (no vault that opens is below its tag).
-    paths, _vault, _repository = split_vault(tmp_path, version="mvp-0.9", config="[diagnosis]\nsplit_enabled = false")
+    # A right answer, whose blind grade needs no diagnosis (none is queued).
+    paths, _vault, repository = split_vault(tmp_path)
     sidecar = _Sidecar(paths.root, ReviewFakeClient(), monkeypatch, autostart=False)
     sidecar.result("initialize", {"vaultPath": str(paths.root)})
     session_id = sidecar.result("start_session", {})["sessionId"]
-    _submit(sidecar, session_id)
+    attempt_id = _submit(sidecar, session_id, answer="A = U Sigma V^T")["attemptId"]
+    assert repository.post_attempt_jobs(attempt_id=attempt_id, kind="diagnose") == []
     sidecar.result("get_today_queue", {"sessionId": session_id})
     _serve(sidecar, session_id)
     assert Repository(paths.sqlite_path).diagnosis_wait_receipts() == []

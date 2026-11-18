@@ -89,12 +89,10 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
-- `Repository.grade_head_review()`
 - `Repository.insert_grade_adjudication()`
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 
 ### Direct SQL writers
@@ -111,7 +109,6 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_grade_resolution_pipeline.py`
-- `tests/test_rebuild_history_appends.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

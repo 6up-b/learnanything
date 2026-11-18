@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 551 |
+| Source lines | 536 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
   - `as_dict(self) -> dict[str, object]` (line 20; public)
 - `class RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 29)
   - `as_dict(self) -> dict[str, object]` (line 36; public)
-- `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True, clock: Clock | None=None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 268) — Rebuild attempt-derived state for one learning object from persisted grades.
-- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 434) — Replay all requested learning objects that have persisted attempts.
-- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 498) — Stamp the recalibration boundary AT the content change, not after it.
+- `replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None=None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None=None, project_canonical_state: bool=True) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 268) — Rebuild attempt-derived state for one learning object from persisted grades.
+- `rebuild_derived_state(vault: LoadedVault, repository: Repository, *, learning_object_ids: list[str] | None=None, clock: Clock | None=None, record_receipt: bool=True, project_canonical_state: bool=True) -> RebuildResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 420) — Replay all requested learning objects that have persisted attempts.
+- `record_content_recalibration(vault: LoadedVault, repository: Repository, *, affected_learning_object_ids: list[str], clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 483) — Stamp the recalibration boundary AT the content change, not after it.
 
 ## Internal implementation anchors
 
@@ -69,7 +69,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - `_order_key(row: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/substrate/replay.py), line 237) — A row's place in the shared ``(created_at, id)`` order; an unparseable stamp sorts first.
 - `_claim_position(claim: Mapping[str, Any], learning_object_id: str, attempt_keys: list[tuple[float, str]]) -> tuple[int, float, str] | None` ([source](../../../../../../src/learnloop/substrate/replay.py), line 244) — ``(attempts applied before the claim, created_at, id)``, or None for an unordered claim.
 - `_parse_or_none(value: Any)` ([source](../../../../../../src/learnloop/substrate/replay.py), line 261)
-- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool, clock: Clock | None) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 314)
+- `_replay_learning_object(vault: LoadedVault, repository: Repository, learning_object_id: str, *, error_attribution_overrides: dict[str, list[GradeAttribution]] | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, project_canonical_state: bool) -> ReplayResult` ([source](../../../../../../src/learnloop/substrate/replay.py), line 309)
 
 ## Who imports or calls it
 
@@ -91,7 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptResult`, `GradeAttribution`, `replay_existing_attempt`; calls `replay_existing_attempt`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CANONICAL_STAMPED_TABLES`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `update_misconception_posteriors_and_resolve`; calls `update_misconception_posteriors_and_resolve`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `closed_probe_ids`; calls `closed_probe_ids`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `coverage_denominator_version`; calls `coverage_denominator_version`
@@ -187,7 +187,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
-  - `test_the_direct_replay_stamps_its_closing_projection_with_the_clock_it_was_given`
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
   - `test_learning_object_replay_matches_live_state_and_is_idempotent`
   - `test_live_and_replay_drive_shared_apply_attempt_step`

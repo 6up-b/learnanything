@@ -176,6 +176,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/exam_protection_helpers.py](../../../../../../tests/exam_protection_helpers.py) — direct import
 - [tests/figure_offers_helpers.py](../../../../../../tests/figure_offers_helpers.py) — direct import
 - [tests/figures_codex_review_helpers.py](../../../../../../tests/figures_codex_review_helpers.py) — direct import

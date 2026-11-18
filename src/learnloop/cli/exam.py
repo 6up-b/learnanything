@@ -157,7 +157,7 @@ def exam_answer_command(
             resolved_grade=resolved_codex_grade(
                 validated, agent_run_id=None, clock=None
             ),
-            grader_identity=vault_grading_calibration_identity(loaded),
+            grader_identity=vault_grading_calibration_identity(),
         )
     except (ExamSessionError, ValueError) as exc:
         if json_output:

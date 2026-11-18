@@ -94,6 +94,7 @@ Indexes and uniqueness:
 - `Repository.all_error_events_by_attempt()`
 - `Repository.attempt_ids_for_misconception()`
 - `Repository.find_record()`
+- `Repository.pending_live_diagnoses_for_active_errors()`
 - `Repository.raw_error_events_for_attempt()`
 - `Repository.record_attempt_outcome()`
 - `Repository.replace_attempt_derived_outcome()`
@@ -127,7 +128,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
@@ -135,6 +136,8 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/reader_cues.py`
+- `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/substrate/replay.py`

@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
-  - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/db/stores/reading_requests.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
@@ -105,7 +105,9 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/held_out_signals.py`
+- `src/learnloop/db/stores/reading_requests.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/phone_media.py`
@@ -116,7 +118,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 
@@ -137,9 +139,9 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/experiments/contextual_embeddings/corpus.py`
-- `src/learnloop/figures/prefetch.py`
+- `src/learnloop/figures/grounding.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

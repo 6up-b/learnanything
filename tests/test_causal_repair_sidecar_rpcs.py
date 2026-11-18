@@ -28,15 +28,14 @@ from learnloop.attempts.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.diagnosis.causal_orchestrator import (
-    classify_probe_response,
-    pinned_causal_probe,
-)
+from learnloop.diagnosis.causal_discrimination import classify_probe_response, pinned_causal_probe
 from learnloop.diagnosis.causal_probe_coherence import generate_blind_prediction_bundle
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop_sidecar.handlers import practice as practice_handlers

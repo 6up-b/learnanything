@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/081_task_blueprints.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_restoration.py"
@@ -99,10 +100,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Upstream callers of the repository access surface
 
@@ -111,7 +114,6 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/golden_path_restoration.py`
 - `src/learnloop/curriculum/task_blueprints.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary

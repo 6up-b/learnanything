@@ -47,51 +47,50 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py) |
-| Source lines | 1732 |
+| Source lines | 1702 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 95)
-- `enqueue_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, rediagnose: bool=False, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 112) — Queue the attempt's diagnosis when §5.1 says it runs; returns the job id.
-- `enqueue_embed_job(repository: Repository, *, attempt_id: str, diagnosis_id: str | None, include_divergence: bool, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 166)
-- `diagnosis_status(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 187) — §11 UI status: pending | not_needed | done | failed (live diagnoses only).
-- `session_diagnosis_availability(repository: Repository, session_id: str) -> tuple[list[str], list[str]]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 215) — E7 at one serve: (attempts whose live diagnosis is required, those without it).
-- `pending_diagnosis_attempts(repository: Repository, attempt_ids: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 239)
-- `default_diagnosis_client(vault: LoadedVault) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 265) — The ``ai.routing.diagnosis`` client (unset: the resolved grading route).
-- `default_embedding_client(vault: LoadedVault) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 280)
-- `process_next_job(vault: LoadedVault, repository: Repository, *, kind: str, owner: str, client_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, attempt_id: str | None=None, session_id: str | None=None, spend: ReviewSpend | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> JobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 289) — Lease and run the next runnable job of ``kind``; None when none is.
-- `record_diagnosis_reads(repository: Repository, *, diagnosis_id: str, proposal: Mapping[str, Any] | None, record: Any=None, reads: Any=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 453) — Record what a diagnosis read (its write-time provenance), on the repository's current connection: inside the transaction that writes the diagnosis.
-- `register_retrieval_route(spend: ReviewSpend, client: Any=None, *, vault: LoadedVault | None=None) -> Any` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 528) — Classify the retrieval embedding route on a command budget.
-- `run_diagnose_job(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], *, client_factory: ClientFactory, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, session_id: str | None=None, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 689)
-- `apply_diagnosis(vault: LoadedVault, repository: Repository, *, attempt: Mapping[str, Any], diagnosis: Mapping[str, Any], session_id: str | None=None, clock: Clock | None=None, judge_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, writer_factory: ClientFactory | None=None, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None, heartbeat: Callable[[], bool] | None=None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1058) — The diagnosis-dependent pipeline steps (§7.2 worker half).
-- `record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, Any], attempt_id: str) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1160) — Append one ``same_cause`` verdict per validated citation (idempotent).
-- `run_embed_job(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], *, embedding_factory: ClientFactory, clock: Clock | None=None) -> JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1206) — Embed-on-write (S1.4a/b), then the would-merge log.
-- `drain(vault: LoadedVault, repository: Repository, *, owner: str='cli', kinds: tuple[str, ...]=(DIAGNOSE_KIND, EMBED_KIND), attempt_id: str | None=None, client_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, max_jobs: int=1000, spend: ReviewSpend | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> list[JobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1266) — Run runnable jobs until none is left (``learnloop diagnose --drain``).
-- `command_spend(vault: LoadedVault, caps: SpendCaps, *, price_per_million: float | None=None, cancelled: Cancelled | None=None) -> ReviewSpend` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1317) — A command's shared budget; its routes are classified from config.
-- `plan_diagnosis_jobs(vault: LoadedVault, repository: Repository, *, spend: ReviewSpend, attempt_id: str | None=None, max_jobs: int=1000, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1500) — What ``drain`` would run now, and its admission estimate (no call, no write).
-- `plan_unqueued_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, spend: ReviewSpend) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1622) — The one diagnosis call ``retry`` would queue for an attempt not in the queue.
-- `plan_embed_jobs(vault: LoadedVault, repository: Repository, *, attempt_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1663) — Pending embed-on-write work (each job runs under its own embedding caps).
+- `class JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 93)
+- `enqueue_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, rediagnose: bool=False, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 110) — Queue the attempt's diagnosis when §5.1 says it runs; returns the job id.
+- `enqueue_embed_job(repository: Repository, *, attempt_id: str, diagnosis_id: str | None, include_divergence: bool, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 155)
+- `diagnosis_status(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 176) — §11 UI status: pending | not_needed | done | failed (live diagnoses only).
+- `session_diagnosis_availability(repository: Repository, session_id: str) -> tuple[list[str], list[str]]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 204) — E7 at one serve: (attempts whose live diagnosis is required, those without it).
+- `pending_diagnosis_attempts(repository: Repository, attempt_ids: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 228)
+- `default_diagnosis_client(vault: LoadedVault) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 254) — The ``ai.routing.diagnosis`` client (unset: the resolved grading route).
+- `default_embedding_client(vault: LoadedVault) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 269)
+- `process_next_job(vault: LoadedVault, repository: Repository, *, kind: str, owner: str, client_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, attempt_id: str | None=None, session_id: str | None=None, spend: ReviewSpend | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> JobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 278) — Lease and run the next runnable job of ``kind``; None when none is.
+- `record_diagnosis_reads(repository: Repository, *, diagnosis_id: str, proposal: Mapping[str, Any] | None, record: Any=None, reads: Any=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 437) — Record what a diagnosis read (its write-time provenance), on the repository's current connection: inside the transaction that writes the diagnosis.
+- `register_retrieval_route(spend: ReviewSpend, client: Any=None, *, vault: LoadedVault | None=None) -> Any` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 512) — Classify the retrieval embedding route on a command budget.
+- `run_diagnose_job(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], *, client_factory: ClientFactory, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, session_id: str | None=None, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 673)
+- `apply_diagnosis(vault: LoadedVault, repository: Repository, *, attempt: Mapping[str, Any], diagnosis: Mapping[str, Any], session_id: str | None=None, clock: Clock | None=None, judge_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, writer_factory: ClientFactory | None=None, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None, heartbeat: Callable[[], bool] | None=None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1032) — The diagnosis-dependent pipeline steps (§7.2 worker half).
+- `record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, Any], attempt_id: str) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1134) — Append one ``same_cause`` verdict per validated citation (idempotent).
+- `run_embed_job(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], *, embedding_factory: ClientFactory, clock: Clock | None=None) -> JobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1180) — Embed-on-write (S1.4a/b), then the would-merge log.
+- `drain(vault: LoadedVault, repository: Repository, *, owner: str='cli', kinds: tuple[str, ...]=(DIAGNOSE_KIND, EMBED_KIND), attempt_id: str | None=None, client_factory: ClientFactory | None=None, embedding_factory: ClientFactory | None=None, judge_factory: ClientFactory | None=None, max_jobs: int=1000, spend: ReviewSpend | None=None, cancelled: Cancelled | None=None, clock: Clock | None=None) -> list[JobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1240) — Run runnable jobs until none is left (``learnloop diagnose --drain``).
+- `command_spend(vault: LoadedVault, caps: SpendCaps, *, price_per_million: float | None=None, cancelled: Cancelled | None=None) -> ReviewSpend` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1291) — A command's shared budget; its routes are classified from config.
+- `plan_diagnosis_jobs(vault: LoadedVault, repository: Repository, *, spend: ReviewSpend, attempt_id: str | None=None, max_jobs: int=1000, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1474) — What ``drain`` would run now, and its admission estimate (no call, no write).
+- `plan_unqueued_diagnosis(vault: LoadedVault, repository: Repository, *, attempt_id: str, spend: ReviewSpend) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1592) — The one diagnosis call ``retry`` would queue for an attempt not in the queue.
+- `plan_embed_jobs(vault: LoadedVault, repository: Repository, *, attempt_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1633) — Pending embed-on-write work (each job runs under its own embedding caps).
 
 ### Module constants
 
-- `LOG` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 54)
-- `DIAGNOSE_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 56)
-- `EMBED_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 57)
-- `DIAGNOSE_LEASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 59)
-- `EMBED_LEASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 60)
-- `BACKOFF_BASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 61)
-- `BACKOFF_MAX_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 62)
-- `NOT_READY_RECHECK_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 64)
-- `SPLIT_OFF_RECHECK_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 65)
-- `MODEL_CALL_OWNER_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 66)
-- `DIAGNOSIS_ROUTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 70)
-- `LIVE_DIAGNOSIS_CAPS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 81)
-- `RETRIEVAL_CAPS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 504)
-- `RETRIEVAL_ROUTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 514)
-- `_RETRIEVAL_NOTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1494)
+- `LOG` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 53)
+- `DIAGNOSE_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 55)
+- `EMBED_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 56)
+- `DIAGNOSE_LEASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 58)
+- `EMBED_LEASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 59)
+- `BACKOFF_BASE_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 60)
+- `BACKOFF_MAX_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 61)
+- `NOT_READY_RECHECK_SECONDS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 63)
+- `MODEL_CALL_OWNER_KIND` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 64)
+- `DIAGNOSIS_ROUTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 68)
+- `LIVE_DIAGNOSIS_CAPS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 79)
+- `RETRIEVAL_CAPS` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 488)
+- `RETRIEVAL_ROUTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 498)
+- `_RETRIEVAL_NOTE` ([src/learnloop/diagnosis/split/jobs.py](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1468)
 
 ### Explicit exports
 
@@ -126,31 +125,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `class _LeaseLost(RuntimeError)` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 106) — The job was re-claimed by another worker; publish nothing.
-- `_backoff(attempt_count: int, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 250)
-- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 255)
-- `_day_start(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 260)
-- `_default_judge_factory(vault: LoadedVault) -> ClientFactory` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 351) — The same-cause judge client, resolved only when a pair needs judging.
-- `_existing_diagnosis(repository: Repository, job: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 359) — A COMPLETED diagnosis this job already wrote before a crash.
-- `_finish(repository: Repository, job: Mapping[str, Any], state: str, *, error: str | None=None, payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 385)
-- `_lease_heartbeat(repository: Repository, job: Mapping[str, Any], clock: Clock | None) -> Callable[[], bool]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 393) — Renew this worker's diagnose lease for another full term; False once lost.
-- `_release(repository: Repository, job: Mapping[str, Any], *, not_before: str, error: str | None, refund: bool, clock: Clock | None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 410)
-- `_persist(repository: Repository, job: Mapping[str, Any], *, diagnosis_id: str, values: dict[str, Any], clock: Clock | None, record: Any=None, forecasts: Callable[[], Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 418) — Write the diagnosis + receipt only while this worker still owns the job.
-- `_receipt_for_storage(outcome: DiagnosisOutcome) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 478)
-- `class _NoRegistryIndex` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 517) — Embeddings are on but no client is ready: the exact registry set, recorded (S6).
-- `_sum_estimates(*estimates: SpendEstimate) -> SpendEstimate` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 559)
-- `_diagnosis_reserve(spend: ReviewSpend, count: int) -> SpendEstimate` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 569) — What ``count`` diagnosis calls need at least: a call each plus its output limit.
-- `_remaining_diagnoses_reserve(spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None=None) -> Callable[[], SpendEstimate]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 577) — What a command must keep for the diagnoses still queued after this one.
-- `_command_retrieval_guard(spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None=None) -> Callable[[str, int], Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 597) — Admit each retrieval embedding request on the command's budget (review F12).
-- `_hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_factory: ClientFactory | None, *, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 624) — The live kNN retriever (S1.4b hybrid index, S1.4a registry shortlist), or None (then hybrid degrades to exact and the registry block is the exact set, S6).
-- `_workflow_diagnosis_ended(vault: LoadedVault, repository: Repository, attempt_id: str, mode: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 677) — FG1: a live diagnosis ended, or stays released for a readiness reason: the follow-up workflow that owns the attempt moves on, on its own slot (never in this ordered one).
-- `_diagnose(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], attempt: Mapping[str, Any], *, client: Any, mode: str, payload: Mapping[str, Any], embedding_factory: ClientFactory | None, clock: Clock | None, outcome: JobOutcome, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 814) — One model call; returns the persisted diagnosis row, or None when released.
-- `_superseded(repository: Repository, attempt_id: str, mode: str, payload: Mapping[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1051)
-- `_plan_current(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1349)
-- `_estimated_prompt_tokens(vault: LoadedVault, current: Any, *, store: Any) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1355) — The diagnosis prompt's token estimate, assembled offline (no call).
-- `_estimated_retrieval(vault: LoadedVault, repository: Repository, current: Any, *, store: Any, seen: set[tuple[str, str, str]]) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1369) — One diagnosis's retrieval embedding requests and input tokens (an upper bound).
-- `_retrieval_plan(spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, calls: int, input_tokens: int) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1390) — The retrieval half of a plan: its estimate and whether it fits beside the diagnoses.
-- `_recurrence_plan(vault: LoadedVault, spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, jobs: int) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1418) — Slice 2 T1's work inside the planned diagnose jobs, on the same caps.
+- `class _LeaseLost(RuntimeError)` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 104) — The job was re-claimed by another worker; publish nothing.
+- `_backoff(attempt_count: int, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 239)
+- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 244)
+- `_day_start(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 249)
+- `_default_judge_factory(vault: LoadedVault) -> ClientFactory` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 335) — The same-cause judge client, resolved only when a pair needs judging.
+- `_existing_diagnosis(repository: Repository, job: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 343) — A COMPLETED diagnosis this job already wrote before a crash.
+- `_finish(repository: Repository, job: Mapping[str, Any], state: str, *, error: str | None=None, payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 369)
+- `_lease_heartbeat(repository: Repository, job: Mapping[str, Any], clock: Clock | None) -> Callable[[], bool]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 377) — Renew this worker's diagnose lease for another full term; False once lost.
+- `_release(repository: Repository, job: Mapping[str, Any], *, not_before: str, error: str | None, refund: bool, clock: Clock | None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 394)
+- `_persist(repository: Repository, job: Mapping[str, Any], *, diagnosis_id: str, values: dict[str, Any], clock: Clock | None, record: Any=None, forecasts: Callable[[], Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 402) — Write the diagnosis + receipt only while this worker still owns the job.
+- `_receipt_for_storage(outcome: DiagnosisOutcome) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 462)
+- `class _NoRegistryIndex` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 501) — Embeddings are on but no client is ready: the exact registry set, recorded (S6).
+- `_sum_estimates(*estimates: SpendEstimate) -> SpendEstimate` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 543)
+- `_diagnosis_reserve(spend: ReviewSpend, count: int) -> SpendEstimate` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 553) — What ``count`` diagnosis calls need at least: a call each plus its output limit.
+- `_remaining_diagnoses_reserve(spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None=None) -> Callable[[], SpendEstimate]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 561) — What a command must keep for the diagnoses still queued after this one.
+- `_command_retrieval_guard(spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None=None) -> Callable[[str, int], Any]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 581) — Admit each retrieval embedding request on the command's budget (review F12).
+- `_hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_factory: ClientFactory | None, *, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 608) — The live kNN retriever (S1.4b hybrid index, S1.4a registry shortlist), or None (then hybrid degrades to exact and the registry block is the exact set, S6).
+- `_workflow_diagnosis_ended(vault: LoadedVault, repository: Repository, attempt_id: str, mode: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 661) — FG1: a live diagnosis ended, or stays released for a readiness reason: the follow-up workflow that owns the attempt moves on, on its own slot (never in this ordered one).
+- `_diagnose(vault: LoadedVault, repository: Repository, job: Mapping[str, Any], attempt: Mapping[str, Any], *, client: Any, mode: str, payload: Mapping[str, Any], embedding_factory: ClientFactory | None, clock: Clock | None, outcome: JobOutcome, spend: ReviewSpend | None=None, scope_attempt_id: str | None=None, cancelled: Cancelled | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 788) — One model call; returns the persisted diagnosis row, or None when released.
+- `_superseded(repository: Repository, attempt_id: str, mode: str, payload: Mapping[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1025)
+- `_plan_current(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> Any | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1323)
+- `_estimated_prompt_tokens(vault: LoadedVault, current: Any, *, store: Any) -> int` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1329) — The diagnosis prompt's token estimate, assembled offline (no call).
+- `_estimated_retrieval(vault: LoadedVault, repository: Repository, current: Any, *, store: Any, seen: set[tuple[str, str, str]]) -> tuple[int, int]` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1343) — One diagnosis's retrieval embedding requests and input tokens (an upper bound).
+- `_retrieval_plan(spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, calls: int, input_tokens: int) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1364) — The retrieval half of a plan: its estimate and whether it fits beside the diagnoses.
+- `_recurrence_plan(vault: LoadedVault, spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, jobs: int) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/split/jobs.py), line 1392) — Slice 2 T1's work inside the planned diagnose jobs, on the same caps.
 
 ## Who imports or calls it
 
@@ -186,7 +185,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; calls `SpendBudget`, `SpendCaps`, `SpendEstimate`
-- [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] — imports `split_grading_active`; calls `split_grading_active`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -240,6 +238,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/diagnosis_input_provenance_helpers.py](../../../../../../../tests/diagnosis_input_provenance_helpers.py) — direct import
 - [tests/followup_rival_factor_helpers.py](../../../../../../../tests/followup_rival_factor_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../../../tests/mobile_v3_probes_helpers.py) — direct import
@@ -263,10 +262,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_correct_answers_are_sampled_in_shadow_only`
   - `test_diagnosis_materializes_hypotheses_from_the_diagnosis`
   - `test_failed_diagnosis_backs_off_then_fails_and_leaves_the_grade`
-  - `test_kill_switch_holds_queued_live_diagnoses`
   - `test_regrade_to_full_marks_retires_the_diagnosis`
   - `test_resume_after_a_crash_between_diagnosis_and_settle_makes_no_second_call`
-  - `test_shadow_diagnosis_on_a_joint_vault_changes_nothing_live`
   - `test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force`
 - [tests/test_diagnosis_reports.py](../../../../../../../tests/test_diagnosis_reports.py) — direct import
   - `test_a_cancelled_job_is_released_unspent`

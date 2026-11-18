@@ -221,16 +221,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
-  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnosis_async_router.py](../../../../../../tests/test_diagnosis_async_router.py) — direct import
   - `test_the_open_factor_takes_the_diagnosis_causes_when_it_lands`
-- [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
-  - `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
-  - `test_a_receipt_that_cannot_be_written_commits_no_augmented_grade`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
@@ -406,8 +402,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_offer_log.py](../../../../../../tests/test_router_offer_log.py) — direct import
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
 - [tests/test_router_probe_ties.py](../../../../../../tests/test_router_probe_ties.py) — direct import
-  - `test_teach_back_items_are_probe_near_ties_at_the_successor`
-  - `test_without_probe_candidates_the_successor_serves_exactly_as_mvp014`
+  - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`

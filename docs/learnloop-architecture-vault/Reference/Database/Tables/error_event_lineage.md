@@ -97,7 +97,6 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_input_provenance.py`
-- `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_ux_phase4_landing.py`
 

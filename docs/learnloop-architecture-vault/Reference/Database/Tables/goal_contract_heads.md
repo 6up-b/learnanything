@@ -17,11 +17,11 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/068_goal_terminal_contracts.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/goals/goal_contracts.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/golden_path_run.py"
-  - "src/learnloop/diagnosis/failure_triage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -86,16 +86,17 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/curriculum/golden_path_run.py`
-- `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/goals/goal_contracts.py`
 
 > [!note] Static-reference boundary
@@ -103,7 +104,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_failure_triage.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`

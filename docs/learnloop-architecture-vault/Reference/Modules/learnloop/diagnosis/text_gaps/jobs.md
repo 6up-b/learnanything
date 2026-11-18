@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py) |
-| Source lines | 824 |
+| Source lines | 825 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -73,11 +73,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `enqueue_learner_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 302) — Curriculum C5: queue every linked note's current snapshot that has no reading yet (and queue again one whose job was skipped while it was not linked or switched off, now that it is linked again).
 - `retract_unlinked_notes(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 320) — Follow-ups Nov 2 (C5 ruling R2): every gap read from a linked note's snapshot (``source_kind = 'learner_note'``) whose snapshot is not linked now (C2's one rule, :func:`learner_note_ids`, C2b's link model over the vault's own notes: the learner hid the link, the proposal was sup…
 - `sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, stuck_source: StuckTextSource | None=None, include_history: bool=False, dry_run: bool=False, kinds: tuple[str, ...]=BACKLOG_KINDS + NOTE_BACKLOG_KINDS) -> dict[str, int]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 358) — Queue unread learner texts (``learnloop gaps run --backlog``).
-- `calls_today(repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 493) — The pipeline's logical model calls since today's UTC midnight (receipts).
-- `process_next_gap_job(root: Path, repository: Repository, *, owner: str, clients: PipelineClients | None=None, budget_factory: Callable[[LoadedVault], TextBudget] | None=None, clock: Clock | None=None, source: tuple[str, str] | None=None, stuck_source: StuckTextSource | None=None, cancelled: Callable[[], bool] | None=None) -> GapJobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 501) — Lease and run the next runnable gap job (or ``source``'s); None when none is.
-- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 749)
-- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 765)
-- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 770) — A no-call plan of the queue: what would be read and the call ceiling.
+- `calls_today(repository: Repository, *, clock: Clock | None=None) -> int` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 494) — The pipeline's logical model calls since today's UTC midnight (receipts).
+- `process_next_gap_job(root: Path, repository: Repository, *, owner: str, clients: PipelineClients | None=None, budget_factory: Callable[[LoadedVault], TextBudget] | None=None, clock: Clock | None=None, source: tuple[str, str] | None=None, stuck_source: StuckTextSource | None=None, cancelled: Callable[[], bool] | None=None) -> GapJobOutcome | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 502) — Lease and run the next runnable gap job (or ``source``'s); None when none is.
+- `run_pending(root: Path, repository: Repository, *, owner: str, max_jobs: int=50, **kwargs: Any) -> list[GapJobOutcome]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 750)
+- `pending_jobs(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 766)
+- `plan(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 771) — A no-call plan of the queue: what would be read and the call ceiling.
 
 ### Module constants
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 294)
 - `NOTE_BACKLOG_KINDS` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 299)
 - `UNLINKED` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 317)
-- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 700)
+- `_CONTEXT_JUDGE` ([src/learnloop/diagnosis/text_gaps/jobs.py](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 701)
 
 ### Explicit exports
 
@@ -122,10 +122,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_requeue(repository: Repository, job_id: str, *, clock: Clock | None) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 440)
 - `_reading_checkpointed(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 445) — Whether a job already holds a reading (its markers are checkpointed with it, fix round 4): a retry reuses that reading, so a later explanation is its own text.
 - `_unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[str, str], Mapping[str, Any]], gap_rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 453) — The ``<prediction id>:explained`` sources the backlog owes (fix round 2, F5): a "what changed?" saved after its prediction's reading started or finished, while nothing queued it (gap reading was off then).
-- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 484)
-- `_next_day(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 488)
-- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 668) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
-- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 705) — The job reads nothing more: the pipeline is switched off, or the text is gone.
+- `_later(seconds: float, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 485)
+- `_next_day(clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 489)
+- `_retry_or_fail(repository: Repository, job: Mapping[str, Any], text: Any, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, error: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 669) — Back off and retry; after the last attempt log the text as ``failed``, naming whatever its earlier attempts already wrote (F3).
+- `_skip(repository: Repository, job: Mapping[str, Any], text: LearnerText | None, vault: LoadedVault, progress: Mapping[str, Any], *, owner: str, epoch: int, clock: Clock | None, outcome: GapJobOutcome, reason: str) -> GapJobOutcome` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/jobs.py), line 706) — The job reads nothing more: the pipeline is switched off, or the text is gone.
 
 ## Who imports or calls it
 
@@ -135,7 +135,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]] — imports `plan`, `run_pending`, `sweep_backlog`; statically calls `plan`, `run_pending`, `sweep_backlog`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `enqueue_stuck_answer`; statically calls `enqueue_stuck_answer`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `enqueue_after_diagnosis`; statically calls `enqueue_after_diagnosis`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; statically calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `enqueue_figure_explanation`, `enqueue_figure_prediction`; statically calls `enqueue_figure_explanation`, `enqueue_figure_prediction`
 - [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `enqueue_reader_formative`; statically calls `enqueue_reader_formative`
 - [[Reference/Modules/learnloop/source_retrieval/passage_cues|learnloop.source_retrieval.passage_cues]] — imports `pending_jobs`, `pipeline_enabled`; statically calls `pending_jobs`, `pipeline_enabled`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `enqueue_lesson_gap`, `pipeline_enabled`; statically calls `enqueue_lesson_gap`, `pipeline_enabled`
@@ -160,9 +160,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `module`; calls `enqueue_job`, `finish_job`, `gap_for_source`, `gaps`, `holds_job`, `insert_gap`, `insert_reversal`, `job_for_source`, `jobs`, `lease_next_job`, `pipeline_calls_since`, `release_job`, `requeue_skipped_job`, `reversals`, `save_job_payload`
 - [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] — imports `module`; calls `continue_job_trace`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `LearnerText`, `NOTE_SOURCE_KINDS`, `NOTE_UNCHECKPOINTED_FIELDS`; calls `LearnerText`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs|learnloop.diagnosis.text_gaps.figure_inputs]] — imports `FIGURE_EXPLANATION_SUFFIX`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/judges|learnloop.diagnosis.text_gaps.judges]] — imports `TextBudget`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `NoteReadingStopped`, `PipelineClients`, `ReadingDeferred`, `failed_row`, `process_learner_text`; calls `failed_row`, `process_learner_text`
-- [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `FIGURE_EXPLANATION_SUFFIX`, `SourceWithheld`, `StuckTextSource`, `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`; calls `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `SourceWithheld`, `StuckTextSource`, `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`; calls `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `FiguresChanged`, `FiguresGate`, `text_key`; calls `FiguresGate`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
@@ -179,7 +180,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/gaps|learnloop.cli.gaps]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

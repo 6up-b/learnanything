@@ -271,30 +271,20 @@ def test_exam_answers_certify_facet_evidence_on_canonical_vault(tmp_path):
     assert any(cell.certification_credit > 0 for cell in cells)
 
 
-@pytest.mark.parametrize(
-    ("version", "identity"),
-    [
-        ("mvp-0.10", ("grading_prompt_v2_blind", "blind_grading_proposal_v1")),
-        ("mvp-0.9", ("grading_prompt_v1", "grading_proposal_v1")),
-    ],
-)
-def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_path, version, identity):
-    """Review F11: a split vault grades exam answers blind (F2), so the raw
-    grade written at finish carries the blind calibration identity and never
-    pools with the joint grader's; a joint vault keeps the joint identity."""
+def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_path):
+    """Review F11: exam answers are graded blind (F2), so the raw grade written
+    at finish carries the blind calibration identity and never pools with the
+    joint grader's."""
 
     from learnloop.db.repositories import Repository
     from learnloop.substrate.state_sync import sync_vault_state
     from learnloop_sidecar.handlers.exams import _grade_and_record_exam_answer
     from tests.diagnosis_fakes import ReviewFakeClient
-    from tests.helpers import append_config_toml, set_algorithm_version
+    from tests.helpers import set_algorithm_version
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    set_algorithm_version(paths, version)
-    if version == "mvp-0.9":
-        # A joint vault: the split's kill switch (no vault that opens is below the split's tag).
-        append_config_toml(vault_root, "[diagnosis]\nsplit_enabled = false")
+    set_algorithm_version(paths, "mvp-0.10")
     _add_item(vault_root, "pi_exam_a", facets=["recall"], difficulty=0.5)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
@@ -313,14 +303,14 @@ def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_pat
     )
     finish_exam(vault, repository, session["session_id"], clock=FrozenClock(NOW))
 
-    assert client.calls == ["blind_grading" if version == "mvp-0.10" else "grading"]
+    assert client.calls == ["blind_grading"]
     attempt_id = repository.exam_answers(session["session_id"])[0]["attempt_id"]
     with repository.connection() as connection:
         stamped = connection.execute(
             "SELECT grading_prompt_version, grader_output_schema_version FROM raw_grade_events WHERE attempt_id = ?",
             (attempt_id,),
         ).fetchall()
-    assert [tuple(row) for row in stamped] == [identity]
+    assert [tuple(row) for row in stamped] == [("grading_prompt_v2_blind", "blind_grading_proposal_v1")]
 
 
 def test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served(tmp_path):

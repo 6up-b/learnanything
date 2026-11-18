@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py) |
-| Source lines | 910 |
+| Source lines | 924 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -88,10 +88,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `probe_problems(values: Any, probes: Mapping[str, Probe]) -> list[str]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 823) — Why a ``probes()`` result does not match the declared probes (every declared one present, of its shape, every number finite; undeclared names are ignored, never shown).
 - `probe_numbers(value: Any, shape: str) -> list[float]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 852) — A validated probe's values as one list (a pairs probe's y values).
 - `element_index(scene: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]` ([source](../../../../../../src/learnloop/figures/sketch.py), line 862)
+- `sketch_ready(vault: Any) -> bool` ([source](../../../../../../src/learnloop/figures/sketch.py), line 866) — The sketch tier as offered on this machine: its switch, and the engine present with its pinned digest (spec §7.2: an unavailable tier is left out of the author's menu).
 
 ### Module constants
 
-- `SKETCH_VERSION` ([src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py), line 44)
 - `SKETCH_MAX_SOURCE_BYTES` ([src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py), line 46)
 - `SKETCH_MAX_ELEMENTS` ([src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py), line 48)
 - `SKETCH_MAX_POINTS` ([src/learnloop/figures/sketch.py](../../../../../../src/learnloop/figures/sketch.py), line 50)
@@ -152,7 +152,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SKETCH_PLAY_TICKS`
 - `SKETCH_TIME_SAMPLES`
 - `SKETCH_VERIFY_SECONDS`
-- `SKETCH_VERSION`
 - `SKETCH_WATCHDOG_FRAMES`
 - `SketchError`
 - `SketchProgramV1`
@@ -171,6 +170,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `read_steps`
 - `round_half_up`
 - `sample_steps`
+- `sketch_ready`
 - `tick_steps`
 - `scene_problems`
 
@@ -190,16 +190,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`, `sketch_ready`; statically calls `parse_author_sketch`, `sketch_ready`
+- [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `module`; statically calls `parse_sketch`
 - [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]] — imports `CLAIM_REL_TOL`, `SKETCH_MAX_CLAIM_WORK`, `expression_steps`, `impersonates`; statically calls `expression_steps`, `impersonates`
+- [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `module`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `sketch_ready`; statically calls `sketch_ready`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `module`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `parse_author_sketch`, `parse_sketch`
 - [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]] — imports `module`; statically calls `claim_entry_work`, `element_index`, `prediction_step`, `probe_numbers`, `probe_problems`, `read_steps`, `sample_steps`, `scene_problems`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`, `sketch_ready`; statically calls `parse_sketch`, `sketch_ready`
+- [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `sketch_ready`; statically calls `sketch_ready`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `sketch_enabled`; calls `sketch_enabled`
 - [[Reference/Modules/learnloop/figures/grammar|learnloop.figures.grammar]] — imports `module`; calls `check_names`, `free_names`, `is_name`, `parse`
+- [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] — imports `engine_ready`; calls `engine_ready`
 - [[Reference/Modules/learnloop/figures/spec|learnloop.figures.spec]] — imports `module`; calls `parse_salvaging_predictions`
 
 ### Platform and third-party dependencies
@@ -214,7 +221,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop/figures/sketch_verify|learnloop.figures.sketch_verify]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]], [[Reference/Modules/learnloop/figures/manim_figure|learnloop.figures.manim_figure]], [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]], [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -225,8 +232,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
   - `test_a_sketch_gets_the_same_treatment`
   - `test_run_to_is_untouched`
-- [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
-  - `test_the_quiet_read_never_reverifies_an_outdated_sketch_or_writes`
 - [tests/test_sketch_hostile.py](../../../../../../tests/test_sketch_hostile.py) — direct import
   - `test_a_tautological_claim_speaks_only_for_what_it_checks`
   - `test_an_oversized_result_is_refused_by_the_engine_or_the_validator`

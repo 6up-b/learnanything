@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/084_pattern_ladder.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/task_blueprints.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -86,7 +86,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers
 

@@ -552,11 +552,10 @@ def _open_candidate_causes(
             seen.add(key)
     deduped.append(
         {
-            # The `open_set` flag is what actually carries the arm through every
-            # consumer; the id is the human-readable placeholder P1 replaces with
-            # a materialized hypothesis. One named constant so the readers in
-            # `failure_triage` / `probe_targeting` / `causal_probe_coherence`
-            # compare against the value that is genuinely written here.
+            # The `open_set` flag carries the residual arm through consumers.
+            # Share its placeholder id with `probe_targeting` and
+            # `causal_probe_coherence` so their guards match the value written
+            # here until a hypothesis is materialized.
             "hypothesis_id": OPEN_SET_CAUSE_ID,
             "statement": "Another cause not represented by the listed hypotheses",
             "cause_scope": "unknown",

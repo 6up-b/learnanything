@@ -131,7 +131,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_background_linking_completes_and_the_next_read_shows_it`
 - [tests/test_reader_digest_narrative.py](../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_the_background_job_narrates_waiting_sessions`
-  - `test_the_queue_build_narrates_a_session_with_follow_ups_off`
   - `test_with_the_narrative_off_the_queue_build_starts_no_narration_job`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import

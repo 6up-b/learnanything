@@ -172,6 +172,31 @@ def _payload(**changes):
     return payload
 
 
+@pytest.mark.parametrize("is_byok, cost_details", [
+    (False, {"upstream_inference_cost": 0.00014798,
+             "upstream_inference_prompt_cost": 0.00014798, "upstream_inference_completions_cost": 0}),
+    (True, {"upstream_inference_cost": None}),
+])
+def test_openrouter_billing_metadata_preserves_answers_and_charged_cost(monkeypatch, is_byok, cost_details):
+    """The live v1.2 response adds billing fields; upstream costs are not extra charges."""
+    payload = _payload(usage={
+        "input_tokens": 7399, "output_tokens": 1, "cost": 0.00014798,
+        "is_byok": is_byok, "cost_details": cost_details,
+    })
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    events = []
+    client = DeciderProviderClient("d", openrouter_decider_provider(),
+                                   http=lambda *_args: (200, {}, json.dumps(payload).encode()))
+    with observe_model_calls(lambda action, event: events.append((action, dict(event)))):
+        result = client.decide("s", {"q": NoulQuestion("q")}, purpose="test")
+    assert result.answers["q"].p_yes == 0.4
+    assert (result.input_tokens, result.output_tokens, result.cost) == (7399, 1, 0.00014798)
+    assert result.raw["usage"]["cost_details"] == cost_details
+    finish = events[-1][1]
+    assert finish["status"] == "completed" and finish["cost"] == result.cost
+    assert json.loads(finish["output_text"]) == payload
+
+
 @pytest.mark.parametrize("payload, reason", [
     (_payload(rationale="because"), "unknown fields"),
     (_payload(answers={"q": {"type": "noul", "noul": 0.4, "why": "x"}}), "unknown fields"),
@@ -182,7 +207,15 @@ def _payload(**changes):
     (_payload(answers={"q": {"type": "noul", "noul": float("nan")}}), "finite"),
     (_payload(answers={"q": {"type": "noul", "noul": True}}), "finite"),
     (_payload(usage={"input_tokens": 1}), "output_tokens"),
+    (_payload(usage=None), "usage is missing"),
     (_payload(usage={"input_tokens": 1, "output_tokens": 1, "credits": 3}), "unknown fields"),
+    (_payload(usage={"input_tokens": True, "output_tokens": 1, "is_byok": False,
+                    "cost_details": {}}), "input_tokens"),
+    (_payload(usage={"input_tokens": 1, "output_tokens": 1, "cost": -1,
+                    "is_byok": False, "cost_details": {}}), "cost"),
+    (_payload(answers={"q": {"type": "noul", "noul": 1.2}},
+              usage={"input_tokens": 1, "output_tokens": 1, "is_byok": False,
+                     "cost_details": {}}), "outside"),
     (_payload(model=""), "no model"),
     ([], "not a JSON object"),
 ])

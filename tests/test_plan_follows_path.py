@@ -1,7 +1,7 @@
 """Reader workbench RW7b: the plan follows the reading path (spec_reader_workbench_v1 §10.2; G47).
 
-* **What changes.** At RW7b's tag, with ``reading_paths.plan_uses_path`` and
-  the Guide's paths on, DL1's reading block opens the next unfinished
+* **What changes.** With the Guide's paths on (RW7b's own kill switch went
+  once every vault was past its tag), DL1's reading block opens the next unfinished
   **core** or **prerequisite** section of the source's path instead of the
   next section in the predecessor's order; enrichment, already shown,
   assumed and a "skip it" are never planned; "read it anyway" makes a section
@@ -50,7 +50,6 @@ from tests.reading_path_fixtures import (
 from tests.plan_follows_path_helpers import (
     GUIDE_OFF,
     HEAD,
-    OFF,
     _fixture_copy,
     _plan_state,
     _split,
@@ -86,20 +85,13 @@ def test_the_successor_is_one_constant_after_rw2d():
     assert PREDECESSOR == WORKBENCH_FIELD_SIGNALS_ALGORITHM_VERSION
 
 
-def test_the_switch_is_on_by_default_classified_and_acts_only_with_the_guide_on(tmp_path):
-    from learnloop.config.schema import ReadingPathsConfig
-    from learnloop.params import parameter_registry as registry
+def test_the_plan_follows_a_path_only_with_the_guide_and_the_plan_on(tmp_path):
     from tests.helpers import create_daily_plan_vault
 
-    assert ReadingPathsConfig().plan_uses_path is True
-    assert registry.classify_config_path("reading_paths.plan_uses_path") is not None
     paths = create_daily_plan_vault(tmp_path / "v", version=READING_PATH_PLAN_ALGORITHM_VERSION)
     assert E.reading_path_plan_active(load_vault(paths.root))
     append_config_toml(paths.root, GUIDE_OFF)
     assert not E.reading_path_plan_active(load_vault(paths.root))
-    other = create_daily_plan_vault(tmp_path / "w", version=READING_PATH_PLAN_ALGORITHM_VERSION, plan_toml=None)
-    append_config_toml(other.root, OFF)
-    assert not E.reading_path_plan_active(load_vault(other.root))
     plan_off = create_daily_plan_vault(tmp_path / "x", version=READING_PATH_PLAN_ALGORITHM_VERSION)
     append_config_toml(plan_off.root, "[plan]\nenabled = false\n")
     assert not E.reading_path_plan_active(load_vault(plan_off.root))
@@ -275,22 +267,17 @@ def test_a_reading_target_is_stored_as_the_predecessors_unless_the_path_chose_it
     assert chosen.as_dict()["path_label"] == "core"
 
 
-# -- G47: off is the predecessor, byte for byte ---------------------------------------------------------
+# -- G47: with the Guide's paths off no plan build follows one -------------------------------------------
 
 
 _LABELS = {"sec_eigen": "enrichment", "sec_spectral": "prerequisite"}
 
 
-@pytest.mark.parametrize("variant", ["switch_off", "guide_off"])
-def test_g47_off_every_plan_build_is_the_predecessors(tmp_path, monkeypatch, variant):
-    # The predecessor's plans: its tag with RW7b's switch off (the switch's off-branch is the predecessor's code).
-    base, _, _ = _vault(tmp_path, monkeypatch, "base", version=PREDECESSOR, labels=_LABELS)
-    append_config_toml(base.root, OFF)
+def test_g47_with_the_guide_off_no_plan_build_follows_a_path(tmp_path, monkeypatch):
     off, _, _ = _vault(tmp_path, monkeypatch, "off", version=READING_PATH_PLAN_ALGORITHM_VERSION, labels=_LABELS)
-    append_config_toml(off.root, OFF if variant == "switch_off" else GUIDE_OFF)
-    baseline = _plan_state(base)
+    append_config_toml(off.root, GUIDE_OFF)
+    baseline = _plan_state(off)
     assert baseline["stored"]["daily_plans"] and "reading_path" not in json.dumps(baseline)
-    assert _plan_state(off) == baseline
     # The same vault with the successor on is not (the test can see the change).
     on, _, _ = _vault(tmp_path, monkeypatch, "on", version=READING_PATH_PLAN_ALGORITHM_VERSION, labels=_LABELS)
     assert _plan_state(on) != baseline
@@ -317,10 +304,9 @@ def test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path(tmp_p
 
     frozen = FrozenClock(clock.moment)
     rebuild_all_derived_state(load_vault(paths.root), repository, clock=frozen)
-    switched_on = snapshot()
-    append_config_toml(paths.root, OFF)
+    first = snapshot()
     rebuild_all_derived_state(load_vault(paths.root), repository, clock=frozen)
-    assert snapshot() == switched_on and reads == []
+    assert snapshot() == first and reads == []
 
 
 # -- AD composes: the path is read once, at the build --------------------------------------------------
@@ -370,10 +356,8 @@ def _fixture_parity(tmp_path, monkeypatch, source: Path) -> None:
     import learnloop.clock as clock_module
 
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
-    baseline = _plan_state(_fixture_copy(tmp_path, source, "base", version=PREDECESSOR, toml=OFF))
-    assert _plan_state(_fixture_copy(tmp_path, source, "off", version=READING_PATH_PLAN_ALGORITHM_VERSION, toml=OFF)) == baseline
-    assert _plan_state(_fixture_copy(tmp_path, source, "guide_off", version=READING_PATH_PLAN_ALGORITHM_VERSION, toml=GUIDE_OFF)) == baseline
-    # On, with no reading path judged on the copy: the predecessor's plan too
+    baseline = _plan_state(_fixture_copy(tmp_path, source, "guide_off", version=READING_PATH_PLAN_ALGORITHM_VERSION, toml=GUIDE_OFF))
+    # On, with no reading path judged on the copy: the plan the Guide's paths off give
     # (the successor changes only a reading block a path chose).
     assert _plan_state(_fixture_copy(tmp_path, source, "on", version=READING_PATH_PLAN_ALGORITHM_VERSION)) == baseline
 

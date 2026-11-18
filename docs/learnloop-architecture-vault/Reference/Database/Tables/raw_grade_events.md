@@ -139,8 +139,8 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
 - `tests/test_grading_support.py`
+- `tests/test_joint_grading_builder.py`
 - `tests/test_mvp017_route_check_replay.py`
-- `tests/test_rebuild_history_appends.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_teach_back.py`
 - `tests/test_teacher_te2_landing_r1.py`

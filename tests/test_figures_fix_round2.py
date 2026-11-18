@@ -26,10 +26,11 @@ import pytest
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as figure_store
-from learnloop.diagnosis.text_gaps import sources as gap_sources
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps.jobs import sweep_backlog
 from learnloop.figures import grammar as G
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import request as FQ
 from learnloop.figures import spec as S
 from learnloop.vault.loader import load_vault
 from tests.figure_fixtures import (
@@ -79,7 +80,7 @@ def test_f1_a_later_explanation_of_a_held_out_figure_is_skipped_too(tmp_path, mo
     assert [outcome.state for outcome in _drain(paths.root, repository, clients)] == ["done"]
     sent = len(llm.calls)
     call(ctx, "reader.figure_explain", {"predictionId": prediction_id, "text": "p sets the split"})
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert ("reader_formative", explained, "queued") in _gap_jobs(repository)
     _hold_out(monkeypatch, "p5")  # the caption paragraph after the figure: context only
     outcomes = _drain(paths.root, repository, clients)
@@ -200,8 +201,8 @@ def test_pmf_supports_past_the_safe_integers_are_refused():
 def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_path, monkeypatch):
     paths, repository = build_figure_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
-    first = FS.build_figure(vault, repository, request, author_client=AuthorFake([flagship(kind="illustrative")]))
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
+    first = FB.build_figure(vault, repository, request, author_client=AuthorFake([flagship(kind="illustrative")]))
     assert first.reused is False
     # The interleaving: this build's first `reusable` read ran before the
     # other build committed (empty), its `latest_for_input` read after (the
@@ -215,7 +216,7 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
 
     monkeypatch.setattr(figure_store, "reusable", before_the_commit)
     author = AuthorFake([flagship(kind="illustrative")])
-    second = FS.build_figure(vault, Repository.attach(repository.sqlite_path), request, author_client=author)
+    second = FB.build_figure(vault, Repository.attach(repository.sqlite_path), request, author_client=author)
     assert author.calls == 0  # no second paid generation
     assert second.reused is True and second.view["figure_id"] == first.view["figure_id"]
     # This input's reads (RW5b review F2 also looks, once per read, under the
@@ -230,7 +231,7 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
 def test_f5_off_save_on_sweep_reads_the_explanation_once(tmp_path):
     paths, repository, ctx, found = _missed_prediction(tmp_path)
     prediction_id = found["predictionId"]
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     _llm, clients = _clients()
     assert [outcome.state for outcome in _drain(paths.root, repository, clients)] == ["done"]
     _gaps_switch(paths, False)

@@ -529,8 +529,8 @@ def test_sweep_machine_checks_queues_the_instrument_debt(tmp_path):
     """A divergent factor with no instrument owes one, and the debt is queued so
     it is drainable instead of re-derived and forgotten on every attempt."""
 
-    from learnloop.diagnosis.causal_orchestrator import (
-        MACHINE_CHECK_INSTRUMENT_COMMISSIONING,
+    from learnloop.diagnosis.causal_reads import MACHINE_CHECK_INSTRUMENT_COMMISSIONING
+    from learnloop.diagnosis.machine_checks import (
         pending_machine_checks_for_factor,
         sweep_machine_checks,
     )

@@ -21,11 +21,8 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
-from learnloop.diagnosis import causal_diagnostic_selector as CDS
 from learnloop.diagnosis import probe_robust as pr
 from learnloop.diagnosis import voi_forecasting as DV
-from learnloop.diagnosis.causal_probe_coherence import lock_causal_hypothesis_set
-from learnloop.diagnosis.causal_probe_commissioning import commission_probe_instrument
 from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.evsi_calibration import live_report as LR
 from learnloop.scheduling import action_loss as AL
@@ -34,7 +31,7 @@ from learnloop.scheduling import voi_forecasts as VF
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import append_config_toml
-from tests.causal_shadow_selection_helpers import CLOCK, LO_ID, PASSING_REVIEW, _seed_factor, _vault
+from tests.causal_shadow_selection_helpers import CLOCK, LO_ID, _vault
 from tests.probe_robust_cutover_helpers import _contrast_instrument, _load, _record_full_score_probe
 from tests.voi_forecasts_helpers import _STAGED_PRIOR, _attempt, _forecasts, _separating, _staged_loss
 
@@ -147,13 +144,14 @@ def test_robust_gate_forecast_records_the_eig_paths_minutes(tmp_path):
 
 
 def test_robust_completion_override_logs_its_forecast(tmp_path):
+    from learnloop.diagnosis import probe_completion as completion
     from learnloop.diagnosis import probe_episodes as pe
 
     loaded, repository = _load(tmp_path)
     episode = enter_episode(loaded, repository, "lo_svd_definition", clock=CLOCK)
     posterior = pe.episode_posterior(loaded, repository, episode)
     open_episode = dataclasses.replace(episode, minimum_independent_observations=0)
-    pe._robust_completion_override(loaded, repository, open_episode, posterior)
+    completion._robust_completion_override(loaded, repository, open_episode, posterior)
     rows = [r for r in _forecasts(repository) if r["site"] == "probe_robust_selection"]
     assert len(rows) == 1 and rows[0]["probe_episode_id"] == episode.id
 
@@ -273,73 +271,10 @@ def test_staged_emission_reads_the_administered_probe_outcome(tmp_path):
         assert LR.realized_emission(connection, vault, forecast, "att_none") == (None, "no_probe_observation")
 
 
-def _arm_b_shadow(tmp_path, *, measured: bool):
-    vault, repository = _vault(tmp_path, probe_item=True)
-    if measured:
-        append_config_toml(vault.root, "\n[evsi]\nmeasured_loss_enabled = true\n")
-        vault = load_vault(vault.root)
-    factor_id, first_id, second_id = _seed_factor(repository, with_targets=True)
-    result = commission_probe_instrument(
-        vault, repository, factor_id=factor_id, adversarial_review=PASSING_REVIEW,
-        generation_agent_run_id="agent_generate", reviewer_agent_run_id="agent_review", clock=CLOCK,
-    )
-    assert result["outcome"] == "commissioned"
-    candidate = repository.causal_probe_candidate(result["candidate_id"])
-    locked = lock_causal_hypothesis_set(
-        repository, factor_id, probe_phase_id="phase_voi", algorithm_version="test",
-        support_scores={first_id: 0.55, second_id: 0.45}, clock=CLOCK,
-    )
-    decision_receipt = {
-        "id": f"receipt_voi_{int(measured)}", "factor_id": factor_id, "decision": "probe_now", "reason": "test",
-        "inputs": {"probe_burden_minutes": 1.5, "common_repair_covers": False},
-        "repair_class_ids": ["repair:recall", "repair:method"], "learning_object_id": LO_ID,
-        "attempt_id": "att_shadow",
-    }
-    shadow = CDS.record_shadow_selection(
-        repository, decision_receipt=decision_receipt, candidates=(),
-        chosen_candidate={**candidate, "hypothesis_set_id": locked.id},
-        repair_class_by_hypothesis={first_id: "repair:recall", second_id: "repair:method"},
-        common_repair_class_id="repair:recall", vault=vault, clock=CLOCK,
-    )
-    return vault, repository, shadow, factor_id, (first_id, second_id)
 
 
-def test_causal_shadow_records_its_formal_evsi_forecast(tmp_path):
-    vault, repository, shadow, factor_id, (first_id, second_id) = _arm_b_shadow(tmp_path, measured=False)
-    assert shadow["likelihood_regime"] == "arm_b_noiseless_partition"
-    assert shadow["loss_table_regime"] == CDS.LOSS_TABLE_REGIME_SHADOW_V1
-    rows = [r for r in _forecasts(repository) if r["site"] == "causal_shadow_selection"]
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["factor_id"] == factor_id
-    assert row["evsi_point_minutes"] is not None and row["evsi_lcb_minutes"] is not None
-    body = row["forecast"]
-    # Noiseless partition: the check changes the action with the prior mass of
-    # the hypothesis whose route is not the current action.
-    assert row["p_action_change"] == pytest.approx(0.45, abs=1e-6)
-    assert body["loss"]["effective_action"] == {first_id: "repair:recall", second_id: "repair:method"}
-    by_name = {p["name"]: p for p in row["parameters"]}
-    assert by_name["minutes[repair:recall]"]["provenance"] == "heuristic"
-    assert by_name["minutes[repair:recall]"]["source"] == "heuristic_default"
-    assert by_name["robust_composition.LAMBDA_TIME"]["provenance"] == "structural"
-    assert not any(name.startswith("unresolved_minutes") for name in by_name)
 
 
-def test_measured_loss_switch_charges_unresolved_minutes_in_the_shadow(tmp_path):
-    vault, repository, shadow, _factor, (first_id, _second) = _arm_b_shadow(tmp_path, measured=True)
-    assert shadow["loss_table_regime"] == CDS.LOSS_TABLE_REGIME_MEASURED_V1
-    table = shadow["body"]["loss_table"]["table"]
-    off_diagonal = [c for c in table["cells"] if c["minutes"] > 0]
-    assert off_diagonal and all("unresolved_minutes" in c["derivation"] for c in off_diagonal)
-    estimate = shadow["body"]["loss_table"]["unresolved_cost"]
-    # No history in a fresh vault: the Eedi prior alone, with heuristic minutes per repeat.
-    assert estimate["provenance"] == "population_prior"
-    assert estimate["minutes"] == pytest.approx(
-        UC.EEDI_EXCESS_REPEAT_RATE * UC.ENCOUNTERS_UNTIL_CAUGHT * AL.DEFAULT_INTERVENTION_MINUTES
-    )
-    row = [r for r in _forecasts(repository) if r["site"] == "causal_shadow_selection"][0]
-    by_name = {p["name"]: p for p in row["parameters"]}
-    assert by_name[f"unresolved_minutes[{first_id}]"]["provenance"] == "population_prior"
 
 
 # -- the report's adapters and truth ------------------------------------------------------------
@@ -372,7 +307,7 @@ def test_regret_counts_only_independent_truth():
     loss = {"minutes": {"h1": {"a1": 0.0, "a2": 6.0}, "h2": {"a1": 6.0, "a2": 0.0}},
             "effective_action": {"h1": "a1", "h2": "a2"}}
     forecast = {
-        "site": "causal_shadow_selection", "verdict": "measure", "eig_nats": 0.6, "p_action_change": 0.3,
+        "site": "probe_selection", "verdict": "measure", "eig_nats": 0.6, "p_action_change": 0.3,
         "evsi_point_minutes": 1.8, "created_at": "2026-05-19T12:00:00Z",
         "forecast": {
             "prior": {"h1": 0.7, "h2": 0.3}, "likelihood": {"h1": {"e1": 1.0}, "h2": {"e2": 1.0}},
@@ -389,7 +324,7 @@ def test_regret_counts_only_independent_truth():
          {"confirmed": [], "ruled_out": [], "sources": [], "repair_effect": [{"success": True}]}),
     ]
     report = LR.summarize_joined(rows)
-    site = report["sites"]["causal_shadow_selection"]
+    site = report["sites"]["probe_selection"]
     assert site["forecasts"] == 3
     assert site["repair_effect"] == {"success": 1, "failure": 0}
     assert site["action_change"]["realized_rate"] == 1.0
@@ -527,7 +462,7 @@ def test_one_cold_verification_is_one_repair_outcome(tmp_path):
     # Re-review F10: a cold verification that also closes the forecast's factor
     # (`repair_confirmed`, citing it by id) is one repair outcome, not two.
     _vault_obj, repository = _vault(tmp_path)
-    forecast = {**_TRUTH_FORECAST, "factor_id": "factor_x", "site": "causal_shadow_selection"}
+    forecast = {**_TRUTH_FORECAST, "factor_id": "factor_x", "site": "probe_selection"}
     with repository.connection() as connection:
         _cold_verification(connection, "cv_closing", repair_class="repair:b", hypothesis_ids=["h2"], success=True)
         _factor(connection, "factor_x", "repair_confirmed", {"cold_verification_id": "cv_closing",
@@ -536,7 +471,7 @@ def test_one_cold_verification_is_one_repair_outcome(tmp_path):
         assert len(truth["repair_effect"]) == 1
         assert truth["repair_effect"][0]["cold_verification_id"] == "cv_closing"
         report = LR.summarize_joined([(forecast, {"status": "pending"}, truth)])
-        assert report["sites"]["causal_shadow_selection"]["repair_effect"] == {"success": 1, "failure": 0}
+        assert report["sites"]["probe_selection"]["repair_effect"] == {"success": 1, "failure": 0}
         # A factor closed by another verification (not linked to these hypotheses)
         # is a separate outcome, and keeps the verification it cites.
         _factor(connection, "factor_y", "escalated_unrepaired", {"cold_verification_id": "cv_other",

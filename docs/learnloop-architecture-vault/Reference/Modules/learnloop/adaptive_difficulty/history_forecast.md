@@ -174,6 +174,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — direct import
   - `test_the_background_job_sends_each_rung_as_frozen_and_writes_receipts`
   - `test_the_serve_freezes_the_draw_and_two_rungs`

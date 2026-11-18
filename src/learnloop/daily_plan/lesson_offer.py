@@ -1,7 +1,6 @@
 """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): lesson offers as candidates of the router objective.
 
-At a reversible ``plan_block`` boundary where the objective serves (its tag, ``router.lesson_suggestions.in_objective``
-and TE1b's suggestions on), TE1b's best ``instruct(lesson)`` candidate by its staged value (``log P(accept) +
+At a reversible ``plan_block`` boundary where the objective serves (with TE1b's suggestions on), TE1b's best ``instruct(lesson)`` candidate by its staged value (``log P(accept) +
 log(1 − p)``, :mod:`learnloop.router.lesson_suggestions`) joins the decision's support as a plan block of its own (no
 items, no reading: the offer card), beside staged's top ``router.k``: one offer a decision (``keep``, one card at a
 time), its alternatives (up to two, ``keep``) the next candidates, shown and never valued. TE1b's acceptance model is

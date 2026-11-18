@@ -83,7 +83,9 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.guard_case_rows()`
+- `Repository.recurrence_guard_cases()`
+- `Repository.register_guard_cases()`
 
 ### Direct SQL readers
 
@@ -95,7 +97,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/diagnosis/recurrence/guard.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

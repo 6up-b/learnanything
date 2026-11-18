@@ -171,11 +171,12 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] — imports `observe_model_calls`; statically calls `observe_model_calls`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `call_labels`, `generation_limit`, `observe_model_calls`, `single_request`; statically calls `call_labels`, `generation_limit`, `observe_model_calls`, `single_request`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `active_request_gate`, `content_key`; statically calls `active_request_gate`, `content_key`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
+- [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `content_key`, `gate_model_requests`; statically calls `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/hints/map_seeds|learnloop.hints.map_seeds]] — imports `content_key`; statically calls `content_key`
@@ -263,7 +264,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 125 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 126 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -334,6 +335,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rejected_request_keeps_its_status_and_redacted_error_on_the_receipt`
   - `test_a_transport_error_echoing_a_key_reaches_neither_receipt_nor_caller`
   - `test_an_unreachable_endpoint_is_recorded_as_network_without_a_status`
+  - `test_openrouter_billing_metadata_preserves_answers_and_charged_cost`
   - `test_receipt_carries_body_usage_cost_model_and_labels`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_inside_an_automatic_builds_request_gate_the_span_check_is_admitted_and_settled`
@@ -430,6 +432,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import
   - `test_a_config_setting_the_removed_switches_keeps_every_identity`
+  - `test_a_config_setting_todays_removed_switches_keeps_every_identity`
   - `test_an_embedding_compare_report_is_named_as_before_arc_c`
   - `test_the_config_identity_reproduces_both_recorded_digests`
   - `test_the_pre_arc_c_shape_reproduces_the_recorded_default_digest`

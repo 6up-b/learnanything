@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/diagnoses.py](../../../../../../../src/learnloop/db/stores/diagnoses.py) |
-| Source lines | 1005 |
+| Source lines | 971 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -94,12 +94,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `owns_post_attempt_job(self, job_id: str, *, epoch: int) -> bool` (line 824; public)
   - `finish_post_attempt_job(self, job_id: str, *, epoch: int, state: str, last_error: str | None=None, payload: Mapping[str, Any] | None=None, clock: Clock | None=None) -> bool` (line 832; public) — Settle a leased job; a superseded lease writes nothing (fencing).
   - `release_post_attempt_job(self, job_id: str, *, epoch: int, not_before: str | None, last_error: str | None=None, refund_attempt: bool=False, clock: Clock | None=None) -> bool` (line 861; public) — Return a leased job to the queue (backoff, or provider not ready).
-  - `hold_queued_live_diagnoses(self, *, clock: Clock | None=None) -> int` (line 885; public) — Stamp each queued LIVE diagnose job ``payload.split_held_at = now``.
-  - `requeue_post_attempt_job(self, job_id: str, *, clock: Clock | None=None) -> bool` (line 919; public) — Owner retry: a settled job runs again with a fresh attempt count.
-  - `pending_live_diagnoses_for_session(self, session_id: str) -> list[str]` (line 934; public) — Attempts of this session whose LIVE diagnosis is queued or running.
-  - `live_diagnosis_jobs_for_session(self, session_id: str) -> list[dict[str, Any]]` (line 951; public) — Every LIVE diagnose job of this session's attempts, any state (E7 population).
-  - `post_attempt_job_counts(self) -> dict[str, dict[str, int]]` (line 967; public)
-- `latest_blind_grade_rows(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 985) — attempt id -> its latest blind record, on the caller's connection (one ordered scan; a caller can read it in the same snapshot as other rows).
+  - `requeue_post_attempt_job(self, job_id: str, *, clock: Clock | None=None) -> bool` (line 885; public) — Owner retry: a settled job runs again with a fresh attempt count.
+  - `pending_live_diagnoses_for_session(self, session_id: str) -> list[str]` (line 900; public) — Attempts of this session whose LIVE diagnosis is queued or running.
+  - `live_diagnosis_jobs_for_session(self, session_id: str) -> list[dict[str, Any]]` (line 917; public) — Every LIVE diagnose job of this session's attempts, any state (E7 population).
+  - `post_attempt_job_counts(self) -> dict[str, dict[str, int]]` (line 933; public)
+- `latest_blind_grade_rows(connection: Any) -> dict[str, dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 951) — attempt id -> its latest blind record, on the caller's connection (one ordered scan; a caller can read it in the same snapshot as other rows).
 
 ### Module constants
 
@@ -118,7 +117,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `_dumps(value: Any) -> str` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 32)
 - `_loads(value: Any, default: Any) -> Any` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 36)
-- `_has_table(connection: Any, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 979)
+- `_has_table(connection: Any, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/diagnoses.py), line 945)
 
 ## Who imports or calls it
 

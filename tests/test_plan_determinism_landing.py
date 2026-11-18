@@ -4,8 +4,7 @@ Main gained router R2b + R2c (``mvp-0.24``: Today's next block drawn from the
 logged model mixture) and GLM-OCR after this branch's base. The compositions
 checked here, at ``mvp-0.24``:
 
-* **Staged mode** (``router.mode = "staged"``, and the mixture with no model
-  set up, where the staged rule decides): the same vault state plans the same
+* **Staged mode** (``router.mode = "staged"``): the same vault state plans the same
   blocks in every session, Start's sessionless build included, and Begin keeps
   the block Start planned. Every outcome of the scheduler's draw, forced, is
   ignored.
@@ -170,19 +169,16 @@ def _llm_on_the_first_option(request) -> dict:
 
 
 @pytest.mark.parametrize("world", ["near_ties", "both_fit", "one_fits"])
-@pytest.mark.parametrize("mode", ["staged", "mixture_not_ready"])
-def test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start(tmp_path, frozen, monkeypatch, mode,
-                                                                           world):
-    """``router.mode = "staged"``, or the mixture with no model set up (the
-    staged rule decides, ``decided_by = not_ready``): every session, and
-    Start's sessionless build, plan one staged plan whose decisions are logged
-    deterministic; Begin on Start's plan keeps Start's block. A contrast
-    pair's order is the pair's own draw and is recorded with its seed."""
+def test_staged_plans_at_mvp024_are_the_same_in_every_session_and_at_start(tmp_path, frozen, monkeypatch, world):
+    """``router.mode = "staged"``: every session, and Start's sessionless build, plan one staged plan whose
+    decisions are logged deterministic; Begin on Start's plan keeps Start's block. A contrast pair's order is the
+    pair's own draw and is recorded with its seed. (The mixture with no model set up draws from the fallback's
+    distribution with its floor, data capture A5, so it is no staged plan.)"""
 
     _runtime(monkeypatch)  # no model set up
-    template, minutes = _vault(tmp_path, "template", world, toml=STAGED if mode == "staged" else "")
+    template, minutes = _vault(tmp_path, "template", world, toml=STAGED)
     vault = load_vault(template)
-    assert staged_plans_deterministic(vault) and mixture_active(vault) is (mode != "staged")
+    assert staged_plans_deterministic(vault) and not mixture_active(vault)
     shapes, recorded = set(), {}
     for sid in SESSIONS:
         root = _copy(template, tmp_path / sid)

@@ -18,6 +18,7 @@ source_paths:
   - "migrations/093_reader_background_requests.sql"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -126,18 +127,18 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop_sidecar/handlers/reader.py`

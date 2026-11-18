@@ -51,8 +51,7 @@ reading block follows the nearest active deliverable's fresh path
 (:func:`plan_deliverable`, :func:`deliverable_plan_path`: the same lines the Guide
 shows, read and never judged by the plan), and :func:`refresh_for_plan` is its daily
 quiet re-judgment of a stale path. No scheduling, projection, grading or replay path
-reads a deliverable path. Kill switches ``curriculum.enabled`` and (C1)
-``curriculum.plan_uses_path``.
+reads a deliverable path. Kill switch ``curriculum.enabled``.
 """
 
 from __future__ import annotations
@@ -1817,13 +1816,11 @@ REFRESH_STATUSES: tuple[str, ...] = ("fresh", "ready", "unavailable", "none", "s
 
 def plan_refresh_reason(vault: Any) -> str | None:
     """Why C1's daily re-judgment does not run (None: it does). The plan-side gate
-    (the tag, RW7b's switches) is the caller's; this reads the curriculum switches."""
+    (RW7b's switch) is the caller's; this reads the curriculum switch."""
 
     section = getattr(vault.config, "curriculum", None)
     if not bool(getattr(section, "enabled", False)):
         return "curriculum.enabled is false"
-    if not bool(getattr(section, "plan_uses_path", False)):
-        return "curriculum.plan_uses_path is false"
     return None
 
 

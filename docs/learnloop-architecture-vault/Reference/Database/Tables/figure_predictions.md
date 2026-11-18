@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/db/stores/figures.py"
   - "src/learnloop/diagnosis/split/figure_trace.py"
-  - "src/learnloop/diagnosis/text_gaps/provenance.py"
+  - "src/learnloop/diagnosis/text_gaps/figure_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

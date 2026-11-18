@@ -30,13 +30,12 @@ from learnloop.intent.control import Scope
 from learnloop.intent.deadline import goal_id_for, set_deadline
 from learnloop.scheduling.intent.model import TIER_PUSH, TIER_UNCOMMITTED
 from learnloop.scheduling.intent.recall_targets import effective_due, load_anchors
-from learnloop.scheduling.scheduler import read_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.daily_plan_fakes import MovableClock, iso, record_attempt, seed_due
-from tests.helpers import append_config_toml, create_daily_plan_vault
-from tests.intent_fakes import ITEM_LO, NOW, OURS, make_intent_vault
+from tests.helpers import create_daily_plan_vault
+from tests.intent_fakes import ITEM_LO, NOW, make_intent_vault
 
 
 @pytest.fixture
@@ -474,39 +473,3 @@ def test_f10_the_headline_leaves_out_excluded_los_and_items(iv):
     assert "lo_c" in after["learning_object_classes"]  # pi_c2 is still served
     assert sum(after["counts"].values()) == sum(before["counts"].values()) - 1
     assert after["expected_recall_items"] == before["expected_recall_items"] - 3  # pi_a1, pi_a2, pi_c1
-    append_config_toml(iv.root, "[intent]\nenabled = false\n")
-    iv.reload()
-    off = today_headline(iv.vault, iv.repository, now=at)
-    assert off["counts"] == before["counts"] and off["expected_recall_items"] == before["expected_recall_items"]
-
-
-# -- F2 (rejected): the predecessor with commitments populated ------------------------------------------------
-
-
-def test_f2_with_intent_off_commitments_change_nothing_in_the_ranked_list_or_the_plan(tmp_path):
-    bare = make_intent_vault(tmp_path / "bare")
-    chosen = make_intent_vault(tmp_path / "chosen")
-    chosen.choose("learning_object", "lo_a", "pause", NOW)
-    chosen.choose("learning_object", "lo_b", "check_once", NOW)
-    chosen.choose("learning_object", "lo_c", "light_touch", NOW)
-    for iv in (bare, chosen):
-        append_config_toml(iv.root, "[intent]\nenabled = false\n")
-        iv.reload()
-    at = NOW + timedelta(days=8)
-
-    def ranked(iv):
-        return [
-            (entry.practice_item_id, round(entry.priority, 12), tuple(sorted(entry.components.items())))
-            for entry in read_due_queue(iv.vault, iv.repository, clock=FrozenClock(at))
-            if entry.practice_item_id in OURS
-        ]
-
-    assert ranked(bare) == ranked(chosen)
-    plans = []
-    for iv in (bare, chosen):
-        record = build_plan(_env(iv, at), kind="normal", budget=25.0, remembered=25, minutes_source="chip")
-        blocks = [[(item.practice_item_id, item.lane, item.check_kind) for item in block.items] for block in record.blocks]
-        plans.append((record.split.get("pool"), record.admission, blocks))
-    assert plans[0] == plans[1]
-    with chosen.repository.connection() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM commitments").fetchone()[0] == 3

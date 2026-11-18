@@ -1,10 +1,11 @@
-"""The AD2+AD3 successor's gate and its six switches (spec_adaptive_difficulty_v1 §11.1).
+"""The AD2+AD3 successor's gate and its five switches (spec_adaptive_difficulty_v1 §11.1).
 
-One successor (``mvp-0.30``), six switches under ``[adaptive_difficulty]``,
-each restoring its part of the predecessor exactly, and composing:
+One successor (``mvp-0.30``), five switches under ``[adaptive_difficulty]``,
+each restoring its part of the predecessor exactly, and composing (the
+generation contract, where the prompt names a feature point with no band, has
+no switch of its own: it runs under the master switch):
 
 * ``selection``: the serve and commission draws, substitution, deferrals;
-* ``generation_contract``: the prompt names a feature point, with no band;
 * ``promoted_predictor``: live decisions and readiness read the subject view
   (off: each LO's own view, and no AD readiness numbers); off makes
   ``learned_coupling``, ``reading_opportunities`` and ``reading_self_check``
@@ -30,8 +31,7 @@ from learnloop.algorithm_versions import ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION
 from learnloop.adaptive_difficulty.switches import ad_enabled
 
 SUCCESSOR = ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION
-SWITCHES = ("selection", "generation_contract", "promoted_predictor", "learned_coupling", "reading_opportunities",
-            "reading_self_check")
+SWITCHES = ("selection", "promoted_predictor", "learned_coupling", "reading_opportunities", "reading_self_check")
 DOSE_SWITCH = "reading_dose_offers"
 
 
@@ -46,7 +46,7 @@ def successor_active(config: Any) -> bool:
 
 
 def switch_on(config: Any, name: str) -> bool:
-    """One of the six switches, under the master switch."""
+    """One of the five switches, under the master switch."""
 
     if name not in SWITCHES:
         raise ValueError(f"unknown AD2+AD3 switch {name!r}")
@@ -55,10 +55,6 @@ def switch_on(config: Any, name: str) -> bool:
 
 def selection_on(config: Any) -> bool:
     return switch_on(config, "selection")
-
-
-def generation_contract_on(config: Any) -> bool:
-    return switch_on(config, "generation_contract")
 
 
 def subject_view_live(config: Any) -> bool:
@@ -130,7 +126,6 @@ __all__ = [
     "SWITCHES",
     "coupling_on",
     "dose_offers_on",
-    "generation_contract_on",
     "history_fallback",
     "lesson_opportunities_on",
     "reading_on",

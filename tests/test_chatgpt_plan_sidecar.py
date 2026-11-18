@@ -107,7 +107,7 @@ def test_settings_payload_lists_plan_profiles_and_their_routes(tmp_path, server)
     text = config.read_text(encoding="utf-8").replace(
         "[ai.routing]\n", '[ai.routing]\nsource_query_rewrite = "chatgpt"\n', 1)
     # The template already holds [ai.providers.chatgpt] (plan-first transport T1).
-    text = text.replace('[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-5.6-sol"\n',
+    text = text.replace('[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-6.1-sol"\n',
                         f'[ai.providers.chatgpt]\ntype = "chatgpt_plan"\nmodel = "gpt-test-fast"\n'
                         f'base_url = "{server.base_url}"\n', 1)
     config.write_text(text, encoding="utf-8")

@@ -388,7 +388,7 @@ def test_the_follow_up_gates_decision_names_its_rule_arms_and_components(tmp_pat
 
 
 def test_a_hard_refusal_and_no_plan_each_leave_the_gates_record(tmp_path):
-    from learnloop.diagnosis.causal_orchestrator import defer_probe_offer
+    from learnloop.diagnosis.probe_offer import defer_probe_offer
     from learnloop.followup_run import router
     from learnloop.followup_serve import workflow as wf
     from tests.followup_serve_helpers import AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs

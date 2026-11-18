@@ -16,7 +16,6 @@ from learnloop.scheduling.scheduler import (
     build_due_queue,
     read_due_queue,
 )
-from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
@@ -742,7 +741,7 @@ def test_selection_propensities_window_excludes_far_candidates():
     assert propensity["c"] == 0.0
 
 
-def test_selection_propensities_greedy_when_disabled_or_singleton_or_probe():
+def test_selection_propensities_greedy_when_disabled_or_singleton():
     rate_off = _config(0.0, 1.0)
     queue = [_scheduled("a", 1.0), _scheduled("b", 0.95)]
     assert _selection_propensities(queue, SchedulerSession(session_id="s"), rate_off) == {"a": 1.0, "b": 0.0}
@@ -756,16 +755,6 @@ def test_selection_propensities_greedy_when_disabled_or_singleton_or_probe():
     # Single candidate -> always served.
     assert _selection_propensities([_scheduled("a", 1.0)], SchedulerSession(session_id="s"), _config(0.2, 1.0)) == {
         "a": 1.0
-    }
-
-    # With probe ties off (mvp-0.15's switch), a probe at the top is never displaced by exploration, so it keeps
-    # propensity 1 (on, tests/test_router_probe_ties.py).
-    probe_queue = [_scheduled("a", 1.0, intent=SchedulerIntent.PROBE.value), _scheduled("b", 0.95)]
-    probe_ties_off = _config(0.2, 1.0)
-    probe_ties_off.router.probe_tie_admission = False
-    assert _selection_propensities(probe_queue, SchedulerSession(session_id="s"), probe_ties_off) == {
-        "a": 1.0,
-        "b": 0.0,
     }
 
 

@@ -22,13 +22,11 @@ tutor; the answer is an ordinary attempt with full evidence and FSRS.
   every item the lesson showed and every check already picked. Otherwise the
   transfer check is reported unavailable, never filled by a look-alike.
 * **The pick** among candidates is the item whose predicted success is nearest
-  the middle of adaptive difficulty's band (the house pitch prior, §10 item 7),
-  ties by id. RW6b's valuation replaces this picker when it lands (one producer).
-  From mvp-0.44 with ``data_capture.serving`` on (data capture A6) the prediction
-  is the item's own, and an exact tie is a uniform draw whose seed, draw and
-  probability 1/n are on the check's receipt (:func:`pick_with_receipt`); below
-  the tag, or switched off, every item of an LO reads the LO's one prediction, so
-  the smallest id wins, as it did.
+  the middle of adaptive difficulty's band (the house pitch prior, §10 item 7).
+  RW6b's valuation replaces this picker when it lands (one producer). The
+  prediction is the item's own (data capture A6, mvp-0.44), and an exact tie is a
+  uniform draw whose seed, draw and probability 1/n are on the check's receipt
+  (:func:`pick_with_receipt`).
 * **Dates from retrievability** (owner, 2026-10-24): the first day the LO's
   predicted retrievability falls to ``R*`` (``teacher.delayed.target_retrievability``,
   a seeded prior, basis ``published``), by FSRS from the stability the lesson's
@@ -47,11 +45,10 @@ from datetime import timedelta
 from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.data_capture.gates import serving_on
 from learnloop.delayed_checks import PICK_VERSION, candidates, due_days, lineage, pick_with_receipt
 from learnloop.delayed_checks import attempted_items as _attempted
 from learnloop.delayed_checks import revealed_items as _revealed
-from learnloop.teacher.brief import downstream_learning_objects, lo_prediction
+from learnloop.teacher.brief import downstream_learning_objects
 
 PURPOSES = ("retention", "transfer")
 DEPTH_PRESET = "keep_in_touch"
@@ -134,18 +131,7 @@ def presentation(item: Any) -> str | None:
 def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> Any | None:
     """The candidate pitched nearest the band's middle (the house prior); module docstring."""
 
-    if not items:
-        return None
-    if serving_on(vault.config):
-        return pick_with_receipt(vault, repository, items, seed_key=seed_key)[0]
-    band = tuple(getattr(vault.config.adaptive_difficulty, "practice_band", (0.70, 0.80)))
-    middle = (float(band[0]) + float(band[1])) / 2.0
-
-    def distance(item: Any) -> tuple[float, str]:
-        p = lo_prediction(vault, repository, item.learning_object_id).get("p")
-        return (abs(float(p) - middle) if p is not None else 1.0, item.id)
-
-    return min(items, key=distance)
+    return pick_with_receipt(vault, repository, items, seed_key=seed_key)[0] if items else None
 
 
 def retention_seed_key(lesson_id: str, learning_object_id: str) -> str:
@@ -180,10 +166,8 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
     item_picks: dict[str, dict[str, Any]] = {}
 
     def picked_for(found: Sequence[Any], seed_key: str) -> Any | None:
-        """The pick among ``found``; at the successor its receipt is kept for the check's row."""
+        """The pick among ``found``; its receipt is kept for the check's row."""
 
-        if not serving_on(vault.config):
-            return pick(vault, repository, found)
         item, receipt = pick_with_receipt(vault, repository, found, seed_key=seed_key)
         if item is not None:
             item_picks[item.id] = receipt

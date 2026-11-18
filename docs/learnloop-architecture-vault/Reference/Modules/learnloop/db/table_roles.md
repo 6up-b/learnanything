@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/figure_prefetch_migration_helpers.py](../../../../../../tests/figure_prefetch_migration_helpers.py) — direct import
 - [tests/followup_migration_helpers.py](../../../../../../tests/followup_migration_helpers.py) — direct import
 - [tests/hypothesis_marks_migration_helpers.py](../../../../../../tests/hypothesis_marks_migration_helpers.py) — direct import
@@ -224,7 +225,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_both_tables_are_classified_and_never_derived`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_replay_never_reads_the_switch`
-- [tests/test_rebuild_history_appends.py](../../../../../../tests/test_rebuild_history_appends.py) — direct import
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
   - `test_live_rebuild_completeness_failure_publishes_nothing`

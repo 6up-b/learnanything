@@ -47,39 +47,40 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py) |
-| Source lines | 529 |
+| Source lines | 521 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `block_observation_rows(repository: Repository, episode: ProbeEpisodeRecord) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 49) — The active block's observation rows: observations whose committed presentation belongs to the episode's active state segment.
-- `block_complete(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, probe_presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 63) — Whether recording this presentation's observation closed the block.
-- `evaluate_open_set_trigger(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 153) — §6.3: when ``other_or_unknown`` becomes competitive, trigger the misconception review path — evaluated at block end, never per attempt.
-- `build_typed_transition_decision(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior | None, *, first_error_step_or_claim: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 243) — The §12.1 typed transition decision, persisted before tutor prose.
-- `settle_block_answers(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, ai_client: object | None=None, clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 317) — What the attempt pipeline deferred for the active block's committed answers: their withheld feedback (claim-checked), their normalization or blind diagnosis job, and their causal hooks.
-- `end_diagnostic_block(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord | str, *, ai_client: object | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 445) — The §5.7 block-end hook.
+- `block_observation_rows(repository: Repository, episode: ProbeEpisodeRecord) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 48) — The active block's observation rows: observations whose committed presentation belongs to the episode's active state segment.
+- `block_complete(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, probe_presentation_id: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 62) — Whether recording this presentation's observation closed the block.
+- `evaluate_open_set_trigger(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 145) — §6.3: when ``other_or_unknown`` becomes competitive, trigger the misconception review path — evaluated at block end, never per attempt.
+- `build_typed_transition_decision(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior | None, *, first_error_step_or_claim: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 235) — The §12.1 typed transition decision, persisted before tutor prose.
+- `first_error_from_block(rows: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 297) — First divergent step/claim from the block's structured traces (§8.2).
+- `settle_block_answers(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, *, ai_client: object | None=None, clock: Clock | None=None) -> tuple[list[dict[str, Any]], list[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 309) — What the attempt pipeline deferred for the active block's committed answers: their withheld feedback (claim-checked), their normalization or blind diagnosis job, and their causal hooks.
+- `end_diagnostic_block(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord | str, *, ai_client: object | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 437) — The §5.7 block-end hook.
 
 ### Module constants
 
-- `OPEN_SET_REVIEW_CAPABILITY` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 46)
-- `_TUTOR_MOVE_BY_ACTION` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 201)
-- `_TUTOR_MOVE_BY_LABEL` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 213)
+- `OPEN_SET_REVIEW_CAPABILITY` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 45)
+- `_TUTOR_MOVE_BY_ACTION` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 193)
+- `_TUTOR_MOVE_BY_LABEL` ([src/learnloop/diagnosis/probe_blocks.py](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 205)
 
 ## Internal implementation anchors
 
-- `_next_observation_does_not_pay(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, rows: list[dict]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 119)
-- `_derive_tutor_move(top_label: str, top_probability: float, first_error: str | None, instructional_action: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 223)
-- `_first_error_from_block(rows: list[dict[str, Any]]) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 305) — First divergent step/claim from the block's structured traces (§8.2).
+- `_next_observation_does_not_pay(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, rows: list[dict]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 112)
+- `_derive_tutor_move(top_label: str, top_probability: float, first_error: str | None, instructional_action: str | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_blocks.py), line 215)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `block_observation_rows`, `build_typed_transition_decision`, `first_error_from_block`, `settle_block_answers`; statically calls `block_observation_rows`, `build_typed_transition_decision`, `first_error_from_block`, `settle_block_answers`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `end_diagnostic_block`; statically calls `end_diagnostic_block`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`, `settle_block_answers`; statically calls `_first_error_from_block`, `block_complete`, `block_observation_rows`, `build_typed_transition_decision`, `end_diagnostic_block`, `settle_block_answers`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `block_complete`, `end_diagnostic_block`; statically calls `block_complete`, `end_diagnostic_block`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `end_diagnostic_block`; statically calls `end_diagnostic_block`
 
 ## Dependencies
@@ -93,7 +94,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `common_repair_recommendation`, `run_deferred_block_repair_hooks`; calls `common_repair_recommendation`, `run_deferred_block_repair_hooks`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `guided_redo_available`; calls `guided_redo_available`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `normalize_and_resolve_attempt`; calls `normalize_and_resolve_attempt`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EpisodePosterior`, `_evaluate_completion`, `_set_target_decision`, `eligible_instruments`, `episode_maximum_binds`, `episode_posterior`, `persist_episode_beliefs`; calls `_evaluate_completion`, `_set_target_decision`, `eligible_instruments`, `episode_maximum_binds`, `episode_posterior`, `persist_episode_beliefs`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`; calls `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EpisodePosterior`, `eligible_instruments`, `episode_posterior`; calls `eligible_instruments`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `H_OTHER`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `enqueue_diagnosis`; calls `enqueue_diagnosis`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `module`; calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`
@@ -111,7 +113,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

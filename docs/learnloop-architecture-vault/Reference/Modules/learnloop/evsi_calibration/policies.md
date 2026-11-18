@@ -89,9 +89,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_paying_batch(state: EpisodeState, settings: PolicySettings, ranking: Sequence[str]) -> tuple[tuple[str, ...], float, list[float]] | None` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 250) — The knowledge-gradient* step: the smallest batch of the top-k ranked checks (2 <= k <= ``LOOKAHEAD_MAX``) whose joint robust value clears k checks' minutes, as ``(batch, robust value, member values)``; ``None`` when none does.
 - `_stable(state: EpisodeState, config: ProbeEpisodeConfig) -> bool` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 303)
 - `_action_equivalent(state: EpisodeState, config: ProbeEpisodeConfig) -> bool` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 310)
-- `_cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool=True) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 317) — The cap-only stop rules (``_evaluate_completion`` without the robust gate).
-- `_robust_gate_ends(state: EpisodeState, settings: PolicySettings) -> bool` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 331) — ``probe_episodes._robust_gate_verdict``: the robust selector over the remaining instruments asks the episode to end (the episode-pinned channel here is the simulation's identity channel).
-- `_incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig, *, budget: bool=True) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 355) — ``probe_episodes._evaluate_completion`` in its own order (review F8).
+- `_cap_stop(state: EpisodeState, config: ProbeEpisodeConfig, *, budget: bool=True) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 317) — The cap-only stop rules (``evaluate_completion`` without the robust gate).
+- `_robust_gate_ends(state: EpisodeState, settings: PolicySettings) -> bool` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 331) — ``probe_completion._robust_gate_verdict``: the robust selector over the remaining instruments asks the episode to end (the episode-pinned channel here is the simulation's identity channel).
+- `_incumbent_stop(state: EpisodeState, settings: PolicySettings, config: ProbeEpisodeConfig, *, budget: bool=True) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 355) — ``probe_completion.evaluate_completion`` in its own order (review F8).
 - `_rank(state: EpisodeState, settings: PolicySettings, refs: Sequence[str]) -> EV.RankResult` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 395)
 - `_lcb_paying(result: EV.RankResult) -> dict[str, float]` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 407) — The ranked checks whose robust LCB clears their minutes cost.
 - `_successor_value_gate(state: EpisodeState, settings: PolicySettings) -> ValueGate` ([source](../../../../../../src/learnloop/evsi_calibration/policies.py), line 429) — ``voi_stopping.value_candidates`` on this episode.
@@ -116,7 +116,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `ProbeEpisodeConfig`; calls `ProbeEpisodeConfig`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `robust_gate_completion`; calls `robust_gate_completion`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `robust_gate_completion`; calls `robust_gate_completion`
 - [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] — imports `module`; calls `evaluate_selection`, `expected_information_gain`, `robust_quantile`
 - [[Reference/Modules/learnloop/scheduling/action_loss|learnloop.scheduling.action_loss]] — imports `module`
 - [[Reference/Modules/learnloop/scheduling/evsi|learnloop.scheduling.evsi]] — imports `module`; calls `DiagnosticCandidate`, `evsi_for_conditionals`, `rank_feasible`

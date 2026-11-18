@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `Repository.pending_rung_variant_requests()`
 - `Repository.requested_practice_item_ids()`
 - `Repository.retry_failed_rung_variant_request()`
+- `Repository.rung_variant_pending_source_ids()`
 - `Repository.rung_variant_request()`
 - `Repository.rung_variant_requests()`
 - `Repository.update_rung_variant_request()`
@@ -116,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
 
 > [!note] Static-reference boundary

@@ -21,7 +21,7 @@ source_paths:
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grader_calibration.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_evidence.py"
   - "src/learnloop/diagnosis/probe_outcome_mapping.py"
   - "src/learnloop/attempts/outcome_schemas.py"
   - "src/learnloop/substrate/canonical_projection.py"

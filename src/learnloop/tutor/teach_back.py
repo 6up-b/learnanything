@@ -574,7 +574,7 @@ def finish_teach_back(
             **agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
             # Slice 1 §4.1: blind and isolated in a split vault.
-            **vault_grading_run_identity(vault, context),
+            **vault_grading_run_identity(context),
             "started_at": utc_now_iso(clock),
             "status": "running",
         }
@@ -714,7 +714,7 @@ def _grade_and_apply_transcript(
             # Review F11: a split vault graded this transcript blind, so its
             # raw grade and calibration lookups take the blind identity
             # (replay reads it back from the raw grade; no blind record).
-            grader_identity=vault_grading_calibration_identity(vault),
+            grader_identity=vault_grading_calibration_identity(),
         ),
         clock=clock,
     )

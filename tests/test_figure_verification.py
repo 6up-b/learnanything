@@ -86,14 +86,14 @@ def test_g23_holds_vacuously_a_reconstruction_is_an_illustration(tmp_path):
     holds vacuously. A reconstruction is stored and shown as an illustration,
     and an injected verifier is never asked."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import view as FV
 
     paths, repository = build_figure_vault(tmp_path / "vault")
     author, verifier = AuthorFake(), VerifierFake()
     figure = build(context(paths.root, author=author, verifier=verifier))["figure"]
     assert figure["verification"] == "illustrative"
     assert figure["label"] == "AI-built illustration of an interpretation · not checked against the book"
-    assert figure["reason"] == FS.RECONSTRUCTION_REASON
+    assert figure["reason"] == FV.RECONSTRUCTION_REASON
     assert json.loads(figure["specJson"])["kind"] == "reconstructed"
     assert author.calls == 1 and verifier.calls == 0
     (row,) = rows(repository, "interactive_figures")

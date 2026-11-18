@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/149_coldness_receipts.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/learner_context.py"
   - "src/learnloop/placement/state.py"

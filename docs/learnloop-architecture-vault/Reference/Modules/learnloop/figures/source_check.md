@@ -167,7 +167,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]] — imports `add_report_block`, `module`; statically calls `add_report_block`, `audit`, `coverage`, `enabled`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `module`; statically calls `check_figure`, `current_row`, `enabled`, `failed_check`, `grammar_row`, `recheck_due`, `record`, `stored_problems`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `check_figure`, `current_row`, `enabled`, `failed_check`, `grammar_row`, `record`, `stored_problems`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; statically calls `current_row`, `enabled`, `grammar_row`, `recheck_due`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `module`; statically calls `current_row`, `enabled`, `grammar_row`, `recheck`, `recheck_due`
 
 ## Dependencies
@@ -204,7 +205,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/reader|learnloop.cli.reader]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

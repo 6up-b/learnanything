@@ -56,7 +56,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] | [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/display|learnloop.diagnosis.recurrence.display]] | [[Reference/Modules/learnloop/diagnosis/recurrence/display#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/escalation|learnloop.diagnosis.recurrence.escalation]] | [[Reference/Modules/learnloop/diagnosis/recurrence/escalation#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] | [[Reference/Modules/learnloop/diagnosis/recurrence/guard#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/diagnosis/recurrence/guard|learnloop.diagnosis.recurrence.guard]] | [[Reference/Modules/learnloop/diagnosis/recurrence/guard#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/judging|learnloop.diagnosis.recurrence.judging]] | [[Reference/Modules/learnloop/diagnosis/recurrence/judging#^module-purpose|purpose]] | `ACTIVE` | 9 | 2 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/kind|learnloop.diagnosis.recurrence.kind]] | [[Reference/Modules/learnloop/diagnosis/recurrence/kind#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] | [[Reference/Modules/learnloop/diagnosis/recurrence/live#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |

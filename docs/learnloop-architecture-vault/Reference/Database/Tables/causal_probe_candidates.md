@@ -21,6 +21,8 @@ source_paths:
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop_sidecar/handlers/app.py"
+  - "src/learnloop/diagnosis/causal_cold_verification.py"
+  - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
@@ -106,11 +108,14 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/causal_cold_verification.py`
+- `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
-- `src/learnloop/diagnosis/causal_selection_audit.py`
+- `src/learnloop/diagnosis/machine_checks.py`
+- `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/followup_serve/identity.py`
 - `src/learnloop_sidecar/handlers/measurement.py`
 
@@ -125,7 +130,6 @@ Indexes and uniqueness:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_generate_e2e.py`
-- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

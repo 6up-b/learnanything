@@ -2,10 +2,9 @@
 
 Before ``mvp-0.15`` the Today queue's seeded exploration never displaced a
 PROBE-intent best and never explored to a PROBE-intent item, so probe
-decisions always logged propensity 1 or 0 (spec_action_router_v1 §2). At
-``mvp-0.15`` with ``router.probe_tie_admission`` they are ordinary near-ties
-with a logged propensity. Below the successor, or with the switch off, serving
-is exactly the predecessor's.
+decisions always logged propensity 1 or 0 (spec_action_router_v1 §2). From
+``mvp-0.15`` they are ordinary near-ties with a logged propensity (the
+switch went once every vault was past the tag).
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.config.schema import LearnLoopConfig
-from learnloop.db.repositories import Repository
 from learnloop.scheduling import scheduler as scheduler_module
 from learnloop.scheduling.scheduler import (
     ScheduledItem,
@@ -25,7 +23,6 @@ from learnloop.scheduling.scheduler import (
     _selection_propensities,
     build_due_queue,
     read_due_queue,
-    probe_ties_admitted,
 )
 from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.substrate.state_sync import sync_vault_state
@@ -35,18 +32,15 @@ from tests.helpers import (
     NOW,
     append_config_toml,
     create_basic_vault,
-    create_placement_vault,
-    set_algorithm_version,
 )
 from tests.router_probe_ties_helpers import _probe_vault
 
 PROBE = SchedulerIntent.PROBE.value
 
 
-def _config(version: str, *, switch: bool = True, rate: float = 0.2, window: float = 1.0) -> LearnLoopConfig:
+def _config(version: str, *, rate: float = 0.2, window: float = 1.0) -> LearnLoopConfig:
     config = LearnLoopConfig()
     config.algorithms.algorithm_version = version
-    config.router.probe_tie_admission = switch
     config.scheduler.selection_exploration_rate = rate
     config.scheduler.selection_exploration_reward_window = window
     return config
@@ -58,20 +52,6 @@ def _item(item_id: str, reward: float, *, intent: str = "practice") -> Scheduled
         components={"selection_reward": reward}, readiness_factor=None,
         selected_mode="short_answer", plain_english=[], reward_debug={"intent": intent},
     )
-
-
-def test_the_gate_is_the_switch():
-    assert probe_ties_admitted(_config("mvp-0.15"))
-    assert not probe_ties_admitted(_config("mvp-0.15", switch=False))
-
-
-def test_the_kill_switch_keeps_the_predecessors_probe_exclusion_exactly():
-    session = SchedulerSession(session_id="s")
-    config = _config("mvp-0.15", switch=False)
-    probe_best = [_item("p", 1.0, intent=PROBE), _item("a", 0.95)]
-    assert _selection_propensities(probe_best, session, config) == {"p": 1.0, "a": 0.0}
-    practice_best = [_item("a", 1.0), _item("p", 0.95, intent=PROBE), _item("b", 0.9)]
-    assert _selection_propensities(practice_best, session, config) == {"a": 0.8, "p": 0.0, "b": 0.2}
 
 
 def test_successor_admits_probe_near_ties_both_ways():
@@ -88,15 +68,13 @@ def test_successor_admits_probe_near_ties_both_ways():
     assert _selection_propensities(probe_best, session, narrow) == {"p": 1.0, "a": 0.0}
 
 
-def test_the_draw_can_displace_a_probe_only_with_the_switch_on(monkeypatch):
+def test_the_draw_can_displace_a_probe(monkeypatch):
     from datetime import UTC, datetime
 
     queue = [_item("p", 1.0, intent=PROBE), _item("a", 0.95)]
     session = SchedulerSession(session_id="s")
     now = datetime(2026, 5, 19, 12, tzinfo=UTC)
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
-    off = _config("mvp-0.15", switch=False)
-    assert [i.practice_item_id for i in _apply_seeded_exploration(queue, session, off, now)] == ["p", "a"]
     explored = _apply_seeded_exploration(queue, session, _config("mvp-0.15"), now)
     assert [i.practice_item_id for i in explored] == ["a", "p"]
     assert explored[0].components["exploration_selected"] == 1.0
@@ -127,21 +105,13 @@ def _probe_candidates(row) -> list[dict]:
     return [c for c in row["candidates_json"] if c["kind"] == "item" and c["planner"]["intent"] == PROBE]
 
 
-def test_a_probe_near_tie_carries_a_true_propensity_only_at_the_successor(tmp_path):
-    before_paths, _vault, before_repo = _probe_vault(tmp_path, "mvp-0.14")
+def test_a_probe_near_tie_carries_a_true_propensity(tmp_path):
     after_paths, _vault, after_repo = _probe_vault(tmp_path, "mvp-0.15")
-    before = _offer_row(before_paths, before_repo)
     after = _offer_row(after_paths, after_repo)
 
-    assert len(_probe_candidates(before)) == len(_probe_candidates(after)) == 2
-    # mvp-0.14: the leading probe is never displaced, so the head is fixed and
-    # its decision logs "deterministic".
-    assert {c["exploration_propensity"] for c in _probe_candidates(before)} == {0.0, 1.0}
-    assert before["detail_json"]["exploration"]["probe_ties_admitted"] is False
-    assert len(before["detail_json"]["head_distribution"]) == 1
-    assert (before["propensity_kind"], before["design"]) == ("deterministic", None)
-    # mvp-0.15: the other probe joins the tie set; either may head the offer,
-    # and the served one carries its true probability.
+    assert len(_probe_candidates(after)) == 2
+    # The other probe joins the tie set; either may head the offer, and the
+    # served one carries its true probability.
     assert after["detail_json"]["exploration"]["probe_ties_admitted"] is True
     assert sorted(c["exploration_propensity"] for c in _probe_candidates(after)) == [
         pytest.approx(0.2), pytest.approx(0.8),
@@ -149,51 +119,6 @@ def test_a_probe_near_tie_carries_a_true_propensity_only_at_the_successor(tmp_pa
     assert sorted(after["detail_json"]["head_distribution"].values()) == [pytest.approx(0.2), pytest.approx(0.8)]
     assert after["propensity_kind"] == "exact" and after["design"] == "scheduler_seeded_exploration"
     assert after["propensity"] == after["detail_json"]["head_distribution"][after["chosen_practice_item_id"]]
-
-
-def test_kill_switch_serves_the_predecessors_probe_offer_exactly(tmp_path):
-    # Both as at these tags: value of information (mvp-0.21) off by its switch, as it was by the tag (its valuation
-    # is not this comparison's subject).
-    voi_off = "[voi_stopping]\nenabled = false\n"
-    base_paths, base_vault, base_repo = _probe_vault(tmp_path, "mvp-0.14", toml=voi_off)
-    off_paths, off_vault, off_repo = _probe_vault(
-        tmp_path, "mvp-0.15", toml="[router]\nprobe_tie_admission = false\n" + voi_off
-    )
-    for session_id in ("s1", "s2", "s3", "s4", "s5", "s6"):
-        base = read_due_queue(base_vault, base_repo, clock=FrozenClock(NOW),
-                               session=SchedulerSession(session_id=session_id))
-        off = read_due_queue(off_vault, off_repo, clock=FrozenClock(NOW),
-                              session=SchedulerSession(session_id=session_id))
-        assert [(i.practice_item_id, round(i.priority, 12), sorted(i.components.items())) for i in base] == [
-            (i.practice_item_id, round(i.priority, 12), sorted(i.components.items())) for i in off
-        ]
-
-
-# ── a queue with no PROBE-intent candidate is unchanged by the successor ─────
-
-
-def _serving_fingerprint(vault, repository, session_id: str):
-    queue = read_due_queue(vault, repository, clock=FrozenClock(NOW),
-                            session=SchedulerSession(session_id=session_id))
-    return [
-        (s.practice_item_id, s.learning_object_id, round(s.priority, 12),
-         sorted((k, round(v, 12)) for k, v in s.components.items()))
-        for s in queue
-    ]
-
-
-@pytest.mark.parametrize("toml", ["", "[router]\nprobe_tie_admission = false\n"])
-def test_without_probe_candidates_the_successor_serves_exactly_as_mvp014(tmp_path, toml):
-    base = create_placement_vault(tmp_path / "base", version="mvp-0.14")
-    succ = create_placement_vault(tmp_path / "succ", version="mvp-0.15", placement_toml=toml or None)
-    base_vault, succ_vault = load_vault(base.root), load_vault(succ.root)
-    base_repo, succ_repo = Repository(base.sqlite_path), Repository(succ.sqlite_path)
-    sync_vault_state(base_vault, base_repo, clock=FrozenClock(NOW))
-    sync_vault_state(succ_vault, succ_repo, clock=FrozenClock(NOW))
-    for session_id in ("a", "b", "c"):
-        assert _serving_fingerprint(succ_vault, succ_repo, session_id) == _serving_fingerprint(
-            base_vault, base_repo, session_id
-        )
 
 
 # ── Codex review F4: an explored probe's presentation says it was drawn ──────
@@ -223,9 +148,10 @@ def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice
 
 
 def test_a_greedy_probe_presentation_carries_no_exploration_mark(tmp_path, monkeypatch):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.14")
+    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
-    monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
+    # A roll above the rate: the build stays greedy and the probe heads it as the EIG choice.
+    monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
     build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)
     assert presentation is not None and "scheduler_exploration" not in presentation.selection_components
@@ -255,19 +181,10 @@ _TEACH_BACK = {
 }
 
 
-@pytest.mark.parametrize(
-    "version,toml,admitted",
-    [
-        ("mvp-0.15", "", True),
-        ("mvp-0.15", "[router]\nprobe_tie_admission = false\n", False),
-        ("mvp-0.14", "", False),
-    ],
-)
-def test_teach_back_items_are_probe_near_ties_at_the_successor(tmp_path, version, toml, admitted):
+def test_teach_back_items_are_probe_near_ties(tmp_path):
     """D11: a teach-back dialogue is a high-value probe, so a teach-back item is
     a PROBE-intent near-tie the seeded exploration may draw (its cost belongs in
-    the router's cost term, not in an exclusion). The predecessor and the kill
-    switch keep the exclusion."""
+    the router's cost term, not in an exclusion)."""
 
     from learnloop.scheduling.scheduler import OfferTrace
     from learnloop.vault.writer import upsert_practice_item
@@ -277,10 +194,9 @@ def test_teach_back_items_are_probe_near_ties_at_the_successor(tmp_path, version
     paths = create_basic_vault(tmp_path / "vault")
     repository = seed_due_item(paths)
     upsert_practice_item(paths.root, _TEACH_BACK, clock=FrozenClock(NOW))
-    set_algorithm_version(paths, version)
     append_config_toml(
         paths.root,
-        "[scheduler]\nselection_exploration_rate = 0.2\nselection_exploration_reward_window = 5.0\n" + toml,
+        "[scheduler]\nselection_exploration_rate = 0.2\nselection_exploration_reward_window = 5.0\n",
     )
     vault = load_vault(paths.root)
     sync_vault_state(vault, repository, clock=FrozenClock(NOW))
@@ -290,6 +206,6 @@ def test_teach_back_items_are_probe_near_ties_at_the_successor(tmp_path, version
     )
     teach_back = next(item for item in trace.considered if item.practice_item_id == "pi_svd_teach_back")
     assert (teach_back.reward_debug or {}).get("intent") == PROBE
-    assert trace.exploration["probe_ties_admitted"] is admitted
-    assert (trace.base_propensity["pi_svd_teach_back"] > 0.0) is admitted
+    assert trace.exploration["probe_ties_admitted"] is True
+    assert trace.base_propensity["pi_svd_teach_back"] > 0.0
     assert queue

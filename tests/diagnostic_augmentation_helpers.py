@@ -96,23 +96,17 @@ class _SequenceDiagnostician(JointGraderAlsoBlind, StructuredClientFake):
         return proposal(context) if callable(proposal) else proposal
 
 
-def fail_after_the_joint_grade_commits(patch) -> None:
+def fail_after_the_model_grade_commits(patch) -> None:
     """Make a model grading raise once its grade (with its receipt and grading
-    record) has committed: a later step that fails. Before Q14 a failing
-    Phase-C receipt stood in for this; the receipt is now written in the
-    grading transaction, so it rolls the grade back instead.
-
-    Both doors are patched: the joint grading of an unsplit vault and the blind
-    grading of a split one (the head's), each of which commits its grade in one
-    transaction before the caller's later steps."""
+    record) has committed: a later step that fails. The practice door commits
+    its blind grade in one transaction before the caller's later steps."""
 
     from learnloop.attempts import attempts
 
-    for name in ("_complete_joint_graded_attempt", "_complete_blind_graded_attempt"):
-        original = getattr(attempts, name)
+    original = attempts._complete_blind_graded_attempt
 
-        def committed_then_failed(*args, _original=original, **kwargs):
-            _original(*args, **kwargs)
-            raise ValueError("interrupted after the grade committed")
+    def committed_then_failed(*args, **kwargs):
+        original(*args, **kwargs)
+        raise ValueError("interrupted after the grade committed")
 
-        patch.setattr(attempts, name, committed_then_failed)
+    patch.setattr(attempts, "_complete_blind_graded_attempt", committed_then_failed)

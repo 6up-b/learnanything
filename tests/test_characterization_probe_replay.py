@@ -15,11 +15,13 @@ from learnloop.attempts.attempts import (
     apply_attempt,
 )
 from learnloop.diagnosis.probe_episodes import (
-    commit_presentation,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
     episode_posterior,
+)
+from learnloop.diagnosis.probe_presentations import (
+    commit_presentation,
     serve_presentation,
 )
 from learnloop.vault.loader import load_vault

@@ -117,8 +117,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
-- `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_diagnostic_augmentation.py`
+- `tests/test_joint_grading_builder.py`
+- `tests/joint_grading_helpers.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_diagnosis_pipeline.py`

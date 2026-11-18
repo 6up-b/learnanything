@@ -183,9 +183,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/field/classification|learnloop.field.classification]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `subscription_usage_estimate`; statically calls `SpendBudget`, `SpendEstimate`, `SpendLimitExceeded`, `subscription_usage_estimate`
 - [[Reference/Modules/learnloop/field/probability_prep|learnloop.field.probability_prep]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `subscription_usage_estimate`; statically calls `SpendBudget`, `SpendEstimate`, `SpendLimitExceeded`, `subscription_usage_estimate`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] — imports `SpendBudget`, `SpendCaps`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/hints/chooser|learnloop.hints.chooser]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`

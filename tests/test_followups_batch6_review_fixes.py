@@ -22,7 +22,7 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import rich as RICH
-from learnloop.figures import service as FS
+from learnloop.figures import listing as FL
 from learnloop.router import suggestion_report as SR
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
@@ -114,7 +114,7 @@ def test_f1_the_readers_read_never_requeues_it_either(tmp_path, monkeypatch):
     paths, repository, ctx, rich_author, job = _waiting_rig(tmp_path, monkeypatch)
     _cold_on(monkeypatch, load_vault(paths.root), _neighbour(job))
     _due(job["id"])
-    assert FS.prefetch_plan_waits(load_vault(paths.root), repository, EXTRACTION) == []
+    assert FL.prefetch_plan_waits(load_vault(paths.root), repository, EXTRACTION) == []
     call(ctx, "reader.figures", {"extractionId": EXTRACTION})
     assert rich_author.calls == 1 and _waiting(_prebuild_jobs(repository)[0])
 
@@ -127,7 +127,7 @@ def test_f1_the_worker_stops_a_requeued_prebuild_before_any_request(tmp_path, mo
     (stopped,) = _prebuild_jobs(repository)
     assert rich_author.calls == 1
     assert stopped["status"] == "failed" and (stopped.get("error") or {}).get("code") == "exam_material"
-    assert FS.list_figures(load_vault(paths.root), repository, EXTRACTION) == []
+    assert FL.list_figures(load_vault(paths.root), repository, EXTRACTION) == []
 
 
 def test_f1_the_worker_rechecks_before_the_store(tmp_path, monkeypatch):
@@ -151,7 +151,7 @@ def test_f1_the_worker_rechecks_before_the_store(tmp_path, monkeypatch):
     (stopped,) = _prebuild_jobs(repository)
     assert rich_author.calls == 2  # the request was sent before the check started
     assert stopped["status"] == "failed" and (stopped.get("error") or {}).get("code") == "exam_material"
-    assert FS.list_figures(load_vault(paths.root), repository, EXTRACTION) == []
+    assert FL.list_figures(load_vault(paths.root), repository, EXTRACTION) == []
 
 
 def test_f1_unreadable_protection_requeues_nothing_and_the_worker_fails_closed(tmp_path, monkeypatch):

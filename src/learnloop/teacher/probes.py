@@ -430,7 +430,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
                                    hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
                                    evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
                 attempt_id=probe.attempt_id, grade=grade, grading_source=grading_source, grading_agent_run_id=run_id,
-                grader_identity=vault_grading_calibration_identity(loaded),
+                grader_identity=vault_grading_calibration_identity(),
                 diagnostic_exposure=None if independence.admissible else (independence.reason or "exposed"),
             ), clock=clock)
         else:

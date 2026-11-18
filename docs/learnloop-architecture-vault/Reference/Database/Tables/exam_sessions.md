@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/024_exam_session.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/goals/exam_session.py"
   - "src/learnloop_sidecar/handlers/exams.py"
@@ -86,11 +86,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 

@@ -12,6 +12,7 @@ source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
   - src/learnloop/params/parameter_registry.py
   - src/learnloop/params/sensitivity_certificates.py
+  - src/learnloop/sim/certify.py
   - src/learnloop/params/fitted_params.py
   - src/learnloop/sim
 tags:
@@ -53,6 +54,8 @@ A coverage certificate is descriptive and required for active decision parameter
 ## Frozen manifests
 
 Per-algorithm-version manifests record effective parameter hashes so historical replay remains byte-stable. Fitted parameter artifacts are separate from handwritten defaults and carry their own provenance.
+
+`learnloop.sim.certify.certify` runs a sweep and builds its coverage certificate.
 
 ## Simulation
 

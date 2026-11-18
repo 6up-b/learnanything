@@ -5,8 +5,9 @@ Each case builds a quick figure whose answer asks for a Manim video, then runs t
 author, renderer and function runner the rich job tests use (``tests/figure_rich_job_helpers.py``). It records what
 the job sent the rich author, what it asked the renderer and the function runner, every row it wrote, changed or
 removed in the figure tables (``figure_build_golden_helpers.TABLES``), and the Reader's list after it. Cases: a video
-that lands; a claim that fails on the first attempt; a render that fails and is repaired; and each code
-``rich.RichJobStopped`` ends a job with.
+that lands; a claim that fails on the first attempt; a render that fails and is repaired; a video from a cropped
+region; a video from a show-me press whose saved context has only its home; and each code ``rich.RichJobStopped``
+ends a job with.
 
 Recorded with ``FIGURE_BUILD_WRITE_GOLDEN=1`` into ``tests/fixtures/figure_rich_job_golden.json``; never rewritten by
 a structure step. No model, Manim or bubblewrap runs.
@@ -39,7 +40,7 @@ from tests.figure_rich_job_helpers import WHY, _Rig
 
 GOLDEN = Path(__file__).parent / "fixtures" / "figure_rich_job_golden.json"
 WRITE = os.environ.get("FIGURE_BUILD_WRITE_GOLDEN") == "1"
-#: Thirteen cases, each run twice in a vault of its own: about 18 s serial.
+#: Fifteen cases, each run twice in a vault of its own: about 20 s serial.
 pytestmark = pytest.mark.slow
 
 ORDER = ("rich_prompts", "renders", "functions", "written", "job", "list")
@@ -53,9 +54,11 @@ def _sha(text: str) -> str:
 class RichCase:
     """A quick figure built and its rich job queued; :meth:`run` drains the queue and records what the job did."""
 
-    def __init__(self, tmp_path: Path, monkeypatch: Any, rich_answers: list[Any] | None = None, **rig: Any) -> None:
+    def __init__(self, tmp_path: Path, monkeypatch: Any, rich_answers: list[Any] | None = None, *,
+                 request: Any = None, find: Any = None, images: bool = False, **rig: Any) -> None:
         self.rig = _Rig(tmp_path, monkeypatch, list(QUICK), rich_answers, **rig)
-        self.rig.build()
+        self.rig.author.images = images  # a region's crop goes only to a route that reads images
+        self.rig.build(request, find=find)
         self.before = table_rows(self.rig.paths.sqlite_path)
 
     def run(self) -> dict[str, Any]:
@@ -89,6 +92,43 @@ def case_claim_fails_on_the_first_attempt(tmp_path, monkeypatch):
 
 def case_render_fails_and_is_repaired(tmp_path, monkeypatch):
     return RichCase(tmp_path, monkeypatch, renders=RF.Renders([RF.failed_render()])).run()
+
+
+def case_video_from_a_cropped_region(tmp_path, monkeypatch):
+    """The job's saved context names a region (a box over the figure block p4) and its crop, not a selection: the
+    job's held-out check reads the region's block."""
+
+    import base64
+    import json
+
+    import learnloop.reader.span_view as SV
+    from learnloop.figures import request as FQ
+    from tests.figure_fixtures import EXTRACTION
+
+    def crop(path, page, bbox):
+        data = ("CROP:" + json.dumps([round(float(value), 2) for value in bbox])).encode()
+        return "data:image/png;base64," + base64.b64encode(data).decode("ascii"), [612.0, 792.0]
+
+    monkeypatch.setattr(SV, "_original_pdf_for", lambda repo, extraction_id: "book.pdf")
+    monkeypatch.setattr(SV, "_original_pdf_path", lambda repo, revision, uri: "book.pdf")
+    monkeypatch.setattr(SV, "_local_pdf_block_crop", crop)
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[],
+                               region={"span_id": "p4", "bbox": [150.0, 120.0, 260.0, 220.0]})
+    return RichCase(tmp_path, monkeypatch, request=request, images=True).run()
+
+
+def case_video_from_a_show_me_press_with_only_a_home(tmp_path, monkeypatch):
+    """A show-me press with no passage whose retrieval found nothing: the job's saved context has no span and no
+    retrieved key, only the reading position (its home), which the job's held-out check reads."""
+
+    from learnloop.figures import request as FQ
+    from tests.figure_fixtures import EXTRACTION
+    from tests.figures_help_helpers import FindFake
+
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=[], origin="show_me",
+                               goal_text="show how the mass left of zero moves as p changes", goal_author="learner",
+                               reading_at={"extraction_id": EXTRACTION, "span_id": "p2"})
+    return RichCase(tmp_path, monkeypatch, request=request, find=FindFake()).run()
 
 
 def case_stopped_figures_changed(tmp_path, monkeypatch):

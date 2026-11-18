@@ -5,7 +5,6 @@ from typing import Any
 from pydantic import Field
 
 from learnloop.diagnosis.causal_health import causal_lane_health
-from learnloop.diagnosis.causal_selection_audit import causal_selection_readiness
 from learnloop.attempts.clarification import clarification_rate
 from learnloop.diagnosis.causal_probe_coherence import (
     candidate_has_current_blind_input_contract,
@@ -247,9 +246,6 @@ def get_measurement_health(
             "cold_probes": certification_cold_probe_report(vault, repository),
             "missing_vocabulary": missing_vocabulary_report(repository),
             "causal_health": causal_lane_health(repository),
-            # EVSI-2's WP0 readiness: can the formal selector change any
-            # decision here yet? Typed unavailable arms, never favorable zeros.
-            "causal_selection": causal_selection_readiness(vault, repository),
             "persona_gate": gate_precision(repository).as_dict(),
             "facet_mint_gate": _facet_mint_gate_payload(vault),
             "integration_backfill": _integration_backfill_payload(vault),

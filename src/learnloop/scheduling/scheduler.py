@@ -25,16 +25,18 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,
-    RoutineDisplayCovered,
     administered_surface_exclusions,
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
+)
+from learnloop.diagnosis.probe_presentations import (
+    RoutineDisplayCovered,
     presentation_commit_payload,
     probe_serving_block_reason,
     record_presentation_forecast,
-    robust_gate_counterfactual,
 )
+from learnloop.diagnosis.probe_completion import robust_gate_counterfactual
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.goals.goal_projection import build_goal_frontier
@@ -332,10 +334,9 @@ def _due_queue(
     # requested-items reorder floor must see the same set — a fresh sibling has
     # no attempts, stability, or due_at, so without the eligibility floor it
     # zeroes out at the priority filter and the reorder floor never sees it.
-    # Daily-loop DL2 (intent; the successor mvp-0.29 behind intent.enabled):
-    # None when intent changes nothing (below the tag, switch off, or no
-    # commitment covers an item), and every branch below is then exactly the
-    # predecessor's.
+    # Daily-loop DL2 (intent; the successor mvp-0.29): None when intent
+    # changes nothing (no commitment covers an item), and every branch below is
+    # then exactly the predecessor's.
     intent_view = _intent_serving(vault, repository, now)
     if intent_view is None:
         requested_item_ids = repository.requested_practice_item_ids()
@@ -1157,21 +1158,6 @@ def _head_probe_presentation(
     return probe_presentation, probe_forecast_context
 
 
-def probe_ties_admitted(config: LearnLoopConfig) -> bool:
-    """Router R1's successor (``mvp-0.15``): probe near-ties join the tie-break.
-
-    True only with the kill switch ``router.probe_tie_admission`` on;
-    otherwise the exploration keeps the predecessor's probe exclusion exactly.
-    """
-
-    router = getattr(config, "router", None)
-    return bool(getattr(router, "probe_tie_admission", False))
-
-
-def _is_probe_intent(item: ScheduledItem) -> bool:
-    return (item.reward_debug or {}).get("intent") == SchedulerIntent.PROBE.value
-
-
 def _exploration_support(
     queue: list[ScheduledItem],
     session: SchedulerSession,
@@ -1181,28 +1167,22 @@ def _exploration_support(
 
     ``None`` means the build is greedy: exploration is off (its rate, or the
     session's ``seeded_exploration``), there is no session to seed it, a single
-    candidate, no alternative within the reward window,
-    or (below the probe-tie successor) a PROBE-intent best. Before ``mvp-0.15``
-    PROBE-intent items (in-episode diagnostic probes and teach-backs) are never
-    displaced and never explored to; at ``mvp-0.15`` with
-    ``router.probe_tie_admission`` they are ordinary near-ties (teach-backs
-    included: owner decision D11, a teach-back dialogue is a high-value probe).
+    candidate, or no alternative within the reward window. PROBE-intent items
+    (in-episode diagnostic probes and teach-backs) are ordinary near-ties
+    (``mvp-0.15``; teach-backs included: owner decision D11, a teach-back
+    dialogue is a high-value probe).
     """
 
     rate = clamp(config.scheduler.selection_exploration_rate)
     if rate <= 0 or session.session_id is None or not session.seeded_exploration or len(queue) < 2:
         return None
-    admit_probes = probe_ties_admitted(config)
     best = queue[0]
-    if not admit_probes and _is_probe_intent(best):
-        return None
     best_reward = best.components.get("selection_reward", 0.0)
     window = max(config.scheduler.selection_exploration_reward_window, 0.0)
     alternatives = [
         item
         for item in queue[1:]
-        if (admit_probes or not _is_probe_intent(item))
-        and best_reward - item.components.get("selection_reward", 0.0) <= window
+        if best_reward - item.components.get("selection_reward", 0.0) <= window
     ]
     if not alternatives:
         return None
@@ -1328,7 +1308,9 @@ def _fill_offer_trace(
         "mechanism": "scheduler_seeded_exploration",
         "rate": rate,
         "reward_window": window,
-        "probe_ties_admitted": probe_ties_admitted(config),
+        # Every vault has admitted probe ties since mvp-0.15; the logged trace keeps the key (the due-queue
+        # goldens hold it).
+        "probe_ties_admitted": True,
         "best_item_id": greedy_queue[0].practice_item_id if greedy_queue else None,
         "alternative_item_ids": [],
         "realized_item_id": None,
@@ -1490,7 +1472,6 @@ def _placement_serving(
     from learnloop.placement.predictor import active_predictor
     from learnloop.placement.state import (
         choose_check_items,
-        diagnosis_can_arrive,
         load_placement_state,
         placement_active,
         unevidenced_return_active,
@@ -1499,13 +1480,6 @@ def _placement_serving(
     if not placement_active(vault):
         return None
     if persist:
-        if not diagnosis_can_arrive(vault):
-            # The split's kill switch is off: a queued diagnosis is held, and
-            # a miss waiting on it is decided by today's rule. Record the hold
-            # on the first serving build that sees it (write-once), so turning
-            # the switch back on does not reopen what this build serves on
-            # (Codex re-review F3).
-            repository.hold_queued_live_diagnoses(clock=clock)
         reconcile_fast_track(vault, repository, clock=clock)
     now_iso = utc_now_iso(clock)
     state = load_placement_state(vault, repository, now_iso=now_iso)

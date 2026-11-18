@@ -184,7 +184,7 @@ def test_append_version_rejects_stale_predecessor(repo):
     rejected as StaleContractHead inside the transaction -- never a silent fork of
     the head projection."""
 
-    from learnloop.db.repositories import StaleContractHead
+    from learnloop.db.stores.goals import StaleContractHead
 
     v1 = _confirm(repo)
     with pytest.raises(StaleContractHead):

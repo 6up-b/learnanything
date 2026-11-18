@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_progression.py](../../../../../../src/learnloop/reader/reader_progression.py) |
-| Source lines | 239 |
+| Source lines | 197 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,8 +54,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `source_refs_for_span(vault: LoadedVault, repository: Repository, *, extraction_id: str, span_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 37) — Canonical, path-backed grounding bundles for a selected reader target.
-- `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 61) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
-- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 103) — Build bounded, proposal-local citation bundles for reader seeding.
+- `source_refs_for_section(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, learning_object_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 61) — Build bounded, proposal-local citation bundles for reader seeding.
 
 ### Module constants
 
@@ -64,7 +63,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 225)
+- `_merged_context_intervals(anchor_indices: list[int], span_count: int) -> list[tuple[int, int]]` ([source](../../../../../../src/learnloop/reader/reader_progression.py), line 183)
 
 ## Who imports or calls it
 
@@ -79,6 +78,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `learning_objects_by_section`, `learning_objects_for_span`; statically calls `learning_objects_by_section`, `learning_objects_for_span`
+- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `learning_objects_by_section`; statically calls `learning_objects_by_section`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
@@ -89,18 +89,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/source_retrieval/suggest|learnloop.source_retrieval.suggest]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `learning_objects_for_span`, `source_refs_for_span`; statically calls `learning_objects_for_span`, `source_refs_for_span`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `learning_objects_for_span`, `section_generation_candidates`, `source_refs_for_section`; statically calls `learning_objects_for_span`, `section_generation_candidates`, `source_refs_for_section`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `learning_objects_for_span`, `source_refs_for_section`; statically calls `learning_objects_for_span`, `source_refs_for_section`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `build_practice_expansion_plan`; calls `build_practice_expansion_plan`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `SpanTranslator`; calls `SpanTranslator`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`; calls `_canonical_note_ids`, `_span_for_ref`, `extraction_sections`
-- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; calls `learning_objects_for_section`, `section_id_for_span`
+- [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `learning_objects_by_section`, `learning_objects_for_section`, `learning_objects_for_span`, `section_id_for_span`; calls `section_id_for_span`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `learning_object_facet_union`; calls `learning_object_facet_union`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 
@@ -115,7 +114,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

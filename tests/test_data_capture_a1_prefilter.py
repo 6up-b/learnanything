@@ -132,15 +132,6 @@ def test_a_voi_receipt_no_longer_truncates_candidates_to_six():
     assert len(whole["candidates"]) == whole["candidate_count"] == 9
 
 
-def test_the_voi_flag_follows_the_successors_switch(tmp_path):
-    tagged = _real_env(tmp_path / "tag")
-    below = _real_env(tmp_path / "old", version=OLD)
-    off = _real_env(tmp_path / "off", toml="[data_capture]\nserving = false\n")
-    from learnloop.data_capture.gates import serving_on
-
-    assert serving_on(tagged.vault.config) and not serving_on(below.vault.config) and not serving_on(off.vault.config)
-
-
 def test_an_unchanged_part_is_referenced_not_copied(tmp_path):
     env = _real_env(tmp_path, session_id="s1")
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")

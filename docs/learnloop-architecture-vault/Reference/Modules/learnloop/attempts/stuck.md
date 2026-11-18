@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
   - `test_stuck_answer_reads_one_attempt_exactly_as_stuck_answers_does`
   - `test_the_default_adapter_reads_mains_stuck_module_by_id_without_a_scan`
@@ -172,14 +173,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f8_a_stuck_answer_is_queued_at_recording_without_a_diagnosis`
   - `test_f8_the_adapter_reads_the_marker_before_scanning`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
-  - `test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes`
   - `test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed`
   - `test_a_quote_that_is_not_verbatim_is_dropped_but_the_flag_stands`
   - `test_a_regrade_appends_a_superseding_stuck_judgment`
   - `test_a_stuck_answer_on_a_choice_item_goes_to_the_grader_not_the_letter_shortcut`
   - `test_an_empty_stuck_answer_scores_zero_without_a_model_call`
   - `test_an_ordinary_answer_keeps_its_prompt_and_context_exactly`
-  - `test_confusion_is_read_and_signalled_in_both_grading_modes`
+  - `test_confusion_is_read_and_signalled`
   - `test_confusion_text_is_marked_and_becomes_a_fast_track_blocking_signal`
   - `test_stuck_attempt_type_matches_the_answer_box`
   - `test_the_owner_summary_counts_text_share_confusion_and_grading_runs`

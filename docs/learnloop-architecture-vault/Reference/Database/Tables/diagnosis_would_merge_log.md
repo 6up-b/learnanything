@@ -17,6 +17,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
+  - "src/learnloop/diagnosis/split/embeddings.py"
+  - "src/learnloop/diagnosis/split/reports.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -81,7 +83,8 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository.insert_would_merge()`
+- `Repository.would_merge_rows()`
 
 ### Direct SQL readers
 
@@ -93,14 +96,15 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/diagnosis/split/embeddings.py`
+- `src/learnloop/diagnosis/split/reports.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_diagnosis_embeddings.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

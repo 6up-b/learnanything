@@ -317,7 +317,7 @@ def _sidecar_offer(paths, repository):
 
 
 def test_a_committed_probe_logs_its_value_decision_once_beside_the_selection_forecast(tmp_path):
-    from learnloop.diagnosis.probe_episodes import record_presentation_forecast
+    from learnloop.diagnosis.probe_presentations import record_presentation_forecast
 
     paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
     session_id = _sidecar_offer(paths, repository)
@@ -390,6 +390,7 @@ def test_a_value_stop_is_logged_once_at_the_completion(tmp_path, monkeypatch):
         detail = json.loads(
             connection.execute("SELECT completion_detail_json FROM probe_episodes WHERE id = ?", (episode.id,)).fetchone()[0]
         )
+    assert detail.pop("rules_passed") == ["observation_budget_exhausted", "action_equivalent"]
     assert stop["forecast"]["value_decision"] == detail
 
 
@@ -528,7 +529,7 @@ def _report_site(vault, site):
 
 def _answer_presentation(vault, repository, presentation, session_id, *, score=4):
     from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
-    from learnloop.diagnosis.probe_episodes import serve_presentation
+    from learnloop.diagnosis.probe_presentations import serve_presentation
     from learnloop.ids import new_ulid
 
     from datetime import UTC, datetime, timedelta

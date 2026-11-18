@@ -78,7 +78,8 @@ def test_only_matured_decisions_from_another_session_and_plan_are_similar(tmp_pa
                        vector=[1.0, 0.1 * index, 0.0, 0.5])
     with connect(env.repository.sqlite_path, read_only=True) as connection:
         found = rr.similar_decisions(connection, query=[1.0, 0.0, 0.0, 0.5], model_id="fake-embed", decision_time=now,
-                                     session_id="s_now", plan_id="p_now", limit=6, vault=env.vault)
+                                     session_id="s_now", plan_id="p_now", limit=6, vault=env.vault,
+                                     repository=env.repository)
     assert [entry["decision_id"] for entry in found] == ["dA"]
     # Its R_next (10-10) and its R_cold (D's answers on 10-13, a day later in
     # another session) both matured before now.
@@ -88,7 +89,7 @@ def test_only_matured_decisions_from_another_session_and_plan_are_similar(tmp_pa
     with connect(env.repository.sqlite_path, read_only=True) as connection:
         early = rr.similar_decisions(connection, query=[1.0, 0.0, 0.0, 0.5], model_id="fake-embed",
                                      decision_time="2026-10-10T09:03:00Z", session_id="s_now", plan_id="p_now",
-                                     limit=6, vault=env.vault)
+                                     limit=6, vault=env.vault, repository=env.repository)
     assert early == []
 
 

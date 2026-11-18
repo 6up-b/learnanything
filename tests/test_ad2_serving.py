@@ -110,7 +110,7 @@ def test_seed_reproduces_draw():
 
 
 def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
-    """Under the successor with ``generation_contract`` on, the prompt asks for an item AT the
+    """Under the successor, the prompt asks for an item AT the
     commissioned point and drops every band instruction and the target's band field (§7.1).
     Fails before AD2: the prompt told the model to calibrate to the 70-85% band."""
 
@@ -129,8 +129,8 @@ def test_generation_prompt_has_no_band_language_under_successor(tmp_path):
     assert all(bound["max"] == target.rung.task_features[dim] for dim, bound in target.rung.task_feature_bounds.items())
     (commission,) = selections(paths, kind="commission")
     assert commission["id"] == target.ad_commission_id and commission["chosen_point"]
-    # Below the tag, or with the switch off, today's prompt exactly.
-    for name, version, ad in (("below", "mvp-0.29", ""), ("off", LATEST_ALGORITHM_VERSION, "generation_contract = false\n")):
+    # Below the tag (AD off), today's prompt exactly.
+    for name, version, ad in (("below", "mvp-0.29", ""),):
         other = ad23_vault(tmp_path / name, items=("pi_g1",), version=version, ad=ad)
         plan_b, text_b = _generation_prompt(other)
         assert plan_b.targets[0].ad_commission_id is None

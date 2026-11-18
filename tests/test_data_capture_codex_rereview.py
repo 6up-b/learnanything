@@ -25,7 +25,6 @@ from tests.router_g4_restraint_helpers import DECIDER_ONLY
 from tests.data_capture_codex_rereview_helpers import _complete_section, _count, _map_sections, _other_item
 
 AD_OFF = "[adaptive_difficulty]\nenabled = false\n"
-RECEIPTS_OFF = "[data_capture]\nreceipts = false\nserving = false\n"
 
 
 # -- F1: the exposure is captured whatever AD's forecast logging says ------------------------------------------------
@@ -133,16 +132,6 @@ def test_f1_a_span_view_a_tutor_exchange_and_an_in_passage_question_are_exposure
         kinds = {tuple(row) for row in connection.execute(
             "SELECT kind, subkind FROM reading_exposure_receipts WHERE learning_object_id = ?", (lo,))}
     assert kinds == {("reading", "passage_viewed"), ("in_passage_question", "recall")}
-
-
-def test_f1_no_receipt_with_both_switches_off(tmp_path, monkeypatch):
-    env, _decision_id, objective = _arranged_wait(tmp_path, toml=DECIDER_ONLY + AD_OFF)
-    _map_sections(monkeypatch, objective["learning_object_id"])
-    _complete_section(env)
-    env.vault.config.data_capture.receipts = False
-    env.vault.config.data_capture.serving = False
-    assert RE.sweep(env.vault, env.repository, clock=env.clock) == 0
-    assert _count(env, "reading_exposure_receipts") == 0
 
 
 def test_f1_a_failed_sweep_never_stops_the_states(tmp_path, monkeypatch):

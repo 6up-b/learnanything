@@ -13,7 +13,7 @@ figure), a teacher turn may carry a ``visual`` and ``write_plan`` nodes a planne
 * grounding: the delivered passages the teacher named, as fixed keys (no retrieval). The figure
   service refuses the whole request when any of them is exam or held-out material now, before
   any call (the one predicate); a lesson figure has no home in the Reader;
-* tiers: grammar and sketch (:data:`learnloop.figures.service.LESSON_TIERS`): the turn waits on
+* tiers: grammar and sketch (:data:`learnloop.figures.request.LESSON_TIERS`): the turn waits on
   its figure, so no rich (queued, minutes-long) tier is offered in a lesson.
 
 The figure renders in the turn. **Its own predictions are suppressed in a lesson** (the teacher
@@ -62,9 +62,9 @@ def active(vault: Any) -> bool:
     """``teacher.visuals``, under ``figures.enabled`` and ``figures.show_me_enabled`` (a teacher's
     figure is a goal, which "show me" governs: spec §7.1)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figure_admission import figures_enabled, show_me_enabled, teacher_visuals_enabled
 
-    return FS.teacher_visuals_switch(vault) and FS.enabled(vault) and FS.show_me_enabled(vault)
+    return teacher_visuals_enabled(vault) and figures_enabled(vault) and show_me_enabled(vault)
 
 
 def on(vault: Any, builder: Builder | None) -> bool:
@@ -204,7 +204,7 @@ def figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> A
     the lesson's caller context (:func:`learnloop.teacher.actions.caller_for`, passed in by the service,
     so this module never imports the read actions, which reach the notes' code)."""
 
-    from learnloop.figures.service import FigureRequest
+    from learnloop.figures.request import FigureRequest
 
     keys = []
     for alias in resolved["anchors"]:
@@ -251,12 +251,12 @@ def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], 
     """Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend
     refusal of the lesson's envelope propagates, so the lesson closes with ``budget``)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import request as FQ
 
     base = _base(resolved)
     try:
         outcome = builder(figure_request(state, resolved, caller=caller))
-    except FS.FigureRefused as exc:
+    except FQ.FigureRefused as exc:
         if _budget_refused(state, exc):
             raise
         status = WITHHELD if exc.code == "exam_material" else (
@@ -329,14 +329,15 @@ def lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] |
     figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a
     lesson host is grammar and sketch only)."""
 
-    from learnloop.figures import service as FS
+    from learnloop.figures import view as FV
+    from learnloop.figures.protection import figure_withheld
 
-    if FS.figure_withheld(vault, repository, figure_id):
+    if figure_withheld(vault, repository, figure_id):
         return None
     row = figure_row(repository, figure_id)
-    if row is None or FS.rich_row(row):
+    if row is None or FV.rich_row(row):
         return None
-    view = FS.figure_view(vault, repository, row)
+    view = FV.figure_view(vault, repository, row)
     if view.get("verification") not in ("verified", "illustrative") or not view.get("spec_json"):
         return None
     view["predictions"] = []

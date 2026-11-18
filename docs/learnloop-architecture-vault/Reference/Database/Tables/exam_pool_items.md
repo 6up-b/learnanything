@@ -18,7 +18,7 @@ source_paths:
   - "migrations/023_exam_pool.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
   - "src/learnloop/content/authoring/practice_generation.py"
@@ -89,11 +89,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 

@@ -151,7 +151,7 @@ def test_continue_without_it_retires_the_probe_and_next_goes_on(journey):
     assert _call(ctx, "followup_next", {"attemptId": result.attempt_id})["action"] == "continue"
     _refused(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
     # Recorded as today's "Teach me now".
-    from learnloop.diagnosis.causal_orchestrator import learner_preference
+    from learnloop.diagnosis.probe_hard_stops import learner_preference
 
     assert learner_preference(repository, factor_id=row["factor_id"]) == "teach_now"
 

@@ -47,63 +47,63 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py) |
-| Source lines | 579 |
+| Source lines | 578 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PracticeScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 48) — Focused practice card for a single Practice Item.
-  - `__init__(self, state: TuiState, item: ScheduledItem)` (line 80; internal)
-  - `_resolve_probe_contract(self) -> None` (line 105; internal)
-  - `compose(self) -> ComposeResult` (line 157; public)
-  - `on_mount(self) -> None` (line 202; public)
-  - `on_screen_resume(self) -> None` (line 206; public)
-  - `watch_hints_used(self, value: int) -> None` (line 210; public)
-  - `answer(self) -> str` (line 218; public)
-  - `set_answer(self, text: str) -> None` (line 221; public)
-  - `reveal_hint(self) -> None` (line 225; public)
-  - `async open_feedback(self, committed=None)` (line 237; public)
-  - `press_stuck(self) -> None` (line 244; public) — "I'm stuck": one key turns the answer box into "write what you can".
-  - `async submit_stuck_empty(self)` (line 255; public) — Record an empty stuck answer: an ordinary attempt scored 0, no model.
-  - `_draft(self) -> AttemptDraft` (line 285; internal)
-  - `async action_submit(self) -> None` (line 303; public)
-  - `action_hint(self) -> None` (line 310; public)
-  - `action_stop_diagnosing(self) -> None` (line 313; public) — `Stop diagnosing and teach me` (§3): end measurement.
-  - `action_stuck(self) -> None` (line 328; public)
-  - `action_skip(self) -> None` (line 331; public)
-  - `action_back(self) -> None` (line 334; public)
-  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 338; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 341; public)
-  - `_refresh_answer_meta(self, text: str) -> None` (line 346; internal)
-  - `_breadcrumb_content(self) -> Content` (line 353; internal)
-  - `_breadcrumb_meta_content(self) -> Content` (line 362; internal)
-  - `_card_title_content(self) -> Content` (line 369; internal)
-  - `_card_pills_content(self) -> Content` (line 377; internal)
-  - `_probe_content(self) -> Content` (line 385; internal)
-  - `_stuck_content(self) -> Content` (line 414; internal)
-  - `_hints_content(self) -> Content` (line 427; internal)
-  - `_mastery_content(self) -> Content` (line 441; internal)
-  - `_attempt_row_content(self) -> Content` (line 461; internal)
-  - `_why_text_content(self) -> Content` (line 478; internal)
-  - `_why_metrics_content(self) -> Content` (line 488; internal)
-  - `_is_probe(self) -> bool` (line 510; internal)
-  - `_primary_subject(self) -> str` (line 515; internal)
-  - `_difficulty(self) -> float` (line 519; internal)
-  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 529; internal)
-  - `_queue_position(self) -> tuple[int, int]` (line 537; internal)
-  - `_attempt_number(self) -> int` (line 545; internal)
+- `class PracticeScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 47) — Focused practice card for a single Practice Item.
+  - `__init__(self, state: TuiState, item: ScheduledItem)` (line 79; internal)
+  - `_resolve_probe_contract(self) -> None` (line 104; internal)
+  - `compose(self) -> ComposeResult` (line 156; public)
+  - `on_mount(self) -> None` (line 201; public)
+  - `on_screen_resume(self) -> None` (line 205; public)
+  - `watch_hints_used(self, value: int) -> None` (line 209; public)
+  - `answer(self) -> str` (line 217; public)
+  - `set_answer(self, text: str) -> None` (line 220; public)
+  - `reveal_hint(self) -> None` (line 224; public)
+  - `async open_feedback(self, committed=None)` (line 236; public)
+  - `press_stuck(self) -> None` (line 243; public) — "I'm stuck": one key turns the answer box into "write what you can".
+  - `async submit_stuck_empty(self)` (line 254; public) — Record an empty stuck answer: an ordinary attempt scored 0, no model.
+  - `_draft(self) -> AttemptDraft` (line 284; internal)
+  - `async action_submit(self) -> None` (line 302; public)
+  - `action_hint(self) -> None` (line 309; public)
+  - `action_stop_diagnosing(self) -> None` (line 312; public) — `Stop diagnosing and teach me` (§3): end measurement.
+  - `action_stuck(self) -> None` (line 327; public)
+  - `action_skip(self) -> None` (line 330; public)
+  - `action_back(self) -> None` (line 333; public)
+  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 337; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 340; public)
+  - `_refresh_answer_meta(self, text: str) -> None` (line 345; internal)
+  - `_breadcrumb_content(self) -> Content` (line 352; internal)
+  - `_breadcrumb_meta_content(self) -> Content` (line 361; internal)
+  - `_card_title_content(self) -> Content` (line 368; internal)
+  - `_card_pills_content(self) -> Content` (line 376; internal)
+  - `_probe_content(self) -> Content` (line 384; internal)
+  - `_stuck_content(self) -> Content` (line 413; internal)
+  - `_hints_content(self) -> Content` (line 426; internal)
+  - `_mastery_content(self) -> Content` (line 440; internal)
+  - `_attempt_row_content(self) -> Content` (line 460; internal)
+  - `_why_text_content(self) -> Content` (line 477; internal)
+  - `_why_metrics_content(self) -> Content` (line 487; internal)
+  - `_is_probe(self) -> bool` (line 509; internal)
+  - `_primary_subject(self) -> str` (line 514; internal)
+  - `_difficulty(self) -> float` (line 518; internal)
+  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 528; internal)
+  - `_queue_position(self) -> tuple[int, int]` (line 536; internal)
+  - `_attempt_number(self) -> int` (line 544; internal)
 
 ### Module constants
 
-- `_RATING_CAPS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 44)
-- `_RATING_CAP_VARIANTS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 45)
+- `_RATING_CAPS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 43)
+- `_RATING_CAP_VARIANTS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 44)
 
 ## Internal implementation anchors
 
-- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 552)
-- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 561)
+- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 551)
+- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 560)
 
 ## Who imports or calls it
 
@@ -121,7 +121,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptDraft`, `complete_empty_stuck_attempt`; calls `AttemptDraft`, `complete_empty_stuck_attempt`
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `committed_submission_result`, `run_post_attempt_pipeline`; calls `committed_submission_result`, `run_post_attempt_pipeline`
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `STUCK_CONTROL_LABEL`, `STUCK_PROMPT_TEXT`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `commit_item_presentation`, `episode_contract`, `episode_hypothesis_set`, `probe_serving_block_reason`, `probe_value_block_reason`, `stop_diagnosing_and_teach`; calls `commit_item_presentation`, `episode_contract`, `episode_hypothesis_set`, `probe_serving_block_reason`, `probe_value_block_reason`, `stop_diagnosing_and_teach`
+- [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `episode_contract`, `stop_diagnosing_and_teach`; calls `episode_contract`, `stop_diagnosing_and_teach`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `episode_hypothesis_set`; calls `episode_hypothesis_set`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`; calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `sigmoid`; calls `sigmoid`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `episode_ignored`; calls `episode_ignored`

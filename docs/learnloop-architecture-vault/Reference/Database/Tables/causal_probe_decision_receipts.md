@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/diagnosis/probe_offer.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/instructional/needs.py"
-  - "src/learnloop/router_objective/picks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

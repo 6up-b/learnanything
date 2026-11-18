@@ -114,8 +114,10 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/joint_grading_helpers.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_joint_grading_builder.py`
 - `tests/test_patch_applier.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`

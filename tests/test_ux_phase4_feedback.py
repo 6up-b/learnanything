@@ -1472,13 +1472,19 @@ def test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_o
     contract), so the bundle says the question changed since it was graded and
     carries no key or criteria of the later item, and never its maximum. A
     blind regrade (this vault's default) recorded its maximum, 8, in its blind
-    record; a joint one (the kill switch) recorded none."""
+    record; a joint one (stored history: no door regrades jointly now)
+    recorded none."""
 
     if grading == "joint":
-        from tests.split_live_helpers import append_config
+        from tests.joint_grading_helpers import joint_proposal_of, write_joint_regrade
 
-        append_config(ctx.paths.root, "[diagnosis]\nsplit_enabled = false")
-    attempt_id, _bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, "regrade")
+        attempt_id = _contract_answer(ctx, points={"correctness": 2})
+        _call(ctx, "get_feedback", {"attemptId": attempt_id})
+        _correct_the_item(ctx)
+        _vault, repository = ctx.require_vault()
+        write_joint_regrade(load_vault(ctx.paths.root), repository, attempt_id, joint_proposal_of(_SixPointGrader()))
+    else:
+        attempt_id, _bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, "regrade")
     # An ordinary regrade before regrade contracts (mvp-0.26), which no vault that opens writes now: built.
     vault, repository = ctx.require_vault()
     as_regraded_before_contracts(repository, attempt_id)
@@ -2415,12 +2421,16 @@ def test_f1k_a_session_serve_inside_routine_coverage_opens_no_administration(ctx
 
 @pytest.mark.parametrize("covered", [False, True], ids=["control", "covered"])
 def test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage(tmp_path, covered):
-    """The shared commit (``probe_episodes.commit_presentation``, every probe and
+    """The shared commit (``probe_presentations.commit_presentation``, every probe and
     placement presentation) refuses an item inside routine-display coverage: a
     self-grade disclosure of it was shown an hour ago and abandoned (so it is
     still never attempted, a probe candidate)."""
 
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
 
     _root, loaded, repository = _setup(tmp_path)
@@ -2648,10 +2658,12 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
     a presentation committed before the answer was shown is ended, not served."""
 
     from learnloop.diagnosis.probe_episodes import (
-        RoutineDisplayCovered,
-        commit_presentation,
         eligible_instruments,
         enter_episode,
+    )
+    from learnloop.diagnosis.probe_presentations import (
+        RoutineDisplayCovered,
+        commit_presentation,
         serve_presentation,
     )
     from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _setup
@@ -2722,20 +2734,22 @@ def test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run(tmp_
     would cover. A refused instrument is skipped, as production callers do,
     and the run goes on."""
 
-    from learnloop.diagnosis import probe_episodes
+    from datetime import UTC, datetime
+
+    from learnloop.db.repositories import Repository
     from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
     from tests.sim_probe_validation_helpers import _vault_with_confusable
 
     refused: list[str] = []
-    original = probe_episodes.refuse_routine_display_covered
+    original = Repository.reveal_events_for_target
 
-    def refuse_first(repository, practice_item_id, *, clock=None):
-        if not refused or practice_item_id == refused[0]:
+    def reveal_first(repository, *, practice_item_id=None, learning_object_id=None):
+        if practice_item_id and not refused:
             refused.append(practice_item_id)
-            raise probe_episodes.RoutineDisplayCovered(practice_item_id)
-        return original(repository, practice_item_id, clock=clock)
+            _routine_disclosure(repository, practice_item_id, clock=FrozenClock(datetime(2026, 2, 3, tzinfo=UTC)))
+        return original(repository, practice_item_id=practice_item_id, learning_object_id=learning_object_id)
 
-    monkeypatch.setattr(probe_episodes, "refuse_routine_display_covered", refuse_first)
+    monkeypatch.setattr(Repository, "reveal_events_for_target", reveal_first)
     vault_root = _vault_with_confusable(tmp_path)
 
     report = run_probe_validation(vault_root, tmp_path / "runs", planted_types=PLANTED_TYPES[:1], seeds=(11,))
@@ -2755,9 +2769,12 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     between the check and the commit, the commit's refusal rolls the relock
     back): the episode's lock and A's presentation are as they were."""
 
-    from learnloop.diagnosis import causal_orchestrator
-    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
-    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
+    from learnloop.diagnosis.probe_episodes import (
+        enter_episode,
+        episode_hypothesis_set,
+    )
+    from learnloop.diagnosis.probe_presentations import commit_item_presentation
     from tests.helpers import admit_probe_instrument_card
     from tests.causal_orchestrator_helpers import CLOCK, LO_ID, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
 
@@ -2772,12 +2789,25 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     assert presentation_a is not None
     later = FrozenClock(CLOCK.now() + timedelta(days=1))
     _routine_disclosure(repository, PROBE_ITEM, clock=FrozenClock(later.now() - timedelta(hours=1)), learning_object_id=LO_ID)
+    reads = []
     if race:
-        monkeypatch.setattr(causal_orchestrator, "_answer_shown", lambda *_args, **_kwargs: False)
+        original = repository.reveal_events_for_target
+
+        def reveal_after_offer_check(*, practice_item_id=None, learning_object_id=None):
+            rows = original(practice_item_id=practice_item_id, learning_object_id=learning_object_id)
+            if practice_item_id == PROBE_ITEM:
+                reads.append(practice_item_id)
+                if len(reads) == 1:
+                    return []
+            return rows
+
+        monkeypatch.setattr(repository, "reveal_events_for_target", reveal_after_offer_check)
 
     offer = accept_probe_offer(vault, repository, factor_id=factor_id, clock=later)
 
     assert offer.accepted is False and offer.reason == "probe_item_answer_shown"
+    if race:
+        assert len(reads) >= 2
     after = repository.probe_episode(plain.id)
     assert (after.hypothesis_set_id, after.origin, after.entered_at, after.status) == (
         plain.hypothesis_set_id, plain.origin, plain.entered_at, plain.status,
@@ -2785,28 +2815,6 @@ def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unch
     kept = repository.probe_presentation(presentation_a.id)
     assert (kept.status, kept.end_reason) == ("served", None)
     assert [row.id for row in repository.probe_presentations_for_episode(plain.id)] == [presentation_a.id]
-
-
-# -- NEW 2: a block's size and indices are its surviving members' --------------------------------
-
-
-def test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices(tmp_path):
-    """Two candidate members, one whose answer was just shown: the block holds
-    the other alone, stamped block_size 1 and block_index 0, so its completion
-    target is reachable."""
-
-    from learnloop.diagnosis.probe_episodes import enter_episode, plan_precommitted_block
-    from tests.probe_policy_helpers import CLOCK, ITEM_2, ITEM_ID, LO_ID, _setup as policy_setup
-
-    loaded, repository = policy_setup(tmp_path, items=(ITEM_ID, ITEM_2))
-    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
-    _routine_disclosure(repository, ITEM_ID, clock=FrozenClock(CLOCK.now() - timedelta(hours=1)), learning_object_id=LO_ID)
-
-    block = plan_precommitted_block(loaded, repository, episode, block_size=2, clock=CLOCK)
-
-    assert [presentation.practice_item_id for presentation in block] == [ITEM_2]
-    components = block[0].selection_components
-    assert (components["block_size"], components["block_index"]) == (1, 0)
 
 
 # -- F: a temporary hold never finishes the plan ------------------------------------------------

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py) |
-| Source lines | 375 |
+| Source lines | 376 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -136,8 +136,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/figures|learnloop.db.stores.figures]] — imports `module`; calls `figure`, `has_tables`
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`; calls `figures_enabled`, `show_me_enabled`, `teacher_visuals_enabled`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `reveal_text`; calls `reveal_text`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `FigureRequest`, `module`; calls `FigureRequest`, `enabled`, `figure_view`, `figure_withheld`, `rich_row`, `show_me_enabled`, `teacher_visuals_switch`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `figure_withheld`; calls `figure_withheld`
+- [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `FigureRequest`, `module`; calls `FigureRequest`
+- [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `module`; calls `figure_view`, `rich_row`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ### Platform and third-party dependencies
@@ -158,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
+  - `test_the_teachers_visuals_switch_is_the_teachers_alone_and_a_lesson_asks_all_three`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
@@ -175,7 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_review_f1_a_visual_after_protection_changed_mid_action_is_not_built`
   - `test_review_f2_a_suppressed_prediction_is_never_counted_as_shown`
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
-  - `test_switch_off_keeps_te1s_prompt_and_turn_schema_byte_identical`
+  - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
   - `test_the_figure_never_reaches_the_grader_and_is_never_a_help_row`
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import

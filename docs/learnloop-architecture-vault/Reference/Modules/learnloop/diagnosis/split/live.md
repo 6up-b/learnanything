@@ -148,6 +148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/diagnosis_identity_helpers.py](../../../../../../../tests/diagnosis_identity_helpers.py) — direct import
 - [tests/test_ai_compare.py](../../../../../../../tests/test_ai_compare.py) — direct import
   - `test_grading_reads_the_contract_the_answer_was_graded_under`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../../tests/test_diagnosis_input_provenance.py) — direct import

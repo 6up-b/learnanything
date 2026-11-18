@@ -1655,7 +1655,9 @@ def _require_known_routes(value: dict[str, Any], setting: str) -> None:
         raise ValueError(f"{setting} names unknown routes: {', '.join(unknown)}")
 
 
-DEFAULT_CODEX_MODEL = "gpt-5.6-sol"
+# Owner model upgrade (2026-11-15): future calls only; receipts keep their model.
+# The rich-job admission key includes the model, so its K10.4e identity pins move deliberately.
+DEFAULT_CODEX_MODEL = "gpt-6.1-sol"
 DEFAULT_CODEX_REASONING_EFFORT = "low"
 LEGACY_CODEX_MODEL = "gpt-5.5"
 CODEX_LOW_PROVIDER = "codex_low"
@@ -1967,17 +1969,15 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
-class DiagnosisConfig(BaseModel):
+class DiagnosisConfig(KeepsRetiredFields):
     """The live blind grader + asynchronous history-aware diagnoser.
 
-    Dormant below ``mvp-0.10``: the algorithm version, not this section, decides
-    whether a vault grades split. ``split_enabled`` is the kill switch: off, an
-    ``mvp-0.10`` (or later) vault grades NEW attempts jointly as the
-    predecessor did; already-blind attempts keep their records and replay from
-    them (an attempt's grader mode is persisted, never read from this switch).
+    Every vault grades new practice attempts blind (``mvp-0.10``): its kill
+    switch ``split_enabled`` and the joint vault's ``shadow`` diagnosis went
+    once every vault was past the tag (ADR-019, ``config.retired``). Jointly
+    graded attempts keep their stored mode (no blind record) and replay from it.
     """
 
-    split_enabled: bool = True
     history_mode: Literal["exact", "full", "snapshot", "hybrid"] = "full"
     full_history_token_budget: int = Field(default=100_000, ge=1_000)
     exact_history_token_budget: int = Field(default=12_000, ge=1_000)
@@ -1987,8 +1987,6 @@ class DiagnosisConfig(BaseModel):
     # per attempt, so only 1 is accepted rather than ignored.
     sample_count: int = Field(default=1, ge=1, le=1)
     correct_answer_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
-    # Joint vaults only: run the diagnoser in shadow next to the joint grader.
-    shadow: bool = False
     next_item_wait_seconds: float = Field(default=10.0, ge=0.0, le=120.0)
     max_attempts: int = Field(default=5, ge=1, le=20)
     # Per-turn deadline for a Codex diagnoser turn. The diagnosis is async (no
@@ -2408,7 +2406,7 @@ class RecapConfig(BaseModel):
     wrap_up_enabled: bool = True
 
 
-class FollowupsConfig(BaseModel):
+class FollowupsConfig(KeepsRetiredFields):
     """Reader workbench: cold follow-ups, a "short unfamiliar problem" after
     reading.
 
@@ -2424,12 +2422,9 @@ class FollowupsConfig(BaseModel):
     day's plan the pending ones are re-valued and those whose question was
     answered since are retired with their reason. Automatic dated requests
     change what the maintain lane holds and serves, so they are the successor
-    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39): below
-    the tag the section is inert. Never evidence; replay never reads it.
+    ``READER_FOLLOWUPS_ALGORITHM_VERSION`` (mvp-0.39; its kill switch went
+    once every vault was past the tag). Never evidence; replay never reads it.
 
-    * ``enabled``: the kill switch. Off, or below the tag, no follow-up is
-      created and no re-valuation runs (the predecessor's plan); existing
-      ones stay the learner's commitments and can be undone.
     * ``formative_questions_enabled``: formative records (a missed
       prediction, a "still unclear", ...) add questions; they never change a
       prior's number.
@@ -2443,7 +2438,6 @@ class FollowupsConfig(BaseModel):
       them). Subscription calls are ``estimated_only``.
     """
 
-    enabled: bool = True
     formative_questions_enabled: bool = True
     generate_when_nothing_fits: bool = False
     max_wait_days: int = Field(default=14, ge=1, le=365)
@@ -2455,8 +2449,7 @@ class DigestConfig(BaseModel):
     section.
 
     * ``narrative_enabled``: after a reader session the follow-ups planned (its digest
-      row; with follow-ups not live, a summary-only row written for the
-      narrative), one background call (route ``reader_digest``) writes at most 120
+      row), one background call (route ``reader_digest``) writes at most 120
       words from the session's typed summary only, citing the summary's event
       ids. Code validates the citations and the word bound: an invalid
       narrative is dropped and why is recorded (``judgment_ledger``, task
@@ -2936,7 +2929,7 @@ class RolesConfig(BaseModel):
     batch_max_cost_usd: float = Field(default=5.0, ge=0.0)
 
 
-class ReadingPathsConfig(BaseModel):
+class ReadingPathsConfig(KeepsRetiredFields):
     """Reader workbench: reading paths in the Guide.
 
     At the depth the learner picks for a source (get the idea, learn to use
@@ -2952,31 +2945,26 @@ class ReadingPathsConfig(BaseModel):
     the kill switch (off: the Guide without paths, no call, every RPC refused).
     ``max_daily_cost_usd`` caps a metered judge route a UTC day (checked
     before the call; Codex is ``estimated_only``). The Guide itself is
-    display only: nothing in scoring, projection or evidence reads a path,
-    and below ``READING_PATH_PLAN_ALGORITHM_VERSION`` nothing in scheduling
-    or serving does either (``plan_uses_path`` below is the plan's read, at
-    its own tag).
+    display only: nothing in scoring, projection or evidence reads a path.
 
-    ``plan_uses_path`` is the kill switch of
-    ``READING_PATH_PLAN_ALGORITHM_VERSION``: at that tag and later,
-    with ``enabled`` on too, the plan's reading block opens the next
-    unfinished core or prerequisite section of the source's path judged
-    for the learner's current state (a "read it anyway" counts as core;
-    "skip it", enrichment, already shown and assumed are never planned; a
-    source with no path, or only a stale one, keeps the predecessor's
-    order), and the plan records the section the predecessor's order would
-    have chosen. Off, below the tag, or with ``enabled`` off: every plan
-    build exactly as the predecessor, and a plan already built gets the
-    predecessor's reading back while its reading is unstarted. The plan
-    never calls the judge.
+    With ``enabled`` on, the plan's reading block opens the next unfinished
+    core or prerequisite section of the source's path judged for the
+    learner's current state (``READING_PATH_PLAN_ALGORITHM_VERSION``, whose
+    own kill switch went once every vault was past the tag; a "read it
+    anyway" counts as core; "skip it", enrichment, already shown and assumed
+    are never planned; a source with no path, or only a stale one, keeps the
+    predecessor's order), and the plan records the section the predecessor's
+    order would have chosen. With ``enabled`` off: every plan build exactly
+    as the predecessor, and a plan already built gets the predecessor's
+    reading back while its reading is unstarted. The plan never calls the
+    judge.
     """
 
     enabled: bool = True
     max_daily_cost_usd: float = Field(default=0.5, ge=0.0)
-    plan_uses_path: bool = True
 
 
-class CurriculumConfig(BaseModel):
+class CurriculumConfig(KeepsRetiredFields):
     """Deliverable curriculum: section coverage and ``reader.correspondents``.
 
     One judged row per (section, learning object): for each LO, its candidate
@@ -3006,16 +2994,15 @@ class CurriculumConfig(BaseModel):
     is the Guide and its per-source reading paths exactly. The three routes
     share ``max_daily_cost_usd``. Display only: no successor.
 
-    ``plan_uses_path``: the kill switch of
-    ``DELIVERABLE_PLAN_ALGORITHM_VERSION``. At that tag or later, with it,
-    ``enabled`` and the reading-path gate on (``reading_paths.enabled`` and
-    ``reading_paths.plan_uses_path``: the plan never follows a path the
-    learner cannot see): the plan's reading block opens the next unfinished
-    core or prerequisite section in the nearest active deliverable's path
-    order, in whichever book it is, when that path is fresh; a stale path is
-    re-judged quietly once a day (plan only) and is not followed meanwhile.
-    Off, or below the tag: the per-source reading-path plans byte for byte.
-    Replay never reads it.
+    ``DELIVERABLE_PLAN_ALGORITHM_VERSION`` (its own kill switch went once
+    every vault was past the tag): with ``enabled`` and the reading-path gate
+    on (``reading_paths.enabled``: the plan never follows a path the learner
+    cannot see), the plan's reading block opens the next unfinished core or
+    prerequisite section in the nearest active deliverable's path order, in
+    whichever book it is, when that path is fresh; a stale path is re-judged
+    quietly once a day (plan only) and is not followed meanwhile. With
+    ``enabled`` off: the per-source reading-path plans byte for byte. Replay
+    never reads it.
 
     The ``syllabus`` source role (scope input only:
     never taught from, never practice, never protected) and
@@ -3036,9 +3023,6 @@ class CurriculumConfig(BaseModel):
     # never an OpenRouter offer; coalesced per LO, a fresh state pays
     # nothing). Off: coverage changes only when pressed or owner-run.
     coverage_on_extract: bool = True
-    # The plan's reading block follows the nearest active deliverable's
-    # fresh path across books (a successor; off: per-source path plans).
-    plan_uses_path: bool = True
     # Practice-available exam and problem-set units' LO mappings (ids only)
     # are a scope-resolution input (off: the predecessor's prompt).
     exam_units_in_scope: bool = True
@@ -3230,8 +3214,8 @@ class EvsiConfig(BaseModel):
 
     ``measured_loss_enabled`` adds the measured minutes an unresolved
     misconception costs later (``scheduling.unresolved_cost``) to the EVSI
-    loss table. It changes what EVSI values, so it is off by default; only
-    the causal shadow selector's EVSI reads it.
+    loss table used by instructional valuation and VOI stopping. It changes
+    what EVSI values, so it is off by default.
     ``unresolved_cost_prior_pseudo_count`` is how many of the learner's own
     recurrence classes the Eedi population prior is worth in the shrinkage.
     """
@@ -3801,24 +3785,17 @@ DEFAULT_RECALL_TARGETS: dict[str, float] = {
 }
 
 
-class IntentConfig(BaseModel):
+class IntentConfig(KeepsRetiredFields):
     """Daily loop: intent.
 
-    The successor ``mvp-0.29`` behind its kill switches (intent changes which
-    items are served as measurements): intent is read only when serving, and
-    ``due_at``, FSRS state, evidence and every projection are unchanged.
-    Below the tag these keys are inert.
-
-    ``enabled`` off restores serving exactly as the predecessor: commitments
-    are read only for requested items (and staged-owned runs). With it on and
-    no commitment, serving is the predecessor's too (every item uncommitted, target 0.90,
-    whose ratio is exactly 1). ``recall_targets_enabled`` off keeps the
-    resolution (exclusion, "Check once", push, admission, re-entry) but serves
-    every item at its stored ``due_at``.
+    The successor ``mvp-0.29`` (intent changes which items are served as
+    measurements): intent is read only when serving, and ``due_at``, FSRS
+    state, evidence and every projection are unchanged. Its kill switches went
+    once every vault was past the tag. With no commitment, serving is the
+    predecessor's (every item uncommitted, target 0.90, whose ratio is exactly
+    1).
     """
 
-    enabled: bool = True
-    recall_targets_enabled: bool = True
     recall_targets: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_RECALL_TARGETS))
 
     @model_validator(mode="after")
@@ -3863,55 +3840,50 @@ class RouterWeights(BaseModel):
         return self
 
 
-class RouterLessonSuggestionsConfig(BaseModel):
+class RouterLessonSuggestionsConfig(KeepsRetiredFields):
     """Teacher: the router suggests a lesson, the learner opts in
     (``learnloop.daily_plan.lesson_suggestion``).
 
-    ``enabled`` is the kill switch of the successor
-    ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``. On (at that tag or later, with
-    ``router.enabled``, ``router.log_decisions`` and lessons able to open),
-    Today may show one suggestion card a day ("Learn *X* now? (about 15
-    min)": Start, up to two alternatives, Not now), drawn with an exact logged
-    propensity among ``instruct(lesson)`` candidates; the acceptance model and
-    the decline recovery are seeded priors the responses move. Off, or below
-    the tag, nothing is drawn or written and Today and the plan are the
-    predecessor's byte for byte.
+    With ``router.enabled``, ``router.log_decisions`` and lessons able to open
+    (TE1b, ``LESSON_SUGGESTIONS_ALGORITHM_VERSION``), Today may show one
+    suggestion card a day ("Learn *X* now? (about 15 min)": Start, up to two
+    alternatives, Not now), drawn with an exact logged propensity among
+    ``instruct(lesson)`` candidates; the acceptance model and the decline
+    recovery are seeded priors the responses move.
 
     ``ceiling_per_day``: an anti-nagging guardrail, never learned; a draw it
     binds shows no card and is logged with ``ceiling_bound``. The card is
     also drawn at most once a day, so the default 3 binds only if that rule
     is ever relaxed.
 
-    ``in_objective`` is the kill switch of
-    ``LESSON_OFFERS_ALGORITHM_VERSION``: on (at
-    that tag or later, with ``enabled`` and wherever the router objective
-    serves the plan), a lesson offer is a candidate of the objective at a
-    reversible plan block boundary (one card at a time, its acceptance model a
-    sensor, drawn from the logged mix and answered on that decision), lesson
-    minutes count on the objective's clock, LOs with a pending lesson delayed
-    check join its population, and the Today-open card above is drawn only
-    where the objective does not serve. ``ceiling_per_day`` binds across the
-    day's offers and cards together. Off, or below the tag: the daily card
-    and the objective's predecessor support exactly.
+    Wherever the router objective serves the plan (TE3b,
+    ``LESSON_OFFERS_ALGORITHM_VERSION``), a lesson offer is a candidate of the
+    objective at a reversible plan block boundary (one card at a time, its
+    acceptance model a sensor, drawn from the logged mix and answered on that
+    decision), lesson minutes count on the objective's clock, LOs with a
+    pending lesson delayed check join its population, and the Today-open card
+    above is drawn only where the objective does not serve.
+    ``ceiling_per_day`` binds across the day's offers and cards together.
+
+    The two successors' kill switches (``enabled``, ``in_objective``) went once
+    every vault was past their tags; an unknown key is still refused, the two
+    retired ones are not.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = True
     ceiling_per_day: int = Field(default=3, ge=0)
-    in_objective: bool = True
 
 
-class RouterConfig(BaseModel):
+class RouterConfig(KeepsRetiredFields):
     """Action router: decision logging, the staged frame and the model mixture.
 
     ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
     decision and learner pick. It is not a serving change and acts at every
     algorithm version; off stops the rows and nothing else.
-    ``probe_tie_admission`` is the kill switch of the ``mvp-0.15`` successor:
-    probe near-ties, teach-back items included,
-    join the Today queue's seeded exploration. Off (or below ``mvp-0.15``)
-    serves exactly as the predecessor.
+    Probe near-ties, teach-back items included, join the Today queue's seeded
+    exploration (the ``mvp-0.15`` successor; its switch went once every vault
+    was past the tag).
 
     ``enabled`` is the router's kill switch (``mvp-0.23``).
     On, Today's plan is composed by the
@@ -3952,7 +3924,6 @@ class RouterConfig(BaseModel):
     """
 
     log_decisions: bool = True
-    probe_tie_admission: bool = True
     enabled: bool = True
     mode: Literal["staged", "mixture"] = "mixture"
     card_token_budget: int = Field(default=16_000, ge=1_000)
@@ -3982,22 +3953,22 @@ class RouterConfig(BaseModel):
         return self
 
 
-class DataCaptureConfig(BaseModel):
+class DataCaptureConfig(KeepsRetiredFields):
     """What later offline evaluation needs, recorded now. It adds no policy
     and no constant.
 
     * ``receipts``: the prefilter receipts (``prefilter_receipts``), linked into
       each committed decision. Additive: they act at every algorithm version and
       never change what is served; off stops the rows and nothing else.
-    * ``serving``: the kill switch of the mvp-0.44 successor:
-      measurement slots for reading, wait and stop arms, the exploration floor on
-      the router's ``not_ready`` branch, the teacher's item-specific delayed-check
-      picker with its logged tie draw, and ``router_outcomes_v3``. Off, or below
-      the tag, serving and outcomes are the predecessor's exactly.
+
+    The mvp-0.44 successor serves with no switch (its kill switch went once
+    every vault was past the tag): measurement slots for reading, wait and stop
+    arms, the exploration floor on the router's ``not_ready`` branch, the
+    teacher's item-specific delayed-check picker with its logged tie draw, and
+    ``router_outcomes_v3``.
     """
 
     receipts: bool = True
-    serving: bool = True
 
 
 class RouterObjectiveConfig(BaseModel):
@@ -4464,14 +4435,14 @@ class TeacherConfig(KeepsRetiredFields):
     replay reads any of it; a refused row rolls back alone with a warning. Off,
     nothing of it is written and lessons are the predecessor's byte for byte.
 
-    ``probes`` is the kill switch of the ``mvp-0.51`` successor: at that tag or later, with lessons on, a
-    lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up generation path
-    with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap pipeline with
-    ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a new topic
-    through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``); the brief is ``lesson_brief_v2`` (no vault
-    probe headers; where the last lesson left off); and Today offers *Continue your lesson*. Off, or below the
-    tag, every lesson is the predecessor's byte for byte. ``placement.max_probes`` (8, fixed): the probes one
-    lesson may ask for.
+    Lesson probes (the ``mvp-0.51`` successor; its switch went once every vault was past the tag): wherever
+    lessons are on, a lesson's teacher may ask for a generated single-use probe (``serve_probe``, the follow-up
+    generation path with a lesson origin) and file a gap from the learner's words (``propose_gap``, the text-gap
+    pipeline with ``source_kind = 'lesson'``); a lesson may open on a typed goal (the deliverable scope resolver; a
+    new topic through ``create_goal_lo`` with ``mechanism = teacher_goal_v1``); the brief is ``lesson_brief_v2``
+    (no vault probe headers; where the last lesson left off); and Today offers *Continue your lesson*. A lesson
+    opened before (brief ``lesson_brief_v1``) continues as it was opened. ``placement.max_probes`` (8, fixed): the
+    probes one lesson may ask for.
     """
 
     confidence_events_enabled: bool = True
@@ -4486,8 +4457,6 @@ class TeacherConfig(KeepsRetiredFields):
     visuals: bool = True
     # The episode log, intervals and node forecasts (off: nothing written, the predecessor's lessons exactly).
     episode_log: bool = True
-    # Lesson probes: the successor's kill switch (off, or below the tag: the predecessor's lessons exactly).
-    probes: bool = True
     placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
@@ -4534,7 +4503,7 @@ class AskConfig(KeepsRetiredFields):
 AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider", "llm_history_v1")
 
 
-class AdaptiveDifficultyConfig(BaseModel):
+class AdaptiveDifficultyConfig(KeepsRetiredFields):
     """Adaptive difficulty.
 
     The measuring and logging keys are not an algorithm successor: they write
@@ -4576,17 +4545,16 @@ class AdaptiveDifficultyConfig(BaseModel):
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
 
-    The ``mvp-0.30`` successor (dormant below the tag), each switch false
-    restoring its part of the predecessor exactly:
+    The ``mvp-0.30`` successor, each switch false restoring its part of the
+    predecessor exactly (its generation contract, which asks for an item AT a
+    commissioned feature point with no difficulty band, runs whenever
+    ``enabled`` is on: its switch went once every vault was past the tag):
 
     * ``selection``: a planned new-material slot is served by AD's draw over its
       support (practice in the band, calibration within acceptable difficulty,
       exact logged propensities); an empty support displaces the slot and defers
       its item until its blocking condition clears. Off: no draw, no
       substitution, no deferral.
-    * ``generation_contract``: generation asks for an item AT a commissioned
-      feature point, with no difficulty band. Off: the predecessor's prompt and
-      band check.
     * ``promoted_predictor``: live decisions and the readiness numbers read the
       subject view. Off: each LO's own view, and no AD readiness numbers.
     * ``learned_coupling``: the subject view's learned loadings and couplings and
@@ -4629,7 +4597,6 @@ class AdaptiveDifficultyConfig(BaseModel):
     daily_spend_cap_usd: float = Field(default=0.50, ge=0.0)
     price_per_million: float | None = Field(default=None, gt=0)
     selection: bool = True
-    generation_contract: bool = True
     promoted_predictor: bool = True
     learned_coupling: bool = False
     reading_opportunities: bool = True

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/intent_cost.py](../../../../../../src/learnloop/daily_plan/intent_cost.py) |
-| Source lines | 111 |
+| Source lines | 110 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class CostContext` ([source](../../../../../../src/learnloop/daily_plan/intent_cost.py), line 29) — What the cost reads, loaded once for every choice of one scope.
 - `load_cost_context(vault: Any, repository: Any, *, clock: Clock | None=None) -> CostContext` ([source](../../../../../../src/learnloop/daily_plan/intent_cost.py), line 40)
 - `projected_cost(vault: Any, context: CostContext, choice: str, after: Mapping[str, ItemIntent]) -> tuple[float | None, str]` ([source](../../../../../../src/learnloop/daily_plan/intent_cost.py), line 59)
-- `cost_function(vault: Any, repository: Any, *, clock: Clock | None=None) -> CostFunction` ([source](../../../../../../src/learnloop/daily_plan/intent_cost.py), line 104) — The control's cost function for one read (its context loaded once).
+- `cost_function(vault: Any, repository: Any, *, clock: Clock | None=None) -> CostFunction` ([source](../../../../../../src/learnloop/daily_plan/intent_cost.py), line 103) — The control's cost function for one read (its context loaded once).
 
 ### Explicit exports
 

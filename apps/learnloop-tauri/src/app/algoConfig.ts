@@ -58,13 +58,12 @@ export interface AlgoDisplayConfig {
    *  sidecar sends a `teacher` key only while lessons may open, so false until
    *  it says so, and off shows no "Teach me this" anywhere. */
   lessons: boolean;
-  /** Teacher TE1b's kill switch (`router.lesson_suggestions.enabled`, at its
-   *  successor's tag, with lessons on): the sidecar sends `teacher.suggestions`
-   *  only while Today may suggest a lesson, so false until it says so, and off
-   *  Today never asks for the suggestion card. */
+  /** Teacher TE1b (the router, its decision log and lessons on): the sidecar
+   *  sends `teacher.suggestions` only while Today may suggest a lesson, so false
+   *  until it says so, and off Today never asks for the suggestion card. */
   lessonSuggestions: boolean;
-  /** Teacher TE2 (`teacher.probes` at its successor, with lessons on): the sidecar sends `teacher.te2` only
-   *  then; off, Today offers no "Continue your lesson" and no "What do you want to learn?". */
+  /** Teacher TE2 (lesson probes, typed goals, "Continue your lesson"): the sidecar sends `teacher.te2` with
+   *  `teacher.lessons`; without it, Today offers no "Continue your lesson" and no "What do you want to learn?". */
   lessonGoals: boolean;
 }
 

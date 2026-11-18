@@ -163,6 +163,8 @@ Builds `spec_learned_parameters_v1.md` §4.6: `S_eff = S_fsrs · exp(ŵᵀu)`, w
 5. **First consumers:** the lesson's delayed-check dates (`teacher/delayed.py`), then the objective's `R`.
 6. **Overlap:** `P(perform)` already learns an overall trust in `R` (`aR`), so the report shows what `S_eff` adds beyond it.
 
+**Amended 2026-11-17 (owner's decision on `spec_ad_memory_v1.md` Q2):** "AD alone at ADM3. AD's calls pass S_eff to RE2's one function and every other caller keeps regular S. After ADM3's report we can see if plain FSRS stability vs S_eff is better for the scheduler, router's rollouts, or delayed checks." This replaces item 5's first consumers: adaptive difficulty is the only reader of `S_eff`, through the one retrievability function (no second read); the lesson's delayed checks and the objective's `R` keep plain `S` until that report compares plain `S` with `S_eff` for the scheduler, the rollouts and the delayed checks, and the owner decides the wider reach from it. The shape `d` stays FSRS's weight 20; the fit has one owner (this model), and AD runs the same function over the reviews its material view admits (`spec_ad_memory_v1.md` §4.3). A switch for the successor follows the owner's rule of Nov 16 (none unless asked).
+
 Expect only small effects soon, with at most 19 same-item repeats so far. It learns from same-item reviews, so it doesn't speak to transfer.
 
 **Tests:** at `ŵ = 0`, every read equals plain FSRS; FSRS state after replay is byte-identical with the switch on and off; reading events never appear in `u`.

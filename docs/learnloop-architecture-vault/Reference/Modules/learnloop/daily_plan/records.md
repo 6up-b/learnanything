@@ -150,7 +150,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `ORIGIN_LEARNER_PICK`
 - [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]] — imports `PlanRecord`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `PlanRecord`, `PlannedBlock`, `PlannedItem`
-- [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]] — imports `assemble`; statically calls `assemble`
+- [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `assemble`; statically calls `assemble`
 
 ## Dependencies
 
@@ -170,7 +170,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop/figures/service|learnloop.figures.service]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/report|learnloop.daily_plan.report]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

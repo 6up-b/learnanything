@@ -78,7 +78,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_gate_fixes_on`, `robust_selection`; statically calls `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `pinned_decision_posterior`, `resolve_episode_channel`, `robust_gate_fixes_on`, `robust_selection`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `robust_gate_fixes_on`, `robust_selection`; statically calls `RobustCandidate`, `instrument_ensemble`, `load_pinned_channel`, `robust_gate_fixes_on`, `robust_selection`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `resolve_episode_channel`; statically calls `resolve_episode_channel`
+- [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `load_pinned_channel`, `pinned_decision_posterior`; statically calls `load_pinned_channel`, `pinned_decision_posterior`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `instrument_ensemble`, `load_pinned_channel`; statically calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `instrument_ensemble`, `load_pinned_channel`; statically calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] — imports `robust_gate_fixes_on`; statically calls `robust_gate_fixes_on`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `resolve_episode_channel`
@@ -116,7 +119,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]], [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]], [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

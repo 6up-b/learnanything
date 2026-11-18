@@ -355,14 +355,16 @@ def _codex_judge(effort: str, decide_from: JudgeFake | None = None) -> JudgeFake
 
     from types import SimpleNamespace
 
-    judge = decide_from or _guard_judge(model="gpt-5.6-sol")
-    judge.model = "gpt-5.6-sol"
-    judge.config = SimpleNamespace(model="gpt-5.6-sol", reasoning_effort=effort)
+    from learnloop.config.schema import DEFAULT_CODEX_MODEL
+
+    judge = decide_from or _guard_judge(model=DEFAULT_CODEX_MODEL)
+    judge.model = DEFAULT_CODEX_MODEL
+    judge.config = SimpleNamespace(model=DEFAULT_CODEX_MODEL, reasoning_effort=effort)
     return judge
 
 
 def test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_guard_pass(tmp_path):
-    """Second review F10: codex_low and codex_medium share gpt-5.6-sol; a guard
+    """Second review F10: codex_low and codex_medium share one model; a guard
     pass from one must not count for the other, nor its verdicts be reused."""
 
     from learnloop.diagnosis.recurrence.judging import producer_label

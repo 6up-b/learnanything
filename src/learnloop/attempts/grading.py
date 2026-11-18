@@ -37,10 +37,12 @@ from learnloop.diagnosis.repair_splice import (
     splice_repaired_answer,
 )
 from learnloop.vault.models import (
+    GradingValidationError as GradingValidationError,
     LoadedVault,
     PracticeItem,
     Rubric,
     learning_object_facet_union,
+    resolved_rubric as resolved_rubric,
 )
 from learnloop.vault.required_method import presented_prompt
 
@@ -88,18 +90,6 @@ def request_grading_proposal(
         )
 
 
-def joint_grading_prompt_tokens(context: GradingContext) -> int:
-    """The joint prompt's input-token estimate for a dry run (no call).
-
-    Built here, beside the only joint grading door, so nothing else renders
-    the joint prompt (review F5's ``plan_grading_calls`` reads this).
-    """
-
-    from learnloop.attempts.grading_admission import estimated_prompt_tokens
-
-    return estimated_prompt_tokens(grading_prompt(context))
-
-
 def request_vault_grading_proposal(
     vault: LoadedVault,
     client: OperationClient,
@@ -107,47 +97,35 @@ def request_vault_grading_proposal(
 ) -> GradingProposal:
     """The grading call of every grader outside the practice door (Slice 1 §4.1).
 
-    Teach-back, exams, the probe audit and the taxonomy regrade come through
-    here. In a split vault (``split_grading_active``) they use the
-    learner-blind contract in an ISOLATED turn: an empty history field is not
-    blindness while the agent can read prior grades and diagnoses from the
-    vault, so the transport must confine the turn (it refuses otherwise).
-    The result is the §4.2 mapping onto the joint shape with every causal
-    field empty and no repair suggestion (instructional repairs come from the
-    diagnoser, which does not run for these graders). Joint vaults (and the
-    kill switch) keep the joint prompt exactly.
+    Teach-back, exams, the probe audit, the taxonomy regrade and the teacher's
+    checks and probes come through here. They use the learner-blind contract
+    in an ISOLATED turn: an empty history field is not blindness while the
+    agent can read prior grades and diagnoses from the vault, so the transport
+    must confine the turn (it refuses otherwise). The result is the §4.2
+    mapping onto the joint shape with every causal field empty and no repair
+    suggestion (instructional repairs come from the diagnoser, which does not
+    run for these graders).
     """
 
     from learnloop.attempts.blind_grading import (
         blind_context_from_grading_context,
         request_blind_grading_proposal,
-        split_grading_active,
         to_grading_proposal,
     )
 
-    if not split_grading_active(vault):
-        return request_grading_proposal(client, context)
     proposal = request_blind_grading_proposal(client, blind_context_from_grading_context(context))
     return to_grading_proposal(proposal, vault=vault).model_copy(update={"repair_suggestions": []})
 
 
-def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> dict[str, str]:
+def vault_grading_run_identity(context: GradingContext) -> dict[str, str]:
     """The agent-run identity of :func:`request_vault_grading_proposal`'s call."""
 
-    from learnloop.attempts.ai_contracts import grading_prompt_version
     from learnloop.attempts.blind_grading import (
         blind_context_from_grading_context,
         blind_grading_context_hash,
         blind_prompt_version,
-        split_grading_active,
     )
 
-    if not split_grading_active(vault):
-        return {
-            "prompt_version": grading_prompt_version(context),
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
-        }
     blind = blind_context_from_grading_context(context)
     return {
         "prompt_version": blind_prompt_version(blind),
@@ -156,23 +134,20 @@ def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> d
     }
 
 
-def vault_grading_calibration_identity(vault: LoadedVault) -> tuple[str, str] | None:
+def vault_grading_calibration_identity() -> tuple[str, str]:
     """The §4.3 calibration identity of :func:`request_vault_grading_proposal`'s grade.
 
-    In a split vault that call grades with the mvp-2.0 blind prompt (no PF-c
-    reference policy), so its raw grade and its calibration lookups use the
-    blind pair and never pool with the joint grader's (review F11). None is
-    the joint grader's identity, unchanged for joint vaults.
+    That call grades with the mvp-2.0 blind prompt (no PF-c reference policy),
+    so its raw grade and its calibration lookups use the blind pair and never
+    pool with the joint grader's (review F11): a joint grade, stored history
+    now, carries ``None``.
     """
 
     from learnloop.attempts.blind_grading import (
         BLIND_CALIBRATION_PROMPT_VERSION,
         BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
-        split_grading_active,
     )
 
-    if not split_grading_active(vault):
-        return None
     return (BLIND_CALIBRATION_PROMPT_VERSION, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
 
 
@@ -293,10 +268,6 @@ def confidence_to_grader_confidence(confidence: int) -> float:
     if confidence not in mapping:
         raise ValueError("confidence must be between 1 and 5")
     return mapping[confidence]
-
-
-class GradingValidationError(ValueError):
-    pass
 
 
 _OPTION_LETTER = re.compile(r"^\s*\(?([A-H])\)?\s*[\.\):—-]?\s*", re.IGNORECASE)
@@ -1746,15 +1717,6 @@ def _validated_clarification(
         "criterion_id": criterion_id,
         "trigger": trigger,
     }
-
-
-def resolved_rubric(vault: LoadedVault, item: PracticeItem) -> Rubric:
-    rubric = vault.rubric_for_item(item)
-    if rubric is None:
-        raise GradingValidationError(
-            f"{item.id} has no grading_rubric and no default rubric for practice mode {item.practice_mode}"
-        )
-    return rubric
 
 
 def _resolved_error_severity(vault: LoadedVault, error_type: str, severity: float | None) -> float:

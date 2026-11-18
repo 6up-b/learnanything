@@ -88,7 +88,7 @@ class PracticeExpansionTarget:
     # authoring model as targets, exactly as `commissioned_cells` does, rather
     # than sitting in a report a human might one day read.
     contrast_pair_requests: list[dict[str, Any]] = field(default_factory=list)
-    # Adaptive difficulty AD2+AD3 (spec §7.1, switch generation_contract): the
+    # Adaptive difficulty AD2+AD3 (spec §7.1, the generation contract): the
     # commission draw that named this target's feature point. Set, the payload
     # carries no difficulty band: difficulty is measured from the answers.
     ad_commission_id: str | None = None
@@ -438,8 +438,8 @@ def build_practice_expansion_plan(
                 claimed_level=claimed_level,
                 **({"episode_hypotheses": False} if ad_view is not None else {}),
             )
-        # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
-        # dormant below mvp-0.30): AD's commission draw names the feature point at
+        # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; the generation contract,
+        # under AD's master switch): AD's commission draw names the feature point at
         # the waypoint's capability; the target carries no difficulty band.
         rung, target_commission_id = _ad_commissioned_rung(
             vault, repository, learning_object.id, rung, commission_id=ad_commission_id, view=ad_view
@@ -522,8 +522,8 @@ def _ad_request_options(plan: Any, *, grounding: Sequence[tuple[Any, Any]] = ())
 
 
 def _ad_material_view(vault: LoadedVault, repository: Repository) -> Any:
-    """AD's material view for this plan (computed once), or None when the generation contract is
-    off or the held-out predicate is unavailable: then the predecessor's target path runs."""
+    """AD's material view for this plan (computed once), or None when AD is off or the held-out
+    predicate is unavailable: then the incumbent's target path runs."""
 
     import learnloop.adaptive_difficulty.generation as ad_generation
 
@@ -541,7 +541,7 @@ def _ad_commissioned_rung(
     vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None,
     *, commission_id: str | None = None, view: Any = None,
 ) -> tuple[RungTarget | None, str | None]:
-    """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
+    """The generation contract's waypoint (adaptive difficulty §7.1): with AD off,
     nothing commissioned, or no material view (the predicate unavailable), the incumbent's rung
     exactly. ``commission_id``: the serve-time commission a background job generates for (its
     point, whatever the incumbent's capability). ``view``: the plan's AD material view."""

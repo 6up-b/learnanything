@@ -71,7 +71,7 @@ study at the value in brackets:
 
 * rank 1, ``robust_gate_with_value`` (false; true): the mvp-0.8 robust
   completion gate does not end an episode while value decides it
-  (``probe_episodes.robust_gate_applies``); a value stop records the gate's
+  (``probe_completion.robust_gate_applies``); a value stop records the gate's
   verdict as a counterfactual (:func:`with_robust_gate_counterfactual`);
 * rank 2, ``lookahead_max_checks`` (3; 1): in a probe episode
   (:data:`LOOKAHEAD_SITES`), where a decision is at stake, ``rank_feasible``
@@ -119,7 +119,6 @@ import statistics
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, Mapping, Sequence
 
-from learnloop.data_capture.gates import serving_on
 from learnloop.diagnosis.robust_composition import (
     BURDEN_COST,
     LAMBDA_TIME,
@@ -826,7 +825,7 @@ class SiteDecision:
     #: The lookahead's forecast when it ran (no single check paid with a
     #: decision at stake): the batches it valued and whether one paid.
     lookahead: dict[str, Any] | None = None
-    #: Data capture A1 (mvp-0.44, ``data_capture.serving``): the receipt keeps every candidate's
+    #: Data capture A1 (mvp-0.44; every site decision sets it): the receipt keeps every candidate's
     #: summary, not the first :data:`MAX_RECORDED_CANDIDATES` (a rejected alternative is data).
     record_all_candidates: bool = False
 
@@ -1142,7 +1141,7 @@ def value_candidates(
         and not any(value.continues for value in values)
     ):
         values, lookahead = _lookahead(values, candidates, diagnostic, rank, loss_table, settings,
-                                       record_all=serving_on(ctx.vault.config))
+                                       record_all=True)
     values.sort(key=lambda value: (-value.value_per_minute, value.ref))
     continuing = [value for value in values if value.continues]
     decision = CONTINUE if continuing else STOP
@@ -1194,7 +1193,7 @@ def value_candidates(
             loss_regime=ctx.loss_regime, unresolved_cost=unresolved_cost,
         ),
         lookahead=lookahead,
-        record_all_candidates=serving_on(ctx.vault.config),
+        record_all_candidates=True,
     )
 
 
@@ -2333,7 +2332,7 @@ def record_offer_value_forecasts(
     the seeded exploration drew it), and each probe episode whose next
     observation the offer withheld because it does not pay. An episode's
     continue acts where its observation is committed, so it is logged with the
-    presentation (``probe_episodes.record_presentation_forecast``), never here,
+    presentation (``probe_presentations.record_presentation_forecast``), never here,
     and an episode's completion on its value stop is logged at the completion.
     """
 

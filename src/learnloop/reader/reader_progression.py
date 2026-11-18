@@ -22,7 +22,7 @@ from learnloop.db.repositories import Repository
 from learnloop.reader.reader_guidance import _span_for_ref, extraction_sections
 from learnloop.section_map import (  # moved below every package that reads them; this name stays the Reader's
     learning_objects_by_section,  # noqa: F401  re-exported: other modules import it from here
-    learning_objects_for_section,
+    learning_objects_for_section,  # noqa: F401  re-exported: other modules import it from here
     learning_objects_for_span,  # noqa: F401  re-exported: other modules import it from here
     section_id_for_span,
 )
@@ -55,48 +55,6 @@ def source_refs_for_span(
         extraction_id=extraction_id,
         section_id=section_id,
         learning_object_ids=learning_object_ids,
-    )
-
-
-def section_generation_candidates(
-    vault: LoadedVault,
-    repository: Repository,
-    *,
-    extraction_id: str,
-    section_id: str,
-    target_items_per_lo: int = 3,
-    max_new_per_lo: int = 3,
-) -> list[str]:
-    """LOs in the section that actually need items (dry-run of the expansion
-    plan with the probe gate waived). Empty = nothing to generate."""
-
-    from learnloop.content.authoring.practice_generation import (
-        PracticeExpansionError,
-        build_practice_expansion_plan,
-    )
-
-    lo_ids = learning_objects_for_section(
-        vault, repository, extraction_id=extraction_id, section_id=section_id
-    )
-    if not lo_ids:
-        return []
-    try:
-        plan = build_practice_expansion_plan(
-            vault,
-            repository,
-            learning_object_ids=lo_ids,
-            require_completed_probe=False,
-            target_items_per_lo=target_items_per_lo,
-            max_new_per_lo=max_new_per_lo,
-        )
-    except PracticeExpansionError:
-        return []
-    # Only LOs with a real deficit: named LOs past their target still get a
-    # courtesy item from the planner, which is wrong for an automatic trigger.
-    return sorted(
-        target.learning_object_id
-        for target in plan.targets
-        if target.existing_practice_items < target_items_per_lo
     )
 
 

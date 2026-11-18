@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/attempts/grader_calibration.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/db/stores/data_capture.py"
   - "src/learnloop/ops/capture_report.py"
   - "src/learnloop/router/outcomes.py"
@@ -85,18 +85,17 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.append_measurement_event()`
-- `Repository.grade_head_review()`
 - `Repository.measurement_events_for_administration()`
 - `Repository.open_administration_atomic()`
 - `Repository.write_administration_lineage_atomic()`
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 
@@ -115,7 +114,6 @@ Indexes and uniqueness:
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_data_capture_phone.py`
 - `tests/test_p0_projection_cutover.py`
-- `tests/test_rebuild_history_appends.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`
 - `tests/test_grade_resolution_pipeline.py`

@@ -171,7 +171,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_regrade_appends_a_superseding_stuck_judgment`
   - `test_a_stuck_attempt_without_confusion_writes_no_signal`
-  - `test_confusion_is_read_and_signalled_in_both_grading_modes`
+  - `test_confusion_is_read_and_signalled`
   - `test_confusion_text_is_marked_and_becomes_a_fast_track_blocking_signal`
 - [tests/test_stuck_prompt_replay.py](../../../../../../tests/test_stuck_prompt_replay.py) — direct import
 

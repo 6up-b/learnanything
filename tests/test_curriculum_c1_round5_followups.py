@@ -20,7 +20,7 @@ from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import PlanDeliverableFake
 from tests.helpers import append_config_toml
 from tests.curriculum_c1_fix_round5_helpers import MeteredFake, _rows
-from tests.curriculum_c1_plan_follows_path_helpers import C1_OFF, PRIMARIES, _c1
+from tests.curriculum_c1_plan_follows_path_helpers import CURRICULUM_OFF, PRIMARIES, _c1
 
 
 def _stale(tmp_path, monkeypatch):
@@ -121,7 +121,7 @@ def _gate_on(vault) -> bool:
 def test_c1_r5_followup_b_a_reload_right_after_the_gates_read_cannot_slip_into_the_admission(tmp_path, monkeypatch):
     c1 = _stale(tmp_path, monkeypatch)
     on_vault = c1.vault
-    append_config_toml(c1.paths.root, "\n" + C1_OFF)
+    append_config_toml(c1.paths.root, "\n" + CURRICULUM_OFF)
     off_vault = load_vault(c1.paths.root)
     assert _gate_on(on_vault) and not _gate_on(off_vault)
     published = Published(on_vault)

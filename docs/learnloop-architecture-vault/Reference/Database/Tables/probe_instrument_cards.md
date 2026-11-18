@@ -17,11 +17,11 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/diagnosis/causal_reads.py"
   - "src/learnloop/diagnosis/probe_coverage.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
+  - "src/learnloop/diagnosis/probe_evidence.py"
   - "src/learnloop/diagnosis/probe_instance_generation.py"
-  - "src/learnloop/substrate/compat/activity_backfill.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -93,9 +93,10 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/diagnosis/causal_orchestrator.py`
+- `src/learnloop/diagnosis/causal_reads.py`
 - `src/learnloop/diagnosis/probe_coverage.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 

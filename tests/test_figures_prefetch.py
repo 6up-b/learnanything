@@ -37,7 +37,9 @@ from learnloop.figures import power as P
 from learnloop.figures import prefetch as PF
 from learnloop.figures import prefetch_ledger as PL
 from learnloop.figures import prefetch_model as PM
-from learnloop.figures import service as FS
+from learnloop.figures import build as FB
+from learnloop.figures import listing as FL
+from learnloop.figures import request as FQ
 from learnloop.substrate.activities import log_interaction_event
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.errors import SidecarError
@@ -357,9 +359,9 @@ def test_a_background_build_stops_off_mains_before_any_request(tmp_path):
     _paths, repository, vault = make_vault(tmp_path)
     P.set_power_reader(lambda: P.PowerState(False, P.UNKNOWN, "test"))
     author = AuthorFake()
-    request = FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch")
-    with pytest.raises(FS.FigureRefused) as refused:
-        FS.build_prefetch_figure(vault, repository, request, author_client=author)
+    request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch")
+    with pytest.raises(FQ.FigureRefused) as refused:
+        FB.build_prefetch_figure(vault, repository, request, author_client=author)
     assert refused.value.code == "figures_changed" and author.calls == 0
     assert P.background_hold(vault) == P.NOT_ON_MAINS
 
@@ -414,8 +416,8 @@ def test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service(tmp_p
     with pytest.raises(SidecarError) as refused:
         call(ctx, "figure.request", {"origin": "prefetch", "anchor": {"extractionId": EXTRACTION, "spanIds": ["p3"]}})
     assert refused.value.code == "validation_error"
-    with pytest.raises(FS.FigureRefused) as direct:
-        FS.build_figure(vault, repository, FS.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch"),
+    with pytest.raises(FQ.FigureRefused) as direct:
+        FB.build_figure(vault, repository, FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"], origin="prefetch"),
                         author_client=AuthorFake())
     assert direct.value.code == "validation_error"
 
@@ -423,13 +425,13 @@ def test_origin_prefetch_is_refused_from_every_rpc_and_outside_the_service(tmp_p
 def test_a_prebuilt_figure_lists_only_while_on_or_once_pressed(tmp_path):
     paths, repository, vault = make_vault(tmp_path)
     PF.run_trigger(env_for(vault, repository), PF.Trigger("offer", "tutor:q", blocks=((EXTRACTION, "p3"),)))
-    assert len(FS.list_figures(vault, repository, EXTRACTION)) == 1
+    assert len(FL.list_figures(vault, repository, EXTRACTION)) == 1
     switch(paths, False)
     off = load_vault(paths.root)
     assert off.config.figures.prefetch_enabled is False
-    assert FS.list_figures(off, repository, EXTRACTION) == []
+    assert FL.list_figures(off, repository, EXTRACTION) == []
     build(context(paths.root, author=AuthorFake()), {"extractionId": EXTRACTION, "spanIds": ["p3"]})
-    assert len(FS.list_figures(off, repository, EXTRACTION)) == 1
+    assert len(FL.list_figures(off, repository, EXTRACTION)) == 1
 
 
 def test_outcomes_close_once_at_the_structural_horizon(tmp_path, monkeypatch):
