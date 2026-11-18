@@ -57,4 +57,5 @@ Branch `fix/arc-e-review-grading`, from main `8804080fcf`. The adversarial revie
 
 - **ER-2** waits for the next algorithm tag.
 - **Lock duration (ER-3)** was measured and not changed.
+- **The hard-case harness.** `diagnosis/grading_hardcases.py` models the production path with the gate and the rule but no validation. It still scores a grade that leaves a criterion out as unlocated or held, where production now refuses it. That affects only its report's fidelity, so it waits for the harness's next version (ER-1's row).
 - **Behaviour change for new grades (ER-1).** A divergent-route grade that leaves a criterion out used to be held (or, after K5 batch 2, scored over the rest). It is now refused, so the practice door's fallback or failure applies. This follows the ruling, with no tag, as intake behaviour. Under the 2026-10-17 eligibility rule it changes which new answers become measurements, which is worth a look.

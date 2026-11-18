@@ -668,10 +668,6 @@ def apply_route_rule(
         and cid not in previously and cid not in declared_ids
     ]
     unverified = previously | set(unlocated) | set(declared)
-    weightless = tuple(cid for cid in maxima if cid in weightless_remainder(maxima, unverified)) if (
-        unlocated or declared
-    ) else ()
-    unverified |= set(weightless)
     method_route = tuple(
         cid for cid in maxima if cid in method_ids and cid in below and cid not in located and cid not in unverified
     )
@@ -683,6 +679,11 @@ def apply_route_rule(
             proposal, unverified=tuple(sorted(previously)), clarification_located=from_reply,
             method_route=method_route,
         )
+    # A zero-point criterion is never below full points, so it is in neither
+    # tuple above.
+    folded = weightless_remainder(maxima, unverified)
+    weightless = tuple(cid for cid in maxima if cid in folded)
+    unverified |= folded
     # PF-c's "nothing assessed schedules as correct" rests on a verified final
     # answer; without one an all-unassessed grade rests on nothing.
     held = not (set(maxima) - unverified) and final_answer_status != MATCHES_REFERENCE
