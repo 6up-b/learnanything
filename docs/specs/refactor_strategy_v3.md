@@ -4,63 +4,13 @@ Phase A, job 2. **Status: for the owner's review. No step starts until the owner
 
 ## Summary for the owner
 
-The refactor has 66 small steps in eleven arcs. It can stop cleanly after any arc. Nothing starts until phone V4, instruct/handoff (IH), RE0 and the test-suite branch have landed.
+The [refactor status table](../reviews/refactor-status.md) tracks 194 entries, including sub-steps, landing batches and rules. It shows the current queue, the owner's open calls and the record for each landing. The definitions are in §2, the sub-strategies and the audits.
 
-**What gets smaller**
+`learnloop why` now uses one reader for decision records. The floor and upgrade table are in place, and the default test vault runs at the head. The grading core is separate from its database work. The due queue has separate read and serve paths. Ingestion shares its checkpoints and synthesis path.
 
-| What | Today | After | Confidence |
-|---|---|---|---|
-| Package | 624,515 raw lines, 1,268 files | about 5-9% fewer lines and 6-11% fewer files. Most of the package is live, so it won't shrink by half | estimate |
-| Upgrade code | 42 modules, about 8,900 lines | one table, about 450 lines. The old chain stays in a git tag | high |
-| `config/template.py` | 4,203 lines | about 450 | high |
-| Upgrade and successor tests | 34 files, 8,808 lines, 16% of test time | about 1,000 lines, under 3% | estimate |
-| Whole-suite test seconds | measured at step S0 | removals and plumbing alone take off about 15-25% | estimate |
+Finish the repository split, then work through the router's objective and build the shared evidence view. The diagnosis and difficulty work follows. Read the status table for the conditions on G4 and H3–H6, the late reviews and the close.
 
-**What a change costs, before and after**
-
-| Change | Today | After |
-|---|---|---|
-| A one-line default (the 40 s timeout) | 1 behaviour line, 46 digests, 12 test files | 1 line, plus 1 line in a readable file of defaults |
-| A new table | 68 pinned test files, a 24-file fixture rename, 481 generated notes | about 8 files |
-| A router speed-up with no version change | 615 files | about 110 |
-| Swap the mixing rule | 13 source files | 1 module and its test, plus one row if it's a new tag |
-| Add an action to the router | 20 source files | about 3 |
-
-**What you'll notice**
-
-- **`learnloop why`.** One command answers why x was chosen and not y, from the latest decision, an attempt, a block or a figure. Your four real cases are its acceptance test.
-- **Failures leave a record.** A chooser crash, a timeout, a discarded answer or an exclusion all do.
-- **You run some things yourself.** One read-only script over your vaults and one upgrade of each vault. The fresh backup for the acceptance test exists: `~/learnloop-backups/20261109-copy`, taken Nov 9 (owner approved; agents read backup-API copies of it, never the live vaults).
-- **An old backup needs the tag.** Restoring one below the oldest supported tag means upgrading it with the tagged old code first.
-- **Three changes affect learning behaviour, each with a report first and a kill switch.** Probes after a miss are decided by the router (G2), one belief over locked hypotheses (G4, only if the measurements call for it), and the old difficulty scalar goes (H3-H6).
-- **Next gets faster after feedback,** if F1 and F2 meet the target.
-- **Screens don't change.** That's the UX overhaul's job. Anything a removal takes from a settings screen is listed for it.
-
-**What you must decide**
-
-Before step 1:
-1. **Approve the order and the gate rhythm.** I recommend the full suite and durability once per landing batch of 1-4 steps, not per step, which would be about 60 machine-hours. Steps that change persisted meaning always land alone.
-2. **One serial baseline overnight,** and one at the end. At today's test seconds it's roughly 5-8 hours of your desktop.
-
-When its step comes (recommendations and evidence in §2.13):
-
-3. **Oldest supported tag (D1).** I recommend the tag every live vault holds at that point, expected mvp-0.55, with the chain kept at a git tag. It needs your read-only script's output for your live and retired vaults.
-4. **TUI (C7):** decided, owner, Nov 9: it becomes a true alternative frontend with parity, rebuilt from the ground up as a feature stage after the refactor. The refactor moves only its dependency (C7a) and doesn't reroute code that the rebuild replaces.
-5. **Collections (C7):** keep them. The build runs on one, so nothing replaces them. The UX stage can hide the word.
-6. **`projects/` (C7):** decided, owner, Nov 9: keep it. It's not removed in the refactor, and it'll grow later as a subset of goals.
-7. **31 CLI commands and `experiments/` (C7):** say which report tools you still use, and whether E1 is finished.
-8. **Kill switches at or below the oldest tag (D7):** remove them, except any your vaults set.
-9. **Router speed target (F2):** keep "Next right after feedback no worse than mvp-0.49", remeasured after IH's prefetch.
-10. **The router as the only probe decider (G2):** owner confirmed the direction, Nov 9. An independent Fable review (§2.10, G2) kept it but changed two specifics, which the owner accepted, Nov 9: the post-miss probe stays at the post-feedback Next, and the router prices hypothesis discrimination first, accepting a longer simulation. The learner's narrowing enters by reweighting, never by removing (G2).
-11. **AD into surprise (H2-H3):** this crosses firewall limits A2 and A12, so it needs your amendment after you've read the four-way replay.
-12. **The table list (J1):** review it. No table is dropped without your answer.
-13. **AD eta's unbounded growth:** I recommend a saturating form as its own successor after E5, not inside the refactor.
-
-Settled since the map: RE2 is a firm step (owner, Nov 9) and RE0 lands before step 1. Not settled: RE1's placement (§2.1).
-
-**Cost.** Roughly the size of RO0-RO6, TE2-TE3 and phone V1-V4 together: 66 implementer runs, one Codex review per arc rather than per step (owner, Nov 9), and about 20 full-suite landings, or about 3.5-6 weeks of queue if usage allows (revised from 5-8; uncalibrated). Arc D is the first committed goal (owner, Nov 9: "the biggest stepping stone"); the rest is decided there. This is an estimate, not a measurement (§2.15).
-
-**Where to stop if you need to.** After arc A (4% of the cost; every later change is cheaper). After B4 (10%; your four cases are answerable). After arc C (27%; dead code gone). After arc D (47%; history gone, tests on the real path). §2.14 lists them all.
+§2.14 gives stopping points and links to the landed records. §2.15 explains how to track the remaining cost.
 
 ## How this document is laid out
 
@@ -480,7 +430,7 @@ Nothing here changes a value at a fixed draw count without the playbook. More dr
 
 ### 2.10 Arc G: one decider, one record of each fact, one belief, one protection
 
-Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `failure_triage`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.) `diagnosis/failure_triage.py`'s functions have no caller in `src` or `apps`, but the parameter registry imports the module by string to resolve three constants (`params/parameter_registry.py:127`), at sidecar vault open among other places, and five `Repository` methods carry its name, three of them live (K9 map §6.2, correcting the audit's §2.3). L3's list puts it to the owner; deleting it removes its registry entries in the same commit, and until then it stays on this list.
+Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever moves: prediction bundles written before the answer (`causal_probe_coherence.py:999`, migration 121's `generated_without_observation`), the pin of ids (`causal_orchestrator.py:2186`), the locked set before the answer (`:836`), the posterior at selection in `probe_presentations`, and the discriminating observations as inputs to `scoreboard`, `causal_health`, `evsi_calibration/live_report`, `causal_factor_deferral`, `router_objective/picks`, `ops/capture_report`, `hypothesis_marks`. Old rows stay readable. (`instructional/valuation` reads the episode posterior, not these.) K9.15 removed `diagnosis/failure_triage.py`, its parameter registry entries and two repository methods. The historical tables and their remaining readers still serve stored rows. [K9.15 record](../reviews/refactor-k9.15.md).
 
 **G1. Facts, not a second decider** (M) `[IH]`.
 - **Problem:** B6; §4.4. `decide_probe` mixes facts (gain, chance of changing the repair, burden, classes) with a verdict. FG1 calls it with zeros for a log field (`followup_run/router.py:111`), which reads like information and isn't (S14).
@@ -596,34 +546,131 @@ Nov 3 items 1-4; Appendix B holds the table. These guarantees stay whatever move
 
 ### 2.14 Stopping points
 
-| After | Cumulative cost | What's true if you stop here |
-|---|---|---|
-| A4 | 4% | Every later change costs far less: defaults, tables and speed work no longer touch dozens of files. Privacy note correct. |
-| B4 | 10% | Your four real cases answer from `learnloop why` going forward. Failures leave records. |
-| B9 | 17% | One entry point, with the inventory's gaps covered or written down. |
-| C7 and J1 | 27% | Proven-dead code gone. You hold the table list. |
-| D7 | 47% | Old tags gone, one upgrade table, tests on the served path, about 80% of the shrink done. **The natural place to stop if usage runs short.** |
-| E9 | 63% | Objective, mixing, sensor and action changes are local. |
-| F and I | 74% | Next faster where it can be; retrievability one function; grading and queue cores testable alone. |
-| G6 | 83% | One probe decider; protection one authority per question (K1). |
-| H6 | 92% | Scalar retired, reported first. |
-| J, Z | 100% | Tables reviewed and dropped as approved; paper; final measures; old specs archived once the docs rewrite is done (Z3). |
-| K (beside the arcs, §2.17) | +10-15% | The modules the Nov 8 map didn't read are mapped and given steps; compared identities are pinned; ingestion has a structure strategy. |
-| M0, L, K8, K9 (beside the arcs, §2.18) | +12-18% | Structure numbers can't slip back; the import cycle's largest piece is 36 modules or fewer; the floor moves by rule; the sidecar handlers and diagnosis are mapped. |
+Use the [refactor status table](../reviews/refactor-status.md) for dependencies and owner calls across all 194 entries. The remaining stopping points describe what each landing buys.
 
-**Measured, not planned (audit §1).** After arcs A-C and K0-K3, at `e9a7733612` against S0: code lines down 1.0% (441,708 to 437,129), raw lines down 1.5%, functions over 200 lines unchanged at 83. Most of the shrink is arc D's. Each stopping point's landing note states the measured shrink beside the planned one.
+| After | What is usable at that point |
+|---|---|
+| Arc D closes | The history cuts and rebuild fix are in place. Tests run on the served path. |
+| E7 | The chooser, actions and objective can change locally. Model context builders can read the shared evidence view. |
+| Arc G | The router decides when to probe. Protection questions each have one authority. G3 may settle the belief question without a behaviour change. |
+| Arc H | The difficulty replay and the owner's decision set the scope of the scalar changes. Keep an agreed stopping point before changing readers and writers. |
+| Z2, then Z3 | The close reports the measured gains. The spec archive follows the documentation rewrite. |
 
-Each arc's steps also land one at a time, so an interruption mid-arc leaves a working system, with the exception noted at H.
+<details>
+<summary>Landed steps and their records</summary>
+
+- S0 · [refactor-baseline.md](../reviews/refactor-baseline.md)
+- A1 · [refactor-a1.md](../reviews/refactor-a1.md)
+- A2 · [refactor-a2.md](../reviews/refactor-a2.md)
+- A3 · [refactor-a3.md](../reviews/refactor-a3.md)
+- A4 · [refactor-a4.md](../reviews/refactor-a4.md)
+- A5 · [refactor-a5.md](../reviews/refactor-a5.md)
+- A6 · [refactor-a6.md](../reviews/refactor-a6.md)
+- B1 · [refactor-b1.md](../reviews/refactor-b1.md)
+- B2 · [refactor-b2.md](../reviews/refactor-b2.md)
+- B3 · [refactor-b3.md](../reviews/refactor-b3.md)
+- B4 · [refactor-b4.md](../reviews/refactor-b4.md)
+- B5 · [refactor-b5.md](../reviews/refactor-b5.md)
+- B6 · [refactor-b6.md](../reviews/refactor-b6.md)
+- B7 · [refactor-b7.md](../reviews/refactor-b7.md)
+- B8 · [refactor-b8.md](../reviews/refactor-b8.md)
+- B9 · [refactor-b9.md](../reviews/refactor-b9.md)
+- C1 · [refactor-c1.md](../reviews/refactor-c1.md)
+- C2 · [refactor-c2.md](../reviews/refactor-c2.md)
+- C3 · [refactor-c3.md](../reviews/refactor-c3.md)
+- C4 · [refactor-c4.md](../reviews/refactor-c4.md)
+- C5 · [refactor-c5.md](../reviews/refactor-c5.md)
+- C6 · [refactor-c6.md](../reviews/refactor-c6.md)
+- C7 · [refactor-c7a.md](../reviews/refactor-c7a.md)
+- C7a · [refactor-c7a.md](../reviews/refactor-c7a.md)
+- J1 · [refactor-j1.md](../reviews/refactor-j1.md)
+- D1 · [refactor-d1.md](../reviews/refactor-d1.md)
+- D2a · [refactor-d2a.md](../reviews/refactor-d2a.md)
+- D2b part 1 · [refactor-d2b.md](../reviews/refactor-d2b.md)
+- D2b part 2a · [refactor-d2b2.md](../reviews/refactor-d2b2.md)
+- D2b part 2b · [refactor-d2b3.md](../reviews/refactor-d2b3.md)
+- D2b part 2c · [refactor-d2b4.md](../reviews/refactor-d2b4.md)
+- D3 · [refactor-d3.md](../reviews/refactor-d3.md)
+- D4 · [refactor-d4.md](../reviews/refactor-d4.md)
+- D5 · [part 1](../reviews/refactor-d5.md), [part 2](../reviews/refactor-d5b.md)
+- D6 · [refactor-d6.md](../reviews/refactor-d6.md)
+- D7 · [refactor-d7e.md](../reviews/refactor-d7e.md)
+- D7 inventory · [refactor-d7-inventory.md](../reviews/refactor-d7-inventory.md)
+- D7.0 · [refactor-d7.0.md](../reviews/refactor-d7.0.md)
+- D7 batch 1 part 1 · [refactor-d7a.md](../reviews/refactor-d7a.md)
+- D7 batch 1 part 2 · [refactor-d7a.md](../reviews/refactor-d7a.md)
+- D7 batch 1 part 3 · [refactor-d7a.md](../reviews/refactor-d7a.md)
+- D7 batch 1 part 4 · [refactor-d7a.md](../reviews/refactor-d7a.md)
+- D7 batch 3 part 1 · [refactor-d7e.md](../reviews/refactor-d7e.md)
+- D7 batch 3 part 2 · [refactor-d7e.md](../reviews/refactor-d7e.md)
+- D close fix 1 · [refactor-adfix1.md](../reviews/refactor-adfix1.md)
+- D close fix 2 · [refactor-adfix2.md](../reviews/refactor-adfix2.md)
+- F1 · [refactor-f1.md](../reviews/refactor-f1.md)
+- RE2 · [refactor-re2.md](../reviews/refactor-re2.md)
+- I1 · [refactor-i1.md](../reviews/refactor-i1.md)
+- I2-1 · [refactor-i2.md](../reviews/refactor-i2.md)
+- K0 · [refactor-k0.md](../reviews/refactor-k0.md)
+- K1 · [refactor-k1.md](../reviews/refactor-k1.md)
+- K1 fixes · [refactor-k1-fixes.md](../reviews/refactor-k1-fixes.md)
+- K2 · [ingestion strategy](../reviews/k2-ingestion-strategy-2026-11-11.md)
+- K2.1 · [refactor-k2.1.md](../reviews/refactor-k2.1.md)
+- K2.2 · [refactor-k2.2.md](../reviews/refactor-k2.2.md)
+- K2.3 · [refactor-k2.3.md](../reviews/refactor-k2.3.md)
+- K2.4a · [refactor-k2.4a.md](../reviews/refactor-k2.4a.md)
+- K2.4b · [refactor-k2.4b.md](../reviews/refactor-k2.4b.md)
+- K2.4c part A · [refactor-k2.4c.md](../reviews/refactor-k2.4c.md)
+- K2.5 · [refactor-k2.5.md](../reviews/refactor-k2.5.md)
+- K3 · [refactor-k3.md](../reviews/refactor-k3.md), [final fix](../reviews/refactor-k3.5.md)
+- K3.1 · [refactor-k3.md](../reviews/refactor-k3.md)
+- K3.2 · [refactor-k3.md](../reviews/refactor-k3.md)
+- K3.3 · [refactor-k3.md](../reviews/refactor-k3.md)
+- K3.4 · [refactor-k3.4.md](../reviews/refactor-k3.4.md)
+- K3.5 · [refactor-k3.5.md](../reviews/refactor-k3.5.md)
+- K9 · [diagnosis strategy](../reviews/k9-diagnosis-strategy-2026-11-14.md)
+- K9.0 · [refactor-k9.0.md](../reviews/refactor-k9.0.md)
+- K9.0b · [refactor-k9.0b.md](../reviews/refactor-k9.0b.md)
+- K9.1 · [refactor-adfix2.md](../reviews/refactor-adfix2.md)
+- K9.2 · [refactor-adfix2.md](../reviews/refactor-adfix2.md)
+- K9.3 · [refactor-adfix2.md](../reviews/refactor-adfix2.md)
+- K9.5 · [part 1](../reviews/refactor-k9.5a.md), [part 2](../reviews/refactor-k9.5b.md)
+- K9.5 part 1 · [refactor-k9.5a.md](../reviews/refactor-k9.5a.md)
+- K9.5 part 2 · [refactor-k9.5b.md](../reviews/refactor-k9.5b.md)
+- K9.6 · [refactor-k9.6.md](../reviews/refactor-k9.6.md)
+- K9.7 · [refactor-k9.7.md](../reviews/refactor-k9.7.md)
+- K9.8 · [refactor-k9.8.md](../reviews/refactor-k9.8.md)
+- K9.9 · [refactor-k9.9.md](../reviews/refactor-k9.9.md)
+- K9.10 · [refactor-k9.10.md](../reviews/refactor-k9.10.md)
+- K9.11 · [refactor-k9.11.md](../reviews/refactor-k9.11.md)
+- K9.12 · [refactor-k9.12.md](../reviews/refactor-k9.12.md)
+- K9.14 · [Diagnosis and Remediation](../learnloop-architecture-vault/Concepts/Diagnosis%20and%20Remediation.md)
+- K9.15 · [refactor-k9.15.md](../reviews/refactor-k9.15.md)
+- K9.16 · [refactor-k9.16.md](../reviews/refactor-k9.16.md)
+- K10 · [figures strategy](../reviews/k10-figures-strategy-2026-11-14.md)
+- K10.1 · [refactor-k10-bugs.md](../reviews/refactor-k10-bugs.md)
+- K10.2 · [refactor-k10-bugs.md](../reviews/refactor-k10-bugs.md)
+- K10.3 · [refactor-k10-bugs.md](../reviews/refactor-k10-bugs.md)
+- K10.4 · [refactor-k10.4.md](../reviews/refactor-k10.4.md)
+- K10.5 · [refactor-k10.5-6.md](../reviews/refactor-k10.5-6.md)
+- K10.6 · [refactor-k10.5-6.md](../reviews/refactor-k10.5-6.md)
+- K10.7 · [refactor-k10.7-8.md](../reviews/refactor-k10.7-8.md)
+- K10.8 · [refactor-k10.7-8.md](../reviews/refactor-k10.7-8.md)
+- M0 · [refactor-m0.md](../reviews/refactor-m0.md)
+- L1a · [refactor-l1a.md](../reviews/refactor-l1a.md)
+- L1b · [refactor-l1b.md](../reviews/refactor-l1b.md)
+- L2a · [refactor-l2a.md](../reviews/refactor-l2a.md)
+- L2b · [refactor-l2b.md](../reviews/refactor-l2b.md)
+- L7 · [refactor-d1.md](../reviews/refactor-d1.md)
+- T1 · [refactor-t1.md](../reviews/refactor-t1.md)
+- T3 · [refactor-t3.md](../reviews/refactor-t3.md)
+- Phase 1 review · [refactor-phase-1-review.md](../reviews/refactor-phase-1-review.md)
+
+</details>
 
 ### 2.15 Cost
 
-| | Count | Rough size each | Total |
-|---|---|---|---:|
-| Small steps | 10 | 0.2-0.4M tokens | about 3M |
-| Medium | 32 | 0.5-1M | about 24M |
-| Large | 21 | 1.5-3M | about 46M |
+The [refactor status table](../reviews/refactor-status.md) tracks 194 entries. Some are reviews, rules or conditional work. Several steps can share a gate. Steps that change persisted meaning land alone.
 
-About **45-90M Opus tokens including re-read context** (revised, owner, Nov 9: Codex reviews per arc, about 11 on the subscription, not per step, so most of the roughly 30 review-driven fix rounds go; each arc's review can still cost one, and so can a gate failure), and about 20 landing gates (about 1 h each, shrinking as the suite does) plus two serial baselines. **I have no per-stage usage figure to calibrate against,** so treat the token numbers as an order of magnitude. Calendar: main took 1-3 stages a day on recent days, so about 3.5-6 weeks of queue time with reviews per arc (revised from 5-8; an estimate). D2 and D5 carry the most uncertainty: the D2 sample is small, and D5's hidden old-row readers could add fix rounds. By share: S0 and A 4%, B 13%, C and J1 10%, D 20%, E 16%, F 5%, I 6%, G 9%, H 9%, J2-4 and Z 4%.
+Count implementer tokens and gates in each landing record. Use the removal recorded there to decide whether another batch pays under the stop rule in §2.20. The [Nov 16 audit](../reviews/refactor-strategy-v3-audit-2026-11-16.md#22-no-economy-measure-for-the-refactor) has the cost evidence for that rule.
 
 ### 2.16 What builds on this
 
@@ -870,7 +917,9 @@ The second audit is `docs/reviews/refactor-strategy-v3-audit-2026-11-16.md`. Its
 
 **The EVSI shadow goes** ("You can also get rid of the EVSI shadow calib. I think the original intention was for it to follow the Adaptive Elicitation paper [arXiv 2504.04204]. I do think the target set and prediction snapshot (outcome distributions tied to an evidence cutoff, target set, model version, likelihood provenance) could still be useful. It would be nice to explore as a research direction but I don't think its that functional in its current state or doing anything from the paper."). This is K9's Q4: K9.16 runs, without waiting for G2. The removal is the EVSI-2 shadow selection, its readiness report and its panel, and nothing wider. The offline calibration harness in `evsi_calibration/` stays (owner, later the same day: "Keep EVSI scoepe 2 please since we can later transform it into an offline policy discovery harness"); the forecast log (`voi_forecasts`) stays too unless the owner says otherwise; every live decision, VOI stopping included, stays as it is. The idea the owner wants kept, a prediction recorded with its evidence cutoff, target set, model version and likelihood provenance, is the forecast-side twin of `as_recorded` in `spec_evidence_packets_v1.md` §7.3 and is noted there as a later direction, not a step.
 
-Still open from the same audit: whether D7 ends at batch 3 and what happens to its last group (`plan.enabled`, `router.enabled`, `router.restraint`); the rebuild fix's deltas; each spec's own questions.
+**Batch stop rule (owner, Nov 17).** Each step's record states who implemented it, the implementer's token use and the gate count beside what the step removed. A batch step stops when its last part cost more than twice its first part per line or config leaf removed. Put what remains on the step's list with the reason it stays.
+
+**Applied now (owner, Nov 17).** D7 ended with batch 3. Its last group of switches stays (`plan.enabled`, `router.enabled` and `router.restraint`).
 
 
 ## 3. The decision record

@@ -418,6 +418,13 @@ CLOCK_ATTRS = {("datetime", "now"), ("datetime", "utcnow"), ("date", "today"), (
 CLOCK_MODULE = "learnloop.clock"
 SERVING_ROOTS = ("learnloop_sidecar", "learnloop_mobile", "learnloop_mcp")
 TERMINAL_ROOTS = ("learnloop.cli", "learnloop.tui")
+FILE_LINE_CEILINGS = (
+    "src/learnloop/daily_plan/engine.py",
+    "src/learnloop/attempts/attempts.py",
+    "src/learnloop/db/repositories.py",
+    "src/learnloop/scheduling/scheduler.py",
+    "src/learnloop_sidecar/handlers/reader.py",
+)
 
 
 def module_name(path: Path) -> str:
@@ -612,7 +619,7 @@ def sweep_files(src_files: list[Path], parallel: bool = True) -> dict[Path, dict
 
 
 def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
-    """The structure measures (M0), from ``sweep_files``' records."""
+    """The structure measures, from ``sweep_files``' records."""
 
     file_facts = {p: r["facts"] for p, r in records.items()}
     names = {module_name(p): p for p in src_files}
@@ -659,6 +666,15 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
     set_keys = sum(1 for line in golden_lines if line and not line.startswith("#"))
     null_keys = sum(1 for line in golden_lines if line.startswith("# ") and line.endswith(" = null"))
 
+    # The audit's JSON diff includes the CLI snapshot and golden fixtures outside tests/goldens.
+    golden_json_lines = sum(
+        len(read(path).splitlines())
+        for path in tracked("tests", suffix=".json")
+        if path.is_relative_to(ROOT / "tests/goldens")
+        or path.name.endswith("_golden.json")
+        or rel(path) == "tests/cli_surface.json"
+    )
+
     return {
         "import_component": {
             "modules": len(largest), "lines": sum(lines[m] for m in largest), "members": largest,
@@ -680,6 +696,8 @@ def structure(src_files: list[Path], records: dict[Path, dict]) -> dict:
             "regex": STAGE_COMMENT.pattern,
         },
         "stage_test_files": {"count": len(stage_tests), "names": stage_tests, "regex": STAGE_TEST_NAME.pattern},
+        "file_lines": {path: file_facts.get(ROOT / path, {}).get("raw", 0) for path in FILE_LINE_CEILINGS},
+        "golden_json_lines": golden_json_lines,
         "wall_clock_reads_outside_clock_py": {
             "datetime_now": clock["datetime.now"], "datetime_utcnow": clock["datetime.utcnow"],
             "date_today": clock["date.today"], "time_time": clock["time.time"],
