@@ -29,7 +29,6 @@ from learnloop.attempts.blind_grading import (
     validate_blind_grading_proposal,
 )
 from learnloop.attempts.grading import GradingValidationError
-from learnloop.outcome_contract import unassessed_evidence_row
 from learnloop.vault.models import Rubric
 
 from tests.diagnosis_fakes import ReviewFakeClient
@@ -295,7 +294,12 @@ def test_reporting_only_a_zero_weight_criterion_cannot_award_the_omitted_points(
 
 
 @pytest.mark.parametrize("empty", [True, False], ids=["empty", "partial"])
-def test_ordinary_grade_requires_assessed_evidence(seeded, empty):
+def test_ordinary_grade_requires_every_criterion(seeded, empty):
+    """The answer is wrong, so the full grade is 0/2 on ``result``. A grade that
+    reports 2/2 on ``setup`` and leaves ``result`` out is refused like an empty
+    one: scoring it over the criteria present made it 4/4, a full mark decided
+    by what the grader left out."""
+
     vault, repository = seeded
     item_id = "pi_svd_compute_001"
 
@@ -306,16 +310,8 @@ def test_ordinary_grade_requires_assessed_evidence(seeded, empty):
             return proposal.model_copy(update={"criterion_evidence": rows, "error_attributions": []})
 
     before = repository.practice_item_state(item_id)
-    if empty:
-        with pytest.raises(AttemptValidationError, match="criterion evidence"):
-            submit(vault, repository, SparseGrader(), pipeline=False)
-        assert repository.practice_item_state(item_id) == before
-    else:
-        result = submit(vault, repository, SparseGrader(), pipeline=False)
-        assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 4
-        record = repository.latest_blind_grade_record(result.attempt_id)["record"]
-        assert record["rubric_score"] == 4
-        assert [row["criterion_id"] for row in record["criteria"]] == ["setup"]
-        assert record["grading_support"]["unverified_criterion_ids"] == ["result"]
-        rows = repository.fetch_grading_evidence(result.attempt_id)
-        assert {row.criterion_id for row in rows if unassessed_evidence_row(row.attribution_json)} == {"result"}
+    attempts = len(repository.list_all_attempts())
+    with pytest.raises(AttemptValidationError, match="criterion evidence"):
+        submit(vault, repository, SparseGrader(), pipeline=False)
+    assert repository.practice_item_state(item_id) == before
+    assert len(repository.list_all_attempts()) == attempts

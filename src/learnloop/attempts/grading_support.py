@@ -42,10 +42,11 @@ answer.
   reads as divergent (``route_check.divergent_route``) these are unverified,
   so unassessed (P1: marked down only on a located error): a mark-down with
   no verbatim quote in the learner's words (the answer, or the learner's
-  clarification reply), an omitted criterion, and a mark-down the grader
-  itself declared it could not verify. With nothing then assessed and
-  nothing validated the answer (no verified final answer), the grade is held
-  for review (``outcome_contract.grade_is_held``). A conclusion that
+  clarification reply), and a mark-down the grader itself declared it could
+  not verify. A grade that leaves a criterion out is refused at validation.
+  With nothing then assessed, criteria worth no points aside, and nothing
+  validated the answer (no verified final answer), the grade is held for
+  review (``outcome_contract.grade_is_held``). A conclusion that
   ``differs_from_reference`` is never unassessed, and fatal errors keep their
   mark-downs. Each ruled grade's route verdict is appended to
   ``judgment_ledger`` (task ``own_route_rule``; a regrade supersedes it, as
@@ -438,6 +439,21 @@ class GateOutcome:
     assessed_shortfall: bool = True
 
 
+def weightless_remainder(maxima: Mapping[str, float], unverified: set[str] | frozenset[str]) -> set[str]:
+    """The criteria left assessed when none of them is worth points, else none.
+
+    A grade over the assessed criteria divides by their points. Criteria worth
+    nothing give it no denominator: kept assessed, an answer whose every
+    criterion with points was unverified would score as if it had earned
+    them, and would not be held because something was "assessed". So they join
+    the unverified criteria and the grade is what nothing assessed makes it:
+    held when nothing validated the answer, PF-c's verified answer otherwise.
+    """
+
+    rest = {cid for cid in maxima if cid not in unverified}
+    return rest if all(maxima[cid] <= 0 for cid in rest) else set()
+
+
 def apply_valid_alternative_gate(
     proposal: BlindGradingProposal,
     *,
@@ -456,7 +472,8 @@ def apply_valid_alternative_gate(
     to ``grader_interpretation`` and ``manual_review_recommended`` is set (a
     non-blocking log). The proposal's points are left as the grader awarded
     them; the attempt step treats an unverified criterion as unassessed (no
-    credit, no failure, out of the grade).
+    credit, no failure, out of the grade). When only criteria worth no points
+    would stay assessed they are unverified too (:func:`weightless_remainder`).
 
     ``method_criterion_ids`` (the method-explicit successor) are the item's
     required-method criteria on a route the grader reads as divergent: the
@@ -479,6 +496,7 @@ def apply_valid_alternative_gate(
     unverified.update(str(cid) for cid in declared_unverified if str(cid) in below)
     if not unverified:
         return GateOutcome(proposal)
+    unverified |= weightless_remainder(maxima, unverified)
     attributions = []
     attribution_in_force = False
     for attribution in proposal.error_attributions:
@@ -533,13 +551,15 @@ def _located_in_force(attribution: BlindErrorAttribution, texts: Sequence[str]) 
 #: Why the rule left a criterion unassessed (its evidence row's note).
 _UNLOCATED_NOTE = "Not assessed: no error was located in your own route here."
 _DECLARED_NOTE = "Not assessed: the grader could not verify this step of your own route."
+_WEIGHTLESS_NOTE = "Not assessed: worth no points, and no criterion worth points was assessed."
 
 
 @dataclass(frozen=True)
 class RouteRuleOutcome:
     proposal: BlindGradingProposal
     #: Marked down on a divergent route with no verbatim quote in the
-    #: learner's words (an omitted criterion scores 0, so it counts: review F1).
+    #: learner's words (an omitted criterion counts, though validation then
+    #: refuses the grade: an ordinary grade reports every criterion).
     unlocated: tuple[str, ...] = ()
     #: Marked down on a divergent route although the grader itself declared
     #: it could not verify the criterion (``unverified_criterion_ids``,
@@ -548,6 +568,9 @@ class RouteRuleOutcome:
     declared: tuple[str, ...] = ()
     #: Every unverified criterion after PF-c's gate and this rule.
     unverified: tuple[str, ...] = ()
+    #: Criteria worth no points that were the only ones left assessed
+    #: (:func:`weightless_remainder`): unverified with the rest.
+    weightless: tuple[str, ...] = ()
     #: Marked-down criteria that stay assessed only because a quote occurs in
     #: the learner's clarification reply (review F3), not in the answer.
     clarification_located: tuple[str, ...] = ()
@@ -589,9 +612,9 @@ def apply_route_rule(
       the learner's words (**unlocated**). The learner's words are the answer
       and, on a clarification regrade, the learner's reply
       (``clarification_answer_md``, review F3; never the machine's question).
-      A fabricated quote locates nothing. A criterion the grader omitted
-      scores 0 in validation (the grade is the sum of the rows present), so
-      it is below full points like any other mark-down (review F1); or
+      A fabricated quote locates nothing. A criterion the grader omitted is
+      unlocated too, though validation refuses such a grade (an ordinary
+      grade reports every criterion), so nothing of it is stored; or
     * the grader itself declared it could not verify it
       (``declared_unverified``, the grader's ``unverified_criterion_ids``,
       review F2), quote or not (**declared**). PF-c reads that declaration
@@ -600,7 +623,8 @@ def apply_route_rule(
 
     When nothing is then assessed and the final answer was not verified, the
     grade is **held for review**: the grader's own score, provisional
-    (``outcome_contract.grade_is_held``).
+    (``outcome_contract.grade_is_held``). Criteria worth no points left
+    assessed alone are nothing assessed (:func:`weightless_remainder`).
 
     Once the rule unassesses a mark-down, attributions on unverified criteria
     and attributions that name no criterion and locate nothing are the
@@ -644,6 +668,10 @@ def apply_route_rule(
         and cid not in previously and cid not in declared_ids
     ]
     unverified = previously | set(unlocated) | set(declared)
+    weightless = tuple(cid for cid in maxima if cid in weightless_remainder(maxima, unverified)) if (
+        unlocated or declared
+    ) else ()
+    unverified |= set(weightless)
     method_route = tuple(
         cid for cid in maxima if cid in method_ids and cid in below and cid not in located and cid not in unverified
     )
@@ -660,8 +688,12 @@ def apply_route_rule(
     held = not (set(maxima) - unverified) and final_answer_status != MATCHES_REFERENCE
     evidence = []
     for row in proposal.criterion_evidence:
-        if row.criterion_id in unlocated or row.criterion_id in declared:
-            note = _DECLARED_NOTE if row.criterion_id in declared else _UNLOCATED_NOTE
+        if row.criterion_id in unlocated or row.criterion_id in declared or row.criterion_id in weightless:
+            note = (
+                _DECLARED_NOTE if row.criterion_id in declared
+                else _UNLOCATED_NOTE if row.criterion_id in unlocated
+                else _WEIGHTLESS_NOTE
+            )
             if held:
                 note += " Held for review."
             row = row.model_copy(update={"notes": note})
@@ -689,6 +721,7 @@ def apply_route_rule(
         unlocated=tuple(unlocated),
         declared=tuple(declared),
         unverified=tuple(sorted(unverified)),
+        weightless=weightless,
         clarification_located=from_reply,
         method_route=method_route,
         held_for_review=held,
@@ -1167,11 +1200,6 @@ def request_blind_grading_run(
                     assessed_shortfall=rule.assessed_shortfall,
                 )
                 support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
-    reported = {row.criterion_id for row in proposal.criterion_evidence}
-    omitted = {criterion.id for criterion in rubric.criteria} - reported
-    if omitted:
-        support["unverified_criterion_ids"] = sorted(omitted.union(support.get("unverified_criterion_ids", ())))
-        support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
     return BlindGradingRun(
         proposal=proposal,
         prompt_version=blind_prompt_version(context),
@@ -1227,4 +1255,5 @@ __all__ = [
     "route_rules_suffix",
     "route_rules_text",
     "sample_fingerprint",
+    "weightless_remainder",
 ]

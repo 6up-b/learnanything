@@ -361,7 +361,7 @@ def regrade_attempt(
             list(validated.fatal_errors),
         )
     else:
-        criterion_evidence = validated.evidence_for_storage()
+        criterion_evidence = list(validated.criterion_evidence)
         new_score = validated.rubric_score
         if unverified:
             new_score = assessed_rubric_score(

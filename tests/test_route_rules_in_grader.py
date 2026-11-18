@@ -597,28 +597,16 @@ def test_f1_an_omitted_criterion_is_unlocated_and_with_nothing_assessed_holds():
 
 
 @pytest.mark.parametrize("grader", [OmittingGrader, EmptyGrader], ids=["missing_row", "empty_output"])
-def test_f1_live_an_incomplete_grade_with_nothing_located_is_held(tmp_path, grader):
+def test_f1_live_an_incomplete_grade_is_refused(tmp_path, grader):
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
-    if grader is EmptyGrader:
-        with pytest.raises(AttemptValidationError, match="criterion evidence"):
-            submit(vault, repository, grader(), answer=ALTERNATIVE)
-        assert _schedule(repository) == before
-        return
-    held = submit(vault, repository, grader(), answer=ALTERNATIVE + " (again)",
-                  when=CLOCK.now() + timedelta(days=3))
-    attempt = repository.fetch_practice_attempt(held.attempt_id)
-    rule = _support(repository, held.attempt_id)["proof_route_check"]
-    assert rule["held_for_review"] is True
-    assert sorted(rule["unlocated_criterion_ids"]) == ["result", "setup"]
-    assert attempt["manual_review_reason"] == HELD_REVIEW_REASON
-    assert attempt["rubric_score"] == 0
-    # No FSRS failure on a grade nothing validated.
+    attempts = len(repository.list_all_attempts())
+    with pytest.raises(AttemptValidationError, match="criterion evidence"):
+        submit(vault, repository, grader(), answer=ALTERNATIVE + " (again)",
+               when=CLOCK.now() + timedelta(days=3))
     assert _schedule(repository) == before
-    assert diagnosis_status(repository, held.attempt_id)["status"] == "not_needed"
-    rebuild_all_derived_state(vault, repository, clock=CLOCK)
-    assert _schedule(repository) == before
+    assert len(repository.list_all_attempts()) == attempts
 
 
 def test_f1_live_an_incomplete_regrade_keeps_an_existing_hold(tmp_path):
@@ -631,16 +619,122 @@ def test_f1_live_an_incomplete_regrade_keeps_an_existing_hold(tmp_path):
         kwargs = dict(runtime=ReadyRuntime(), client=grader, grading_source="ai",
                       clock=FrozenClock(CLOCK.now() + timedelta(days=4 + index)))
         attempt = repository.fetch_practice_attempt(held.attempt_id)
-        if isinstance(grader, EmptyGrader):
-            with pytest.raises(GradingValidationError, match="criterion evidence"):
-                regrade_attempt(vault, repository, attempt, **kwargs)
-        else:
+        evidence = repository.fetch_grading_evidence(held.attempt_id, include_superseded=True)
+        with pytest.raises(GradingValidationError, match="criterion evidence"):
             regrade_attempt(vault, repository, attempt, **kwargs)
+        assert repository.fetch_grading_evidence(held.attempt_id, include_superseded=True) == evidence
         rule = _support(repository, held.attempt_id)["proof_route_check"]
         assert rule["held_for_review"] is True, type(grader).__name__
         attempt = repository.fetch_practice_attempt(held.attempt_id)
         assert attempt["manual_review_reason"] == HELD_REVIEW_REASON
         assert _schedule(repository) == before
+
+
+# -- a criterion worth no points (adversarial review of arc E, finding 1) ---------------------
+
+#: The review's rubric: ``form`` is worth nothing beside ``setup`` and ``result``.
+WEIGHTLESS_RUBRIC = Rubric.model_validate({
+    "id": "r", "max_points": 4,
+    "criteria": [{"id": "form", "description": "Writes it up", "points": 0},
+                 {"id": "setup", "description": "Sets up", "points": 2},
+                 {"id": "result", "description": "Concludes", "points": 2}],
+})
+
+
+def _weightless_vault(tmp_path):
+    """The split vault with ``form`` (0 points) added to ``ITEM``'s rubric."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths, _vault, repository = split_vault(tmp_path, version=VERSION, seed=False)
+    path = paths.practice_item_path("linear-algebra", ITEM)
+    item = read_yaml(path)
+    criteria = item["grading_rubric"]["criteria"]
+    criteria.insert(0, {**criteria[0], "id": "form", "points": 0, "description": "form is right."})
+    write_yaml(path, item)
+    return load_vault(paths.root), repository
+
+
+class WeightlessOmittingGrader(DivergentUnlocatedGrader):
+    """0 for ``form`` and ``setup`` on a divergent route, ``result`` left out."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [row for row in result.criterion_evidence if row.criterion_id != "result"]
+        return result.model_copy(update={"criterion_evidence": evidence, "rubric_score": 0})
+
+
+class WeightedFullCreditGrader(DivergentGrader):
+    """Every criterion at its own maximum on a divergent route."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        maxima = {criterion["id"]: float(criterion["points"]) for criterion in context["rubric"]["criteria"]}
+        evidence = [row.model_copy(update={"points_awarded": maxima[row.criterion_id]})
+                    for row in result.criterion_evidence]
+        return result.model_copy(update={"criterion_evidence": evidence, "rubric_score": 4, "error_attributions": []})
+
+
+def test_er1_a_grade_that_leaves_out_a_criterion_is_refused(tmp_path):
+    vault, repository = _weightless_vault(tmp_path)
+    before = repository.practice_item_state(ITEM)
+    with pytest.raises(AttemptValidationError, match="criterion evidence"):
+        submit(vault, repository, WeightlessOmittingGrader(), answer=ALTERNATIVE, when=SUBMITTED)
+    assert repository.list_all_attempts() == []
+    assert repository.practice_item_state(ITEM) == before
+
+
+@pytest.mark.parametrize("door", ["live", "regrade"])
+def test_er1_nothing_with_points_assessed_is_held_not_full_marks(tmp_path, door):
+    from learnloop.held_grades import attempt_grade_held
+
+    vault, repository = _weightless_vault(tmp_path)
+    if door == "live":
+        result = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=SUBMITTED)
+    else:
+        result = submit(vault, repository, WeightedFullCreditGrader(), answer=ALTERNATIVE, when=SUBMITTED)
+        assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 4
+        regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                        runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai", clock=CLOCK)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    support = _support(repository, result.attempt_id)
+    rule = support["proof_route_check"]
+    # ``setup`` and ``result`` were marked down with nothing located; the only
+    # criterion left assessed is worth nothing, so nothing was assessed.
+    assert rule["held_for_review"] is True
+    assert attempt["rubric_score"] == 0 and attempt_grade_held(repository, result.attempt_id)
+    rows = repository.fetch_grading_evidence(result.attempt_id)
+    marked = {row.criterion_id for row in rows if unassessed_evidence_row(row.attribution_json)}
+    # Only the rule's own unverified criteria are shown as not assessed.
+    assert marked == set(support["unverified_criterion_ids"]) == set(rule["unverified_criterion_ids"])
+    assert {row.criterion_id for row in rows} == {"form", "setup", "result"}
+
+
+def test_er1_the_rules_treat_a_weightless_remainder_as_nothing_assessed():
+    from learnloop.attempts.attempts import assessed_rubric_score
+    from learnloop.attempts.grading_support import apply_valid_alternative_gate
+
+    zeros = _proposal({"form": 0.0, "setup": 0.0, "result": 0.0})
+    rule = _rule(zeros, rubric=WEIGHTLESS_RUBRIC)
+    assert rule.unverified == ("form", "result", "setup") and rule.held_for_review is True
+    # A verified final answer: PF-c's nothing-assessed grade (correct for
+    # scheduling, no evidence), never an assessed zero-point criterion.
+    gate = apply_valid_alternative_gate(
+        zeros, rubric=WEIGHTLESS_RUBRIC, learner_answer_md=ANSWER,
+        policy={"final_answer_check": {"status": "matches_reference"}},
+    )
+    assert gate.unverified_criterion_ids == ("form", "result", "setup")
+    # A criterion with points still assessed keeps the zero-point one assessed.
+    kept = _rule(_proposal({"form": 0.0, "setup": 0.0, "result": 2.0}), rubric=WEIGHTLESS_RUBRIC)
+    assert kept.unverified == ("setup",) and kept.held_for_review is False
+    points = {"form": 0.0, "setup": 0.0, "result": 0.0}
+    # The score over the assessed criteria never divides by zero weight: with
+    # nothing validated it is the grader's own, with a verified answer PF-c's.
+    for unassessed in (("setup", "result"), ("form", "setup", "result")):
+        assert assessed_rubric_score(WEIGHTLESS_RUBRIC, points, [], unassessed_criterion_ids=unassessed,
+                                     answer_validated=False) == 0
+        assert assessed_rubric_score(WEIGHTLESS_RUBRIC, points, [], unassessed_criterion_ids=unassessed,
+                                     answer_validated=True) == 4
 
 
 def test_f2_a_criterion_the_grader_declares_unverified_is_unassessed_on_a_divergent_route():

@@ -1250,7 +1250,7 @@ def complete_codex_graded_attempt(
         # (§8). Persisting the traces here as repair suggestions would offer
         # a repair the diagnoser never chose.
         validated = replace(validated, repair_suggestions=[])
-    unverified = tuple(dict.fromkeys([*unverified_criterion_ids, *validated.omitted_criterion_ids]))
+    unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
     if unverified:
         # PF-c: the attempt's grade is over the assessed criteria only. With
         # nothing assessed and nothing validated (a hold: mvp-0.17's route
@@ -5547,7 +5547,7 @@ def resolved_codex_grade(
             "learner_confidence": evidence.learner_confidence,
             "created_at": now_iso,
         }
-        for evidence in validated.evidence_for_storage()
+        for evidence in validated.criterion_evidence
     ]
     return ResolvedGrade(
         rubric_score=validated.rubric_score,
@@ -5685,8 +5685,9 @@ def assessed_rubric_score(
     derived score, then the fatal-error caps apply as usual (the teach-back
     asked-criteria score is the same construction). With NO criterion
     assessed, the deterministic final-answer check has verified the answer, so
-    the fraction is 1: correct for scheduling (the attempt writes no facet
-    evidence; see ``grade_scope``).
+    the grade is full marks: correct for scheduling (the attempt writes no
+    facet evidence; see ``grade_scope``). Assessed criteria worth no points
+    are nothing assessed too: they carry no denominator to score over.
 
     ``answer_validated = False`` (mvp-0.17, re-review F9): nothing validated
     the answer (no verified final answer, no criterion an independent check
@@ -5700,17 +5701,20 @@ def assessed_rubric_score(
 
     unassessed = {str(value) for value in unassessed_criterion_ids}
     assessed = [criterion for criterion in rubric.criteria if criterion.id not in unassessed]
-    if len(assessed) == len(rubric.criteria) or (not assessed and not answer_validated):
+    if len(assessed) == len(rubric.criteria):
         return calculate_rubric_score(rubric, dict(criterion_points), list(fatal_errors))
-    assessed_max = sum(max(float(criterion.points), 0.0) for criterion in assessed)
-    fraction = 1.0
-    if assessed_max > 0:
+    weighted = [criterion for criterion in assessed if float(criterion.points) > 0]
+    if not weighted:
+        if not answer_validated:
+            return calculate_rubric_score(rubric, dict(criterion_points), list(fatal_errors))
+        score = int(rubric.max_points)
+    else:
         awarded = sum(
             min(max(float(criterion_points.get(criterion.id, 0.0)), 0.0), float(criterion.points))
-            for criterion in assessed
+            for criterion in weighted
         )
-        fraction = min(1.0, awarded / assessed_max)
-    score = max(0, min(int(rubric.max_points), int(round(fraction * float(rubric.max_points)))))
+        fraction = min(1.0, awarded / sum(float(criterion.points) for criterion in weighted))
+        score = max(0, min(int(rubric.max_points), int(round(fraction * float(rubric.max_points)))))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     for fatal_error_id in fatal_errors:
         score = min(score, fatal_by_id[fatal_error_id].max_grade)
