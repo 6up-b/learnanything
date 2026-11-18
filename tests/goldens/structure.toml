@@ -5,8 +5,8 @@
 
 
 [ratchet]
-largest_import_component = 151
-modules_in_an_import_cycle = 257
+largest_import_component = 84
+modules_in_an_import_cycle = 220
 first_level_packages = 46
 first_level_root_modules = 35
 first_level_root_modules_not_upgrade = 35
@@ -34,16 +34,12 @@ import_component = [
     "learnloop.attempts.attempts",
     "learnloop.attempts.blind_grading",
     "learnloop.attempts.clarification",
-    "learnloop.attempts.coldness_receipt",
     "learnloop.attempts.grading",
     "learnloop.attempts.grading_support",
     "learnloop.attempts.regrade",
-    "learnloop.attempts.reveal_ledger",
-    "learnloop.confidence_events",
     "learnloop.content.authoring.authoring_gates",
     "learnloop.content.authoring.persona_gate",
     "learnloop.content.authoring.practice_generation",
-    "learnloop.content.authoring.practice_leakage",
     "learnloop.content.facet_identity.actions",
     "learnloop.content.facet_identity.authority",
     "learnloop.content.facet_identity.span_support",
@@ -53,47 +49,25 @@ import_component = [
     "learnloop.content.proposals.patches",
     "learnloop.content.proposals.proposals",
     "learnloop.content.proposals.required_method_override",
-    "learnloop.diagnosis.calibration_sessions",
-    "learnloop.diagnosis.causal_activity_policy",
-    "learnloop.diagnosis.causal_attribution",
-    "learnloop.diagnosis.causal_cold_verification",
-    "learnloop.diagnosis.causal_discrimination",
-    "learnloop.diagnosis.causal_orchestrator",
-    "learnloop.diagnosis.causal_probe_coherence",
-    "learnloop.diagnosis.causal_reads",
     "learnloop.diagnosis.contrast_pairs",
-    "learnloop.diagnosis.diagnosis_adjudication",
     "learnloop.diagnosis.diagnostic_augmentation",
-    "learnloop.diagnosis.diagnostic_surface_supply",
     "learnloop.diagnosis.discrimination_profiles",
     "learnloop.diagnosis.error_hunt",
     "learnloop.diagnosis.error_taxonomy",
     "learnloop.diagnosis.followups",
-    "learnloop.diagnosis.forecast_receipts",
-    "learnloop.diagnosis.guided_redo",
-    "learnloop.diagnosis.machine_checks",
-    "learnloop.diagnosis.misconceptions",
-    "learnloop.diagnosis.missing_vocabulary",
     "learnloop.diagnosis.offline_review.decider_links",
     "learnloop.diagnosis.offline_review.judge",
     "learnloop.diagnosis.offline_review.planted",
     "learnloop.diagnosis.offline_review.probes",
     "learnloop.diagnosis.offline_review.runner",
     "learnloop.diagnosis.probe_blocks",
-    "learnloop.diagnosis.probe_completion",
-    "learnloop.diagnosis.probe_episodes",
     "learnloop.diagnosis.probe_evidence",
-    "learnloop.diagnosis.probe_hard_stops",
-    "learnloop.diagnosis.probe_instance_generation",
-    "learnloop.diagnosis.probe_presentations",
-    "learnloop.diagnosis.probe_targeting",
     "learnloop.diagnosis.recurrence.backlog",
     "learnloop.diagnosis.recurrence.escalation",
     "learnloop.diagnosis.recurrence.guard",
     "learnloop.diagnosis.recurrence.judging",
     "learnloop.diagnosis.recurrence.kind",
     "learnloop.diagnosis.recurrence.live",
-    "learnloop.diagnosis.remediation",
     "learnloop.diagnosis.repair_splice",
     "learnloop.diagnosis.scoreboard",
     "learnloop.diagnosis.split.context",
@@ -113,60 +87,19 @@ import_component = [
     "learnloop.diagnosis.text_gaps.judges",
     "learnloop.diagnosis.text_gaps.kinds",
     "learnloop.diagnosis.text_gaps.pipeline",
-    "learnloop.diagnosis.text_gaps.provenance",
     "learnloop.diagnosis.text_gaps.sources",
     "learnloop.diagnosis.text_gaps.tier1",
     "learnloop.field.outcomes",
-    "learnloop.goals.certification_cold_probe",
-    "learnloop.goals.exam_pool",
     "learnloop.goals.goal_lo",
     "learnloop.goals.goal_series",
-    "learnloop.hints.map_builder",
-    "learnloop.hints.map_seeds",
-    "learnloop.hints.maps",
-    "learnloop.intent.control",
-    "learnloop.learner.facet_evidence_timeline",
-    "learnloop.learner_protection",
-    "learnloop.params.sensitivity_certificates",
-    "learnloop.placement.decisions",
-    "learnloop.placement.signals",
-    "learnloop.placement.state",
-    "learnloop.reader.reader_dialogue",
-    "learnloop.reader.reader_observations",
-    "learnloop.reader.reader_progression",
-    "learnloop.reader.recap",
-    "learnloop.scheduling.frame_constraints",
-    "learnloop.scheduling.intent.feasibility",
-    "learnloop.scheduling.intent.recall_targets",
-    "learnloop.scheduling.intent.serving",
     "learnloop.scheduling.review_log",
-    "learnloop.scheduling.scheduler",
-    "learnloop.scheduling.serving_exclusions",
-    "learnloop.scheduling.shadow_components",
-    "learnloop.scheduling.staged_policy",
-    "learnloop.sim.runner",
-    "learnloop.sim.sweep",
-    "learnloop.source_retrieval.compare",
     "learnloop.source_retrieval.deliverable_path",
     "learnloop.source_retrieval.deliverables",
-    "learnloop.source_retrieval.find_sources",
-    "learnloop.source_retrieval.kept_comparisons",
-    "learnloop.source_retrieval.library_ask",
     "learnloop.source_retrieval.note_gaps",
     "learnloop.source_retrieval.note_links",
-    "learnloop.source_retrieval.reader_tutor",
-    "learnloop.source_retrieval.reading_paths",
-    "learnloop.source_retrieval.section_coverage",
-    "learnloop.source_retrieval.tutor",
-    "learnloop.source_retrieval.vault_notes",
-    "learnloop.substrate.canonical_projection",
     "learnloop.substrate.replay",
-    "learnloop.substrate.state_sync",
-    "learnloop.tutor.durable_promotion",
     "learnloop.tutor.promotions",
-    "learnloop.tutor.reader_modes",
     "learnloop.tutor.teach_back",
-    "learnloop.tutor.tutor_qa",
 ]
 root_modules = [
     "activation_journal",
@@ -598,15 +531,17 @@ stage_test_files = [
 "src/learnloop/daily_plan/view.py" = 2
 "src/learnloop/db/connection.py" = 6
 "src/learnloop/db/migrate.py" = 1
-"src/learnloop/db/repositories.py" = 9
+"src/learnloop/db/repositories.py" = 6
 "src/learnloop/db/stores/ad_serving.py" = 4
 "src/learnloop/db/stores/collection.py" = 1
 "src/learnloop/db/stores/help_assists.py" = 4
 "src/learnloop/db/stores/learner_gaps.py" = 1
+"src/learnloop/db/stores/reader.py" = 2
 "src/learnloop/db/stores/reading_requests.py" = 1
 "src/learnloop/db/stores/router.py" = 1
 "src/learnloop/db/stores/router_objective.py" = 1
 "src/learnloop/db/stores/session_ownership.py" = 1
+"src/learnloop/db/stores/source_documents.py" = 1
 "src/learnloop/db/stores/source_service.py" = 7
 "src/learnloop/db/stores/write_provenance.py" = 3
 "src/learnloop/db/table_roles.py" = 6
@@ -651,11 +586,12 @@ stage_test_files = [
 "src/learnloop/diagnosis/text_gaps/actions.py" = 2
 "src/learnloop/diagnosis/text_gaps/candidates.py" = 1
 "src/learnloop/diagnosis/text_gaps/contract.py" = 5
+"src/learnloop/diagnosis/text_gaps/figure_inputs.py" = 1
 "src/learnloop/diagnosis/text_gaps/jobs.py" = 12
 "src/learnloop/diagnosis/text_gaps/judges.py" = 2
 "src/learnloop/diagnosis/text_gaps/pipeline.py" = 14
 "src/learnloop/diagnosis/text_gaps/provenance.py" = 1
-"src/learnloop/diagnosis/text_gaps/sources.py" = 5
+"src/learnloop/diagnosis/text_gaps/sources.py" = 4
 "src/learnloop/diagnosis/text_gaps/tier1.py" = 2
 "src/learnloop/diagnosis/voi_forecasting.py" = 3
 "src/learnloop/diagnosis/voi_stopping.py" = 10

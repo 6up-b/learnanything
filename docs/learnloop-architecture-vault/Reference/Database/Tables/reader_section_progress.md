@@ -97,8 +97,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/engine.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/data_capture.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/figures/prefetch.py`
 - `src/learnloop/instructional/exposure.py`
@@ -106,7 +106,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 

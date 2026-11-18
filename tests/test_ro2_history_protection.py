@@ -183,10 +183,11 @@ def test_the_registry_restates_the_figure_source_grammar():
 
     from learnloop.adaptive_difficulty import material_view as MV
     from learnloop.adaptive_difficulty.protected_tables import GAP_SOURCES
+    from learnloop.diagnosis.text_gaps import figure_inputs as F
     from learnloop.diagnosis.text_gaps import sources as S
 
     assert (MV._FIGURE_PREDICTION_PREFIX, MV._FIGURE_EXPLANATION_SUFFIX) == (
-        S.FIGURE_PREDICTION_PREFIX, S.FIGURE_EXPLANATION_SUFFIX)
+        F.FIGURE_PREDICTION_PREFIX, F.FIGURE_EXPLANATION_SUFFIX)
     # Every source kind the gap pipeline reads is judged by the registry (a new one fails here first).
     import inspect
 

@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
-  - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
@@ -110,8 +110,8 @@ Database triggers:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/span_aliases.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
+- `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 - `src/learnloop/source_retrieval/evaluation.py`
@@ -119,7 +119,7 @@ Database triggers:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/experiments/contextual_embeddings/system_arms.py`
 
 ### Upstream callers of the repository access surface

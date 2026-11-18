@@ -18,7 +18,7 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/scheduling/constraint_engine.py"
   - "src/learnloop/scheduling/controller_store.py"
   - "src/learnloop/scheduling/open_world_gate.py"
@@ -103,12 +103,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

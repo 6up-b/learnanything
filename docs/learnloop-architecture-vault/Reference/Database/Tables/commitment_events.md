@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/daily_plan/measurement.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/goals.py"
   - "src/learnloop/db/stores/intent_reads.py"
-  - "src/learnloop/intent/checks.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -91,6 +91,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/intent/checks.py`
 - `src/learnloop/reader/reader_authoring.py`
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 
 ### Upstream callers of the repository access surface
 
@@ -107,6 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/goals.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/scheduling/scheduler.py`

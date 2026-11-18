@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/source_retrieval/role_labeller.py`
 - `src/learnloop/source_retrieval/vault_notes.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 

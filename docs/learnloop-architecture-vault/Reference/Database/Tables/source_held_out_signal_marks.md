@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/source_unit_inventory.py"
 tags:
@@ -92,7 +93,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/content/sources/exam_material.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Direct SQL writers
 

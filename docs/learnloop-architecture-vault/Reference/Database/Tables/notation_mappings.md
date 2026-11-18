@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/content/synthesis/ai_contracts.py"
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/conflict_resolution.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -93,11 +94,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 

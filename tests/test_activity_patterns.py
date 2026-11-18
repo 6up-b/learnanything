@@ -120,7 +120,7 @@ def test_learning_process_excluded_from_evidence_dto(repo):
 def test_no_projection_module_reads_learning_process():
     """Static ALLOWLIST guard (B7, U-035 / §3.5): the literal ``learning_process`` may
     appear ONLY in ``substrate/activity_patterns.py`` and the pattern-registration/read
-    methods of ``db/repositories.py``. ANY other occurrence anywhere under
+    methods of ``db/stores/activity.py``. ANY other occurrence anywhere under
     ``src/learnloop`` fails -- this is an allowlist, not the old filename-token denylist
     (which only inspected files whose NAME contained projection/evidence/scheduler and
     so missed, e.g., a mastery.py that read the routing-only field)."""
@@ -136,7 +136,7 @@ def test_no_projection_module_reads_learning_process():
             continue
         if rel in allow_files:
             continue
-        if rel == "db/repositories.py":
+        if rel == "db/stores/activity.py":
             # Confine occurrences to pattern-registration/read methods: track the
             # enclosing `def` and flag any learning_process line outside a `*pattern*`
             # method (so no projection/evidence method can smuggle the column in).

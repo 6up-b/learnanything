@@ -127,7 +127,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/cli/field_classification.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/workbench.py`
 - `src/learnloop/figures/prefetch.py`
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

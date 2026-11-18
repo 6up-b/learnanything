@@ -285,7 +285,7 @@ def test_r1_these_five_writers_are_the_only_inserts_into_the_tables_ro0_extends(
                 found.add((str(path.relative_to(SRC)), table))
     assert found == {
         ("learnloop/db/repositories.py", "question_events"),
-        ("learnloop/db/repositories.py", "source_exposure_events"),
+        ("learnloop/db/stores/reader.py", "source_exposure_events"),
         ("learnloop/db/stores/plan_presentations.py", "plan_presentations"),
         ("learnloop/db/stores/data_capture.py", "decision_objectives"),
         ("learnloop/db/stores/data_capture.py", "decision_measurement_events"),

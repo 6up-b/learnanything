@@ -25,7 +25,7 @@ import math
 
 import pytest
 
-from learnloop.diagnosis.text_gaps import sources as gap_sources
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps.jobs import sweep_backlog
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
@@ -111,7 +111,7 @@ def test_f5_an_explanation_repeating_the_answer_is_still_read(tmp_path):
     call(context(paths.root), "reader.figure_explain", {"predictionId": prediction_id, "text": "it rises"})
     _gaps_switch(paths, True)
     assert sweep_backlog(load_vault(paths.root), repository)["reader_formative"] == 1
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert ("reader_formative", explained, "queued") in _gap_jobs(repository)
 
 

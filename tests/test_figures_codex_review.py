@@ -25,6 +25,7 @@ import pytest
 
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps import sources as gap_sources
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job
 from learnloop.diagnosis.text_gaps.provenance import formative_record
@@ -135,7 +136,7 @@ def test_f5_an_explanation_after_the_reading_is_read_as_its_own_text(tmp_path):
     first = process_next_gap_job(paths.root, repository, owner="t", clients=clients)
     assert first.state == "done" and first.source_id == prediction_id
     call(ctx, "reader.figure_explain", {"predictionId": prediction_id, "text": "p sets the split, not λ"})
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert _gap_jobs(repository) == [("reader_formative", prediction_id, "done"),
                                      ("reader_formative", explained, "queued")]
     second = process_next_gap_job(paths.root, repository, owner="t", clients=clients)
@@ -164,7 +165,7 @@ def test_f5_an_explanation_before_the_reading_is_read_with_it_once(tmp_path):
 def test_f5_an_explained_source_with_no_explanation_reads_nothing(tmp_path):
     paths, repository, _ctx, found = _missed_prediction(tmp_path)
     vault = load_vault(paths.root)
-    explained = found["predictionId"] + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = found["predictionId"] + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert gap_sources.learner_text(vault, repository, "reader_formative", explained) is None
 
 

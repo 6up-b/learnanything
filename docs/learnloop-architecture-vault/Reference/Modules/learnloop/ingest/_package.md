@@ -88,7 +88,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 2 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 2 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
@@ -122,7 +122,7 @@ flowchart LR
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
-    n_learnloop_db["learnloop.db"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_content_pipeline -->|18| center
     n_learnloop_ingest_extractors -->|12| center
     n_learnloop_reader -->|11| center
@@ -132,7 +132,7 @@ flowchart LR
     n_learnloop_content_authoring -->|4| center
     n_learnloop_content_synthesis -->|4| center
     n_learnloop_adaptive_difficulty -->|3| center
-    n_learnloop_db -->|2| center
+    n_learnloop_db_stores -->|2| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

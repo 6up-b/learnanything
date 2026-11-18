@@ -47,43 +47,42 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/params/sensitivity_certificates.py](../../../../../../src/learnloop/params/sensitivity_certificates.py) |
-| Source lines | 357 |
+| Source lines | 301 |
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class Certificate` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 41)
-  - `as_entry(self) -> dict[str, Any]` (line 52; public)
-- `certificate_from_sweep_report(*, path: str, covered_value: Any, plausible_range: Mapping[str, Any], scenario: Mapping[str, Any], sweep_report: Any) -> Certificate` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 66) — Derive a certificate from a ``SweepReport``.
-- `certify(*, path: str, covered_value: Any, low: float, high: float, vault_root: Path, profile: Any, work_dir: Path, scenario: Mapping[str, Any] | None=None, grid_points: int=5, days: int=12, items_per_day: int=4, seed: int=42) -> Certificate` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 108) — Run a fine value-grid sweep across ``[low, high]`` on the fixed scenario and build a certificate.
-- `store_certificate(repository: Repository, certificate: Certificate, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 152)
-- `class CoverageLinkOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 167) — Result of :func:`link_coverage_certificate`.
-  - `__bool__(self) -> bool` (line 175; internal)
-- `link_coverage_certificate(repository: Repository, certificate: Certificate, *, clock: Clock | None=None) -> CoverageLinkOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 179) — Link a stored COVERAGE certificate to its registry entry, satisfying the audit's coverage obligation for an ``active`` decision parameter (rule (a)).
-- `class PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 213) — Sim-derived evidence that gates ``heuristic -> simulation_validated``.
-  - `as_entry(self) -> dict[str, Any]` (line 234; public)
-- `promotion_evidence_from_sweep_report(*, path: str, covered_value: Any, plausible_range: Mapping[str, Any], scenario: Mapping[str, Any], sweep_report: Any) -> PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 253) — Derive sim promotion evidence from a ``SweepReport`` (same flip-point rule as a coverage certificate; here the ``decision_stable`` verdict is the normative gate :func:`promote` enforces).
-- `promotion_evidence_from_certificate(certificate: Certificate, *, source: str='sim') -> PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 275) — Wrap a coverage certificate as promotion evidence (U-022 v2: promotion evidence MAY wrap a coverage certificate).
-- `store_promotion_evidence(repository: Repository, evidence: PromotionEvidence, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 295)
-- `class PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 306) — Result of :func:`promote`.
-  - `__bool__(self) -> bool` (line 313; internal)
-- `promote(repository: Repository, evidence: PromotionEvidence, *, clock: Clock | None=None) -> PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 317) — Consume PROMOTION EVIDENCE and, when it covers the entry's current effective value AND proves the decision stable across the plausible range, promote status to ``simulation_validated`` (never further -- §6; ``live_calibrated`` still requires an activated real-outcome evidence ma…
+- `class Certificate` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 40)
+  - `as_entry(self) -> dict[str, Any]` (line 51; public)
+- `certificate_from_sweep_report(*, path: str, covered_value: Any, plausible_range: Mapping[str, Any], scenario: Mapping[str, Any], sweep_report: Any) -> Certificate` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 65) — Derive a certificate from a ``SweepReport``.
+- `store_certificate(repository: Repository, certificate: Certificate, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 96)
+- `class CoverageLinkOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 111) — Result of :func:`link_coverage_certificate`.
+  - `__bool__(self) -> bool` (line 119; internal)
+- `link_coverage_certificate(repository: Repository, certificate: Certificate, *, clock: Clock | None=None) -> CoverageLinkOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 123) — Link a stored COVERAGE certificate to its registry entry, satisfying the audit's coverage obligation for an ``active`` decision parameter (rule (a)).
+- `class PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 157) — Sim-derived evidence that gates ``heuristic -> simulation_validated``.
+  - `as_entry(self) -> dict[str, Any]` (line 178; public)
+- `promotion_evidence_from_sweep_report(*, path: str, covered_value: Any, plausible_range: Mapping[str, Any], scenario: Mapping[str, Any], sweep_report: Any) -> PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 197) — Derive sim promotion evidence from a ``SweepReport`` (same flip-point rule as a coverage certificate; here the ``decision_stable`` verdict is the normative gate :func:`promote` enforces).
+- `promotion_evidence_from_certificate(certificate: Certificate, *, source: str='sim') -> PromotionEvidence` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 219) — Wrap a coverage certificate as promotion evidence (U-022 v2: promotion evidence MAY wrap a coverage certificate).
+- `store_promotion_evidence(repository: Repository, evidence: PromotionEvidence, *, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 239)
+- `class PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 250) — Result of :func:`promote`.
+  - `__bool__(self) -> bool` (line 257; internal)
+- `promote(repository: Repository, evidence: PromotionEvidence, *, clock: Clock | None=None) -> PromotionOutcome` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 261) — Consume PROMOTION EVIDENCE and, when it covers the entry's current effective value AND proves the decision stable across the plausible range, promote status to ``simulation_validated`` (never further -- §6; ``live_calibrated`` still requires an activated real-outcome evidence ma…
 
 ## Internal implementation anchors
 
-- `_value_grid(low: float, high: float, points: int, covered: Any) -> list[Any]` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 97)
-- `_loads(value: str) -> Any` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 354)
+- `_loads(value: str) -> Any` ([source](../../../../../../src/learnloop/params/sensitivity_certificates.py), line 298)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] — imports `module`; statically calls `certify`, `link_coverage_certificate`, `promote`, `promotion_evidence_from_certificate`, `store_certificate`
+- [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] — imports `module`; statically calls `link_coverage_certificate`, `promote`, `promotion_evidence_from_certificate`, `store_certificate`
 - [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `module`; statically calls `promote`, `promotion_evidence_from_sweep_report`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `module`; statically calls `PromotionEvidence`, `store_promotion_evidence`
+- [[Reference/Modules/learnloop/sim/certify|learnloop.sim.certify]] — imports `Certificate`, `certificate_from_sweep_report`; statically calls `certificate_from_sweep_report`
 
 ## Dependencies
 
@@ -92,12 +91,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `module`; calls `set_promotion_evidence_id`
-- [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] — imports `SweepEntry`, `run_sweep`; calls `SweepEntry`, `run_sweep`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `canonical_hash`; calls `canonical_hash`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `json`, `pathlib`, `typing`
+- Standard library: `__future__`, `dataclasses`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -106,7 +104,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]], [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]], [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]], [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]], [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]], [[Reference/Modules/learnloop/sim/certify|learnloop.sim.certify]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

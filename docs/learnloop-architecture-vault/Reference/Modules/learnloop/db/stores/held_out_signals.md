@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `is_exam_role`, `qualify_unrecorded_signals`; statically calls `is_exam_role`, `qualify_unrecorded_signals`
+- [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `is_exam_role`, `qualify_unrecorded_signals`; statically calls `is_exam_role`, `qualify_unrecorded_signals`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `exam_member_sources`, `pending_unrecorded_sources`, `qualify_unrecorded_signals`; statically calls `exam_member_sources`, `pending_unrecorded_sources`, `qualify_unrecorded_signals`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `exam_member_sources`, `qualify_unrecorded_signals`, `unqualified_signal_count`; statically calls `exam_member_sources`, `qualify_unrecorded_signals`, `unqualified_signal_count`
 
@@ -110,7 +110,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]], [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]], [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]], [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/051_maintenance_feed.sql"
   - "src/learnloop/content/proposals/conflict_resolution.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/source_documents.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -81,11 +81,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 
