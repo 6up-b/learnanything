@@ -882,11 +882,12 @@ class ObjectiveChooser(RouterChooser):
         the router's record, its decision record and the served block). Nothing between the reads and the writes
         decides.
 
-        Three reads of what the job's threads publish are taken in the writes, where the decision took them before
-        its choice was pure, so a thread that publishes mid-decision is recorded as it was: the LLM's card for the
-        trace (after the draw), the carried valuations (inside the trace's assembly, after its rows) and the LLM
-        request's question set (after the trace). The decision record is built last, from the choice, and a failure
-        to build it is recorded beside the served choice, never in its place."""
+        Three reads of what the job's threads publish are taken in the writes, each at its own fixed point, so a
+        thread that publishes mid-decision is recorded as it always was: the LLM's card for the trace (after the
+        draw), the carried valuations (inside the trace's assembly, after its rows) and the LLM request's question set
+        (after the trace). Moving one earlier drops what lands in between from the record. The decision record is
+        built last, from the choice, and a failure to build it is recorded beside the served choice, never in its
+        place."""
 
         config = self.vault.config
         material = entry.material
@@ -917,7 +918,7 @@ class ObjectiveChooser(RouterChooser):
         availability = ({**self._availability(state, numeric), "session_minutes": coin_minutes}
                         if C.coin_applies(rate, support, coin_minutes) else None)
         # The rationale guard reads the card's evidence ids only for an answered LLM, and the job publishes the card
-        # before it asks the LLM, so this read sees the card the record's own read (below) sees whenever it matters.
+        # before it asks the LLM, so this read sees the card the trace's own read (below) sees whenever it matters.
         guard_card = material.get("policy_card") or {}
         # -- the choice -------------------------------------------------------------------------------------
         inputs = C.ChoiceInputs(
