@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 from math import exp, log
 
-from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemQualityState
+from learnloop.db.repositories import MasteryState
+from learnloop.db.stores.facet_projection import FacetRecallState
 from learnloop.db.stores.learner_model import ActiveErrorEvent
+from learnloop.db.stores.practice_state import PracticeItemQualityState
 from learnloop.attempts.ability_transition import estimate_ability_transition
 from learnloop.numeric import clamp
 from learnloop.learner.blueprint_projection import predict_item_success

@@ -32,12 +32,9 @@ from collections import defaultdict
 from dataclasses import replace
 from typing import Any, Iterable, Mapping
 
-from learnloop.db.repositories import (
-    CanonicalFacetRecallState,
-    FacetRecallState,
-    FacetUncertaintyState,
-    Repository,
-)
+from learnloop.db.records import FacetUncertaintyState
+from learnloop.db.repositories import Repository
+from learnloop.db.stores.facet_projection import CanonicalFacetRecallState, FacetRecallState
 from learnloop.algorithm_versions import FACET_BELIEF_FIX_VERSIONS
 from learnloop.learner.assessment_contracts import KM_ALGORITHM_VERSION
 from learnloop.vault.models import LoadedVault

@@ -16,16 +16,16 @@ from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
+from learnloop.db.records import FacetUncertaintyState
 from learnloop.db.repositories import (
-    FacetRecallState,
-    FacetUncertaintyState,
     ItemParameterState,
     MasteryState,
-    PracticeItemQualityState,
     PracticeItemState,
     Repository,
 )
 from learnloop.db.stores.attempts import GradingEvidenceRecord
+from learnloop.db.stores.facet_projection import FacetRecallState
+from learnloop.db.stores.practice_state import PracticeItemQualityState
 from learnloop.db.stores.learner_model import ActiveErrorEvent
 from learnloop.ids import new_ulid
 from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED

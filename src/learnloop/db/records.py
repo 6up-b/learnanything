@@ -361,3 +361,138 @@ def _decode_scheduler_slate(row: sqlite3.Row) -> dict[str, Any]:
     payload["session_context"] = _loads(payload.pop("session_context_json"), {})
     payload["config_snapshot"] = _loads(payload.pop("config_snapshot_json"), {})
     return payload
+
+
+# -- write-on-change for whole-projection derived tables (followups-oct31, fix 1)
+
+
+@dataclass(frozen=True)
+class _ProjectionTable:
+    """A derived table a projection persists whole.
+
+    ``key`` names a cell (the table's unique key); ``values`` are every column
+    the projection decides. ``created_at`` and ``updated_at`` are bookkeeping,
+    never compared: ``updated_at`` records when a cell's values last changed.
+    """
+
+    name: str
+    key: tuple[str, ...]
+    values: tuple[str, ...]
+
+
+_FACET_RECALL_PROJECTION = _ProjectionTable(
+    "facet_recall_state",
+    ("facet_id", "capability_key", "practice_item_id"),
+    (
+        "id", "recall_alpha", "recall_beta", "recall_mean", "recall_variance",
+        "independent_evidence_mass", "raw_coverage_mass", "last_observed_at",
+        "last_error_at", "consecutive_failures", "algorithm_version",
+    ),
+)
+_FACET_CAPABILITY_PROJECTION = _ProjectionTable(
+    "facet_capability_evidence",
+    ("facet_id", "capability"),
+    (
+        "direct_positive_mass", "direct_negative_mass", "embedded_positive_mass",
+        "embedded_negative_mass", "certification_credit", "direct_certification_credit",
+        "embedded_certification_credit", "unexercised_supporting_mass",
+        "independent_surface_groups_json", "algorithm_version",
+    ),
+)
+_CAPABILITY_RESIDUAL_PROJECTION = _ProjectionTable(
+    "capability_residual_state",
+    ("facet_id", "capability"),
+    (
+        "id", "active", "activation_reason", "residual_alpha", "residual_beta",
+        "residual_mean", "parent_alpha", "parent_beta", "parent_mean", "divergence",
+        "independent_groups", "independent_mass", "algorithm_version",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class FacetUncertaintyState:
+    id: str
+    learning_object_id: str
+    facet_id: str
+    hypothesis_marginal: dict[str, float]
+    uncertainty: float
+    status: str
+    opened_by_attempt_id: str
+    opened_reason: str
+    last_evidence_at: str | None
+    algorithm_version: str
+    created_at: str
+    updated_at: str
+
+
+def _facet_uncertainty_state(row: sqlite3.Row) -> FacetUncertaintyState:
+    return FacetUncertaintyState(
+        id=row["id"],
+        learning_object_id=row["learning_object_id"],
+        facet_id=row["facet_id"],
+        hypothesis_marginal={
+            str(label): float(probability)
+            for label, probability in _loads(row["hypothesis_marginal"], {}).items()
+        },
+        uncertainty=float(row["uncertainty"]),
+        status=row["status"],
+        opened_by_attempt_id=row["opened_by_attempt_id"],
+        opened_reason=row["opened_reason"],
+        last_evidence_at=row["last_evidence_at"],
+        algorithm_version=row["algorithm_version"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+def _decode_elicitation_event(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["target_scope"] = _loads(payload.pop("target_scope_json"), None)
+    payload["candidate_scores"] = _loads(payload.pop("candidate_scores_json"), None)
+    payload["hypothesis_set"] = _loads(payload.pop("hypothesis_set_json"), None)
+    return payload
+
+
+def _decode_decision_features(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["ability_vector"] = _loads(payload.pop("ability_vector_json"), {})
+    payload["item_demand_vector"] = _loads(payload.pop("item_demand_vector_json"), None)
+    payload["context"] = _loads(payload.pop("context_json"), {})
+    return payload
+
+
+def _decode_scheduler_explanation(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["components"] = _loads(payload.pop("components_json"), {})
+    payload["target_scope"] = _loads(payload.pop("target_scope_json"), None)
+    payload["plain_english"] = _loads(payload.pop("plain_english_json"), None)
+    return payload
+
+
+def _decode_scheduler_slate_candidate(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["was_returned"] = bool(payload["was_returned"])
+    payload["components"] = _loads(payload.pop("components_json"), {})
+    payload["reward_debug"] = _loads(payload.pop("reward_debug_json"), None)
+    payload["target_scope"] = _loads(payload.pop("target_scope_json"), None)
+    payload["plain_english"] = _loads(payload.pop("plain_english_json"), None)
+    return payload
+
+
+def _decode_proposal_batch(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["source_refs"] = _loads(payload.pop("source_refs_json"), [])
+    return payload
+
+
+def _decode_proposal_item(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["payload"] = _loads(payload.pop("payload_json"), {})
+    payload["source_ref_ids"] = _loads(payload.pop("source_ref_ids_json", None), [])
+    payload["audit"] = _loads(payload.pop("audit_json", None), None)
+    payload["edited_payload"] = _loads(payload.pop("edited_payload_json"), None)
+    payload["validation_errors"] = _loads(payload.pop("validation_errors_json"), [])
+    if "dependency_block_reason_json" in payload:
+        payload["dependency_block_reason"] = _loads(payload.pop("dependency_block_reason_json"), None)
+    return payload

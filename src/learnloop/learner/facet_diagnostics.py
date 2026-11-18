@@ -9,8 +9,10 @@ from typing import Any, Iterable, Mapping
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import FacetRecallState, FacetUncertaintyState, MasteryState, Repository
+from learnloop.db.records import FacetUncertaintyState
+from learnloop.db.repositories import MasteryState, Repository
 from learnloop.db.scopes import pinned_repository_call
+from learnloop.db.stores.facet_projection import FacetRecallState
 from learnloop.learner.facet_state_reader import (
     facet_recall_states_for_lo,
     facet_uncertainty_states_for_lo,

@@ -34,7 +34,8 @@ from typing import Any
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import TutorPromotionConfig, TutorQAConfig
-from learnloop.db.repositories import FacetUncertaintyState, Repository
+from learnloop.db.records import FacetUncertaintyState
+from learnloop.db.repositories import Repository
 from learnloop.learner.facet_diagnostics import entropy, facet_state_label, normalize_distribution
 from learnloop.learner.facet_state_reader import (
     facet_recall_states_for_lo,

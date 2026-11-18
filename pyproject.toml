@@ -1164,7 +1164,7 @@ ignore_imports = [
     "learnloop.curriculum.golden_path_restoration -> learnloop.diagnosis.diagnostic_pack",
     "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.diagnostic_pack",
     "learnloop.curriculum.golden_path_run -> learnloop.diagnosis.probe_completion",
-    "learnloop.db.repositories -> learnloop.ai.usage",
+    "learnloop.db.stores.content -> learnloop.ai.usage",
     "learnloop.db.stores.source_documents -> learnloop.ingest.ir",
     "learnloop.goals.certification_cold_probe -> learnloop.attempts.coldness_receipt",
     "learnloop.goals.certification_cold_probe -> learnloop.diagnosis.causal_activity_policy",

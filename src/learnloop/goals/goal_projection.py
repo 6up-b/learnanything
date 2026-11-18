@@ -54,7 +54,8 @@ from statistics import median
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc
-from learnloop.db.repositories import FacetRecallState, MasteryState, PracticeItemState, Repository
+from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
+from learnloop.db.stores.facet_projection import FacetRecallState
 from learnloop.numeric import clamp
 from learnloop.learner.blueprint_projection import LoReadiness, project_lo_readiness
 from learnloop.learner.contract_reachability import (

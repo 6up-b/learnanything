@@ -152,9 +152,9 @@ def _unclassified(named: dict[str, set[str]]) -> dict[str, list[str]]:
 #: raw read there would be refused and poison the operation, so each must never take that branch
 #: inside one. A function added here names why.
 UNRULED_REVIEWED: dict[str, str] = {
-    "learnloop.db.repositories:Repository.mastery_states":
+    "learnloop.db.stores.practice_state:PracticeStateStoreMixin.mastery_states":
         "the named carve-out (CARVE_OUTS: AD1's mastery_ekf comparator, learnloop.adaptive_difficulty.forecasters)",
-    "learnloop.db.repositories:Repository.item_parameter_states":
+    "learnloop.db.stores.practice_state:PracticeStateStoreMixin.item_parameter_states":
         "the named carve-out (CARVE_OUTS: AD1's mastery_ekf comparator, learnloop.adaptive_difficulty.forecasters)",
     "learnloop.daily_plan.estimates:load_duration_evidence":
         "the incumbent's branch: AD passes its material view's attempt rows, so the raw SELECT never runs in AD",
@@ -199,7 +199,7 @@ def test_every_table_the_code_running_inside_an_operation_names_is_classified(tm
     assert len(pipeline.functions) > 100 and "practice_attempts" in named, "the profiler saw AD's code run"
     # The negative control: this vault takes no learner-pick branch, yet the scan names the table.
     assert "learnloop.field.outcomes:_serving" in named.get("scheduler_offer_receipts", set())
-    assert "learnloop.db.repositories:Repository.calibration_alphas_by_model_ids" in named.get(
+    assert "learnloop.db.stores.grading:GradingStoreMixin.calibration_alphas_by_model_ids" in named.get(
         "grader_calibration_alphas", set())
     assert _unclassified(named) == {}
     assert _unruled_unreviewed(pipeline, tables) == {}

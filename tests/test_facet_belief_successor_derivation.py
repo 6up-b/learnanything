@@ -270,7 +270,7 @@ def test_s2_tutor_promotion_features_snapshot_the_uncertainty_only_with_the_swit
 
 def test_s2_only_the_facet_state_reader_reads_the_uncertainty_rows():
     """Every read of a stored row goes through ``learner.facet_state_reader``, which honours the switch; the
-    repository defines the queries, replay clears the table and the shadow rebuild compares it."""
+    facet projection store defines the queries, replay clears the table and the shadow rebuild compares it."""
 
     import re
     from pathlib import Path
@@ -278,7 +278,9 @@ def test_s2_only_the_facet_state_reader_reads_the_uncertainty_rows():
     import learnloop
 
     allowed = {
-        "learnloop/learner/facet_state_reader.py", "learnloop/db/repositories.py",
+        "learnloop/learner/facet_state_reader.py",
+        "learnloop/db/repositories.py",  # clears the table in the cross-feature reset
+        "learnloop/db/stores/facet_projection.py",
         "learnloop/substrate/rebuild_orchestrator.py", "learnloop/substrate/shadow_rebuild.py",
     }
     pattern = re.compile(r"\.facet_uncertainty_states?\(|FROM\s+facet_uncertainty\b")

@@ -219,11 +219,12 @@ Two independent reviews of `docs/specs/spec_evidence_packets_v1.md` and `docs/sp
 | SR-4 | Spec review (prediction snapshots) | The `ad_threshold@*` forecast receipts store `p_categories: None` (`adaptive_difficulty/serving.py:423`) although the model computes the three category probabilities on the way to `p_bar` (`model.py:150-177`, `expected_success` is category 2 of `category_probabilities`), so the full predicted distribution is lost for every fresh-item serve. | Small fix: store the grid-weighted mixture of the category probabilities, with `p_bar` its category 2 (EPp, `spec_evidence_packets_v1.md` §7.7.3) | open (with EPp) |
 
 
-## From the landing gate of the store split's first batch and the import-cycle cuts (2026-11-17)
+## From the repository store split and import-cycle cuts (2026-11-17–18)
 
 | Id | Found in | Bug or open question | Fix | Status |
 |---|---|---|---|---|
 | L2-1 | Landing gate (`-n 8`, loaded machine) | `tests/test_mobile_v3_carried.py::test_keep_going_on_a_finished_plan_commits_its_override_with_the_extension` passed, then errored at teardown: the thread guard found one `learnloop-post-attempt-followup` thread still running after its 2 s join grace (started by `submit_dont_know` through `post_attempt_worker.notify`), while the reading sweep in the same process logged `database is locked` and retried. The file passes 3 of 3 runs alone at `-n 3`. A test that starts post-attempt work must wait for it; this one relies on timing. | Test fix: the test (or its phone-host fixture) drains the post-attempt worker before teardown; with the next step that touches the phone host's tests, or at the T5 shape pass | open |
+| L2-2 | L2d metadata inventory audit | The adaptive-difficulty reachable-reads test still expects the facade's compiled location for `calibration_alphas_by_model_ids` after the grading move. The test fails at that assertion with the HEAD sources loaded. | Point the calibration assertion at `GradingStoreMixin.calibration_alphas_by_model_ids` and retain its exact table check. | Fixed in the L2d test inventory |
 
 ## From K5: grading, regrade, coldness and certification (2026-11-18)
 
