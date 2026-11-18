@@ -489,8 +489,7 @@ CLAIM_FIXES_ALGORITHM_VERSION = "mvp-0.33"
 # moves at activation is the replayed (rebuilt) mastery, surprise and item
 # quality of multi-attempt histories, and the schedules computed from them,
 # toward the live values. That changes the same-version golden projection, so
-# it is a successor (playbook item 6), not an in-place amendment. Kill switch:
-# ``replay.ledger_bounded`` (off: replay reads exactly as the predecessor).
+# it is a successor (playbook item 6), not an in-place amendment.
 REPLAY_LEDGER_ALGORITHM_VERSION = "mvp-0.34"
 
 # mvp-0.35 (Reader CA2, one Ask; docs/specs/ux_reader_compare_ask_v1.md §7,

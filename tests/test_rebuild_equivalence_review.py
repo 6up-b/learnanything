@@ -7,9 +7,6 @@
   exactly as it was, so a retry starts from the right lifecycle.
 * **F3**: a rebuild completes the recurrence reconciliation its own learner
   replay made necessary, so the rebuild right after it changes nothing.
-* **F4**: the bounded replay is the successor ``REPLAY_LEDGER_ALGORITHM_VERSION``
-  behind ``replay.ledger_bounded``; below it (or switched off) replay is
-  the predecessor's, byte for byte.
 * **F2** (rejected, out of scope): the same-second reverse-completion case is
   pinned as a strict xfail so its fix is noticed.
 """
@@ -205,7 +202,7 @@ def test_two_same_second_attempts_committed_in_reverse_id_order_rebuild_to_live(
     assert _mastery(repository) == live
 
 
-# ── F4: the successor and its kill switch ────────────────────────────────────
+# The bounded-ledger successor.
 
 from learnloop.algorithm_versions import (  # noqa: E402
     CLAIM_FIXES_ALGORITHM_VERSION,
@@ -215,7 +212,6 @@ from learnloop.algorithm_versions import (  # noqa: E402
 TAG = LATEST_ALGORITHM_VERSION
 # The landing chained the tag after LP-min (a)'s claim fixes (mvp-0.33).
 PREDECESSOR = CLAIM_FIXES_ALGORITHM_VERSION
-SWITCH_OFF = "\n[replay]\nledger_bounded = false\n"
 
 
 def test_the_successor_is_one_constant_after_its_predecessor():
@@ -226,15 +222,6 @@ def test_the_successor_is_one_constant_after_its_predecessor():
     assert PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(REPLAY_LEDGER_ALGORITHM_VERSION) - 1]
 
 
-def test_the_switch_is_on_by_default_and_classified():
-    from learnloop.config.schema import ReplayConfig
-    from learnloop.params import parameter_registry as registry
-
-    assert ReplayConfig().ledger_bounded is True
-    rule = registry.classify_config_path("replay.ledger_bounded")
-    assert rule is not None
-
-
 def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
     from tests.rebuild_equivalence_helpers import _mastery
 
@@ -243,21 +230,9 @@ def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
     assert _mastery(below) == _mastery(at)
 
 
-def test_at_the_tag_replay_reproduces_live_and_the_switch_restores_the_predecessor(tmp_path):
+def test_replay_reproduces_live_mastery(tmp_path):
     from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, vault, repository = _two_attempt_history(tmp_path, "on", version=TAG)
     live = _mastery(repository)
     assert _rebuilt(vault, repository) == live
-
-    # The predecessor's replay, which reads the whole ledger, is served through the switch alone: no
-    # vault that opens is below the tag.
-    _paths, below_vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR, config=SWITCH_OFF)
-    predecessor = _rebuilt(below_vault, below)
-    _paths, off_vault, off = _two_attempt_history(tmp_path, "off", version=TAG, config=SWITCH_OFF)
-    assert off_vault.config.replay.ledger_bounded is False
-    assert _mastery(off) == live
-    assert _rebuilt(off_vault, off) == predecessor != live
-
-
-# ── Re-review F5: recovery reads the activation's own completion marker ──────

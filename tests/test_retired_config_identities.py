@@ -291,8 +291,7 @@ def _pre_arc_c_shape(dump: dict) -> dict:
     shaped["required_method"] = {"enabled": True}
     shaped["hints"]["fold_follows_attach"] = True
     shaped["mastery"]["claim_fixes_enabled"] = True
-    # The section outlives its removed switch: the grade channel fixes' switch sits beside it.
-    shaped.setdefault("replay", {})["ledger_bounded"] = True
+    shaped["replay"] = {"ledger_bounded": True}
     shaped["practice"].update(attempt_keeps_content_state=True, reschedule_cold_after_assist=True)
     shaped["ask"]["cold_help_converts"] = True
     shaped["eligibility"] = {"enabled": True}

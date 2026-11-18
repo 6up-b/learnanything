@@ -1675,17 +1675,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "kill switch for the learner's marks on possible causes and the hypothesis-list exposure receipts; "
         "they reach the learner state card and the diagnoser's context as attributed opinion and move no "
         "probability; off, no marks UI, no rows, and every reply and context as it was."),
-    # Rebuild equivalence (mvp-0.34, docs/reviews/rebuild-equivalence-fix.md):
-    # the kill switch of the successor whose replay reads the ledger bounded at
-    # the replayed attempt. A boolean (classified so every new key has a rule);
-    # it selects which ledger rows replay folds, never a weight. Off restores
-    # the predecessor's whole-ledger replay exactly; live writes never read it.
-    _ConfigRule(_exact(
-        "replay.ledger_bounded",
-    ), "structural", "operational",
-        "kill switch for the rebuild-equivalence successor: replay reads the recent-attempt windows and the "
-        "canonical facet cache bounded at the replayed attempt, as its live write saw them; off, replay reads "
-        "the whole ledger as the predecessor did. Never read by a live write."),
     # Router objective RO0 (spec_router_objective_v1 §4): the receipts' kill switch. A boolean
     # (classified so every new key has a rule); it decides no plan, only whether a row is written.
     _ConfigRule(_exact(

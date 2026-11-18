@@ -4460,21 +4460,6 @@ class TeacherConfig(KeepsRetiredFields):
     placement: TeacherPlacementConfig = Field(default_factory=TeacherPlacementConfig)
 
 
-class ReplayConfig(BaseModel):
-    """How replay reads the attempt ledger (``mvp-0.34``,
-    ``REPLAY_LEDGER_ALGORITHM_VERSION``).
-
-    ``ledger_bounded`` is the successor's kill switch. On (at the tag or
-    later), replay recomputes each attempt from the ledger as its live write
-    saw it: the recent-attempt windows and the canonical facet cache stop at
-    the replayed attempt's position, so a rebuild reproduces the live state.
-    Off (or below the tag), replay reads the whole ledger exactly as the
-    predecessor did. A live write never reads it: only rebuilt state moves.
-    """
-
-    ledger_bounded: bool = True
-
-
 class AskConfig(KeepsRetiredFields):
     """One Ask.
 
@@ -4723,7 +4708,6 @@ class LearnLoopConfig(KeepsRetiredFields):
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
     ui: UiConfig = Field(default_factory=UiConfig)
-    replay: ReplayConfig = Field(default_factory=ReplayConfig)
     teacher: TeacherConfig = Field(default_factory=TeacherConfig)
     ask: AskConfig = Field(default_factory=AskConfig)
 
