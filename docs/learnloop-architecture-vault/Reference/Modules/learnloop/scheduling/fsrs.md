@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `FSRS6_DEFAULT_WEIGHTS`
 - [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] — imports `retrievability_array`; statically calls `retrievability_array`
-- [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `retrievability_array`; statically calls `retrievability_array`
+- [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] — imports `retrievability_array`; statically calls `retrievability_array`
 - [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/family_memory_model|learnloop.scheduling.family_memory_model]] — imports `MemoryState`, `Rating`, `apply_review`, `retrievability`; statically calls `MemoryState`, `Rating`, `apply_review`, `retrievability`
 - [[Reference/Modules/learnloop/scheduling/fsrs_fitting|learnloop.scheduling.fsrs_fitting]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `forgetting_curve`; statically calls `apply_review`, `forgetting_curve`
