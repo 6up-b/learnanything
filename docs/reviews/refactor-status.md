@@ -1,9 +1,9 @@
 # Refactor status
 
-- Running next: E5 (the objective apart from the rollouts) and E6 (an action is one place); G1 and G3 alongside; the second batch of K5 fixes.
+- In the gate: E5 (the objective apart from the rollouts) with the second batch of K5 fixes. Running next: E6 (an action is one place), then the review of arc E; G1 and G3 alongside.
 - On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1–E4 (the router's choice is a pure function, its job control and trace assembly are their own modules; `objective_chooser.py` is 1,473 lines); S1, S2 and M1; the K5 review with its two high fixes; `replay.ledger_bounded` removed.
 - After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
-- The owner still needs to decide: three K5 questions (whether an unattributable pass closes a repair case; the FSRS clock on skipped reviews; what a certificate probe counts), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
+- The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
 The orchestrator updates this file in each landing commit. This snapshot is the landing after main `41c1d97469` (Nov 18) and the owner's Nov 17 decisions.
@@ -198,7 +198,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | K4 | Map writers outside the ingestion pipeline | deferred | — | — | Owner's Nov 17 queue |
-| K5 | Review grading, regrade, coldness and certification | landed | `1b63838666` | [refactor-k5.md](refactor-k5.md) | Fourteen ledger rows (K5-1 to K5-14): K5-14 and K5-2 fixed (`2b2c2fb155`, [refactor-k5-fixes-1.md](refactor-k5-fixes-1.md)); the rest by the record's batches; K5-3, K5-4, K5-8 wait on the owner |
+| K5 | Review grading, regrade, coldness and certification | landed | `1b63838666` | [refactor-k5.md](refactor-k5.md) | Sixteen ledger rows (K5-1 to K5-16): K5-14 and K5-2 fixed (`2b2c2fb155`, [refactor-k5-fixes-1.md](refactor-k5-fixes-1.md)); K5-1, K5-9, K5-10, K5-13, K5-15 and K5-16 fixed (`cd39afc328`, [refactor-k5-fixes-2.md](refactor-k5-fixes-2.md)); K5-3's plain part, K5-8's exceptions, K5-11 and K5-12 go with the next algorithm tag; K5-5 to K5-7 with G6; K5-4 with the evidence packet spec |
 | K6 | Map Reader Ask and retrieval side effects | waiting on | — | — | G1 and G3 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
