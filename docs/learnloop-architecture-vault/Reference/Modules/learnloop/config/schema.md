@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/config/_package|learnloop.config]] · Root: [[
 
 ## Why this module exists
 
-This module keeps schema behavior inside its owning package, [[Reference/Modules/learnloop/config/_package|learnloop.config]]. Its public surface centers on `StorageConfig`, `AlgorithmsConfig`, `SchedulerSurpriseConfig`, `SchedulerFollowupConfig`, `SchedulerConfig`, `GoalsConfig`, `HypothesisConfig`, `MasteryIRTConfig` and 133 more public symbols.
+This module keeps schema behavior inside its owning package, [[Reference/Modules/learnloop/config/_package|learnloop.config]]. Its public surface centers on `StorageConfig`, `AlgorithmsConfig`, `SchedulerSurpriseConfig`, `SchedulerFollowupConfig`, `SchedulerConfig`, `GoalsConfig`, `HypothesisConfig`, `MasteryIRTConfig` and 132 more public symbols.
 
 The authoritative system-level explanation remains in [[Configuration]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py) |
-| Source lines | 4941 |
+| Source lines | 4925 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -203,23 +203,22 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `class TeacherDelayedConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4372) — Delayed retention and transfer checks.
 - `class TeacherPlacementConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4381) — ``max_probes`` (8, fixed): the generated probes one lesson may ask for: a burden guardrail; the teacher decides when to stop, this only bounds it.
 - `class TeacherConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4388) — Teacher.
-- `class ReplayConfig(BaseModel)` ([source](../../../../../../src/learnloop/config/schema.py), line 4463) — How replay reads the attempt ledger (``mvp-0.34``, ``REPLAY_LEDGER_ALGORITHM_VERSION``).
-- `class AskConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4478) — One Ask.
-- `class AdaptiveDifficultyConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4499) — Adaptive difficulty.
-  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4625; internal)
-  - `_forecasters_switch(cls, value: Any) -> Any` (line 4633; internal)
-  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4643; internal)
-- `class LearnLoopConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4648)
-  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4732; internal) — Keep direct model validation compatible; implementation lives in compat.
-  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4740; internal)
-- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4829) — Return the modeled canonical Codex profile used when none is explicit.
-- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4856) — The code-default ChatGPT-plan profile.
-- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4869)
-- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4881)
-- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4894) — Claude Haiku through OpenRouter, for cheap metered judges.
-- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4905)
-- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4916) — The template's embedding profile, for vaults whose config predates it.
-- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4932) — The Perplexity Decider through OpenRouter.
+- `class AskConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4463) — One Ask.
+- `class AdaptiveDifficultyConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4484) — Adaptive difficulty.
+  - `_ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]` (line 4610; internal)
+  - `_forecasters_switch(cls, value: Any) -> Any` (line 4618; internal)
+  - `_canonical_forecasters(cls, value: list[str]) -> list[str]` (line 4628; internal)
+- `class LearnLoopConfig(KeepsRetiredFields)` ([source](../../../../../../src/learnloop/config/schema.py), line 4633)
+  - `_normalize_legacy_input(cls, data: Any) -> Any` (line 4716; internal) — Keep direct model validation compatible; implementation lives in compat.
+  - `_ensure_effective_defaults(self) -> 'LearnLoopConfig'` (line 4724; internal)
+- `default_codex_provider() -> CodexSDKProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4813) — Return the modeled canonical Codex profile used when none is explicit.
+- `default_chatgpt_plan_provider() -> ChatGPTPlanProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4840) — The code-default ChatGPT-plan profile.
+- `deepseek_flash_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4853)
+- `deepseek_pro_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4865)
+- `openrouter_haiku_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4878) — Claude Haiku through OpenRouter, for cheap metered judges.
+- `openrouter_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4889)
+- `openrouter_embedding_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4900) — The template's embedding profile, for vaults whose config predates it.
+- `openrouter_decider_provider() -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/schema.py), line 4916) — The Perplexity Decider through OpenRouter.
 
 ### Module constants
 
@@ -260,7 +259,7 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `LEGACY_CODEX_TASK_ROUTES` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1722)
 - `CODEX_TO_PLAN_PROFILE` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 1741)
 - `DEFAULT_RECALL_TARGETS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 3779)
-- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4496)
+- `AD_OUTSIDE_FORECASTERS` ([src/learnloop/config/schema.py](../../../../../../src/learnloop/config/schema.py), line 4481)
 
 ## Internal implementation anchors
 
@@ -506,8 +505,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_on_by_default_classified_and_the_contract_and_palette_gain_only_rw7a_keys`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_every_tag_defaults_the_switch_on`
-- [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
-  - `test_the_switch_is_on_by_default_and_classified`
 - [tests/test_recurrence_benchmarks.py](../../../../../../tests/test_recurrence_benchmarks.py) — direct import
   - `test_b3_recommends_only_at_the_serving_width_with_its_provenance`
 - [tests/test_recurrence_commands.py](../../../../../../tests/test_recurrence_commands.py) — direct import
