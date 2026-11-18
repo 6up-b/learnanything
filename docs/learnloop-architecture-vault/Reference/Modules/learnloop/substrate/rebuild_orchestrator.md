@@ -207,6 +207,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_rebuild_with_no_sweep_cannot_bring_back_the_cold_label`
 - [tests/test_data_capture_successor.py](../../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_outcomes_cache_is_rebuilt_as_version_3_at_any_tag`
+- [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_regrade_projects_new_exercised_supporting_facet`
 - [tests/test_diagnosis_input_provenance.py](../../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_replay_never_reads_the_switch_or_the_records`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
@@ -237,7 +239,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_replayer_reads_the_figure_tables`
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_replay_neither_reads_nor_writes_forecast_receipts`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
+  - `test_forgetting_clock_live_and_rebuilt`
 - [tests/test_grade_application_golden.py](../../../../../../tests/test_grade_application_golden.py) — direct import
+- [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
+  - `test_adjudicate_replays_before_commit`
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import

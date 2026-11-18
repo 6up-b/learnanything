@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py) |
-| Source lines | 1605 |
+| Source lines | 1612 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -70,21 +70,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `concept_reference_dto(vault: LoadedVault, reference: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 620)
 - `concept_detail(vault: LoadedVault, concept_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 631)
 - `attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 681)
-- `feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 835)
-- `intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1093)
-- `criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1348)
-- `error_event_dto(vault: LoadedVault, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1377)
-- `mastery_before_dto(surprise: dict[str, Any], mastery_after: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1395) — Reconstruct the pre-attempt mastery posterior for the Belief-update panel.
-- `mastery_step_dto(repository: Repository, attempt_id: str, observed_correctness: float | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1427) — Why the posterior moved this far: the observation-weight factor chain.
-- `surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1464)
-- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1484)
-- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1500) — The resolved rubric, criteria dumped WHOLE.
+- `feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 842)
+- `intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1100)
+- `criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1355)
+- `error_event_dto(vault: LoadedVault, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1384)
+- `mastery_before_dto(surprise: dict[str, Any], mastery_after: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1402) — Reconstruct the pre-attempt mastery posterior for the Belief-update panel.
+- `mastery_step_dto(repository: Repository, attempt_id: str, observed_correctness: float | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1434) — Why the posterior moved this far: the observation-weight factor chain.
+- `surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1471)
+- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1491)
+- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1507) — The resolved rubric, criteria dumped WHOLE.
 
 ### Module constants
 
 - `_FOLLOWUP_KIND_BY_REASON` ([src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 41)
 - `PRESENTATION_BLOCK_KINDS` ([src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 185)
-- `GRADING_RECORD_SOURCES` ([src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1159)
+- `GRADING_RECORD_SOURCES` ([src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1166)
 
 ## Internal implementation anchors
 
@@ -97,24 +97,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_normalize_concept_reference(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 677)
 - `_repair_claim_reason(receipt: dict[str, Any]) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 718)
 - `_cold_check_result(vault: LoadedVault, repository: Repository, attempt: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 736) — What the cold check this attempt just spent turned out to say.
-- `_displayed_repairs(vault: LoadedVault, repository: Repository, attempt_id: str, metadata: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 829)
-- `_diagnosis_status_field(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1080) — Slice 1 §11: ``diagnosis_status`` when the attempt queued a diagnosis.
-- `_answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1117) — :func:`answered_presentation`, or None when the item cannot be rendered (the screen then falls back to the item's own presentation; feedback is never refused over the question's display).
-- `_grading_epochs(repository: Repository, attempt_id: str) -> list[list[GradingEvidenceRecord]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1162) — The attempt's grading epochs in written order, the grade's current one last.
-- `_epoch_recorded_max_points(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1182) — The maximum written WITH this epoch's grade, or None.
-- `_epoch_grading_record(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1215) — What one grading epoch stands on (UX Phase 4, round 3 F9): its cited contract, exactly; else ``unrecorded`` (an epoch written before regrade contracts, mvp-0.26: every later grading cites its contract).
-- `_grading_records(repository: Repository, attempt_id: str) -> tuple[dict[str, Any], dict[str, Any] | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1243) — (the grading record of the grade's current epoch, that of the epoch it replaced or None).
-- `_answered_criteria(contract: Mapping[str, Any] | None) -> list[dict[str, Any]] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1257) — ``[{"criterion_id", "description", "points_possible"}]`` as the grading contract froze them (Codex review F5), or None without one.
-- `_answered_max_points(contract: Mapping[str, Any] | None) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1278) — The grading contract's maximum score (re-review F9), or None without one.
-- `_regrade_replaced_held(repository: Repository, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1291) — Was the grade the latest regrade replaced held for review (Codex review F6)?
-- `_latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1327) — One live row per criterion for display: the latest grading epoch's.
-- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1521) — Error taxonomy the self-grade form offers per under-credited criterion.
-- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1549)
-- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1556)
-- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1563)
-- `_due_status(scheduled: ScheduledItem, due_at: str | None, *, now: datetime | None=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1568)
-- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1584)
-- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1596)
+- `_displayed_repairs(vault: LoadedVault, repository: Repository, attempt_id: str, metadata: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 836)
+- `_diagnosis_status_field(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1087) — Slice 1 §11: ``diagnosis_status`` when the attempt queued a diagnosis.
+- `_answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1124) — :func:`answered_presentation`, or None when the item cannot be rendered (the screen then falls back to the item's own presentation; feedback is never refused over the question's display).
+- `_grading_epochs(repository: Repository, attempt_id: str) -> list[list[GradingEvidenceRecord]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1169) — The attempt's grading epochs in written order, the grade's current one last.
+- `_epoch_recorded_max_points(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1189) — The maximum written WITH this epoch's grade, or None.
+- `_epoch_grading_record(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1222) — What one grading epoch stands on (UX Phase 4, round 3 F9): its cited contract, exactly; else ``unrecorded`` (an epoch written before regrade contracts, mvp-0.26: every later grading cites its contract).
+- `_grading_records(repository: Repository, attempt_id: str) -> tuple[dict[str, Any], dict[str, Any] | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1250) — (the grading record of the grade's current epoch, that of the epoch it replaced or None).
+- `_answered_criteria(contract: Mapping[str, Any] | None) -> list[dict[str, Any]] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1264) — ``[{"criterion_id", "description", "points_possible"}]`` as the grading contract froze them (Codex review F5), or None without one.
+- `_answered_max_points(contract: Mapping[str, Any] | None) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1285) — The grading contract's maximum score (re-review F9), or None without one.
+- `_regrade_replaced_held(repository: Repository, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1298) — Was the grade the latest regrade replaced held for review (Codex review F6)?
+- `_latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1334) — One live row per criterion for display: the latest grading epoch's.
+- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1528) — Error taxonomy the self-grade form offers per under-credited criterion.
+- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1556)
+- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1563)
+- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1570)
+- `_due_status(scheduled: ScheduledItem, due_at: str | None, *, now: datetime | None=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1575)
+- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1591)
+- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1603)
 
 ## Who imports or calls it
 
@@ -225,7 +225,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
   - `test_auto_primed_is_absent_when_the_ledger_did_not_force_it`
   - `test_auto_primed_reports_the_reveal_total_behind_the_reclassification`
-  - `test_cold_check_feedback_obeys_the_final_repair_claim`
+  - `test_cold_check_feedback_requires_cold_retrieval_and_intact_window`
   - `test_cold_check_result_is_null_on_an_ordinary_attempt`
   - `test_cold_check_result_reports_the_span_and_the_claim`
   - `test_the_primed_repair_attempt_gets_no_cold_check_result`

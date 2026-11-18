@@ -709,6 +709,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_restraint_records_what_it_let_in_or_made_wait_with_its_components`
   - `test_with_the_switch_on_the_contest_names_the_offer_it_replaces_and_both_chances`
+- [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import
+  - `test_forgetting_clock_live_and_rebuilt`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_followup_arriving_over_an_interrupting_offer_joins_the_block_below_and_the_offer_stands`
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`

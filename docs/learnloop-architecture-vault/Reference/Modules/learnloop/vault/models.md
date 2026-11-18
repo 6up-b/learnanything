@@ -497,6 +497,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_held_out_sentinel_never_reaches_ad_inputs`
 - [tests/test_attach_to_family.py](../../../../../../tests/test_attach_to_family.py) — direct import
+- [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
+  - `test_reporting_only_a_zero_weight_criterion_cannot_award_the_omitted_points`
 - [tests/test_blueprint_projection.py](../../../../../../tests/test_blueprint_projection.py) — direct import
   - `test_alternative_recipe_success_does_not_credit_bypassed_requirement`
   - `test_any_of_uses_strongest_alternative`

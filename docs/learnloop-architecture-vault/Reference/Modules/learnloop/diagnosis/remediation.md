@@ -231,7 +231,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free`
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
-  - `test_cold_check_feedback_obeys_the_final_repair_claim`
+  - `test_cold_check_feedback_requires_cold_retrieval_and_intact_window`
   - `test_the_primed_repair_attempt_gets_no_cold_check_result`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f1_the_routine_display_horizon_is_the_cold_retrieval_delay`

@@ -137,6 +137,8 @@ Indexes and uniqueness:
 - `tests/test_teacher_te2_review_fixes.py`
 - `tests/certain_grade_helpers.py`
 - `tests/test_effective_observation.py`
+- `tests/test_grading_cli.py`
+- `tests/test_held_grade_evidence.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
 - `tests/test_ux_phase4_feedback.py`

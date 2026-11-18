@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py) |
-| Source lines | 467 |
+| Source lines | 492 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,13 +58,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class ExamOutcome` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 106)
 - `class ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 114)
 - `class ExamSeedEntry` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 120)
-  - `as_dict(self) -> dict[str, Any]` (line 131; public)
-- `class ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 146)
-  - `as_dict(self) -> dict[str, Any]` (line 156; public)
-- `parse_exam_outcomes(payload: Mapping[str, Any], *, exam_date_override: str | None=None) -> ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 169) — Parse an outcomes file payload.
-- `exam_question_from_tags(item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 244)
-- `find_exam_items(vault: LoadedVault, *, subject: str | None=None) -> dict[str, PracticeItem]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 253) — Map exam question number -> practice item (tagged ``exam_q:<n>``).
-- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False, clock: Clock | None=None) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 290) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
+  - `as_dict(self) -> dict[str, Any]` (line 132; public)
+- `class ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 148)
+  - `ai_will_grade_count(self) -> int` (line 159; public)
+  - `keep_imported_score_count(self) -> int` (line 163; public)
+  - `as_dict(self) -> dict[str, Any]` (line 166; public)
+- `parse_exam_outcomes(payload: Mapping[str, Any], *, exam_date_override: str | None=None) -> ExamOutcomesFile` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 181) — Parse an outcomes file payload.
+- `exam_question_from_tags(item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 256)
+- `find_exam_items(vault: LoadedVault, *, subject: str | None=None) -> dict[str, PracticeItem]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 265) — Map exam question number -> practice item (tagged ``exam_q:<n>``).
+- `seed_exam_attempts(vault: LoadedVault, repository: Repository, *, outcomes: ExamOutcomesFile, subject: str | None=None, dry_run: bool=False, clock: Clock | None=None) -> ExamSeedingResult` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 302) — Seed backdated ``exam_evidence`` attempts from per-question outcomes.
 
 ### Module constants
 
@@ -75,9 +77,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_validated_score(question: str, value: Any) -> float` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 234)
-- `_question_sort_key(question: str) -> tuple[int, float | str, str]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 273)
-- `_has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 280)
+- `_validated_score(question: str, value: Any) -> float` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 246)
+- `_question_sort_key(question: str) -> tuple[int, float | str, str]` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 285)
+- `_has_exam_attempt_on_date(repository: Repository, practice_item_id: str, exam_date: date) -> bool` ([source](../../../../../../src/learnloop/goals/exam_seeding.py), line 292)
 
 ## Who imports or calls it
 
@@ -119,6 +121,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
 - [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_exam_regrade_selection_reads_import_record`
+  - `test_explicit_regrade_keeps_a_score_only_import`
   - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_dry_run_writes_nothing`
@@ -128,6 +132,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_018_allows_exam_evidence_on_existing_db`
   - `test_parse_accepts_flat_mapping_and_date_override`
   - `test_rebuild_after_seeding_is_stable`
+  - `test_seed_cannot_record_an_outcome_without_any_criterion`
   - `test_seed_creates_backdated_discounted_attempts`
   - `test_seed_rerun_is_idempotent`
   - `test_seeded_exam_interleaves_before_later_live_attempt`

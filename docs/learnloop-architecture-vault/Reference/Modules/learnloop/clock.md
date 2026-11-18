@@ -970,6 +970,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
+  - `test_explicit_regrade_keeps_a_score_only_import`
+  - `test_regrade_projects_new_exercised_supporting_facet`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
   - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_deliverable_codex_review.py](../../../../../tests/test_deliverable_codex_review.py) — direct import
@@ -1229,6 +1231,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grade_resolution_pipeline.py](../../../../../tests/test_grade_resolution_pipeline.py) — direct import
 - [tests/test_grader_channel_prior_knobs.py](../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_grading_cli.py](../../../../../tests/test_grading_cli.py) — direct import
+  - `test_adjudicate_replays_before_commit`
 - [tests/test_graph_correction.py](../../../../../tests/test_graph_correction.py) — direct import
   - `test_calibration_ordering_reverts_to_plain_rate`
 - [tests/test_graph_edit_proposals.py](../../../../../tests/test_graph_edit_proposals.py) — direct import
@@ -1249,6 +1252,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_held_cold_probe_abstains_from_certification_validation`
   - `test_f4_a_validating_regrade_leaves_no_stale_unassessed_row`
   - `test_f5_an_adjudication_releases_the_follow_up_suppression`
+  - `test_owner_confirms_current_class`
   - `test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replaces`
   - `test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does`
   - `test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains`
@@ -1954,7 +1958,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
   - `test_auto_primed_is_absent_when_the_ledger_did_not_force_it`
   - `test_auto_primed_reports_the_reveal_total_behind_the_reclassification`
-  - `test_cold_check_feedback_obeys_the_final_repair_claim`
+  - `test_cold_check_feedback_requires_cold_retrieval_and_intact_window`
   - `test_cold_check_pending_learning_objects_clear_once_the_check_is_answered`
   - `test_cold_check_result_is_null_on_an_ordinary_attempt`
   - `test_cold_check_result_reports_the_span_and_the_claim`

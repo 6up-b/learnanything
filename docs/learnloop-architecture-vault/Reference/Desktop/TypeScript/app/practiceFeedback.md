@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/practiceFeedback.ts](../../../../../../apps/learnloop-tauri/src/app/practiceFeedback.ts) |
-| Source lines | 109 |
+| Source lines | 107 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -56,21 +56,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export function simplePracticeFeedback(): boolean` — function, line 13
 - `export function unestablishedRepairCopy(check: ColdCheckResultDto): string` — function, line 17
-- `export type Verdict = "right" | "partly" | "not_yet" | "held"` — type, line 29
-- `export const VERDICT_TEXT: Record<Verdict, string> =` — const, line 32
-- `export function verdictOf(` — function, line 46
-- `export const REPAIR_STEP_MINUTES = 4` — const, line 76
-- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 77
-- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 80
-- `export function feedbackOrigin(` — function, line 82
-- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 87
-- `export function plainSlug(slug: string | null | undefined): string` — function, line 94
-- `export function expectedAnswerText(value: unknown): string` — function, line 99
+- `export type Verdict = "right" | "partly" | "not_yet" | "held"` — type, line 27
+- `export const VERDICT_TEXT: Record<Verdict, string> =` — const, line 30
+- `export function verdictOf(` — function, line 44
+- `export const REPAIR_STEP_MINUTES = 4` — const, line 74
+- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 75
+- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 78
+- `export function feedbackOrigin(` — function, line 80
+- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 85
+- `export function plainSlug(slug: string | null | undefined): string` — function, line 92
+- `export function expectedAnswerText(value: unknown): string` — function, line 97
 
 ## Internal implementation anchors
 
 - `const result = check.passed ? "You passed this check." : "You didn't pass this check."` — const, line 18
-- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 58
+- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 56
 
 ## Who imports or calls it
 

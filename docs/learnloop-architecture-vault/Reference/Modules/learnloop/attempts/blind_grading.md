@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/blind_grading.py](../../../../../../src/learnloop/attempts/blind_grading.py) |
-| Source lines | 766 |
+| Source lines | 767 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_field_mapping_onto_the_joint_shape`
   - `test_generation_order_is_local_analysis_then_traces_then_facets_last`
   - `test_rendered_blind_prompt_contains_no_prior_attempt_or_hypothesis`
+  - `test_reporting_only_a_zero_weight_criterion_cannot_award_the_omitted_points`
   - `test_request_uses_the_blind_operation_and_hash_is_stable`
   - `test_shared_fakes_answer_the_blind_and_diagnosis_purposes`
   - `test_validator_accepts_reanchors_and_keeps_blind_fields`

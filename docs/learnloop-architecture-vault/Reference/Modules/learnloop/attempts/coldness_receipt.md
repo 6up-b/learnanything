@@ -196,7 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
   - `test_f2_a_peeked_paragraph_that_is_a_cold_items_source_makes_the_receipt_see_it`
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
-  - `test_cold_check_feedback_obeys_the_final_repair_claim`
+  - `test_cold_check_feedback_requires_cold_retrieval_and_intact_window`
 
 ## Modification guidance
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grading_support.py](../../../../../../src/learnloop/attempts/grading_support.py) |
-| Source lines | 1226 |
+| Source lines | 1230 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,14 +71,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `apply_route_rule(proposal: BlindGradingProposal, *, rubric: Rubric, learner_answer_md: str, final_answer_status: str | None, divergent_route: bool, unverified_before: Sequence[str]=(), declared_unverified: Sequence[str]=(), clarification_answer_md: str | None=None, method_criterion_ids: Sequence[str]=()) -> RouteRuleOutcome` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 567) — P1 on the grader's own output: no located error, no mark-down.
 - `record_route_rule_judgment(connection: Any, *, attempt_id: str, grading_support: Mapping[str, Any], judge_model: str | None, prompt_version: str, input_hash: str, created_at: str) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 726) — Append the grade's own-route verdict to ``judgment_ledger`` (review F4).
 - `revalidated_support(grading_support: Mapping[str, Any], record: Mapping[str, Any], rubric: Rubric) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 816) — ``assessed_shortfall`` recomputed over the VALIDATED grade (held-grade-evidence F1).
-- `criterion_outcomes(proposal: BlindGradingProposal, rubric: Rubric) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 878)
-- `sample_fingerprint(proposal: BlindGradingProposal, rubric: Rubric) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 889) — §4.4 split-mode fingerprint: (abstained, anchor, criterion outcomes).
-- `modal_sample(proposals: Sequence[BlindGradingProposal], rubric: Rubric) -> tuple[int, dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 902) — (index of the modal sample, the shadow sampling log).
-- `family_key(vault: LoadedVault, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 936) — The family a variant belongs to: PF-a's ``family_id`` once it exists, else the independent-surface group (one code path, augmentation §8).
-- `grade_uncertainty_signal(*, score_fraction: float, grader_confidence: float, prior_fractions: Sequence[float], family: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 946) — Shadow only: never an input to the grader, never read by routing.
-- `class BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 982)
-- `gated_review_reason(run: BlindGradingRun, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str, rubric: Rubric) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 995) — The attempt's manual-review reason when the PF-c gate applied, else None.
-- `request_blind_grading_run(client: OperationClient, context: BlindGradingContext, *, rubric: Rubric, sample_count: int=1) -> BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1041) — k isolated blind grading calls (k=1 by default), modal choice, PF-c gate.
+- `criterion_outcomes(proposal: BlindGradingProposal, rubric: Rubric) -> dict[str, str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 877)
+- `sample_fingerprint(proposal: BlindGradingProposal, rubric: Rubric) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 888) — §4.4 split-mode fingerprint: (abstained, anchor, criterion outcomes).
+- `modal_sample(proposals: Sequence[BlindGradingProposal], rubric: Rubric) -> tuple[int, dict[str, Any]]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 901) — (index of the modal sample, the shadow sampling log).
+- `family_key(vault: LoadedVault, item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 935) — The family a variant belongs to: PF-a's ``family_id`` once it exists, else the independent-surface group (one code path, augmentation §8).
+- `grade_uncertainty_signal(*, score_fraction: float, grader_confidence: float, prior_fractions: Sequence[float], family: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 945) — Shadow only: never an input to the grader, never read by routing.
+- `class BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 981)
+- `gated_review_reason(run: BlindGradingRun, *, attempt_id: str, item: PracticeItem, vault: LoadedVault, learner_answer_md: str, rubric: Rubric) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 994) — The attempt's manual-review reason when the PF-c gate applied, else None.
+- `request_blind_grading_run(client: OperationClient, context: BlindGradingContext, *, rubric: Rubric, sample_count: int=1) -> BlindGradingRun` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 1040) — k isolated blind grading calls (k=1 by default), modal choice, PF-c gate.
 
 ### Module constants
 
@@ -167,8 +167,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_named_criteria(attribution: BlindErrorAttribution, rubric_ids: Sequence[str] | set[str]) -> set[str]` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 507) — The rubric criteria an attribution names (held-grade-evidence F1).
 - `_located_in_force(attribution: BlindErrorAttribution, texts: Sequence[str]) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 521) — A concrete error in the learner's words, still in force (P1).
 - `_current_route_judgment(connection: Any, task: str, attempt_id: str) -> Any` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 716)
-- `_anchor_key(proposal: BlindGradingProposal) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 856)
-- `_abstained(proposal: BlindGradingProposal) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 873)
+- `_anchor_key(proposal: BlindGradingProposal) -> str | None` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 855)
+- `_abstained(proposal: BlindGradingProposal) -> bool` ([source](../../../../../../src/learnloop/attempts/grading_support.py), line 872)
 
 ## Who imports or calls it
 
