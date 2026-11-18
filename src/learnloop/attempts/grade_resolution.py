@@ -630,6 +630,27 @@ def _adjudication_wrote_the_grade(repository: Repository, attempt_id: str, adjud
     return epoch is not None and any(getattr(row, "evidence", None) == marker for row in epoch.rows)
 
 
+def _another_adjudication_wrote_the_grade(repository: Repository, attempt_id: str | None, adjudication_id: str) -> bool:
+    """Whether the attempt's current grade is an earlier adjudication's revision.
+
+    Such a grade has no raw grade event of its own, so replay keeps a later
+    ruling as the head only when that ruling wrote the grade it reviewed
+    (:func:`_adjudication_wrote_the_grade`). A confirmation that wrote nothing
+    would read as a regrade at the next replay and lose the head to an
+    automatic interpretation."""
+
+    if attempt_id is None:
+        return False
+    from learnloop.grading_epochs import current_epoch
+
+    epoch = current_epoch(repository.fetch_grading_evidence(attempt_id))
+    own = f"adjudicated:{adjudication_id}"
+    return epoch is not None and any(
+        str(getattr(row, "evidence", None) or "").startswith("adjudicated:") and row.evidence != own
+        for row in epoch.rows
+    )
+
+
 def response_certainty_lcb(
     vault: LoadedVault,
     repository: Repository,
@@ -1362,7 +1383,9 @@ def append_adjudication(
     :func:`append_adjudication_evidence_revision`), because the ledger — not
     the interpretation chain — is the directional authority. The returned dict
     carries the typed outcome under ``evidence_revision``. A held grade also
-    needs assessed rows when the owner confirms its provisional class."""
+    needs assessed rows when the owner confirms its provisional class, and a
+    ruling that confirms an earlier ruling's revised grade writes that grade
+    again as its own, so replay keeps it as the head."""
 
     head = repository.active_interpretation_for_observation(observation_id)
     reviewed = list(reviewed_raw_event_ids)
@@ -1512,7 +1535,11 @@ def append_adjudication(
         evidence_revision = {"status": "skipped_ambiguous_leading_class", "evidence_ids": []}
     elif fraction_new is None:
         evidence_revision = {"status": "skipped_class_without_score_fraction", "evidence_ids": []}
-    elif fraction_new == fraction_old and not attempt_grade_held(repository, attempt_id):
+    elif (
+        fraction_new == fraction_old
+        and not attempt_grade_held(repository, attempt_id)
+        and not _another_adjudication_wrote_the_grade(repository, attempt_id, adjudication_id)
+    ):
         evidence_revision = {"status": "skipped_direction_unchanged", "evidence_ids": []}
     elif attempt_id is None:
         evidence_revision = {"status": "skipped_no_attempt", "evidence_ids": []}

@@ -14,6 +14,7 @@ import pytest
 
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import FACET_BELIEF_FIX_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.cli import app
 from learnloop.clock import FrozenClock, SystemClock
 from learnloop.substrate import replay
@@ -155,6 +156,133 @@ def test_adjudicate_replays_before_commit(tmp_path, monkeypatch, interrupt):
         rebuild_all_derived_state(vault, repo, clock=CLOCK)
         assert after == state()
         assert all(old != new for old, new in zip(before, after, strict=True))
+
+
+def _vault_state(repo, attempt_id):
+    return (repo.mastery_states(), repo.practice_item_state(ITEM).due_at, repo.facet_capability_evidence_all(),
+            repo.fetch_practice_attempt(attempt_id))
+
+
+def test_adjudicate_rolls_back_a_replay_that_fails_after_its_reset(tmp_path, monkeypatch):
+    paths, vault, repo = _p0_vault(tmp_path)
+    attempt_id = _attempt(vault, repo).attempt_id
+    obs = repo.observation_by_attempt(attempt_id)["id"]
+    head = repo.active_interpretation_for_observation(obs)["id"]
+    monkeypatch.setattr(SystemClock, "now", lambda self: NOW)
+    before = _vault_state(repo, attempt_id)
+    evidence = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+    interpretations = repo.grade_interpretations_for_observation(obs)
+    replayed = []
+    original = replay.replay_existing_attempt
+
+    def replay_then_fail(*args, **kwargs):
+        # The learning object was reset and this attempt re-applied: the
+        # failure lands in the middle of the replay, not on its entry.
+        replayed.append(original(*args, **kwargs))
+        raise RuntimeError("replay interrupted after its reset")
+
+    monkeypatch.setattr(replay, "replay_existing_attempt", replay_then_fail)
+    out = runner.invoke(app, ["grading", "adjudicate", head, "--resolved-class", "other", "--vault", str(paths.root)])
+    assert isinstance(out.exception, RuntimeError) and len(replayed) == 1
+    assert "rebuilt" not in out.output
+    assert repo.active_interpretation_for_observation(obs)["id"] == head
+    assert repo.grade_interpretations_for_observation(obs) == interpretations
+    assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == evidence
+    assert _vault_state(repo, attempt_id) == before
+
+
+def _zero_point_answer(tmp_path, version):
+    from tests.rebuild_equivalence_helpers import _answer, _vault
+
+    paths, vault, repo = _vault(tmp_path, version=version)
+    attempt_id = _answer(vault, repo, "pi_diag_mid", minutes=10, points=0.0).attempt_id
+    return paths, vault, repo, attempt_id
+
+
+def _adjudicate_cli(paths, repo, attempt_id, resolved_class):
+    obs = repo.observation_by_attempt(attempt_id)["id"]
+    head = repo.active_interpretation_for_observation(obs)["id"]
+    out = runner.invoke(app, ["grading", "adjudicate", head, "--resolved-class", resolved_class,
+                              "--vault", str(paths.root), "--json"])
+    assert out.exit_code == 0, (out.output, out.exception)
+    return obs, json.loads(out.output)["adjudication"]
+
+
+def _ledger_entry(repo, attempt_id):
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
+
+    with connect(repo.sqlite_path, read_only=True) as connection:
+        return next(e for e in load_authoritative_observation_ledger(connection) if e["attempt_id"] == attempt_id)
+
+
+def test_a_confirmation_of_an_adjudicated_grade_stays_the_head(tmp_path, monkeypatch):
+    """A zero-point answer ruled a success (A), then confirmed (B): B writes the
+    head the command prints, and its replay and every later rebuild keep it."""
+
+    paths, vault, repo, attempt_id = _zero_point_answer(tmp_path, LATEST_ALGORITHM_VERSION)
+    monkeypatch.setattr(SystemClock, "now", lambda self: NOW)
+    obs, first = _adjudicate_cli(paths, repo, attempt_id, "success")
+    assert first["evidence_revision"]["status"] == "revised"
+    obs_again, second = _adjudicate_cli(paths, repo, attempt_id, "success")
+    # The confirmation writes the grade it reviewed as its own, so replay
+    # does not take the first ruling's revision for a regrade under it.
+    assert obs_again == obs and second["evidence_revision"]["status"] == "revised"
+    assert repo.active_interpretation_for_observation(obs)["id"] == second["interpretation_id"]
+    assert _ledger_entry(repo, attempt_id)["active_adjudication"]["id"] == second["adjudication_id"]
+    def derived():
+        return (repo.mastery_state("lo_diag"), repo.practice_item_state("pi_diag_mid").due_at,
+                repo.facet_capability_evidence_all())
+
+    after = derived()
+    rebuild_all_derived_state(vault, repo, clock=CLOCK)
+    assert repo.active_interpretation_for_observation(obs)["id"] == second["interpretation_id"]
+    for left, right in zip(derived(), after, strict=True):
+        assert left == right
+
+
+def test_below_the_grade_channel_fixes_adjudicate_does_not_replay(tmp_path, monkeypatch):
+    """Below mvp-0.60 a replay re-mints the answer's observation without the
+    ruling (D-52), so the command leaves derived state alone and says so."""
+
+    paths, vault, repo, attempt_id = _zero_point_answer(tmp_path, FACET_BELIEF_FIX_ALGORITHM_VERSION)
+    monkeypatch.setattr(SystemClock, "now", lambda self: NOW)
+    mastery = repo.mastery_states()
+    obs = repo.observation_by_attempt(attempt_id)["id"]
+    head = repo.active_interpretation_for_observation(obs)["id"]
+    out = runner.invoke(app, ["grading", "adjudicate", head, "--resolved-class", "success", "--vault", str(paths.root)])
+    assert out.exit_code == 0, (out.output, out.exception)
+    assert "downstream state rebuilt" not in out.output
+    assert "not rebuilt" in out.output and "mvp-0.60" in out.output
+    assert repo.observation_by_attempt(attempt_id)["id"] == obs
+    entry = _ledger_entry(repo, attempt_id)
+    assert entry["active_adjudication"] is not None
+    assert entry["active_interpretation"]["id"] == repo.active_interpretation_for_observation(obs)["id"] != head
+    assert repo.mastery_states() == mastery
+
+
+def test_adjudicate_refuses_to_commit_a_head_its_replay_displaced(tmp_path, monkeypatch):
+    paths, vault, repo = _p0_vault(tmp_path)
+    attempt_id = _attempt(vault, repo).attempt_id
+    obs = repo.observation_by_attempt(attempt_id)["id"]
+    head = repo.active_interpretation_for_observation(obs)["id"]
+    monkeypatch.setattr(SystemClock, "now", lambda self: NOW)
+    before = _vault_state(repo, attempt_id)
+    interpretations = repo.grade_interpretations_for_observation(obs)
+    original = replay.replay_learning_object
+
+    def replay_and_displace(vault_, repository, learning_object_id, **kwargs):
+        result = original(vault_, repository, learning_object_id, **kwargs)
+        repository.set_active_interpretation(observation_id=obs, interpretation_id=head)
+        return result
+
+    monkeypatch.setattr(replay, "replay_learning_object", replay_and_displace)
+    out = runner.invoke(app, ["grading", "adjudicate", head, "--resolved-class", "other", "--vault", str(paths.root)])
+    assert out.exit_code == 1
+    assert "rolled back" in out.output and "rebuilt" not in out.output
+    assert repo.active_interpretation_for_observation(obs)["id"] == head
+    assert repo.grade_interpretations_for_observation(obs) == interpretations
+    assert _vault_state(repo, attempt_id) == before
 
 
 def test_retire_surface_from_cli_preserves_evidence_and_logs_reason(tmp_path):

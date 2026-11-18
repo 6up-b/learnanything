@@ -39,10 +39,13 @@ def grading_adjudicate(
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Adjudicate one grade append-only (§4.4/§5): appends a new interpretation head,
-    repoints the observation, emits measurement events, and rebuilds projections.
-    Never overwrites raw history. Thin adapter over the P0.2 append_adjudication."""
+    repoints the observation, emits measurement events, and (at mvp-0.60 or later)
+    replays the answer's learning object, all in one transaction that commits only
+    with the ruling as the head. Never overwrites raw history. Thin adapter over
+    the P0.2 append_adjudication."""
 
-    from learnloop.attempts.grade_resolution import append_adjudication
+    from learnloop.algorithm_versions import GRADE_CHANNEL_FIX_ALGORITHM_VERSION
+    from learnloop.attempts.grade_resolution import append_adjudication, grade_channel_fixes_on
     from learnloop.substrate.p0_projection import record_reinterpretation_if_changed
     from learnloop.substrate.replay import replay_learning_object
     from learnloop.vault.loader import load_vault
@@ -50,48 +53,89 @@ def grading_adjudicate(
     root = _root(vault)
     repository = _repository(root)
     loaded = load_vault(root)
-    with repository.atomic():
-        interp = repository.grade_interpretation(interpretation_id)
-        if interp is None:
-            typer.echo(f"No grade interpretation {interpretation_id!r}.")
-            raise typer.Exit(code=1)
-        observation_id = interp["observation_id"]
-        administration_id = interp["administration_id"]
-        raws = repository.raw_grade_events_for_observation(observation_id)
-        adj = append_adjudication(
-            repository,
-            observation_id=observation_id,
-            administration_id=administration_id,
-            reviewed_raw_event_ids=[r["id"] for r in raws],
-            adjudicator_source=source,
-            resolved_class=resolved_class,
-            rationale=rationale,
-            # Ruling A: a direction flip must land as a superseding grading_evidence
-            # revision; the vault supplies rubric points where contract lineage is
-            # absent (legacy attempts).
-            vault=loaded,
-        )
-        new_head = repository.grade_interpretation(adj["interpretation_id"])
-        event_id = record_reinterpretation_if_changed(
-            repository,
-            administration_id=administration_id,
-            observation_id=observation_id,
-            from_interpretation=interp,
-            to_interpretation=new_head,
-        )
-        attempt_id = repository.observation_attempt_id(observation_id)
-        attempt = repository.fetch_practice_attempt(attempt_id) if attempt_id else None
-        if attempt is not None:
-            replay_learning_object(loaded, repository, attempt["learning_object_id"])
-    payload = {"adjudication": adj, "reinterpretation_event_id": event_id}
+    # Below the grade channel fixes a replay re-mints the answer's observation
+    # without the ruling (refactor bug ledger D-52), so replaying here would
+    # undo the ruling the command reports.
+    replays = grade_channel_fixes_on(loaded.config)
+    try:
+        with repository.atomic():
+            interp = repository.grade_interpretation(interpretation_id)
+            if interp is None:
+                typer.echo(f"No grade interpretation {interpretation_id!r}.")
+                raise typer.Exit(code=1)
+            observation_id = interp["observation_id"]
+            administration_id = interp["administration_id"]
+            raws = repository.raw_grade_events_for_observation(observation_id)
+            adj = append_adjudication(
+                repository,
+                observation_id=observation_id,
+                administration_id=administration_id,
+                reviewed_raw_event_ids=[r["id"] for r in raws],
+                adjudicator_source=source,
+                resolved_class=resolved_class,
+                rationale=rationale,
+                # Ruling A: a direction flip must land as a superseding grading_evidence
+                # revision; the vault supplies rubric points where contract lineage is
+                # absent (legacy attempts).
+                vault=loaded,
+            )
+            new_head = repository.grade_interpretation(adj["interpretation_id"])
+            event_id = record_reinterpretation_if_changed(
+                repository,
+                administration_id=administration_id,
+                observation_id=observation_id,
+                from_interpretation=interp,
+                to_interpretation=new_head,
+            )
+            attempt_id = repository.observation_attempt_id(observation_id)
+            attempt = repository.fetch_practice_attempt(attempt_id) if attempt_id else None
+            if attempt is not None and replays:
+                replay_learning_object(loaded, repository, attempt["learning_object_id"])
+            _require_ruling_as_head(repository, observation_id, attempt_id, adj["interpretation_id"])
+    except _RulingNotHead as exc:
+        typer.echo(f"Adjudication rolled back: {exc}")
+        raise typer.Exit(code=1) from exc
+    rebuilt = attempt is not None and replays
+    payload = {"adjudication": adj, "reinterpretation_event_id": event_id, "derived_state_rebuilt": rebuilt}
     if json_output:
         typer.echo(_dump(payload))
         return
     typer.echo(f"Adjudicated {interpretation_id} -> new head {adj['interpretation_id']}")
     if event_id:
         typer.echo(f"Reinterpretation event: {event_id}")
-    if attempt is not None:
+    if rebuilt:
         typer.echo("downstream state rebuilt")
+    elif attempt is not None:
+        tag = loaded.config.algorithms.algorithm_version
+        typer.echo(
+            f"Derived state was not rebuilt: this vault is at {tag}, below {GRADE_CHANNEL_FIX_ALGORITHM_VERSION}. "
+            f"The upgrade to {GRADE_CHANNEL_FIX_ALGORITHM_VERSION} rebuilds it with this ruling; a rebuild before "
+            "then keeps a revised grade but drops the ruling's head (refactor bug ledger D-52)."
+        )
+
+
+class _RulingNotHead(Exception):
+    """The ruling the command would report is not the head derived state reads."""
+
+
+def _require_ruling_as_head(repository, observation_id: str, attempt_id: str | None, interpretation_id: str) -> None:
+    head = repository.active_interpretation_for_observation(observation_id)
+    if head is None or head["id"] != interpretation_id:
+        raise _RulingNotHead(
+            f"the head of observation {observation_id} would be {head['id'] if head else None}, "
+            f"not the ruling {interpretation_id}"
+        )
+    if attempt_id is None:
+        return
+    # Derived state reads the attempt's newest observation; a ruling on an
+    # older copy (one per rebuild below the grade channel fixes) changes nothing.
+    current = repository.observation_by_attempt(attempt_id)
+    if current is None or current["id"] != observation_id:
+        raise _RulingNotHead(
+            f"attempt {attempt_id} is read from observation {current['id'] if current else None}, "
+            f"not {observation_id}"
+        )
+
 
 @grading_app.command("receipt")
 def grading_receipt(
