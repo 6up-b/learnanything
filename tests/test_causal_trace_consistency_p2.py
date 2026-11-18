@@ -6,6 +6,7 @@ one production writes, not a hand-built dict.
 
 from __future__ import annotations
 
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
@@ -30,6 +31,7 @@ from learnloop.diagnosis.causal_attribution import (
 )
 from learnloop.vault.loader import load_vault
 
+from tests.diagnosis_split_helpers import build_diagnosis_vault
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 _STATEMENT = "The learner may be treating Q and Q transpose as identical."
@@ -369,3 +371,99 @@ def test_overlay_carries_per_hypothesis_state(tmp_path):
         assert row["trace_consistency"] == "consistent_with_claims"
         assert row["support_score"] is None
         assert row["support_authority"] == receipt["support_authority"]
+
+
+# -- a criterion the own-route rule left unassessed (adversarial review of arc E, finding 2)
+
+
+def _route_rule_receipt(tmp_path, *, marked: bool):
+    """``result`` at 0/2 beside ``setup`` at 2/2, with a hypothesis whose only
+    claim is that ``result`` fell short. ``marked``: the rule left ``result``
+    unassessed (its row carries the marker, as since mvp-0.17); otherwise it
+    is a genuinely assessed zero."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    rows = [
+        {
+            "id": f"ge_{criterion}",
+            "criterion_id": criterion,
+            "points_awarded": points,
+            "evidence": "graded",
+            "notes": None,
+            "local_grader_id": "test",
+            "grader_tier": 1,
+            "created_at": NOW_ISO,
+        }
+        for criterion, points in (("setup", 2.0), ("result", 0.0))
+    ]
+    result = apply_attempt(
+        vault,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(practice_item_id="pi_svd_compute_001", learner_answer_md="U Sigma V"),
+            attempt_id="att_marked" if marked else "att_assessed",
+            grade=ResolvedGrade(
+                rubric_score=4 if marked else 2,
+                criterion_points={"setup": 2.0, "result": 0.0},
+                evidence_rows=rows,
+                error_attributions=[
+                    GradeAttribution(
+                        error_type="conceptual_slip",
+                        severity=0.7,
+                        evidence="The final factor is not transposed.",
+                        is_misconception=True,
+                        misconception_statement=_STATEMENT,
+                        resolution_status="unresolved",
+                        cause_scope="learner_state",
+                        operation="transpose_confusion",
+                        model_reported_causal_confidence=0.65,
+                        candidate_causes=[{
+                            "statement": _STATEMENT,
+                            "cause_scope": "learner_state",
+                            "target_ref": {"kind": "criterion", "criterion_id": "result"},
+                        }],
+                        postdictive_claims=[{"criterion_id": "result", "must": "not_full_credit"}],
+                    )
+                ],
+                grader_confidence=0.9,
+                confidence=4,
+                manual_review_reason=None,
+                feedback_md="Check the transpose on the final factor.",
+                repair_suggestions=[],
+            ),
+            unverified_criterion_ids=("result",) if marked else (),
+        ),
+        clock=FrozenClock(NOW),
+    )
+    episode = causal_episode_for_attempt(repository, result.attempt_id)
+    assert episode is not None
+    receipt = episode["receipt"]
+    claiming = [
+        value for value, row in receipt["trace_consistency_detail"]["by_hypothesis"].items()
+        if row["claims_attributed"] == 1
+    ]
+    assert len(claiming) == 1
+    outcomes = {row["criterion_id"]: row for row in receipt["criterion_outcomes"]}
+    return receipt, claiming[0], outcomes["result"]
+
+
+def test_an_assessed_zero_holds_a_shortfall_claim(tmp_path):
+    receipt, hypothesis, result = _route_rule_receipt(tmp_path, marked=False)
+    assert receipt["trace_consistency"][hypothesis] == "consistent_with_claims"
+    assert result["assessable"] is True and result["passed"] is False
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="ER-2: both diagnosis readers take a row the route rule left unassessed for an assessed zero; replay "
+    "rematerializes the receipt from the stored rows, so the fix moves rebuilt receipts and waits for a tag",
+)
+def test_a_criterion_left_unassessed_neither_holds_nor_fails_a_claim(tmp_path):
+    receipt, hypothesis, result = _route_rule_receipt(tmp_path, marked=True)
+    detail = receipt["trace_consistency_detail"]["by_hypothesis"][hypothesis]
+    assert (receipt["trace_consistency"][hypothesis], detail["reason"]) == (
+        "unknown", "claim_criteria_were_not_assessed",
+    )
+    assert result["assessable"] is False
