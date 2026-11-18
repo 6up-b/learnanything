@@ -47,6 +47,8 @@ Branch `fix/arc-e-review-grading`, from main `8804080fcf`. The adversarial revie
 
   The growth is superlinear. Past roughly 250 answers in one learning object, a competing writer's five-second busy timeout runs out while the command holds the lock. The largest synthetic learning object a test builds was not identified. These are vaults built for the measurement.
 
+- **Assertion changed.** `tests/test_p0_projection_cutover.py::test_adjudicating_up_raises_credit_and_unchanged_direction_skips` pinned the second confirmation writing nothing, which is the sequence whose next replay displaced the ruling. It is now `..._keeps_the_grade` and expects a revision with the same points, the same banked credit and the confirming ruling's marker.
+
 ## ER-6: legacy exam imports could reach the grader (finding 6) — reproduced
 
 - **Verified.** A seeded score-only import whose answer was set to "\t\n", "  " or "\r\x0b\x0c　", with NULL notes as written before K5-15, was selected for deferred regrade and was not score-only for the explicit regrade. An import with no import rows (what an empty rubric left before K5-15) was not score-only (NULL read as "has work").
