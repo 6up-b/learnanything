@@ -99,7 +99,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | E1 | Split the router's switches from the availability rule and the projection switches | landed | `50e5b760e3` | [refactor-e1.md](refactor-e1.md) | — |
-| E2 | Extract the chooser's pure decision function | waiting on | — | — | E1 |
+| E2 | Extract the chooser's pure decision function | in the gate | — | [refactor-e2.md](refactor-e2.md) | — |
 | E3 | Move job control and clocks out of choice | waiting on | — | — | E2 |
 | E4 | Move trace assembly out of the chooser | waiting on | — | — | E3 |
 | E5 | Separate objective terms from rollout arithmetic | waiting on | — | — | E4 |

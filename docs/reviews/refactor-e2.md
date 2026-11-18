@@ -98,3 +98,142 @@ builds the restraint gate's `plan_interrupt` record (`engine.py:4930`), not this
 **Outside this method.** `ObjectiveRestraintGate._mixed` (`:1845-1960`) draws the same mix for mid-block follow-ups,
 with no coin, its own why and its own record (`plan_records.plan_interrupt`). The brief names this method; `_mixed`
 stays as it is (§8).
+
+## 2. What changed
+
+Commits, in order (each in this worktree, on `refactor/e2-choice-pure`):
+
+1. `6a6cc9e6ed`: step 0 (§1).
+2. `04fbf6582f`: `provenance.ref`, the id rule every decision record uses (an id, or a 16-hex hash of one that isn't
+   a code), moved from `daily_plan/boundary_records.py`, which imports it, so `boundary_records.ref` still works.
+   The core lives under `router_objective`, which may not import `daily_plan` ("a leaf consumer: nothing in the
+   domain below imports it"), and it builds its own record. The body is the old one with `provenance.is_code` read
+   as the module's own `is_code`.
+3. `2bc640bf05`: the split.
+   - **`router_objective/choose.py`** (new, 264 lines): `OptionFacts`, `ChoiceInputs`, `Choice`, `choose`, two read
+     predicates for the coin (`coin_reads_minutes`, `coin_applies`) and `_with_record`. Its imports are the mix,
+     the stop coin, `router.why`, `router.mixture` and `provenance`, none of them in an import cycle (§5, P3).
+     The mix's and the coin's functions are called through their modules (`mix.draw`, `SC.flip`), so the tests
+     that replace `mix.draw` (the ih2 `draw` fixture, `te3b_offers_helpers.offer_drawn`, `test_router_failure_records`)
+     still reach the served draw.
+   - **`ObjectiveChooser._decide_objective`** (169 to 141 lines): the reads, in their old order and under their old
+     conditions, into `ChoiceInputs`; `C.choose(...)`; then the trace (`_trace` and the fields after it), the router's
+     record and the `BlockChoice`, all from the `Choice`. The numeric answer's resolution (final, or the F1
+     publication) moved unchanged into `_numeric_answer`; `_option_facts` reads a candidate's reason code, topic and
+     section for the rule sentence (the reads `router_chooser._rule_sentence` makes). `MODE` and `WHY_VERSION` now
+     come from `choose.py`, whose copy they version; `objective_chooser.MODE` and `.WHY_VERSION` keep their names.
+   - **`BlockChoice.decision_record`** (`daily_plan/types.py`): the core's record rides on the choice
+     (`compare=False`, like `router_record` and `provenance`, so no equality between choices moves).
+   - **`boundary_records.plan_block_records`**: the decision's part of the record comes from the choice's own
+     record when the choice carries one, is not a fallback and names the same chosen ref; otherwise from
+     `_derived_part`, the old derivation from the chooser's record dict (staged, the R2 mixture, every fallback),
+     moved out unchanged. The container's part (the block, the router row, the trace, parent, created time, feasible
+     and infeasible alternatives, waits, `card_error`, forced items, the offer it supersedes, a crash's type and
+     place) is added once, for both.
+4. `5704038e61`: the tests (§6).
+5. The record, the vault note, the status row and the ledger's SR-1 pointer; then the generated references.
+
+`daily_plan/plan_records.py` is unchanged: it builds the restraint gate's record, and nothing of this method's was
+there. The plan_block record's builder is `boundary_records.py`; what moved out of it is the decision's own part for
+objective decisions, now built by the core, while the derivation stays for the choosers that have no core.
+
+| File | Base | Tip |
+|---|---|---|
+| `daily_plan/objective_chooser.py` | 2,224 | 2,231 |
+| `_decide_objective` | 169 | 141 (+ `_numeric_answer` 24, `_option_facts` 6) |
+| `router_objective/choose.py` | — | 264 (`choose` 59, `_with_record` 37, `ChoiceInputs` 38, `Choice` 38) |
+| `daily_plan/boundary_records.py` | 322 | 336 (`plan_block_records` 104 to 85, `_derived_part` 44) |
+| `daily_plan/plan_records.py` | 280 | 280 |
+| `provenance.py` | 468 | 481 |
+| `daily_plan/types.py` | 251 | 255 |
+
+`objective_chooser.py` grows by 7 lines: the decision's ~45 lines left, and the inputs' construction (14 lines), the
+method's docstring and the two helpers' docstrings came in. What remains of `_decide_objective` past the call is the
+trace and the router's record (about 85 lines), E4's.
+
+## 3. The two dataclasses
+
+**`ChoiceInputs`**, every field and where the shell reads it:
+
+| Field | From |
+|---|---|
+| `support`, `staged_ref` | `choose`'s support and staged's ref (§1 a-e) |
+| `options` | per support candidate, its `reason_code`, `topic`, `section` annotations (`_option_facts`); stop has none |
+| `llm_status` | the LLM component's result status (`entry.results()`, or `not_ready` with its readiness reason) |
+| `llm_distribution`, `rationale`, `cited` | the parsed `ParsedPolicy` when the LLM answered and parsed, else None, None, () |
+| `card_evidence_ids` | `material["policy_card"]["evidence_ids"]` (the LLM card the prefetch built) |
+| `numeric_status`, `numeric_choice` | the served numeric answer (`_numeric_answer`, then `_with_carried`); None, None with no answer at all |
+| `w` | `current_weight(repository, config, at=now_iso)` |
+| `to_other_policy` | `failure_share_to_other_policy_on(config)` |
+| `epsilon` | `router_settings(config)["epsilon_min"]` |
+| `seed` | `self._seed(entry.key, decision_id)` after `new_ulid()` (`runtime.seed`, else `mix.seed_for`, looked up at call time) |
+| `stop_rate` | `stop_coin_rate(config)` |
+| `session_minutes` | `_session_minutes(now_iso)` when `coin_reads_minutes(rate, support)`, else None |
+| `availability` | `{**_availability(state, numeric), "session_minutes": ...}` when `coin_applies(rate, support, minutes)`, else None |
+| `staged_why` | staged's own `why` |
+| `no_models` | the entry is `_NoModels` (the no-model branch) |
+| `boundary_key`, `algorithm_version`, `question_set_version`, `llm_schema_version` | `entry.key`, `config.algorithms.algorithm_version`, `material["policy_request"].question_set_version`, `rq.LLM_POLICY_SCHEMA` (the record's facts and versions) |
+
+**`Choice`**, every field and where the shell writes it:
+
+| Field | Written to |
+|---|---|
+| `failed`, `effective`, `components`, `numeric_choice` | `mixture.failed`, `mixture.effective_weights`, `mixture_weights.effective`, the trace's `mixing.effective`, `model_distributions.numeric`, `mixture.numeric_choice` |
+| `drawn` | `mixture.drawn_component`, `u1`, `u2`, `pi` (the mix's μ), `drawn_component`; the trace's `mixing` |
+| `coin` | `mixture.stop_coin`, the trace's `stop_coin`, `mixing.drawn_chosen`, the score note when its arm is not `policy` |
+| `served`, `propensity` | `BlockChoice.candidate_id`, `.propensity`; `mixture.served` and the trace's `mixing.chosen` under a coin |
+| `pi` | `mixture.pi` under a coin (the served distribution); without one it equals `drawn.pi` |
+| `rule_code`, `rule` | `why_code` (`rule_code or None`); `rule` enters the why |
+| `favoured`, `guard`, `shown`, `rationale_hidden`, `evidence_labels` | `mixture.rationale.about`, `.guard`, `.shown`; `rationale_hidden`; `evidence_labels` |
+| `why`, `why_kind` | `BlockChoice.why` (staged's when the mix's is empty), `.why_kind` |
+| `decided_by`, `fallback`, `fallback_reasons` | the router's record |
+| `assignments` | `ro5_assignments` (the coin's pending `policy_experiment_assignments` row) |
+| `record` | `BlockChoice.decision_record`, completed and written by the engine |
+
+## 4. Reads: none hoisted
+
+No read moved ahead of a decision. Every read the method made is made at the same point relative to the others and
+under the same condition: the results, the wall time, the published and carried answers, `current_weight`, the id,
+the carry registration, the seed, the session's minutes (when the rate is positive and stop is in the support) and
+the availability (when the coin applies), then, after the call, `_carried_for` and the waited-ms clock. The two
+coin predicates are the conditions the method tested inline before, now named in `choose.py` so the core and the
+shell ask the same question (`choose` flips the coin under `coin_applies` too). The decision path's cost is
+therefore unchanged by construction, and measured in §7 (P1): connection opens and statements on the deciding
+thread during `_decide_objective`, equal at the base and the tip on every scenario.
+
+## 5. What keeps each KEEP item, and its test
+
+| Kept | How | Pinned by |
+|---|---|---|
+| IH5's failure share | `mix.effective_weights(w, failed, to_other_policy=...)`, called by the core with the switch as it serves | `tests/test_ih5_successor.py` (the table of weights, exact propensities, the real chooser's logged rule, switch off = predecessor); `tests/test_choose.py` (four failure cases with literals) |
+| IH2's contest | the support (`[contest]` plus the offer) and staged's ref are built before the call, as before; the trace's `followup_contest` after it | `tests/test_ih2_lessons_compete.py`, `tests/test_why_cases.py` case 2; P-draw `contest` |
+| Exact propensities | `1.0` for a deterministic draw, else its propensity; under the coin its served propensity and the served distribution as `mixture.pi`, the mix's μ as `mix_pi` | `tests/test_ih5_successor.py::test_the_floor_is_kept_and_propensities_are_exact_in_every_row`, `ih2_lessons_compete_helpers._assert_exact_mu` (used across IH2's file), `tests/test_ro5_stop_coin.py::test_serving_records_each_coin_with_its_exact_probability_and_availability`; `tests/test_choose.py` |
+| RO5's coin order | `mix.draw` (uniforms `component`, `candidate`), then `SC.flip` (its own `stop_coin`, `stop_coin_next`), the availability read before | `tests/test_ro5_stop_coin.py::test_the_coin_never_depends_on_the_mix_or_either_policy`, `tests/test_ro5_landing.py::test_r4_the_coin_is_not_drawn_before_any_active_minute_of_the_session`; `tests/test_choose.py::test_the_coin_draws_after_the_mix_on_its_own_uniform_and_leaves_the_mixs_draw_alone` |
+| The seeds and what each depends on | the mix's seed is still `runtime.seed` or `mix.seed_for(boundary_key, decision_id)` in the shell; the numeric seed (`numeric_seed(identity)`) is untouched; the core takes the seed as a value | `tests/pinned_draws.py`'s wrappers (they wrap `mix.seed_for` and `numeric_seed`, still looked up at call time), `tests/test_rospeed2_connections.py`, `tests/test_ih_lesson_candidate_after_cold_miss.py`; P-draw |
+| The served decision at fixed seeds | as above | the pinned-draw router files in §6's run; P-draw, every scenario |
+| Every logged row and trace field | the router's record and the trace are written from the `Choice` with the old keys in the old order (the coin's keys added after, `pi` replaced in place) | P-draw (every table, byte-equal after normalization); `tests/test_ro4_objective_serving.py`, `tests/test_ro6_serving.py`, `tests/test_router_failure_records.py` |
+| The rationale guard's rules | `router_why.rationale_guard` unchanged, called by the core with the same arguments; `absent`, `another_option` and the coin's withdrawal as before. SR-1 is not touched (its pointer in the ledger now names `choose.py`) | `tests/test_router_r2b_serving.py::test_the_rationale_guard`, `::test_the_llm_rationale_is_shown_only_for_the_option_it_explains`; `tests/test_choose.py` (each verdict) |
+
+## 6. Tests added
+
+- **`tests/test_choose.py`** (26 tests, no vault): the statuses it compares are the runtime's; one per rule code
+  (`stop_offer`, a block's own code and sentence, no code: no rule and staged's why); IH5 (LLM failed with the switch
+  on and off, numeric choice outside the support, both failed with a missing answer as `not_ready`); the propensities
+  (μ and the draw's propensity, the alternatives' `p`, a one-hot mix served at 1.0); the coin (drawn after the mix on
+  its own uniform, the mix's draw unchanged by it, the served distribution, the assignment row; an offered stop shows
+  no model's words; the opening boundary; missing availability refused); the guard (shown with evidence, each refusal:
+  `jargon`, `unknown_evidence`, `too_long`, `probability`, `empty`, `absent`; `another_option`); the record's fields;
+  and the core reaching no database, clock or id stream and leaving its inputs alone. Seeds that land a draw where a
+  test needs it are found by trying seeds, never by patching the draw.
+- **`tests/test_objective_decision_record.py`** (2): a plan journey (both models with the coin at 0.45; no model),
+  every `plan_block_records` call made twice, with the core's record and with it taken away: the records are equal
+  field for field but their ids. Fail-first: with the core's `option_count` off by one, both fail.
+- **`tests/test_why_cases.py`** gains `test_the_objective_choice_names_its_rule_code` (4 cases, L6): `stop_offer`,
+  a repair block's `repair_open_problem`, a maintain block's `review`, a lesson offer's `lesson_offer`, each staged
+  through the real plan with the ih2 `draw` fixture and read from `why --json` alone (status, rule, why version,
+  seed, the support's alternatives with their probabilities). Helper: `why_cases_helpers.stage_rule_case`.
+- **Ported:** none. No test patched or read the source of a name this step moved (`current_weight`, `new_ulid`,
+  `_rule_sentence`, `rationale_guard` and `mix.draw` are still reached where the tests reach them; the ones that
+  patch `OC._hash`, `OC._latest_attempt`, `OC.run_numeric`, `OC._drain_carry`, `OC._await`, `ObjectiveChooser._defer_carry`
+  patch names the shell keeps). No assertion changed.
+
