@@ -132,8 +132,8 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 |---|---|---|---|---|---|
 | G1 | Extract probe facts and hard stops | waiting on | — | — | Arc E |
 | G2 | Make the action router the probe decider | waiting on | — | — | G1, K6 and G6 |
-| G3 | Measure disagreement between the two diagnosis beliefs | waiting on | — | — | Arc E. Runs with G1. |
-| G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | — | G3 shows disagreement |
+| G3 | Measure disagreement between the two diagnosis beliefs | in the gate | — | [refactor-g3.md](refactor-g3.md) | Result: no probe has been presented in any owner copy, so there are no pairs; G4 is skipped for now and the measurement is rerun when real probes exist. |
+| G4 | Unify beliefs when measured disagreements warrant it | not doing | — | [refactor-g3.md](refactor-g3.md) | G3 found no real pair to compare (no probe presented in any owner copy). Reopened if a rerun of G3 on later data shows disagreement. |
 | G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
 | G6 | Use one authority for each protection question | waiting on | — | — | G1 and G3. Runs with K6. |
 
