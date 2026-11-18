@@ -1,12 +1,12 @@
 # Refactor status
 
-- S1, S2 and M1 are in flight. The rebuild fix is in flight for `mvp-0.60`.
-- L2c and L2d come next. L1b and the first L2 batch are on main. Further cycle cuts wait for arc G.
-- Run E1–E6, then E7 as the evidence view. Run G1 and G3, then K6 and G6 with K5 alongside. G2 follows. G4 runs only if G3 finds disagreement. H1 and H2 follow.
-- The owner still needs to decide I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, and the diagnosis questions for K9.4, K9.13 and K9.17.
+- Running next: E2 (the router's choice as a pure function), then E3–E6; the two replay switches left from arc D (`replay.ledger_bounded`, `mastery.claim_fixes_enabled`).
+- On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1; S1, S2 and M1; the K5 review with its two high fixes.
+- After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
+- The owner still needs to decide: three K5 questions (whether an unattributable pass closes a repair case; the FSRS clock on skipped reviews; what a certificate probe counts), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. The first snapshot uses main at `c1e3706164` and the owner's Nov 17 decisions.
+The orchestrator updates this file in each landing commit. This snapshot is the landing after main `41c1d97469` (Nov 18) and the owner's Nov 17 decisions.
 
 ## Baseline and arc A
 
@@ -92,13 +92,13 @@ The orchestrator updates this file in each landing commit. The first snapshot us
 | D8 provenance | Fix the two reopened input provenance gaps | waiting on | — | — | One capture point for diagnosis inputs |
 | D close fix 1 | Fix arc close serving and test gaps | landed | `7131b464c5` | [refactor-adfix1.md](refactor-adfix1.md) | — |
 | D close fix 2 | Fix diagnosis stops, clocks and vault switching | landed | `6fffbc20c8` | [refactor-adfix2.md](refactor-adfix2.md) | — |
-| D close rebuild fix | Preserve adjudications and avoid duplicate rebuild history (D-36, D-52) | in flight | — | [ledger D-36](refactor-bug-ledger.md) | Landing as `mvp-0.60` |
+| D close rebuild fix | Preserve adjudications and avoid duplicate rebuild history (D-36, D-52) | landed | `41c1d97469` | [refactor-adfix3.md](refactor-adfix3.md) | — (shipped as `mvp-0.60`, no kill switch) |
 
 ## Arc E
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| E1 | Move AD availability beside its reader | waiting on | — | — | L2 |
+| E1 | Split the router's switches from the availability rule and the projection switches | landed | `50e5b760e3` | [refactor-e1.md](refactor-e1.md) | — |
 | E2 | Extract the chooser's pure decision function | waiting on | — | — | E1 |
 | E3 | Move job control and clocks out of choice | waiting on | — | — | E2 |
 | E4 | Move trace assembly out of the chooser | waiting on | — | — | E3 |
@@ -198,7 +198,7 @@ The orchestrator updates this file in each landing commit. The first snapshot us
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | K4 | Map writers outside the ingestion pipeline | deferred | — | — | Owner's Nov 17 queue |
-| K5 | Map grading, regrade, coldness and certification | waiting on | — | — | G1 and G3. Runs alongside K6 and G6. |
+| K5 | Review grading, regrade, coldness and certification | landed | `1b63838666` | [refactor-k5.md](refactor-k5.md) | Fourteen ledger rows (K5-1 to K5-14): K5-14 and K5-2 fixed (`2b2c2fb155`, [refactor-k5-fixes-1.md](refactor-k5-fixes-1.md)); the rest by the record's batches; K5-3, K5-4, K5-8 wait on the owner |
 | K6 | Map Reader Ask and retrieval side effects | waiting on | — | — | G1 and G3 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
@@ -259,15 +259,15 @@ The orchestrator updates this file in each landing commit. The first snapshot us
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | M0 | Hold the structure measures in a golden | landed | `9042ca91f3` | [refactor-m0.md](refactor-m0.md) | — |
-| M1 | Hold serving file sizes and golden JSON lines | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
+| M1 | Hold serving file sizes and golden JSON lines | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | L1 | Cut the import cycle at measured edges | waiting on | — | [refactor-l1b.md](refactor-l1b.md) | Arc G for the remaining knot |
 | L1a | Cut two import edges with pure moves | landed | `572d40b9fa` | [refactor-l1a.md](refactor-l1a.md) | — |
 | L1b | Cut three more edges and measure the component | landed | `914145d0b9` | [refactor-l1b.md](refactor-l1b.md) | — |
-| L2 | Move repository methods into named store files | in flight | — | [pilot](refactor-l2a.md), [first batch](refactor-l2b.md) | L2c and L2d |
+| L2 | Move repository methods into named store files | landed | `f243c960e1` | [pilot](refactor-l2a.md), [b](refactor-l2b.md), [c](refactor-l2c.md), [d](refactor-l2d.md) | — (`repositories.py` is a 3,025-line facade with 52 methods; 17 store files and `db/records.py`) |
 | L2a | Pilot a store for reading request methods | landed | `400dfeb2be` | [refactor-l2a.md](refactor-l2a.md) | — |
 | L2b | Split five store groups from the repository | landed | `914145d0b9` | [refactor-l2b.md](refactor-l2b.md) | — |
-| L2c | Split attempt, grade and diagnostic store groups | waiting on | — | — | Rebuild fix lands first |
-| L2d | Split content, scheduling and other repository groups | waiting on | — | — | L2c |
+| L2c | Split attempt, grade and diagnostic store groups | landed | `f10dbf51ae` | [refactor-l2c.md](refactor-l2c.md) | — |
+| L2d | Split content, scheduling and other repository groups | landed | `f243c960e1` | [refactor-l2d.md](refactor-l2d.md) | — |
 | L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner's list of CLI-only code that stays |
 | L4 | Review which learned models need pure cores | not started | — | — | — |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
@@ -291,8 +291,8 @@ The orchestrator updates this file in each landing commit. The first snapshot us
 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
-| S1 | Keep one status table in the repository | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
-| S2 | Stop batches when cost per removal more than doubles | in flight | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Landing gate |
+| S1 | Keep one status table in the repository | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
+| S2 | Stop batches when cost per removal more than doubles | landed | `31ce39ec3d` | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | — |
 | S3 | Reorder open lanes around cuts and reviews | landed | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Applied as a reordering: L1 and L2 ran ahead of the interior splits. L4's review has no slot yet. |
 | S4 | Name the next features and their prerequisites | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval of the strategy edits |
 | P1 | Record what evidence each model call saw | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on packet records before the evidence packet build |

@@ -14,11 +14,11 @@ functions_over_200_lines = 71
 comment_lines_naming_a_stage_artifact = 2370
 test_files_named_for_a_stage = 184
 "src/learnloop/daily_plan/engine.py" = 6775
-"src/learnloop/attempts/attempts.py" = 5810
-"src/learnloop/db/repositories.py" = 19536
-"src/learnloop/scheduling/scheduler.py" = 3752
+"src/learnloop/attempts/attempts.py" = 5826
+"src/learnloop/db/repositories.py" = 3025
+"src/learnloop/scheduling/scheduler.py" = 3748
 "src/learnloop_sidecar/handlers/reader.py" = 2979
-golden_json_lines = 231574
+golden_json_lines = 230730
 
 [members]
 import_component = [
