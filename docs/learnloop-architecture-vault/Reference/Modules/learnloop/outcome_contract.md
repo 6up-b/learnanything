@@ -148,8 +148,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
   - `test_a_held_grade_gets_a_record_when_the_hold_first_applies`
-- [tests/test_blind_grading_contract.py](../../../../../tests/test_blind_grading_contract.py) — direct import
-  - `test_ordinary_grade_requires_assessed_evidence`
 - [tests/test_collection_dataset.py](../../../../../tests/test_collection_dataset.py) — direct import
   - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
   - `test_retention_contract_rejects_contaminated_or_unobserved_labels`

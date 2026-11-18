@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py) |
-| Source lines | 5806 |
+| Source lines | 5810 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `resolved_codex_grade(validated: ValidatedCodexGrade, *, agent_run_id: str | None, clock: Clock | None, manual_review_reason: str | None=None) -> ResolvedGrade` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5528)
 - `calculate_rubric_score(rubric: Rubric, criterion_points: dict[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5656)
 - `assessed_rubric_score(rubric: Rubric, criterion_points: Mapping[str, float], fatal_errors: Iterable[str], *, unassessed_criterion_ids: Iterable[str], answer_validated: bool=True) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5669) — The grade over the ASSESSED criteria only (PF-c, owner decision 2026-10-12).
-- `fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: int, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5720) — FSRS rating for a graded attempt: score binning + the item's hint cap.
+- `fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: int, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5724) — FSRS rating for a graded attempt: score binning + the item's hint cap.
 
 ### Module constants
 
@@ -192,14 +192,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_validated_criterion_points(rubric: Rubric, points: dict[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5609)
 - `_validated_self_grade_attributions(rubric: Rubric, attributions: list[SelfGradeErrorAttribution] | None) -> list[SelfGradeErrorAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5625) — Validate per-criterion self-grade error picks before they are resolved.
 - `_validate_fatal_errors(rubric: Rubric, fatal_errors: list[str]) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5649)
-- `_capped_rating(rating: Rating, item: PracticeItem, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5730)
-- `_hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> object | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5738)
-- `_rating_from_cap(value: object) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5756)
-- `_memory_state(state: PracticeItemState | None) -> MemoryState | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5775)
-- `_elapsed_days(state: PracticeItemState | None, observed_at) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5786)
-- `_error_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5795)
-- `_taxonomy_severity(error_types: Mapping[str, Any], error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5799)
-- `_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5804)
+- `_capped_rating(rating: Rating, item: PracticeItem, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5734)
+- `_hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> object | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5742)
+- `_rating_from_cap(value: object) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5760)
+- `_memory_state(state: PracticeItemState | None) -> MemoryState | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5779)
+- `_elapsed_days(state: PracticeItemState | None, observed_at) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5790)
+- `_error_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5799)
+- `_taxonomy_severity(error_types: Mapping[str, Any], error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5803)
+- `_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 5808)
 
 ## Who imports or calls it
 
@@ -411,7 +411,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_self_graded_attempt_updates_attempt_evidence_state_and_surprise`
   - `test_unknown_attempt_type_fails_before_sqlite_insert`
 - [tests/test_blind_grading_contract.py](../../../../../../tests/test_blind_grading_contract.py) — direct import
-  - `test_ordinary_grade_requires_assessed_evidence`
+  - `test_ordinary_grade_requires_every_criterion`
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
 - [tests/test_canonical_projection_fold_skip.py](../../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
 - [tests/test_canonical_projection_rollout.py](../../../../../../tests/test_canonical_projection_rollout.py) — direct import
@@ -479,6 +479,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_written_question_keeps_returning_after_it_is_answered`
 - [tests/test_daily_loop_reentry_break.py](../../../../../../tests/test_daily_loop_reentry_break.py) — direct import
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_an_attempt_that_is_not_an_import_is_never_score_only_by_absence`
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`
   - `test_deferred_regrade_preserves_blank_answer_manual_review`
@@ -737,7 +738,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rospeed_join.py](../../../../../../tests/test_rospeed_join.py) — direct import
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regrade`
-  - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
+  - `test_er1_a_grade_that_leaves_out_a_criterion_is_refused`
+  - `test_er1_the_rules_treat_a_weightless_remainder_as_nothing_assessed`
+  - `test_f1_live_an_incomplete_grade_is_refused`
 - [tests/test_router_coldness_covariates.py](../../../../../../tests/test_router_coldness_covariates.py) — direct import
   - `test_the_replayer_records_the_fsrs_predicted_retrievability`
 - [tests/test_router_outcomes.py](../../../../../../tests/test_router_outcomes.py) — direct import

@@ -318,7 +318,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_grading.py](../../../../../../../tests/test_required_method_grading.py) — direct import
   - `test_live_another_route_fails_the_method_criterion_with_no_quote`
 - [tests/test_route_rules_in_grader.py](../../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_live_nothing_located_and_nothing_validated_is_held`
 - [tests/test_stuck_prompt.py](../../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_a_partial_stuck_answer_is_graded_blind_at_standard_mass_and_diagnosed`

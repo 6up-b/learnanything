@@ -961,6 +961,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_debug_advance.py](../../../../../tests/test_debug_advance.py) — direct import
   - `test_debug_advance_shifts_practice_item_state_timestamps`
 - [tests/test_deferred_regrade.py](../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_an_attempt_that_is_not_an_import_is_never_score_only_by_absence`
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
   - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`
   - `test_deferred_regrade_preserves_blank_answer_manual_review`
@@ -1231,7 +1232,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_grade_resolution_pipeline.py](../../../../../tests/test_grade_resolution_pipeline.py) — direct import
 - [tests/test_grader_channel_prior_knobs.py](../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
 - [tests/test_grading_cli.py](../../../../../tests/test_grading_cli.py) — direct import
+  - `test_a_confirmation_of_an_adjudicated_grade_stays_the_head`
+  - `test_adjudicate_refuses_to_commit_a_head_its_replay_displaced`
   - `test_adjudicate_replays_before_commit`
+  - `test_adjudicate_rolls_back_a_replay_that_fails_after_its_reset`
+  - `test_below_the_grade_channel_fixes_adjudicate_does_not_replay`
 - [tests/test_graph_correction.py](../../../../../tests/test_graph_correction.py) — direct import
   - `test_calibration_ordering_reverts_to_plain_rate`
 - [tests/test_graph_edit_proposals.py](../../../../../tests/test_graph_edit_proposals.py) — direct import

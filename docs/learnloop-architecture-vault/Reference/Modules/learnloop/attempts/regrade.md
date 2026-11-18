@@ -203,6 +203,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_other_regrade_still_reads_the_item_as_it_is_now`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_a_ruled_grade_is_calibrated_under_the_rules_identity_and_so_is_its_regrade`
+  - `test_er1_nothing_with_points_assessed_is_held_not_full_marks`
   - `test_f1_live_an_incomplete_regrade_keeps_an_existing_hold`
   - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`

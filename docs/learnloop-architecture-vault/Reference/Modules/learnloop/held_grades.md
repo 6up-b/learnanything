@@ -198,6 +198,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_serving_reads_the_anchor_past_a_primed_retry_and_a_held_grade`
 - [tests/test_ro5_codex_review.py](../../../../../tests/test_ro5_codex_review.py) — direct import
   - `test_f1_a_held_grade_is_no_check_observation_and_no_completion`
+- [tests/test_route_rules_in_grader.py](../../../../../tests/test_route_rules_in_grader.py) — direct import
+  - `test_er1_nothing_with_points_assessed_is_held_not_full_marks`
 - [tests/test_router_card.py](../../../../../tests/test_router_card.py) — direct import
 - [tests/test_router_r2c_teach_back.py](../../../../../tests/test_router_r2c_teach_back.py) — direct import
   - `test_a_held_teach_back_is_never_summarized`

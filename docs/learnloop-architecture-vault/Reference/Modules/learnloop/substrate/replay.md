@@ -160,7 +160,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_single_use.py](../../../../../../tests/test_followup_single_use.py) — direct import
   - `test_retired_while_unused_stays_retired_after_sync_and_rebuild`
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
+  - `test_adjudicate_refuses_to_commit_a_head_its_replay_displaced`
   - `test_adjudicate_replays_before_commit`
+  - `test_adjudicate_rolls_back_a_replay_that_fails_after_its_reset`
 - [tests/test_held_grade_evidence.py](../../../../../../tests/test_held_grade_evidence.py) — direct import
   - `test_owner_confirms_current_class`
 - [tests/test_help_fold_attach_successor.py](../../../../../../tests/test_help_fold_attach_successor.py) — direct import

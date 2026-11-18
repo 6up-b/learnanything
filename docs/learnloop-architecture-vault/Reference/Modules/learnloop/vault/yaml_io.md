@@ -458,6 +458,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro4_goals.py](../../../../../../tests/test_ro4_goals.py) — direct import
 - [tests/test_rospeed2_section_map.py](../../../../../../tests/test_rospeed2_section_map.py) — direct import
   - `test_the_held_map_is_the_landing_codes_through_protection_source_and_vault_changes`
+- [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import

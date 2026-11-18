@@ -103,6 +103,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ad23_fix_review.py](../../../../../../../tests/test_ad23_fix_review.py) — direct import
   - `test_a_historical_regrade_reads_its_current_epoch_not_a_surviving_obsolete_criterion`
+- [tests/test_grading_cli.py](../../../../../../../tests/test_grading_cli.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_observation_ledgers_have_constant_query_budget_and_stable_order`
 - [tests/test_rebuild_history_appends.py](../../../../../../../tests/test_rebuild_history_appends.py) — direct import

@@ -121,6 +121,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
 - [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_a_legacy_import_whose_answer_is_only_whitespace_is_score_only`
+  - `test_a_legacy_import_with_no_import_rows_is_score_only`
   - `test_exam_regrade_selection_reads_import_record`
   - `test_explicit_regrade_keeps_a_score_only_import`
   - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`

@@ -253,7 +253,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_recorded_near_clone_disqualification_survives_both_replays`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
   - `test_activation_records_derived_state_rebuild`
-  - `test_adjudicating_up_raises_credit_and_unchanged_direction_skips`
+  - `test_adjudicating_up_raises_credit_and_unchanged_direction_keeps_the_grade`
   - `test_adjudication_reverses_projection_and_preserves_history`
   - `test_ruling_a_superseded_rows_inert_nonsuperseded_rows_authoritative`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
@@ -308,6 +308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_live_the_same_mathematics_without_a_required_method_keeps_mvp020s_rule`
   - `test_replay_reproduces_method_grades_without_a_model`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
+  - `test_er1_nothing_with_points_assessed_is_held_not_full_marks`
   - `test_f2_live_declared_uncertainty_on_a_quoted_step_is_unassessed`
   - `test_f3_live_a_clarification_regrade_keeps_an_error_the_reply_reveals`
   - `test_live_a_wrong_final_answer_is_never_unassessed`

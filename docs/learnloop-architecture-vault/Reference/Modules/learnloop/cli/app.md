@@ -494,7 +494,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forecast_receipts.py](../../../../../../tests/test_forecast_receipts.py) — direct import
   - `test_the_calibration_report_on_a_seeded_vault`
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
+  - `test_adjudicate_refuses_to_commit_a_head_its_replay_displaced`
   - `test_adjudicate_replays_before_commit`
+  - `test_adjudicate_rolls_back_a_replay_that_fails_after_its_reset`
+  - `test_below_the_grade_channel_fixes_adjudicate_does_not_replay`
   - `test_registry_audit_cli_is_clean_and_show_traces`
   - `test_registry_certify_links_coverage_without_promoting`
   - `test_registry_certify_refuses_module_constants`

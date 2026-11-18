@@ -243,6 +243,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_forgetting_clock_live_and_rebuilt`
 - [tests/test_grade_application_golden.py](../../../../../../tests/test_grade_application_golden.py) — direct import
 - [tests/test_grading_cli.py](../../../../../../tests/test_grading_cli.py) — direct import
+  - `test_a_confirmation_of_an_adjudicated_grade_stays_the_head`
   - `test_adjudicate_replays_before_commit`
 - [tests/test_held_grade_composition.py](../../../../../../tests/test_held_grade_composition.py) — direct import
   - `test_router_never_scores_a_held_attempt_and_its_fold_applies_no_review`
@@ -353,7 +354,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_robust_completion_gate.py](../../../../../../tests/test_robust_completion_gate.py) — direct import
   - `test_the_upgrade_to_the_fix_does_not_re_decide_a_recorded_episode`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
-  - `test_f1_live_an_incomplete_grade_with_nothing_located_is_held`
   - `test_f4_the_graders_route_verdict_reaches_the_judgment_ledger_and_regrades_supersede_it`
   - `test_f5_a_regrade_without_the_rules_supersedes_the_held_verdict`
   - `test_live_an_adjudication_releases_a_hold_on_replay`
