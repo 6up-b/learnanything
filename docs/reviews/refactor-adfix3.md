@@ -328,3 +328,117 @@ Regenerated deliberately (`GRADE_APPLICATION_GOLDEN_WRITE=1`) in `5be5bcf816`, a
 - `scripts/check_gate_partition.py`: 31,005 collected, landing 30,940 + arc_close 65. `ruff check` clean; `lint-imports --no-cache` 42 kept.
 - Docs: the playbook's `mvp-0.59` amendments, the Algorithm Versions and Reproducibility note and the Version Registry say `mvp-0.59` also holds the grade channel fixes; the rebuild workflow note says what a rebuild now appends and that unchanged cells keep their stamps. No vault note said replay re-mints the grade channel.
 - The vault references are regenerated once after these commits, and a second run changes nothing (next commit).
+
+# Step d: `mvp-0.60`, no kill switch, ready to land
+
+The owner, 2026-11-17: "I accept the rebuild fix's value changes, ship it as mvp-0.60". One of the owner's vaults is already at `mvp-0.59`, so the fix cannot amend that tag; and by the owner's rule of 2026-11-16 a new successor ships without a kill switch. This step merges main, gives the fix its own tag, removes its switch, and re-runs the owner-copy check on the final code.
+
+| Commit | What |
+|---|---|
+| `6392f6a938` | merge main `c1e3706164` |
+| `7ba9105988` | the merge's follow-up: two of the branch's edits to code main moved, and the renumbered rows in the record and the Algorithm Versions note (the merge commit's index left these four files out) |
+| `01cb5925af` | the tag `mvp-0.60`, its upgrade row and test row, and the pins that name the newest tag |
+| `005bbfa9b3` | the kill switch `replay.grade_channel_fixes` removed |
+| `24a625b404` | the diagnosis journey golden: the decision state's config hash after the switch's removal |
+| `dedadedab5` | what the affected sweep found: the joint-grading builders' golden (main's) at `mvp-0.60`, and one more facet-belief test that reads its row's tag |
+| (the next commit) | the record, the ledger, the docs |
+
+## The merge
+
+37 files conflicted. 33 are generated vault references; every reference note the branch had changed (51) takes main's side, to be regenerated at landing (`Reference/Version Registry.md` is hand-written: taken from main and then edited for `mvp-0.60`, below). The other four:
+
+- `docs/reviews/refactor-bug-ledger.md`: main has its own D-54 (a fork flake in `test_apply_recovery`). Both sides kept; this branch's D-54 and D-55 are renumbered (below).
+- `src/learnloop/attempts/regrade.py`: one comment; main renamed "the joint door" to "the vault door", the branch rewrote the comment's last sentence. Both kept.
+- `src/learnloop/diagnosis/probe_episodes.py`: main split the module. The branch's one edit there, the docstring of `dual_write_regraded_probe_grade`, is made where the function now lives, `diagnosis/probe_evidence.py`.
+- `src/learnloop/db/repositories.py`: main moved the activity methods to `db/stores/activity.py`. The conflict was the moved block, which held one of the branch's changed methods.
+
+The branch's changes to `repositories.py`, checked against `git diff 6fffbc20c8 6ea1d8d6ca` method by method, and where each lives at the tip:
+
+| Branch change | Lives in |
+|---|---|
+| `_RebuildStamps`, `_REBUILD_STAMPED_TABLES`, `CANONICAL_STAMPED_TABLES`, `REBUILD_STAMPED_TABLES` (D-35) | `db/repositories.py` (module level) |
+| `Repository.rebuild_stamp_snapshot`, `Repository.keep_unchanged_rebuild_stamps` (D-35) | `db/repositories.py` |
+| `Repository.grade_head_review` (D-36, D-52) | `db/repositories.py` |
+| `Repository.pending_grade_reviews`, newest observation's head only (D-53) | `db/repositories.py` |
+| `Repository.observation_by_attempt`, `ORDER BY created_at DESC, id DESC` (D-53) | `db/stores/activity.py` (`ActivityStoreMixin`), the same edit |
+
+Line counts agree: the branch changed `repositories.py` by +135 / -4; at the tip `repositories.py` +128 / -2 and `stores/activity.py` +7 / -2 against main. Every other file the branch changed merged cleanly with its diff against main unchanged in size. No conflict marker is left in the tree.
+
+## Renumbered ledger rows
+
+Main's next free D-numbers: this branch's D-54 (the live observation a re-mint never supersedes) is now **D-55**, and D-55 (adjudications made before the fix) is now **D-56**, in the ledger (rows and D-36's reference), steps b and c of this record and the Algorithm Versions note. No code or test named them.
+
+## The tag
+
+The recipe of step b, "To make it `mvp-0.60`", as written: `GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"` with its comment, appended to `SUCCESSOR_CHAIN`; `GRADE_CHANNEL_FIX_VERSIONS = successors_from(it)`; `UPGRADES` gains `Link(GRADE_CHANNEL_FIX_ALGORITHM_VERSION, whole_vault_rebuild)` and `tests/test_upgrades.py`'s `EXPECTED_ACTIVATIONS` its row. The activation is a whole-vault rebuild under the tag, as for `0.58 -> 0.59`: its first rebuild re-reads the answers whose live observation earlier rebuilds never superseded (D-55), which moves canonical facet cells. A vault at `mvp-0.58` walks both rows (the upgrade table's `test_the_floor_reaches_each_tag_through_the_table` runs `0.58 -> 0.60` and checks both receipts; the owner copies below did the same). The `mvp-0.59` activation runs below the new tag, so it re-mints each answer's chain once, as `mvp-0.59` always did; the `mvp-0.60` activation then reuses the newest observation.
+
+What names the newest tag followed, by the playbook's rules:
+
+- `tests/goldens/effective_defaults.toml`: the `algorithms.algorithm_version` line.
+- `tests/cli_surface.json`: `upgrade --to`'s default (the same line `--write` produces).
+- The latest-tag and chain-position pins in 37 earlier successors' test files, mechanically: each negative chain index one further, `"mvp-0.60"` where they pin the latest and appended to the chain tails and version sets they pin, new vaults' tag. `test_facet_belief_successor`'s first test says `mvp-0.59` is now the second-to-last tag, and three tests that read the tag a facet-uncertainty row carries (two there, one in `test_facet_belief_successor_derivation`, `dedadedab5`) now set their vault to that successor's tag (a vault at the latest stamps `mvp-0.60`).
+- `tests/goldens/placement_stored_misses.json`: the manifest's tag.
+- `tests/fixtures/diagnosis_journey_golden.json`: 303 tag strings and the decision state's config and snapshot hashes, nothing else (regenerated with `DIAGNOSIS_JOURNEY_WRITE_GOLDEN=1`).
+- `tests/goldens/identities.toml`: the five identity pins computed on a new vault at the head moved (`A1-A4.manifest_hash.init`, `C3.boundary.init`, `C3b.chooser`, `C5.init`, `C6.init`); with the chain cut back to end at `mvp-0.59`, all 340 pins hold, so the tag alone moves them. Regenerated with `tests/test_identity_pins.py --write`.
+- The templates (`config.template`), new vaults and the default test vault follow `LATEST_ALGORITHM_VERSION` with no edit; `fixtures/migration_head` (at `mvp-0.6`, below the floor) has no tag expectation that moves.
+- `tests/test_upgrades.py::test_a_jump_is_refused_and_nothing_changes` took "the tag below the link's predecessor" for "a vault below the floor", true only for the first row; it now takes the tag below the floor, as its comment says (judgment call; for the `mvp-0.59` row the vault is the same).
+
+## No kill switch
+
+Removed: the field `ReplayConfig.grade_channel_fixes` and its comment, its row in `config/kill_switches.py`, its registry rule, its `effective_defaults.toml` line, and the two retired-config identity additions (`ADDED_SINCE_BASE`, `ADDED_SINCE_SWITCHES_BASE`). The field was never on main: no identity pin moved with its removal, and `test_retired_config_identities` holds at main's lists. `grade_resolution.grade_channel_fixes_on` reads the vault's tag and nothing else. Below the tag the predecessor's path is untouched: replay calls `record_grade_dual_write` exactly as before. 11 files, +40 / -57 (comments and docstrings that named the switch now name the tag: `algorithm_versions.py`, `attempts.py`, `regrade.py`, `probe_evidence.py`).
+
+Tests (`tests/test_rebuild_history_appends.py`): every switched-off arm moved to a vault below the tag, where it proves the predecessor is kept, which the tag arm does not: the review queue twin (`[mvp-0.59]`, re-minted copies listed once), the adjudication twin (`[mvp-0.59]`, the adjudication lost and the facet row the unadjudicated one, exactly), the observation read whatever the query plan (re-minted copies). The re-mint test runs at the floor `mvp-0.58` and at `mvp-0.59`, the two tags a vault below the fix can hold, in place of "switched off" and one tag; its assertions (one chain per answer per rebuild, exactly) are unchanged. No assertion was loosened. Removing the field also moved one line of the diagnosis journey golden (the decision state's config hash, `24a625b404`).
+
+## The golden
+
+`tests/goldens/grade_application/history.json` did not change on main since this branch's base (`git diff 6fffbc20c8 c1e3706164` on it is empty), and it passes at the tip unregenerated, at `mvp-0.60`. So every difference from main's version is the fix's, as step c accounts for them ("The grade-application golden"); nothing comes from main.
+
+One golden that main added since this branch's base did move: `tests/goldens/joint_grading_builder.json` (D7's builders of joint grades), whose history includes a regrade that replays its learning object. At `mvp-0.60` its `raw_grade_events` go from 29 rows to 7: every row left equals one of main's but for id numbering, and the 22 gone are the replays' re-mints. Every other table it pins (8) is equal but for id numbering. With `GRADE_CHANNEL_FIX_VERSIONS` emptied (a temporary, uncommitted edit) main's golden holds exactly, so the fix alone moves it. Regenerated from the test's own rows (`dedadedab5`).
+
+## The owner-copy check on the final code
+
+The Nov 12 backup-API copies (`mvp-0.58`), copied again with `copy_tree_with_databases` under `fixtures-local/adfix3c/` (deleted afterwards). Five runs per vault: (i) **base**, main `c1e3706164` (its `git archive`, `src` first on the path, its `migrations/`), upgraded to `mvp-0.59` and rebuilt once; (ii) **branch at 0.60**, upgraded `0.58 -> 0.59 -> 0.60` and rebuilt once; (iii) **branch at 0.59**, upgraded to `mvp-0.59` and rebuilt once; (iv) (ii) rebuilt a second time; (v) base and branch left at `mvp-0.58`, rebuilt once. Every DERIVED table, `practice_item_state` and `practice_attempts` dumped after each step and compared, and the step-c deltas script (`ll_deltas.py`, unchanged but for leaving each row's `algorithm_version` out of the value comparison) run on (i) against (ii). Rows at `mvp-0.60` carry the tag in their `algorithm_version` column (8 tables); the comparisons of (ii) with (i) read it as `mvp-0.59`.
+
+| | `linear_algebra` | `arxiv_v2` | `probability` | accepted (step c) |
+|---|---|---|---|---|
+| attempts the `mvp-0.60` rebuild appends to | 7, interpretation only | 2, raw event + interpretation (`max_points`) | 1, raw event + interpretation (`max_points`) | the same |
+| attempts whose read interpretation differs from the base's | 7 (2 LOs) | 2 (2 LOs) | 0 | the same |
+| `facet_capability_evidence` rows with a value change | 3 of 36 | 2 of 2 | 0 of 1 | the same |
+| `facet_recall_state` rows with a value change | 9 of 76 | 4 of 4 | 0 of 2 | the same |
+| Demonstrated crossings | 1 (0.9946 -> 1.3829) | 0 | 0 | the same |
+| every column's rows changed, min / median / max, largest relative change, sign changes | as step c's tables, digit for digit | as step c's tables | none | the same |
+| direction | every changed reading more certain (LCB up 7 of 7, +0.3106 to +0.3317) | up 2 of 2 (+0.3267) | | the same |
+| every other dumped table, (ii) against (i) | equal (`subject_identifiability_watermarks` by its stamp) | equal (the same) | equal (the same; the canonical two by stamps) | the same |
+| (iii) at `mvp-0.59` against (i) | values equal; the canonical two and the watermarks by stamps | the same | the same | must equal |
+| grade-channel counts, (iii) against (i) | equal (575 / 558 / 557 / 2,300) | equal | equal | |
+| (iv) second rebuild at `mvp-0.60` | no row and no count changes (only the receipt and the FTS segments) | the same | the same | no growth |
+| (v) at `mvp-0.58`, branch against base | values equal; stamps as (iii) | the same | the same | |
+
+What a learner would see matches step c too: the knowledge map changes 23 of 3,468 numbers on `linear_algebra` and 11 of 2,523 on `arxiv_v2` (none on `probability`), the same fields and counts; its largest `ready` change reads 0.0253 and 0.0024 here against 0.0254 and 0.0025 in step c, which is the read time (Ready decays with the clock; the facet detail's largest Ready change, read the same way, is 0.0074 and 0.0085 in both). Facet detail, the evidence timeline (16 and 2 points), LO certifications (0), the Today headline (0), blueprint readiness (2 and 1 LOs, by 0.0094 and 0.0081) and the diagnostic labels (0) are identical to step c's.
+
+The grade-channel counts differ from step c's, as they must: the `mvp-0.59` activation now runs below the fix and re-mints each answer once (+38, +2, +3 chains), then the `mvp-0.60` activation appends the re-readings (`linear_algebra` 537 / 520 / 526 / 2,155 observations / raw events / interpretations / measurement events; `arxiv_v2` 23 / 25 / 25 / 104; `probability` 26 / 27 / 27 / 109), and a further rebuild adds nothing.
+
+The stamps of (iii) and (v): the canonical cells and the watermark differ between the base and this branch below the tag because D-35's rule (a rebuild keeps the stamps of a cell it left unchanged; step b) is not gated by the tag, and the two runs ran at different wall-clock times; the values are equal. D-35 was fixed on this branch in step b and is not part of the tag's meaning (stamps are not persisted meaning).
+
+## Docs
+
+The playbook's `mvp-0.59` amendments paragraph is main's again, with one sentence saying the grade channel fixes became `mvp-0.60` the way it describes, without a switch. The Algorithm Versions and Reproducibility note's `mvp-0.59` row is main's again, and a `mvp-0.60` row, the successor sets and the upgrade table (two rows) say what the tag holds; the Version Registry names `mvp-0.60` and the two rows; the rebuild workflow note says the fixes start at `mvp-0.60` with no switch and what the upgrade's rebuild re-reads. Each of the three notes' `implementation_version` is `mvp-0.60`.
+
+## Ledger
+
+D-36 and D-52: fixed at `mvp-0.60` when this branch lands. D-35 and D-53: fixed, as in step b (D-53's test id is now `[mvp-0.59]`). D-55: fixed with D-36, the owner having accepted the re-reading as `mvp-0.60`'s activation. D-56: open (arc D close), as in step b.
+
+## Tests (step d)
+
+All through the worktree's isolated wrappers, each in a 5 GB scope, `-n 3`, one command at a time.
+
+- Named: `test_rebuild_history_appends`, `test_rebuild_orchestrator`, `test_upgrades`, `test_identity_pins`, `test_retired_config_identities`, `test_structure_ratchets`, `test_architecture`, `test_cli_help_snapshot`, `test_diagnosis_journey_golden`, `test_grade_application_golden`, with `test_joint_grading_builder`, `test_effective_defaults_golden`, `test_kill_switches`, `test_test_layout`: **545 passed** at the tip (the first run, before `24a625b404`, failed the journey golden's `fg1_wait` on the config hash).
+- `scripts/affected_tests.py --base main` answers `tests` (`db/repositories.py` is imported by `tests/conftest.py`), so the sweep is every `tests/test_*.py` naming rebuild, replay, regrade, grade_resolution, grade_interpretation, raw_grade, algorithm_version, upgrade or SUCCESSOR: 622 files in 11 chunks of at most 60, `-m "not arc_close"`: **19,328 passed, 69 skipped, 8 xfailed, 2 failed** (`test_facet_belief_successor_derivation::test_s1_explicit_criterion_targets_place_the_uncertainty_without_an_items_map`, `test_joint_grading_builder::test_the_builders_rows_match_their_golden`; both fixed in `dedadedab5`); the two failing chunks rerun after it: **2,485 passed, 11 skipped, 2 xfailed**.
+- Durability: the five rebuild and upgrade files with `--durable-sqlite`: **152 passed, 1 xfailed**; `-m durability` on them: 2 passed.
+- `ruff check`: clean. `lint-imports --no-cache`: 42 kept, 0 broken. `scripts/check_gate_partition.py`: 31,066 collected, landing 31,001 + arc_close 65.
+
+## Not verified
+
+- The vault references are not regenerated, and the vault validators were not run (the orchestrator regenerates at landing).
+- The owner lane (`-m owner_vaults`) and the whole suite (the landing gate's); the owner-copy check above covers the three copies' rebuilds.
+- The `mvp017_route_check_replay` fixture's live rebuild at `mvp-0.60` (step b ran it at the tag then called `mvp-0.59`; `test_mvp017_route_check_replay` is in the sweep below).

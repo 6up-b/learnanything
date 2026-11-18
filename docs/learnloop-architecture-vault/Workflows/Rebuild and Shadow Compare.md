@@ -5,7 +5,7 @@ aliases:
   - Shadow Rebuild Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
+implementation_version: mvp-0.60
 last_reviewed: 2026-08-17
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
@@ -112,7 +112,7 @@ The stable compatibility payload returns `algorithm_version`, `replayed_attempts
 > [!important] Live-replay invariant
 > Rebuild clears and reconstructs only registered DERIVED-role tables, records one marker, and refuses an unaccounted raw attempt. It does not reinterpret source files or delete evidence.
 
-From `mvp-0.59`, with `replay.grade_channel_fixes` on (the default), a rebuild also appends nothing to history that did not change: replay keeps each practice answer's newest activity observation and appends to it a raw grade event only when the grade changed (a regrade) and an interpretation only when the current calibration model or projection version reads it differently, never over a head an owner adjudication, a review flag or a quarantine wrote. Below the tag, or switched off, each rebuild re-mints every answer's observation, raw grade event, interpretation and four measurement events (raw ledger rows, kept), and the projection reads the newest copy. A cell of the canonical facet cache or an identifiability watermark that a rebuild leaves with the same values keeps its `created_at` / `updated_at` / `checked_at`, so a second rebuild changes no row (the rebuild receipt says when the vault was rebuilt).
+From `mvp-0.60` (the grade channel fixes; no kill switch), a rebuild also appends nothing to history that did not change: replay keeps each practice answer's newest activity observation and appends to it a raw grade event only when the grade changed (a regrade) and an interpretation only when the current calibration model or projection version reads it differently, never over a head an owner adjudication, a review flag or a quarantine wrote. Below the tag (`mvp-0.58`, `mvp-0.59`) each rebuild re-mints every answer's observation, raw grade event, interpretation and four measurement events (raw ledger rows, kept), and the projection reads the newest copy. The upgrade to `mvp-0.60` is a whole-vault rebuild: it re-reads, once, the answers whose live observation earlier rebuilds never superseded (their re-mints sort before it, refactor bug ledger D-55), which can move canonical facet cells. A cell of the canonical facet cache or an identifiability watermark that a rebuild leaves with the same values keeps its `created_at` / `updated_at` / `checked_at`, so a second rebuild changes no row (the rebuild receipt says when the vault was rebuilt).
 
 ## 5. Inspect the result
 

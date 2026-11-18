@@ -4,7 +4,7 @@ aliases:
   - Current Versions
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
+implementation_version: mvp-0.60
 last_reviewed: 2026-11-12
 source_commit: 2a218baead1b47a34debd9464568936ff58f1c28
 source_commit_timestamp: "2026-09-23T15:42:12-04:00"
@@ -31,9 +31,9 @@ tags:
 |---|---|---|
 | Python package | `0.1.0` | distribution version in `pyproject.toml` |
 | Python runtime | `>=3.12` | supported interpreter floor |
-| algorithm | `mvp-0.59` (`LATEST_ALGORITHM_VERSION`, the last tag of `SUCCESSOR_CHAIN`; new vaults start there, owner decision 2026-10-12) | `mvp-0.9`: persisted reveal-aware learning semantics; each later tag is an immediate successor meaning its predecessor's semantics plus its own change, behind its kill switch. Each tag's meaning is in [[Algorithm Versions and Reproducibility]] and in the comment above its constant in `src/learnloop/algorithm_versions.py`. `mvp-0.59` holds the facet-belief fixes and, behind their own switch `probe.episode.robust_gate_fixes`, the robust completion gate fixes (`ROBUST_GATE_FIX_VERSIONS`), both made before any vault reached it. Existing vaults keep their tag until the owner runs `learnloop upgrade` |
+| algorithm | `mvp-0.60` (`LATEST_ALGORITHM_VERSION`, the last tag of `SUCCESSOR_CHAIN`; new vaults start there, owner decision 2026-10-12) | `mvp-0.9`: persisted reveal-aware learning semantics; each later tag is an immediate successor meaning its predecessor's semantics plus its own change, behind its kill switch. Each tag's meaning is in [[Algorithm Versions and Reproducibility]] and in the comment above its constant in `src/learnloop/algorithm_versions.py`. `mvp-0.59` holds the facet-belief fixes and, behind their own switch `probe.episode.robust_gate_fixes`, the robust completion gate fixes (`ROBUST_GATE_FIX_VERSIONS`), both made before any vault reached it. `mvp-0.60` holds the grade channel fixes (`GRADE_CHANNEL_FIX_VERSIONS`: a rebuild appends to an answer's grade channel only what changed; no kill switch). Existing vaults keep their tag until the owner runs `learnloop upgrade` |
 | oldest supported tag | `mvp-0.58` (`OLDEST_SUPPORTED`) | a vault below it, or naming no tag, is refused at every door, `learnloop upgrade` included, with the route through the code tagged `pre-floor` ([[ADR-019 The oldest supported tag]]) |
-| upgrade table | one row, `mvp-0.59` (`whole_vault_rebuild`) | `learnloop.ops.upgrades.UPGRADES`: a `Link(tag, activate)` per successor from the floor up, each activated in one transaction with the journal before the config's publication and the publication last; `learnloop upgrade` walks it ([[Algorithm Versions and Reproducibility#The upgrade table]]) |
+| upgrade table | two rows, `mvp-0.59` and `mvp-0.60` (both `whole_vault_rebuild`) | `learnloop.ops.upgrades.UPGRADES`: a `Link(tag, activate)` per successor from the floor up, each activated in one transaction with the journal before the config's publication and the publication last; `learnloop upgrade` walks it ([[Algorithm Versions and Reproducibility#The upgrade table]]) |
 | canonical projection base | `mvp-0.8` semantics | inherited by every successor, mvp-0.9 through the latest (the `SUCCESSOR_CHAIN`) |
 | knowledge-model activation | `mvp-0.7` | canonical state/contracts boundary |
 | config schema | `2` | emitted `learnloop.toml`; schema 1 accepted |
