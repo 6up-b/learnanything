@@ -1,7 +1,7 @@
 """A rebuild replays history; it must not grow it (refactor bug ledger D-36, D-52, D-53).
 
 Replay re-applies every recorded practice attempt. Before the grade channel
-fixes (mvp-0.60, ``replay.grade_channel_fixes``) each application re-minted the
+fixes (mvp-0.60; no kill switch) each application re-minted the
 attempt's grade channel: one more ``activity_observations`` row,
 ``raw_grade_events`` row and ``grade_interpretations`` row and four
 ``measurement_events`` per graded answer, at every rebuild. Those four tables
@@ -17,8 +17,8 @@ so belief was equal after every rebuild, but two readers were not:
 
 With the fixes replay keeps the observation and appends only what changed (a
 regrade's grade, a re-reading under another calibration or projection version),
-never over a head a review wrote unless the grade changed. Switched off, or
-below the tag (mvp-0.59), a rebuild re-mints the chain exactly as before; the readers
+never over a head a review wrote unless the grade changed. Below the tag (the
+floor mvp-0.58 and mvp-0.59), a rebuild re-mints the chain exactly as before; the readers
 read each attempt's newest observation either way, so a vault already rebuilt
 that way lists a flagged grade once.
 """
@@ -31,7 +31,11 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import FACET_BELIEF_FIX_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    FACET_BELIEF_FIX_ALGORITHM_VERSION,
+    FIGURE_WAIT_ALGORITHM_VERSION,
+    LATEST_ALGORITHM_VERSION,
+)
 from learnloop.attempts import grade_resolution
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.grade_resolution import append_adjudication, flag_observation_for_review
@@ -41,17 +45,17 @@ from learnloop.db.stores.observation_ledger import load_authoritative_observatio
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
-from learnloop.vault.loader import load_vault
 
 from tests.held_grade_evidence_helpers import T, _graded_apply
-from tests.helpers import NOW, set_config_switch
+from tests.helpers import NOW
 from tests.rebuild_equivalence_helpers import _answer, _vault
 from tests.regrade_contract_replay_helpers import _regrade
 from tests.route_rules_in_grader_helpers import ITEM
 from tests.split_live_helpers import split_vault
 
 CLOCK = FrozenClock(NOW + timedelta(days=30))
-SWITCH = "replay.grade_channel_fixes"
+#: The tag just below the fixes: a vault there rebuilds as the predecessor does.
+BELOW = FACET_BELIEF_FIX_ALGORITHM_VERSION
 GRADE_CHANNEL = ("activity_observations", "raw_grade_events", "grade_interpretations", "measurement_events")
 REVIEWED_CHANNEL = (*GRADE_CHANNEL, "grade_adjudications")
 #: A short head-written history: graded answers on several items.
@@ -66,11 +70,8 @@ ONE_CHAIN_PER_ANSWER = {
 }
 
 
-def _history(tmp_path, *, grade_channel_fixes: bool = True, version: str = LATEST_ALGORITHM_VERSION):
-    paths, vault, repository = _vault(tmp_path, version=version)
-    if not grade_channel_fixes:
-        set_config_switch(paths.root, SWITCH, False)
-        vault = load_vault(paths.root)
+def _history(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION):
+    _paths, vault, repository = _vault(tmp_path, version=version)
     for index, (item, points) in enumerate(HISTORY):
         _answer(vault, repository, item, minutes=10 + 60 * index, points=points)
     return vault, repository
@@ -138,13 +139,10 @@ def test_the_first_rebuild_of_a_vault_written_at_the_head_appends_no_grade_chann
     assert _grown(live, _raw_ledgers(repository, GRADE_CHANNEL)) == {}
 
 
-@pytest.mark.parametrize("served", ["switched_off", "below_the_tag"])
-def test_off_or_below_the_tag_every_rebuild_re_mints_each_answers_chain(tmp_path, served):
-    vault, repository = _history(
-        tmp_path,
-        grade_channel_fixes=served != "switched_off",
-        version=FACET_BELIEF_FIX_ALGORITHM_VERSION if served == "below_the_tag" else LATEST_ALGORITHM_VERSION,
-    )
+@pytest.mark.parametrize("version", [FIGURE_WAIT_ALGORITHM_VERSION, BELOW])
+def test_below_the_tag_every_rebuild_re_mints_each_answers_chain(tmp_path, version):
+    # The floor and mvp-0.59: the vaults that exist below the tag.
+    vault, repository = _history(tmp_path, version=version)
     live = _raw_ledgers(repository, GRADE_CHANNEL)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     once = _raw_ledgers(repository)
@@ -163,12 +161,13 @@ def _flag_a_low_confidence_self_grade(vault, repository) -> str:
     return str(result.attempt_id)
 
 
-@pytest.mark.parametrize("grade_channel_fixes", [True, False])
-def test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds(tmp_path, grade_channel_fixes):
-    # Switched off, every rebuild re-mints the flagged chain on a fresh
+@pytest.mark.parametrize("version", [LATEST_ALGORITHM_VERSION, BELOW])
+def test_the_review_queue_lists_a_flagged_grade_once_after_rebuilds(tmp_path, version):
+    # Below the tag, every rebuild re-mints the flagged chain on a fresh
     # observation, as vaults rebuilt before the fixes hold it: the queue still
     # lists the grade once, on the copy the projection reads.
-    vault, repository = _history(tmp_path, grade_channel_fixes=grade_channel_fixes)
+    grade_channel_fixes = version == LATEST_ALGORITHM_VERSION
+    vault, repository = _history(tmp_path, version=version)
     attempt_id = _flag_a_low_confidence_self_grade(vault, repository)
     assert len(repository.pending_grade_reviews()) == 1
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -184,7 +183,7 @@ def test_the_observation_of_an_attempt_is_the_newest_whatever_the_query_plan(tmp
     # The contest flow, the grading receipt and the calibration streams flag or
     # read the observation this returns; the projection reads the newest. The
     # index that happens to return the newest first is dropped here.
-    vault, repository = _history(tmp_path, grade_channel_fixes=False)
+    vault, repository = _history(tmp_path, version=BELOW)
     attempt_id = _flag_a_low_confidence_self_grade(vault, repository)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -298,9 +297,10 @@ def _adjudicate(vault, repository, attempt_id: str, resolved_class: str) -> dict
     )
 
 
-@pytest.mark.parametrize("grade_channel_fixes", [True, False])
-def test_an_adjudication_survives_rebuilds(tmp_path, grade_channel_fixes):
-    vault, repository = _history(tmp_path, grade_channel_fixes=grade_channel_fixes)
+@pytest.mark.parametrize("version", [LATEST_ALGORITHM_VERSION, BELOW])
+def test_an_adjudication_survives_rebuilds(tmp_path, version):
+    grade_channel_fixes = version == LATEST_ALGORITHM_VERSION
+    vault, repository = _history(tmp_path, version=version)
     attempt_id = str(next(a for a in repository.list_all_attempts() if a["practice_item_id"] == "pi_diag_easy")["id"])
     with repository.atomic():
         project_canonical_facet_state(vault, repository, clock=CLOCK)

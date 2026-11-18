@@ -937,7 +937,6 @@ recurrence.judge_max_pairs_per_attempt = 4
 recurrence.judge_timeout_seconds = 180
 recurrence.require_guard = false
 recurrence.top_k = 3
-replay.grade_channel_fixes = true
 replay.ledger_bounded = true
 roles.batch_max_cost_usd = 5.0
 roles.on_demand_enabled = true

@@ -489,17 +489,16 @@ def _append_interpretation(
 
 
 def grade_channel_fixes_on(config: Any) -> bool:
-    """The grade channel fixes (mvp-0.60, ``replay.grade_channel_fixes``): replay
-    keeps each practice answer's observation and appends only what changed.
+    """The grade channel fixes (mvp-0.60): replay keeps each practice answer's
+    observation and appends only what changed. Gated by the vault's tag alone
+    (no kill switch); below it a rebuild re-mints the chain as mvp-0.59 does.
     Their only reader, so the tag lives in one place
     (``algorithm_versions.GRADE_CHANNEL_FIX_VERSIONS``)."""
 
     from learnloop.algorithm_versions import GRADE_CHANNEL_FIX_VERSIONS
 
     algorithms = getattr(config, "algorithms", None)
-    if getattr(algorithms, "algorithm_version", None) not in GRADE_CHANNEL_FIX_VERSIONS:
-        return False
-    return bool(getattr(getattr(config, "replay", None), "grade_channel_fixes", False))
+    return getattr(algorithms, "algorithm_version", None) in GRADE_CHANNEL_FIX_VERSIONS
 
 
 #: What a raw grade event says about the grade. ``agent_run_id`` is left out: it

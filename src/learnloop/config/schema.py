@@ -4473,13 +4473,6 @@ class ReplayConfig(BaseModel):
     """
 
     ledger_bounded: bool = True
-    #: From mvp-0.60, the kill switch of the grade channel fixes (refactor bug ledger D-36, D-52). Without them every
-    #: rebuild appends each practice answer's whole grade chain again (an observation, a raw grade event, an
-    #: interpretation and four measurement events) to history, and the fresh observation leaves an owner's
-    #: adjudication or review flag on a copy the projection no longer reads. On, replay reuses the attempt's newest
-    #: observation and appends a raw grade event only when the grade changed, an interpretation only when it differs
-    #: from the head. Off, or below the tag, a rebuild writes the grade channel exactly as mvp-0.59 does.
-    grade_channel_fixes: bool = True
 
 
 class AskConfig(KeepsRetiredFields):

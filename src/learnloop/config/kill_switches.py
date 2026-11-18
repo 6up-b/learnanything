@@ -121,7 +121,6 @@ TAGGED_SWITCHES: tuple[KillSwitch, ...] = (
     KillSwitch("figures.prefetch.pressed_waits", "mvp-0.58", True),
     KillSwitch("facet_diagnostic.canonical_belief_fixes", "mvp-0.59", True),
     KillSwitch("probe.episode.robust_gate_fixes", "mvp-0.59", True),
-    KillSwitch("replay.grade_channel_fixes", "mvp-0.60", True),
 )
 
 UNTAGGED_SWITCHES: tuple[KillSwitch, ...] = tuple(_untagged(*row) for row in (

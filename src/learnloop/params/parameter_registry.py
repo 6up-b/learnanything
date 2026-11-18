@@ -2574,11 +2574,6 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "unstable probe episode (only a fragile stop does), and the robust selector ranks distinct "
                 "instruments (a card's second item is not its rival); off (or below the tag) mvp-0.58's gate and "
                 "selector exactly."),
-    _ConfigRule(_exact("replay.grade_channel_fixes"), "structural", "operational",
-                "kill switch for the grade channel fixes in mvp-0.60: replay reuses each practice answer's newest "
-                "observation and appends a raw grade event only on a regrade and an interpretation only when it "
-                "differs from the head (never over an adjudicated, flagged or quarantined head unless the grade "
-                "changed); off (or below the tag) every rebuild re-mints the chain as mvp-0.59 does."),
     _ConfigRule(_exact("mastery.claim_fixes_enabled"), "structural", "operational",
                 "kill switch for LP-min (a)'s successor: gap claims re-anchor, claims replay at their own time, "
                 "a claim never lowers a variance, ties by recency then pseudo-count, the resolving review's claim "

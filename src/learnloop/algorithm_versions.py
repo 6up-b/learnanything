@@ -931,8 +931,8 @@ FACET_BELIEF_FIX_ALGORITHM_VERSION = "mvp-0.59"
 # when the grade changed and an interpretation only when it differs from the head (never over an adjudicated, flagged
 # or quarantined head unless the grade changed). The first rebuild under the tag re-reads, once, the answers whose
 # live observation earlier rebuilds never superseded (D-55), which moves canonical facet cells, so activation is a
-# whole-vault rebuild. Kill switch ``replay.grade_channel_fixes`` (off, or below the tag: a rebuild writes the grade
-# channel exactly as mvp-0.59 does). No migration. ONE constant.
+# whole-vault rebuild. Below the tag a rebuild writes the grade channel exactly as mvp-0.59 does. No kill switch
+# (owner rule 2026-11-16). No migration. ONE constant.
 GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest

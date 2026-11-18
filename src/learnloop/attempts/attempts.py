@@ -2666,10 +2666,10 @@ def _dual_write_grade_channel(
     only -- diagnostic-probe attempts (record_probe_update) and exam attempts are
     dual-written by their own entry points (probe_episodes / exam_session).
 
-    On replay under the grade channel fixes the answer's newest observation is
-    kept and only a changed grade or interpretation is appended to it
-    (``grade_resolution.record_replayed_grade``); otherwise each application
-    mints a fresh observation and chain."""
+    On replay from the grade channel fixes' tag (mvp-0.60) the answer's newest
+    observation is kept and only a changed grade or interpretation is appended
+    to it (``grade_resolution.record_replayed_grade``); otherwise, and below the
+    tag, each application mints a fresh observation and chain."""
 
     try:
         attempt_type = attempt.draft.attempt_type
