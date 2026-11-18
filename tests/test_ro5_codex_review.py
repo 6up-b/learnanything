@@ -30,7 +30,7 @@ from learnloop.router_objective import checks as C
 from learnloop.router_objective import goal_read as G
 from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
-from learnloop.router_objective import value as V
+from learnloop.router_objective import types as OT
 from learnloop.router_objective import weight as W
 
 from tests.router_mixture_helpers import mixture_env, run
@@ -264,7 +264,7 @@ def test_f7_the_trace_freezes_every_dated_goals_forecast_beyond_the_window():
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.router_objective import trace_assembly
 
-    far = V.DatedUse(goal_id="g1", lo="L", at_days=30.0, weight=1.0)
+    far = OT.DatedUse(goal_id="g1", lo="L", at_days=30.0, weight=1.0)
     numeric = OC.NumericPolicy(status="answered", inputs=SimpleNamespace(dated=(far,), horizon_days=90.0),
                                baselines={"dated": {"g1:L": 0.62}},
                                sources={"goals": {"g1": {"due_at": "2026-02-01T12:00:00Z"}}})

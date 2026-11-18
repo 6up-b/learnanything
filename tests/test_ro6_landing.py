@@ -258,14 +258,14 @@ def test_r7_support_removed_after_the_draw_in_one_arm_only_stays_bounded(monkeyp
 
 
 def test_r7_the_rollouts_keep_each_unmeasured_topics_share_apart_on_the_same_paths():
-    from learnloop.router_objective import value as V
+    from learnloop.router_objective import rollouts as ROL
 
     inputs, actions = _value_inputs(), _value_actions()
-    plain = V.evaluate(inputs, actions, draws=16, seed="r7")
+    plain = ROL.evaluate(inputs, actions, draws=16, seed="r7")
     los = [topic.lo for topic in inputs.topics]
-    by_one = [V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured={lo}) for lo in los]
-    both = V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set(los))
-    none = V.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set())
+    by_one = [ROL.evaluate(inputs, actions, draws=16, seed="r7", unmeasured={lo}) for lo in los]
+    both = ROL.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set(los))
+    none = ROL.evaluate(inputs, actions, draws=16, seed="r7", unmeasured=set())
     for i, row in enumerate(plain.valued):
         # Q̄ and the choice are unchanged; mvp-0.48's terms carry no new key.
         assert [one.valued[i].q for one in by_one] == [row.q] * len(los) and both.valued[i].q == row.q
@@ -544,7 +544,7 @@ def test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_ca
     from tests.router_model_fakes import fake_runtime
 
     clock = {"ms": 0.0, "first_pass": 0.0}
-    real = OC.V.evaluate
+    real = OC.ROL.evaluate
 
     def instrumented(*args, **kwargs):
         if kwargs.get("cutoff") is not None:
@@ -554,7 +554,7 @@ def test_r3_the_no_model_branch_answers_within_the_first_pass_and_censors_the_ca
             clock["first_pass"] += 100.0
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(OC.V, "evaluate", instrumented)
+    monkeypatch.setattr(OC.ROL, "evaluate", instrumented)
     served: list[tuple[float, float]] = []
     real_run = OC.run_numeric
 
@@ -607,7 +607,7 @@ def test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns(tmp_p
     from tests.ro4_objective_serving_helpers import policy_answer
 
     gate, reached = threading.Event(), threading.Event()
-    real = OC.V.evaluate
+    real = OC.ROL.evaluate
 
     def blocked(*args, **kwargs):
         if kwargs.get("cutoff") is not None:
@@ -615,7 +615,7 @@ def test_r12_with_the_carried_evaluation_blocked_the_choosers_wait_returns(tmp_p
             gate.wait(60.0)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(OC.V, "evaluate", blocked)
+    monkeypatch.setattr(OC.ROL, "evaluate", blocked)
     timeout = 20.0
     try:
         runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=policy_answer), inline=False,

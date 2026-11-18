@@ -3,7 +3,7 @@
 Production's job hands ``run_numeric`` a ``keep_going`` that holds while the LLM policy is outstanding and the job's
 deadline has not passed (``objective_chooser._run_job``). The default pin (``tests/pinned_draws.py``) replaces it with one
 batch of draws, so these tests are ``real_draws``: they run the real job on a threaded runtime, an LLM fake that blocks
-until released and a clock the test moves, and read each completed batch from ``V.evaluate``'s ``on_complete``.
+until released and a clock the test moves, and read each completed batch from ``ROL.evaluate``'s ``on_complete``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.daily_plan import objective_chooser as OC
 from learnloop.daily_plan.engine import advance, build_plan
 from learnloop.daily_plan.router_runtime import RouterRuntime
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
 
 from tests.router_mixture_helpers import mixture_env
 from tests.router_model_fakes import FakeDecider, FakeLLM, FakeModels, block_drawing_seed
@@ -49,7 +49,7 @@ def _job(tmp_path, monkeypatch, *, stop_after: int):
 
     control = SimpleNamespace(batches=[], reached=threading.Event(), proceed=threading.Event(), gate=threading.Event(),
                               clock=_MovableClock(), refined=[], runtime=None)
-    real = V.evaluate
+    real = ROL.evaluate
 
     def spy(*args, **kwargs):
         if kwargs.get("keep_going") is None:  # the correction pass and carried valuations do not refine
@@ -67,7 +67,7 @@ def _job(tmp_path, monkeypatch, *, stop_after: int):
 
         return real(*args, **{**kwargs, "on_complete": on_complete})
 
-    monkeypatch.setattr(V, "evaluate", spy)
+    monkeypatch.setattr(ROL, "evaluate", spy)
     runtime = RouterRuntime(models=FakeModels(decider=FakeDecider(), llm=FakeLLM(gate=control.gate, answer=policy_answer)),
                             inline=False, seed=block_drawing_seed(), clock=control.clock)
     control.runtime = runtime

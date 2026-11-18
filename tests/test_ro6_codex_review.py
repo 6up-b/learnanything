@@ -31,7 +31,7 @@ from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import tail_data as TD
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
 from tests.ro6_codex_review_helpers import (
     CFG,
     FAR,
@@ -105,8 +105,8 @@ def test_f3_a_shared_cutoff_needs_no_trim(monkeypatch, utc):
 
 def test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s():
     inputs, actions = _value_inputs(), _value_actions()
-    plain = V.evaluate(inputs, actions, draws=8, seed="trim")
-    own = V.evaluate(inputs, actions, draws=8, seed="trim", cutoff=inputs.cutoff)
+    plain = ROL.evaluate(inputs, actions, draws=8, seed="trim")
+    own = ROL.evaluate(inputs, actions, draws=8, seed="trim", cutoff=inputs.cutoff)
     for ref, row in plain.by_ref().items():
         assert own.by_ref()[ref].q_draws == row.q_draws and own.by_ref()[ref].terms == row.terms
         assert "past_trim" not in row.terms

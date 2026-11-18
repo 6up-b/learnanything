@@ -40,7 +40,10 @@ from learnloop.attempts import salience_firewall as SF
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.router_objective import memory as MEM
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 from learnloop.vault.loader import load_vault
 
@@ -646,16 +649,16 @@ def test_the_import_linter_contract_keeps_ad_off_evidence_writers():
 FOLLOWUPS: dict[str, bool] = {"off": False, "on": True}
 
 
-def _inputs(learning: V.Learning, *, followups: bool = False) -> V.Inputs:
+def _inputs(learning: OT.Learning, *, followups: bool = False) -> OT.Inputs:
     from learnloop.adaptive_difficulty import model as ADM
 
-    link = V.AdLink(lapse=P.LAPSE, spread=P.A * P.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
-    return V.Inputs(
-        topics=(V.Topic(lo="lo_a", eta_mean=0.3, eta_var=0.5, undated_density=0.02,
-                        eta_latent=(0.35, 0.45) if followups else None),
-                V.Topic(lo="lo_b", eta_mean=-0.4, eta_var=1.0, undated_density=0.02)),
-        dated=(V.DatedUse(goal_id="exam", lo="lo_a", at_days=6.0, weight=1.0),), session_minutes=10.0,
-        price=V.Price(kappa0=0.01, remembered=20.0, remembered_source="test"),
+    link = ADL.AdLink(lapse=P.LAPSE, spread=P.A * P.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
+    return OT.Inputs(
+        topics=(OT.Topic(lo="lo_a", eta_mean=0.3, eta_var=0.5, undated_density=0.02,
+                         eta_latent=(0.35, 0.45) if followups else None),
+                OT.Topic(lo="lo_b", eta_mean=-0.4, eta_var=1.0, undated_density=0.02)),
+        dated=(OT.DatedUse(goal_id="exam", lo="lo_a", at_days=6.0, weight=1.0),), session_minutes=10.0,
+        price=OT.Price(kappa0=0.01, remembered=20.0, remembered_source="test"),
         tail_block_minutes=10.0, tail_block_items=2, horizon_days=7.0,
         fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
         return_gaps_days=(1.0, 2.0), combiner=MEM.monotone_prior() if followups else MEM.Combiner(),
@@ -663,27 +666,27 @@ def _inputs(learning: V.Learning, *, followups: bool = False) -> V.Inputs:
 
 
 def _prior_curve(positions: dict[str, float] | None = None, *, mean: tuple[float, float] | None = None,
-                 cov: Any = None) -> V.LessonCurve:
+                 cov: Any = None) -> ADL.LessonCurve:
     """The seeded prior as AD's entry reads it (``mean``/``cov``: a posterior in its place, the prior kept)."""
 
     prior = lesson_curve_moments(type("S", (), {"bank": M.Bank((P.LO_VIEW_POINT,))})())
     prior_mean, prior_cov = tuple(prior["prior_mean"]), tuple(tuple(row) for row in prior["prior_cov"])
     assert prior_mean == tuple(prior["mean"]) and prior_cov == tuple(tuple(row) for row in prior["cov"])
-    return V.LessonCurve(mean=mean or prior_mean, cov=cov or prior_cov, positions=positions or {},
-                         version=prior["version"], prior_mean=prior_mean, prior_cov=prior_cov)
+    return ADL.LessonCurve(mean=mean or prior_mean, cov=cov or prior_cov, positions=positions or {},
+                           version=prior["version"], prior_mean=prior_mean, prior_cov=prior_cov)
 
 
-def _lesson_q(learning: V.Learning) -> tuple[float, tuple[float, ...]]:
+def _lesson_q(learning: OT.Learning) -> tuple[float, tuple[float, ...]]:
     return _lesson_q_at(learning)
 
 
-def _lesson_q_at(learning: V.Learning, *, followups: bool = False,
+def _lesson_q_at(learning: OT.Learning, *, followups: bool = False,
                  held: bool = False) -> tuple[float, tuple[float, ...]]:
-    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a", "lo_b"), minutes=15.0,
-                      mass=P.LESSON_CHECK_MASS_PRIOR)
-    block = V.Action(ref="practice", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
-    out = V.evaluate(_inputs(learning, followups=followups), [lesson, block], draws=64, seed="te3a",
-                     merged_sessions=followups, consistent_review_draw=followups, held_ad_link=held).by_ref()
+    lesson = OT.Action(ref="lesson", kind=OT.LESSON, item_los=("lo_a", "lo_b"), minutes=15.0,
+                       mass=P.LESSON_CHECK_MASS_PRIOR)
+    block = OT.Action(ref="practice", kind=OT.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
+    out = ROL.evaluate(_inputs(learning, followups=followups), [lesson, block], draws=64, seed="te3a",
+                       merged_sessions=followups, consistent_review_draw=followups, held_ad_link=held).by_ref()
     return out["lesson"].q, out["lesson"].q_draws
 
 
@@ -701,27 +704,27 @@ def test_at_the_seeded_prior_the_lesson_q_bar_equals_ro4s_placeholder(followups,
 
     _lesson_q = functools.partial(_lesson_q_at, followups=followups, held=held)
     if held:
-        for learning in (V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2])),
-                         V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+        for learning in (OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2])),
+                         OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
                              {"lo_a": 1.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))):
             on, off = _lesson_q(learning), _lesson_q_at(learning, followups=followups, held=False)
             assert on[0] == off[0] and np.array_equal(on[1], off[1])
-    placeholder = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]))
-    curved = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve())
+    placeholder = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]))
+    curved = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve())
     q_placeholder, draws_placeholder = _lesson_q(placeholder)
     q_curve, draws_curve = _lesson_q(curved)
     assert q_curve == pytest.approx(q_placeholder, abs=1e-12)
     assert np.allclose(draws_curve, draws_placeholder, atol=1e-12, rtol=0.0)  # draw for draw
     # Off the prior the curve's learned shift decides: a larger learned lesson effect raises the lesson's Q-bar.
-    larger = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]),
-                        lesson=_prior_curve(mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
+    larger = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]),
+                         lesson=_prior_curve(mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
     q_larger = _lesson_q(larger)[0]
     assert q_larger > q_placeholder
     # At the prior a topic's place on its lesson window moves nothing (Codex review F2); off it, a topic further
     # along takes a smaller learned shift (AD's window).
-    far = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 3.0, "lo_b": 3.0}))
+    far = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 3.0, "lo_b": 3.0}))
     assert np.array_equal(_lesson_q(far)[1], draws_placeholder)
-    far_larger = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+    far_larger = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
         {"lo_a": 3.0, "lo_b": 3.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
     assert q_placeholder < _lesson_q(far_larger)[0] < q_larger
 
@@ -732,31 +735,31 @@ def test_a_probe_closes_the_lesson_window_on_the_held_link_too():
     probe and a lesson on one topic value the same, bit for bit, with ``held_ad_link`` on and off. Off the prior, so
     the window's place moves the second lesson's learned shift."""
 
-    learning = V.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
+    learning = OT.Learning(gamma=(P.GAMMA_PRIOR[1], P.GAMMA_PRIOR[2]), lesson=_prior_curve(
         {"lo_a": 0.0}, mean=(0.6, 0.6), cov=((0.0, 0.0), (0.0, 0.0))))
-    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=5.0, mass=P.LESSON_CHECK_MASS_PRIOR)
-    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=3.0)
-    sequence = V.Action(ref="seq", kind=V.SEQUENCE, steps=(replace(lesson, ref="s1"), replace(probe, ref="s2"),
+    lesson = OT.Action(ref="lesson", kind=OT.LESSON, item_los=("lo_a",), minutes=5.0, mass=P.LESSON_CHECK_MASS_PRIOR)
+    probe = OT.Action(ref="probe", kind=OT.PROBE, item_los=("lo_a",), minutes=3.0)
+    sequence = OT.Action(ref="seq", kind=OT.SEQUENCE, steps=(replace(lesson, ref="s1"), replace(probe, ref="s2"),
                                                           replace(lesson, ref="s3")))
-    block = V.Action(ref="practice", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
+    block = OT.Action(ref="practice", kind=OT.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
     values = {}
     for held in (False, True):
-        out = V.evaluate(_inputs(learning, followups=True), [sequence, block], draws=64, seed="te3a-window",
-                         merged_sessions=True, consistent_review_draw=True, held_ad_link=held).by_ref()
+        out = ROL.evaluate(_inputs(learning, followups=True), [sequence, block], draws=64, seed="te3a-window",
+                           merged_sessions=True, consistent_review_draw=True, held_ad_link=held).by_ref()
         values[held] = (out["seq"].q, out["seq"].q_draws)
     assert values[True][0] == values[False][0]
     assert np.array_equal(values[True][1], values[False][1])
 
 
-def _f2_choice(learning: V.Learning, *, mass: float) -> tuple[dict[str, V.Valued], str]:
+def _f2_choice(learning: OT.Learning, *, mass: float) -> tuple[dict[str, OBJ.Valued], str]:
     """Codex review F2's case: practised topics, equal one-minute lesson and practice actions on ``lo_a``."""
 
     inputs = _inputs(learning)
     inputs = replace(inputs, topics=tuple(replace(topic, practiced=True, stability=3.0, elapsed_days=1.0)
                                           for topic in inputs.topics))
-    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=1.0, mass=mass)
-    practice = V.Action(ref="practice", kind=V.REVIEW, item_los=("lo_a",), minutes=1.0)
-    out = V.evaluate(inputs, [lesson, practice], draws=64, seed="te3a-f2").by_ref()
+    lesson = OT.Action(ref="lesson", kind=OT.LESSON, item_los=("lo_a",), minutes=1.0, mass=mass)
+    practice = OT.Action(ref="practice", kind=OT.REVIEW, item_los=("lo_a",), minutes=1.0)
+    out = ROL.evaluate(inputs, [lesson, practice], draws=64, seed="te3a-f2").by_ref()
     return out, max(("lesson", "practice"), key=lambda ref: out[ref].q)
 
 
@@ -769,8 +772,8 @@ def test_codex_f2_with_fitted_practice_parameters_the_untouched_lesson_curve_mov
     moves. (Before the fix the curve stood in for the placeholder centred on ``γ``'s *prior*, and the lesson won.)"""
 
     fitted = (0.05, 0.01)
-    placeholder, chose_placeholder = _f2_choice(V.Learning(gamma=fitted), mass=mass)
-    curved, chose_curve = _f2_choice(V.Learning(gamma=fitted, lesson=_prior_curve(positions)), mass=mass)
+    placeholder, chose_placeholder = _f2_choice(OT.Learning(gamma=fitted), mass=mass)
+    curved, chose_curve = _f2_choice(OT.Learning(gamma=fitted, lesson=_prior_curve(positions)), mass=mass)
     assert chose_curve == chose_placeholder
     for ref in ("lesson", "practice"):
         assert curved[ref].q == placeholder[ref].q
@@ -798,15 +801,15 @@ def _ad_lesson_steps(sequence: str, coefficients: tuple[float, float]) -> list[f
     return steps
 
 
-def _objective_lesson_steps(sequence: str, learning: V.Learning) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def _objective_lesson_steps(sequence: str, learning: OT.Learning) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """The objective's rollout state through ``sequence`` on ``lo_a`` (``L`` a lesson, ``P`` a graded practice
     attempt, ``B`` a probe): each lesson's step on the belief and on the true ability, per draw."""
 
-    model = V._Model(_inputs(learning), 32, "te3a-f3")
+    model = ROL._Model(_inputs(learning), 32, "te3a-f3")
     state = model.initial()
     everyone, at = np.ones(model.k, dtype=bool), np.zeros(model.k)
-    lesson = V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=15.0, mass=P.LESSON_CHECK_MASS_PRIOR)
-    practice = V.Action(ref="practice", kind=V.REVIEW, item_los=("lo_a",), minutes=10.0)
+    lesson = OT.Action(ref="lesson", kind=OT.LESSON, item_los=("lo_a",), minutes=15.0, mass=P.LESSON_CHECK_MASS_PRIOR)
+    practice = OT.Action(ref="practice", kind=OT.REVIEW, item_los=("lo_a",), minutes=10.0)
     believed, true = [], []
     for step in sequence:
         if step == "L":
@@ -832,7 +835,7 @@ def test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does(sequen
     placeholder = gm * P.LESSON_CHECK_MASS_PRIOR
     prior = _prior_curve()
     posterior = (prior.prior_mean[0] + 0.3, prior.prior_mean[1] - 0.05)
-    learned = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve(mean=posterior, cov=prior.prior_cov))
+    learned = OT.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve(mean=posterior, cov=prior.prior_cov))
     believed, _true = _objective_lesson_steps(sequence, learned)
     oracle = [post - pri for post, pri in zip(_ad_lesson_steps(sequence, posterior),
                                               _ad_lesson_steps(sequence, prior.prior_mean), strict=True)]
@@ -848,9 +851,9 @@ def test_codex_f3_rollouts_carry_the_lesson_window_as_ads_transition_does(sequen
     if sequence == "LLPL":
         assert oracle[2] == pytest.approx(oracle[0], abs=1e-15)
     # At the seeded prior (positions anywhere) every lesson step is the placeholder's, on the belief and draw for draw.
-    at_prior = V.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 2.0}))
+    at_prior = OT.Learning(gamma=(gm, P.GAMMA_PRIOR[2]), lesson=_prior_curve({"lo_a": 2.0}))
     believed_prior, true_prior = _objective_lesson_steps(sequence, at_prior)
-    believed_off, true_off = _objective_lesson_steps(sequence, V.Learning(gamma=(gm, P.GAMMA_PRIOR[2])))
+    believed_off, true_off = _objective_lesson_steps(sequence, OT.Learning(gamma=(gm, P.GAMMA_PRIOR[2])))
     for a, b in zip(believed_prior + true_prior, believed_off + true_off, strict=True):
         assert np.array_equal(a, b)
 

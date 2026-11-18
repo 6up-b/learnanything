@@ -1,4 +1,10 @@
-"""RO4 §3.2, §8.1: the objective's value estimator ``Q̄``, a pure function of a frozen belief.
+"""How a block is simulated: the rollouts that estimate each candidate's value ``Q̄`` under the router's objective
+(spec_router_objective_v1 §3.2, §8.1), a pure function of a frozen belief.
+
+What is optimized (the terms of a path, their sum and how a value is reported) is :mod:`objective`; this module
+computes it. It imports :mod:`objective` (every path is accumulated into its ``_Ledger``, and inside one candidate's
+simulation branches are compared by the ledger's ``q``) and :mod:`types` (the frozen inputs and the actions); neither
+imports it. :func:`evaluate`, :func:`baselines` and :func:`gain` are the entry points: each builds a :class:`_Model`.
 
 At one decision every candidate is valued at **one shared cutoff** ``C = max(t + H, latest active goal date)``,
 carried through every rollout:
@@ -20,19 +26,19 @@ return gap drawn from this learner's own gaps (next day with none), a fresh draw
 every session's end (one common-random-number column per session), so the return effect is zero until RO5 fits
 one, and the trace says so.
 
-**One clock** (Codex review F3): an action is a chronological sequence of segments (one, or a probe and its repair,
-or a mid-block alternative's ordered sub-actions). Each segment charges its minutes from the session minutes it
-starts at, earns the undated uses over its own interval and every dated use it crosses, both on the state before
-its effect, and only then applies its effect; the tail starts at the last segment's end, and no interval before it
-(on any day) and no session before it is counted again. Every draw keeps its own clock through the tail (never a
-batch's maximum), and a tail session's blocks land at their ends the same way: a dated use a block's end crosses is
-scored on the state before that block (Codex re-review F12).
+**One clock**: an action is a chronological sequence of segments (one, or a probe and its repair, or a mid-block
+alternative's ordered sub-actions). Each segment charges its minutes from the session minutes it starts at, earns
+the undated uses over its own interval and every dated use it crosses, both on the state before its effect, and
+only then applies its effect; the tail starts at the last segment's end, and no interval before it (on any day) and
+no session before it is counted again. Every draw keeps its own clock through the tail (never a batch's maximum),
+and a tail session's blocks land at their ends the same way: a dated use a block's end crosses is scored on the
+state before that block.
 
 **Sampling** (§8.1). ``K`` parameter draws θ (AD's posterior on each topic's ability, the combiner's and the
 effect slope's posteriors, AD's learning increments, the stop offer's acceptance), each shared across every
 candidate, with **common random numbers** for outcomes, durations, uptake and return. ``Q̄`` is the mean over
-draws; :func:`paired_standard_error` is the precision of the top two's difference. Everything is vectorized over
-the draws.
+draws; :func:`objective.paired_standard_error` is the precision of the top two's difference. Everything is
+vectorized over the draws.
 
 **Action interfaces** (§8.1's table): review, new practice, repair and teach-back are practice opportunities
 (AD's ``γ`` at their evidence mass, FSRS's update over the rating distribution from AD's predictive, a graded
@@ -42,29 +48,28 @@ posterior right after the probe prefers, then the tail (the branch is in the tra
 averaged over the belief's own world before the two are compared (every draw there from the same post-probe belief:
 ability drawn from it, the believed parameters, noise independent of the true world's), so the choice is one per
 result, integrates over the repair's possible outcomes and never sees the simulated repair's result or the true
-path's noise (Codex review F2, re-review); the chosen repair is simulated afterwards. A lesson is AD's ``γ`` at the
-lesson's learned mass (RO4's placeholder), plus, from teacher TE3a, what lessons have taught AD's lesson curve
-beyond its seeded prior at the topic's place on its lesson window (:class:`LessonCurve`; zero at the prior, so
-the placeholder exactly until lesson data arrive);
-an offer-type action is valued accepted and declined **as branches**, ``Q = p·E[R+V | acc] + (1−p)·E[R+V | dec]``;
-the stop offer is two branches, accepted (no more today; the next session after a drawn return gap) and
-overridden (the tail's next non-stop block at the same session minutes, so its value is never defined in terms
-of itself), with ``p_accept`` drawn from its Beta posterior. Durations are sampled, never averaged: with the
-quadratic cost, ``E[C(m, D)] = C(m, E[D]) + κ0/(2m̄)·Var(D)``.
+path's noise; the chosen repair is simulated afterwards. A lesson is AD's ``γ`` at the lesson's learned mass (RO4's
+placeholder), plus what lessons have taught AD's lesson curve beyond its seeded prior at the topic's place on its
+lesson window (:class:`ad_link.LessonCurve`; zero at the prior, so the placeholder exactly until lesson data
+arrive); an offer-type action is valued accepted and declined **as branches**,
+``Q = p·E[R+V | acc] + (1−p)·E[R+V | dec]``; the stop offer is two branches, accepted (no more today; the next
+session after a drawn return gap) and overridden (the tail's next non-stop block at the same session minutes, so
+its value is never defined in terms of itself), with ``p_accept`` drawn from its Beta posterior. Durations are
+sampled, never averaged: with the quadratic cost, ``E[C(m, D)] = C(m, E[D]) + κ0/(2m̄)·Var(D)``.
 
 **The effect correction** (§8.4): ``ΔG = α_v + β_v·f(a)`` on the logit scale, ``f(a)`` the LLM's forecast
 probability for ``a`` minus its forecast probability for the tail's next action (the reference row; a difference
-of probabilities, never of logits: Codex review F6), added to the action's topics after its
-own effect: a correction to the memory rollout's learning effect, never a replacement. It applies only when every
-candidate and the reference have a forecast; a missing one drops it for the decision.
+of probabilities, never of logits), added to the action's topics after its own effect: a correction to the memory
+rollout's learning effect, never a replacement. It applies only when every candidate and the reference have a
+forecast; a missing one drops it for the decision.
 
-A leaf: numpy and the standard library; every number it reads is in :class:`Inputs`, handed in frozen.
+A leaf beside numpy and the standard library: every number it reads is in :class:`types.Inputs`, handed in frozen.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from collections.abc import Callable, Collection, Sequence
+from dataclasses import dataclass, replace
 import hashlib
 import math
 import time
@@ -72,27 +77,24 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.router_objective.memory import Combiner, Fsrs, logit, perform, sigmoid
+from learnloop.router_objective.memory import Fsrs, logit, perform, sigmoid
+from learnloop.router_objective.objective import Evaluation, Valued, _Ledger, _terms
+from learnloop.router_objective.types import (
+    LESSON,
+    NEW_PRACTICE,
+    PRACTICE_KINDS,
+    PROBE,
+    READING,
+    REPAIR,
+    REVIEW,
+    STOP,
+    Action,
+    DatedUse,
+    Inputs,
+)
 from learnloop.scheduling.fsrs import retrievability_array
 
-OBJECTIVE_VERSION = "router_objective_v1"
 TAIL_VERSION = "flat_load_adaptive_v1"
-TERMINAL_VERSION = "net_continuation_v1"
-
-#: Action kinds (§8.1's table).
-REVIEW = "review"
-NEW_PRACTICE = "new_practice"
-READING = "reading"
-PROBE = "probe"
-REPAIR = "repair"
-TEACH_BACK = "teach_back"
-LESSON = "lesson"
-STOP = "stop"
-#: An ordered sequence of sub-actions (a mid-block alternative, §8.3): each step keeps its own kind, duration,
-#: observation and effect, valued one after another on the one clock (Codex review F5).
-SEQUENCE = "sequence"
-PRACTICE_KINDS = frozenset({REVIEW, NEW_PRACTICE, REPAIR, TEACH_BACK})
-KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LESSON, STOP, SEQUENCE})
 #: The reference row's ref: the tail's next action, sent to the LLM policy as a non-choosable row.
 REFERENCE_REF = "tail_next"
 MINUTES_PER_DAY = 1440.0
@@ -109,8 +111,6 @@ MINUTES_PER_DAY = 1440.0
 #: (the default, below the tag), mvp-0.49's draw from AD's predictive alone, draw for draw. An unpractised topic's
 #: first attempt and a probe's observation read AD's predictive either way (the combiner has no ``R`` for them).
 REVIEW_DRAW_VERSION = "review_draw_memory_model_v1"
-#: The follow-up batch's landing ruling R9 (:class:`AdLink`, :attr:`Inputs.ad_link`).
-AD_LINK_VERSION = "ad_predictive_link_v1"
 #: Router speed, item 1 (``held_ad_link``; the caller passes ``[router_objective] held_ad_link`` at the follow-up
 #: batch's tag): R9's link evaluated once per array, its values held per role and recomputed only where the state's
 #: bits changed (:meth:`_Model._linked_logit`, :meth:`_Model._link_cells`). Off (the default here, and the landing's
@@ -118,344 +118,6 @@ AD_LINK_VERSION = "ad_predictive_link_v1"
 #: values bit for bit, but a deadline-bound evaluation completes more draws when each is faster, which can change
 #: ``Q̄`` and the choice (Codex review F1 on router speed), so it changes serving, has its switch, and the switch is
 #: in RO6's generator payload and the prefetch key (``router_objective_switches.FOLLOWUP_GENERATOR_SWITCHES``).
-
-
-@dataclass(frozen=True)
-class AdLink:
-    """Landing ruling R9: AD's own predicted success ``F(η) = g + (1 − g − λ)·E_ε[σ(η − a·τ0·ε)]``
-    (``adaptive_difficulty.model.residual_success``), with ``g = 0`` (a valued topic's unseen constructed item),
-    lapse ``λ``, and ``ε`` integrated by AD's own Gauss-Hermite rule; the caller hands in AD's constants, so this
-    module stays a leaf. With it the rollouts' ``η`` is AD's latent ability (practice's ``γ``, reading's dose and a
-    lesson add where AD adds them), and wherever the rollouts read AD's predictive (an unpractised topic, a probe,
-    the combiner's ``η`` input, which is ``logit p̄``) they read ``F(η)``, not ``σ(η)``.
-
-    Landing ruling R10: the rollouts start from AD's own latent posterior (``Topic.eta_latent``: its mean and
-    variance, read through AD's read-only entry point); where only ``p̄`` and a variance exist, the mean is the inverse
-    of the **variance-integrated** predictive (:meth:`p_integrated`), so the draws' predictive is ``p̄`` again."""
-
-    lapse: float
-    spread: float
-    nodes: tuple[float, ...]
-    weights: tuple[float, ...]
-    version: str = AD_LINK_VERSION
-
-    def __post_init__(self) -> None:
-        # The quadrature's arrays and constants, built once (the rollouts call F per day, topic and draw).
-        object.__setattr__(self, "_shift", self.spread * np.asarray(self.nodes, dtype=np.float64))
-        object.__setattr__(self, "_w", np.asarray(self.weights, dtype=np.float64))
-        object.__setattr__(self, "_keep", 1.0 - self.lapse)
-
-    def quadrature(self, eta: np.ndarray, *, slope: bool = True) -> tuple[np.ndarray, np.ndarray | None]:
-        """``F(η)`` and (``slope``) ``dF/dη`` from **one** evaluation of the quadrature's sigmoids, elementwise over
-        any array of ``η`` (router speed, item 1: a caller stacks every ``η`` it needs, the draws' and the belief's,
-        into one array). The same operations, in the same order, as :meth:`p` and :meth:`slope` each did alone, so
-        every element's bits are theirs."""
-
-        with np.errstate(over="ignore"):  # σ of a far-left node is 0 (the log-space path covers what underflows)
-            s = sigmoid(np.asarray(eta, dtype=np.float64)[..., None] - self._shift)
-        f = self._keep * (self._w * s).sum(-1)
-        return f, (self._keep * (self._w * s * (1.0 - s)).sum(-1) if slope else None)
-
-    def p(self, eta: np.ndarray) -> np.ndarray:
-        return self.quadrature(eta, slope=False)[0]
-
-    def slope(self, eta: np.ndarray) -> np.ndarray:
-        """``dF/dη``."""
-
-        return self.quadrature(eta)[1]  # type: ignore[return-value]
-
-    def p_integrated(self, mean: np.ndarray, variance: np.ndarray) -> np.ndarray:
-        """``E[F(η)]`` for ``η ~ N(mean, variance)``: ``F`` with the residual's spread widened to
-        ``√(a²τ0² + variance)``, AD's own ``expected_success`` (R10). ``variance`` 0 is :meth:`p`."""
-
-        mean = np.asarray(mean, dtype=np.float64)
-        scale = np.sqrt(self.spread ** 2 + np.maximum(np.asarray(variance, dtype=np.float64), 0.0)) / self.spread
-        e = mean[..., None] - scale[..., None] * self._shift
-        return (1.0 - self.lapse) * (self._w * sigmoid(e)).sum(-1)
-
-    def inverse(self, p: np.ndarray, variance: np.ndarray | float = 0.0) -> np.ndarray:
-        """The mean whose variance-integrated predictive is ``p`` (``F⁻¹(p)`` at variance 0), by bisection on AD's
-        range (a ``p`` at or past ``1 − λ`` is held just inside it)."""
-
-        top = (1.0 - self.lapse) * (1.0 - 1e-9)
-        target = np.clip(np.asarray(p, dtype=np.float64), 1e-9, top)
-        var = np.broadcast_to(np.asarray(variance, dtype=np.float64), target.shape)
-        low, high = np.full_like(target, -60.0), np.full_like(target, 60.0)
-        for _ in range(200):
-            mid = 0.5 * (low + high)
-            below = self.p_integrated(mid, var) < target
-            low, high = np.where(below, mid, low), np.where(below, high, mid)
-            if float(np.max(high - low, initial=0.0)) < 1e-12:
-                break
-        return 0.5 * (low + high)
-
-    def logit_and_slope(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """``logit F(η)`` (AD's predictive on the combiner's scale) and its derivative in ``η``, never clipped
-        (landing ruling R11: the combiner's own probability-logit, not FSRS's), the derivative the one of the
-        transformation applied, ``F'/F + F'/(1 − F)``. ``1 − F ≥ λ``, so ``log(1 − F)`` loses nothing computed
-        directly; ``log F`` is direct while ``F`` is a normal float, and in log space (log-sum-exp over the
-        quadrature) where it underflows (``η`` below about −700)."""
-
-        f, df = self.quadrature(eta)
-        return self.logit_and_slope_from(eta, f, df)  # type: ignore[arg-type]
-
-    def logit_and_slope_from(self, eta: np.ndarray, f: np.ndarray, df: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """:meth:`logit_and_slope` from ``F(η)`` and ``dF/dη`` already computed (:meth:`quadrature`)."""
-
-        tiny = ~(f > 1e-300)
-        safe = np.where(tiny, 1.0, f)
-        out = np.log(safe) - np.log1p(-safe)
-        slope = df / safe + df / (1.0 - safe)
-        if np.any(tiny):
-            log_out, log_slope = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])
-            out = np.array(out, copy=True)
-            slope = np.array(slope, copy=True)
-            out[tiny], slope[tiny] = log_out, log_slope
-        return out, slope
-
-    def logit_p(self, eta: np.ndarray) -> np.ndarray:
-        """``logit F(η)`` alone, as :meth:`logit_and_slope` computes it (the rollouts' forecast path)."""
-
-        return self.logit_p_from(eta, self.p(eta))
-
-    def logit_p_from(self, eta: np.ndarray, f: np.ndarray) -> np.ndarray:
-        """:meth:`logit_p` from ``F(η)`` already computed (:meth:`quadrature`)."""
-
-        tiny = ~(f > 1e-300)
-        safe = np.where(tiny, 1.0, f)
-        out = np.log(safe) - np.log1p(-safe)
-        if np.any(tiny):
-            out = np.array(out, copy=True)
-            out[tiny] = self._logit_and_slope_logspace(np.asarray(eta, dtype=np.float64)[tiny])[0]
-        return out
-
-    def _logit_and_slope_logspace(self, eta: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """The same in log space: ``log F``, ``log(1 − F) = log(λ + (1 − λ)·E[σ(−e)])`` and ``log F'``."""
-
-        e = eta[..., None] - self._shift
-        log_s = -np.logaddexp(0.0, -e)
-        log_c = -np.logaddexp(0.0, e)
-        lw = np.log(self._w)
-        log_keep = math.log1p(-self.lapse)
-        log_f = log_keep + _logsumexp(lw + log_s)
-        log_q = np.logaddexp(math.log(self.lapse), log_keep + _logsumexp(lw + log_c))
-        log_df = log_keep + _logsumexp(lw + log_s + log_c)
-        return log_f - log_q, np.exp(log_df - log_f) + np.exp(log_df - log_q)
-
-
-def _logsumexp(x: np.ndarray) -> np.ndarray:
-    """``log Σ exp(x)`` over the last axis, stably."""
-
-    top = np.max(x, axis=-1)
-    return top + np.log(np.exp(x - top[..., None]).sum(-1))
-
-
-@dataclass(frozen=True)
-class Topic:
-    """One valued topic (an LO) as the decision believed it."""
-
-    lo: str
-    #: AD's predictive on the logit scale and its posterior variance (θ draws from it).
-    eta_mean: float
-    eta_var: float
-    #: FSRS state of the LO's practiced items (aggregate); ``practiced`` False: no memory yet.
-    practiced: bool = False
-    difficulty: float = 5.0
-    stability: float = 0.0
-    elapsed_days: float = 0.0
-    #: ``c_L`` per day (§8.5): 0 for a topic not enrolled in any undated use.
-    undated_density: float = 0.0
-    #: AD's reading-dose count on the LO (the dose curve's position).
-    reading_count: float = 0.0
-    #: Landing ruling R10: AD's latent posterior of ``η`` at the LO's top point, ``(mean, variance)``, read only with
-    #: R9's link (``Inputs.ad_link``); None: reconstructed from ``eta_mean`` (``logit p̄``) and ``eta_var``.
-    eta_latent: tuple[float, float] | None = None
-
-
-@dataclass(frozen=True)
-class DatedUse:
-    goal_id: str
-    lo: str
-    #: days from the decision to the goal's date
-    at_days: float
-    #: ``ω_{g,L}`` (§8.5)
-    weight: float
-
-
-@dataclass(frozen=True)
-class LessonCurve:
-    """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): AD's ``lesson`` dose curve per ``landed`` dose, as the decision
-    read it (``readiness.decision_state_fields``' ``lesson_curve``): its two coefficients' posterior mean and
-    covariance on :attr:`Learning.dose_scales`, their seeded prior's (``prior_mean``, ``prior_cov``; None: the
-    posterior's, so nothing is learned), and each topic's position ``n`` on it (its lessons since its last graded
-    attempt).
-
-    The objective values a lesson as RO4's placeholder plus what lessons have taught this curve beyond its prior
-    (Codex review F2): one dose's shift at the topic's position, ``Δμ(n) = Σ_m b_m'(n)·(μ_m − μ⁰_m)``, and the change
-    in that step's variance, ``Δv(n) = s(n)ᵀ(Σ − Σ⁰)s(n)`` (``s(n)`` the two scales' increments). So at the seeded
-    prior the lesson is the placeholder exactly, at fitted ``γ``, at the lesson's learned mass and at any position, and
-    no decision moves until lessons inform the curve."""
-
-    mean: tuple[float, float]
-    cov: tuple[tuple[float, float], tuple[float, float]]
-    positions: Mapping[str, float] = field(default_factory=dict)
-    version: str = "ad_lesson_priors_v1"
-    source: str = "adaptive_difficulty subject view"
-    prior_mean: tuple[float, float] | None = None
-    prior_cov: tuple[tuple[float, float], tuple[float, float]] | None = None
-
-    def deviation(self, n: np.ndarray, scales: tuple[float, float]) -> tuple[np.ndarray, np.ndarray]:
-        """``(Δμ(n), Δv(n))`` per draw at positions ``n``: zero (exactly) while the curve is at its prior."""
-
-        h1, h2 = scales
-        n = np.asarray(n, dtype=np.float64)
-        s1 = np.exp(-n / h1) - np.exp(-(n + 1.0) / h1)
-        s2 = np.exp(-n / h2) - np.exp(-(n + 1.0) / h2)
-        mean0 = self.prior_mean if self.prior_mean is not None else self.mean
-        cov0 = self.prior_cov if self.prior_cov is not None else self.cov
-        shift = s1 * (self.mean[0] - mean0[0]) + s2 * (self.mean[1] - mean0[1])
-        dc = [[self.cov[i][j] - cov0[i][j] for j in (0, 1)] for i in (0, 1)]
-        dvar = s1 * s1 * dc[0][0] + s1 * s2 * (dc[0][1] + dc[1][0]) + s2 * s2 * dc[1][1]
-        return shift, dvar
-
-
-@dataclass(frozen=True)
-class CauseSplit:
-    """Slip or gap SG2 (``docs/specs/spec_slip_vs_gap_v1.md`` §3): on a topic whose latest miss has a diagnosis, a
-    lesson's and a repair's effect slope is the mixture over the miss's cause, ``p_gap·γ_gap + p_slip·γ_slip +
-    p_unknown·γ``, instead of ``γ``.
-
-    ``gap`` and ``slip`` are ``γ_gap``'s and ``γ_slip``'s posterior (mean, variance), ``cov`` their covariance; ``weights``
-    each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)``. A topic not in ``weights`` keeps ``γ`` exactly. The
-    joint posterior is drawn (Codex F7): ``γ_gap`` along ``γ``'s own stream (common random numbers), so where its
-    posterior is ``γ``'s a pure gap is the predecessor's value draw for draw; ``γ_slip`` as its regression on that draw
-    plus its residual on a stream of its own (at the seeded priors, independent of ``γ_gap``)."""
-
-    gap: tuple[float, float]
-    slip: tuple[float, float]
-    weights: Mapping[str, tuple[float, float, float]] = field(default_factory=dict)
-    cov: float = 0.0
-    version: str = "miss_cause_slopes_v1"
-
-    def at_mean(self) -> "CauseSplit":
-        """The believed parameters (each posterior's mean, no parameter draw), as the belief's own world reads γ."""
-
-        return replace(self, gap=(self.gap[0], 0.0), slip=(self.slip[0], 0.0), cov=0.0)
-
-
-@dataclass(frozen=True)
-class Learning:
-    """AD's learning parameters (posterior mean, variance): ``γ`` per practice opportunity, the reading dose
-    curve's ``ḡ_1, ḡ_2`` on scales ``h_1, h_2``; from TE3a, AD's lesson curve (None: RO4's placeholder); from slip or
-    gap SG2, the lesson's and the repair's slope by the miss's cause (None: ``γ`` on every topic, the predecessor)."""
-
-    gamma: tuple[float, float] = (0.2, 0.01)
-    gbar: tuple[tuple[float, float], tuple[float, float]] = ((0.10, 0.0049), (0.20, 0.01))
-    dose_scales: tuple[float, float] = (1.0, 4.0)
-    source: str = "adaptive_difficulty.priors"
-    lesson: LessonCurve | None = None
-    causes: CauseSplit | None = None
-
-
-@dataclass(frozen=True)
-class EffectSlope:
-    """``ΔG = α_v + β_v·f(a)`` (§8.4): each coefficient's posterior mean and variance."""
-
-    alpha: tuple[float, float] = (0.0, 0.04)
-    beta: tuple[float, float] = (0.2, 0.04)
-    n: int = 0
-    version: str = "effect_slope_v1:prior"
-
-
-@dataclass(frozen=True)
-class Price:
-    """The attention price at this decision (§8.6): ``κ(x) = κ0·x/m̄`` on session minutes."""
-
-    kappa0: float
-    remembered: float
-    remembered_source: str = "unknown"
-    regime: str = "seed"
-
-
-@dataclass(frozen=True)
-class Action:
-    """One candidate as the value estimator sees it."""
-
-    ref: str
-    kind: str
-    #: one LO per practice opportunity (or per reading dose, or the probe's topic)
-    item_los: tuple[str, ...] = ()
-    #: the predicted active minutes (the duration distribution's median)
-    minutes: float = 0.0
-    #: the duration's spread on the log scale (0: fixed)
-    minutes_log_sd: float = 0.0
-    #: evidence mass on ``γ`` (teach-back, lesson)
-    mass: float = 1.0
-    #: an offer-type action's uptake ``Beta(a, b)`` (None: not an offer)
-    accept: tuple[float, float] | None = None
-    #: a probe's repair branch (a practice block on the same topic)
-    repair: "Action | None" = None
-    #: the LLM policy's forecast for this option (a probability), the effect correction's input
-    forecast: float | None = None
-    choosable: bool = True
-    #: a :data:`SEQUENCE`'s ordered sub-actions (none of them a sequence, a stop or an offer)
-    steps: tuple["Action", ...] = ()
-    #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the delayed checks a lesson commits, ``(LO, days after the
-    #: action's end)``: each is a graded attempt on its LO at the first session day at or past its date, so its
-    #: information enters through ``E[V(x′)]`` (empty for every other action: the rollouts are unchanged)
-    commitments: tuple[tuple[str, float], ...] = ()
-    #: IH2 (spec_instruct_handoff_v1 §5): an offer's declined branch when the decision says what follows a "Not now": the
-    #: follow-up it competes with, which stays available. None: the tail's next non-offer block, as RO4's interface.
-    declined: "Action | None" = None
-
-    def __post_init__(self) -> None:
-        if self.kind not in KINDS:
-            raise ValueError(f"unknown action kind {self.kind!r}")
-        if (self.kind == SEQUENCE) != bool(self.steps):
-            raise ValueError("a sequence (and only a sequence) has steps")
-        if any(step.kind in (SEQUENCE, STOP) or step.accept is not None for step in self.steps):
-            raise ValueError("a sequence's steps are plain actions")
-
-
-@dataclass(frozen=True)
-class Inputs:
-    """The frozen belief one decision values its candidates on (every number the trace reports)."""
-
-    topics: tuple[Topic, ...]
-    dated: tuple[DatedUse, ...]
-    session_minutes: float
-    price: Price
-    #: the tail's block: minutes and practice opportunities (the support's means)
-    tail_block_minutes: float
-    tail_block_items: int
-    horizon_days: float
-    fsrs_weights: tuple[float, ...]
-    return_gaps_days: tuple[float, ...] = ()
-    stop_accept: tuple[float, float] = (1.0, 1.0)
-    #: RO5 §9 item 1: the return model's slope ``b`` (posterior mean, variance): the gap after a session that
-    #: ended at ``x`` active minutes is the learner's own gap times ``exp(b·(x − m̄)/m̄)``. None: no return model
-    #: (RO4's: the same gaps after every session's end, the return effect zero by construction).
-    return_slope: tuple[float, float] | None = None
-    combiner: Combiner = field(default_factory=Combiner)
-    learning: Learning = field(default_factory=Learning)
-    #: None: the effect correction is off by hand, or a forecast is missing
-    effect: EffectSlope | None = None
-    reference_forecast: float | None = None
-    #: the trace's sources (where each number came from)
-    sources: Mapping[str, Any] = field(default_factory=dict)
-    #: Landing ruling R9: AD's own predictive (:class:`AdLink`). None: mvp-0.49's ``σ(η)`` on ``logit p̄``.
-    ad_link: AdLink | None = None
-
-    @property
-    def cutoff(self) -> float:
-        """``C`` in days from the decision (§3.2): carried through every rollout."""
-
-        latest = max((use.at_days for use in self.dated), default=0.0)
-        return max(float(self.horizon_days), latest)
-
-
-def cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float:
-    return max(float(horizon_days), max((use.at_days for use in dated), default=0.0))
 
 
 # -- common random numbers -----------------------------------------------------------------------------
@@ -576,57 +238,6 @@ class _State:
 
 
 _STATE_FIELDS = ("eta", "bel", "bel_var", "d", "s", "practiced", "last", "reading", "lesson")
-
-
-_LEDGER_FIELDS = ("crossed", "undated_action", "kappa_action", "tail_reward", "tail_cost", "terminal_reward",
-                  "terminal_cost", "unmeasured")
-
-
-@dataclass
-class _Ledger:
-    """Per draw: the terms of one path (§8.8's per-candidate terms)."""
-
-    crossed: np.ndarray        # dated uses crossed during the action
-    undated_action: np.ndarray  # undated uses during the action
-    kappa_action: np.ndarray    # the action's κ integral (a cost, positive)
-    tail_reward: np.ndarray     # valued uses from the action's end to C
-    tail_cost: np.ndarray       # the tail's attention cost to C
-    terminal_reward: np.ndarray  # valued uses past C (T_C's reward)
-    terminal_cost: np.ndarray    # attention cost past C (T_C's cost)
-    #: RO6's landing ruling R7: the part of the undated uses' reward (inside ``undated_action``, ``tail_reward`` and
-    #: ``terminal_reward``) from the topics the model was told are unmeasured, on the same paths; not added to ``q``
-    #: again (zero unless :class:`_Model` has ``unmeasured``)
-    unmeasured: np.ndarray
-
-    @classmethod
-    def zeros(cls, k: int) -> "_Ledger":
-        return cls(*(np.zeros(k) for _ in _LEDGER_FIELDS))
-
-    def copy(self) -> "_Ledger":
-        return _Ledger(*(np.array(getattr(self, name), copy=True) for name in _LEDGER_FIELDS))
-
-    @property
-    def q(self) -> np.ndarray:
-        return (self.crossed + self.undated_action - self.kappa_action + self.tail_reward - self.tail_cost
-                + self.terminal_reward - self.terminal_cost)
-
-    @property
-    def terminal(self) -> np.ndarray:
-        return self.terminal_reward - self.terminal_cost
-
-    @property
-    def after(self) -> np.ndarray:
-        """``E[V(x′)]``: the tail from the action's end, ``T_C`` included."""
-
-        return self.tail_reward - self.tail_cost + self.terminal
-
-    @staticmethod
-    def mix(p: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        return _Ledger(*(p * getattr(a, n) + (1 - p) * getattr(b, n) for n in _LEDGER_FIELDS))
-
-    @staticmethod
-    def select(mask: np.ndarray, a: "_Ledger", b: "_Ledger") -> "_Ledger":
-        return _Ledger(*(np.where(mask, getattr(a, n), getattr(b, n)) for n in _LEDGER_FIELDS))
 
 
 class _Model:
@@ -1537,58 +1148,6 @@ class _Model:
 # -- the public evaluation -----------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class Valued:
-    """One candidate's value (§8.8's terms)."""
-
-    ref: str
-    kind: str
-    q_draws: tuple[float, ...]
-    terms: Mapping[str, float]
-    extra: Mapping[str, Any]
-    choosable: bool
-
-    @property
-    def q(self) -> float:
-        return float(np.mean(self.q_draws)) if self.q_draws else 0.0
-
-
-@dataclass(frozen=True)
-class Evaluation:
-    valued: tuple[Valued, ...]
-    draws: int
-    cutoff: float
-    seed: str
-    elapsed_ms: int
-    complete: bool
-    reference: Valued | None = None
-
-    def by_ref(self) -> dict[str, Valued]:
-        return {v.ref: v for v in self.valued}
-
-    @property
-    def v(self) -> float:
-        """``V = Σ_a π_tail(a)·Q(a)``: the tail's next action is deterministic, so ``V`` is its row's ``Q``."""
-
-        return self.reference.q if self.reference is not None else 0.0
-
-
-def _terms(ledger: _Ledger, model: "_Model | None" = None) -> dict[str, float]:
-    terms = {
-        "crossed_date_reward": float(ledger.crossed.mean()),
-        "undated_reward": float(ledger.undated_action.mean()),
-        "kappa_integral": float(ledger.kappa_action.mean()),
-        "after": float(ledger.after.mean()),
-        "tail_reward": float(ledger.tail_reward.mean()),
-        "tail_cost": float(ledger.tail_cost.mean()),
-        "terminal": float(ledger.terminal.mean()),
-    }
-    if model is not None and model.unmeasured is not None:
-        # RO6's landing ruling R7: the unmeasured topics' share of q (the measurable part is q minus it).
-        terms["unmeasured_reward"] = float(ledger.unmeasured.mean())
-    return terms
-
-
 def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str, max_draws: int | None = None,
              keep_going: Callable[[], bool] | None = None, deadline: float | None = None,
              clock: Callable[[], float] = time.monotonic,
@@ -1648,34 +1207,6 @@ def evaluate(inputs: Inputs, actions: Sequence[Action], *, draws: int, seed: str
                       elapsed_ms=int(round((clock() - started) * 1000)), complete=False, reference=None)
 
 
-def paired_standard_error(a: Valued, b: Valued) -> float:
-    """The standard error of ``Q̄(a) − Q̄(b)`` over the shared draws (common random numbers)."""
-
-    x = np.asarray(a.q_draws) - np.asarray(b.q_draws)
-    if x.size < 2:
-        return 0.0
-    return float(np.std(x, ddof=1) / math.sqrt(x.size))
-
-
-def numeric_choice(evaluation: Evaluation, support: Sequence[str]) -> tuple[str, dict[str, Any]]:
-    """``π_Q`` (§8.3): plain argmax of ``Q̄``; candidates within the paired precision of the maximum are broken
-    by support order (staged's pick first). Returns the choice and the record of the tie rule."""
-
-    rows = evaluation.by_ref()
-    ranked = [ref for ref in support if ref in rows]
-    if not ranked:
-        raise ValueError("no valued candidate in the support")
-    best = max(ranked, key=lambda ref: rows[ref].q)
-    tied = [ref for ref in ranked
-            if ref == best or rows[best].q - rows[ref].q <= paired_standard_error(rows[best], rows[ref]) + 1e-15]
-    chosen = next(ref for ref in ranked if ref in tied)
-    order = sorted(ranked, key=lambda ref: -rows[ref].q)
-    top_two = order[:2]
-    precision = paired_standard_error(rows[top_two[0]], rows[top_two[1]]) if len(top_two) == 2 else 0.0
-    return chosen, {"argmax": best, "tied": tied, "chosen": chosen, "top_two": top_two,
-                    "paired_se_top_two": precision, "rule": "argmax_qbar_ties_within_paired_se_by_support_order"}
-
-
 def baselines(inputs: Inputs, window_days: int, *, draws: int, seed: str,
               merged_sessions: bool = False, consistent_review_draw: bool = False,
               held_ad_link: bool = False) -> dict[str, Any]:
@@ -1722,10 +1253,5 @@ def gain(inputs: Inputs, session_lengths: Sequence[float], *, draws: int, seed: 
 
 
 __all__ = [
-    "AD_LINK_VERSION", "Action", "AdLink", "baselines", "DatedUse", "EffectSlope", "Evaluation", "Inputs", "KINDS", "LESSON", "Learning",
-    "LessonCurve", "NEW_PRACTICE",
-    "OBJECTIVE_VERSION", "PRACTICE_KINDS", "PROBE", "Price", "READING", "REFERENCE_REF", "REPAIR", "REVIEW",
-    "REVIEW_DRAW_VERSION", "SEQUENCE", "STOP",
-    "TAIL_VERSION", "TEACH_BACK", "TERMINAL_VERSION", "Topic", "Valued", "cutoff_for", "evaluate", "gain",
-    "numeric_choice", "paired_standard_error",
+    "MINUTES_PER_DAY", "REFERENCE_REF", "REVIEW_DRAW_VERSION", "TAIL_VERSION", "baselines", "evaluate", "gain",
 ]

@@ -17,7 +17,8 @@ import pytest
 
 from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 
@@ -105,10 +106,10 @@ def test_the_monotone_fit_recovers_rising_slopes_and_is_the_posterior_mode():
 def test_the_rollouts_on_the_monotone_prior_never_predict_lower_performance_for_higher_ability():
     """``P(perform)`` per draw against η, on every coefficient draw a decision's rollouts use."""
 
-    inputs = V.Inputs(topics=(V.Topic(lo="x", eta_mean=0.0, eta_var=0.0),), dated=(), session_minutes=0.0,
-                      price=V.Price(kappa0=0.0, remembered=30.0), tail_block_minutes=10.0, tail_block_items=3,
-                      horizon_days=10.0, fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), combiner=M.monotone_prior())
-    coef = V._Model(inputs, 4096, "monotone").theta.coef
+    inputs = OT.Inputs(topics=(OT.Topic(lo="x", eta_mean=0.0, eta_var=0.0),), dated=(), session_minutes=0.0,
+                       price=OT.Price(kappa0=0.0, remembered=30.0), tail_block_minutes=10.0, tail_block_items=3,
+                       horizon_days=10.0, fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), combiner=M.monotone_prior())
+    coef = ROL._Model(inputs, 4096, "monotone").theta.coef
     grid = np.linspace(-6, 40, 47)
     for practiced, r in ((False, 0.5), (True, 0.2), (True, 0.97)):
         p = np.stack([M.perform(coef, np.full((coef.shape[0], 1), eta), np.full((coef.shape[0], 1), r),
@@ -152,13 +153,13 @@ PROBE = {
 @pytest.mark.parametrize("draws,form", sorted(PROBE))
 def test_the_probe_before_and_after_r6_is_pinned(draws, form):
     for eta, stability in PROBE_CASES:
-        topics = tuple(V.Topic(lo=f"lo{i}", eta_mean=eta, eta_var=0.3, practiced=True, difficulty=5.0,
-                               stability=stability, elapsed_days=1.0, undated_density=1 / 90) for i in range(8))
-        inputs = V.Inputs(topics=topics, dated=(), session_minutes=0.0, price=V.Price(kappa0=0.0, remembered=30.0),
-                          tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
-                          fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
-                          combiner=M.monotone_prior() if form == "monotone" else M.Combiner())
-        curve = V.gain(inputs, [0.0, 30.0, 40.0], draws=draws, seed="k", consistent_review_draw=True)
+        topics = tuple(OT.Topic(lo=f"lo{i}", eta_mean=eta, eta_var=0.3, practiced=True, difficulty=5.0,
+                                stability=stability, elapsed_days=1.0, undated_density=1 / 90) for i in range(8))
+        inputs = OT.Inputs(topics=topics, dated=(), session_minutes=0.0, price=OT.Price(kappa0=0.0, remembered=30.0),
+                           tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
+                           fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
+                           combiner=M.monotone_prior() if form == "monotone" else M.Combiner())
+        curve = ROL.gain(inputs, [0.0, 30.0, 40.0], draws=draws, seed="k", consistent_review_draw=True)
         got = (curve[0.0], curve[30.0], curve[40.0])
         assert got == pytest.approx(PROBE[(draws, form)][(eta, stability)], rel=1e-12, abs=0.0), (eta, stability)
 

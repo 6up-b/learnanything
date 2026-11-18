@@ -1524,7 +1524,7 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "C3", "router settings and the numeric policy's seed (whole RouterWeights)",
         ("src/learnloop/daily_plan/router_chooser.py::router_settings",
          "src/learnloop/daily_plan/objective_seeds.py::numeric_seed"),
-        "the prefetch boundary key and the numeric policy's rollout RNG (router_objective/value.py)",
+        "the prefetch boundary key and the numeric policy's rollout RNG (router_objective/rollouts.py)",
         "different draws at a fixed input (P-draw fails) and prefetched decisions miss",
         {**{f"router_settings.{name}": _router_settings(name) for name in OBJECTIVE_CONFIGS},
          **{f"boundary.{name}": _numeric_seed(name) for name in OBJECTIVE_CONFIGS}}),

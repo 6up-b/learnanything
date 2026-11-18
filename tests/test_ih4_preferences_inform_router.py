@@ -751,7 +751,7 @@ def test_w_itself_never_reads_a_preference_or_a_pick(tmp_path):
             "learner_pick": 1, "detail_json": "{}", "created_at": env.now_iso()})
     assert weights() == before
     root = pathlib.Path(S.__file__).parent
-    for relative in ("scores.py", "weight.py", "mix.py", "value.py"):
+    for relative in ("scores.py", "weight.py", "mix.py", "objective.py", "rollouts.py", "ad_link.py", "types.py"):
         text = (root / relative).read_text()
         assert "learner_preference" not in text and "router_learner_preferences" not in text, relative
 

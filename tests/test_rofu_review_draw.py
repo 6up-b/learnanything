@@ -25,7 +25,8 @@ import pytest
 
 from learnloop.router_objective import memory as M
 from learnloop.router_objective import price as P
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, retrievability_array
 
 # -- R1's probe ------------------------------------------------------------------------------------------
@@ -60,16 +61,16 @@ SEED_AFTER = {
 }
 
 
-def _probe_inputs(eta: float, stability: float) -> V.Inputs:
-    topics = tuple(V.Topic(lo=f"lo{i}", eta_mean=eta, eta_var=0.3, practiced=True, difficulty=5.0, stability=stability,
-                           elapsed_days=1.0, undated_density=1 / 90) for i in range(8))
-    return V.Inputs(topics=topics, dated=(), session_minutes=0.0, price=V.Price(kappa0=0.0, remembered=30.0),
-                    tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
-                    fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS))
+def _probe_inputs(eta: float, stability: float) -> OT.Inputs:
+    topics = tuple(OT.Topic(lo=f"lo{i}", eta_mean=eta, eta_var=0.3, practiced=True, difficulty=5.0, stability=stability,
+                            elapsed_days=1.0, undated_density=1 / 90) for i in range(8))
+    return OT.Inputs(topics=topics, dated=(), session_minutes=0.0, price=OT.Price(kappa0=0.0, remembered=30.0),
+                     tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
+                     fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS))
 
 
 def _probe(case: tuple[float, float], **kwargs) -> tuple[float, float, float]:
-    curve = V.gain(_probe_inputs(*case), [0.0, 30.0, 40.0], draws=64, seed="k", **kwargs)
+    curve = ROL.gain(_probe_inputs(*case), [0.0, 30.0, 40.0], draws=64, seed="k", **kwargs)
     return curve[0.0], curve[30.0], curve[40.0]
 
 
@@ -93,25 +94,25 @@ def test_the_probe_after_the_fix_pins_its_numbers_and_the_seed(case):
 # -- the switch off: mvp-0.49's draw for draw ----------------------------------------------------------------
 
 
-def _inputs(n: int, *, dated: tuple = ()) -> V.Inputs:
+def _inputs(n: int, *, dated: tuple = ()) -> OT.Inputs:
     rng = np.random.default_rng(0)
-    topics = tuple(V.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)), eta_var=0.5, practiced=bool(i % 3),
-                           difficulty=float(rng.uniform(2, 8)), stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
-                           elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
-                           reading_count=float(i % 2)) for i in range(n))
-    return V.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=V.Price(kappa0=0.0003, remembered=30.0),
-                    tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
-                    fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0))
+    topics = tuple(OT.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)), eta_var=0.5, practiced=bool(i % 3),
+                            difficulty=float(rng.uniform(2, 8)), stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
+                            elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
+                            reading_count=float(i % 2)) for i in range(n))
+    return OT.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=OT.Price(kappa0=0.0003, remembered=30.0),
+                     tail_block_minutes=10.0, tail_block_items=3, horizon_days=90.0,
+                     fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0))
 
 
-def _actions(n: int) -> list[V.Action]:
+def _actions(n: int) -> list[OT.Action]:
     lo = [f"lo{i}" for i in range(n)]
-    return [V.Action(ref="stop_for_today", kind=V.STOP),
-            V.Action(ref="a", kind=V.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3),
-            V.Action(ref="b", kind=V.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0),
-            V.Action(ref="c", kind=V.PROBE, item_los=(lo[-1],), minutes=4.0,
-                     repair=V.Action(ref="c:repair", kind=V.REPAIR, item_los=(lo[-1],), minutes=4.0)),
-            V.Action(ref="d", kind=V.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)]
+    return [OT.Action(ref="stop_for_today", kind=OT.STOP),
+            OT.Action(ref="a", kind=OT.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3),
+            OT.Action(ref="b", kind=OT.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0),
+            OT.Action(ref="c", kind=OT.PROBE, item_los=(lo[-1],), minutes=4.0,
+                      repair=OT.Action(ref="c:repair", kind=OT.REPAIR, item_los=(lo[-1],), minutes=4.0)),
+            OT.Action(ref="d", kind=OT.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)]
 
 
 #: sha256 of every candidate's and the reference's Q draws with the baselines, on the pre-fix source.
@@ -119,15 +120,15 @@ DECISIONS = {
     "copy_shaped_22_topics": (dict(n=22), "30ecb2616332b86d4a84252a5f7a2741e2c0669527cbb0c0ae0e67014a3fb5cd"),
     "fewer_topics_than_slots": (dict(n=4), "b6e0fe3605ce5a3d3cd2218a6de2366d30203a7a2c642063bb56ab42f62b1636"),
     "a_dated_use_inside_the_horizon": (
-        dict(n=22, dated=(V.DatedUse("g", "lo1", 20.3, 1.0), V.DatedUse("g", "lo5", 3.01, 2.0))),
+        dict(n=22, dated=(OT.DatedUse("g", "lo1", 20.3, 1.0), OT.DatedUse("g", "lo5", 3.01, 2.0))),
         "a091e5b7bdabe4af21052b93e6d1fcc137da5ed871e996b9b70c8771e59972b1"),
 }
 
 
 def _digest(n: int, dated: tuple = (), **kwargs) -> str:
-    evaluation = V.evaluate(_inputs(n, dated=dated), _actions(n), draws=8, seed="s", **kwargs)
+    evaluation = ROL.evaluate(_inputs(n, dated=dated), _actions(n), draws=8, seed="s", **kwargs)
     rows = [(row.ref, row.q_draws) for row in evaluation.valued] + [("ref", evaluation.reference.q_draws)]
-    base = V.baselines(_inputs(n, dated=dated), 14, draws=8, seed="s", **kwargs)
+    base = ROL.baselines(_inputs(n, dated=dated), 14, draws=8, seed="s", **kwargs)
     payload = (rows, sorted(base["topics"].items()), sorted(base["dated"].items()))
     return hashlib.sha256(repr(payload).encode()).hexdigest()
 
@@ -146,7 +147,7 @@ def test_with_the_switch_off_every_draw_is_the_pre_fix_sources(case):
 
 def test_a_practised_topics_outcome_is_drawn_from_the_memory_models_own_p_perform():
     inputs = _inputs(6)
-    model = V._Model(inputs, 512, "draw", consistent_review_draw=True)
+    model = ROL._Model(inputs, 512, "draw", consistent_review_draw=True)
     state = model.initial()
     k = model.k
     rng = np.random.default_rng(11)
@@ -170,7 +171,7 @@ def test_a_practised_topics_outcome_is_drawn_from_the_memory_models_own_p_perfor
         want_var = 1.0 / (1.0 / state.bel_var[:, lo] + slope ** 2 * p_bel * (1 - p_bel))
         assert np.allclose(var, want_var, rtol=1e-12, atol=0.0)
         assert np.allclose(bel, state.bel[:, lo] + want_var * slope * (good - p_bel), rtol=1e-12, atol=1e-15)
-    off = V._Model(inputs, 512, "draw")
+    off = ROL._Model(inputs, 512, "draw")
     state = off.initial()
     for lo in range(off.n):
         good, _bel, _var = off._graded(state.eta[:, lo], state.bel[:, lo], state.bel_var[:, lo], state.s[:, lo],
@@ -183,18 +184,18 @@ def test_a_review_right_after_a_review_is_almost_never_a_lapse_with_the_switch_o
     ``R ≈ 1``. AD's predictive alone calls a share of those lapses whatever ``R`` is; the memory model expects them
     far less often at the combiner's prior (``aR`` 0.5 on ``logit R``)."""
 
-    inputs = V.Inputs(topics=(V.Topic(lo="x", eta_mean=0.0, eta_var=1e-9, practiced=True, difficulty=5.0,
-                                      stability=40.0, elapsed_days=0.0),),
-                      dated=(), session_minutes=0.0, price=V.Price(kappa0=0.0, remembered=30.0),
-                      tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
-                      fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
-                      combiner=M.Combiner(variance=(1e-12, 1e-12, 1e-12)))
+    inputs = OT.Inputs(topics=(OT.Topic(lo="x", eta_mean=0.0, eta_var=1e-9, practiced=True, difficulty=5.0,
+                                        stability=40.0, elapsed_days=0.0),),
+                       dated=(), session_minutes=0.0, price=OT.Price(kappa0=0.0, remembered=30.0),
+                       tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
+                       fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
+                       combiner=M.Combiner(variance=(1e-12, 1e-12, 1e-12)))
     u = np.random.default_rng(5).random(4096)
     shares = {}
     for on in (False, True):
-        model = V._Model(inputs, 4096, "lapse", consistent_review_draw=on)
+        model = ROL._Model(inputs, 4096, "lapse", consistent_review_draw=on)
         state = model.initial()
-        elapsed = np.full(model.k, 10.0 / V.MINUTES_PER_DAY)
+        elapsed = np.full(model.k, 10.0 / ROL.MINUTES_PER_DAY)
         good, _bel, _var = model._graded(state.eta[:, 0], state.bel[:, 0], state.bel_var[:, 0], state.s[:, 0],
                                          state.practiced[:, 0], elapsed, model.theta.coef, u)
         shares[on] = 1.0 - float(good.mean())
@@ -216,13 +217,13 @@ def test_the_numeric_policy_draws_consistently_only_with_its_switch(tmp_path, mo
 
     seen: dict[str, list[bool]] = {"evaluate": [], "baselines": [], "gain": []}
     for name in seen:
-        real = getattr(V, name)
+        real = getattr(ROL, name)
 
         def spy(*args, _real=real, _name=name, **kwargs):
             seen[_name].append(bool(kwargs.get("consistent_review_draw", False)))
             return _real(*args, **kwargs)
 
-        monkeypatch.setattr(OC.V, name, spy)
+        monkeypatch.setattr(OC.ROL, name, spy)
     env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION,
                       toml=f"[router_objective]\nconsistent_review_draw = {'true' if switch else 'false'}\n")
     run(env, steps=4)
@@ -234,6 +235,6 @@ def test_the_numeric_policy_draws_consistently_only_with_its_switch(tmp_path, mo
     assert blocks
     for trace in blocks:
         if expected:
-            assert trace["versions"]["review_draw"] == V.REVIEW_DRAW_VERSION
+            assert trace["versions"]["review_draw"] == ROL.REVIEW_DRAW_VERSION
         else:
             assert "review_draw" not in trace["versions"]

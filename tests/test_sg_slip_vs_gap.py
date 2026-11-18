@@ -26,7 +26,8 @@ from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE, BlockCandidate
 from learnloop.router_objective import miss_cause as MC
 from learnloop.router_objective import miss_cause_report as MCR
 from learnloop.router_objective import mix
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.router_objective_switches import miss_cause_in_value_on, miss_cause_sensor_on
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 from learnloop.vault.loader import load_vault
@@ -390,28 +391,28 @@ def test_an_observations_posterior_is_read_while_the_episode_is_open(ledger):
 # -- SG2: the value ------------------------------------------------------------------------------------------------------
 
 
-def _inputs(weights=None, *, gap=None, slip=None, gamma=(0.2, 0.01)) -> V.Inputs:
+def _inputs(weights=None, *, gap=None, slip=None, gamma=(0.2, 0.01)) -> OT.Inputs:
     causes = None
     if weights is not None:
-        causes = V.CauseSplit(gap=gap or gamma, slip=slip or (0.0, gamma[1]), weights=weights)
-    return V.Inputs(
-        topics=(V.Topic(lo="lo_a", eta_mean=0.0, eta_var=0.3, practiced=True, stability=5.0, elapsed_days=2.0,
-                        undated_density=0.2),
-                V.Topic(lo="lo_b", eta_mean=0.5, eta_var=0.3, practiced=True, stability=5.0, elapsed_days=2.0,
-                        undated_density=0.2)),
-        dated=(V.DatedUse(goal_id="g", lo="lo_a", at_days=10.0, weight=1.0),),
-        session_minutes=5.0, price=V.Price(kappa0=0.1, remembered=30.0), tail_block_minutes=10.0, tail_block_items=2,
+        causes = OT.CauseSplit(gap=gap or gamma, slip=slip or (0.0, gamma[1]), weights=weights)
+    return OT.Inputs(
+        topics=(OT.Topic(lo="lo_a", eta_mean=0.0, eta_var=0.3, practiced=True, stability=5.0, elapsed_days=2.0,
+                         undated_density=0.2),
+                OT.Topic(lo="lo_b", eta_mean=0.5, eta_var=0.3, practiced=True, stability=5.0, elapsed_days=2.0,
+                         undated_density=0.2)),
+        dated=(OT.DatedUse(goal_id="g", lo="lo_a", at_days=10.0, weight=1.0),),
+        session_minutes=5.0, price=OT.Price(kappa0=0.1, remembered=30.0), tail_block_minutes=10.0, tail_block_items=2,
         horizon_days=14.0, fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS),
-        learning=V.Learning(gamma=gamma, causes=causes))
+        learning=OT.Learning(gamma=gamma, causes=causes))
 
 
-ACTIONS = [V.Action(ref="lesson", kind=V.LESSON, item_los=("lo_a",), minutes=10.0, mass=0.5),
-           V.Action(ref="repair", kind=V.REPAIR, item_los=("lo_a",), minutes=6.0),
-           V.Action(ref="review_b", kind=V.REVIEW, item_los=("lo_b",), minutes=6.0)]
+ACTIONS = [OT.Action(ref="lesson", kind=OT.LESSON, item_los=("lo_a",), minutes=10.0, mass=0.5),
+           OT.Action(ref="repair", kind=OT.REPAIR, item_los=("lo_a",), minutes=6.0),
+           OT.Action(ref="review_b", kind=OT.REVIEW, item_los=("lo_b",), minutes=6.0)]
 
 
 def _q(inputs) -> dict[str, float]:
-    evaluation = V.evaluate(inputs, ACTIONS, draws=16, seed="sg")
+    evaluation = ROL.evaluate(inputs, ACTIONS, draws=16, seed="sg")
     return {row.ref: row.q for row in evaluation.valued}
 
 
@@ -425,8 +426,8 @@ def test_the_nov_7_shape_a_slip_is_worth_less_than_a_gap_by_the_priors_differenc
     slip = _q(_inputs({"lo_a": (0.0, 1.0, 0.0)}))
     assert gap == before, "a pure gap at gamma's prior is the predecessor exactly"
     assert slip["lesson"] < gap["lesson"] and slip["repair"] < gap["repair"]
-    model_gap = V._Model(_inputs({"lo_a": (1.0, 0.0, 0.0)}), 16, "sg")
-    model_slip = V._Model(_inputs({"lo_a": (0.0, 1.0, 0.0)}), 16, "sg")
+    model_gap = ROL._Model(_inputs({"lo_a": (1.0, 0.0, 0.0)}), 16, "sg")
+    model_slip = ROL._Model(_inputs({"lo_a": (0.0, 1.0, 0.0)}), 16, "sg")
     gain_gap, believed_gap = model_gap._cause_gain(0, 0.5)
     gain_slip, believed_slip = model_slip._cause_gain(0, 0.5)
     # By the prior's difference only: the believed gains differ by (mean_gap - mean_slip) * mass, and the drawn ones by
@@ -438,7 +439,7 @@ def test_the_nov_7_shape_a_slip_is_worth_less_than_a_gap_by_the_priors_differenc
 
 
 def test_the_slopes_joint_posterior_is_drawn_with_its_covariance():
-    model = V._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}, gap=(0.2, 0.01), slip=(0.0, 0.01)), 4000, "sg")
+    model = ROL._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}, gap=(0.2, 0.01), slip=(0.0, 0.01)), 4000, "sg")
     model.inputs = replace(model.inputs, learning=replace(model.inputs.learning, causes=replace(
         model.inputs.learning.causes, cov=0.008)))
     gain, _believed = model._cause_gain(0, 1.0)
@@ -446,20 +447,20 @@ def test_the_slopes_joint_posterior_is_drawn_with_its_covariance():
     slip = (gain - 0.5 * gap) / 0.5
     assert np.corrcoef(gap, slip)[0, 1] == pytest.approx(0.8, abs=0.03)
     assert np.var(slip) == pytest.approx(0.01, rel=0.1)
-    independent = V._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}), 4000, "sg")
+    independent = ROL._Model(_inputs({"lo_a": (0.5, 0.5, 0.0)}), 4000, "sg")
     gain, _believed = independent._cause_gain(0, 1.0)
     assert np.var(gain) == pytest.approx(0.25 * 0.01 + 0.25 * 0.01, rel=0.1), "independent priors: half the variance"
 
 
 def test_a_probes_repair_branch_and_a_sequences_repair_step_split_too():
-    probe = V.Action(ref="probe", kind=V.PROBE, item_los=("lo_a",), minutes=4.0,
-                     repair=V.Action(ref="probe:repair", kind=V.REPAIR, item_los=("lo_a",), minutes=6.0))
-    sequence = V.Action(ref="seq", kind=V.SEQUENCE, item_los=("lo_a", "lo_b"), minutes=12.0, steps=(
-        V.Action(ref="s1", kind=V.REPAIR, item_los=("lo_a",), minutes=6.0),
-        V.Action(ref="s2", kind=V.REVIEW, item_los=("lo_b",), minutes=6.0)))
+    probe = OT.Action(ref="probe", kind=OT.PROBE, item_los=("lo_a",), minutes=4.0,
+                      repair=OT.Action(ref="probe:repair", kind=OT.REPAIR, item_los=("lo_a",), minutes=6.0))
+    sequence = OT.Action(ref="seq", kind=OT.SEQUENCE, item_los=("lo_a", "lo_b"), minutes=12.0, steps=(
+        OT.Action(ref="s1", kind=OT.REPAIR, item_los=("lo_a",), minutes=6.0),
+        OT.Action(ref="s2", kind=OT.REVIEW, item_los=("lo_b",), minutes=6.0)))
 
     def q(inputs):
-        return {row.ref: row.q for row in V.evaluate(inputs, [probe, sequence], draws=64, seed="sg").valued}
+        return {row.ref: row.q for row in ROL.evaluate(inputs, [probe, sequence], draws=64, seed="sg").valued}
 
     gap, slip = q(_inputs({"lo_a": (1.0, 0.0, 0.0)})), q(_inputs({"lo_a": (0.0, 1.0, 0.0)}))
     assert gap == q(_inputs()), "a pure gap at gamma's prior is the predecessor exactly"
@@ -495,7 +496,7 @@ def test_a_mixed_diagnosis_values_between_and_unknown_mass_takes_gamma():
 
 
 def test_the_belief_world_reads_the_slopes_means_only():
-    model = V._Model(_inputs({"lo_a": (0.0, 1.0, 0.0)}), 8, "sg")
+    model = ROL._Model(_inputs({"lo_a": (0.0, 1.0, 0.0)}), 8, "sg")
     belief = model._belief_model()
     assert belief.inputs.learning.causes.slip == (0.0, 0.0) and belief.inputs.learning.causes.gap == (0.2, 0.0)
 
@@ -610,7 +611,7 @@ def test_nothing_adds_a_threshold():
     import inspect
     import textwrap
 
-    tree = ast.parse(textwrap.dedent(inspect.getsource(V._Model._cause_gain)))
+    tree = ast.parse(textwrap.dedent(inspect.getsource(ROL._Model._cause_gain)))
     numbers = [node for node in ast.walk(tree) if isinstance(node, ast.Compare)
                for part in (node.left, *node.comparators) if isinstance(part, ast.Constant)
                and isinstance(part.value, (int, float)) and not isinstance(part.value, bool)]
@@ -690,10 +691,10 @@ def test_sg2_moves_only_the_diagnosed_topics_values_and_the_logged_mu_replays(tw
             break  # an earlier draw served something else, so the plans have parted: nothing more to pair
         for ref, entry in got["candidates"].items():
             before = base["candidates"][ref]["terms"]
-            if before is None or entry["kind"] in (V.PROBE, V.SEQUENCE):
+            if before is None or entry["kind"] in (OT.PROBE, OT.SEQUENCE):
                 continue  # a probe's repair branch, or a sequence's repair step, may be on a diagnosed topic
             diagnosed = bool(set(entry.get("sensors") or {}) & set(split["topics"]))
-            if entry["kind"] in (V.LESSON, V.REPAIR) and diagnosed:
+            if entry["kind"] in (OT.LESSON, OT.REPAIR) and diagnosed:
                 moved += entry["terms"]["q"] != before["q"]
             else:
                 # Every other candidate is valued on the same draws with the same inputs: bit for bit.

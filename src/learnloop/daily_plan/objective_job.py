@@ -51,7 +51,8 @@ from learnloop.daily_plan.router_runtime import (
 )
 from learnloop.router import requests as rq
 from learnloop.router_objective import price as P
-from learnloop.router_objective import value as V
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import types as OT
 
 LOG = logging.getLogger(__name__)
 
@@ -79,9 +80,9 @@ class NumericPolicy:
     status: str
     choice: str | None = None
     tie: Mapping[str, Any] = field(default_factory=dict)
-    evaluation: V.Evaluation | None = None
-    inputs: V.Inputs | None = None
-    actions: tuple[V.Action, ...] = ()
+    evaluation: OBJ.Evaluation | None = None
+    inputs: OT.Inputs | None = None
+    actions: tuple[OT.Action, ...] = ()
     sources: Mapping[str, Any] = field(default_factory=dict)
     price: P.Seeded | None = None
     frontier: Mapping[str, Any] = field(default_factory=dict)

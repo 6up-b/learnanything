@@ -11,7 +11,7 @@ It reads, at the decision and never later:
 * **the session**: active minutes in the objective's session (a gap of ``session_gap_minutes`` ends it), the plan's
   remembered minutes ``m̄`` and their source, the learner's own return gaps (next day with none), the stop offer's
   acceptance posterior from §4 row 7, the spread of the learner's own durations;
-* **the candidates** as :class:`~learnloop.router_objective.value.Action` (§8.1's interfaces), the stop offer as
+* **the candidates** as :class:`~learnloop.router_objective.types.Action` (§8.1's interfaces), the stop offer as
   its two branches.
 
 Every number's source is in ``sources``; nothing here writes.
@@ -42,7 +42,8 @@ from learnloop.daily_plan.types import (
     PlanState,
 )
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import types as OT
 
 LOG = logging.getLogger(__name__)
 
@@ -89,13 +90,13 @@ def plan_minutes(repository: Any, plan_id: str | None) -> tuple[float, str]:
     return 0.0, "missing"
 
 
-def _goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, float], list[V.DatedUse], dict[str, Any],
+def _goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, float], list[OT.DatedUse], dict[str, Any],
                                                                    list[str]]:
     from learnloop.goals.goal_projection import resolve_goal_scope
     from learnloop.goals.use_weights import for_goal
 
     densities: dict[str, float] = {}
-    dated: list[V.DatedUse] = []
+    dated: list[OT.DatedUse] = []
     goals: dict[str, Any] = {}
     order: list[str] = []
     for goal in getattr(vault, "goals", None) or ():
@@ -113,7 +114,7 @@ def _goal_uses(vault: Any, repository: Any, now: datetime) -> tuple[dict[str, fl
         for lo in scope:
             densities[lo] = max(densities.get(lo, 0.0), weights.undated_density)
             if due is not None and due > now:
-                dated.append(V.DatedUse(goal_id=str(goal.id), lo=lo, at_days=float(days), weight=weights.for_lo(lo)))
+                dated.append(OT.DatedUse(goal_id=str(goal.id), lo=lo, at_days=float(days), weight=weights.for_lo(lo)))
         order.extend(lo for lo in scope if lo not in order)
     return densities, dated, goals, order
 
@@ -192,28 +193,28 @@ def _stop_accept(connection: Any, prior: tuple[float, float]) -> tuple[tuple[flo
     return (prior[0] + counts["accepted"], prior[1] + counts["overridden"]), counts
 
 
-def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_priors: Any, dose_scales: Any) -> V.Learning:
+def _learning(ad: Mapping[str, Any], fitted: bool, gamma_prior: Any, reading_priors: Any, dose_scales: Any) -> OT.Learning:
     """AD's learning parameters for the rollouts: RO4's prior means and variances, or (RO5 §9 item 7, at the tag with
     ``fitted_models``) the subject view's fitted posterior moments of ``γ`` and the reading curve, each parameter
     falling back to its prior where AD has none."""
 
-    prior = V.Learning(gamma=(gamma_prior[1], gamma_prior[2]),
-                       gbar=((reading_priors[0][1], reading_priors[0][2]), (reading_priors[1][1], reading_priors[1][2])),
-                       dose_scales=tuple(dose_scales), source="adaptive_difficulty.priors (prior means: the "
+    prior = OT.Learning(gamma=(gamma_prior[1], gamma_prior[2]),
+                        gbar=((reading_priors[0][1], reading_priors[0][2]), (reading_priors[1][1], reading_priors[1][2])),
+                        dose_scales=tuple(dose_scales), source="adaptive_difficulty.priors (prior means: the "
                                                               "posterior is not read at this version)")
     moments = ad.get("learning") if fitted else None
     if not moments:
         return prior
     gamma = tuple(moments.get("gamma") or prior.gamma)
     gbar = (tuple(moments.get("gbar:1") or prior.gbar[0]), tuple(moments.get("gbar:2") or prior.gbar[1]))
-    return V.Learning(gamma=(float(gamma[0]), float(gamma[1])),
-                      gbar=((float(gbar[0][0]), float(gbar[0][1])), (float(gbar[1][0]), float(gbar[1][1]))),
-                      dose_scales=tuple(dose_scales),
-                      source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)",
-                      lesson=_lesson_curve(ad.get("lesson_curve")))
+    return OT.Learning(gamma=(float(gamma[0]), float(gamma[1])),
+                       gbar=((float(gbar[0][0]), float(gbar[0][1])), (float(gbar[1][0]), float(gbar[1][1]))),
+                       dose_scales=tuple(dose_scales),
+                       source="adaptive_difficulty subject view (fitted posterior moments; RO5 §9 item 7)",
+                       lesson=_lesson_curve(ad.get("lesson_curve")))
 
 
-def _lesson_curve(read: Any) -> V.LessonCurve | None:
+def _lesson_curve(read: Any) -> ADL.LessonCurve | None:
     """Teacher TE3a (spec_teacher_v1 rev 5 §14.2): the lesson interface's effect, AD's ``landed`` curve as
     ``decision_state_fields`` read it through AD's read-only entry (present only at TE3a's tag with its switch on;
     absent: RO4's placeholder). With its seeded prior's moments (Codex review F2): the objective adds to the
@@ -229,15 +230,15 @@ def _lesson_curve(read: Any) -> V.LessonCurve | None:
         return pair(value[0]), pair(value[1])
 
     prior_mean, prior_cov = read.get("prior_mean"), read.get("prior_cov")
-    return V.LessonCurve(mean=pair(read["mean"]), cov=matrix(read["cov"]),
-                         positions={str(lo): float(n) for lo, n in (read.get("positions") or {}).items()},
-                         version=str(read.get("version") or ""),
-                         source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})",
-                         prior_mean=pair(prior_mean) if prior_mean else None,
-                         prior_cov=matrix(prior_cov) if prior_cov else None)
+    return ADL.LessonCurve(mean=pair(read["mean"]), cov=matrix(read["cov"]),
+                           positions={str(lo): float(n) for lo, n in (read.get("positions") or {}).items()},
+                           version=str(read.get("version") or ""),
+                           source=f"adaptive_difficulty subject view ({read.get('source') or 'unknown'})",
+                           prior_mean=pair(prior_mean) if prior_mean else None,
+                           prior_cov=matrix(prior_cov) if prior_cov else None)
 
 
-def _ad_link(vault: Any) -> V.AdLink | None:
+def _ad_link(vault: Any) -> ADL.AdLink | None:
     """The follow-up batch's landing ruling R9: AD's own predicted success (its lapse, its residual spread and its
     Gauss-Hermite rule, read from AD's model) at the batch's tag with ``[router_objective] ad_predictive_link``;
     None (mvp-0.49's ``σ``) below it or off."""
@@ -249,8 +250,8 @@ def _ad_link(vault: Any) -> V.AdLink | None:
     from learnloop.adaptive_difficulty import model as ADM
     from learnloop.adaptive_difficulty import priors as ADP
 
-    return V.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0),
-                    nodes=tuple(float(x) for x in ADM.X32), weights=tuple(float(w) for w in ADM.W32))
+    return ADL.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0),
+                      nodes=tuple(float(x) for x in ADM.X32), weights=tuple(float(w) for w in ADM.W32))
 
 
 def _combiner_prior(vault: Any, **fields: Any) -> M.Combiner:
@@ -607,7 +608,7 @@ def _reading_los_outside_ad(vault: Any, repository: Any, reading: Any) -> tuple[
 
 
 def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practiced: set[str],
-               spread: float) -> V.Action:
+               spread: float) -> OT.Action:
     """§8.1's interface for one candidate block."""
 
     if candidate.subtype == LESSON_OFFER_SUBTYPE:
@@ -617,18 +618,18 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
         from learnloop.daily_plan.lesson_offer import action_inputs
 
         offer = action_inputs(candidate)
-        return V.Action(ref=candidate.candidate_id, kind=V.LESSON, item_los=(offer["lo"],), minutes=offer["minutes"],
-                        minutes_log_sd=offer["log_sd"], mass=offer["mass"], accept=offer["accept"],
-                        commitments=offer["checks"])
+        return OT.Action(ref=candidate.candidate_id, kind=OT.LESSON, item_los=(offer["lo"],), minutes=offer["minutes"],
+                         minutes_log_sd=offer["log_sd"], mass=offer["mass"], accept=offer["accept"],
+                         commitments=offer["checks"])
     if (candidate.annotations or {}).get(FOLLOWUP_PROBE_NOTE):
         # IH2 (spec_instruct_handoff_v1 §5 item 4): a generated probe not yet written (its decision comes first), against
         # a lesson offer: RO §8.1's probe bundle on its LO, as any probe. No new number: the same draws and sensors.
         lo = candidate.learning_object_ids[0] if candidate.learning_object_ids else ""
         minutes = float(candidate.est_minutes)
-        repair = V.Action(ref=f"{candidate.candidate_id}:repair", kind=V.REPAIR, item_los=(lo,), minutes=minutes,
-                          minutes_log_sd=spread)
-        return V.Action(ref=candidate.candidate_id, kind=V.PROBE, item_los=(lo,), minutes=minutes,
-                        minutes_log_sd=spread, repair=repair)
+        repair = OT.Action(ref=f"{candidate.candidate_id}:repair", kind=OT.REPAIR, item_los=(lo,), minutes=minutes,
+                           minutes_log_sd=spread)
+        return OT.Action(ref=candidate.candidate_id, kind=OT.PROBE, item_los=(lo,), minutes=minutes,
+                         minutes_log_sd=spread, repair=repair)
     items = getattr(vault, "practice_items", {})
     modes = [getattr(items.get(item), "practice_mode", None) for item in candidate.item_ids]
     item_los = tuple(str(getattr(items.get(item), "learning_object_id", None) or
@@ -636,26 +637,26 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
                      for item in candidate.item_ids)
     minutes = float(candidate.est_minutes)
     if candidate.reading is not None:
-        return V.Action(ref=candidate.candidate_id, kind=V.READING, item_los=_reading_los(vault, repository, candidate),
-                        minutes=minutes, minutes_log_sd=spread)
+        return OT.Action(ref=candidate.candidate_id, kind=OT.READING, item_los=_reading_los(vault, repository, candidate),
+                         minutes=minutes, minutes_log_sd=spread)
     if any(mode in _PROBE_MODES for mode in modes):
         lo = item_los[0] if item_los else ""
-        repair = V.Action(ref=f"{candidate.candidate_id}:repair", kind=V.REPAIR, item_los=(lo,) * max(len(item_los), 1),
-                          minutes=minutes, minutes_log_sd=spread)
-        return V.Action(ref=candidate.candidate_id, kind=V.PROBE, item_los=(lo,), minutes=minutes,
-                        minutes_log_sd=spread, repair=repair)
+        repair = OT.Action(ref=f"{candidate.candidate_id}:repair", kind=OT.REPAIR, item_los=(lo,) * max(len(item_los), 1),
+                           minutes=minutes, minutes_log_sd=spread)
+        return OT.Action(ref=candidate.candidate_id, kind=OT.PROBE, item_los=(lo,), minutes=minutes,
+                         minutes_log_sd=spread, repair=repair)
     if modes and all(mode == "teach_back" for mode in modes):
-        return V.Action(ref=candidate.candidate_id, kind=V.TEACH_BACK, item_los=item_los, minutes=minutes,
-                        minutes_log_sd=spread)
+        return OT.Action(ref=candidate.candidate_id, kind=OT.TEACH_BACK, item_los=item_los, minutes=minutes,
+                         minutes_log_sd=spread)
     if candidate.lane == "repair":
-        kind = V.REPAIR
+        kind = OT.REPAIR
     elif candidate.lane == "maintain":
-        kind = V.REVIEW
+        kind = OT.REVIEW
     elif candidate.lane == "new":
-        kind = V.NEW_PRACTICE
+        kind = OT.NEW_PRACTICE
     else:
-        kind = V.REVIEW if all(lo in practiced for lo in item_los) else V.NEW_PRACTICE
-    return V.Action(ref=candidate.candidate_id, kind=kind, item_los=item_los, minutes=minutes, minutes_log_sd=spread)
+        kind = OT.REVIEW if all(lo in practiced for lo in item_los) else OT.NEW_PRACTICE
+    return OT.Action(ref=candidate.candidate_id, kind=kind, item_los=item_los, minutes=minutes, minutes_log_sd=spread)
 
 
 #: Where :func:`build` puts the slip-or-gap sensor in its sources (the trace reads it from there, never as an input).
@@ -676,17 +677,17 @@ def _miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str]
     return MC.sensor(connection, config, learning_object_ids, now_iso)
 
 
-def _step(action: V.Action) -> V.Action:
+def _step(action: OT.Action) -> OT.Action:
     """A block as one step of a sequence: a probe step is its observation alone (what follows it in the sequence,
     then the tail, is what uses the information), never a nested repair bundle."""
 
-    return replace(action, repair=None) if action.kind == V.PROBE else action
+    return replace(action, repair=None) if action.kind == OT.PROBE else action
 
 
 def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[str],
           candidates: Mapping[str, BlockCandidate], now_iso: str, kappa0: float = 0.0,
           kappa_how: str = "unset",
-          sequences: Mapping[str, Sequence[BlockCandidate]] | None = None) -> tuple[V.Inputs, list[V.Action], dict[str, Any]]:
+          sequences: Mapping[str, Sequence[BlockCandidate]] | None = None) -> tuple[OT.Inputs, list[OT.Action], dict[str, Any]]:
     """The decision's frozen inputs, its actions in support order, and the sources the trace records.
 
     ``sequences``: a ref valued as the ordered sub-actions of these blocks (each its own interface: a mid-block
@@ -743,7 +744,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     from learnloop.adaptive_difficulty.priors import COLD_START_VARIANCE, DOSE_SCALES, GAMMA_PRIOR, READING_PRIORS
 
     default_c = float(section.undated_use_density)
-    topics: list[V.Topic] = []
+    topics: list[OT.Topic] = []
     topic_sources: dict[str, Any] = {}
     for lo in kept:
         fields = ad_los.get(lo) or {}
@@ -767,11 +768,11 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         c = densities.get(lo, default_c) if enrolled else 0.0
         dose = fields.get("reading_dose")
         latent = fields.get("eta_at_top") if link is not None and raw is not None else None
-        topics.append(V.Topic(lo=lo, eta_mean=float(eta), eta_var=float(max(variance, 1e-9)), practiced=practiced,
-                              difficulty=float(difficulty), stability=float(stability), elapsed_days=float(elapsed),
-                              undated_density=float(c), reading_count=float(dose or 0.0),
-                              eta_latent=((float(latent["mean"]), float(max(latent["variance"], 1e-9)))
-                                          if latent else None)))
+        topics.append(OT.Topic(lo=lo, eta_mean=float(eta), eta_var=float(max(variance, 1e-9)), practiced=practiced,
+                               difficulty=float(difficulty), stability=float(stability), elapsed_days=float(elapsed),
+                               undated_density=float(c), reading_count=float(dose or 0.0),
+                               eta_latent=((float(latent["mean"]), float(max(latent["variance"], 1e-9)))
+                                           if latent else None)))
         if latent:
             eta_source = f"{eta_source}+ad_latent_posterior"
         topic_sources[lo] = {"eta": eta_source, "fsrs_items": len(memory),
@@ -784,16 +785,16 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                   for lo in dict.fromkeys([*goal_order, *practiced_order, *lesson_los])}
     spread_used = spread if spread_n >= 2 else 0.0
     practiced_set = {topic.lo for topic in topics if topic.practiced}
-    actions: list[V.Action] = []
+    actions: list[OT.Action] = []
     for ref in support:
         if ref == STOP_FOR_TODAY:
-            actions.append(V.Action(ref=ref, kind=V.STOP))
+            actions.append(OT.Action(ref=ref, kind=OT.STOP))
         elif sequences is not None and ref in sequences:
             steps = tuple(_step(action_for(vault, repository, part, practiced=practiced_set, spread=spread_used))
                           for part in sequences[ref])
-            actions.append(V.Action(ref=ref, kind=V.SEQUENCE, steps=steps,
-                                    item_los=tuple(lo for step in steps for lo in step.item_los),
-                                    minutes=sum(step.minutes for step in steps)))
+            actions.append(OT.Action(ref=ref, kind=OT.SEQUENCE, steps=steps,
+                                     item_los=tuple(lo for step in steps for lo in step.item_los),
+                                     minutes=sum(step.minutes for step in steps)))
         elif ref in candidates:
             actions.append(action_for(vault, repository, candidates[ref], practiced=practiced_set, spread=spread_used))
     # IH2 (spec_instruct_handoff_v1 §5): against a follow-up, an offer's declined branch is that follow-up, which stays
@@ -804,10 +805,10 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
     if declined_steps:
         steps = tuple(_step(action_for(vault, repository, part, practiced=practiced_set, spread=spread_used))
                       for part in declined_steps)
-        after_decline = (steps[0] if len(steps) == 1 else V.Action(
-            ref="lesson_offer:declined", kind=V.SEQUENCE, steps=steps, item_los=tuple(lo for step in steps for lo in step.item_los),
+        after_decline = (steps[0] if len(steps) == 1 else OT.Action(
+            ref="lesson_offer:declined", kind=OT.SEQUENCE, steps=steps, item_los=tuple(lo for step in steps for lo in step.item_los),
             minutes=sum(step.minutes for step in steps)))
-        actions = [replace(action, declined=after_decline) if action.accept is not None and action.kind == V.LESSON else action
+        actions = [replace(action, declined=after_decline) if action.accept is not None and action.kind == OT.LESSON else action
                    for action in actions]
     # The tail's block is the support's practice and reading blocks (TE3b: never a lesson offer's card).
     blocks = [candidates[ref] for ref in support if ref in candidates
@@ -829,15 +830,15 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
             weights = {lo: split for lo, split in weights.items() if lo in valued}
             if weights:
                 slopes = split_record["slopes"]
-                learning = replace(learning, causes=V.CauseSplit(
+                learning = replace(learning, causes=OT.CauseSplit(
                     gap=(float(slopes["gap"][0]), float(slopes["gap"][1])),
                     slip=(float(slopes["slip"][0]), float(slopes["slip"][1])),
                     cov=float(slopes["cov"][0][1]), weights=weights))
-    inputs = V.Inputs(
+    inputs = OT.Inputs(
         topics=tuple(topics), dated=tuple(use for use in dated if use.lo in {t.lo for t in topics}),
         session_minutes=float(session_minutes),
-        price=V.Price(kappa0=float(kappa0), remembered=max(float(remembered), 1.0), remembered_source=remembered_source,
-                      regime=P.SEED),
+        price=OT.Price(kappa0=float(kappa0), remembered=max(float(remembered), 1.0), remembered_source=remembered_source,
+                       regime=P.SEED),
         tail_block_minutes=float(block_minutes), tail_block_items=int(block_items),
         horizon_days=float(section.horizon_days), fsrs_weights=tuple(resolve_fsrs_weights(repository)),
         return_gaps_days=tuple(gaps), stop_accept=accept, return_slope=return_slope,

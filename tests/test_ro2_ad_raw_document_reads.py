@@ -49,7 +49,10 @@ ROOTS = frozenset({
     # Teacher TE3a: the lesson opportunity's listing (the sweep reaches it), the objective's lesson interface
     # (its read of the curve through readiness.decision_state_fields, above) and the report's lesson row.
     "learnloop/adaptive_difficulty/lessons.py",
-    "learnloop/router_objective/value.py",
+    "learnloop/router_objective/rollouts.py",
+    "learnloop/router_objective/ad_link.py",
+    "learnloop/router_objective/types.py",
+    "learnloop/router_objective/objective.py",
     "learnloop/adaptive_difficulty/dose_report.py",
 })
 #: Functions the walk does not enter, each with why: they run only with AD off, where no AD operation

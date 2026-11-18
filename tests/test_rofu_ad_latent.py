@@ -17,20 +17,22 @@ import pytest
 from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.adaptive_difficulty import model as ADM
 from learnloop.adaptive_difficulty import priors as ADP
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
-LINK = V.AdLink(lapse=ADP.LAPSE, spread=ADP.A * ADP.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
+LINK = ADL.AdLink(lapse=ADP.LAPSE, spread=ADP.A * ADP.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
 
 
-def _model(topic: V.Topic) -> V._Model:
-    inputs = V.Inputs(topics=(topic,), dated=(), session_minutes=0.0, price=V.Price(kappa0=0.0, remembered=30.0),
-                      tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
-                      fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), ad_link=LINK)
-    return V._Model(inputs, 8, "latent")
+def _model(topic: OT.Topic) -> ROL._Model:
+    inputs = OT.Inputs(topics=(topic,), dated=(), session_minutes=0.0, price=OT.Price(kappa0=0.0, remembered=30.0),
+                       tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
+                       fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), ad_link=LINK)
+    return ROL._Model(inputs, 8, "latent")
 
 
-def _initial_predictive(model: V._Model) -> float:
+def _initial_predictive(model: ROL._Model) -> float:
     """The rollouts' initial predictive ``E[F(η)]``, ``η`` drawn from the model's own latent mean and variance,
     by AD's Gauss-Hermite rule (quadrature precision, no Monte Carlo: two nested 32-node rules agree with AD's
     one-rule ``expected_success`` to about 2e-7, hence the tolerance)."""
@@ -44,13 +46,13 @@ def test_codexs_reproductions_start_at_ads_p_bar(mean):
     variance = 4.0
     p_bar = float(ADM.expected_success(np.array(mean), np.array(variance), 0.0))
     # AD's latent posterior read as it holds it
-    held = _model(V.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=variance,
-                          eta_latent=(mean, variance)))
+    held = _model(OT.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=variance,
+                           eta_latent=(mean, variance)))
     assert held.eta_means == [mean] and held.eta_vars == [variance]
     assert _initial_predictive(held) == pytest.approx(p_bar, abs=1e-6)
     assert float(LINK.p_integrated(np.array(mean), np.array(variance))) == pytest.approx(p_bar, abs=1e-9)
     # only p̄ and a variance: the variance-integrated predictive inverted
-    rebuilt = _model(V.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=variance))
+    rebuilt = _model(OT.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=variance))
     assert rebuilt.eta_means[0] == pytest.approx(mean, abs=1e-6)
     assert _initial_predictive(rebuilt) == pytest.approx(p_bar, abs=1e-6)
     # R9's point inverse with the variance added again (Codex: 0.6732 against 0.7448 at mean 2; 0.3068 against 0.2352)
@@ -61,7 +63,7 @@ def test_codexs_reproductions_start_at_ads_p_bar(mean):
 
 def test_zero_variance_stays_equal():
     p_bar = float(ADM.residual_success(np.array(1.3)))
-    model = _model(V.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=0.0))
+    model = _model(OT.Topic(lo="x", eta_mean=math.log(p_bar / (1 - p_bar)), eta_var=0.0))
     assert model.eta_means[0] == pytest.approx(1.3, abs=1e-9)
     assert float(LINK.p(np.array(model.eta_means[0]))) == pytest.approx(p_bar, abs=1e-12)
 

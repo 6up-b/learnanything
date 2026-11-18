@@ -145,7 +145,7 @@ def decision_state_fields(vault: Any, repository: Any, learning_object_ids: Sequ
     ``lesson_curve``: the ``landed`` dose curve's posterior moments (both coefficients' means and their 2x2
     covariance, the mixture's over the bank's first group; the seeded prior while no lesson has reached the bank)
     and each LO's position on it (its main facet's lesson window), the one learned lesson effect the objective's
-    lesson interface reads (``router_objective.value``). Absent with the switch off or below its tag."""
+    lesson interface reads (``router_objective.rollouts``). Absent with the switch off or below its tag."""
 
     if not subject_view_live(vault.config):
         return {"status": "not_live"}

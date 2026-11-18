@@ -136,18 +136,19 @@ def test_the_numeric_policy_honours_its_deadline():
     clock = iter([0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0] + [10.0] * 1000)
 
     # A deadline already passed: the evaluation is incomplete and the policy reports a timeout, never a choice.
-    from learnloop.router_objective import value as V
+    from learnloop.router_objective import rollouts as ROL
+    from learnloop.router_objective import types as OT
     from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
-    inputs = V.Inputs(topics=(V.Topic("lo", 0.0, 0.1, undated_density=1 / 90),), dated=(), session_minutes=0.0,
-                      price=V.Price(kappa0=0.001, remembered=20.0), tail_block_minutes=5.0, tail_block_items=2,
-                      horizon_days=90.0, fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS))
-    actions = [V.Action(ref="a", kind=V.REVIEW, item_los=("lo",), minutes=5.0), V.Action(ref="stop_for_today",
-                                                                                          kind=V.STOP)]
-    late = V.evaluate(inputs, actions, draws=8, seed="d", deadline=5.0, clock=lambda: next(clock))
+    inputs = OT.Inputs(topics=(OT.Topic("lo", 0.0, 0.1, undated_density=1 / 90),), dated=(), session_minutes=0.0,
+                       price=OT.Price(kappa0=0.001, remembered=20.0), tail_block_minutes=5.0, tail_block_items=2,
+                       horizon_days=90.0, fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS))
+    actions = [OT.Action(ref="a", kind=OT.REVIEW, item_los=("lo",), minutes=5.0), OT.Action(ref="stop_for_today",
+                                                                                          kind=OT.STOP)]
+    late = ROL.evaluate(inputs, actions, draws=8, seed="d", deadline=5.0, clock=lambda: next(clock))
     assert not late.complete
     started = time.monotonic()
-    timed = V.evaluate(inputs, actions, draws=8, seed="d", deadline=time.monotonic() + 30.0)
+    timed = ROL.evaluate(inputs, actions, draws=8, seed="d", deadline=time.monotonic() + 30.0)
     assert timed.complete and (time.monotonic() - started) < 8.0  # well inside router.timeout_seconds
 
 

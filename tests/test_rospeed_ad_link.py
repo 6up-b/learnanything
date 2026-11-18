@@ -21,7 +21,10 @@ import numpy as np
 import pytest
 
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from tests.rospeed_ad_link_helpers import (
     LINK,
     OPTIONS,
@@ -48,17 +51,17 @@ CASES = {
     # the per-block loop's fallbacks: fewer topics than a session's slots (topics repeat), and a dated use inside
     # the horizon (a block's end can cross it)
     "fewer_topics_than_slots": dict(n=4),
-    "a_dated_use_inside_the_horizon": dict(n=22, dated=(V.DatedUse("g", "lo1", 20.3, 1.0),
-                                                         V.DatedUse("g", "lo5", 3.01, 2.0))),
+    "a_dated_use_inside_the_horizon": dict(n=22, dated=(OT.DatedUse("g", "lo1", 20.3, 1.0),
+                                                         OT.DatedUse("g", "lo5", 3.01, 2.0))),
     # the link's log-space tail (F underflows below η of about -700) on every topic
     "the_link_in_log_space": dict(n=8, eta_shift=-760.0),
 }
 
 
-def _evaluate(spec: dict, options: dict, draws: int) -> V.Evaluation:
+def _evaluate(spec: dict, options: dict, draws: int) -> OBJ.Evaluation:
     spec = dict(spec)
     n = spec.pop("n")
-    return V.evaluate(_inputs(n, **spec), _actions(n), draws=draws, seed="speed", **options)
+    return ROL.evaluate(_inputs(n, **spec), _actions(n), draws=draws, seed="speed", **options)
 
 
 #: Every case and option at 8 draws; 64 (the refinement's ceiling) on the two copy-relevant shapes.
@@ -77,13 +80,13 @@ def test_every_value_is_the_landing_codes_bit_for_bit(case, option, draws, monke
 
 
 def test_the_baselines_and_the_gain_are_the_landing_codes_bit_for_bit(monkeypatch):
-    inputs = _inputs(40, dated=(V.DatedUse("g", "lo1", 12.5, 1.0),))
+    inputs = _inputs(40, dated=(OT.DatedUse("g", "lo1", 12.5, 1.0),))
     options = OPTIONS["every_switch_on"]
 
     def run():
-        return (repr(V.baselines(inputs, 7, draws=16, seed="b", **options)),
-                {k: float(v).hex() for k, v in V.gain(inputs, (0.0, 10.0, 30.0, 45.0), draws=16, seed="g",
-                                                      **options).items()})
+        return (repr(ROL.baselines(inputs, 7, draws=16, seed="b", **options)),
+                {k: float(v).hex() for k, v in ROL.gain(inputs, (0.0, 10.0, 30.0, 45.0), draws=16, seed="g",
+                                                        **options).items()})
 
     fast = run()
     with monkeypatch.context() as patch:
@@ -113,7 +116,7 @@ def test_the_held_values_follow_the_state_bit_for_bit():
     """The model's held ``logit F`` is recomputed wherever the state's bits changed, in place or by a new array,
     on any state (a copy, another candidate's), and a cell read by a graded attempt is the full call's."""
 
-    model = V._Model(_inputs(12), 32, "held", consistent_review_draw=True, held_ad_link=True)
+    model = ROL._Model(_inputs(12), 32, "held", consistent_review_draw=True, held_ad_link=True)
     state = model.initial()
     first = model.performance(state, 1.0)
     assert first.tobytes() == _old_performance(model, state, 1.0).tobytes()
@@ -184,7 +187,7 @@ class _Charged:
             return real(x)
 
         # The landing code's copy (the ``_old_*`` functions) reads ``sigmoid`` from its helper module.
-        for module in (V, M, rospeed_ad_link_helpers):
+        for module in (ROL, ADL, M, rospeed_ad_link_helpers):
             patch.setattr(module, "sigmoid", charged)
 
 
@@ -200,14 +203,14 @@ def _deadline_bound(monkeypatch, *, landing: bool, held: bool, deadline: float |
         if landing:
             _landing_code(patch)
         n = _DEADLINE_CASE["n"]
-        evaluation = V.evaluate(_inputs(n), _actions(n), draws=8, seed="speed", max_draws=max_draws,
-                                keep_going=lambda: True, deadline=deadline, clock=clock,
-                                held_ad_link=held, **_DEADLINE_OPTIONS)
+        evaluation = ROL.evaluate(_inputs(n), _actions(n), draws=8, seed="speed", max_draws=max_draws,
+                                  keep_going=lambda: True, deadline=deadline, clock=clock,
+                                  held_ad_link=held, **_DEADLINE_OPTIONS)
         return evaluation, clock.spent
 
 
-def _choice(evaluation: V.Evaluation) -> str:
-    return V.numeric_choice(evaluation, [row.ref for row in evaluation.valued])[0]
+def _choice(evaluation: OBJ.Evaluation) -> str:
+    return OBJ.numeric_choice(evaluation, [row.ref for row in evaluation.valued])[0]
 
 
 def test_the_switch_off_is_the_landing_code_under_a_deadline(monkeypatch):

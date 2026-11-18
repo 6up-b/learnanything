@@ -32,7 +32,7 @@ from learnloop.params.parameter_registry import classify_config_path
 from learnloop.router import lesson_suggestions as LS
 from learnloop.router.outcomes import derive_router_outcomes
 from learnloop.router_objective import mix
-from learnloop.router_objective.value import PROBE, REPAIR
+from learnloop.router_objective.types import PROBE, REPAIR
 from learnloop.router_objective_switches import lessons_compete_with_followups_on
 from learnloop.scheduling.device_eligibility import PlanStepFilter
 
@@ -759,7 +759,7 @@ def test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle(tmp_path, 
     numeric policy answered (its failure would be swallowed into a fallback)."""
 
     from learnloop.daily_plan import objective_inputs as OI
-    from learnloop.router_objective import value as V
+    from learnloop.router_objective import types as OT
 
     env = _env(tmp_path)
     _open_offer(env, draw)
@@ -769,10 +769,10 @@ def test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle(tmp_path, 
     def as_probe(vault, repository, candidate, *, practiced, spread):
         if candidate.item_ids == (probe,):
             lo = candidate.learning_object_ids[0]
-            repair = V.Action(ref=f"{candidate.candidate_id}:repair", kind=V.REPAIR, item_los=(lo,),
-                              minutes=candidate.est_minutes)
-            return V.Action(ref=candidate.candidate_id, kind=V.PROBE, item_los=(lo,), minutes=candidate.est_minutes,
-                            repair=repair)
+            repair = OT.Action(ref=f"{candidate.candidate_id}:repair", kind=OT.REPAIR, item_los=(lo,),
+                               minutes=candidate.est_minutes)
+            return OT.Action(ref=candidate.candidate_id, kind=OT.PROBE, item_los=(lo,), minutes=candidate.est_minutes,
+                             repair=repair)
         return real(vault, repository, candidate, practiced=practiced, spread=spread)
 
     monkeypatch.setattr(OI, "action_for", as_probe)
@@ -790,15 +790,16 @@ def test_a_probe_mode_item_in_a_contest_is_valued_by_the_probe_bundle(tmp_path, 
 def test_the_offers_declined_branch_is_the_followup_not_the_tail(tmp_path):
     """Value: against a follow-up a "Not now" leads to that follow-up; with none named, the tail's block, as RO4's."""
 
-    from learnloop.router_objective import value as V
+    from learnloop.router_objective import rollouts as ROL
+    from learnloop.router_objective import types as OT
     from tests.ro4_value_helpers import _inputs  # the value tests' own frozen belief
 
     inputs = _inputs()
     lo = inputs.topics[0].lo
-    offer = V.Action(ref="lesson_offer:x", kind=V.LESSON, item_los=(lo,), minutes=15.0, accept=(1.0, 1.0))
-    follow = V.Action(ref="follow", kind=V.REPAIR, item_los=(lo,), minutes=2.0)
-    plain = V._Model(inputs, 16, "seed").value(offer)[1]["branches"]
-    named = V._Model(inputs, 16, "seed").value(replace(offer, declined=follow))[1]["branches"]
+    offer = OT.Action(ref="lesson_offer:x", kind=OT.LESSON, item_los=(lo,), minutes=15.0, accept=(1.0, 1.0))
+    follow = OT.Action(ref="follow", kind=OT.REPAIR, item_los=(lo,), minutes=2.0)
+    plain = ROL._Model(inputs, 16, "seed").value(offer)[1]["branches"]
+    named = ROL._Model(inputs, 16, "seed").value(replace(offer, declined=follow))[1]["branches"]
     assert named["accepted"] == pytest.approx(plain["accepted"])
     assert named["declined"] != pytest.approx(plain["declined"])
 

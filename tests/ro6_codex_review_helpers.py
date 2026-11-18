@@ -11,7 +11,7 @@ import pytest
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import tail_data as TD
-from learnloop.router_objective import value as V
+from learnloop.router_objective import types as OT
 
 
 STOP = SC.STOP
@@ -85,14 +85,14 @@ def _quiet(monkeypatch, links: dict[str, str | None], *, exam: float | None = 1.
 def _value_inputs():
     from tests.ro4_value_helpers import _inputs
 
-    return _inputs(topics=(V.Topic(lo="lo_a", eta_mean=0.4, eta_var=0.2, undated_density=0.2, practiced=True,
-                                   stability=3.0, elapsed_days=2.0),
-                           V.Topic(lo="lo_b", eta_mean=-0.3, eta_var=0.1, undated_density=0.1)),
+    return _inputs(topics=(OT.Topic(lo="lo_a", eta_mean=0.4, eta_var=0.2, undated_density=0.2, practiced=True,
+                                    stability=3.0, elapsed_days=2.0),
+                           OT.Topic(lo="lo_b", eta_mean=-0.3, eta_var=0.1, undated_density=0.1)),
                    horizon_days=6.0, return_gaps_days=(1.0, 2.0), stop_accept=(2.0, 2.0),
-                   dated=(V.DatedUse("g", "lo_b", 3.5, 1.0),))
+                   dated=(OT.DatedUse("g", "lo_b", 3.5, 1.0),))
 
 
 def _value_actions():
-    return [V.Action(ref="a", kind=V.REVIEW, item_los=("lo_a",), minutes=5.0),
-            V.Action(ref="p", kind=V.PROBE, item_los=("lo_b",), minutes=4.0),
-            V.Action(ref="stop_for_today", kind=V.STOP)]
+    return [OT.Action(ref="a", kind=OT.REVIEW, item_los=("lo_a",), minutes=5.0),
+            OT.Action(ref="p", kind=OT.PROBE, item_los=("lo_b",), minutes=4.0),
+            OT.Action(ref="stop_for_today", kind=OT.STOP)]

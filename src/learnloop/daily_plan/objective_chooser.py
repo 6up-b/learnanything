@@ -13,7 +13,7 @@ today`` (§8.2):
   frozen with the boundary key, with the tail's next action as a non-choosable reference row. It returns a
   probability per option, per-option forecasts and a rationale with evidence ids. The older ``llm`` chooser and its
   limited card are no longer served.
-* **π_Q**, the numeric policy: plain argmax of ``Q̄`` (:mod:`learnloop.router_objective.value`), ties within the
+* **π_Q**, the numeric policy: plain argmax of ``Q̄`` (:mod:`learnloop.router_objective.objective`), ties within the
   paired precision broken by support order, run as a third job in the prefetch with the prefetch's remaining budget
   as its deadline; a serving step that finds it unfinished treats it as a timeout. With no model set up there is no
   prefetch, so it runs on the calling thread with ``router.timeout_seconds`` as its deadline.
@@ -96,7 +96,9 @@ from learnloop.router_objective import mix
 from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import trace_assembly as T
-from learnloop.router_objective import value as V
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.router_objective import weight as W
 from learnloop.router_objective_switches import failure_share_to_other_policy_on, stop_coin_rate
 
@@ -228,18 +230,18 @@ def _rollout_options(config: Any) -> dict[str, bool]:
             "held_ad_link": _held_link(config)}
 
 
-def _frontier(inputs: V.Inputs, *, draws: int, seed: str, **rollout: bool
+def _frontier(inputs: OT.Inputs, *, draws: int, seed: str, **rollout: bool
               ) -> tuple[dict[float, float], dict[str, Any]]:
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **rollout)
+    curve = ROL.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **rollout)
     return curve, {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                    "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
                    + " (predictions)"}
 
 
-def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_date: str, draws: int,
+def _posterior_price(repository: Any, inputs: OT.Inputs, config: Any, *, local_date: str, draws: int,
                      seed: str) -> tuple[P.Seeded, dict[str, Any]] | None:
     """RO5 §9 item 1: once a randomized stop offer has a response, κ0 is the posterior the seed is folded into
     (:mod:`learnloop.router_objective.stop_coin`) and the daily re-centring ends; the frontier is still drawn once a
@@ -268,7 +270,7 @@ def _posterior_price(repository: Any, inputs: V.Inputs, config: Any, *, local_da
                     local_date=local_date, posterior=posterior), frontier
 
 
-def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int, seed: str,
+def day_price(repository: Any, inputs: OT.Inputs, *, local_date: str, draws: int, seed: str,
               config: Any = None) -> tuple[P.Seeded, dict[str, Any]]:
     """κ0 for this decision (§8.6): the day's first decision computes the seed from the gain curve, later ones
     carry it. Returns the price and the frontier (G against minutes) it came from. At RO5's tag with the stop coin
@@ -300,7 +302,7 @@ def day_price(repository: Any, inputs: V.Inputs, *, local_date: str, draws: int,
     mbar = float(inputs.price.remembered)
     d = float(inputs.tail_block_minutes)
     points = sorted({0.0, mbar, mbar + d, 2 * mbar})
-    curve = V.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **_rollout_options(config))
+    curve = ROL.gain(inputs, points, draws=draws, seed=f"{seed}:frontier", **_rollout_options(config))
     kappa0, how = P.seed_from_gain(curve, remembered=mbar, block_minutes=d, last_positive=last_positive)
     frontier = {"points": [{"minutes": m, "gain": curve[m]} for m in points],
                 "display": "; ".join(f"{m:.0f} minutes: predicted gain {curve[m]:+.3f}" for m in points if m > 0)
@@ -389,8 +391,8 @@ def generator_now(config: Any, objective: str | None = None) -> str:
 
     seeds = W.Seeds.from_config(config)
     return TD.generator_key(TD.generator_payload(
-        algorithm_version=str(config.algorithms.algorithm_version), objective=V.OBJECTIVE_VERSION,
-        tail=V.TAIL_VERSION, terminal=V.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
+        algorithm_version=str(config.algorithms.algorithm_version), objective=OBJ.OBJECTIVE_VERSION,
+        tail=ROL.TAIL_VERSION, terminal=OBJ.TERMINAL_VERSION, horizon_days=float(config.router_objective.horizon_days),
         llm_schema=rq.LLM_POLICY_SCHEMA, seeds=_seed_record(seeds), epsilon=float(config.router.epsilon_min),
         objective_definition=objective, switches=followup_generator_switches(config),
         # Teacher TE3b: the features version served (its ``lesson`` indicator: a change point once, at its tag).
@@ -509,15 +511,15 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
         frozen_switches = followup_generator_switches(config)
 
-        def answered(evaluation: V.Evaluation, used: V.Inputs, acts: Sequence[V.Action], corrected: bool) -> NumericPolicy:
+        def answered(evaluation: OBJ.Evaluation, used: OT.Inputs, acts: Sequence[OT.Action], corrected: bool) -> NumericPolicy:
             if residual_record is not None and residual_record.get("status") == "applied":
                 from learnloop.router_objective import tail_serve
 
-                choice, tie = V.numeric_choice(tail_serve.shifted(evaluation, residual_record), support)
+                choice, tie = OBJ.numeric_choice(tail_serve.shifted(evaluation, residual_record), support)
                 tie = {**tie, "on": "v_tilde = v_tail + w_hat * v_residual",
-                       "tail_argmax": V.numeric_choice(evaluation, support)[1]["argmax"]}
+                       "tail_argmax": OBJ.numeric_choice(evaluation, support)[1]["argmax"]}
             else:
-                choice, tie = V.numeric_choice(evaluation, support)
+                choice, tie = OBJ.numeric_choice(evaluation, support)
             if _preferences_move(preference_record):
                 # IH4: only once w_pref has moved; at 0 nothing above changes, bit for bit.
                 from learnloop.router_objective import preferences as PF
@@ -526,21 +528,21 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 base = (tail_serve.shifted(evaluation, residual_record) if residual_record is not None
                         and residual_record.get("status") == "applied" else evaluation)
                 before = tie["argmax"]
-                choice, moved = V.numeric_choice(PF.shifted(base, preference_record,
-                                                            tail={row.ref: row.q for row in evaluation.valued}), support)
+                choice, moved = OBJ.numeric_choice(PF.shifted(base, preference_record,
+                                                              tail={row.ref: row.q for row in evaluation.valued}), support)
                 tie = {**tie, **moved, "on": "v_tail + w_hat * v_residual + w_pref * v_pref",
                        "before_preferences_argmax": before}
             if "baselines" not in cached:
                 # The pre-action belief under the tail: no action and no correction enters it.
-                cached["baselines"] = V.baselines(used, int(section.evaluation_window_days),
-                                                  draws=min(evaluation.draws, 8), seed=seed, **rollout)
+                cached["baselines"] = ROL.baselines(used, int(section.evaluation_window_days),
+                                                    draws=min(evaluation.draws, 8), seed=seed, **rollout)
             return NumericPolicy(status=ANSWERED, choice=choice, tie=tie, evaluation=evaluation, inputs=used,
                                  actions=tuple(acts), sources=sources, price=priced, frontier=frontier,
                                  baselines=cached["baselines"], corrected=corrected,
                                  latency_ms=int(round((clock() - started) * 1000)), residual=residual_record,
                                  switches=frozen_switches, preference=preference_record)
 
-        def carried_compute(record: Mapping[str, Any], at_inputs: V.Inputs, at_actions: Sequence[V.Action],
+        def carried_compute(record: Mapping[str, Any], at_inputs: OT.Inputs, at_actions: Sequence[OT.Action],
                             at_cutoff: float) -> Callable[..., dict[str, Any]]:
             """The carried valuation of one answer, frozen to the inputs it used (R12; item 4)."""
 
@@ -551,9 +553,9 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
                 # ``deadline``: a later prefetch's own, when the valuation was deferred to it (the follow-up
                 # batch's item 4); else this job's.
-                at_previous = V.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
-                                         deadline=at_deadline if deadline is None else deadline,
-                                         clock=clock, cutoff=at_cutoff, **rollout)
+                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
+                                           deadline=at_deadline if deadline is None else deadline,
+                                           clock=clock, cutoff=at_cutoff, **rollout)
                 return TS.with_carried_values(record, at_previous)
 
             return compute
@@ -568,7 +570,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
             early_carry = tail_serve.carried_cutoff(residual_record)
         on_complete = None
         if publish is not None:
-            def on_complete(evaluation: V.Evaluation) -> None:
+            def on_complete(evaluation: OBJ.Evaluation) -> None:
                 policy = answered(evaluation, inputs, actions, False)
                 if early_carry is not None and residual_record is not None:
                     pending_early = tail_serve.pending_after_the_answer(residual_record)
@@ -577,23 +579,23 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 publish(policy)
         # (``unmeasured`` only at RO6's tag with the learned tail on; None leaves the evaluation as mvp-0.48's)
         measured = {"unmeasured": unmeasured} if unmeasured is not None else {}
-        evaluation = V.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
-                                deadline=deadline, clock=clock, on_complete=on_complete, **rollout,
-                                **measured)
+        evaluation = ROL.evaluate(inputs, actions, draws=draws, seed=seed, max_draws=ceiling, keep_going=keep_going,
+                                  deadline=deadline, clock=clock, on_complete=on_complete, **rollout,
+                                  **measured)
         corrected = False
         if evaluation.complete and forecasts is not None and bool(section.sensors_in_value):
             got = forecasts()
             if got is not None:
                 by_ref, reference = got
-                if reference is not None and all(action.kind == V.STOP or by_ref.get(action.ref) is not None
+                if reference is not None and all(action.kind == OT.STOP or by_ref.get(action.ref) is not None
                                                  for action in actions):
-                    effect = V.EffectSlope(alpha=(0.0, float(section.effect_slope_prior_variance)),
-                                           beta=(float(section.effect_slope_prior_mean),
-                                                 float(section.effect_slope_prior_variance)))
+                    effect = OT.EffectSlope(alpha=(0.0, float(section.effect_slope_prior_variance)),
+                                            beta=(float(section.effect_slope_prior_mean),
+                                                  float(section.effect_slope_prior_variance)))
                     with_llm = replace(inputs, effect=effect, reference_forecast=float(reference))
                     acts = [replace(action, forecast=by_ref.get(action.ref)) for action in actions]
-                    again = V.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
-                                       **rollout, **measured)
+                    again = ROL.evaluate(with_llm, acts, draws=evaluation.draws, seed=seed, deadline=deadline, clock=clock,
+                                         **rollout, **measured)
                     if again.complete:
                         evaluation, inputs, actions, corrected = again, with_llm, acts, True
         if not evaluation.complete:
@@ -622,8 +624,8 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 # RO6 (Codex re-review F3): the candidates valued again with every rollout at the latest earlier
                 # decision's cutoff, on the inputs the answer used, for that decision's backup only (a regression
                 # target, so the first batch's draws: its noise averages out in the fit, and no refinement is paid).
-                at_previous = V.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
-                                         cutoff=carried, **rollout)
+                at_previous = ROL.evaluate(inputs, actions, draws=draws, seed=seed, deadline=deadline, clock=clock,
+                                           cutoff=carried, **rollout)
                 residual_record = tail_serve.with_carried_values(residual_record, at_previous)
         final = answered(evaluation, inputs, actions, corrected)
         return replace(final, carried=own_carry) if own_carry is not None else final
@@ -636,7 +638,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 # -- the prefetch job --------------------------------------------------------------------------------------
 
 
-def _reference_description(action: V.Action, titles: Mapping[str, str]) -> str:
+def _reference_description(action: OT.Action, titles: Mapping[str, str]) -> str:
     topics = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in action.item_los)) or "the topics most at risk"
     return (f"The continuation the numeric model assumes next: about {max(1, round(action.minutes))} min of "
             f"practice on {topics}, then a session of the suggested minutes each day.")
@@ -654,7 +656,7 @@ def _policy_request(vault: Any, repository: Any, entry: Prefetch) -> rq.PolicyRe
     built, actions, _sources = OI.build(vault, repository, state=material["state"],
                                         support=material["support"], candidates=material["by_id"],
                                         now_iso=material["decided_at"])
-    reference = V._Model(built, 1, "reference").tail_action()
+    reference = ROL._Model(built, 1, "reference").tail_action()
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
     card = decision_card(vault, repository, [material["by_id"][ref] for ref in material["support"]
                                              if ref in material["by_id"]],
@@ -663,7 +665,7 @@ def _policy_request(vault: Any, repository: Any, entry: Prefetch) -> rq.PolicyRe
                          budget=int(config.router_objective.llm_card_token_budget))
     policy_request = rq.PolicyRequest(
         options=tuple(material["options"]),
-        reference=rq.BlockOption(V.REFERENCE_REF, _reference_description(reference, titles)),
+        reference=rq.BlockOption(ROL.REFERENCE_REF, _reference_description(reference, titles)),
         state=json.dumps(card["state"], sort_keys=True, ensure_ascii=False, default=str),
         evidence=tuple(card["evidence_ids"]))
     entry.material["policy_card"] = {key: card[key] for key in ("evidence_ids", "left_out", "bytes", "items")}
@@ -1308,7 +1310,7 @@ class ObjectiveRestraintGate(RestraintGate):
         state_text = rq.state_text(card.text, options, evidence=rq.evidence_from_card(card.json), extra=list(extra))
         material = {"card": card, "card_hash": card.card_hash, "topic": topic, "state": state_text}
         policy_state = self._policy_state(card, options, extra, state_text, [*candidates, *offers])
-        reference = rq.BlockOption(V.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
+        reference = rq.BlockOption(ROL.REFERENCE_REF, "the current block's remaining questions, then the plan's usual "
                                                     "next step, with no follow-up question")
 
         def job(entry: Prefetch) -> None:

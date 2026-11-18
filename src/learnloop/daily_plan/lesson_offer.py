@@ -5,7 +5,7 @@ log(1 − p)``, :mod:`learnloop.router.lesson_suggestions`) joins the decision's
 items, no reading: the offer card), beside staged's top ``router.k``: one offer a decision (``keep``, one card at a
 time), its alternatives (up to two, ``keep``) the next candidates, shown and never valued. TE1b's acceptance model is
 the offer's sensor, never a gate: its posterior predictive's mean and spread (moment-matched to a Beta, the draws'
-``p``) value the offer's two branches in RO4's offer interface (``router_objective.value``):
+``p``) value the offer's two branches in RO4's offer interface (``router_objective.rollouts``):
 
 * **accepted**: the lesson action (TE3a's lesson curve on the target through ``objective_inputs``, at the lesson-check
   mass §12.1 learned, ``learner.lesson_weight``), its active minutes log-normal (:func:`duration_model`: seeded at the

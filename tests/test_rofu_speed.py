@@ -17,36 +17,37 @@ import numpy as np
 import pytest
 
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 
-def _inputs(n: int, *, dated: tuple = (), items: int = 3, seed: int = 0) -> V.Inputs:
+def _inputs(n: int, *, dated: tuple = (), items: int = 3, seed: int = 0) -> OT.Inputs:
     rng = np.random.default_rng(seed)
-    topics = tuple(V.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)), eta_var=0.5, practiced=bool(i % 3),
-                           difficulty=float(rng.uniform(2, 8)), stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
-                           elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
-                           reading_count=float(i % 2)) for i in range(n))
-    return V.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=V.Price(kappa0=0.0003, remembered=30.0),
-                    tail_block_minutes=10.0, tail_block_items=items, horizon_days=90.0,
-                    fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0))
+    topics = tuple(OT.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)), eta_var=0.5, practiced=bool(i % 3),
+                            difficulty=float(rng.uniform(2, 8)), stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
+                            elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
+                            reading_count=float(i % 2)) for i in range(n))
+    return OT.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=OT.Price(kappa0=0.0003, remembered=30.0),
+                     tail_block_minutes=10.0, tail_block_items=items, horizon_days=90.0,
+                     fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0))
 
 
-def _actions(n: int) -> list[V.Action]:
+def _actions(n: int) -> list[OT.Action]:
     lo = [f"lo{i}" for i in range(n)]
-    return [V.Action(ref="stop_for_today", kind=V.STOP),
-            V.Action(ref="a", kind=V.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3),
-            V.Action(ref="b", kind=V.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0),
-            V.Action(ref="c", kind=V.PROBE, item_los=(lo[-1],), minutes=4.0,
-                     repair=V.Action(ref="c:repair", kind=V.REPAIR, item_los=(lo[-1],), minutes=4.0)),
-            V.Action(ref="d", kind=V.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)]
+    return [OT.Action(ref="stop_for_today", kind=OT.STOP),
+            OT.Action(ref="a", kind=OT.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3),
+            OT.Action(ref="b", kind=OT.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0),
+            OT.Action(ref="c", kind=OT.PROBE, item_los=(lo[-1],), minutes=4.0,
+                      repair=OT.Action(ref="c:repair", kind=OT.REPAIR, item_los=(lo[-1],), minutes=4.0)),
+            OT.Action(ref="d", kind=OT.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)]
 
 
 CASES = {
     "copy_shaped_22_topics": dict(n=22),
     "fewer_topics_than_slots": dict(n=4),
-    "a_dated_use_inside_the_horizon": dict(n=22, dated=(V.DatedUse("g", "lo1", 20.3, 1.0),
-                                                         V.DatedUse("g", "lo5", 3.01, 2.0))),
+    "a_dated_use_inside_the_horizon": dict(n=22, dated=(OT.DatedUse("g", "lo1", 20.3, 1.0),
+                                                         OT.DatedUse("g", "lo5", 3.01, 2.0))),
 }
 
 
@@ -55,8 +56,8 @@ def test_merged_sessions_equal_the_per_block_loop(case, monkeypatch):
     spec = dict(CASES[case])
     n = spec.pop("n")
     inputs, actions = _inputs(n, **spec), _actions(n)
-    merged = V.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=True)
-    reference = V.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False)
+    merged = ROL.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=True)
+    reference = ROL.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False)
     for fast, slow in zip(merged.valued, reference.valued, strict=True):
         assert fast.ref == slow.ref
         assert np.max(np.abs(np.array(fast.q_draws) - np.array(slow.q_draws))) <= 1e-12, fast.ref
@@ -75,10 +76,10 @@ def test_the_merged_path_calls_the_fsrs_update_far_fewer_times(monkeypatch):
         return real(self, *args, **kwargs)
 
     monkeypatch.setattr(M.Fsrs, "review", counted)
-    V.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=True)
+    ROL.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=True)
     merged = calls["n"]
     calls["n"] = 0
-    V.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False)
+    ROL.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False)
     assert merged * 2 < calls["n"], (merged, calls["n"])
 
 
@@ -103,13 +104,13 @@ def test_a_deadline_admits_more_draws_merged_so_the_default_is_the_per_block_loo
 
     inputs, actions = _inputs(22), _actions(22)
     clock = _charged_clock(monkeypatch)
-    V.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False, clock=lambda: clock["now"])
+    ROL.evaluate(inputs, actions, draws=8, seed="s", merged_sessions=False, clock=lambda: clock["now"])
     budget = 2.5 * clock["now"]  # the first batch, the second (twice the draws, the same calls), and a part
 
     def run(**kwargs):
         clock["now"] = 0.0
-        return V.evaluate(inputs, actions, draws=8, seed="s", max_draws=64, keep_going=lambda: True,
-                          deadline=budget, clock=lambda: clock["now"], **kwargs)
+        return ROL.evaluate(inputs, actions, draws=8, seed="s", max_draws=64, keep_going=lambda: True,
+                            deadline=budget, clock=lambda: clock["now"], **kwargs)
 
     per_block, merged, default = run(merged_sessions=False), run(merged_sessions=True), run()
     assert merged.draws > per_block.draws, (merged.draws, per_block.draws)
@@ -118,10 +119,10 @@ def test_a_deadline_admits_more_draws_merged_so_the_default_is_the_per_block_loo
     for name in ("baselines", "gain"):
         clock["now"] = 0.0
         args = (inputs, 14) if name == "baselines" else (inputs, [0.0, 30.0])
-        getattr(V, name)(*args, draws=8, seed="s")
+        getattr(ROL, name)(*args, draws=8, seed="s")
         default_calls = clock["now"]
         clock["now"] = 0.0
-        getattr(V, name)(*args, draws=8, seed="s", merged_sessions=False)
+        getattr(ROL, name)(*args, draws=8, seed="s", merged_sessions=False)
         assert default_calls == clock["now"], name
 
 
@@ -140,13 +141,13 @@ def test_the_numeric_policy_merges_only_with_its_switch(tmp_path, monkeypatch, v
 
     seen: dict[str, list[bool]] = {"evaluate": [], "baselines": [], "gain": []}
     for name in seen:
-        real = getattr(V, name)
+        real = getattr(ROL, name)
 
         def spy(*args, _real=real, _name=name, **kwargs):
             seen[_name].append(bool(kwargs.get("merged_sessions", False)))
             return _real(*args, **kwargs)
 
-        monkeypatch.setattr(OC.V, name, spy)
+        monkeypatch.setattr(OC.ROL, name, spy)
     tag = ROUTER_FOLLOWUPS_ALGORITHM_VERSION if version == "tag" else ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
     env = mixture_env(tmp_path, fake_runtime(seed=block_drawing_seed()), version=tag,
                       toml=f"[router_objective]\nmerged_sessions = {'true' if switch else 'false'}\n")

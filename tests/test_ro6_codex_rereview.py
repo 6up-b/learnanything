@@ -25,7 +25,8 @@ from learnloop.router_objective import scores as S
 from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import tail_data as TD
 from learnloop.router_objective import tail_serve as TS
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 
 from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
 from tests.ro6_codex_review_helpers import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
@@ -124,14 +125,14 @@ def test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window
 
 def test_f3_a_carried_cutoff_runs_every_rollout_at_it(monkeypatch):
     inputs, actions = _value_inputs(), _value_actions()
-    own = V.evaluate(inputs, actions, draws=8, seed="carried")
+    own = ROL.evaluate(inputs, actions, draws=8, seed="carried")
     carried = inputs.cutoff - 0.37  # off the day grid: the quadrature's boundaries move too
-    at_carried = V.evaluate(inputs, actions, draws=8, seed="carried", cutoff=carried)
+    at_carried = ROL.evaluate(inputs, actions, draws=8, seed="carried", cutoff=carried)
     assert at_carried.cutoff == pytest.approx(carried)
     # An independent route to the same model: the inputs' own cutoff is the carried one (the ranking's remaining
     # span, the probe's branch choice in the belief's world, the boundaries and the end all read it).
-    monkeypatch.setattr(V.Inputs, "cutoff", property(lambda self: carried))
-    reference = V.evaluate(inputs, actions, draws=8, seed="carried")
+    monkeypatch.setattr(OT.Inputs, "cutoff", property(lambda self: carried))
+    reference = ROL.evaluate(inputs, actions, draws=8, seed="carried")
     for ref, row in reference.by_ref().items():
         assert at_carried.by_ref()[ref].q_draws == row.q_draws
     assert any(abs(at_carried.by_ref()[ref].q - row.q) > 1e-6 for ref, row in own.by_ref().items())

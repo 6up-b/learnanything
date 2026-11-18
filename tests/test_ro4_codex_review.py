@@ -31,7 +31,9 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import mix
-from learnloop.router_objective import value as V
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.vault.loader import load_vault
 
 from tests.router_mixture_helpers import mixture_env, rows, run
@@ -119,7 +121,7 @@ def test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks(tmp
                             sequences={"a_then_b": (first, second), "b_then_a": (second, first)})
     plain = {action.ref: action for action in actions}
     a_then_b, b_then_a = built
-    assert a_then_b.kind == b_then_a.kind == V.SEQUENCE
+    assert a_then_b.kind == b_then_a.kind == OT.SEQUENCE
     assert [step.ref for step in a_then_b.steps] == [first.candidate_id, second.candidate_id]
     assert [step.ref for step in b_then_a.steps] == [second.candidate_id, first.candidate_id]
     # Each step keeps its own block's interface (kind, items, minutes), never the first block's.
@@ -179,7 +181,7 @@ def test_f8_a_reading_candidate_starts_from_ads_dose_position(tmp_path, monkeypa
     assert topic.reading_count == pytest.approx(3.0)
     assert sources["topics"][lo]["reading_dose"] == "ad_reading_window"
     # The rollout's next dose is AD's increment at n = 3, smaller than the first dose's.
-    model = V._Model(rebuilt, 2, "f8")
+    model = ROL._Model(rebuilt, 2, "f8")
     state = model.initial()
     before = state.bel[:, model.index[lo]].copy()
     model._read(state, model.index[lo], np.ones(2, dtype=bool))
@@ -222,7 +224,7 @@ def test_f9_the_drawn_options_forecast_is_resolved_and_reported(tmp_path):
                            "stop_for_today": {"main_lo": None, "sensors": {}}},
             "policies": {"llm": {"status": "answered", "model": "fake-router-llm"}, "numeric": {"status": "answered"}},
             "mixing": {"chosen": "blk", "drawn_component": "llm", "propensity": 0.5, "w": 0.8},
-            "versions": {"objective": V.OBJECTIVE_VERSION, "llm_schema": "router_llm_choice_v3", "card": "c"},
+            "versions": {"objective": OBJ.OBJECTIVE_VERSION, "llm_schema": "router_llm_choice_v3", "card": "c"},
             "evaluation": {}, "session": {}, "stop_in_support": True}
     with closing(connect(paths.sqlite_path)) as connection:
         assert store.insert_trace(connection, T.assemble(body, decision_id=decision_id, decision_kind="plan_block",

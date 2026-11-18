@@ -17,18 +17,20 @@ import pytest
 from learnloop.adaptive_difficulty import model as ADM
 from learnloop.adaptive_difficulty import priors as ADP
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
-LINK = V.AdLink(lapse=ADP.LAPSE, spread=ADP.A * ADP.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
+LINK = ADL.AdLink(lapse=ADP.LAPSE, spread=ADP.A * ADP.TAU0, nodes=tuple(ADM.X32), weights=tuple(ADM.W32))
 
 
-def _model(consistent: bool) -> V._Model:
-    topic = V.Topic(lo="x", eta_mean=0.0, eta_var=0.0, eta_latent=(-14.0, 0.0))
-    inputs = V.Inputs(topics=(topic,), dated=(), session_minutes=0.0, price=V.Price(kappa0=0.0, remembered=30.0),
-                      tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
-                      fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), ad_link=LINK, combiner=M.Combiner().at_mean())
-    return V._Model(inputs, 4, "stable", consistent_review_draw=consistent)
+def _model(consistent: bool) -> ROL._Model:
+    topic = OT.Topic(lo="x", eta_mean=0.0, eta_var=0.0, eta_latent=(-14.0, 0.0))
+    inputs = OT.Inputs(topics=(topic,), dated=(), session_minutes=0.0, price=OT.Price(kappa0=0.0, remembered=30.0),
+                       tail_block_minutes=10.0, tail_block_items=3, horizon_days=10.0,
+                       fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), ad_link=LINK, combiner=M.Combiner().at_mean())
+    return ROL._Model(inputs, 4, "stable", consistent_review_draw=consistent)
 
 
 @pytest.mark.parametrize("consistent", [False, True])

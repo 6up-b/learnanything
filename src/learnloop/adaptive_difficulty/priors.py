@@ -181,7 +181,7 @@ def _lesson_priors() -> tuple[tuple[str, float, float], ...]:
     *The centre* (basis ``legacy``): one first dose (``n = 0 → 1``) moves the facet, so the LO's predicted ``η``, by
     RO4's placeholder, ``γ``'s prior mean times :data:`LESSON_CHECK_MASS_PRIOR` (0.1 logit), and its spread is the
     placeholder's (``γ``'s prior sd times the mass, 0.05), so the objective's lesson interface at this prior is the
-    placeholder's draw for draw (``router_objective.value``).
+    placeholder's draw for draw (``router_objective.rollouts``).
 
     *The shape* is AD's existing rule for a new kind's prior (§5.5): a reading kind's coefficients are
     ``γ̄_m + δ_{κ,m}``, means ``(0.10, 0.20)`` and variances ``(0.0049 + 0.0049, 0.01 + 0.01)``. The lesson's means

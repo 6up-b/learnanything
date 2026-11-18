@@ -23,7 +23,8 @@ from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import assignments as A
 from learnloop.router_objective import mix
 from learnloop.router_objective import stop_coin as SC
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 
 from tests.router_mixture_helpers import mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
@@ -208,27 +209,27 @@ def test_a_planted_return_slope_is_recovered():
 
 def _return_inputs(**overrides):
     base = dict(
-        topics=(V.Topic(lo="L1", eta_mean=0.0, eta_var=0.1, undated_density=1.0 / 90.0),
-                V.Topic(lo="L2", eta_mean=-0.5, eta_var=0.1, undated_density=1.0 / 90.0)),
+        topics=(OT.Topic(lo="L1", eta_mean=0.0, eta_var=0.1, undated_density=1.0 / 90.0),
+                OT.Topic(lo="L2", eta_mean=-0.5, eta_var=0.1, undated_density=1.0 / 90.0)),
         dated=(), session_minutes=5.0,
-        price=V.Price(kappa0=0.0005, remembered=25.0, remembered_source="test"),
+        price=OT.Price(kappa0=0.0005, remembered=25.0, remembered_source="test"),
         tail_block_minutes=5.0, tail_block_items=2, horizon_days=30.0, fsrs_weights=W,
         return_gaps_days=(1.5, 2.5, 3.5), stop_accept=(1.0, 1.0),
     )
     base.update(overrides)
-    return V.Inputs(**base)
+    return OT.Inputs(**base)
 
 
 def test_the_stop_branch_shows_the_return_effect_and_an_inert_shift_drops_out():
     base = _return_inputs()
-    actions = [V.Action(ref="stop", kind=V.STOP), V.Action(ref="b", kind=V.REVIEW, item_los=("L1",), minutes=5.0)]
-    plain = V.evaluate(base, actions, draws=8, seed="s").by_ref()
+    actions = [OT.Action(ref="stop", kind=OT.STOP), OT.Action(ref="b", kind=OT.REVIEW, item_los=("L1",), minutes=5.0)]
+    plain = ROL.evaluate(base, actions, draws=8, seed="s").by_ref()
     assert "return_effect" not in plain["stop"].extra
-    strong = V.evaluate(replace(base, return_slope=(3.0, 0.01)), actions, draws=8, seed="s").by_ref()["stop"]
+    strong = ROL.evaluate(replace(base, return_slope=(3.0, 0.01)), actions, draws=8, seed="s").by_ref()["stop"]
     assert strong.extra["return_model"] == "active" and math.isfinite(strong.extra["return_effect"])
     # A short session (5 of 25 minutes) under a positive slope returns sooner: stopping now gains.
     assert strong.extra["return_effect"] > 0
-    inert = V.evaluate(replace(base, return_slope=(1e-9, 0.0)), actions, draws=8, seed="s").by_ref()
+    inert = ROL.evaluate(replace(base, return_slope=(1e-9, 0.0)), actions, draws=8, seed="s").by_ref()
     assert inert["stop"].extra["return_effect"] == pytest.approx(0.0)
     assert inert["stop"].extra["return_model"].startswith("dropped")
     # A model that moves no day of return changes no value.

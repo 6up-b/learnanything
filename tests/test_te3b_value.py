@@ -18,7 +18,8 @@ import pytest
 from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION, LESSON_OPPORTUNITY_ALGORITHM_VERSION
 from learnloop.daily_plan import lesson_offer as LO
 from learnloop.router import lesson_suggestions as LS
-from learnloop.router_objective import value as V
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 
 from tests.ro4_value_helpers import EXACT, _inputs, _logit
 from tests.te3b_value_helpers import T0, _lesson, _lesson_db, _stamp
@@ -37,12 +38,12 @@ def test_offer_branches_match_a_hand_computed_case_for_a_lesson():
     p, d, m, mass = 0.3, 10.0, 10.0, 0.5
     gamma = 0.4
     inputs = _inputs(session_minutes=m, horizon_days=1.0,
-                     topics=(V.Topic(lo="lo_a", eta_mean=_logit(0.6), eta_var=0.0, undated_density=1 / 90),),
-                     learning=V.Learning(gamma=(gamma, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
-    offer = V.Action(ref="offer", kind=V.LESSON, item_los=("lo_a",), minutes=d, mass=mass,
-                     accept=(p * 1e6, (1 - p) * 1e6))
-    taken = V.Action(ref="taken", kind=V.LESSON, item_los=("lo_a",), minutes=d, mass=mass)
-    out = V.evaluate(inputs, [offer, taken], draws=4, seed="lesson-offer").by_ref()
+                     topics=(OT.Topic(lo="lo_a", eta_mean=_logit(0.6), eta_var=0.0, undated_density=1 / 90),),
+                     learning=OT.Learning(gamma=(gamma, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
+    offer = OT.Action(ref="offer", kind=OT.LESSON, item_los=("lo_a",), minutes=d, mass=mass,
+                      accept=(p * 1e6, (1 - p) * 1e6))
+    taken = OT.Action(ref="taken", kind=OT.LESSON, item_los=("lo_a",), minutes=d, mass=mass)
+    out = ROL.evaluate(inputs, [offer, taken], draws=4, seed="lesson-offer").by_ref()
     branches = out["offer"].extra["branches"]
     assert branches["accepted"] == pytest.approx(out["taken"].q)
     p_bar = branches["p_accept"]
@@ -64,13 +65,13 @@ def test_offer_branches_match_a_hand_computed_case_for_a_lesson():
 
 def test_the_eve_of_exam_regression_holds_with_a_lesson_offer_beside_the_block():
     gamma = _logit(0.79) - _logit(0.78)
-    inputs = _inputs(dated=(V.DatedUse(goal_id="exam", lo="lo_a", at_days=1.0, weight=1.0),),
-                     learning=V.Learning(gamma=(gamma, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
-    block = V.Action(ref="cram", kind=V.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
-    stop = V.Action(ref="stop_for_today", kind=V.STOP)
-    offer = V.Action(ref="lesson_offer:lo_a", kind=V.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5,
-                     accept=(2.0, 3.0), commitments=(("lo_a", 3.0),))
-    out = V.evaluate(inputs, [block, offer, stop], draws=4, seed="eve").by_ref()
+    inputs = _inputs(dated=(OT.DatedUse(goal_id="exam", lo="lo_a", at_days=1.0, weight=1.0),),
+                     learning=OT.Learning(gamma=(gamma, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
+    block = OT.Action(ref="cram", kind=OT.NEW_PRACTICE, item_los=("lo_a",), minutes=10.0)
+    stop = OT.Action(ref="stop_for_today", kind=OT.STOP)
+    offer = OT.Action(ref="lesson_offer:lo_a", kind=OT.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5,
+                      accept=(2.0, 3.0), commitments=(("lo_a", 3.0),))
+    out = ROL.evaluate(inputs, [block, offer, stop], draws=4, seed="eve").by_ref()
     assert out["cram"].terms["kappa_integral"] == pytest.approx(0.02)
     assert out["stop_for_today"].q - out["stop_for_today"].terms["terminal"] == pytest.approx(0.780, abs=1e-9)
     assert out["cram"].q - out["cram"].terms["terminal"] == pytest.approx(0.770, abs=1e-9)
@@ -78,17 +79,17 @@ def test_the_eve_of_exam_regression_holds_with_a_lesson_offer_beside_the_block()
 
 
 def test_a_committed_delayed_check_enters_the_value_and_none_changes_nothing():
-    topics = (V.Topic(lo="lo_a", eta_mean=_logit(0.5), eta_var=1.0, undated_density=1 / 30),
-              V.Topic(lo="lo_b", eta_mean=_logit(0.5), eta_var=1.0, undated_density=1 / 30))
+    topics = (OT.Topic(lo="lo_a", eta_mean=_logit(0.5), eta_var=1.0, undated_density=1 / 30),
+              OT.Topic(lo="lo_b", eta_mean=_logit(0.5), eta_var=1.0, undated_density=1 / 30))
     inputs = _inputs(topics=topics, horizon_days=10.0, session_minutes=0.0, combiner=EXACT,
-                     learning=V.Learning(gamma=(0.3, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
-    plain = V.Action(ref="plain", kind=V.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5)
-    checked = V.Action(ref="checked", kind=V.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5,
-                       commitments=(("lo_a", 3.0),))
-    out = V.evaluate(inputs, [plain, checked], draws=8, seed="commit").by_ref()
+                     learning=OT.Learning(gamma=(0.3, 0.0), gbar=((0.0, 0.0), (0.0, 0.0))))
+    plain = OT.Action(ref="plain", kind=OT.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5)
+    checked = OT.Action(ref="checked", kind=OT.LESSON, item_los=("lo_a",), minutes=15.0, mass=0.5,
+                        commitments=(("lo_a", 3.0),))
+    out = ROL.evaluate(inputs, [plain, checked], draws=8, seed="commit").by_ref()
     assert out["plain"].q_draws != out["checked"].q_draws  # the check's practice and observation moved the path
     # With no commitment the action is valued exactly as before (the stream exists but is never read).
-    again = V.evaluate(inputs, [plain], draws=8, seed="commit").by_ref()
+    again = ROL.evaluate(inputs, [plain], draws=8, seed="commit").by_ref()
     assert again["plain"].q_draws == out["plain"].q_draws
 
 
@@ -103,14 +104,14 @@ def test_the_offer_runs_on_the_held_link_with_it_on_and_on_the_landing_link_with
 
     n = 12
     inputs = _linked_inputs(n)
-    offer = V.Action(ref="lesson_offer:lo3", kind=V.LESSON, item_los=("lo3",), minutes=15.0, minutes_log_sd=0.7,
-                     mass=0.5, accept=(2.0, 3.0), commitments=(("lo3", 3.0),))
+    offer = OT.Action(ref="lesson_offer:lo3", kind=OT.LESSON, item_los=("lo3",), minutes=15.0, minutes_log_sd=0.7,
+                      mass=0.5, accept=(2.0, 3.0), commitments=(("lo3", 3.0),))
     actions = [*_actions(n), offer]
     held_on = dict(OPTIONS[option])
     held_off = {**held_on, "held_ad_link": False}
 
     def run(options):
-        return V.evaluate(inputs, actions, draws=8, seed="te3b-held", **options)
+        return ROL.evaluate(inputs, actions, draws=8, seed="te3b-held", **options)
 
     on, off = run(held_on), run(held_off)
     assert _rows(on) == _rows(off)

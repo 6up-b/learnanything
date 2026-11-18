@@ -10,13 +10,16 @@ import numpy as np
 from learnloop.adaptive_difficulty import model as ADM
 from learnloop.adaptive_difficulty import priors as ADP
 from learnloop.router_objective import memory as M
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
 from learnloop.router_objective.memory import logit, perform, sigmoid
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, retrievability_array
 
 
-LINK = V.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0), nodes=tuple(float(x) for x in ADM.X32),
-                weights=tuple(float(w) for w in ADM.W32))
+LINK = ADL.AdLink(lapse=float(ADP.LAPSE), spread=float(ADP.A * ADP.TAU0), nodes=tuple(float(x) for x in ADM.X32),
+                  weights=tuple(float(w) for w in ADM.W32))
 
 
 # -- the code at 516db1d862 (value.py), verbatim but for names ----------------------------------------------------
@@ -133,39 +136,39 @@ def _landing_code(monkeypatch) -> None:
 
     for name, old in (("p", _old_p), ("slope", _old_slope), ("logit_and_slope", _old_logit_and_slope),
                       ("logit_p", _old_logit_p)):
-        monkeypatch.setattr(V.AdLink, name, old)
+        monkeypatch.setattr(ADL.AdLink, name, old)
     for name, old in (("performance", _old_performance), ("_graded", _old_graded),
                       ("_graded_linked", _old_graded_linked), ("_observe", _old_observe)):
-        monkeypatch.setattr(V._Model, name, old)
+        monkeypatch.setattr(ROL._Model, name, old)
 
 
-def _inputs(n: int, *, items: int = 3, dated: tuple = (), seed: int = 0, link: V.AdLink | None = LINK,
-            eta_shift: float = 0.0) -> V.Inputs:
+def _inputs(n: int, *, items: int = 3, dated: tuple = (), seed: int = 0, link: ADL.AdLink | None = LINK,
+            eta_shift: float = 0.0) -> OT.Inputs:
     rng = np.random.default_rng(seed)
-    topics = tuple(V.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)) + eta_shift, eta_var=0.5,
-                           practiced=bool(i % 3), difficulty=float(rng.uniform(2, 8)),
-                           stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
-                           elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
-                           reading_count=float(i % 2),
-                           eta_latent=(float(rng.normal(0, 1)) + eta_shift, 0.4) if i % 4 == 0 else None)
+    topics = tuple(OT.Topic(lo=f"lo{i}", eta_mean=float(rng.normal(0, 1)) + eta_shift, eta_var=0.5,
+                            practiced=bool(i % 3), difficulty=float(rng.uniform(2, 8)),
+                            stability=float(rng.uniform(1, 20)) if i % 3 else 0.0,
+                            elapsed_days=float(rng.uniform(0, 10)) if i % 3 else 0.0, undated_density=1 / 90,
+                            reading_count=float(i % 2),
+                            eta_latent=(float(rng.normal(0, 1)) + eta_shift, 0.4) if i % 4 == 0 else None)
                    for i in range(n))
-    return V.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=V.Price(kappa0=0.0003, remembered=30.0),
-                    tail_block_minutes=10.0, tail_block_items=items, horizon_days=60.0,
-                    fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0),
-                    return_slope=(0.1, 0.04), combiner=M.monotone_prior(), ad_link=link)
+    return OT.Inputs(topics=topics, dated=dated, session_minutes=5.0, price=OT.Price(kappa0=0.0003, remembered=30.0),
+                     tail_block_minutes=10.0, tail_block_items=items, horizon_days=60.0,
+                     fsrs_weights=tuple(FSRS6_DEFAULT_WEIGHTS), return_gaps_days=(1.0, 2.0, 1.0),
+                     return_slope=(0.1, 0.04), combiner=M.monotone_prior(), ad_link=link)
 
 
-def _actions(n: int) -> list[V.Action]:
+def _actions(n: int) -> list[OT.Action]:
     lo = [f"lo{i}" for i in range(n)]
-    review = V.Action(ref="a", kind=V.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3)
-    reading = V.Action(ref="d", kind=V.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)
-    return [V.Action(ref="stop_for_today", kind=V.STOP), review,
-            V.Action(ref="b", kind=V.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0, accept=(3.0, 2.0)),
-            V.Action(ref="c", kind=V.PROBE, item_los=(lo[-1],), minutes=4.0,
-                     repair=V.Action(ref="c:repair", kind=V.REPAIR, item_los=(lo[-1],), minutes=4.0)),
-            reading, V.Action(ref="e", kind=V.LESSON, item_los=(lo[min(3, n - 1)],), minutes=6.0, mass=2.0),
-            V.Action(ref="f", kind=V.SEQUENCE, steps=(replace(review, ref="f1"), replace(reading, ref="f2")),
-                     item_los=(*review.item_los, *reading.item_los), minutes=22.0)]
+    review = OT.Action(ref="a", kind=OT.REVIEW, item_los=tuple(lo[1:4]), minutes=10.0, minutes_log_sd=0.3)
+    reading = OT.Action(ref="d", kind=OT.READING, item_los=(lo[min(2, n - 1)],), minutes=12.0)
+    return [OT.Action(ref="stop_for_today", kind=OT.STOP), review,
+            OT.Action(ref="b", kind=OT.NEW_PRACTICE, item_los=(lo[0],), minutes=8.0, accept=(3.0, 2.0)),
+            OT.Action(ref="c", kind=OT.PROBE, item_los=(lo[-1],), minutes=4.0,
+                      repair=OT.Action(ref="c:repair", kind=OT.REPAIR, item_los=(lo[-1],), minutes=4.0)),
+            reading, OT.Action(ref="e", kind=OT.LESSON, item_los=(lo[min(3, n - 1)],), minutes=6.0, mass=2.0),
+            OT.Action(ref="f", kind=OT.SEQUENCE, steps=(replace(review, ref="f1"), replace(reading, ref="f2")),
+                      item_los=(*review.item_los, *reading.item_los), minutes=22.0)]
 
 
 #: The batch's rollout options, each with the held link on (``held_ad_link``, its kill switch; Codex review F1): the
@@ -175,7 +178,7 @@ OPTIONS = {"every_switch_on": dict(merged_sessions=True, consistent_review_draw=
            "merged_ad_draw": dict(merged_sessions=True, consistent_review_draw=False, held_ad_link=True)}
 
 
-def _rows(evaluation: V.Evaluation) -> list[tuple]:
+def _rows(evaluation: OBJ.Evaluation) -> list[tuple]:
     rows = [*evaluation.valued, *((evaluation.reference,) if evaluation.reference is not None else ())]
     return [(row.ref, np.asarray(row.q_draws, dtype=np.float64).tobytes(),
              {key: float(value).hex() for key, value in row.terms.items()}, repr(row.extra)) for row in rows]

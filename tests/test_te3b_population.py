@@ -133,7 +133,7 @@ def test_with_lessons_off_the_same_database_is_valued_without_lessons(tmp_path, 
     from learnloop.daily_plan import objective_inputs as OI
     from learnloop.daily_plan.policy import policy_for
     from learnloop.router_objective import tail_data as TD
-    from learnloop.router_objective import value as V
+    from learnloop.router_objective import rollouts as ROL
 
     captured: dict[str, Any] = {}
     real_build = OI.build
@@ -155,7 +155,7 @@ def test_with_lessons_off_the_same_database_is_valued_without_lessons(tmp_path, 
 
     def valued(vault):
         inputs, actions, sources = real_build(vault, env.repository, **kwargs)
-        evaluation = V.evaluate(inputs, actions, draws=4, seed="pinned")
+        evaluation = ROL.evaluate(inputs, actions, draws=4, seed="pinned")
         return inputs, sources, {row.ref: row.q_draws for row in evaluation.valued}
 
     off_inputs, off_sources, _off_q = valued(off)

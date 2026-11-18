@@ -276,7 +276,8 @@ class _OpenCharged:
         import numpy as np
 
         from learnloop.router_objective import memory as M
-        from learnloop.router_objective import value as V
+        from learnloop.router_objective import ad_link as ADL
+        from learnloop.router_objective import rollouts as ROL
 
         real_sigmoid = M.sigmoid
 
@@ -284,7 +285,7 @@ class _OpenCharged:
             self.spent += int(np.size(x))
             return real_sigmoid(x)
 
-        for module in (V, M):
+        for module in (ROL, ADL, M):
             patch.setattr(module, "sigmoid", charged)
         for name in ("_open_read_only", "_open_writable"):
             real_open = getattr(DBC, name)

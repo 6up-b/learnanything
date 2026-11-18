@@ -27,7 +27,9 @@ from learnloop.router import requests as rq
 from learnloop.router_objective import mix
 from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
-from learnloop.router_objective import value as V
+from learnloop.router_objective import ad_link as ADL
+from learnloop.router_objective import objective as OBJ
+from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective.choose import ANSWERED, NOT_READY
 from learnloop.router_objective_switches import failure_share_to_other_policy_on
 
@@ -100,7 +102,7 @@ def candidate_row(ref: str, candidate: Any, *, titles: Mapping[str, str], valued
         terms = {**dict(valued.terms), "q": valued.q,
                  "q_minus_v": (valued.q - v) if v is not None else None,
                  "q_minus_stop": (valued.q - stop_q) if stop_q is not None else None,
-                 "paired_se_vs_top": V.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
+                 "paired_se_vs_top": OBJ.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
         if residual_applied:
             # The learned tail's ŵ, V_tail (the tail's Q̄ above), V_residual and Ṽ for this option.
             from learnloop.router_objective import tail_serve
@@ -354,12 +356,12 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
                    **failure_rule_field(failure_share_to_other_policy_on(config))},
         "evaluation": {"uses": uses, "window_days": window, "window_closes_at": window_closes, "c0": c0,
                        "c0_basis": "the tail's cost at the remembered minutes (no earlier window of costs at this version)",
-                       "objective_version": V.OBJECTIVE_VERSION,
+                       "objective_version": OBJ.OBJECTIVE_VERSION,
                        "score": _score_note(config)},
         "frontier": dict(numeric.frontier) if numeric is not None else {},
         "inputs_sources": {key: value for key, value in sources.items()
                            if key not in ("population", MISS_CAUSE_SOURCE)},
-        "versions": {"objective": V.OBJECTIVE_VERSION, "tail": V.TAIL_VERSION, "terminal": V.TERMINAL_VERSION,
+        "versions": {"objective": OBJ.OBJECTIVE_VERSION, "tail": ROL.TAIL_VERSION, "terminal": OBJ.TERMINAL_VERSION,
                      "horizon_days": float(section.horizon_days), "memory_model": inputs.combiner.as_dict()
                      if inputs is not None else None, "kappa": price,
                      "learning": inputs.learning.source if inputs is not None else None,
@@ -368,10 +370,10 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
                                for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
                      # The rollouts' review draw, named only when it serves (below its tag, or off, the trace keeps
                      # the predecessor's bytes).
-                     **({"review_draw": V.REVIEW_DRAW_VERSION}
+                     **({"review_draw": ROL.REVIEW_DRAW_VERSION}
                         if served_switches is not None and served_switches.get("consistent_review_draw") else {}),
                      # AD's own predictive in the rollouts, named only when it serves.
-                     **({"ad_link": V.AD_LINK_VERSION}
+                     **({"ad_link": ADL.AD_LINK_VERSION}
                         if inputs is not None and inputs.ad_link is not None else {}),
                      # The serving switches the numeric answer was computed under, part of the generator payload
                      # (``tail_data.generator``); only at their tag.

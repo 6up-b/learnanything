@@ -1108,7 +1108,7 @@ ignore_imports = [
     # forgetting curve, refactor RE2); fsrs imports only numpy and learnloop.numeric, so these
     # edges cannot form a runtime cycle.
     "learnloop.router_objective.memory -> learnloop.scheduling.fsrs",
-    "learnloop.router_objective.value -> learnloop.scheduling.fsrs",
+    "learnloop.router_objective.rollouts -> learnloop.scheduling.fsrs",
     # AD2+AD3's pure reads of the firewall's carve-out and the default trajectory.
     "learnloop.adaptive_difficulty.reading -> learnloop.attempts.salience_firewall",
     "learnloop.adaptive_difficulty.replay -> learnloop.attempts.salience_firewall",

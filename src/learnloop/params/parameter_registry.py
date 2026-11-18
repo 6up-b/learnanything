@@ -267,7 +267,10 @@ MODULE_INVENTORY: dict[str, str] = {
     # Router objective RO4 (spec_router_objective_v1 §8): the value estimator, its memory model, the
     # attention price and the weight's posterior. Every number is a labelled seed, a keep bound or numerical.
     "router_objective_memory": "src/learnloop/router_objective/memory.py",
-    "router_objective_value": "src/learnloop/router_objective/value.py",
+    "router_objective_objective": "src/learnloop/router_objective/objective.py",
+    "router_objective_rollouts": "src/learnloop/router_objective/rollouts.py",
+    "router_objective_ad_link": "src/learnloop/router_objective/ad_link.py",
+    "router_objective_types": "src/learnloop/router_objective/types.py",
     "router_objective_price": "src/learnloop/router_objective/price.py",
     "router_objective_weight": "src/learnloop/router_objective/weight.py",
     # Router objective RO5 (spec_router_objective_v1 §9): the stop coin and κ0's posterior, the randomized checks,
@@ -1428,7 +1431,8 @@ _reg_const("router_objective_memory:_FIT_ITERATIONS", "numerical", kind="structu
            rationale="numerical resolution of the combiner's damped Newton fit, never a judgement.")
 _reg_const("router_objective_memory:_FIT_TOLERANCE", "numerical", kind="structural", owner="router_objective_memory",
            rationale="numerical resolution of the combiner's damped Newton fit, never a judgement.")
-_reg_const("router_objective_value:MINUTES_PER_DAY", "numerical", kind="structural", owner="router_objective_value",
+_reg_const("router_objective_rollouts:MINUTES_PER_DAY", "numerical", kind="structural",
+           owner="router_objective_rollouts",
            rationale="structural unit: active minutes to days on the rollout's clock.")
 _reg_const("router_objective_price:GUARD_MULTIPLE", "constraint", kind="structural", owner="router_objective_price",
            rationale="keep (RO4 §8.6): the runaway guard's default, 3 x the remembered minutes; a numerical safeguard "
