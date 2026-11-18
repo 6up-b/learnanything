@@ -1,0 +1,26 @@
+{
+  "_decline": {
+    "why": "Decision and forecast routes are declined (HTTP 400), so the app takes the path it takes when that model is unavailable; a made-up probability would steer the walk.",
+    "patterns": [
+      "^RouterLLM",
+      "Forecast",
+      "Probability"
+    ]
+  },
+  "BlindGradingProposal": {
+    "grader_confidence": 0.9,
+    "manual_review_recommended": false
+  },
+  "StuckBlindGradingProposal": {
+    "grader_confidence": 0.9,
+    "manual_review_recommended": false
+  },
+  "GradingProposal": {
+    "grader_confidence": 0.9,
+    "manual_review_recommended": false
+  },
+  "ReferencePolicyBlindGradingProposal": {
+    "grader_confidence": 0.9,
+    "manual_review_recommended": false
+  }
+}

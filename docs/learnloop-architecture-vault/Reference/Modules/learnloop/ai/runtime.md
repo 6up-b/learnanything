@@ -88,6 +88,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/fallback_space|learnloop.source_retrieval.fallback_space]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/route_check.py](../../../../../../scripts/ux_walk/route_check.py); calls `check_ai_runtime`
+
 ## Dependencies
 
 ### LearnLoop dependencies

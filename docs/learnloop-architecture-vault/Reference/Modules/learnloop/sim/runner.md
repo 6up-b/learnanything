@@ -111,6 +111,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] — imports `SimAttemptRecord`, `SimDayRecord`
 - [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] — imports `SimReport`, `SimulationError`, `prepare_run_vault`, `run_simulation`; statically calls `prepare_run_vault`, `run_simulation`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/make_vault.py](../../../../../../scripts/ux_walk/make_vault.py); calls `run_simulation`
+
 ## Dependencies
 
 ### LearnLoop dependencies

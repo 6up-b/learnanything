@@ -136,6 +136,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `CODEX_PROVIDER_NAMES`, `global_ai_defaults_path`, `global_settings_path`; statically calls `global_ai_defaults_path`, `global_settings_path`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/route_check.py](../../../../../../scripts/ux_walk/route_check.py); calls `load_config`
+
 ## Dependencies
 
 ### LearnLoop dependencies
