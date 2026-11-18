@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/081_task_blueprints.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/curriculum/task_blueprints.py"
   - "src/learnloop/reader/reader_guidance.py"
@@ -86,11 +87,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Upstream callers of the repository access surface
 

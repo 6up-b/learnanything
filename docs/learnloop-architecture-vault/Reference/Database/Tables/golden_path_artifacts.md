@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/087_golden_path_artifacts.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/curriculum/golden_path_restoration.py"
   - "src/learnloop/curriculum/golden_path_run.py"
@@ -86,11 +86,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/task_blueprints.py`
 
 ### Upstream callers of the repository access surface
 

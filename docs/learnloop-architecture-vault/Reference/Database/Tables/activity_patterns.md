@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/rung_backfill.py"
   - "src/learnloop/curriculum/task_blueprints.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/substrate/activity_patterns.py"
 tags:
   - "learnloop/database/table"
@@ -79,12 +79,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/substrate/activity_patterns.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

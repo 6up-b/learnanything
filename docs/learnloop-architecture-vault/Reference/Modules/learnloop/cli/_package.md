@@ -182,11 +182,11 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 8 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
+- [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 7 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 7 static module edges
-- [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 6 static module edges

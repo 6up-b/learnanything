@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/reader/active_reading.py"
 tags:
@@ -112,7 +113,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`
@@ -120,13 +121,13 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/reader.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_guidance.py`

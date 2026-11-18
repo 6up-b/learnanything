@@ -20,7 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/reader/reader_authoring.py"
@@ -82,12 +82,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/families.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

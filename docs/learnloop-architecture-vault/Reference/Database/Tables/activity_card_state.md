@@ -18,6 +18,7 @@ source_paths:
   - "migrations/075_card_lineage_state.sql"
   - "src/learnloop/daily_plan/schedule_effects.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/activity.py"
   - "src/learnloop/substrate/card_lineage.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/curriculum/depth_transition.py"
@@ -90,11 +91,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 
 ### Upstream callers of the repository access surface
 

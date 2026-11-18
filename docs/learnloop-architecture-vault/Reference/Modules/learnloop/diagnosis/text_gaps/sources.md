@@ -47,71 +47,66 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py) |
-| Source lines | 1221 |
+| Source lines | 1164 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `tutor_question_text(vault: LoadedVault, repository: Repository, event_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 69) — An answered tutor question; None when there is nothing to read.
-- `resolve_prerequisite_ref(vault: LoadedVault, ref: str, anchor: str | None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 140) — A diagnoser's validated prerequisite ref as one LO id (a facet resolves only when exactly one of the anchor's declared prerequisite LOs owns it).
-- `reading_from_diagnosis(vault: LoadedVault, proposal: Mapping[str, Any], *, anchor: str | None, model: str | None, prompt_version: str | None) -> GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 167) — The diagnoser's causes as a gap reading (deterministic; no call).
-- `attempt_grade_held(repository: Repository, attempt_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 208) — Is the attempt's current grade held for review (mvp-0.17)?
-- `diagnosis_text(vault: LoadedVault, repository: Repository, diagnosis_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 219) — A completed live diagnosis of a wrong answer; None otherwise.
-- `class StuckText` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 275) — One non-empty stuck answer (the stuck-prompt stage's view).
-- `class StuckTextSource(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 287) — Where stuck answers come from (the stuck-prompt stage's read-only view).
-  - `stuck_texts(self, connection: Any) -> Sequence[StuckText]` (line 296; public)
-- `class StuckAnswersAdapter` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 299) — The stuck prompt's own views (``learnloop.attempts.stuck``).
-  - `stuck_text(self, connection: Any, attempt_id: str) -> StuckText | None` (line 312; public)
-  - `stuck_texts(self, connection: Any) -> Sequence[StuckText]` (line 317; public)
-  - `_rows(rows: Any) -> list[StuckText]` (line 321; internal)
-- `stuck_texts(repository: Repository, source: StuckTextSource | None=None) -> list[StuckText]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 342)
-- `stuck_text_for(repository: Repository, attempt_id: str, source: StuckTextSource | None=None) -> StuckText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 347) — One attempt's non-empty stuck text, or None.
-- `stuck_answer_text(vault: LoadedVault, repository: Repository, attempt_id: str, source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 360)
-- `is_figure_prediction(source_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 411)
-- `figure_prediction_id(source_id: str) -> tuple[str, bool]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 415) — ``(prediction id, whether the source is its later explanation)``.
-- `figure_prediction_row(repository: Repository, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 424) — A missed figure prediction with an answer, with its figure, or None (for an explanation source, also None until the explanation is written).
-- `figure_input_manifest(row: Mapping[str, Any]) -> list[str] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 450) — Every span a figure was built from and its author was sent, or None when the stored lists are unreadable (a caller fails closed): the selection, the region's block, the crop's block and ``input_span_ids`` (the paragraphs around it).
-- `figure_input_keys(row: Mapping[str, Any]) -> dict[str, list[str]] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 473) — Reader RW5d: the retrieved passages a figure was built from, in any source (``input_span_keys_json``), by extraction; None when unreadable (a caller fails closed).
-- `class SourceWithheld(Exception)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 492) — A learner text whose context is held-out material now: nothing of it is built or sent, and its job is skipped (not retried) with this reason.
-- `figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 497) — Why a missed prediction's text may not be read now, or None: any span of its figure's complete input manifest is held out (the figure service's one predicate, ``exam_material.spans_withheld``), or the manifest is unreadable (fails closed).
-- `figure_grounding_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 522) — Reader RW5d (Codex review F5): the passages a figure with no passage of its own was grounded in, ``(extraction_id, span_id)`` across sources: the kept ones its request recorded (the verified retrieval's picks, or a tutor answer's cited spans), else every retrieved key it was sen…
-- `missed_prediction_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 550)
-- `explained_predictions(repository: Repository) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 559) — ``(prediction id, its "what changed?" text)`` for every missed prediction with an answer and an explanation, oldest first: what the backlog sweep reconciles (fix round 2, F5).
-- `figure_prediction_spans(row: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 573)
-- `figure_prediction_text(vault: LoadedVault, repository: Repository, prediction_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 587) — RW5a: a missed figure prediction, read by the gap reader.
-- `formative_row(repository: Repository, question_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 660) — A missed formative answer (``reader_authored_questions``), or None.
-- `figures_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 681) — RW5a's kill switch, ``figures.enabled``: off, no figure prediction or explanation is discovered, reconciled, queued or read.
-- `missed_formative_ids(repository: Repository, *, figures: bool=True) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 689) — Every missed formative answer (:func:`formative_row`'s rule), oldest first, then, with ``figures`` (:func:`figures_enabled`), every missed figure prediction (RW5a): what the backlog sweep may queue.
-- `reader_formative_text(vault: LoadedVault, repository: Repository, question_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 729) — A missed next-step, why-step or assumption answer, read by the gap reader.
-- `hint_feedback_row(repository: Repository, assist_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 788) — A practice-screen ``help_assists`` row whose learner text is a ``hint_feedback`` source (spec §9), with its role, or None: a "doesn't connect" reply with text (``request = 'feedback'``, role ``hint_feedback``) or an answer to a discriminating question (``assist_kind = 'discrimin…
-- `hint_feedback_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 816) — Every ``help_assists`` row whose text is a ``hint_feedback`` source (:func:`hint_feedback_row`'s rule), oldest first: what the backlog sweep and the sidecar's start-up reconciliation may queue (H2b review F4: a row that committed while its job did not).
-- `hint_feedback_text(vault: LoadedVault, repository: Repository, assist_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 865) — Adaptive hints H2b: a "doesn't connect" reply's text or a discriminating answer, read by the gap reader (``hint_feedback``).
-- `workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 922) — A workbench learner text with its role, or None: a stuck step's version (``workbench_steps``, role ``stuck``, not deleted, non-empty), or a workbench ``help_assists`` row with text (a reply, role ``hint_feedback``; an answer to a discriminating question, role ``discriminate_answ…
-- `workbench_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 964) — Reader workbench RW2b: a workbench text read by the gap reader (``workbench_text``).
-- `workbench_text_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1009) — Every workbench reply or discriminating answer with text, oldest first (the backlog sweep; stuck steps are queued when they are sent, by version, never swept).
-- `learner_notes_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1029) — Curriculum C5's switches (``notes.gaps_enabled``, the learner's opt-in, default off; ``notes.enabled``; ``learner_text_gaps.enabled``).
-- `learner_note_ids(vault: LoadedVault, repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1044) — Curriculum C5: the linked notes' current snapshots, oldest link first: what the backlog sweep may queue (empty while switched off; no note row is read then).
-- `learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1055) — Curriculum C5 (spec §10.2, §12 C5): a note the learner linked, read by the gap reader like any other learner text (C2b), tier 2 (``NON_SERVING_SOURCE_KINDS``).
-- `learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str, *, prepared: LearnerText | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1090) — Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read for gaps now (None: it may), from ``vault`` as configured now.
-- `lesson_gap_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1116) — A teacher's ``propose_gap`` (spec_teacher_v1 §11.7): the learner's own words it names (their reply, an answer and its "your thinking" note), read in context by the teacher as the tutor reads a question (its reading names the gap), about the node's LO.
-- `learner_text(vault: LoadedVault, repository: Repository, source_kind: str, source_id: str, *, stuck_source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1159)
+- `tutor_question_text(vault: LoadedVault, repository: Repository, event_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 75) — An answered tutor question; None when there is nothing to read.
+- `resolve_prerequisite_ref(vault: LoadedVault, ref: str, anchor: str | None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 146) — A diagnoser's validated prerequisite ref as one LO id (a facet resolves only when exactly one of the anchor's declared prerequisite LOs owns it).
+- `reading_from_diagnosis(vault: LoadedVault, proposal: Mapping[str, Any], *, anchor: str | None, model: str | None, prompt_version: str | None) -> GapReading` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 173) — The diagnoser's causes as a gap reading (deterministic; no call).
+- `attempt_grade_held(repository: Repository, attempt_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 214) — Is the attempt's current grade held for review (mvp-0.17)?
+- `diagnosis_text(vault: LoadedVault, repository: Repository, diagnosis_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 225) — A completed live diagnosis of a wrong answer; None otherwise.
+- `class StuckText` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 281) — One non-empty stuck answer (the stuck-prompt stage's view).
+- `class StuckTextSource(Protocol)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 293) — Where stuck answers come from (the stuck-prompt stage's read-only view).
+  - `stuck_texts(self, connection: Any) -> Sequence[StuckText]` (line 302; public)
+- `class StuckAnswersAdapter` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 305) — The stuck prompt's own views (``learnloop.attempts.stuck``).
+  - `stuck_text(self, connection: Any, attempt_id: str) -> StuckText | None` (line 318; public)
+  - `stuck_texts(self, connection: Any) -> Sequence[StuckText]` (line 323; public)
+  - `_rows(rows: Any) -> list[StuckText]` (line 327; internal)
+- `stuck_texts(repository: Repository, source: StuckTextSource | None=None) -> list[StuckText]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 348)
+- `stuck_text_for(repository: Repository, attempt_id: str, source: StuckTextSource | None=None) -> StuckText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 353) — One attempt's non-empty stuck text, or None.
+- `stuck_answer_text(vault: LoadedVault, repository: Repository, attempt_id: str, source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 366)
+- `is_figure_prediction(source_id: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 409)
+- `figure_prediction_row(repository: Repository, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 413) — A missed figure prediction with an answer, with its figure, or None (for an explanation source, also None until the explanation is written).
+- `class SourceWithheld(Exception)` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 439) — A learner text whose context is held-out material now: nothing of it is built or sent, and its job is skipped (not retried) with this reason.
+- `figure_prediction_withheld(vault: LoadedVault, repository: Repository, row: Mapping[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 444) — Why a missed prediction's text may not be read now, or None: any span of its figure's complete input manifest is held out (the figure service's one predicate, ``exam_material.spans_withheld``), or the manifest is unreadable (fails closed).
+- `figure_grounding_keys(repository: Repository, row: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 469) — Reader RW5d (Codex review F5): the passages a figure with no passage of its own was grounded in, ``(extraction_id, span_id)`` across sources: the kept ones its request recorded (the verified retrieval's picks, or a tutor answer's cited spans), else every retrieved key it was sen…
+- `missed_prediction_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 497)
+- `explained_predictions(repository: Repository) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 506) — ``(prediction id, its "what changed?" text)`` for every missed prediction with an answer and an explanation, oldest first: what the backlog sweep reconciles (fix round 2, F5).
+- `figure_prediction_spans(row: Mapping[str, Any]) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 520)
+- `figure_prediction_text(vault: LoadedVault, repository: Repository, prediction_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 534) — RW5a: a missed figure prediction, read by the gap reader.
+- `formative_row(repository: Repository, question_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 607) — A missed formative answer (``reader_authored_questions``), or None.
+- `figures_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 628) — RW5a's kill switch, ``figures.enabled``: off, no figure prediction or explanation is discovered, reconciled, queued or read.
+- `missed_formative_ids(repository: Repository, *, figures: bool=True) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 636) — Every missed formative answer (:func:`formative_row`'s rule), oldest first, then, with ``figures`` (:func:`figures_enabled`), every missed figure prediction (RW5a): what the backlog sweep may queue.
+- `reader_formative_text(vault: LoadedVault, repository: Repository, question_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 676) — A missed next-step, why-step or assumption answer, read by the gap reader.
+- `hint_feedback_row(repository: Repository, assist_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 735) — A practice-screen ``help_assists`` row whose learner text is a ``hint_feedback`` source (spec §9), with its role, or None: a "doesn't connect" reply with text (``request = 'feedback'``, role ``hint_feedback``) or an answer to a discriminating question (``assist_kind = 'discrimin…
+- `hint_feedback_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 763) — Every ``help_assists`` row whose text is a ``hint_feedback`` source (:func:`hint_feedback_row`'s rule), oldest first: what the backlog sweep and the sidecar's start-up reconciliation may queue (H2b review F4: a row that committed while its job did not).
+- `hint_feedback_text(vault: LoadedVault, repository: Repository, assist_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 812) — Adaptive hints H2b: a "doesn't connect" reply's text or a discriminating answer, read by the gap reader (``hint_feedback``).
+- `workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 869) — A workbench learner text with its role, or None: a stuck step's version (``workbench_steps``, role ``stuck``, not deleted, non-empty), or a workbench ``help_assists`` row with text (a reply, role ``hint_feedback``; an answer to a discriminating question, role ``discriminate_answ…
+- `workbench_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 911) — Reader workbench RW2b: a workbench text read by the gap reader (``workbench_text``).
+- `workbench_text_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 956) — Every workbench reply or discriminating answer with text, oldest first (the backlog sweep; stuck steps are queued when they are sent, by version, never swept).
+- `learner_notes_enabled(vault: LoadedVault) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 976) — Curriculum C5's switches (``notes.gaps_enabled``, the learner's opt-in, default off; ``notes.enabled``; ``learner_text_gaps.enabled``).
+- `learner_note_ids(vault: LoadedVault, repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 991) — Curriculum C5: the linked notes' current snapshots, oldest link first: what the backlog sweep may queue (empty while switched off; no note row is read then).
+- `learner_note_text(vault: LoadedVault, repository: Repository, note_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1002) — Curriculum C5 (spec §10.2, §12 C5): a note the learner linked, read by the gap reader like any other learner text (C2b), tier 2 (``NON_SERVING_SOURCE_KINDS``).
+- `learner_note_refusal(vault: LoadedVault, repository: Repository, note_id: str, *, prepared: LearnerText | None=None) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1037) — Curriculum C5 (Codex review F3): why the linked snapshot ``note_id`` may not be read for gaps now (None: it may), from ``vault`` as configured now.
+- `lesson_gap_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1063) — A teacher's ``propose_gap`` (spec_teacher_v1 §11.7): the learner's own words it names (their reply, an answer and its "your thinking" note), read in context by the teacher as the tutor reads a question (its reading names the gap), about the node's LO.
+- `learner_text(vault: LoadedVault, repository: Repository, source_kind: str, source_id: str, *, stuck_source: StuckTextSource | None=None) -> LearnerText | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 1106)
 
 ### Module constants
 
-- `_READABLE_DIAGNOSIS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 58)
-- `DEFAULT_STUCK_SOURCE` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 339)
-- `FORMATIVE_STYLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 392)
-- `MISSED_SELF_CHECKS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 393)
-- `FORMATIVE_PASSAGE_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 395)
-- `FORMATIVE_EXPECTED_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 396)
-- `FIGURE_PREDICTION_PREFIX` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 402)
-- `FIGURE_EXPLANATION_SUFFIX` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 406)
-- `_DIRECTION_WORDS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 408)
-- `HINT_FEEDBACK_ROLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 783)
-- `HINT_TEXT_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 785)
-- `WORKBENCH_TEXT_ROLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 914)
+- `_READABLE_DIAGNOSIS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 64)
+- `DEFAULT_STUCK_SOURCE` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 345)
+- `FORMATIVE_STYLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 398)
+- `MISSED_SELF_CHECKS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 399)
+- `FORMATIVE_PASSAGE_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 401)
+- `FORMATIVE_EXPECTED_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 402)
+- `_DIRECTION_WORDS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 406)
+- `HINT_FEEDBACK_ROLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 730)
+- `HINT_TEXT_CHARS` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 732)
+- `WORKBENCH_TEXT_ROLES` ([src/learnloop/diagnosis/text_gaps/sources.py](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 861)
 
 ### Explicit exports
 
@@ -123,12 +118,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `SourceWithheld`
 - `StuckTextSource`
 - `diagnosis_text`
-- `FIGURE_EXPLANATION_SUFFIX`
-- `FIGURE_PREDICTION_PREFIX`
 - `explained_predictions`
-- `figure_input_manifest`
 - `figures_enabled`
-- `figure_prediction_id`
 - `figure_prediction_row`
 - `figure_prediction_text`
 - `figure_prediction_withheld`
@@ -158,14 +149,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_item_subject(vault: LoadedVault, item: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 64)
-- `_diagnosis_row(repository: Repository, diagnosis_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 132)
-- `_missed_answer_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 697)
-- `_key_texts(repository: Repository, keys: Sequence[tuple[str, str]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 710) — The passages' texts in order, across sources (one source: :func:`_span_texts`).
-- `_span_texts(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 720)
-- `_json_field(value: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 835)
-- `_assist_text(repository: Repository, item: Any, assist_id: str | None) -> tuple[str, int | None]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 843) — The text a learner replied to (a hint, or a discriminating question) and its level.
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 917)
+- `_item_subject(vault: LoadedVault, item: Any) -> str | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 70)
+- `_diagnosis_row(repository: Repository, diagnosis_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 138)
+- `_missed_answer_ids(repository: Repository) -> list[str]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 644)
+- `_key_texts(repository: Repository, keys: Sequence[tuple[str, str]]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 657) — The passages' texts in order, across sources (one source: :func:`_span_texts`).
+- `_span_texts(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 667)
+- `_json_field(value: Any) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 782)
+- `_assist_text(repository: Repository, item: Any, assist_id: str | None) -> tuple[str, int | None]` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 790) — The text a learner replied to (a hint, or a discriminating question) and its level.
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../../src/learnloop/diagnosis/text_gaps/sources.py), line 864)
 
 ## Who imports or calls it
 
@@ -173,9 +164,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] — imports `figure_prediction_withheld`; statically calls `figure_prediction_withheld`
-- [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `FIGURE_EXPLANATION_SUFFIX`, `SourceWithheld`, `StuckTextSource`, `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`; statically calls `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `SourceWithheld`, `StuckTextSource`, `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`; statically calls `attempt_grade_held`, `explained_predictions`, `figures_enabled`, `formative_row`, `hint_feedback_ids`, `hint_feedback_row`, `is_figure_prediction`, `learner_note_ids`, `learner_notes_enabled`, `learner_text`, `missed_formative_ids`, `stuck_text_for`, `stuck_texts`, `workbench_text_ids`, `workbench_text_row`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]] — imports `learner_note_refusal`; statically calls `learner_note_refusal`
-- [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`; statically calls `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`
 
 ## Dependencies
 
@@ -187,6 +177,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `lesson`, `turns`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/contract|learnloop.diagnosis.text_gaps.contract]] — imports `GapReading`, `LearnerText`; calls `GapReading`, `LearnerText`
+- [[Reference/Modules/learnloop/diagnosis/text_gaps/figure_inputs|learnloop.diagnosis.text_gaps.figure_inputs]] — imports `FIGURE_PREDICTION_PREFIX`, `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`; calls `figure_input_keys`, `figure_input_manifest`, `figure_prediction_id`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figure_home_keys`, `figures_enabled`; calls `figure_home_keys`, `figures_enabled`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `prerequisite_learning_objects`; calls `prerequisite_learning_objects`
 - [[Reference/Modules/learnloop/reader/reader_progression|learnloop.reader.reader_progression]] — imports `learning_objects_for_span`; calls `learning_objects_for_span`
@@ -207,7 +198,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]], [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/pipeline|learnloop.diagnosis.text_gaps.pipeline]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -220,14 +211,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_what_changed_is_kept_once_and_read_with_the_missed_prediction`
 - [tests/test_figures_codex_review.py](../../../../../../../tests/test_figures_codex_review.py) — direct import
   - `test_f5_an_explained_source_with_no_explanation_reads_nothing`
-  - `test_f5_an_explanation_after_the_reading_is_read_as_its_own_text`
-- [tests/test_figures_fix_round2.py](../../../../../../../tests/test_figures_fix_round2.py) — direct import
-  - `test_f1_a_later_explanation_of_a_held_out_figure_is_skipped_too`
-  - `test_f5_off_save_on_sweep_reads_the_explanation_once`
-- [tests/test_figures_fix_round3.py](../../../../../../../tests/test_figures_fix_round3.py) — direct import
-  - `test_f5_an_explanation_repeating_the_answer_is_still_read`
-- [tests/test_figures_fix_round4.py](../../../../../../../tests/test_figures_fix_round4.py) — direct import
-  - `test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text`
 - [tests/test_figures_show_me.py](../../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_a_missed_predictions_text_rechecks_the_retrieved_passages`
 - [tests/test_figures_show_me_codex_review.py](../../../../../../../tests/test_figures_show_me_codex_review.py) — direct import

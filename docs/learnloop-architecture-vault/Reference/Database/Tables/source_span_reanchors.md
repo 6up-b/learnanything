@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/data_capture/reading_exposures.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/ingest/reanchor.py"
+  - "src/learnloop/db/stores/source_documents.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop_sidecar/handlers/reader.py"
 tags:
@@ -90,10 +90,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_documents.py`
 
 ### Upstream callers of the repository access surface
 
