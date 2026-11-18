@@ -57,6 +57,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.clock import utc_now_iso
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX
 
 _LOG = logging.getLogger(__name__)
 
@@ -68,9 +69,6 @@ _SET_ASIDE = ("retired", "demoted")
 _NAMING_KINDS = ("prerequisite", "misconception")
 #: A statement shown in the record at most this long (``section_coverage.STATEMENT_CHARS``, a display bound).
 STATEMENT_CHARS = 600
-#: A lesson option's ref (``daily_plan.types.LESSON_OFFER_PREFIX``; the teacher may not import the plan, so a test pins the
-#: two equal).
-LESSON_OFFER_PREFIX = "lesson_offer:"
 
 NO_ORIGIN = "the lesson's offer is not on record"
 NO_MISS = "no attempt on these topics before the offer"

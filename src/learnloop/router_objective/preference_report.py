@@ -27,13 +27,14 @@ from typing import Any
 from learnloop.db.stores import router as router_store
 from learnloop.router_objective.picks import DELAYED_LABEL
 from learnloop.router_objective.preferences import KINDS, STOP, kind_of
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
+from learnloop.router_objective.types import STOP_FOR_TODAY
 
 VERSION = "ih4_preference_report_v1"
 SELF_SELECTED = DELAYED_LABEL
 COMPARISON_LABEL = (f"{DELAYED_LABEL}; the router's draw of the same kind is randomized only in what it drew, and the "
                     "groups differ in who chose and when, so neither column says which works better")
 NOT_USING = "a decision where the link wasn't used said nothing: it is never counted as agreeing with what was served"
-OFFER_PREFIX = "lesson_offer:"
 WHAT_MOVES_W_PREF = (
     "w_pref is fitted only on the mix's randomized draws, never on a pick. It moves once a decision with a frozen sensor "
     "(any preference with frozen features before it) has some spread under its served distribution, its window has "
@@ -175,7 +176,7 @@ def section(connection: Any) -> dict[str, Any]:
         for decision_id, chosen, created in connection.execute(
                 "SELECT id, chosen_ref, created_at FROM router_decisions WHERE decision_kind = 'plan_block' AND created_at "
                 ">= ? ORDER BY created_at, id", (first,)).fetchall():
-            if str(decision_id) in overridden or chosen == "stop_for_today":
+            if str(decision_id) in overridden or chosen == STOP_FOR_TODAY:
                 continue
             block = _block(connection, str(decision_id))
             if block is None:

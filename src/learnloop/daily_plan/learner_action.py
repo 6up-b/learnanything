@@ -55,7 +55,7 @@ PHONE_SURFACES = ("phone_feedback", "phone_today")
 WAITS_ON_DESKTOP = "waits_on_desktop"
 #: How the override's decision says it was served (``detail.override.serving``), besides :data:`WAITS_ON_DESKTOP`.
 DESKTOP_OPENS_LESSON = "desktop_opens_lesson"
-SERVING_STOP = "stop_for_today"
+SERVING_STOP = STOP_FOR_TODAY
 SERVING_BLOCK = "block"
 
 

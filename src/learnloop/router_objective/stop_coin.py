@@ -63,6 +63,7 @@ import math
 from typing import Any
 
 from learnloop.router import mixture as mx
+from learnloop.router_objective.types import STOP_FOR_TODAY as STOP
 
 VERSION = "ro5_stop_coin_v1"
 KAPPA_VERSION = "kappa_posterior_luce_v1"
@@ -74,7 +75,6 @@ OFFER_STOP = "offer_stop"
 PRESENT_NEXT = "present_next"
 POLICY = "policy"
 ARMS: tuple[str, ...] = (OFFER_STOP, PRESENT_NEXT, POLICY)
-STOP = "stop_for_today"
 #: Why a decision carries no §8.7 score: the coin, not the mix, chose what was served.
 FORCED = "stop_coin_forced"
 #: κ0's regimes.

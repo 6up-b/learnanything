@@ -80,7 +80,6 @@ from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.daily_plan.types import (
     CONTINUE_CURRENT,
     FOLLOWUP_CONTEST_NOTE,
-    LESSON_OFFER_SUBTYPE,
     STOP_FOR_TODAY,
     STOP_OFFER_MINUTES,
     BlockCandidate,
@@ -723,9 +722,9 @@ class ObjectiveChooser(RouterChooser):
         # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer the boundary added is never the staged rule's
         # pick nor in staged's top-k order: it joins the support beside them (one offer a decision). With none, the
         # predecessor's decision exactly.
-        offers = [candidate for candidate in feasible if candidate.subtype == LESSON_OFFER_SUBTYPE]
+        offers = [candidate for candidate in feasible if OT.is_offer(candidate.subtype)]
         if offers:
-            feasible = [candidate for candidate in feasible if candidate.subtype != LESSON_OFFER_SUBTYPE]
+            feasible = [candidate for candidate in feasible if not OT.is_offer(candidate.subtype)]
         # IH2 (spec_instruct_handoff_v1 §5 item 2): follow-ups against a lesson offer: these two are the decision.
         contest = next((candidate for candidate in feasible if _is_contest(candidate)), None)
         staged = StagedChooser(card_builder=None).choose(state, feasible)
@@ -830,7 +829,7 @@ class ObjectiveChooser(RouterChooser):
                          numeric_seed: str) -> Prefetch:
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        options = [_offer_option(by_id[ref], titles) if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE
+        options = [_offer_option(by_id[ref], titles) if ref in by_id and OT.is_offer(by_id[ref].subtype)
                    else _contest_option(by_id[ref], titles) if ref in by_id and _is_contest(by_id[ref])
                    else _option(by_id[ref], titles) if ref in by_id
                    else rq.BlockOption(ref=ref, description=rq.STOP_OFFER_DESCRIPTION)
@@ -1127,7 +1126,7 @@ class ObjectiveRestraintGate(RestraintGate):
             entry = self.runtime.lookup(self.scope, key)
             if entry is None:
                 # SG1: an offer among the valued arms (never on the shared card) gets its miss's cause on the LLM's state.
-                offers = [part for part in values.values() if getattr(part, "subtype", None) == LESSON_OFFER_SUBTYPE]
+                offers = [part for part in values.values() if OT.is_offer(getattr(part, "subtype", None))]
                 entry = (start or self._start_policy)(key, state, candidates, topic, options, extra, ready,
                                                       **({"offers": offers} if offers else {}))
             from learnloop.daily_plan.router_chooser import _await as await_entry
@@ -1196,7 +1195,7 @@ class ObjectiveRestraintGate(RestraintGate):
         )
         why = router_why.FOLLOWUP_WAITS if drawn.chosen == CONTINUE_CURRENT else ""
         offer_drawn = values.get(drawn.chosen)
-        if offer_drawn is not None and offer_drawn.subtype == LESSON_OFFER_SUBTYPE:
+        if offer_drawn is not None and OT.is_offer(offer_drawn.subtype):
             # IH2 (spec_instruct_handoff_v1 §5 item 3): the offer page's words for this draw, under the block's guard.
             _code, rule = _rule_sentence(offer_drawn, state)
             cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()

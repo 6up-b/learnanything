@@ -27,6 +27,7 @@ from typing import Any
 
 from learnloop import provenance
 from learnloop.db.stores.provenance import time_precision_ms
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX
 
 LABEL = "reconstructed"
 
@@ -38,8 +39,7 @@ FIGURE_AUTHOR_OWNER = "figure_author"
 #: ``daily_plan.lesson_offer``: the ``expired`` row's key naming why an offer was taken back, or the newer decision.
 WITHDRAWN_KEY = "withdrawn"
 SUPERSEDED_KEY = "superseded_by_decision"
-#: ``daily_plan.lesson_offer.offer_ref``'s prefix: a lesson offer's candidate ref.
-OFFER_PREFIX = "lesson_offer:"
+OFFER_PREFIX = LESSON_OFFER_PREFIX
 
 #: A figure verification problem's code, from the text an old report stored (``figures.records`` gives new rows these
 #: codes at the source). A schema path (``predictions.0.change.param``) or ``prediction N:`` is the prediction's own

@@ -24,15 +24,16 @@ import json
 import math
 from typing import Any
 
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
+from learnloop.router_objective.types import STOP_FOR_TODAY as STOP
+
 #: v1: the drawn option's forecasts, its block the decision's first served presentation, its topic the main LO.
 BINDING_VERSION = "ro4-policy-forecast-binding-v1"
 FORECASTER = "router_llm_choice_v3"
-STOP = "stop_for_today"
 #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a drawn lesson offer's forecast is bound, when the learner accepted
 #: it, to the target's first qualifying cold outcome after the lesson closed; declined, ignored, an alternative
 #: chosen or a lesson that never opened is censored, as a decision that served nothing is. A new binding version.
 OFFER_BINDING_VERSION = "te3b-lesson-offer-forecast-binding-v1"
-OFFER_PREFIX = "lesson_offer:"
 
 
 def _offer_anchor(connection: Any, decision_id: str) -> tuple[dict[str, Any] | None, str]:

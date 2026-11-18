@@ -33,6 +33,23 @@ PRACTICE_KINDS = frozenset({REVIEW, NEW_PRACTICE, REPAIR, TEACH_BACK})
 KINDS = frozenset({REVIEW, NEW_PRACTICE, READING, PROBE, REPAIR, TEACH_BACK, LESSON, STOP, SEQUENCE})
 
 
+#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a plan block of its own (no items, no reading) whose
+#: card the learner answers; its candidate id is ``lesson_offer:<LO>``. Only at TE3b's tag with its switch on. Defined
+#: here, below ``daily_plan``, so the plan and the objective's modules read one name; ``router``, ``db`` and
+#: ``followup_serve`` sit below this package and keep their own copies (``tests/test_action_kinds_complete.py`` holds
+#: them equal).
+LESSON_OFFER_SUBTYPE = "lesson_offer"
+LESSON_OFFER_PREFIX = f"{LESSON_OFFER_SUBTYPE}:"
+#: The plan's stop option: offered when minutes_left < 5 or nothing is feasible.
+STOP_FOR_TODAY = "stop_for_today"
+
+
+def is_offer(subtype: str | None) -> bool:
+    """Tell an offer block apart by its subtype."""
+
+    return subtype == LESSON_OFFER_SUBTYPE
+
+
 @dataclass(frozen=True)
 class Topic:
     """One valued topic (an LO) as the decision believed it."""
@@ -207,5 +224,5 @@ def cutoff_for(horizon_days: float, dated: Sequence[DatedUse]) -> float:
 __all__ = [
     "Action", "CauseSplit", "DatedUse", "EffectSlope", "Inputs", "KINDS", "LESSON", "Learning", "NEW_PRACTICE",
     "PRACTICE_KINDS", "PROBE", "Price", "READING", "REPAIR", "REVIEW", "SEQUENCE", "STOP", "TEACH_BACK", "Topic",
-    "cutoff_for",
+    "LESSON_OFFER_PREFIX", "LESSON_OFFER_SUBTYPE", "STOP_FOR_TODAY", "cutoff_for", "is_offer",
 ]

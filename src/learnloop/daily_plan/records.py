@@ -13,7 +13,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.daily_plan.types import LANES, LESSON_OFFER_SUBTYPE, ReadingTarget
+from learnloop.daily_plan.types import LANES, STOP_FOR_TODAY, ReadingTarget
+from learnloop.router_objective.types import is_offer
 
 _EPS = 1e-9
 
@@ -31,7 +32,7 @@ AD_INELIGIBLE = "ad_ineligible"
 
 #: Plan-level receipt rows (``attention_blocks`` rows with a NULL
 #: ``plan_ordinal``): decisions that are not blocks (review F6, F10).
-RECEIPT_STOP = "stop_for_today"
+RECEIPT_STOP = STOP_FOR_TODAY
 RECEIPT_OPEN_LIST_PICK = "open_list_pick"
 
 
@@ -158,7 +159,7 @@ class PlannedBlock:
         """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the block is a lesson offer's card (no items, no reading);
         it ends with the learner's answer (or ``ignored``)."""
 
-        return self.subtype == LESSON_OFFER_SUBTYPE and self.reading is None
+        return is_offer(self.subtype) and self.reading is None
 
     @property
     def interrupts(self) -> bool:

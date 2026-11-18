@@ -14,6 +14,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol
 
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY
+
 Lane = Literal["repair", "maintain", "new", "push"]
 
 #: Lane order for ties (lane_quota_v1) and for display.
@@ -44,13 +46,7 @@ ChosenBy = Literal["lane_quota", "staged", "mixture", "learner_pick"]
 WhyKind = Literal["computed", "model_written", "model_no_rationale"]
 
 CONTINUE_CURRENT = "continue_current"  # offered while a block is in progress
-STOP_FOR_TODAY = "stop_for_today"  # offered when minutes_left < 5 or nothing feasible
 
-#: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, a plan block of
-#: its own (no items, no reading) whose card the learner answers; its candidate
-#: id is ``lesson_offer:<LO>``. Only at TE3b's tag with its switch on.
-LESSON_OFFER_SUBTYPE = "lesson_offer"
-LESSON_OFFER_PREFIX = "lesson_offer:"
 #: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5): the boundary's follow-ups as one candidate against a lesson offer
 #: (``followup_contest:<first item>``; its annotation :data:`FOLLOWUP_CONTEST_NOTE` marks it). Only with IH2's switch on.
 FOLLOWUP_CONTEST_PREFIX = "followup_contest:"

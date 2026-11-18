@@ -31,11 +31,10 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
 from learnloop.followup_serve.gates import SERVING_SURFACE
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX
 
 LOG = logging.getLogger(__name__)
 
-#: IH2: a drawn lesson offer's ref (``daily_plan.types.LESSON_OFFER_PREFIX``).
-LESSON_OFFER_PREFIX = "lesson_offer:"
 ASK_NOW = "insert_now"
 WAIT = "continue_current"
 NO_INTERVENTION = "no_intervention"

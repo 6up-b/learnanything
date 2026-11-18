@@ -78,6 +78,8 @@ from typing import Any
 
 import numpy as np
 
+from learnloop.router_objective import types as OT
+
 FEATURES_VERSION = "ro6_belief_features_v2"
 FIT_VERSION = "ro6_fqe_ridge_v1"
 WEIGHT_VERSION = "ro6_residual_weight_slope_rank_v6"
@@ -197,12 +199,17 @@ class ActionView:
 
 
 def kind_group(kind: str | None) -> str:
+    if kind in {OT.REVIEW, OT.NEW_PRACTICE, OT.REPAIR, OT.TEACH_BACK, OT.LESSON, OT.SEQUENCE}:
+        return "practice"
     if kind == STOP_KIND:
         return STOP_KIND
     if kind == READING_KIND:
         return READING_KIND
     if kind == PROBE_KIND:
         return PROBE_KIND
+    if kind in OT.KINDS:
+        raise ValueError(f"objective action kind {kind!r} has no learned-tail group")
+    # Older trace rows can have no recorded kind. Keep their practice features.
     return "practice"
 
 

@@ -36,7 +36,6 @@ from typing import Any
 from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import (
     FOLLOWUP_CONTEST_NOTE,
-    LESSON_OFFER_SUBTYPE,
     STOP_FOR_TODAY,
     BlockCandidate,
     PlanState,
@@ -611,7 +610,7 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
                spread: float) -> OT.Action:
     """§8.1's interface for one candidate block."""
 
-    if candidate.subtype == LESSON_OFFER_SUBTYPE:
+    if OT.is_offer(candidate.subtype):
         # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, valued by RO4's offer branches: accepted, the
         # lesson (TE3a's curve at the learned check mass, its minutes log-normal, its retention check committed);
         # declined, the tail's next non-offer block. ``p`` per draw from the acceptance model's Beta.
@@ -806,13 +805,13 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         steps = tuple(_step(action_for(vault, repository, part, practiced=practiced_set, spread=spread_used))
                       for part in declined_steps)
         after_decline = (steps[0] if len(steps) == 1 else OT.Action(
-            ref="lesson_offer:declined", kind=OT.SEQUENCE, steps=steps, item_los=tuple(lo for step in steps for lo in step.item_los),
+            ref=f"{OT.LESSON_OFFER_PREFIX}declined", kind=OT.SEQUENCE, steps=steps, item_los=tuple(lo for step in steps for lo in step.item_los),
             minutes=sum(step.minutes for step in steps)))
         actions = [replace(action, declined=after_decline) if action.accept is not None and action.kind == OT.LESSON else action
                    for action in actions]
     # The tail's block is the support's practice and reading blocks (TE3b: never a lesson offer's card).
     blocks = [candidates[ref] for ref in support if ref in candidates
-              and candidates[ref].subtype != LESSON_OFFER_SUBTYPE]
+              and not OT.is_offer(candidates[ref].subtype)]
     block_minutes = (sum(float(block.est_minutes) for block in blocks) / len(blocks)) if blocks else max(remembered, 1.0)
     block_items = max(int(round(sum(max(len(block.item_ids), 1) for block in blocks) / len(blocks))), 1) if blocks else 1
     learning = _learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES)

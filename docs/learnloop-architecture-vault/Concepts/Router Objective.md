@@ -64,3 +64,21 @@ The ledger also keeps `unmeasured`: the share of the undated rewards from topics
 - **A term's sign, weight or inclusion in `q`**, or what the trace reports of it: `objective.py` and `tests/test_objective_terms.py`.
 - **A new quantity to simulate**: also `rollouts.py`, where the quantity accrues. A new ledger field enters `_Ledger`, `_LEDGER_FIELDS`, `q` and `_terms`, and the trace records it through `_terms` with no change of its own.
 - A change that moves a served decision follows `docs/algorithm-change-playbook.md`.
+
+## How to add an action kind
+
+The four places marked † still need an edit when the new kind has its own effect and offer builder.
+
+1. Give it a name in `router_objective/types.py` and put it in `KINDS` so `Action.__post_init__` accepts it. Add it to `PRACTICE_KINDS` if it learns as practice.
+2. † Give it an effect in `router_objective/rollouts.py`, in `_Model.apply` or `_Model._segment` if it observes. Add the branch terms to `_Model.value` if the trace reports them.
+3. Give it a group in `router_objective/learned_tail.py`'s `kind_group`. An indicator of its own needs a new features version, which is an RO6 change point.
+4. If it has its own plan option, give that option its subtype and ref prefix in `daily_plan/types.py`. Use the prefix to build its refs as `daily_plan/lesson_offer.py` does in `offer_ref`. The lesson and stop names that the objective also reads live in `router_objective/types.py`.
+5. † Write `build` in the offer's builder module in `daily_plan`. Give the candidate its `reversible` and `reason_code` annotations and its card. Define what the value reads in `action_inputs`.
+6. † Wire the builder in `daily_plan/policy.py`'s `policy_for`. † Call it at the boundary through `PlanPolicy` and `_boundary` in `daily_plan/engine.py`.
+7. Build its `Action` in `daily_plan/objective_inputs.py`'s `action_for`. In `build`, set up any declined branch and leave the offer out of the tail's block.
+8. Put the option in the support in `daily_plan/objective_chooser.py`'s `ObjectiveChooser.choose`. Give it an LLM option row in `_start_objective` and describe it in `router/requests.py`, as `lesson_offer_description` does.
+9. Give the option its kind and label in `router_objective/trace_assembly.py`'s `option_kind` and `option_label`. Add its trace section in `candidate_row` if it has one.
+
+Once the kind is in `KINDS`, the guard in `tests/test_action_kinds_complete.py` fails until it has a rollout effect, a learned-tail group and a plan option case.
+
+To serve the option, follow how the current offer writes its step and handles withdrawal and supersession in `daily_plan/engine.py`. Follow its block and view in `daily_plan/records.py` and `daily_plan/view.py`, its decision in `router/plan_log.py` and its wording in `router/why.py`. Check the response store, the forecast binding in `router_objective/forecast_resolve.py`, and the sidecar and desktop that show the offer. Follow the playbook if it needs a tag.

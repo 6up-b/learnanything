@@ -15,8 +15,9 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX as PREFIX
+
 VERSION = "te3b_lesson_offer_report_v1"
-PREFIX = "lesson_offer:"
 
 
 def _has(connection: Any, table: str) -> bool:

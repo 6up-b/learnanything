@@ -293,3 +293,130 @@ store and forecast binding; the sidecar and the desktop (§2). With a tag: the p
 - Not verified: the predicted counts are on paper, not built. The line estimate in §3 is a count of the bodies that
   would move, not a diff.
 - Implementer: one Opus session, no subagents. Token use is not visible from inside the session.
+
+## 7a. The alternative, built
+
+### 1. The guard
+
+`tests/test_action_kinds_complete.py` runs on literal inputs, without a vault. For each kind in `KINDS` it builds a valid
+`Action` and runs its segment, including the effect it delegates to `apply`. The segment has no price, dated uses or
+undated density, so taking time alone cannot look like an effect. A kind with no segment effect can still change the
+ledger in `value` relative to its ordinary rollout. The guard names the two exemptions. Stop ends the session and
+sequence gets its effects from its steps.
+
+`learned_tail.kind_group` explicitly assigns review, new practice, repair, teach-back, lesson and sequence to
+`practice`. Stop, reading and probe keep their groups. The test checks that original mapping for all nine kinds.
+A kind registered in `KINDS` without a group raises. Historical strings outside `KINDS` and missing trace kinds
+keep their original `practice` fallback. Lesson's separate indicator remains governed by the features version.
+
+The trace cases pin the block, lesson-offer and stop labels through `option_kind` and `option_label`, using each
+objective kind's current plan shape. A reading supplies its section title and the sequence represents
+`continue_current`. Reversibility is a candidate field. The test exercises the chooser's support with the ordinary
+annotation or its default and with an explicit irreversible annotation. Stop has no candidate and joins only when
+offered.
+
+Adding only `"dummy_kind"` to `KINDS` in the scratch source copy produced **3 failed, 28 passed**:
+
+```text
+test_action_kind_has_a_rollout_effect[dummy_kind]
+AssertionError: 'dummy_kind' has no state or ledger effect in the rollout
+
+test_action_kind_has_its_existing_learned_tail_group[dummy_kind]
+ValueError: objective action kind 'dummy_kind' has no learned-tail group
+
+test_action_kind_trace_label_and_reversibility[dummy_kind]
+AssertionError: pin 'dummy_kind''s plan option, label and reversibility
+```
+
+### 2. The offer predicate
+
+The predicate moved to `router_objective/types.py`, where the plan, the trace and preferences can all reach it.
+`daily_plan.lesson_offer.is_offer` still names that function. It now takes a subtype string or `None`, because engine
+and preferences also have the subtype by itself. The old function had zero callers. Each object caller keeps its
+previous direct attribute access or guarded `getattr`. The engine's local `is_offer` result is called `offer_block`
+so it can call the predicate without shadowing it.
+
+| Site | Old expression | New expression |
+|---|---|---|
+| `objective_chooser.ObjectiveChooser.choose`, collect offers | `candidate.subtype == LESSON_OFFER_SUBTYPE` | `OT.is_offer(candidate.subtype)` |
+| `objective_chooser.ObjectiveChooser.choose`, filter staged support | `candidate.subtype != LESSON_OFFER_SUBTYPE` | `not OT.is_offer(candidate.subtype)` |
+| `objective_chooser.ObjectiveChooser._start_objective` | `by_id[ref].subtype == LESSON_OFFER_SUBTYPE` | `OT.is_offer(by_id[ref].subtype)` |
+| `objective_chooser.ObjectiveRestraintGate._mixed`, collect mid-block offers | `getattr(part, "subtype", None) == LESSON_OFFER_SUBTYPE` | `OT.is_offer(getattr(part, "subtype", None))` |
+| `objective_chooser.ObjectiveRestraintGate._mixed`, drawn card | `offer_drawn.subtype == LESSON_OFFER_SUBTYPE` | `OT.is_offer(offer_drawn.subtype)` |
+| `engine._persist_block` | `subtype == LESSON_OFFER_SUBTYPE` | `is_offer(subtype)` |
+| `engine._boundary`, drawn card | `decision.candidate.subtype == LESSON_OFFER_SUBTYPE` | `is_offer(decision.candidate.subtype)` |
+| `engine._boundary`, contest winner | `candidate.subtype == LESSON_OFFER_SUBTYPE` | `is_offer(candidate.subtype)` |
+| `engine._boundary`, supersession and measurement | `is_offer = subtype == LESSON_OFFER_SUBTYPE` | `offer_block = is_offer(subtype)` |
+| `objective_inputs.action_for` | `candidate.subtype == LESSON_OFFER_SUBTYPE` | `OT.is_offer(candidate.subtype)` |
+| `objective_inputs.build` | `candidates[ref].subtype != LESSON_OFFER_SUBTYPE` | `not OT.is_offer(candidates[ref].subtype)` |
+| `records.PlannedBlock.is_lesson_offer` | `self.subtype == LESSON_OFFER_SUBTYPE` | `is_offer(self.subtype)` |
+| `objective_card._card_topics` | `getattr(candidate, "subtype", None) == LESSON_OFFER_SUBTYPE` | `is_offer(getattr(candidate, "subtype", None))` |
+| `preferences.kind_of` | `subtype == _LESSON_SUBTYPE` | `OT.is_offer(subtype)` |
+| `trace_assembly.option_kind` | `candidate.subtype == LESSON_OFFER_SUBTYPE` | `OT.is_offer(candidate.subtype)` |
+| Predicate itself | `getattr(candidate, "subtype", None) == LESSON_OFFER_SUBTYPE` | `subtype == LESSON_OFFER_SUBTYPE` |
+
+`lesson_offer.record_shown` keeps `block["subtype"] != LESSON_OFFER_SUBTYPE` on the SQL row. Checks on refs
+remain prefix checks in `engine._restrained_followups`, `learner_action`, `followup_run`'s router and decision view,
+`followup_serve.workflow`, `router.plan_log`, `db.stores.router_suggestions`, `forecast_resolve`, `miss_cause_report`,
+`offer_report`, `preference_report` and `teacher.diagnosed_sources`. The annotation lookup
+`annotations.get("lesson_offer")` and the other dict lookups read the card or record fields and retain those keys.
+
+### 3. The refs
+
+| Definition in `router_objective/types.py` | Readers |
+|---|---|
+| `LESSON_OFFER_SUBTYPE = "lesson_offer"` | `is_offer`, `daily_plan.types` (re-exported for the candidate builder and SQL-row check), `preferences._LESSON_SUBTYPE` (the existing reader test), and `trace_assembly` (re-export, option kind and label dispatch) |
+| `LESSON_OFFER_PREFIX = f"{LESSON_OFFER_SUBTYPE}:"` | `daily_plan.types` and its plan callers, `objective_inputs.build` (the exact ref `lesson_offer:declined`), `forecast_resolve`, `miss_cause_report`, `offer_report`, `preference_report`, `followup_run.router`, `followup_run.decision_view`, `teacher.diagnosed_sources`, `why.reconstructed` |
+| `STOP_FOR_TODAY = "stop_for_today"` | `daily_plan.types` and its plan callers, `records.RECEIPT_STOP`, `learner_action.SERVING_STOP`, `forecast_resolve.STOP`, `sessions._STOP_ACTION`, `stop_coin.STOP`, `trace_assembly`, `objective_report`, `preference_report` |
+
+The copies across the frozen package boundary are held equal by the new plain-value test.
+`router.plan_log.OFFER_PREFIX`, `db.stores.router_suggestions.OFFER_REF_PREFIX` and
+`followup_serve.workflow.LESSON_REF_PREFIX` keep `lesson_offer:`.
+`router.decisions.STOP_REF` and `router.plan_log.STOP_REF` keep `stop_for_today`.
+These packages are imported by `router_objective`. The trace and LLM option discriminators, stored subtype and
+receipt refs keep the same bytes.
+
+### 4. The note
+
+The Router Objective concept note has the nine-step how-to from §6, the four marked editing sites, the guard and
+the serving follow-through. The status row records that the full design stopped at step 0 and the alternative is
+in the gate.
+
+### Proofs and tests
+
+- **P1.** The diff against `e5d6e3f791` leaves `tests/test_identity_pins.py`, `tests/pinned_draws.py`,
+  `tests/cli_surface.json`, the router goldens and the golden fixtures unchanged.
+- **P2.** `bash "$SCRATCH/pdraw_all.sh"` compared the ten E5 scenarios, 31 synthetic runs on each side. All ten
+  normalized outputs were byte-equal, including the tables, prompts, Decider calls and `why --json`. The decision
+  path counts also matched. The base was `git archive HEAD src tests fixtures migrations` at `e5d6e3f791`, unpacked
+  under `$SCRATCH/base-src` and put on `PYTHONPATH`. The copied E5 `pdraw.py` uses a work directory under scratch.
+  The backup supplied `pdraw.py`, so the local shell runner enumerates the ten scenarios and calls `cmp` on each pair.
+  The inherited latency normalizer emits unescaped replacement quotes in JSON-encoded columns. The byte comparison
+  used its original projection, and a separate inspection restored the escaping in memory and parsed every
+  `why` result.
+- **P3.** `py.sh python scripts/refactor_measures.py` measured **84 → 84** in the largest import component and
+  **220 → 220** modules in a cycle. The largest component's members and 71,431 lines also match. The structure
+  ratchets are unchanged, including 71 long functions and 2,351 stage-naming comment lines. The structure golden
+  stays as it is. The new test increases the test-file count from 1,435 to 1,436 and needs no golden entry.
+  The worktree's index and object store are read-only in the sandbox, so the after sweep ran the same script through
+  `py.sh` with a scratch index and object directory, after `git add -N` of the new test in that index.
+  `lint-imports --no-cache` kept all 43 contracts.
+- `t.sh tests/test_action_kinds_complete.py -q -n 3` passed all 28 cases. The same file in the scratch source copy
+  (`--rootdir="$SCRATCH/dummy-src" -o "pythonpath=$SCRATCH/dummy-src/src" -q -n 3`) had the three intended failures
+  above and 28 passes.
+- `t.sh tests/test_identity_pins.py tests/test_architecture.py tests/test_test_layout.py tests/test_structure_ratchets.py -q -n 3`
+  passed all 364 cases.
+- `bash "$SCRATCH/select_tests.sh"` found 61 keyword-matched files. `bash "$SCRATCH/run_targeted.sh"` ran 54 of them
+  in one explicit-path `t.sh` command with `-q -m "not arc_close" -n 3`. The result was 1,087 passed and 24 failed.
+  All 24 failures were in `tests/test_plan_first_transport.py`, with `PermissionError: [Errno 1] Operation not permitted`
+  opening the fake server's loopback socket. The exact paths, command and failed cases are in
+  `$SCRATCH/runnable-tests.txt` and `$SCRATCH/targeted-1.txt`.
+- `py.sh ruff check` passed. `py.sh lint-imports --no-cache` finished with 43 kept and 0 broken.
+- **Not verified here.** The 24 socket cases above and these seven selected files with mobile startup or a known
+  startup hang: `tests/test_ih3_phone_host.py`, `tests/test_ih4_preferences_inform_router.py`,
+  `tests/test_ih6_workbench_open_item.py`, `tests/test_mobile_v2_feedback.py`,
+  `tests/test_mobile_v2_objective_stop.py`, `tests/test_mobile_v2_rereview_fixes.py` and
+  `tests/test_mobile_v4_plan.py`. The three other named startup exclusions, `tests/test_mobile_v3_probes.py`,
+  `tests/test_mobile_rpc.py` and `tests/test_mobile_v4_reader.py`, were outside the keyword selection.
+
+One Codex session implemented the alternative. The worktree had no `.pytest_tmp/run-*` directory after the checks.

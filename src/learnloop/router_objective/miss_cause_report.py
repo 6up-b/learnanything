@@ -22,9 +22,9 @@ import json
 from typing import Any
 
 from learnloop.router_objective import miss_cause as MC
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
 
 VERSION = "sg_miss_cause_report_v1"
-OFFER_PREFIX = "lesson_offer:"
 WHAT_MOVES = ("beta moves once diagnosed misses are followed by a cold check on the same topic with nothing in between "
               "and the diagnosis is not all on one side; gamma_gap and gamma_slip move once a lesson that ran from an "
               "offer with a diagnosed sensor has a later qualifying cold outcome on its topic")

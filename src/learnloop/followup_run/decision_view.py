@@ -13,6 +13,7 @@ import json
 from typing import Any
 
 from learnloop.db.repositories import Repository
+from learnloop.router_objective.types import LESSON_OFFER_PREFIX
 
 _ARMS: Mapping[str, str] = {
     "insert_now": "ask now", "continue_current": "wait", "no_intervention": "no question", "decline": "can't ask",
@@ -37,7 +38,7 @@ def _parsed(value: Any) -> Any:
 
 
 def _label(ref: str) -> str:
-    if ref.startswith("lesson_offer:"):
+    if ref.startswith(LESSON_OFFER_PREFIX):
         return "lesson"  # IH2: a lesson offer among the arms
     return _ARMS.get(ref, ref.replace("_", " "))
 

@@ -67,6 +67,7 @@ from learnloop.router import lesson_suggestions as LS
 from learnloop.router_objective import learned_tail as LT
 from learnloop.router_objective import scores as S
 from learnloop.router_objective import tail_data as TD
+from learnloop.router_objective import types as OT
 
 LOG = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ WORDS: Mapping[str, str] = {
 #: The effects, in order. Each is 0 at the reference (no time of day aside, a lesson fits in the minutes left, nothing
 #: missed), as TE1b's context.
 TERMS: tuple[str, ...] = ("intercept", "hour_sin", "hour_cos", "minutes_short", "last_miss")
-_LESSON_SUBTYPE = "lesson_offer"
+_LESSON_SUBTYPE = OT.LESSON_OFFER_SUBTYPE
 
 
 def kind_of(*, reading: Any, subtype: str | None, lane: str | None) -> str:
@@ -101,7 +102,7 @@ def kind_of(*, reading: Any, subtype: str | None, lane: str | None) -> str:
 
     if reading is not None:
         return READ
-    if subtype == _LESSON_SUBTYPE:
+    if OT.is_offer(subtype):
         return LESSON
     if lane == "new":
         return NEW

@@ -103,7 +103,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E3 | Move job control and clocks out of choice | landed | `13925e8bbf` | [refactor-e3.md](refactor-e3.md) | — |
 | E4 | Move trace assembly out of the chooser | landed | `8eb1c94b4d` | [refactor-e4.md](refactor-e4.md) | — |
 | E5 | Separate objective terms from rollout arithmetic | in the gate | — | [refactor-e5.md](refactor-e5.md) | — |
-| E6 | Put each router action in one place | in the gate | — | [refactor-e6.md](refactor-e6.md) | Stopped at step 0 by its own rule (the record's §4); its smaller alternative (§5) is the orchestrator's call |
+| E6 | Put each router action in one place | in the gate | — | [refactor-e6.md](refactor-e6.md) | The stop rule stopped the full design at step 0. The alternative lands with a guard test, one offer predicate, one definition of the refs and a how-to list. |
 | E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
 | E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
 | E8 | Remove performance switches from learned model identity | deferred | — | — | Goes with F2 (owner, Nov 17: F2 only if Next after feedback is slow) |

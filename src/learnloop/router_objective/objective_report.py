@@ -27,6 +27,8 @@ import json
 from statistics import mean
 from typing import Any
 
+from learnloop.router_objective.types import STOP_FOR_TODAY
+
 REPORT_VERSION = "router_objective_report_v1"
 
 
@@ -53,7 +55,7 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
     blocks = [row for row in rows if row["decision_kind"] == "plan_block"]
     total = len(blocks)
     drawn = Counter(str(row["drawn_component"]) for row in blocks)
-    stops = sum(1 for row in blocks if row["chosen_ref"] == "stop_for_today")
+    stops = sum(1 for row in blocks if row["chosen_ref"] == STOP_FOR_TODAY)
     by_day: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in blocks:
         by_day[str(row["local_date"])].append(row)
@@ -62,7 +64,7 @@ def build(connection: Any, *, now: str, weight: Mapping[str, Any] | None = None,
         minutes = [float(row["session_minutes"]) for row in entries if row["session_minutes"] is not None]
         days.append({
             "local_date": day, "decisions": len(entries),
-            "stop_share": round(sum(1 for row in entries if row["chosen_ref"] == "stop_for_today") / len(entries), 4),
+            "stop_share": round(sum(1 for row in entries if row["chosen_ref"] == STOP_FOR_TODAY) / len(entries), 4),
             "stop_in_support_share": round(sum(1 for row in entries if row["stop_in_support"]) / len(entries), 4),
             "session_minutes_max": max(minutes) if minutes else None,
             "remembered_minutes": entries[-1]["remembered_minutes"],

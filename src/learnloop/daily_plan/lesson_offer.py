@@ -45,6 +45,7 @@ from learnloop.daily_plan import plan_records
 from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, BlockCandidate
 from learnloop.db.stores import router_suggestions as store
 from learnloop.router import lesson_suggestions as LS
+from learnloop.router_objective.types import is_offer as is_offer
 
 LOG = logging.getLogger(__name__)
 
@@ -73,10 +74,6 @@ def offers_on(vault: Any) -> bool:
     from learnloop.router_objective_switches import lesson_offers_on
 
     return lesson_offers_on(vault.config) and objective_active(vault)
-
-
-def is_offer(candidate: Any) -> bool:
-    return getattr(candidate, "subtype", None) == LESSON_OFFER_SUBTYPE
 
 
 def offer_ref(learning_object_id: str) -> str:

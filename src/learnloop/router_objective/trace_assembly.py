@@ -9,10 +9,10 @@ LLM's card, the carried valuations); :func:`decision_trace` is its common part, 
 Each option in the support supplies its own row (:func:`candidate_row`): stop, a block or a lesson offer, told apart by
 the option's own fields.
 
-A leaf like ``choose``: it cannot import ``daily_plan``, so the few names it compares with the plan's are repeated here
-(``tests/test_objective_trace.py`` holds them equal); the numeric answer, the models' results and the candidates are
-read by their attributes. It is apart from ``trace`` because the trace's own pieces (the learned tail's terms, the
-preferences' values) import ``tail_data``, which imports ``trace``: in one module they would make an import cycle.
+The plan and this module read the same option refs and subtype from ``types``. The numeric answer, the models'
+results and the candidates are read by their attributes. It is apart from ``trace`` because the trace's own pieces
+(the learned tail's terms, the preferences' values) import ``tail_data``, which imports ``trace``: in one module they
+would make an import cycle.
 """
 
 from __future__ import annotations
@@ -30,16 +30,15 @@ from learnloop.router_objective import stop_coin as SC
 from learnloop.router_objective import ad_link as ADL
 from learnloop.router_objective import objective as OBJ
 from learnloop.router_objective import rollouts as ROL
+from learnloop.router_objective import types as OT
+from learnloop.router_objective.types import LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY
 from learnloop.router_objective.choose import ANSWERED, NOT_READY
 from learnloop.router_objective_switches import failure_share_to_other_policy_on
 
-#: ``daily_plan.types``' names for stop and a lesson offer's subtype, and ``daily_plan.objective_inputs``' source key
-#: of the miss-cause sensor.
-STOP_FOR_TODAY = SC.STOP
-LESSON_OFFER_SUBTYPE = "lesson_offer"
+#: The source key ``daily_plan.objective_inputs`` uses for the miss-cause sensor.
 MISS_CAUSE_SOURCE = "miss_cause"
 #: The kinds of option a support holds, as their rows tell them apart.
-STOP, LESSON_OFFER, BLOCK = "stop", "lesson_offer", "block"
+STOP, LESSON_OFFER, BLOCK = "stop", LESSON_OFFER_SUBTYPE, "block"
 
 
 def option_kind(ref: str, candidate: Any) -> str | None:
@@ -49,7 +48,7 @@ def option_kind(ref: str, candidate: Any) -> str | None:
         return STOP
     if candidate is None:
         return None
-    return LESSON_OFFER if candidate.subtype == LESSON_OFFER_SUBTYPE else BLOCK
+    return LESSON_OFFER if OT.is_offer(candidate.subtype) else BLOCK
 
 
 def option_label(kind: str | None, candidate: Any, titles: Mapping[str, str]) -> str | None:
@@ -58,8 +57,7 @@ def option_label(kind: str | None, candidate: Any, titles: Mapping[str, str]) ->
     match kind:
         case "stop":
             return "stop for today"
-        case "lesson_offer":
-            # Teacher TE3b: the offer card, in plain words.
+        case OT.LESSON_OFFER_SUBTYPE:
             topic = ", ".join(dict.fromkeys(titles.get(lo, lo) for lo in candidate.learning_object_ids))
             return f"offer a lesson on {topic} (about {max(1, round(candidate.est_minutes))} min)"
         case "block":

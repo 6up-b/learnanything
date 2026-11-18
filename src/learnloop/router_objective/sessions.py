@@ -24,6 +24,8 @@ from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.data_capture.gates import objective_receipts_on
 from learnloop.db.stores import router_objective as store
 from learnloop.ids import new_ulid
+#: A plan block the plan itself numbered: a stop's receipt row has no ordinal.
+from learnloop.router_objective.types import STOP_FOR_TODAY as _STOP_ACTION
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +48,6 @@ CLIENT_END_REASONS: frozenset[str] = frozenset({
     OFFERED_STOP_ACCEPTED, UNPROMPTED_STOP, APP_CLOSED, FOREGROUND_LOST, EXTERNAL_INTERRUPTION, UNKNOWN,
 })
 MISSING = "missing"
-#: A plan block the plan itself numbered: a stop's receipt row has no ordinal.
-_STOP_ACTION = "stop_for_today"
 
 
 def _dumps(value: Any) -> str:

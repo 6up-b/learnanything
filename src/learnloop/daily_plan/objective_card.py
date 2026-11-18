@@ -157,11 +157,11 @@ def learner_statements(vault: Any, repository: Any, connection: Any, *, served_a
 def _card_topics(candidates: Sequence[Any]) -> list[str]:
     """SG1: the topics the card shows a miss's cause for: a lesson offer's and each repair candidate's."""
 
-    from learnloop.daily_plan.types import LESSON_OFFER_SUBTYPE
+    from learnloop.router_objective.types import is_offer
 
     out: list[str] = []
     for candidate in candidates:
-        if getattr(candidate, "subtype", None) == LESSON_OFFER_SUBTYPE or getattr(candidate, "lane", None) == "repair":
+        if is_offer(getattr(candidate, "subtype", None)) or getattr(candidate, "lane", None) == "repair":
             out.extend(str(lo) for lo in getattr(candidate, "learning_object_ids", ()) or () if str(lo) not in out)
     return out
 
