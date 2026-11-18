@@ -1,7 +1,7 @@
 # Refactor status
 
-- Running next: E2 (the router's choice as a pure function), then E3–E6.
-- On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1; S1, S2 and M1; the K5 review with its two high fixes.
+- Running next: E5 (the objective apart from the rollouts) and E6 (an action is one place); G1 and G3 alongside; the second batch of K5 fixes.
+- On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1–E4 (the router's choice is a pure function, its job control and trace assembly are their own modules; `objective_chooser.py` is 1,473 lines); S1, S2 and M1; the K5 review with its two high fixes; `replay.ledger_bounded` removed.
 - After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
 - The owner still needs to decide: three K5 questions (whether an unattributable pass closes a repair case; the FSRS clock on skipped reviews; what a certificate probe counts), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
@@ -79,7 +79,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | D7 batch 1 part 2 | Retire cold-help and stuck prompt switches | landed | `5c561264c7` | [refactor-d7a.md](refactor-d7a.md) | — |
 | D7 batch 1 part 3 | Retire eligibility and its predecessor cold lane | landed | `1d122fee33` | [refactor-d7a.md](refactor-d7a.md) | — |
 | D7 batch 1 part 4 | Retire diagnosis split and shadow switches | landed | `250b0e16fe` | [refactor-d7a.md](refactor-d7a.md) | — |
-| D7 batch 1 part 5 | Retire bounded replay and claim fixes switches | pending gate | — | [refactor-d7f.md](refactor-d7f.md) | Bounded replay retired. Claim fixes held at the MasteryConfig shape pin |
+| D7 batch 1 part 5 | Retire bounded replay and claim fixes switches | landed | `06082c1b73` | [refactor-d7f.md](refactor-d7f.md) | — (`replay.ledger_bounded` removed; `mastery.claim_fixes_enabled` kept: its retirement moves an identity shape pin) |
 | D7 batch 2 | Retire placement, follow-up and stopping switches | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | D7 closed. Simulation needs the switches. |
 | D7 batch 3 part 1 | Retire seven Today switches and their old paths | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
 | D7 batch 3 part 2 | Retire the lesson, teacher and data capture switches | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
@@ -99,9 +99,9 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | E1 | Split the router's switches from the availability rule and the projection switches | landed | `50e5b760e3` | [refactor-e1.md](refactor-e1.md) | — |
-| E2 | Extract the chooser's pure decision function | in the gate | — | [refactor-e2.md](refactor-e2.md) | — |
-| E3 | Move job control and clocks out of choice | in the gate | — | [refactor-e3.md](refactor-e3.md) | E2 |
-| E4 | Move trace assembly out of the chooser | in the gate | — | [refactor-e4.md](refactor-e4.md) | E3 |
+| E2 | Extract the chooser's pure decision function | landed | `2bc640bf05` | [refactor-e2.md](refactor-e2.md) | — |
+| E3 | Move job control and clocks out of choice | landed | `13925e8bbf` | [refactor-e3.md](refactor-e3.md) | — |
+| E4 | Move trace assembly out of the chooser | landed | `8eb1c94b4d` | [refactor-e4.md](refactor-e4.md) | — |
 | E5 | Separate objective terms from rollout arithmetic | waiting on | — | — | E4 |
 | E6 | Put each router action in one place | waiting on | — | — | E5 |
 | E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
