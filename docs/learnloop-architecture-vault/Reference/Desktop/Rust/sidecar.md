@@ -153,6 +153,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [tests/test_ux_walk_harness.py](../../../../../tests/test_ux_walk_harness.py) — cross-boundary name contract: references uniquely owned exported name `SidecarManager`; it does **not** directly execute this source module.
 - [apps/learnloop-tauri/src-tauri/src/sidecar.rs](../../../../../apps/learnloop-tauri/src-tauri/src/sidecar.rs) — inline Rust unit-test module; run with `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - [tests/test_desktop_rpc_contract.py](../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

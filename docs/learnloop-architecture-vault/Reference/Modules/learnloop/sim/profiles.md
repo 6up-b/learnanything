@@ -84,6 +84,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/sim/__init__|learnloop.sim]] — imports `BUILTIN_PROFILES`, `load_profile`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `AUTO_FACET`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/make_vault.py](../../../../../../scripts/ux_walk/make_vault.py); calls `load_profile`
+
 ## Dependencies
 
 ### LearnLoop dependencies

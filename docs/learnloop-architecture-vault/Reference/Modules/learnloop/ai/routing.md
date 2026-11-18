@@ -191,6 +191,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `is_generation_profile`, `runtime_for_provider`; statically calls `is_generation_profile`, `runtime_for_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `provider_for_task`; statically calls `provider_for_task`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/route_check.py](../../../../../../scripts/ux_walk/route_check.py); calls `provider_for_task`
+
 ## Dependencies
 
 ### LearnLoop dependencies

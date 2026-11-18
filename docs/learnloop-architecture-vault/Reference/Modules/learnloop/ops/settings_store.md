@@ -88,6 +88,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `SettingsStoreError`, `apply_config_updates`; statically calls `apply_config_updates`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `SettingsStoreError`, `USE_CASE_ROUTES`, `apply_config_updates`, `openrouter_profile_name`, `openrouter_task_profile_values`, `save_ai_settings_to`, `upsert_env_var`; statically calls `apply_config_updates`, `openrouter_profile_name`, `openrouter_task_profile_values`, `save_ai_settings_to`, `upsert_env_var`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/bridge.py](../../../../../../scripts/ux_walk/bridge.py); calls `apply_config_updates`
+- [scripts/ux_walk/phone_proxy.py](../../../../../../scripts/ux_walk/phone_proxy.py); calls `apply_config_updates`
+
 ## Dependencies
 
 ### LearnLoop dependencies

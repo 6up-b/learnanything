@@ -111,6 +111,10 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 - [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 
+### Repository tooling consumers
+
+- [scripts/ux_walk/make_vault.py](../../../../../../scripts/ux_walk/make_vault.py); calls `read_yaml`, `write_yaml`
+
 ## Dependencies
 
 ### LearnLoop dependencies
