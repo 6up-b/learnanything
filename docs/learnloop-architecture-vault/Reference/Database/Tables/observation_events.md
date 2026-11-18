@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/attempts/observations.py"
   - "src/learnloop/cli/app.py"
@@ -85,11 +86,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Upstream callers of the repository access surface
 

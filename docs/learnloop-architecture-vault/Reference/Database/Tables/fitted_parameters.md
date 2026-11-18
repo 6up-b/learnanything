@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/fit.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/params/fitted_params.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
@@ -94,11 +95,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Upstream callers of the repository access surface
 

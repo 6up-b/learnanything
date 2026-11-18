@@ -127,9 +127,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `read_snapshot`; calls `read_snapshot`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `attempt_result`, `module`; calls `attempt_protection`, `attempt_result`, `held_attempts`, `withheld_items`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 
 ### Platform and third-party dependencies
 

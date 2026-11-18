@@ -18,10 +18,12 @@ source_paths:
   - "migrations/007_recall_coverage_interventions.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/goals/exam_session.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/db/stores/attempts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -82,15 +84,19 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/ops/doctor.py`

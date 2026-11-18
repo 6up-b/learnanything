@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/121_causal_probe_coherence.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/goals/certification_cold_probe.py"
@@ -93,7 +93,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/learner_context.py`
@@ -104,7 +104,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_health.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 

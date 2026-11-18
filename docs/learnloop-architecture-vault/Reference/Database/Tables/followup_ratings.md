@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/017_followup_ratings.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/diagnosis/gate_fit.py"
   - "src/learnloop/scheduling/evaluation.py"
   - "src/learnloop_sidecar/handlers/feedback.py"
@@ -86,10 +87,11 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 
 ### Upstream callers of the repository access surface
 

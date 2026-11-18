@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/121_causal_probe_coherence.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
@@ -97,17 +97,17 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/followup_serve.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_health.py`

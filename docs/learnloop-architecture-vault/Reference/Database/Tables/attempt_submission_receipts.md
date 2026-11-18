@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/053_attempt_submission_idempotency.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/capture/jobs.py"
   - "src/learnloop_mobile/runtime.py"
   - "src/learnloop_sidecar/handlers/practice.py"
@@ -78,11 +78,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Upstream callers of the repository access surface
 

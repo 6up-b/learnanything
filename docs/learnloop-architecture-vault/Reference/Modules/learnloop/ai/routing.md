@@ -248,6 +248,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ii_compare_scope_and_the_scope_resolver_are_separate_routes`
 - [tests/test_decider_landing.py](../../../../../../tests/test_decider_landing.py) — direct import
   - `test_nothing_in_tier1_reads_the_deleted_route_check`
+- [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
   - `test_direct_provider_resolution_defaults_to_generation`
   - `test_embedding_profile_primary_falls_back_to_a_generation_provider`

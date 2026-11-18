@@ -173,6 +173,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grade_hook_failure_completes_the_attempt`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_recovery_normalizes_with_the_configured_grading_provider`
+- [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
+  - `test_cold_check_feedback_obeys_the_final_repair_claim`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
   - `test_tui_empty_stuck_probe_answer_keeps_feedback_deferred`
 - [tests/test_stuck_prompt_composition.py](../../../../../../tests/test_stuck_prompt_composition.py) — direct import

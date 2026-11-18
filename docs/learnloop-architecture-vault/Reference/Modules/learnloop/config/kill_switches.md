@@ -47,24 +47,24 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py) |
-| Source lines | 188 |
+| Source lines | 187 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class KillSwitch(NamedTuple)` ([source](../../../../../../src/learnloop/config/kill_switches.py), line 29)
+- `class KillSwitch(NamedTuple)` ([source](../../../../../../src/learnloop/config/kill_switches.py), line 28)
 
 ### Module constants
 
-- `OUTSIDE_LEARNLOOP_TOML` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 41)
-- `TAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 43)
-- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 126)
+- `OUTSIDE_LEARNLOOP_TOML` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 40)
+- `TAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 42)
+- `UNTAGGED_SWITCHES` ([src/learnloop/config/kill_switches.py](../../../../../../src/learnloop/config/kill_switches.py), line 125)
 
 ## Internal implementation anchors
 
-- `_untagged(path: str, default: bool | float | str) -> KillSwitch` ([source](../../../../../../src/learnloop/config/kill_switches.py), line 35)
+- `_untagged(path: str, default: bool | float | str) -> KillSwitch` ([source](../../../../../../src/learnloop/config/kill_switches.py), line 34)
 
 ## Who imports or calls it
 

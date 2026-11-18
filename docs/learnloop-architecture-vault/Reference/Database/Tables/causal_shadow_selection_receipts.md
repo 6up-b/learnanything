@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/146_causal_shadow_selection.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -94,7 +94,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Direct SQL writers
 

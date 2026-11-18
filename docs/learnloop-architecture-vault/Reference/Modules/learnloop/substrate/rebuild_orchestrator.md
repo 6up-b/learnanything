@@ -148,12 +148,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`; calls `initial_mastery_state_for_learning_object`
 - [[Reference/Modules/learnloop/local_embeddings/fusion|learnloop.local_embeddings.fusion]] — imports `refit_posteriors`; calls `refit_posteriors`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`; calls `outcome_version_for`, `rebuild_router_outcomes`, `servable_items_by_learning_object`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `CANONICAL_PROJECTION_VERSION`, `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`; calls `held_for_review_attempts`, `pfc_assessments`, `project_canonical_facet_state`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `backfill_activity_substrate`; calls `backfill_activity_substrate`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `PROJECTION_LEGACY_FALLBACK`, `rebuild_family_memory`; calls `rebuild_family_memory`
 - [[Reference/Modules/learnloop/substrate/intervention_outcomes|learnloop.substrate.intervention_outcomes]] — imports `rebuild_intervention_outcomes`; calls `rebuild_intervention_outcomes`
 - [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] — imports `rebuild_item_fingerprints`; calls `rebuild_item_fingerprints`
+- [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] — imports `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] — imports `active_group_map`, `refresh_recurrence_groups`; calls `active_group_map`, `refresh_recurrence_groups`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `rebuild_derived_state`; calls `rebuild_derived_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`

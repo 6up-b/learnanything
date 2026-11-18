@@ -18,7 +18,7 @@ source_paths:
   - "migrations/116_measurement_contract_corrections.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
@@ -100,12 +100,12 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 
@@ -114,7 +114,7 @@ Database triggers:
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_gate.py`

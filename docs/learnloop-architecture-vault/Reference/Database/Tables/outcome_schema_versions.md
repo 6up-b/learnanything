@@ -18,7 +18,7 @@ source_paths:
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grader_calibration.py"
   - "src/learnloop/attempts/outcome_schemas.py"
@@ -89,11 +89,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Upstream callers of the repository access surface
 

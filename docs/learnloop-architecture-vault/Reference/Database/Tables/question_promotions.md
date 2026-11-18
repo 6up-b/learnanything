@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/questions.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/tutor/question_queue.py"
   - "src/learnloop/tutor/question_signal.py"
@@ -102,10 +103,11 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Upstream callers of the repository access surface
 

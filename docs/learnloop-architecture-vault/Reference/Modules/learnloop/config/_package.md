@@ -10,6 +10,7 @@ source_paths:
   - "src/learnloop/config/kill_switches.py"
   - "src/learnloop/config/loader.py"
   - "src/learnloop/config/retired.py"
+  - "src/learnloop/config/scheduler_switches.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
 generated: true
@@ -53,6 +54,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/config/kill_switches|learnloop.config.kill_switches]] | [[Reference/Modules/learnloop/config/kill_switches#^module-purpose|purpose]] | `ACTIVE` | 0 | 2 |
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
+| [[Reference/Modules/learnloop/config/scheduler_switches|learnloop.config.scheduler_switches]] | [[Reference/Modules/learnloop/config/scheduler_switches#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 107 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
@@ -71,7 +73,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 4 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
@@ -80,13 +82,13 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 3 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 3 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 3 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 2 static module edges
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 1 static module edge
@@ -127,7 +129,7 @@ flowchart LR
     n_learnloop_content_pipeline -->|8| center
     n_learnloop_sidecar_handlers -->|7| center
     n_learnloop_diagnosis -->|6| center
-    n_learnloop_attempts -->|4| center
+    n_learnloop_attempts -->|5| center
     n_learnloop_learner -->|4| center
     n_learnloop_projects -->|4| center
 ```

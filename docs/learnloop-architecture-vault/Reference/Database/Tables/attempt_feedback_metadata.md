@@ -18,7 +18,7 @@ source_paths:
   - "migrations/005_attempt_feedback_metadata.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/offline_review/report.py"
   - "src/learnloop/diagnosis/offline_review/runner.py"
   - "src/learnloop/diagnosis/split/history.py"
@@ -92,21 +92,21 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/post_attempt.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_sim_teach_back.py`
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_deferred_regrade.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_facet_diagnostics_v03.py`

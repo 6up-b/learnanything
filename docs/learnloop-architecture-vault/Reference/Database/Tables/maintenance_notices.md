@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/051_maintenance_feed.sql"
   - "src/learnloop/curriculum/graph_edit_proposals.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/maintenance.py"
   - "src/learnloop/diagnosis/diagnostic_surface_supply.py"
   - "src/learnloop/ops/maintenance_feed.py"
   - "src/learnloop_sidecar/handlers/app.py"
@@ -95,13 +95,13 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 - `src/learnloop/ops/maintenance_feed.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 
 ### Upstream callers of the repository access surface
 

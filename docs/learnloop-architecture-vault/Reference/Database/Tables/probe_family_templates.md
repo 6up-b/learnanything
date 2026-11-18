@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/028_probe_episodes.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/diagnosis/probe_coverage.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_families.py"
@@ -85,11 +85,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 

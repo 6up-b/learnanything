@@ -22,11 +22,10 @@ source_paths:
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/diagnoses.py"
-  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +105,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 
@@ -127,6 +128,8 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/regrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/misconceptions.py`
@@ -141,8 +144,6 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/substrate/replay.py`
-- `src/learnloop_sidecar/handlers/graph.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

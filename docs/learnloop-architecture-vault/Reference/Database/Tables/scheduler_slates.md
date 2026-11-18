@@ -19,11 +19,12 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/db/stores/learner_model.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/router/decisions.py"
-  - "src/learnloop/scheduling/slate_record.py"
-  - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/probe_audit.py"
   - "src/learnloop/scheduling/scheduler.py"
@@ -104,6 +105,8 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/db/stores/learner_model.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 
 ### Direct SQL writers
@@ -114,7 +117,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/scheduling/scheduler.py`

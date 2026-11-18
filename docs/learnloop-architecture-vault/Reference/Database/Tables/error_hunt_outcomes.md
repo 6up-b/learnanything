@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/143_instrument_classes.sql"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop_sidecar/handlers/measurement.py"
   - "src/learnloop/diagnosis/error_hunt.py"
 tags:
@@ -93,7 +93,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Direct SQL writers
 

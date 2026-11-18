@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/133_causal_mechanism_repair_key.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
@@ -83,7 +83,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Direct SQL writers
 

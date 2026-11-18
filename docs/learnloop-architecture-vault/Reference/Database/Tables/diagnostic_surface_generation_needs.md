@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/147_diagnostic_surface_generation_needs.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/diagnosis/diagnostic_surface_supply.py"
 tags:
   - "learnloop/database/table"
@@ -81,11 +81,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 

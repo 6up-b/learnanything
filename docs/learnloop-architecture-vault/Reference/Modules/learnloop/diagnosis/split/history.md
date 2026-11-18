@@ -187,13 +187,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `module`; calls `Reading`, `enabled`, `event_text`, `hedge_from_record`, `read_hedges`, `result_class`, `valid_tap`
+- [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `attempt_time_sql`, `known_at`, `validated_resolution_ids`; calls `attempt_time_sql`, `known_at`, `validated_resolution_ids`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/answered_contracts|learnloop.db.stores.answered_contracts]] — imports `answered_contracts`; calls `answered_contracts`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `all_marks`, `present`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `UNIDENTIFIED_GRADING`, `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`; calls `grading_marks`, `read_snapshot`, `replaced_error_event_attempts`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `hypothesis_marks_on`; calls `hypothesis_marks_on`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `grade_held_for_review`; calls `grade_held_for_review`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`, `known_at`, `validated_resolution_ids`; calls `attempt_time_sql`, `known_at`, `validated_resolution_ids`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `UNVERIFIED_CRITERION_BLOCK`, `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`; calls `held_for_review_attempts`, `surface_group_id`, `unverified_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `answered_prompt`; calls `answered_prompt`

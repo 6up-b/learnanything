@@ -18,11 +18,11 @@ source_paths:
   - "migrations/009_derived_state_rebuilds.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/ops/upgrades.py"
-  - "src/learnloop/placement/report.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
@@ -91,14 +91,14 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/ops/upgrades.py`
 - `src/learnloop/placement/report.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Upstream callers of the repository access surface
 

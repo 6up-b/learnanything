@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/130_causal_discriminating_observations.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
@@ -110,7 +110,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/ops/capture_report.py`
@@ -121,7 +121,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`

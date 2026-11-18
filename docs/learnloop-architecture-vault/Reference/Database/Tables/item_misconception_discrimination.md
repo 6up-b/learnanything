@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/025_misconception_registry.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/diagnostic_gate.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/misconceptions.py"
@@ -85,11 +85,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 

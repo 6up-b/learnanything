@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/151_cold_measurement_opportunities.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/router_objective/cold_timing.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
@@ -92,7 +92,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 
 ### Direct SQL writers
 

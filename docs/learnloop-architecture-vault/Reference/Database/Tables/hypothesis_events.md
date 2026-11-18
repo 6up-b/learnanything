@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/055_hypothesis_events.sql"
   - "src/learnloop/capture/report.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
   - "src/learnloop/learner/hypothesis_claims.py"
@@ -113,15 +113,15 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/capture/report.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/learner/hypothesis_claims.py`
 - `src/learnloop/learner/surfaced_beliefs.py`

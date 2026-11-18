@@ -118,6 +118,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/exam_seeding_helpers.py](../../../../../../tests/exam_seeding_helpers.py) — direct import
 - [tests/ro1_availability_reads_helpers.py](../../../../../../tests/ro1_availability_reads_helpers.py) — direct import
+- [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_dry_run_writes_nothing`
   - `test_exam_date_required_when_absent_everywhere`

@@ -271,9 +271,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] — imports `LESSON_PROBE_EVIDENCE_ORIGIN`, `LESSON_PROBE_EXPOSED_SOURCE`, `LESSON_PROBE_SOURCE`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
+- [[Reference/Modules/learnloop/config/scheduler_switches|learnloop.config.scheduler_switches]] — imports `interval_factor_removed`; calls `interval_factor_removed`
 - [[Reference/Modules/learnloop/content/proposals/self_tagged_fatal|learnloop.content.proposals.self_tagged_fatal]] — imports `maybe_promote_self_tagged_fatal_error`; calls `maybe_promote_self_tagged_fatal_error`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `FacetRecallState`, `FacetUncertaintyState`, `GradingEvidenceRecord`, `ItemParameterState`, `MasteryState`, `PracticeItemQualityState`, `PracticeItemState`, `Repository`; calls `PracticeItemState`
+- [[Reference/Modules/learnloop/db/records|learnloop.db.records]] — imports `FacetUncertaintyState`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ItemParameterState`, `MasteryState`, `PracticeItemState`, `Repository`; calls `PracticeItemState`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `GradingEvidenceRecord`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `FacetRecallState`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `ActiveErrorEvent`
+- [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] — imports `PracticeItemQualityState`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `AMBIGUOUS_DEFAULT_REVISION`, `AMBIGUOUS_METHOD_REVISION`, `KEY_IDENTITY`, `KEY_IDENTITY_FIELD`, `checked_content_hashes`, `reference_content_hash`, `reference_status_for_item`; calls `checked_content_hashes`, `reference_content_hash`, `reference_status_for_item`
 - [[Reference/Modules/learnloop/db/stores/write_provenance|learnloop.db.stores.write_provenance]] — imports `grading_in_progress`, `record_grading`; calls `grading_in_progress`, `record_grading`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `classify_attempt_activity`; calls `classify_attempt_activity`
@@ -299,7 +305,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `grade_held_for_review`, `grade_is_held`; calls `grade_held_for_review`, `grade_is_held`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `servable_open_episode`; calls `servable_open_episode`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `interval_factor_removed`; calls `interval_factor_removed`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `FSRS6_DEFAULT_WEIGHTS`, `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`; calls `MemoryState`, `Rating`, `apply_review`, `interval_for_retention`, `rating_from_score`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `module`; calls `decide`, `gather`, `log_decision`, `submit_exposure`, `with_pending_writes`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `evidence_eligibility_for`; calls `evidence_eligibility_for`
@@ -483,6 +488,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_skips_when_runtime_not_ready`
   - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+  - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — direct import
 - [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
   - `test_a_self_graded_fallback_is_regraded_blind_and_queues_its_diagnosis`

@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
-  - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/recognition/ledger.py`
@@ -128,13 +129,14 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/staged_frame.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/remediation.py`

@@ -18,11 +18,11 @@ source_paths:
   - "migrations/037_canonical_facet_state.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/db/records.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/goals/certification_cold_probe.py"
-  - "src/learnloop/goals/goal_certification.py"
-  - "src/learnloop/hints/state.py"
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
   - "src/learnloop/daily_plan/headline.py"
@@ -95,7 +95,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 - `src/learnloop/hints/state.py`
 
 ### Direct SQL writers
@@ -107,7 +107,7 @@ None found by exact static reference scan.
 - `src/learnloop/attempts/trace_evidence.py`
 - `src/learnloop/content/synthesis/coverage_rollup.py`
 - `src/learnloop/daily_plan/headline.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/goals/exam_readiness.py`

@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/149_coldness_receipts.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/learner_context.py"
@@ -104,7 +104,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/placement/state.py`
@@ -117,7 +117,7 @@ None found by exact static reference scan.
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 > [!note] Static-reference boundary
@@ -135,6 +135,7 @@ None found by exact static reference scan.
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_serve_eligibility.py`
+- `tests/test_sidecar_remediation_surfaces.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

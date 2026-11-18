@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/139_certification_cold_probes.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/goals/certification_cold_probe.py"
 tags:
   - "learnloop/database/table"
@@ -115,7 +115,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Direct SQL writers
 
@@ -123,7 +123,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 
 > [!note] Static-reference boundary

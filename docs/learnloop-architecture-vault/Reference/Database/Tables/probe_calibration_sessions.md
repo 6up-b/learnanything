@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/029_probe_selection_and_calibration.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/placement/decisions.py"
@@ -87,11 +87,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 

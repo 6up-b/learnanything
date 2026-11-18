@@ -19,8 +19,8 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/answered_contracts.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/db/stores/write_provenance.py"
@@ -93,8 +93,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/write_provenance.py`
@@ -110,13 +110,13 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/measurement_corrections.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/learner/assessment_contracts.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/serializers.py`

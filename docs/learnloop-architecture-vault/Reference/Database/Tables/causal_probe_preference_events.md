@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/124_causal_probe_decisions.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/diagnosis/probe_hard_stops.py"
 tags:
   - "learnloop/database/table"
@@ -84,11 +84,11 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 

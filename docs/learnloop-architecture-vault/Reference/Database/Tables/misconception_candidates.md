@@ -18,11 +18,11 @@ source_paths:
   - "migrations/047_compositional_misconceptions.sql"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/error_hunt.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/history.py"
-  - "src/learnloop/diagnosis/text_gaps/candidates.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
@@ -113,6 +114,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 

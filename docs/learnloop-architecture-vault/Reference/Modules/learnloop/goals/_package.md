@@ -66,7 +66,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/exam_calibration|learnloop.goals.exam_calibration]] | [[Reference/Modules/learnloop/goals/exam_calibration#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] | [[Reference/Modules/learnloop/goals/exam_pool#^module-purpose|purpose]] | `ACTIVE` | 6 | 18 |
 | [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]] | [[Reference/Modules/learnloop/goals/exam_readiness#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] | [[Reference/Modules/learnloop/goals/exam_seeding#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
+| [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] | [[Reference/Modules/learnloop/goals/exam_seeding#^module-purpose|purpose]] | `ACTIVE` | 2 | 8 |
 | [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] | [[Reference/Modules/learnloop/goals/exam_session#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] | [[Reference/Modules/learnloop/goals/forecast_ledger#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] | [[Reference/Modules/learnloop/goals/goal_certification#^module-purpose|purpose]] | `ACTIVE` | 12 | 7 |
@@ -92,7 +92,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 1 static module edge

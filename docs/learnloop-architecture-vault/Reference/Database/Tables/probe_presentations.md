@@ -19,10 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/db/records.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/followup_serve.py"
-  - "src/learnloop/diagnosis/chain_records.py"
-  - "src/learnloop/diagnosis/probe_dialogue.py"
+  - "src/learnloop/db/stores/probes.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -123,6 +124,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/followup_serve.py`
+- `src/learnloop/db/stores/probes.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
@@ -134,11 +136,12 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/records.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`

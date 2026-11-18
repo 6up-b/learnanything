@@ -46,57 +46,57 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_projection.py](../../../../../../src/learnloop/goals/goal_projection.py) |
-| Source lines | 899 |
+| Source lines | 900 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetProjection` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 104)
-  - `ready(self) -> float` (line 146; public) — The Ready axis: predicted ability at the goal horizon (§9.6).
-  - `at_risk(self) -> bool` (line 152; public) — Needs work for the goal: not attained OR not yet certified.
-- `class GoalReport` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 159)
-  - `on_track_count(self) -> int` (line 171; public)
-  - `total(self) -> int` (line 175; public)
-  - `certified_count(self) -> int` (line 179; public)
-  - `examined_count(self) -> int` (line 183; public)
-  - `at_risk_count(self) -> int` (line 187; public)
-  - `attainment_fraction(self) -> float | None` (line 191; public) — Mean per-facet progress toward target (clamped ratio), the headline %.
-  - `predicted_recall_mean(self) -> float | None` (line 201; public)
-  - `ready_current_mean(self) -> float | None` (line 207; public)
-  - `demonstrated_count(self) -> int` (line 213; public)
-  - `decay_estimated_count(self) -> int` (line 217; public)
-  - `held_flat_count(self) -> int` (line 221; public)
-  - `attempts_remaining(self) -> int` (line 225; public)
-  - `attempts_remaining_is_partial(self) -> bool` (line 233; public) — ``attempts_remaining`` is an under-count, not the whole job.
-- `class FrontierEntry` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 250)
-- `class GoalFrontier` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 256)
-- `resolve_goal_scope(vault: LoadedVault, goal: Goal, repository: Repository) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 262) — ``lo_id -> set of canonical facet ids`` in the goal's scope.
-- `goal_material_gaps(vault: LoadedVault, goal: Goal, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 303) — In-scope learning objects with no ACTIVE practice item to serve.
-- `unserved_contract_facets(vault: LoadedVault) -> dict[str, frozenset[str]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 430) — ``lo_id -> facets whose contract the instrument pool cannot close``.
-- `project_lo_blueprint_readiness(vault: LoadedVault, learning_object_id: str, facet_states: list[FacetRecallState], mastery: MasteryState | None, *, blend_count: float) -> LoReadiness | None` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 654) — Blueprint expected-performance readiness for one LO (§9.2), or None.
-- `goal_report(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> GoalReport` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 729)
-- `facet_projections_at(vault: LoadedVault, repository: Repository, goal: Goal, at: datetime, *, clock: Clock | None=None, include_demonstration: bool=False) -> list[FacetProjection]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 770) — Per-facet do-nothing projection to ``at`` (the horizon overridden).
-- `projected_ready_mean_at(vault: LoadedVault, repository: Repository, goal: Goal, at: datetime, *, clock: Clock | None=None) -> tuple[float | None, int, int]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 801) — Do-nothing Ready mean at ``at`` using only facets with FSRS support.
-- `build_goal_frontier(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, item_states: dict[str, PracticeItemState] | None=None, facet_states_by_lo: dict[str, list[FacetRecallState]] | None=None, mastery_states: dict[str, MasteryState] | None=None) -> GoalFrontier` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 839)
+- `class FacetProjection` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 105)
+  - `ready(self) -> float` (line 147; public) — The Ready axis: predicted ability at the goal horizon (§9.6).
+  - `at_risk(self) -> bool` (line 153; public) — Needs work for the goal: not attained OR not yet certified.
+- `class GoalReport` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 160)
+  - `on_track_count(self) -> int` (line 172; public)
+  - `total(self) -> int` (line 176; public)
+  - `certified_count(self) -> int` (line 180; public)
+  - `examined_count(self) -> int` (line 184; public)
+  - `at_risk_count(self) -> int` (line 188; public)
+  - `attainment_fraction(self) -> float | None` (line 192; public) — Mean per-facet progress toward target (clamped ratio), the headline %.
+  - `predicted_recall_mean(self) -> float | None` (line 202; public)
+  - `ready_current_mean(self) -> float | None` (line 208; public)
+  - `demonstrated_count(self) -> int` (line 214; public)
+  - `decay_estimated_count(self) -> int` (line 218; public)
+  - `held_flat_count(self) -> int` (line 222; public)
+  - `attempts_remaining(self) -> int` (line 226; public)
+  - `attempts_remaining_is_partial(self) -> bool` (line 234; public) — ``attempts_remaining`` is an under-count, not the whole job.
+- `class FrontierEntry` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 251)
+- `class GoalFrontier` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 257)
+- `resolve_goal_scope(vault: LoadedVault, goal: Goal, repository: Repository) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 263) — ``lo_id -> set of canonical facet ids`` in the goal's scope.
+- `goal_material_gaps(vault: LoadedVault, goal: Goal, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 304) — In-scope learning objects with no ACTIVE practice item to serve.
+- `unserved_contract_facets(vault: LoadedVault) -> dict[str, frozenset[str]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 431) — ``lo_id -> facets whose contract the instrument pool cannot close``.
+- `project_lo_blueprint_readiness(vault: LoadedVault, learning_object_id: str, facet_states: list[FacetRecallState], mastery: MasteryState | None, *, blend_count: float) -> LoReadiness | None` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 655) — Blueprint expected-performance readiness for one LO (§9.2), or None.
+- `goal_report(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> GoalReport` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 730)
+- `facet_projections_at(vault: LoadedVault, repository: Repository, goal: Goal, at: datetime, *, clock: Clock | None=None, include_demonstration: bool=False) -> list[FacetProjection]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 771) — Per-facet do-nothing projection to ``at`` (the horizon overridden).
+- `projected_ready_mean_at(vault: LoadedVault, repository: Repository, goal: Goal, at: datetime, *, clock: Clock | None=None) -> tuple[float | None, int, int]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 802) — Do-nothing Ready mean at ``at`` using only facets with FSRS support.
+- `build_goal_frontier(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, item_states: dict[str, PracticeItemState] | None=None, facet_states_by_lo: dict[str, list[FacetRecallState]] | None=None, mastery_states: dict[str, MasteryState] | None=None) -> GoalFrontier` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 840)
 
 ### Module constants
 
-- `_ASSUMED_FRESH_DISCOUNT` ([src/learnloop/goals/goal_projection.py](../../../../../../src/learnloop/goals/goal_projection.py), line 82)
-- `_UNSERVED_VERDICTS` ([src/learnloop/goals/goal_projection.py](../../../../../../src/learnloop/goals/goal_projection.py), line 98)
+- `_ASSUMED_FRESH_DISCOUNT` ([src/learnloop/goals/goal_projection.py](../../../../../../src/learnloop/goals/goal_projection.py), line 83)
+- `_UNSERVED_VERDICTS` ([src/learnloop/goals/goal_projection.py](../../../../../../src/learnloop/goals/goal_projection.py), line 99)
 
 ## Internal implementation anchors
 
-- `_supporting_weight(vault: LoadedVault, item, facet_id: str) -> float` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 353) — The item's evidence weight for ``facet_id`` (0.0 when not a support).
-- `_retention_ratio(vault: LoadedVault, learning_object_id: str, facet_id: str, *, now: datetime, horizon: datetime, item_states: dict[str, PracticeItemState], fsrs_weights: tuple[float, ...]) -> tuple[float, bool]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 366) — Evidence-weighted FSRS retention ratio (horizon vs now) for one facet.
-- `_attempts_to_certify(facet_id: str, evidence_mass: float, mass_gain_by_facet: dict[str, list[float]], min_mass: float) -> int | None` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 410) — Invert the mass equation into a coarse fresh-attempt count (None = no items).
-- `_outstanding_attempts(facet_id: str, evidence_mass: float, mass_gain_by_facet: dict[str, list[float]], min_mass: float, *, at_risk: bool, certification_reachable: bool) -> tuple[int | None, bool]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 458) — ``(attempts_to_certify, is_lower_bound)`` for one facet.
-- `_lo_mass_gains(vault: LoadedVault, learning_object_id: str, item_states: dict[str, PracticeItemState]) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 496) — Per canonical facet id, the nominal mass gain of each active item covering it.
-- `_facet_projections(vault: LoadedVault, repository: Repository, goal: Goal, *, now: datetime, horizon: datetime, item_states: dict[str, PracticeItemState], facet_states_by_lo: dict[str, list[FacetRecallState]], mastery_states: dict[str, MasteryState], fsrs_weights: tuple[float, ...], include_demonstration: bool=False, unserved_facets: Mapping[str, frozenset[str]] | None=None) -> list[FacetProjection]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 518)
-- `_blueprint_readiness_by_lo(vault: LoadedVault, goal: Goal, repository: Repository, *, facet_states_by_lo: dict[str, list[FacetRecallState]], mastery_states: dict[str, MasteryState]) -> dict[str, LoReadiness]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 698)
-- `_horizon(vault: LoadedVault, goal: Goal, now: datetime) -> tuple[datetime | None, datetime]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 721)
-- `_quota_floor_for_goal(goal: Goal, config, now: datetime) -> float` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 824)
+- `_supporting_weight(vault: LoadedVault, item, facet_id: str) -> float` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 354) — The item's evidence weight for ``facet_id`` (0.0 when not a support).
+- `_retention_ratio(vault: LoadedVault, learning_object_id: str, facet_id: str, *, now: datetime, horizon: datetime, item_states: dict[str, PracticeItemState], fsrs_weights: tuple[float, ...]) -> tuple[float, bool]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 367) — Evidence-weighted FSRS retention ratio (horizon vs now) for one facet.
+- `_attempts_to_certify(facet_id: str, evidence_mass: float, mass_gain_by_facet: dict[str, list[float]], min_mass: float) -> int | None` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 411) — Invert the mass equation into a coarse fresh-attempt count (None = no items).
+- `_outstanding_attempts(facet_id: str, evidence_mass: float, mass_gain_by_facet: dict[str, list[float]], min_mass: float, *, at_risk: bool, certification_reachable: bool) -> tuple[int | None, bool]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 459) — ``(attempts_to_certify, is_lower_bound)`` for one facet.
+- `_lo_mass_gains(vault: LoadedVault, learning_object_id: str, item_states: dict[str, PracticeItemState]) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 497) — Per canonical facet id, the nominal mass gain of each active item covering it.
+- `_facet_projections(vault: LoadedVault, repository: Repository, goal: Goal, *, now: datetime, horizon: datetime, item_states: dict[str, PracticeItemState], facet_states_by_lo: dict[str, list[FacetRecallState]], mastery_states: dict[str, MasteryState], fsrs_weights: tuple[float, ...], include_demonstration: bool=False, unserved_facets: Mapping[str, frozenset[str]] | None=None) -> list[FacetProjection]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 519)
+- `_blueprint_readiness_by_lo(vault: LoadedVault, goal: Goal, repository: Repository, *, facet_states_by_lo: dict[str, list[FacetRecallState]], mastery_states: dict[str, MasteryState]) -> dict[str, LoReadiness]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 699)
+- `_horizon(vault: LoadedVault, goal: Goal, now: datetime) -> tuple[datetime | None, datetime]` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 722)
+- `_quota_floor_for_goal(goal: Goal, config, now: datetime) -> float` ([source](../../../../../../src/learnloop/goals/goal_projection.py), line 825)
 
 ## Who imports or calls it
 
@@ -131,7 +131,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `FacetRecallState`, `MasteryState`, `PracticeItemState`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`, `PracticeItemState`, `Repository`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `FacetRecallState`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `facet_demonstration`; calls `facet_demonstration`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `LoReadiness`, `project_lo_readiness`; calls `project_lo_readiness`
 - [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] — imports `ReachabilityVerdict`, `analyze_contract_reachability`; calls `analyze_contract_reachability`

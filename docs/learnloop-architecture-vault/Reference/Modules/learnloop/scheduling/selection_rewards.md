@@ -47,50 +47,50 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py) |
-| Source lines | 623 |
+| Source lines | 626 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SchedulerIntent(str, Enum)` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 22)
-- `class LearnerAbilityVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 31)
-  - `as_dict(self) -> dict[str, object]` (line 40; public)
-- `class ItemDemandVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 53)
-  - `as_dict(self) -> dict[str, object]` (line 66; public)
-- `class SelectionReward` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 83)
-  - `as_components(self) -> dict[str, float]` (line 93; public)
-  - `as_debug(self) -> dict[str, object]` (line 100; public)
-- `score_selection_reward(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, *, mastery: MasteryState | None, facet_states: list[FacetRecallState], quality_state: PracticeItemQualityState | None, active_errors: list[ActiveErrorEvent], base_components: dict[str, float], probe_eig: float, probe_familiarity_discount: float=1.0, intent: SchedulerIntent) -> SelectionReward` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 136)
-- `ability_vector(learning_object_id: str, mastery: MasteryState | None, facet_states: list[FacetRecallState], active_errors: list[ActiveErrorEvent], *, facet_aliases: dict[str, str] | None=None) -> LearnerAbilityVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 269)
-- `probe_information_gain_components(ability: LearnerAbilityVector, demand: ItemDemandVector, *, hypothesis_eig: float, independent_evidence_discount: float=1.0) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 297) — MVP entropy-reduction decomposition for probe reward.
-- `item_demand_vector(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, quality_state: PracticeItemQualityState | None) -> ItemDemandVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 393)
-- `predicted_correctness_from_vectors(ability: LearnerAbilityVector, demand: ItemDemandVector, facet_blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 459)
-- `predicted_facet_recall(mastery_logit_mean: float | None, mastery_evidence_count: int, facet_mean: float | None, facet_mass: float, blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 475) — Facet-level predicted recall: LO-mastery backbone, facet evidence overlay.
+- `class SchedulerIntent(str, Enum)` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 25)
+- `class LearnerAbilityVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 34)
+  - `as_dict(self) -> dict[str, object]` (line 43; public)
+- `class ItemDemandVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 56)
+  - `as_dict(self) -> dict[str, object]` (line 69; public)
+- `class SelectionReward` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 86)
+  - `as_components(self) -> dict[str, float]` (line 96; public)
+  - `as_debug(self) -> dict[str, object]` (line 103; public)
+- `score_selection_reward(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, *, mastery: MasteryState | None, facet_states: list[FacetRecallState], quality_state: PracticeItemQualityState | None, active_errors: list[ActiveErrorEvent], base_components: dict[str, float], probe_eig: float, probe_familiarity_discount: float=1.0, intent: SchedulerIntent) -> SelectionReward` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 139)
+- `ability_vector(learning_object_id: str, mastery: MasteryState | None, facet_states: list[FacetRecallState], active_errors: list[ActiveErrorEvent], *, facet_aliases: dict[str, str] | None=None) -> LearnerAbilityVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 272)
+- `probe_information_gain_components(ability: LearnerAbilityVector, demand: ItemDemandVector, *, hypothesis_eig: float, independent_evidence_discount: float=1.0) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 300) — MVP entropy-reduction decomposition for probe reward.
+- `item_demand_vector(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, quality_state: PracticeItemQualityState | None) -> ItemDemandVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 396)
+- `predicted_correctness_from_vectors(ability: LearnerAbilityVector, demand: ItemDemandVector, facet_blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 462)
+- `predicted_facet_recall(mastery_logit_mean: float | None, mastery_evidence_count: int, facet_mean: float | None, facet_mass: float, blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 478) — Facet-level predicted recall: LO-mastery backbone, facet evidence overlay.
 
 ### Module constants
 
-- `TEACH_BACK_REWARD_FLOOR` ([src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 19)
-- `_SHAPE_CACHE` ([src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 119)
+- `TEACH_BACK_REWARD_FLOOR` ([src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 22)
+- `_SHAPE_CACHE` ([src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 122)
 
 ## Internal implementation anchors
 
-- `_item_shape(vault: LoadedVault, item: PracticeItem) -> ItemShape` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 122)
-- `_aggregate_facet_states(facet_states: list[FacetRecallState], facet_aliases: dict[str, str]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 360)
-- `_predicted_correctness(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, ability: LearnerAbilityVector, demand: ItemDemandVector, mastery: MasteryState | None) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 418) — Item predicted correctness — blueprint likelihood, else the flat blend.
-- `_gradient_fit(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 515)
-- `_facet_weakness(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 527)
-- `_facet_uncertainty(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 532)
-- `_targeted_boundary_fit(ability: LearnerAbilityVector, demand: ItemDemandVector, gradient_fit: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 536)
-- `_repair_value(demand: ItemDemandVector, ability: LearnerAbilityVector, active_errors: list[ActiveErrorEvent]) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 559)
-- `_overload_penalty(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 573)
-- `_weighted_facet_value(values: dict[str, float], weights: dict[str, float], *, default: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 581)
-- `_mode_retrieval_demand(practice_mode: str) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 589)
-- `_inferred_scaffold_level(item: PracticeItem) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 601)
-- `_default_attempt_type_for_reward(item: PracticeItem, intent: SchedulerIntent) -> str` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 607)
-- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 613)
-- `_logit(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 621)
+- `_item_shape(vault: LoadedVault, item: PracticeItem) -> ItemShape` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 125)
+- `_aggregate_facet_states(facet_states: list[FacetRecallState], facet_aliases: dict[str, str]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 363)
+- `_predicted_correctness(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, ability: LearnerAbilityVector, demand: ItemDemandVector, mastery: MasteryState | None) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 421) — Item predicted correctness — blueprint likelihood, else the flat blend.
+- `_gradient_fit(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 518)
+- `_facet_weakness(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 530)
+- `_facet_uncertainty(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 535)
+- `_targeted_boundary_fit(ability: LearnerAbilityVector, demand: ItemDemandVector, gradient_fit: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 539)
+- `_repair_value(demand: ItemDemandVector, ability: LearnerAbilityVector, active_errors: list[ActiveErrorEvent]) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 562)
+- `_overload_penalty(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 576)
+- `_weighted_facet_value(values: dict[str, float], weights: dict[str, float], *, default: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 584)
+- `_mode_retrieval_demand(practice_mode: str) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 592)
+- `_inferred_scaffold_level(item: PracticeItem) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 604)
+- `_default_attempt_type_for_reward(item: PracticeItem, intent: SchedulerIntent) -> str` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 610)
+- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 616)
+- `_logit(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 624)
 
 ## Who imports or calls it
 
@@ -109,7 +109,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]] — imports `estimate_ability_transition`; calls `estimate_ability_transition`
 - [[Reference/Modules/learnloop/content/authoring/conjunctive_items|learnloop.content.authoring.conjunctive_items]] — imports `ItemShape`, `classify_item_shape`, `conjunctive_fit`; calls `classify_item_shape`, `conjunctive_fit`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `FacetRecallState`, `MasteryState`, `PracticeItemQualityState`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `FacetRecallState`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `ActiveErrorEvent`
+- [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] — imports `PracticeItemQualityState`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `predict_item_success`; calls `predict_item_success`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `item_irt_params`; calls `item_irt_params`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `clamp`; calls `clamp`

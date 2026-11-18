@@ -17,7 +17,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/144_diagnostic_augmentation.sql"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/attempts/attempts.py"
@@ -97,7 +98,8 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 

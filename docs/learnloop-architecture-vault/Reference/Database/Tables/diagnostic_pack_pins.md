@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/083_diagnostic_pack_and_triage.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/curriculum/golden_path_run.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
 tags:
@@ -84,11 +84,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 

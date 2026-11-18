@@ -117,13 +117,14 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/router_objective/miss_cause.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 - `src/learnloop/diagnosis/probe_completion.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 

@@ -202,6 +202,8 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/diagnoses.py`
@@ -212,6 +214,9 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/practice_state.py`
+- `src/learnloop/db/stores/probes.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/db/stores/write_provenance.py`
@@ -301,6 +306,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/source_service.py`
 
 ### Upstream callers of the repository access surface

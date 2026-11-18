@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/117_question_promotion_jobs_and_queue_revision.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/questions.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/tutor/promotions.py"
@@ -96,11 +96,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Upstream callers of the repository access surface
 

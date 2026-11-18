@@ -16,7 +16,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/050_capability_residual_and_identifiability.sql"
+  - "src/learnloop/db/records.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -87,7 +89,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Direct SQL writers
 

@@ -112,8 +112,8 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/daily_plans.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
@@ -125,7 +125,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Upstream callers of the repository access surface
 
@@ -135,7 +135,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_gate.py`

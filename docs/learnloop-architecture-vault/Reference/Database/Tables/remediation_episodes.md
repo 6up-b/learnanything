@@ -18,7 +18,7 @@ source_paths:
   - "migrations/058_remediation_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/learner_context.py"
   - "src/learnloop_sidecar/handlers/remediation.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
@@ -105,17 +105,17 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/guided_redo.py`

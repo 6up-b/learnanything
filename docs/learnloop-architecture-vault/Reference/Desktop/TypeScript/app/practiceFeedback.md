@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `simplePracticeFeedback`, `Verdict`, `VERDICT_TEXT`, `verdictOf` and related exports within the desktop's TypeScript/app ownership area.
+Provides `simplePracticeFeedback`, `unestablishedRepairCopy`, `Verdict`, `VERDICT_TEXT` and related exports within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/practiceFeedback.ts](../../../../../../apps/learnloop-tauri/src/app/practiceFeedback.ts) |
-| Source lines | 96 |
+| Source lines | 109 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,21 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function simplePracticeFeedback(): boolean` — function, line 12
-- `export type Verdict = "right" | "partly" | "not_yet" | "held"` — type, line 16
-- `export const VERDICT_TEXT: Record<Verdict, string> =` — const, line 19
-- `export function verdictOf(` — function, line 33
-- `export const REPAIR_STEP_MINUTES = 4` — const, line 63
-- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 64
-- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 67
-- `export function feedbackOrigin(` — function, line 69
-- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 74
-- `export function plainSlug(slug: string | null | undefined): string` — function, line 81
-- `export function expectedAnswerText(value: unknown): string` — function, line 86
+- `export function simplePracticeFeedback(): boolean` — function, line 13
+- `export function unestablishedRepairCopy(check: ColdCheckResultDto): string` — function, line 17
+- `export type Verdict = "right" | "partly" | "not_yet" | "held"` — type, line 29
+- `export const VERDICT_TEXT: Record<Verdict, string> =` — const, line 32
+- `export function verdictOf(` — function, line 46
+- `export const REPAIR_STEP_MINUTES = 4` — const, line 76
+- `export const FIX_MIX_UP_LABEL = `Fix this mix-up · about $` — const, line 77
+- `export type FeedbackOrigin = "plan" | "today" | "reader"` — type, line 80
+- `export function feedbackOrigin(` — function, line 82
+- `export const ORIGIN_LABEL: Record<FeedbackOrigin, string> =` — const, line 87
+- `export function plainSlug(slug: string | null | undefined): string` — function, line 94
+- `export function expectedAnswerText(value: unknown): string` — function, line 99
 
 ## Internal implementation anchors
 
-- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 45
+- `const result = check.passed ? "You passed this check." : "You didn't pass this check."` — const, line 18
+- `const ratio = typeof correctness === "number" && Number.isFinite(correctness) ? correctness : typeof score === "number" && max > 0 ? score / max : 0` — const, line 58
 
 ## Who imports or calls it
 
@@ -79,15 +81,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `simplePracticeFeedback`; references `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/components/SessionFinishHud|src/components/SessionFinishHud.tsx]] — import-or-re-export: `simplePracticeFeedback`; references `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|src/screens/DiagnosticReviewScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
-- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`; references `FIX_MIX_UP_LABEL`, `FeedbackOrigin`, `VERDICT_TEXT`, `simplePracticeFeedback`, `unestablishedRepairCopy`, `verdictOf`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `expectedAnswerText`, `simplePracticeFeedback`; references `expectedAnswerText`, `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`; references `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`
-- [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`; references `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`
+- [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`; references `FeedbackOrigin`, `ORIGIN_LABEL`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`
 
 ## Dependencies
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ColdCheckResultDto`
 - [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
 
 ### Assets, platform, and third-party dependencies

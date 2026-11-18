@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/069_parameter_registry.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/maintenance.py"
   - "src/learnloop/params/sensitivity_certificates.py"
   - "src/learnloop/params/parameter_registry.py"
 tags:
@@ -82,11 +82,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 
 ### Upstream callers of the repository access surface
 

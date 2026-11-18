@@ -47,26 +47,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/calibration_sessions.py](../../../../../../src/learnloop/diagnosis/calibration_sessions.py) |
-| Source lines | 391 |
+| Source lines | 392 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CalibrationSessionError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 25)
-- `graph_propagated_prior(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 29) — Prerequisite-only, direction-respecting graph mastery prior (§8.3).
-- `episode_priority_disagreement(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 81) — §5.9/§6.4 planner priority signal: disagreement among the graph-propagated prior, the learner's covering claim, and observed evidence — the spread of whichever of the three signals exist, in [0, 1].
-- `routine_planner_shadow(vault: LoadedVault, repository: Repository, episode_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 107) — §5.9 routine-session diagnostic planner, run in SHADOW mode (§13.3).
-- `start_calibration_session(vault: LoadedVault, repository: Repository, *, session_id: str, goal_id: str | None=None, learning_object_ids: list[str] | None=None, time_budget_minutes: int | None=None, generate_missing: bool=True, open_episodes: bool=True, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 156) — Open a calibration session over a goal scope or an explicit LO list.
-- `calibration_session_progress(vault: LoadedVault, repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 274) — Progress payload for the calibration UI: per-episode status, blocks completed, elapsed versus budget, and the next target item.
-- `stop_calibration_session(repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 349)
-- `calibration_cap_lifted(repository: Repository, session_id: str | None, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 355) — Whether the per-session qualifying-observation cap is lifted for this client session (§5.9) — true only inside an active, in-budget calibration session.
+- `class CalibrationSessionError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 26)
+- `graph_propagated_prior(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 30) — Prerequisite-only, direction-respecting graph mastery prior (§8.3).
+- `episode_priority_disagreement(vault: LoadedVault, repository: Repository, learning_object_id: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 82) — §5.9/§6.4 planner priority signal: disagreement among the graph-propagated prior, the learner's covering claim, and observed evidence — the spread of whichever of the three signals exist, in [0, 1].
+- `routine_planner_shadow(vault: LoadedVault, repository: Repository, episode_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 108) — §5.9 routine-session diagnostic planner, run in SHADOW mode (§13.3).
+- `start_calibration_session(vault: LoadedVault, repository: Repository, *, session_id: str, goal_id: str | None=None, learning_object_ids: list[str] | None=None, time_budget_minutes: int | None=None, generate_missing: bool=True, open_episodes: bool=True, clock: Clock | None=None, ai_client: object | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 157) — Open a calibration session over a goal scope or an explicit LO list.
+- `calibration_session_progress(vault: LoadedVault, repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 275) — Progress payload for the calibration UI: per-episode status, blocks completed, elapsed versus budget, and the next target item.
+- `stop_calibration_session(repository: Repository, calibration_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 350)
+- `calibration_cap_lifted(repository: Repository, session_id: str | None, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 356) — Whether the per-session qualifying-observation cap is lifted for this client session (§5.9) — true only inside an active, in-budget calibration session.
 
 ## Internal implementation anchors
 
-- `_elapsed_minutes(record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 371)
-- `_expire_if_over_budget(repository: Repository, record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 379)
+- `_elapsed_minutes(record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> float` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 372)
+- `_expire_if_over_budget(repository: Repository, record: ProbeCalibrationSessionRecord, *, clock: Clock | None) -> ProbeCalibrationSessionRecord` ([source](../../../../../../src/learnloop/diagnosis/calibration_sessions.py), line 380)
 
 ## Who imports or calls it
 
@@ -85,7 +85,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbeCalibrationSessionRecord`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeCalibrationSessionRecord`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`, `enter_episode`, `episode_posterior`; calls `eligible_instruments`, `enter_episode`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `generate_instances_for_episode`; calls `generate_instances_for_episode`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`

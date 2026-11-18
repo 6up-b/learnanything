@@ -98,7 +98,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `TokenUsage`, `UsageMeter`, `consume_client_usage`; statically calls `TokenUsage`, `UsageMeter`, `consume_client_usage`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `UsageMeter`; statically calls `UsageMeter`
 - [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `consume_client_usage`; statically calls `consume_client_usage`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `TokenUsage`
+- [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] — imports `TokenUsage`
 
 ## Dependencies
 

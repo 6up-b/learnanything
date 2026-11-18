@@ -135,6 +135,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `action_inputs`; calls `action_inputs`
 - [[Reference/Modules/learnloop/daily_plan/types|learnloop.daily_plan.types]] — imports `BlockCandidate`, `FOLLOWUP_CONTEST_NOTE`, `LESSON_OFFER_SUBTYPE`, `PlanState`, `STOP_FOR_TODAY`
+- [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `known_at`; calls `known_at`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `pending_delayed_checks`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `module`; calls `candidates`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_goal_scope`; calls `resolve_goal_scope`
@@ -148,7 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `session_active_minutes`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; calls `fit_return_slope`, `return_rows`
 - [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] — imports `module`; calls `Action`, `AdLink`, `CauseSplit`, `DatedUse`, `Inputs`, `Learning`, `LessonCurve`, `Price`, `Topic`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `fitted_models_on`, `followup_on`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`; calls `fitted_models_on`, `followup_on`, `known_at`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `fitted_models_on`, `followup_on`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`; calls `fitted_models_on`, `followup_on`, `lesson_offers_on`, `miss_cause_in_value_on`, `miss_cause_sensor_on`, `monotone_combiner_on`, `stop_coin_rate`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `retrievability_array`; calls `retrievability_array`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `routine_serving_exclusions`; calls `routine_serving_exclusions`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `learning_objects_for_section`; calls `learning_objects_for_section`

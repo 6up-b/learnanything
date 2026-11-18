@@ -120,11 +120,11 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 11 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 7 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 4 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges

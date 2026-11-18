@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `window_cost(connection: Any, *, start: str, end: str, gap_minutes: float, prices: Mapping[str, tuple[float, float]], own: tuple[float, float], lessons: bool=False) -> float` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 128) — ``C_i``: the attention cost the objective charges (§8.6) over ``(start, end]``, integrated from each session's minutes at the window's start, ``κ0·((m + d)² − m²)/(2m̄)``, at the ``(κ0, m̄)`` in force on the session's day (``own``, the decision's, on a day with no trace).
 - `goal_date(due_at: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 142) — A goal's date as written (the date of its ``due_at`` in the offset it carries; ``goals/exam_seeding`` stamps an import on that date), or None.
 - `dated_use_date(trace: Mapping[str, Any], row: Mapping[str, Any], dated: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 154) — The calendar date a frozen dated use is scored on (Codex review F6): the goal's own date, frozen in the trace with its ``due_at`` (the goal's sources, or the use's own ``due_at`` at RO5's tag), never one rebuilt from truncated elapsed days; failing both, the decision's moment pl…
-- `exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str, closure: C.Closure | None=None) -> float | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 206) — RO6: a dated use's ``Y`` as known at ``at``: the results imported for the goal's date that THE availability predicate (``router_objective_switches.attempt_time_sql``) admits by ``at``, their mean.
+- `exam_result_known(connection: Any, config: Any, lo: str, on: str, at: str, closure: C.Closure | None=None) -> float | None` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 206) — RO6: a dated use's ``Y`` as known at ``at``: the results imported for the goal's date that THE availability predicate (``learnloop.db.attempt_availability.attempt_time_sql``) admits by ``at``, their mean.
 - `score_decision(connection: Any, row: Mapping[str, Any], trace: Mapping[str, Any], *, resolved: Mapping[tuple[str, str], C.Resolved], completion_rate: float | None, r_lookup: Callable[[str], dict[str, float]], prices: Mapping[str, tuple[float, float]], gap_minutes: float, closure: C.Closure | None=None, lessons: bool=False) -> Detail` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 224) — ``D̂_i`` for one decision whose window has closed, or why it carries none.
 - `class Term` ([source](../../../../../../src/learnloop/router_objective/scores.py), line 277) — One term of a window's realized return and its class (RO6's landing ruling R10).
   - `bounds(self) -> tuple[float, float]` (line 300; public) — R1: a missing term's range in the bounded return: performance in ``[0, 1]`` times its weight, less its baseline, inverse weighted as the observed term would have been (``1/r`` for a drawn check; a day with no draw also admits zero, the topic perhaps not drawn; unweighted where `…
@@ -146,11 +146,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `attempt_time_sql`; calls `attempt_time_sql`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; calls `Ledger`, `support_at`
 - [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] — imports `module`; calls `activity_spans`, `session_components`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] — imports `module`; calls `Scored`, `Use`, `carries_score`, `score`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `attempt_time_sql`, `lesson_offers_on`; calls `attempt_time_sql`, `lesson_offers_on`
+- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_offers_on`; calls `lesson_offers_on`
 
 ### Platform and third-party dependencies
 

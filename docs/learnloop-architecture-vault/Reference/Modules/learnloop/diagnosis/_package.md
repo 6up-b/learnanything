@@ -187,15 +187,15 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 84 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 58 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 56 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 57 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 24 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 23 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 19 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 18 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 18 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 8 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
@@ -266,7 +266,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     center -->|84| n_learnloop
     center -->|58| n_learnloop_vault
-    center -->|56| n_learnloop_db
+    center -->|57| n_learnloop_db
     n_learnloop_attempts -->|21| center
     center -->|24| n_learnloop_attempts
     n_learnloop_sidecar_handlers -->|32| center

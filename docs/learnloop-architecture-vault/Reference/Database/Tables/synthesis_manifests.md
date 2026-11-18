@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -109,11 +110,11 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/reading.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

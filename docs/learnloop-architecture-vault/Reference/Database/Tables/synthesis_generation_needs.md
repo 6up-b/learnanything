@@ -18,7 +18,7 @@ source_paths:
   - "migrations/045_synthesis_generation_needs.sql"
   - "src/learnloop/curriculum/graph_edit_proposals.py"
   - "src/learnloop/curriculum/subject_registry.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/diagnosis/diagnostic_surface_supply.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/learner/identifiability.py"
@@ -87,11 +87,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

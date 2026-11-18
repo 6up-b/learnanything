@@ -66,8 +66,8 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 8 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 8 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
@@ -103,9 +103,9 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_field["learnloop.field"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis_text_gaps["learnloop.diagnosis.text_gaps"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_vault["learnloop.vault"]
@@ -113,9 +113,9 @@ flowchart LR
     n_learnloop_diagnosis -->|8| center
     center -->|8| n_learnloop_field
     n_learnloop_sidecar_handlers -->|6| center
+    center -->|5| n_learnloop_db_stores
     n_learnloop_daily_plan -->|4| center
     center -->|4| n_learnloop_db
-    center -->|4| n_learnloop_db_stores
     n_learnloop_diagnosis_text_gaps -->|4| center
     n_learnloop_scheduling -->|4| center
     center -->|4| n_learnloop_vault

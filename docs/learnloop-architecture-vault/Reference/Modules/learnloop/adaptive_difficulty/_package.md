@@ -140,10 +140,10 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 34 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 32 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 28 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 18 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 11 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 7 static module edges
@@ -191,11 +191,11 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_field["learnloop.field"]
-    center -->|34| n_learnloop
+    center -->|32| n_learnloop
     center -->|32| n_learnloop_ai
     center -->|28| n_learnloop_db_stores
     n_learnloop_daily_plan -->|21| center
-    center -->|18| n_learnloop_db
+    center -->|20| n_learnloop_db
     n_learnloop_sim -->|12| center
     center -->|11| n_learnloop_scheduling
     n_learnloop_sidecar_handlers -->|11| center

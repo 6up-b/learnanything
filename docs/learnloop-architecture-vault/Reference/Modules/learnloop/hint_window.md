@@ -83,7 +83,8 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`; statically calls `session_clause`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`
+- [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] — imports `module`; statically calls `session_clause`
 - [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] — imports `ITEM_WINDOW_QUESTION_CONTEXTS`, `following_attempt`, `workbench_bound`; statically calls `following_attempt`, `workbench_bound`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `counts_in_session`, `workbench_bound`; statically calls `counts_in_session`, `workbench_bound`
 
@@ -104,7 +105,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]], [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]], [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -116,8 +116,8 @@ Indexes and uniqueness:
 
 - `src/learnloop/confidence_events.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/write_provenance.py`
@@ -139,6 +139,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Upstream callers of the repository access surface
 
@@ -150,6 +151,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/regrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
@@ -161,7 +163,6 @@ Indexes and uniqueness:
 - `src/learnloop/tui/screens/feedback.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
-- `src/learnloop_sidecar/handlers/serializers.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

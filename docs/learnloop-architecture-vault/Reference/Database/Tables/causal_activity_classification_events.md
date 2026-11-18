@@ -18,7 +18,7 @@ source_paths:
   - "migrations/122_causal_activity_events.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/router_suggestions.py"
   - "src/learnloop/learner/lesson_weight.py"
   - "src/learnloop/placement/state.py"
@@ -101,19 +101,19 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/router_suggestions.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/probe_evidence.py`

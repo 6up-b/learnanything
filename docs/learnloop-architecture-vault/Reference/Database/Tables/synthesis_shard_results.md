@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/064_synthesis_shard_results.sql"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -79,11 +79,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

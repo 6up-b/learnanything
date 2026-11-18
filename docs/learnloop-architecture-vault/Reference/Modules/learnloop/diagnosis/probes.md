@@ -143,7 +143,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `ProbeIRTConfig`, `ProbeSelfTagConfig`; calls `ProbeIRTConfig`, `ProbeSelfTagConfig`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `ItemMisconceptionDiscrimination`, `MisconceptionRecord`, `ProbeStateRecord`, `Repository`
+- [[Reference/Modules/learnloop/db/records|learnloop.db.records]] — imports `ProbeStateRecord`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `ActiveErrorEvent`, `ItemMisconceptionDiscrimination`, `MisconceptionRecord`
 - [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]] — imports `probe_lane_holds_out_pending`, `probe_lane_reads_diagnosis`; calls `probe_lane_holds_out_pending`, `probe_lane_reads_diagnosis`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `covering_learner_claim`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `sigmoid`; calls `covering_learner_claim`, `initial_mastery_state_for_learning_object`, `item_irt_params`, `sigmoid`

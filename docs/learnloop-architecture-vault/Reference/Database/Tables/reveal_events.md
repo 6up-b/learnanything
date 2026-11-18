@@ -98,8 +98,8 @@ Database triggers:
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/db/stores/questions.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/split/card.py`
@@ -121,7 +121,7 @@ Database triggers:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Upstream callers of the repository access surface
 

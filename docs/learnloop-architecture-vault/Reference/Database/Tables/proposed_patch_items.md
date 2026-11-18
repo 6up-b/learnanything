@@ -121,14 +121,14 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/curriculum/concepts.py`
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/ad_serving.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/curriculum/concepts.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 
@@ -150,7 +150,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 
 > [!note] Static-reference boundary

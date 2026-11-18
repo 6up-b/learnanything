@@ -18,6 +18,7 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/sources/provenance.py"
@@ -82,12 +83,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/curriculum/concepts.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/cli/data.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/daily_plan/reading.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/substrate/model_usage.py"
@@ -105,12 +105,12 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/daily_plan/reading.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/ops/graph_nomination_report.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

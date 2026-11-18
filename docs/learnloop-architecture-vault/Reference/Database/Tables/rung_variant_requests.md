@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/pipeline/runner.py"
@@ -104,11 +105,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/db/stores/ingest_queue.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

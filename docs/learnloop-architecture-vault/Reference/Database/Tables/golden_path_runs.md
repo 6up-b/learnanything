@@ -18,6 +18,7 @@ source_paths:
   - "migrations/082_golden_path_runs.sql"
   - "src/learnloop/curriculum/golden_path_run.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/db/stores/task_blueprints.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/db/stores/task_blueprints.py`
 
 ### Direct SQL writers

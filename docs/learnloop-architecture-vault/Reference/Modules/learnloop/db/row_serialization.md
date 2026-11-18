@@ -67,10 +67,22 @@ No public top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/db/records|learnloop.db.records]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]] — imports `_loads`; statically calls `_loads`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/grading|learnloop.db.stores.grading]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/maintenance|learnloop.db.stores.maintenance]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
+- [[Reference/Modules/learnloop/db/stores/remediation|learnloop.db.stores.remediation]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `_json`, `_loads`; statically calls `_json`, `_loads`
 - [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] — imports `_json`; statically calls `_json`
 
@@ -92,7 +104,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]], [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]], [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]], [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/records|learnloop.db.records]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]], [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]], [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -71,7 +71,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 9 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 7 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 4 static module edges
@@ -133,7 +133,7 @@ flowchart LR
     center -->|11| n_learnloop_ai
     n_learnloop_learner -->|1| center
     center -->|9| n_learnloop_learner
-    center -->|7| n_learnloop_db
+    center -->|8| n_learnloop_db
     n_learnloop_diagnosis -->|3| center
     center -->|4| n_learnloop_diagnosis
     n_learnloop_source_retrieval -->|6| center

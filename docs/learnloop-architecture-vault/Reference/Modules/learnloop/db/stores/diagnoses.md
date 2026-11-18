@@ -124,7 +124,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `DiagnosisStoreMixin`, `merge_causal_view_into_events`, `merge_causal_view_into_feedback`; statically calls `merge_causal_view_into_events`, `merge_causal_view_into_feedback`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `DiagnosisStoreMixin`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `merge_causal_view_into_feedback`; statically calls `merge_causal_view_into_feedback`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `merge_causal_view_into_events`; statically calls `merge_causal_view_into_events`
 - [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `latest_blind_grade_rows`; statically calls `latest_blind_grade_rows`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `DiagnosisStoreMixin`
 
@@ -148,7 +150,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]], [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]], [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]], [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]], [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

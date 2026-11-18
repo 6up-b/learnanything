@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/content/facet_identity/dedupe.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/curriculum/subject_registry.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/facet_identity.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/learner/facet_evidence_timeline.py"
   - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/ops/doctor.py"
@@ -85,18 +85,18 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/facet_identity.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/facet_identity.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/facet_identity/actions.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/ops/doctor.py`

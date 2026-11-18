@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/cli/grading.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/attempts/effective_observation.py"
   - "src/learnloop/attempts/grade_resolution.py"
 tags:
@@ -114,12 +114,12 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 - `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Upstream callers of the repository access surface
 

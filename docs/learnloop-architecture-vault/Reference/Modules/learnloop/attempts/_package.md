@@ -81,7 +81,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] | [[Reference/Modules/learnloop/attempts/blind_grading#^module-purpose|purpose]] | `ACTIVE` | 12 | 25 |
 | [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] | [[Reference/Modules/learnloop/attempts/calibration_streams#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] | [[Reference/Modules/learnloop/attempts/clarification#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
-| [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] | [[Reference/Modules/learnloop/attempts/coldness_receipt#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
+| [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] | [[Reference/Modules/learnloop/attempts/coldness_receipt#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/attempts/completion_lock|learnloop.attempts.completion_lock]] | [[Reference/Modules/learnloop/attempts/completion_lock#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]] | [[Reference/Modules/learnloop/attempts/effective_observation#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] | [[Reference/Modules/learnloop/attempts/evidence#^module-purpose|purpose]] | `ACTIVE` | 9 | 4 |
@@ -96,7 +96,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] | [[Reference/Modules/learnloop/attempts/measurement_corrections#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] | [[Reference/Modules/learnloop/attempts/observations#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] | [[Reference/Modules/learnloop/attempts/outcome_schemas#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
-| [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] | [[Reference/Modules/learnloop/attempts/post_attempt#^module-purpose|purpose]] | `ACTIVE` | 6 | 30 |
+| [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] | [[Reference/Modules/learnloop/attempts/post_attempt#^module-purpose|purpose]] | `ACTIVE` | 6 | 31 |
 | [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] | [[Reference/Modules/learnloop/attempts/regrade#^module-purpose|purpose]] | `ACTIVE` | 3 | 27 |
 | [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] | [[Reference/Modules/learnloop/attempts/reveal_ledger#^module-purpose|purpose]] | `ACTIVE` | 18 | 15 |
 | [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] | [[Reference/Modules/learnloop/attempts/salience_firewall#^module-purpose|purpose]] | `ACTIVE` | 17 | 28 |
@@ -108,15 +108,15 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 43 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 42 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 21 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 17 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 16 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 13 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 13 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 9 static module edges
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 4 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 5 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 4 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 3 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
@@ -175,12 +175,12 @@ flowchart LR
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_diagnosis_split["learnloop.diagnosis.split"]
+    n_learnloop_vault["learnloop.vault"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_diagnosis -->|24| center
     center -->|21| n_learnloop_diagnosis
-    center -->|43| n_learnloop
+    center -->|42| n_learnloop
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_learner -->|5| center
     center -->|13| n_learnloop_learner
@@ -188,9 +188,9 @@ flowchart LR
     center -->|13| n_learnloop_substrate
     center -->|17| n_learnloop_ai
     n_learnloop_cli -->|17| center
+    center -->|17| n_learnloop_db
     center -->|17| n_learnloop_vault
-    center -->|16| n_learnloop_db
-    n_learnloop_diagnosis_split -->|13| center
+    center -->|14| n_learnloop_db_stores
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

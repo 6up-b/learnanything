@@ -17,12 +17,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/010_scheduler_training_logs.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/scheduling/evaluation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -100,6 +101,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Direct SQL writers
 
@@ -110,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/scheduling/evaluation.py`
 - `src/learnloop_sidecar/handlers/inspector.py`

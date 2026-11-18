@@ -94,7 +94,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `GRADE_HELD_FOR_REVIEW`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `RETENTION_MIN_DELAY_SECONDS`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `COLLECTION_VERSION`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `LABEL_VERSION`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `COLLECTION_VERSION`, `LABEL_VERSION`
 - [[Reference/Modules/learnloop/delayed_completion|learnloop.delayed_completion]] — imports `RETENTION_MIN_DELAY_SECONDS`, `retention_exclusions`; statically calls `retention_exclusions`
 - [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `HELD_ROW_KEY`
@@ -139,7 +140,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] and 28 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] and 29 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

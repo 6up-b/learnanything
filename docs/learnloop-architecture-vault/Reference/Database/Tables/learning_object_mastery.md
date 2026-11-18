@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/placement/predictor.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
@@ -92,12 +92,14 @@ Indexes and uniqueness:
 
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/router_objective/tail_serve.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Upstream callers of the repository access surface
 
@@ -108,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/daily_plan/lesson_suggestion.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/delayed_checks.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
@@ -120,7 +123,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/capability_grid.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/learner/mastery.py`
-- `src/learnloop/learner/recall_calibration.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

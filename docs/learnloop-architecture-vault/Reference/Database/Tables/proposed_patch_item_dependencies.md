@@ -16,7 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/035_proposal_dependencies.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/content/proposals/method_phrasing.py"
@@ -78,7 +78,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 

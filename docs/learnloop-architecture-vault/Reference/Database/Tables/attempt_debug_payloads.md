@@ -18,11 +18,11 @@ source_paths:
   - "migrations/007_recall_coverage_interventions.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
+  - "src/learnloop/db/stores/causal.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
-  - "src/learnloop/diagnosis/diagnosis_adjudication.py"
-  - "src/learnloop/diagnosis/guided_redo.py"
-  - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/diagnosis/causal_health.py"
@@ -87,6 +87,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/ops/doctor.py`
@@ -94,6 +96,8 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/substrate/replay.py`
 
 ### Upstream callers of the repository access surface

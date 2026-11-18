@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
@@ -88,11 +89,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 
@@ -108,7 +109,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/proposal_match.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/error_taxonomy.py`
 - `src/learnloop/diagnosis/missing_vocabulary.py`

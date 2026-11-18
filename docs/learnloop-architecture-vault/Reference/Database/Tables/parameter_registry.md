@@ -18,7 +18,7 @@ source_paths:
   - "migrations/069_parameter_registry.sql"
   - "src/learnloop/cli/registry.py"
   - "src/learnloop/content/sources/block_health.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/maintenance.py"
   - "src/learnloop/figures/prefetch_model.py"
   - "src/learnloop/learner/familiarity.py"
   - "src/learnloop/learner/lesson_weight.py"
@@ -97,11 +97,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/maintenance.py`
 
 ### Upstream callers of the repository access surface
 

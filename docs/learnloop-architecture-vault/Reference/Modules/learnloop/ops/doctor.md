@@ -54,66 +54,66 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Public API
 
-- `class HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 81)
-  - `as_dict(self) -> dict[str, object]` (line 89; public)
-- `class DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 103)
-  - `clean(self) -> bool` (line 123; public)
-  - `error_count(self) -> int` (line 127; public)
-  - `warning_count(self) -> int` (line 131; public)
-  - `as_dict(self) -> dict[str, object]` (line 134; public)
-- `run_doctor(root: Path, *, fix_state: bool=False, ai: bool=False, ai_provider: str | None=None) -> DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 152)
+- `class HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 86)
+  - `as_dict(self) -> dict[str, object]` (line 94; public)
+- `class DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 108)
+  - `clean(self) -> bool` (line 128; public)
+  - `error_count(self) -> int` (line 132; public)
+  - `warning_count(self) -> int` (line 136; public)
+  - `as_dict(self) -> dict[str, object]` (line 139; public)
+- `run_doctor(root: Path, *, fix_state: bool=False, ai: bool=False, ai_provider: str | None=None) -> DoctorReport` ([source](../../../../../../src/learnloop/ops/doctor.py), line 157)
 - `review_nominator(vault: LoadedVault) -> Any` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2422) — Slice 2 T5 stored-vector nominator for the doctor's cosine columns, or None.
 - `concept_merge_candidate_pairs(vault: LoadedVault) -> list[tuple[str, str, float, bool]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 2521) — Doctor's lexical concept-duplicate pairs: (left, right, similarity, strong_alias).
 
 ### Module constants
 
-- `STALE_POST_ATTEMPT_JOB_HOURS` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 652)
-- `WAL_SIZE_WARNING_BYTES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1117)
-- `_DEPRECATED_STATE_TABLES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1233)
+- `STALE_POST_ATTEMPT_JOB_HOURS` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 657)
+- `WAL_SIZE_WARNING_BYTES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1122)
+- `_DEPRECATED_STATE_TABLES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 1238)
 - `_REACHABILITY_CODES` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2817)
 - `_REACHABILITY_HEADLINE` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2824)
 - `_REACHABILITY_ACTION` ([src/learnloop/ops/doctor.py](../../../../../../src/learnloop/ops/doctor.py), line 2831)
 
 ## Internal implementation anchors
 
-- `_check_model_routes(config: LearnLoopConfig, repository: Repository, issues: list[HealthIssue]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 268) — Each model route's last completed call and failures since, from receipts.
-- `_check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 289) — Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
-- `_check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *, machine_state: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 314) — Warn when a route uses a ``chatgpt_plan`` profile that cannot serve it.
-- `_requested_ai_runtimes(vault_root: Path, config: LearnLoopConfig, *, ai: bool, ai_provider: str | None) -> tuple[AIRuntimeReport | None, AIRuntimeReport | None]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 376) — ``(codex_runtime, ai_runtime)`` for ``doctor --ai``; both None otherwise.
-- `_attach_state_database(paths: VaultPaths, issues: list[HealthIssue], *, fix_state: bool) -> tuple[Repository | None, set[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 402) — The state database (read-only unless fixing) and its table names, or ``(None, set())``.
-- `_check_database_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 430) — Checks of derived learner state; each runs only when its tables exist.
-- `_book_title(repository: Repository, source_id: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 460)
-- `_check_reread_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 465) — Re-read safety (docs/reviews/reread-safety.md): what reading a book again can leave behind.
-- `_check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 625) — Slice 2 T6: the DERIVED keyword index matches the source blocks.
-- `_check_post_attempt_jobs(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 655) — Slice 1 §11: failed and stale diagnosis/embedding jobs.
-- `_check_database_contracts(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 697) — Checks of diagnostic proposals, goal-contract drift, canonical facet state and pre-practice identifiability; each runs only when its tables exist.
-- `_load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopConfig | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 727)
-- `_check_retired_config(root: Path, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 739) — Migration warning for retired config blocks (knowledge-model §8.3/§15).
-- `_check_retired_keep_local(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 885) — The per-book "Keep this book on this computer" (spec ux_learnloop_v1 §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner, 2026-10-13: sending books to an AI is fine; the opt-out was not asked for).
-- `_check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 914)
-- `class _ParsedYamlFiles` ([source](../../../../../../src/learnloop/ops/doctor.py), line 929) — Each vault YAML file parsed once per doctor run.
-- `_check_schema_versions(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 955)
-- `_check_yaml_schema(path: Path, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles, supported: set[int]=frozenset({1})) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 970)
-- `_check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 995)
-- `_check_unknown_yaml_keys_for_file(path: Path, model: type[BaseModel], issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1023)
-- `_check_unknown_mapping_keys(data: dict[str, Any], model: type[BaseModel], issues: list[HealthIssue], *, path: Path, location: str) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1039)
-- `_iter_model_children(value: Any, annotation: Any, location: str) -> list[tuple[str, type[BaseModel], dict[str, Any]]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1066)
-- `_model_from_annotation(annotation: Any) -> type[BaseModel] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1101)
-- `_check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1120) — Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot share memory on, and an oversized WAL.
-- `_check_wal_runtime(paths: VaultPaths, storage: DatabaseStorage | None, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1160)
-- `_check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1193)
-- `_database_tables(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1223)
-- `_check_deprecated_tables(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1240) — Report read-only telemetry before deprecated state is detached.
-- `_has_tables(available: set[str], *required: str) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1291)
-- `_recover_apply_intents(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1295) — Complete any write-ahead apply intent left mid-flight (§10.2 recovery), and report conflicted ones.
-- `_recover_facet_identity_actions(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1367) — Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
-- `_from_loader_issue(issue: DoctorIssue) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1433)
-- `_check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1442)
-- `_check_source_sets(vault: LoadedVault, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1479) — Validate source-set membership (spec_source_ingestion_v2 §4.3).
-- `_check_sql_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1529)
-- `_check_derived_state_rebuild_marker(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1577)
-- `_check_facet_belief_attempts(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1603) — The facet-belief successor's switch, attempt by attempt: the attempts derived under the other setting.
-- `_check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1641) — Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
+- `_check_model_routes(config: LearnLoopConfig, repository: Repository, issues: list[HealthIssue]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 273) — Each model route's last completed call and failures since, from receipts.
+- `_check_codex_pins(root: Path, config: LearnLoopConfig, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 294) — Plan-first transport T1: every learnloop.toml setting that still names a Codex profile.
+- `_check_chatgpt_plan_routes(root: Path, config: LearnLoopConfig, issues: list[HealthIssue], *, machine_state: bool=False) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 319) — Warn when a route uses a ``chatgpt_plan`` profile that cannot serve it.
+- `_requested_ai_runtimes(vault_root: Path, config: LearnLoopConfig, *, ai: bool, ai_provider: str | None) -> tuple[AIRuntimeReport | None, AIRuntimeReport | None]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 381) — ``(codex_runtime, ai_runtime)`` for ``doctor --ai``; both None otherwise.
+- `_attach_state_database(paths: VaultPaths, issues: list[HealthIssue], *, fix_state: bool) -> tuple[Repository | None, set[str]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 407) — The state database (read-only unless fixing) and its table names, or ``(None, set())``.
+- `_check_database_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 435) — Checks of derived learner state; each runs only when its tables exist.
+- `_book_title(repository: Repository, source_id: str) -> str` ([source](../../../../../../src/learnloop/ops/doctor.py), line 465)
+- `_check_reread_state(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 470) — Re-read safety (docs/reviews/reread-safety.md): what reading a book again can leave behind.
+- `_check_source_block_fts(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 630) — Slice 2 T6: the DERIVED keyword index matches the source blocks.
+- `_check_post_attempt_jobs(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 660) — Slice 1 §11: failed and stale diagnosis/embedding jobs.
+- `_check_database_contracts(vault: LoadedVault, repository: Repository, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 702) — Checks of diagnostic proposals, goal-contract drift, canonical facet state and pre-practice identifiability; each runs only when its tables exist.
+- `_load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopConfig | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 732)
+- `_check_retired_config(root: Path, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 744) — Migration warning for retired config blocks (knowledge-model §8.3/§15).
+- `_check_retired_keep_local(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 890) — The per-book "Keep this book on this computer" (spec ux_learnloop_v1 §6.6, migration 198's ``source_artifacts.keep_local``) is retired (owner, 2026-10-13: sending books to an AI is fine; the opt-out was not asked for).
+- `_check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 919)
+- `class _ParsedYamlFiles` ([source](../../../../../../src/learnloop/ops/doctor.py), line 934) — Each vault YAML file parsed once per doctor run.
+- `_check_schema_versions(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 960)
+- `_check_yaml_schema(path: Path, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles, supported: set[int]=frozenset({1})) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 975)
+- `_check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1000)
+- `_check_unknown_yaml_keys_for_file(path: Path, model: type[BaseModel], issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1028)
+- `_check_unknown_mapping_keys(data: dict[str, Any], model: type[BaseModel], issues: list[HealthIssue], *, path: Path, location: str) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1044)
+- `_iter_model_children(value: Any, annotation: Any, location: str) -> list[tuple[str, type[BaseModel], dict[str, Any]]]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1071)
+- `_model_from_annotation(annotation: Any) -> type[BaseModel] | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1106)
+- `_check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1125) — Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot share memory on, and an oversized WAL.
+- `_check_wal_runtime(paths: VaultPaths, storage: DatabaseStorage | None, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1165)
+- `_check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1198)
+- `_database_tables(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1228)
+- `_check_deprecated_tables(repository: Repository, database_tables: set[str], issues: list[HealthIssue]) -> dict[str, int]` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1245) — Report read-only telemetry before deprecated state is detached.
+- `_has_tables(available: set[str], *required: str) -> bool` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1296)
+- `_recover_apply_intents(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1300) — Complete any write-ahead apply intent left mid-flight (§10.2 recovery), and report conflicted ones.
+- `_recover_facet_identity_actions(paths: VaultPaths, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue], *, fix_state: bool) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1372) — Finish a facet merge, undo or Library save left mid-flight (facet identity, review F4).
+- `_from_loader_issue(issue: DoctorIssue) -> HealthIssue` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1438)
+- `_check_references(vault: LoadedVault, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1447)
+- `_check_source_sets(vault: LoadedVault, repository: Repository | None, database_tables: set[str], issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1484) — Validate source-set membership (spec_source_ingestion_v2 §4.3).
+- `_check_sql_state(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1534)
+- `_check_derived_state_rebuild_marker(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1582)
+- `_check_facet_belief_attempts(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1608) — The facet-belief successor's switch, attempt by attempt: the attempts derived under the other setting.
+- `_check_projection_switches(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1646) — Router objective RO1 (spec §5.5): persisted due dates were derived under a switch the config no longer says.
 - `_check_invalid_proposals(repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1708)
 - `_check_difficulty_calibration(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1722) — Surface items whose IRT difficulty ``b`` looks miscalibrated (spec §7.4).
 - `_check_bad_item_suspicion(vault: LoadedVault, repository: Repository, issues: list[HealthIssue]) -> None` ([source](../../../../../../src/learnloop/ops/doctor.py), line 1733)
@@ -197,8 +197,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/ops/model_routes|learnloop.ops.model_routes]] — imports `FINDING_CODE`, `check_model_routes`; calls `check_model_routes`
 - [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] — imports `FINDING_CODE`, `METERED_FALLBACK_CODE`, `codex_pins`, `finding_message`, `metered_fallback_message`; calls `codex_pins`, `finding_message`, `metered_fallback_message`
 - [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] — imports `vault_mutation_lock`; calls `vault_mutation_lock`
-- [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `FACET_BELIEF_FIXES_SNAPSHOT_KEY`, `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `UNSERVABLE_REMEDIES`, `unservable_reason`; calls `unservable_reason`
+- [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] — imports `FACET_BELIEF_FIXES_SNAPSHOT_KEY`, `INTERVAL_FACTOR_SNAPSHOT_KEY`, `projection_switches`; calls `projection_switches`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `StateSyncResult`, `sync_vault_state`; calls `sync_vault_state`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `PracticeItem`, `RelationsFile`, `learning_object_facet_union`, `recipe_components`; calls `learning_object_facet_union`, `recipe_components`

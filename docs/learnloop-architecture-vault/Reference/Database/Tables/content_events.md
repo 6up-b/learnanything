@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
 tags:
@@ -90,12 +91,13 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/curriculum/concepts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

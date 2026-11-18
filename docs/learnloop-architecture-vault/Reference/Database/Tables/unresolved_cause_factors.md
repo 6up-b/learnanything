@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_card.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -101,7 +101,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/router_card.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/history.py`
@@ -112,12 +112,12 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`

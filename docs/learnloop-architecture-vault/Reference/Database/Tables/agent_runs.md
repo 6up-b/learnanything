@@ -104,13 +104,13 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/attempts/stuck.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/diagnosis/split/reports.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

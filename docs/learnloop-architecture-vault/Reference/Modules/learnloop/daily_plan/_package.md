@@ -128,8 +128,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 14 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 9 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 6 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 5 static module edges
@@ -173,7 +173,7 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
-    n_learnloop_cli["learnloop.cli"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop -->|1| center
     center -->|56| n_learnloop
     center -->|29| n_learnloop_router_objective
@@ -184,7 +184,7 @@ flowchart LR
     center -->|14| n_learnloop_scheduling
     center -->|11| n_learnloop_ai
     center -->|9| n_learnloop_scheduling_intent
-    n_learnloop_cli -->|7| center
+    center -->|8| n_learnloop_db
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

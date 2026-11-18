@@ -73,7 +73,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `load_authoritative_observation_ledger`; statically calls `load_authoritative_observation_ledger`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`; statically calls `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`, `load_effective_assessment_contracts`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `load_effective_assessment_contracts`; statically calls `load_effective_assessment_contracts`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`; statically calls `load_authoritative_observation_ledger`, `load_canonical_observation_ledger`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `load_authoritative_observation_ledger`; statically calls `load_authoritative_observation_ledger`
 
 ## Dependencies
@@ -94,7 +95,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]], [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

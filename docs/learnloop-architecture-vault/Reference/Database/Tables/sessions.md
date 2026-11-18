@@ -103,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/capture/report.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router_objective/checks.py`
@@ -118,6 +119,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/db/stores/session_ownership.py`
 
 ### Upstream callers of the repository access surface

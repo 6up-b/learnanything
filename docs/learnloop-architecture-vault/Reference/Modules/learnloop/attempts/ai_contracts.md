@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_graded_by_codex_replays_identically`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_regrade_replays_targeted_error_attribution_facets`
+  - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_c3_disagreement_becomes_unresolved_cause_set_and_real_support`
 - [tests/test_dialogue_causal_join.py](../../../../../../tests/test_dialogue_causal_join.py) — direct import

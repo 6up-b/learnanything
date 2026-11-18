@@ -18,7 +18,7 @@ source_paths:
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/cli/calibration.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,11 +90,11 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Upstream callers of the repository access surface
 

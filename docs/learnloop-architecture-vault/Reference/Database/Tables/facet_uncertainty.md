@@ -18,15 +18,14 @@ source_paths:
   - "migrations/012_facet_diagnostic_state.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
-  - "src/learnloop/tutor/tutor_qa.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/learner/facet_state_reader.py"
-  - "src/learnloop/substrate/replay.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -97,15 +96,19 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/facet_projection.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/learner/facet_state_reader.py`
 - `src/learnloop/substrate/replay.py`

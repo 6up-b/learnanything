@@ -47,29 +47,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py) |
-| Source lines | 147 |
+| Source lines | 148 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `record_learner_preference(repository: Repository, *, preference: str, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, source: str='learner_action', expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 39)
-- `learner_preference(repository: Repository, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 76)
-- `causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 97) — An episode's origin string for a factor.
-- `causal_origin_factor(origin: str) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 103) — The factor a causal episode's origin names, or None (:func:`_causal_origin`).
-- `episode_conflict_reason(repository: Repository, episode: ProbeEpisodeRecord | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 110) — Why an already-open probe episode cannot host this causal probe.
-- `probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 136) — The conflict that would make ``accept_probe_offer`` refuse, if any.
+- `record_learner_preference(repository: Repository, *, preference: str, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None, source: str='learner_action', expires_at: str | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 40)
+- `learner_preference(repository: Repository, *, factor_id: str | None=None, learning_object_id: str | None=None, session_id: str | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 77)
+- `causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 98) — An episode's origin string for a factor.
+- `causal_origin_factor(origin: str) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 104) — The factor a causal episode's origin names, or None (:func:`_causal_origin`).
+- `episode_conflict_reason(repository: Repository, episode: ProbeEpisodeRecord | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 111) — Why an already-open probe episode cannot host this causal probe.
+- `probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 137) — The conflict that would make ``accept_probe_offer`` refuse, if any.
 
 ### Module constants
 
-- `LEARNER_PREFERENCES` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 24)
-- `EPISODE_CONFLICT_REASON` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 29)
-- `EPISODE_CONFLICT_MESSAGE` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 32)
+- `LEARNER_PREFERENCES` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 25)
+- `EPISODE_CONFLICT_REASON` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 30)
+- `EPISODE_CONFLICT_MESSAGE` ([src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 33)
 
 ## Internal implementation anchors
 
-- `_causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 93)
+- `_causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 94)
 
 ## Who imports or calls it
 
@@ -87,7 +87,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbeEpisodeRecord`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeEpisodeRecord`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `episode_has_observations`; calls `episode_has_observations`
 
 ### Platform and third-party dependencies

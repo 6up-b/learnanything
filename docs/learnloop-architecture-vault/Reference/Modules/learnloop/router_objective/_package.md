@@ -116,10 +116,11 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 24 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 5 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 1 static module edge
@@ -157,19 +158,19 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_data_capture["learnloop.data_capture"]
     n_learnloop_router["learnloop.router"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_daily_plan -->|29| center
-    center -->|25| n_learnloop
+    center -->|24| n_learnloop
     center -->|17| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|13| center
     n_learnloop_cli -->|6| center
     center -->|6| n_learnloop_data_capture
     center -->|5| n_learnloop_router
+    center -->|4| n_learnloop_db
     n_learnloop_ops -->|4| center
     n_learnloop_followup_run -->|2| center
-    center -->|2| n_learnloop_learner
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

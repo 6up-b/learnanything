@@ -16,7 +16,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/143_instrument_classes.sql"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
+  - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/diagnosis/discrimination_profiles.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/grading.py"
@@ -91,7 +92,8 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
+- `src/learnloop/db/stores/learner_model.py`
 
 ### Direct SQL writers
 

@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/questions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/learner/learner_profile.py"
@@ -94,17 +95,18 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/replay.py`
 - `src/learnloop/daily_plan/router_card.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 - `src/learnloop/field/priors.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/learner/learner_profile.py`
 - `src/learnloop/learner/mastery.py`

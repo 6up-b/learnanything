@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/reentry.py"
@@ -87,17 +88,19 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/daily_plan/reentry.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/db/stores/session_ownership.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/hints/state.py`

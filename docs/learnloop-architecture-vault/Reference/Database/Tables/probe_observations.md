@@ -19,10 +19,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/router_objective/decision_state.py"
-  - "src/learnloop/router_objective/miss_cause.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
@@ -102,6 +102,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/router_objective/decision_state.py`
@@ -109,7 +110,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/probes.py`
 
 ### Upstream callers of the repository access surface
 

@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -138,8 +138,9 @@ Database triggers:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/app.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/recurrence/display.py`
 - `src/learnloop/diagnosis/recurrence/live.py`
 - `src/learnloop/diagnosis/split/card.py`

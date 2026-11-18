@@ -102,6 +102,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/delayed_checks.py`
 - `src/learnloop/intent/report.py`
 - `src/learnloop/router_objective/decision_state.py`
@@ -110,6 +111,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_state.py`
 
 ### Upstream callers of the repository access surface
 
@@ -126,13 +128,13 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/diagnostic_surface_supply.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
-- `src/learnloop/diagnosis/probe_episodes.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -155,10 +157,10 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_debug_advance.py`
+- `tests/test_deferred_regrade.py`
 - `tests/test_diagnostic_probe_single_use.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_e2e_local.py`
-- `tests/test_e2e_tui.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

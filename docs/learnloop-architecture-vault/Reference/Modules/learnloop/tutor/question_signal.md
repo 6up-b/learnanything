@@ -47,47 +47,47 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py) |
-| Source lines | 611 |
+| Source lines | 612 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 70) — L(ask | facet_solid) / L(ask | not solid), with provenance.
-  - `as_dict(self) -> dict[str, Any]` (line 80; public)
-- `class QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 92) — Unresolved substantive questions for one LO, grouped for consumers.
-  - `facets(self) -> list[str]` (line 108; public)
-  - `context_entries(self, *, max_entries: int=6, excerpt_chars: int=240) -> list[dict[str, Any]]` (line 111; public) — Compact question context for diagnostic_focus / authoring prompts.
-- `resolve_question_likelihood(repository: Repository, config: TutorQAConfig) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 132) — Calibrate the solid-likelihood ratio from the learner's own history.
-- `resolve_gap_declaration_likelihood(repository: Repository, config: TutorPromotionConfig) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 160) — Calibrate the gap-declaration solid-likelihood ratio (spec §3 G2).
-- `apply_question_observation(hypothesis_marginal: dict[str, float], *, solid_likelihood_ratio: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 254) — One substantive-question observation on a facet's hypothesis marginal.
-- `collect_question_signal(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None=None, clock: Clock | None=None) -> QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 276) — Unresolved substantive questions mapped to one LO's facets.
-- `question_adjusted_uncertainty_states(vault: LoadedVault, repository: Repository, learning_object_id: str, *, states: list[FacetUncertaintyState] | None=None, signal: QuestionSignal | None=None, exclude_attempt_id: str | None=None, clock: Clock | None=None) -> tuple[list[FacetUncertaintyState], QuestionSignal]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 385) — Facet uncertainty states with question observations folded in.
+- `class ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 71) — L(ask | facet_solid) / L(ask | not solid), with provenance.
+  - `as_dict(self) -> dict[str, Any]` (line 81; public)
+- `class QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 93) — Unresolved substantive questions for one LO, grouped for consumers.
+  - `facets(self) -> list[str]` (line 109; public)
+  - `context_entries(self, *, max_entries: int=6, excerpt_chars: int=240) -> list[dict[str, Any]]` (line 112; public) — Compact question context for diagnostic_focus / authoring prompts.
+- `resolve_question_likelihood(repository: Repository, config: TutorQAConfig) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 133) — Calibrate the solid-likelihood ratio from the learner's own history.
+- `resolve_gap_declaration_likelihood(repository: Repository, config: TutorPromotionConfig) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 161) — Calibrate the gap-declaration solid-likelihood ratio (spec §3 G2).
+- `apply_question_observation(hypothesis_marginal: dict[str, float], *, solid_likelihood_ratio: float) -> dict[str, float]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 255) — One substantive-question observation on a facet's hypothesis marginal.
+- `collect_question_signal(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None=None, clock: Clock | None=None) -> QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 277) — Unresolved substantive questions mapped to one LO's facets.
+- `question_adjusted_uncertainty_states(vault: LoadedVault, repository: Repository, learning_object_id: str, *, states: list[FacetUncertaintyState] | None=None, signal: QuestionSignal | None=None, exclude_attempt_id: str | None=None, clock: Clock | None=None) -> tuple[list[FacetUncertaintyState], QuestionSignal]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 386) — Facet uncertainty states with question observations folded in.
 
 ### Module constants
 
-- `SUBSTANTIVE_QUESTION_TYPES` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 48)
-- `QUESTION_SIGNAL_WINDOW_DAYS` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 52)
-- `MAX_QUESTION_OBSERVATIONS_PER_FACET` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 53)
-- `_FRONTIER_NATURES` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 58)
-- `_RATE_CLAMP` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 64)
-- `_RATIO_FLOOR` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 65)
-- `_SMOOTHING_PSEUDO_COUNT` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 66)
+- `SUBSTANTIVE_QUESTION_TYPES` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 49)
+- `QUESTION_SIGNAL_WINDOW_DAYS` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 53)
+- `MAX_QUESTION_OBSERVATIONS_PER_FACET` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 54)
+- `_FRONTIER_NATURES` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 59)
+- `_RATE_CLAMP` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 65)
+- `_RATIO_FLOOR` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 66)
+- `_SMOOTHING_PSEUDO_COUNT` ([src/learnloop/tutor/question_signal.py](../../../../../../src/learnloop/tutor/question_signal.py), line 67)
 
 ## Internal implementation anchors
 
-- `_empirical_solid_likelihood(questioned: dict[str, bool], repository: Repository, *, min_samples: int, fallback: float) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 198) — Shared Laplace-smoothed failure-lift → solid-likelihood ratio.
-- `_base_failure_rate(repository: Repository) -> float` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 243)
-- `_collect_gap_declarations(vault: LoadedVault, repository: Repository, learning_object_id: str, *, since: str, successes: dict[str, str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 328) — Gap-declared promotions mapped to this LO's attributed facets.
-- `_apply_question_channels(marginal: dict[str, float], ordinary_events: list[dict[str, Any]], gap_events: list[dict[str, Any]], ordinary_ratio: float, gap_ratio: float, *, preference_damping: float=1.0) -> dict[str, float]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 479) — Fold both question channels into one facet marginal under a shared cap.
-- `_empty_signal(config: TutorQAConfig) -> QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 520)
-- `_clamped_rate(successes: float, total: float) -> float` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 536)
-- `_first_attempt_at_or_after(repository: Repository, practice_item_id: str, created_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 543)
-- `_scored(repository: Repository, attempts: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 556) — ``attempts`` without the grades held for review (THE predicate, held-grade-evidence): a held grade is neither a failure nor a success.
-- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 566)
-- `_facet_success_times(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 575) — Latest *successful* attempt time per canonical facet (the resolution signal).
-- `_event_maps_to_lo(vault: LoadedVault, event: dict[str, Any], learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 602)
+- `_empirical_solid_likelihood(questioned: dict[str, bool], repository: Repository, *, min_samples: int, fallback: float) -> ResolvedQuestionLikelihood` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 199) — Shared Laplace-smoothed failure-lift → solid-likelihood ratio.
+- `_base_failure_rate(repository: Repository) -> float` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 244)
+- `_collect_gap_declarations(vault: LoadedVault, repository: Repository, learning_object_id: str, *, since: str, successes: dict[str, str]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 329) — Gap-declared promotions mapped to this LO's attributed facets.
+- `_apply_question_channels(marginal: dict[str, float], ordinary_events: list[dict[str, Any]], gap_events: list[dict[str, Any]], ordinary_ratio: float, gap_ratio: float, *, preference_damping: float=1.0) -> dict[str, float]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 480) — Fold both question channels into one facet marginal under a shared cap.
+- `_empty_signal(config: TutorQAConfig) -> QuestionSignal` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 521)
+- `_clamped_rate(successes: float, total: float) -> float` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 537)
+- `_first_attempt_at_or_after(repository: Repository, practice_item_id: str, created_at: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 544)
+- `_scored(repository: Repository, attempts: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 557) — ``attempts`` without the grades held for review (THE predicate, held-grade-evidence): a held grade is neither a failure nor a success.
+- `_attempt_failed(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 567)
+- `_facet_success_times(vault: LoadedVault, repository: Repository, learning_object_id: str, *, exclude_attempt_id: str | None) -> dict[str, str]` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 576) — Latest *successful* attempt time per canonical facet (the resolution signal).
+- `_event_maps_to_lo(vault: LoadedVault, event: dict[str, Any], learning_object_id: str) -> bool` ([source](../../../../../../src/learnloop/tutor/question_signal.py), line 603)
 
 ## Who imports or calls it
 
@@ -102,7 +102,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `TutorPromotionConfig`, `TutorQAConfig`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `FacetUncertaintyState`, `Repository`; calls `FacetUncertaintyState`
+- [[Reference/Modules/learnloop/db/records|learnloop.db.records]] — imports `FacetUncertaintyState`; calls `FacetUncertaintyState`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `entropy`, `facet_state_label`, `normalize_distribution`; calls `entropy`, `facet_state_label`, `normalize_distribution`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`; calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`

@@ -18,15 +18,14 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/intent_reads.py"
-  - "src/learnloop/diagnosis/followups.py"
-  - "src/learnloop/diagnosis/signal_quantiles.py"
-  - "src/learnloop/diagnosis/voi_stopping.py"
-  - "src/learnloop/evsi_calibration/live_report.py"
+  - "src/learnloop/db/stores/learner_model.py"
+  - "src/learnloop/db/stores/practice_state.py"
+  - "src/learnloop/db/stores/remediation.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -107,7 +106,11 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/intent_reads.py`
+- `src/learnloop/db/stores/learner_model.py`
+- `src/learnloop/db/stores/practice_state.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/router_objective/miss_cause.py`
@@ -117,6 +120,7 @@ Indexes and uniqueness:
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 
 ### Upstream callers of the repository access surface
 
@@ -124,6 +128,8 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/remediation.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/gate_fit.py`
@@ -138,8 +144,6 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/replay.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
-- `src/learnloop_sidecar/handlers/inspector.py`
-- `src/learnloop_sidecar/handlers/knowledge_map.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

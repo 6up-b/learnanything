@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/126_diagnosis_adjudication.sql"
   - "src/learnloop/cli/diagnose.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/diagnosis/offline_review/report.py"
   - "src/learnloop/diagnosis/offline_review/spot_check.py"
   - "src/learnloop/tutor/durable_promotion.py"
@@ -113,12 +113,12 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 

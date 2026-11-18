@@ -108,6 +108,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_maintenance_runs_the_retention_pass`
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+  - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_project_hooks.py](../../../../../../tests/test_project_hooks.py) — direct import
   - `test_startup_maintenance_runs_the_sweep_without_creating_anything`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import

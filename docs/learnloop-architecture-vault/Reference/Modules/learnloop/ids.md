@@ -139,18 +139,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/activity|learnloop.db.stores.activity]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/ad_receipts|learnloop.db.stores.ad_receipts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/ad_serving|learnloop.db.stores.ad_serving]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/data_capture|learnloop.db.stores.data_capture]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/diagnoses|learnloop.db.stores.diagnoses]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/followup_value|learnloop.db.stores.followup_value]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/forecast_receipts|learnloop.db.stores.forecast_receipts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/grading|learnloop.db.stores.grading]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/maintenance|learnloop.db.stores.maintenance]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/recurrence|learnloop.db.stores.recurrence]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/remediation|learnloop.db.stores.remediation]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] — imports `new_ulid`; statically calls `new_ulid`
@@ -277,7 +288,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 171 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 182 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -20,7 +20,7 @@ source_paths:
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/vault_epigraphs.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/content.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -89,11 +89,11 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/content.py`
 
 ### Upstream callers of the repository access surface
 

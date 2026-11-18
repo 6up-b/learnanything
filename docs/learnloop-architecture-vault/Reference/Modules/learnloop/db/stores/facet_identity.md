@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `module`; statically calls `action_by_id`, `delete_merge_rows`, `graded_contract_version_ids`, `insert_action`, `insert_registry_save`, `list_actions`, `registry_save_by_id`, `registry_saves`, `set_status`, `settle_registry_save`, `update_action`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `settled_merge_rows`; statically calls `settled_merge_rows`
+- [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]] — imports `settled_merge_rows`; statically calls `settled_merge_rows`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `settled_merge_rows`; statically calls `settled_merge_rows`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `settled_merge_rows`; statically calls `settled_merge_rows`
 
@@ -122,7 +122,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]], [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

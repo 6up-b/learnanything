@@ -99,10 +99,10 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 41 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 13 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
@@ -161,13 +161,13 @@ flowchart LR
     center -->|41| n_learnloop_ai
     center -->|41| n_learnloop_vault
     n_learnloop -->|1| center
-    center -->|26| n_learnloop
+    center -->|25| n_learnloop
     center -->|19| n_learnloop_db
     n_learnloop_cli -->|18| center
     center -->|14| n_learnloop_db_stores
     n_learnloop_content_authoring -->|3| center
     center -->|10| n_learnloop_content_authoring
-    center -->|12| n_learnloop_substrate
+    center -->|13| n_learnloop_substrate
     n_learnloop_sidecar_handlers -->|10| center
     center -->|9| n_learnloop_config
 ```

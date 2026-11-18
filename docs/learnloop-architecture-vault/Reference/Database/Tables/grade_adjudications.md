@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/attempts/grade_resolution.py"
 tags:
@@ -99,7 +100,7 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/grading.py`
 
 ### Upstream callers of the repository access surface
 

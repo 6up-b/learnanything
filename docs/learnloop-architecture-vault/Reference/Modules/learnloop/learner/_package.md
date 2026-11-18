@@ -102,15 +102,15 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 28 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 25 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 1 static module edge
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 
@@ -159,8 +159,8 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_attempts["learnloop.attempts"]
@@ -170,9 +170,9 @@ flowchart LR
     center -->|28| n_learnloop
     n_learnloop_sidecar_handlers -->|28| center
     center -->|25| n_learnloop_vault
+    center -->|23| n_learnloop_db
     n_learnloop_diagnosis -->|18| center
     center -->|5| n_learnloop_diagnosis
-    center -->|21| n_learnloop_db
     n_learnloop_goals -->|14| center
     center -->|6| n_learnloop_goals
     n_learnloop_substrate -->|15| center

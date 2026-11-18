@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/007_recall_coverage_interventions.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/facet_projection.py"
   - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/attempts/attempts.py"
@@ -94,6 +95,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_projection.py`
 
 ### Direct SQL writers
 

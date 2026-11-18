@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/field_classification.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/questions.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/experiments/contextual_embeddings/bank.py"
 tags:
@@ -130,7 +130,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/field/probability_states.py`
@@ -146,13 +146,13 @@ Indexes and uniqueness:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/field_classification.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/questions.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/experiments/contextual_embeddings/bank.py`
 - `src/learnloop/instructional/interventions.py`

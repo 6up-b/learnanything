@@ -22,8 +22,10 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/goals/exam_calibration.py"
   - "src/learnloop/scheduling/evaluation.py"
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
@@ -137,7 +140,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/goals/exam_calibration.py`
 - `src/learnloop/scheduling/evaluation.py`

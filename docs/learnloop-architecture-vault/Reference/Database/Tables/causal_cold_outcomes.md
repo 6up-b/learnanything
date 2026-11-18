@@ -17,15 +17,16 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/145_causal_cold_outcomes.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/forecast_receipts.py"
   - "src/learnloop/diagnosis/guided_redo.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
-  - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop_sidecar/handlers/serializers.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +107,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/forecast_receipts.py`
 - `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
@@ -116,7 +118,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/remediation.py`

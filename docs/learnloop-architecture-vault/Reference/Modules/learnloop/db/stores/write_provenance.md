@@ -165,7 +165,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `grading_in_progress`, `record_error_event_lineage`, `record_grading`; statically calls `grading_in_progress`, `record_error_event_lineage`, `record_grading`
 - [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] — imports `read_snapshot`; statically calls `read_snapshot`
 - [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]] — imports `read_snapshot`; statically calls `read_snapshot`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `closure`, `pinned_contract_ids`, `record_text_write`, `stored_record`; statically calls `closure`, `pinned_contract_ids`, `record_text_write`, `stored_record`
+- [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] — imports `closure`, `record_text_write`, `stored_record`; statically calls `closure`, `record_text_write`, `stored_record`
+- [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] — imports `record_text_write`; statically calls `record_text_write`
+- [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] — imports `pinned_contract_ids`; statically calls `pinned_contract_ids`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `attempt_statement_refs`, `closure`, `fold_topic_records`; statically calls `attempt_statement_refs`, `closure`, `fold_topic_records`
 - [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `GRADING`, `closure`; statically calls `closure`
 - [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `Inputs`, `WriteRecord`, `closure`, `fold_topic_records`; statically calls `WriteRecord`, `closure`, `fold_topic_records`
@@ -201,7 +203,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]], [[Reference/Modules/learnloop/daily_plan/router_card|learnloop.daily_plan.router_card]], [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

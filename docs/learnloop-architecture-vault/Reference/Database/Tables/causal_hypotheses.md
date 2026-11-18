@@ -20,13 +20,13 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/daily_plans.py"
   - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_cold_verification.py"
+  - "src/learnloop/db/stores/learner_model.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -129,6 +129,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/hypothesis_marks.py`
 - `src/learnloop/db/stores/recurrence.py`
@@ -149,13 +150,15 @@ Database triggers:
 
 ### Direct SQL writers
 
-- `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
 
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/causal.py`
+- `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
@@ -171,8 +174,6 @@ Database triggers:
 - `src/learnloop/diagnosis/recurrence/kind.py`
 - `src/learnloop/diagnosis/recurrence/live.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
-- `src/learnloop/diagnosis/remediation.py`
-- `src/learnloop/diagnosis/split/embeddings.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

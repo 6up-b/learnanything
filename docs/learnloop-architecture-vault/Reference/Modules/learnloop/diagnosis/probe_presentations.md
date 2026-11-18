@@ -47,36 +47,36 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py) |
-| Source lines | 557 |
+| Source lines | 558 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `shadow_selection_rankings(candidates: list[EligibleInstrument], *, top_k: int=3) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 34) — Alternative selection-policy rankings for shadow logging (§13.3).
-- `class RoutineDisplayCovered(Exception)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 70) — A probe or placement presentation refused: the item's answer was shown, so it cannot test the learner (the one eligibility decision, ``serve_eligibility.decide(..., PROBE)``).
-  - `__init__(self, practice_item_id: str, *, decision: object | None=None) -> None` (line 78; internal)
-- `probe_eligibility(repository: Repository, practice_item_id: str, *, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 89) — The one eligibility decision for a probe or placement presentation of the item now (``serve_eligibility``, request ``PROBE``).
-- `routine_display_covers_item(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 102) — Was the item's answer shown, so that no probe may test it now?
-- `refuse_routine_display_covered(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 115) — Raise :class:`RoutineDisplayCovered` when a probe of the item cannot test the learner now (the one eligibility decision refuses it): the one guard every presentation commit (and serve) passes through.
-- `commit_presentation(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, supersede_active: bool=True, clock: Clock | None=None) -> ProbePresentationRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 133) — Durably commit the selection before the item is returned to the client.
-- `record_presentation_forecast(vault: LoadedVault, repository: Repository, presentation: ProbePresentationRecord, *, learning_object_id: str | None=None, candidate_count: int | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 190) — EVSI calibration Part B: log the forecast this probe selection ran on.
-- `presentation_commit_payload(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 242) — Build the frozen presentation row before its owning transaction.
-- `serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 365) — Mark a committed presentation served: the administration itself, and the only path to ``served``.
-- `probe_serving_block_reason(vault: LoadedVault, repository: Repository, *, session_id: str | None=None, cap_lifted: bool=False) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 387) — The §5.9 orchestration gate shared by every serving surface.
-- `probe_value_block_reason(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', practice_item_id: str, *, session_id: str | None=None, cap_lifted: bool=False) -> tuple[str | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 424) — mvp-0.21 (voi_stopping, site ``probe_episode``): may this item be the episode's next observation?
-- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 473) — Commit and serve a presentation for one specific item.
-- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 512)
-- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 519) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
+- `shadow_selection_rankings(candidates: list[EligibleInstrument], *, top_k: int=3) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 35) — Alternative selection-policy rankings for shadow logging (§13.3).
+- `class RoutineDisplayCovered(Exception)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 71) — A probe or placement presentation refused: the item's answer was shown, so it cannot test the learner (the one eligibility decision, ``serve_eligibility.decide(..., PROBE)``).
+  - `__init__(self, practice_item_id: str, *, decision: object | None=None) -> None` (line 79; internal)
+- `probe_eligibility(repository: Repository, practice_item_id: str, *, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 90) — The one eligibility decision for a probe or placement presentation of the item now (``serve_eligibility``, request ``PROBE``).
+- `routine_display_covers_item(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 103) — Was the item's answer shown, so that no probe may test it now?
+- `refuse_routine_display_covered(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 116) — Raise :class:`RoutineDisplayCovered` when a probe of the item cannot test the learner now (the one eligibility decision refuses it): the one guard every presentation commit (and serve) passes through.
+- `commit_presentation(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, supersede_active: bool=True, clock: Clock | None=None) -> ProbePresentationRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 134) — Durably commit the selection before the item is returned to the client.
+- `record_presentation_forecast(vault: LoadedVault, repository: Repository, presentation: ProbePresentationRecord, *, learning_object_id: str | None=None, candidate_count: int | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 191) — EVSI calibration Part B: log the forecast this probe selection ran on.
+- `presentation_commit_payload(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 243) — Build the frozen presentation row before its owning transaction.
+- `serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 366) — Mark a committed presentation served: the administration itself, and the only path to ``served``.
+- `probe_serving_block_reason(vault: LoadedVault, repository: Repository, *, session_id: str | None=None, cap_lifted: bool=False) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 388) — The §5.9 orchestration gate shared by every serving surface.
+- `probe_value_block_reason(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', practice_item_id: str, *, session_id: str | None=None, cap_lifted: bool=False) -> tuple[str | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 425) — mvp-0.21 (voi_stopping, site ``probe_episode``): may this item be the episode's next observation?
+- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 474) — Commit and serve a presentation for one specific item.
+- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 513)
+- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 520) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
 
 ### Module constants
 
-- `PROBE_ITEM_ANSWER_SHOWN` ([src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 86)
+- `PROBE_ITEM_ANSWER_SHOWN` ([src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 87)
 
 ## Internal implementation anchors
 
-- `_robust_channel_pin(repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, belief: Mapping[str, float]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 330) — The mvp-0.8 decision-time channel pin + robust product for the chosen candidate (§1.5/§2.1).
+- `_robust_channel_pin(repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, belief: Mapping[str, float]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 331) — The mvp-0.8 decision-time channel pin + robust product for the chosen candidate (§1.5/§2.1).
 
 ## Who imports or calls it
 
@@ -97,7 +97,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbeEpisodeRecord`, `ProbePresentationRecord`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbePresentationRecord`, `Repository`
+- [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeEpisodeRecord`
 - [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `robust_gate_counterfactual`; calls `robust_gate_counterfactual`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `_entropy`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; calls `_entropy`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `SELECTION_POLICY_VERSION`, `instrument_expected_information_gain`; calls `instrument_expected_information_gain`
