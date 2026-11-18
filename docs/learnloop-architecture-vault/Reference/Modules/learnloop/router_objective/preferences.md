@@ -137,8 +137,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `KINDS`, `LESSON`, `NEW`, `QUESTION`, `READ`, `REVIEW`, `STOP`, `WORDS`, `kind_of`, `module`; statically calls `features_at`, `kind_of`
 - [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] — imports `WORDS`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `mark`, `module`, `moves_the_value`; statically calls `kind_of`, `mark`, `moves_the_value`, `record`, `shifted`, `with_values`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `mark`, `module`, `moves_the_value`; statically calls `kind_of`, `mark`, `moves_the_value`, `record`, `shifted`
 - [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]] — imports `KINDS`, `STOP`, `kind_of`; statically calls `kind_of`
+- [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`; statically calls `with_values`
 
 ## Dependencies
 
@@ -166,7 +167,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

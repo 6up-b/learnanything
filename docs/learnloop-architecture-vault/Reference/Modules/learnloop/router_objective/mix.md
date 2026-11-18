@@ -115,6 +115,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `components`, `draw`, `effective_weights`, `fallback_label`
 - [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]] — imports `module`; statically calls `seed_for`
 - [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; statically calls `components`, `draw`, `effective_weights`, `fallback_label`
+- [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `recompute`; statically calls `recompute`
 
 ## Dependencies
@@ -135,7 +136,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]], [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]], [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -171,6 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_llm_down_numeric_takes_the_whole_mix_and_staged_is_only_the_last_resort`
 - [tests/test_instruct_handoff_ih1.py](../../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_no_new_draw_joins_an_open_item`
+- [tests/test_objective_trace.py](../../../../../../tests/test_objective_trace.py) — direct import
+  - `test_the_failure_rule_is_logged_only_where_it_is_not_stageds`
 - [tests/test_pinned_draws.py](../../../../../../tests/test_pinned_draws.py) — direct import
   - `test_the_map_keeps_productions_equalities_and_differences`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import

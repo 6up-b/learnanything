@@ -38,6 +38,7 @@ source_paths:
   - "src/learnloop/router_objective/tail_report.py"
   - "src/learnloop/router_objective/tail_serve.py"
   - "src/learnloop/router_objective/trace.py"
+  - "src/learnloop/router_objective/trace_assembly.py"
   - "src/learnloop/router_objective/trajectory.py"
   - "src/learnloop/router_objective/value.py"
   - "src/learnloop/router_objective/weight.py"
@@ -82,7 +83,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] | [[Reference/Modules/learnloop/router_objective/assignments#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
 | [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] | [[Reference/Modules/learnloop/router_objective/calibration_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] | [[Reference/Modules/learnloop/router_objective/checks#^module-purpose|purpose]] | `ACTIVE` | 9 | 13 |
-| [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] | [[Reference/Modules/learnloop/router_objective/choose#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] | [[Reference/Modules/learnloop/router_objective/choose#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_objective/cold_timing|learnloop.router_objective.cold_timing]] | [[Reference/Modules/learnloop/router_objective/cold_timing#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router_objective/combiner_data|learnloop.router_objective.combiner_data]] | [[Reference/Modules/learnloop/router_objective/combiner_data#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] | [[Reference/Modules/learnloop/router_objective/decision_state#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
@@ -94,33 +95,34 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] | [[Reference/Modules/learnloop/router_objective/memory#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] | [[Reference/Modules/learnloop/router_objective/miss_cause#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/router_objective/miss_cause_report|learnloop.router_objective.miss_cause_report]] | [[Reference/Modules/learnloop/router_objective/miss_cause_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 4 | 17 |
+| [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] | [[Reference/Modules/learnloop/router_objective/mix#^module-purpose|purpose]] | `ACTIVE` | 5 | 18 |
 | [[Reference/Modules/learnloop/router_objective/objective_report|learnloop.router_objective.objective_report]] | [[Reference/Modules/learnloop/router_objective/objective_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router_objective/offer_report|learnloop.router_objective.offer_report]] | [[Reference/Modules/learnloop/router_objective/offer_report#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] | [[Reference/Modules/learnloop/router_objective/picks#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/router_objective/preference_report|learnloop.router_objective.preference_report]] | [[Reference/Modules/learnloop/router_objective/preference_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] | [[Reference/Modules/learnloop/router_objective/preferences#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] | [[Reference/Modules/learnloop/router_objective/price#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
+| [[Reference/Modules/learnloop/router_objective/preferences|learnloop.router_objective.preferences]] | [[Reference/Modules/learnloop/router_objective/preferences#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
+| [[Reference/Modules/learnloop/router_objective/price|learnloop.router_objective.price]] | [[Reference/Modules/learnloop/router_objective/price#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
 | [[Reference/Modules/learnloop/router_objective/question_state|learnloop.router_objective.question_state]] | [[Reference/Modules/learnloop/router_objective/question_state#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/router_objective/report|learnloop.router_objective.report]] | [[Reference/Modules/learnloop/router_objective/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/router_objective/scores|learnloop.router_objective.scores]] | [[Reference/Modules/learnloop/router_objective/scores#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
 | [[Reference/Modules/learnloop/router_objective/sessions|learnloop.router_objective.sessions]] | [[Reference/Modules/learnloop/router_objective/sessions#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] | [[Reference/Modules/learnloop/router_objective/stop_coin#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
+| [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] | [[Reference/Modules/learnloop/router_objective/stop_coin#^module-purpose|purpose]] | `ACTIVE` | 8 | 12 |
 | [[Reference/Modules/learnloop/router_objective/tail_data|learnloop.router_objective.tail_data]] | [[Reference/Modules/learnloop/router_objective/tail_data#^module-purpose|purpose]] | `ACTIVE` | 5 | 14 |
 | [[Reference/Modules/learnloop/router_objective/tail_report|learnloop.router_objective.tail_report]] | [[Reference/Modules/learnloop/router_objective/tail_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] | [[Reference/Modules/learnloop/router_objective/tail_serve#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
+| [[Reference/Modules/learnloop/router_objective/tail_serve|learnloop.router_objective.tail_serve]] | [[Reference/Modules/learnloop/router_objective/tail_serve#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/router_objective/trace|learnloop.router_objective.trace]] | [[Reference/Modules/learnloop/router_objective/trace#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
+| [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] | [[Reference/Modules/learnloop/router_objective/trace_assembly#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/router_objective/trajectory|learnloop.router_objective.trajectory]] | [[Reference/Modules/learnloop/router_objective/trajectory#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 3 | 25 |
+| [[Reference/Modules/learnloop/router_objective/value|learnloop.router_objective.value]] | [[Reference/Modules/learnloop/router_objective/value#^module-purpose|purpose]] | `ACTIVE` | 4 | 25 |
 | [[Reference/Modules/learnloop/router_objective/weight|learnloop.router_objective.weight]] | [[Reference/Modules/learnloop/router_objective/weight#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 27 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
-- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 7 static module edges
+- [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 8 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
@@ -131,7 +133,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 35 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 36 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 13 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
@@ -163,11 +165,11 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_followup_run["learnloop.followup_run"]
-    n_learnloop_daily_plan -->|35| center
-    center -->|25| n_learnloop
+    n_learnloop_daily_plan -->|36| center
+    center -->|27| n_learnloop
     center -->|17| n_learnloop_db_stores
     n_learnloop_sidecar_handlers -->|13| center
-    center -->|7| n_learnloop_router
+    center -->|8| n_learnloop_router
     n_learnloop_cli -->|6| center
     center -->|6| n_learnloop_data_capture
     center -->|4| n_learnloop_db

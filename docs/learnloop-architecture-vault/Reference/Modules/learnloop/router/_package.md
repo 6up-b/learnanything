@@ -62,7 +62,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] | [[Reference/Modules/learnloop/router/mixture#^module-purpose|purpose]] | `ACTIVE` | 10 | 12 |
 | [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] | [[Reference/Modules/learnloop/router/outcomes#^module-purpose|purpose]] | `ACTIVE` | 6 | 24 |
 | [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] | [[Reference/Modules/learnloop/router/plan_log#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
-| [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
+| [[Reference/Modules/learnloop/router/requests|learnloop.router.requests]] | [[Reference/Modules/learnloop/router/requests#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 | [[Reference/Modules/learnloop/router/suggestion_report|learnloop.router.suggestion_report]] | [[Reference/Modules/learnloop/router/suggestion_report#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/router/why|learnloop.router.why]] | [[Reference/Modules/learnloop/router/why#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 
@@ -79,7 +79,7 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 20 static module edges
-- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 7 static module edges
+- [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 8 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 1 static module edge
@@ -98,8 +98,8 @@ flowchart LR
     center["learnloop.router"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop["learnloop"]
-    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_router_objective["learnloop.router_objective"]
+    n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_ops["learnloop.ops"]
@@ -108,8 +108,8 @@ flowchart LR
     n_learnloop_followup_run["learnloop.followup_run"]
     n_learnloop_daily_plan -->|20| center
     center -->|12| n_learnloop
+    n_learnloop_router_objective -->|8| center
     center -->|7| n_learnloop_db_stores
-    n_learnloop_router_objective -->|7| center
     center -->|2| n_learnloop_ai
     n_learnloop_cli -->|2| center
     n_learnloop_ops -->|2| center
