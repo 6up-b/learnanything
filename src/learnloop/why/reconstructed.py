@@ -27,7 +27,7 @@ from typing import Any
 
 from learnloop import provenance
 from learnloop.db.stores.provenance import time_precision_ms
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 LABEL = "reconstructed"
 

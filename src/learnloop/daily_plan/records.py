@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.daily_plan.types import LANES, STOP_FOR_TODAY, ReadingTarget
-from learnloop.router_objective.types import is_offer
+from learnloop.plan_refs import is_offer_subtype
 
 _EPS = 1e-9
 
@@ -159,7 +159,7 @@ class PlannedBlock:
         """Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the block is a lesson offer's card (no items, no reading);
         it ends with the learner's answer (or ``ignored``)."""
 
-        return is_offer(self.subtype) and self.reading is None
+        return is_offer_subtype(self.subtype) and self.reading is None
 
     @property
     def interrupts(self) -> bool:

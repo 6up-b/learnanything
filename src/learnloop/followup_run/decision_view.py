@@ -13,7 +13,7 @@ import json
 from typing import Any
 
 from learnloop.db.repositories import Repository
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 _ARMS: Mapping[str, str] = {
     "insert_now": "ask now", "continue_current": "wait", "no_intervention": "no question", "decline": "can't ask",

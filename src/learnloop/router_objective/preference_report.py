@@ -27,8 +27,8 @@ from typing import Any
 from learnloop.db.stores import router as router_store
 from learnloop.router_objective.picks import DELAYED_LABEL
 from learnloop.router_objective.preferences import KINDS, STOP, kind_of
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
-from learnloop.router_objective.types import STOP_FOR_TODAY
+from learnloop.plan_refs import LESSON_OFFER_PREFIX as OFFER_PREFIX
+from learnloop.plan_refs import STOP_FOR_TODAY
 
 VERSION = "ih4_preference_report_v1"
 SELF_SELECTED = DELAYED_LABEL

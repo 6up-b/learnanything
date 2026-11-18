@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol
 
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY
+from learnloop.plan_refs import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY
 
 Lane = Literal["repair", "maintain", "new", "push"]
 

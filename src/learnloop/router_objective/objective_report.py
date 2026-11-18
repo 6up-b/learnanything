@@ -27,7 +27,7 @@ import json
 from statistics import mean
 from typing import Any
 
-from learnloop.router_objective.types import STOP_FOR_TODAY
+from learnloop.plan_refs import STOP_FOR_TODAY
 
 REPORT_VERSION = "router_objective_report_v1"
 

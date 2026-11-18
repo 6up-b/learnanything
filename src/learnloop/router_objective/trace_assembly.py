@@ -48,7 +48,7 @@ def option_kind(ref: str, candidate: Any) -> str | None:
         return STOP
     if candidate is None:
         return None
-    return LESSON_OFFER if OT.is_offer(candidate.subtype) else BLOCK
+    return LESSON_OFFER if OT.is_offer_subtype(candidate.subtype) else BLOCK
 
 
 def option_label(kind: str | None, candidate: Any, titles: Mapping[str, str]) -> str | None:

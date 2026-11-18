@@ -31,6 +31,7 @@ from learnloop.db.stores import followup_serve as store
 from learnloop.db.stores import hypothesis_marks as marks_store
 from learnloop.followup_serve.gates import RIVAL_CAUSES_FACTOR_VERSION, WORKFLOW_SURFACES, generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_workflow
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ RELEASE_SWITCH_OFF = "switch_off"
 RELEASE_LESSON_OFFER = "lesson_offer_won"
 #: The move's reason, and the event whose detail names the offer's decision (:func:`lost_offer_decision`).
 LESSON_OFFER_WON = "lesson_offer_won"
-LESSON_REF_PREFIX = "lesson_offer:"
+LESSON_REF_PREFIX = LESSON_OFFER_PREFIX
 #: Why a probe's answer is not independent, beyond FG1's two flags (spec §7; R1 of the landing).
 CAUSES_SHOWN_BEFORE_PROBE = "followup_causes_shown_before_probe"
 CAUSE_EXPOSURES_UNREADABLE = "followup_cause_exposures_unreadable"

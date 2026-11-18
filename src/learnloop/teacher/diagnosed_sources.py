@@ -57,7 +57,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.clock import utc_now_iso
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 _LOG = logging.getLogger(__name__)
 

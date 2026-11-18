@@ -38,12 +38,13 @@ from typing import Any
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores.router import ROUTER_LOG_VERSION, insert_router_decision
 from learnloop.ids import new_ulid
+from learnloop.plan_refs import STOP_FOR_TODAY
 from learnloop.provenance import DecisionRecord, is_code
 
 logger = logging.getLogger(__name__)
 
 CONTINUE_REF = "continue_current"
-STOP_REF = "stop_for_today"
+STOP_REF = STOP_FOR_TODAY
 #: The Today queue's own exploration (see ``db.stores.router.ROUTER_DESIGNS``).
 DESIGN_SCHEDULER_EXPLORATION = "scheduler_seeded_exploration"
 #: An offer that served no head: the learner chooses from the list.

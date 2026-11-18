@@ -24,8 +24,8 @@ import json
 import math
 from typing import Any
 
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
-from learnloop.router_objective.types import STOP_FOR_TODAY as STOP
+from learnloop.plan_refs import LESSON_OFFER_PREFIX as OFFER_PREFIX
+from learnloop.plan_refs import STOP_FOR_TODAY as STOP
 
 #: v1: the drawn option's forecasts, its block the decision's first served presentation, its topic the main LO.
 BINDING_VERSION = "ro4-policy-forecast-binding-v1"

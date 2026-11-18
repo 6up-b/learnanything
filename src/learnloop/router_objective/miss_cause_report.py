@@ -22,7 +22,7 @@ import json
 from typing import Any
 
 from learnloop.router_objective import miss_cause as MC
-from learnloop.router_objective.types import LESSON_OFFER_PREFIX as OFFER_PREFIX
+from learnloop.plan_refs import LESSON_OFFER_PREFIX as OFFER_PREFIX
 
 VERSION = "sg_miss_cause_report_v1"
 WHAT_MOVES = ("beta moves once diagnosed misses are followed by a cold check on the same topic with nothing in between "

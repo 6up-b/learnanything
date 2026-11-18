@@ -102,7 +102,7 @@ def kind_of(*, reading: Any, subtype: str | None, lane: str | None) -> str:
 
     if reading is not None:
         return READ
-    if OT.is_offer(subtype):
+    if OT.is_offer_subtype(subtype):
         return LESSON
     if lane == "new":
         return NEW

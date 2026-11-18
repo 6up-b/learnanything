@@ -15,6 +15,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from learnloop.ids import new_ulid
+from learnloop.plan_refs import LESSON_OFFER_PREFIX
 
 RECEIPT_PREFIX = "lesson_suggestion:"
 
@@ -73,10 +74,10 @@ def decisions(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 #: Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer drawn at a plan block boundary is a ``plan_block``
-#: decision whose chosen ref names it (``daily_plan.types.LESSON_OFFER_PREFIX``); its card is on the row's detail.
+#: decision whose chosen ref names it (``plan_refs.LESSON_OFFER_PREFIX``); its card is on the row's detail.
 #: Instruct hand-off IH2 (spec_instruct_handoff_v1 §5 item 3): one drawn after a miss is a ``plan_interrupt`` decision
 #: read the same way, with its own block (``offer_block_id``: the row's ``block_id`` is the block the miss came from).
-OFFER_REF_PREFIX = "lesson_offer:"
+OFFER_REF_PREFIX = LESSON_OFFER_PREFIX
 OFFER_DECISION_KINDS = "('plan_block', 'plan_interrupt')"
 
 

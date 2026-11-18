@@ -44,8 +44,8 @@ from learnloop.clock import parse_utc
 from learnloop.daily_plan import plan_records
 from learnloop.daily_plan.types import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, BlockCandidate
 from learnloop.db.stores import router_suggestions as store
+from learnloop.plan_refs import is_offer_subtype
 from learnloop.router import lesson_suggestions as LS
-from learnloop.router_objective.types import is_offer as is_offer
 
 LOG = logging.getLogger(__name__)
 
@@ -74,6 +74,15 @@ def offers_on(vault: Any) -> bool:
     from learnloop.router_objective_switches import lesson_offers_on
 
     return lesson_offers_on(vault.config) and objective_active(vault)
+
+
+def is_offer(candidate: Any) -> bool:
+    """Whether a plan candidate (anything with a ``subtype``) is a lesson offer. A subtype string raises instead of
+    reading as "not an offer": its predicate is ``plan_refs.is_offer_subtype``."""
+
+    if isinstance(candidate, str):
+        raise TypeError("is_offer takes a plan candidate; for a block subtype use plan_refs.is_offer_subtype")
+    return is_offer_subtype(getattr(candidate, "subtype", None))
 
 
 def offer_ref(learning_object_id: str) -> str:

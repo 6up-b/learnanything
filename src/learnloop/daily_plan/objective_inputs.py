@@ -610,7 +610,7 @@ def action_for(vault: Any, repository: Any, candidate: BlockCandidate, *, practi
                spread: float) -> OT.Action:
     """§8.1's interface for one candidate block."""
 
-    if OT.is_offer(candidate.subtype):
+    if OT.is_offer_subtype(candidate.subtype):
         # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer, valued by RO4's offer branches: accepted, the
         # lesson (TE3a's curve at the learned check mass, its minutes log-normal, its retention check committed);
         # declined, the tail's next non-offer block. ``p`` per draw from the acceptance model's Beta.
@@ -811,7 +811,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
                    for action in actions]
     # The tail's block is the support's practice and reading blocks (TE3b: never a lesson offer's card).
     blocks = [candidates[ref] for ref in support if ref in candidates
-              and not OT.is_offer(candidates[ref].subtype)]
+              and not OT.is_offer_subtype(candidates[ref].subtype)]
     block_minutes = (sum(float(block.est_minutes) for block in blocks) / len(blocks)) if blocks else max(remembered, 1.0)
     block_items = max(int(round(sum(max(len(block.item_ids), 1) for block in blocks) / len(blocks))), 1) if blocks else 1
     learning = _learning(ad, fitted, GAMMA_PRIOR, READING_PRIORS, DOSE_SCALES)
