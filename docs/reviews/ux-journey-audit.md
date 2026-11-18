@@ -6,7 +6,7 @@ The end-of-queue UX journey audit the owner asked for on 2026-10-31 (brief and d
 |---|---|---|---|
 | 1 | Criteria: Jenson, Matuschak, ISO 9241, Norman, Nielsen and the owner's principles, as a pass/fail checklist | `docs/reviews/ux-journey-audit-criteria.md` | done |
 | 2 | Inventory of every journey on every frontend, from the code | section 2 below | done |
-| 3 | The persona walks: per-walk reading, the same surfaces side by side, scorecard, findings, defects, proposals, fix stages | sections 3 onward | added when the walks are complete |
+| 3 | The persona walks: per-walk reading, the same surfaces side by side, scorecard, findings, defects, proposals, fix stages | sections 3 to 11 | first wave done (six walks, 2026-11-18); a second wave is proposed in section 11 |
 
 Fixes are proposed here, not made. The owner reviews this audit before any fix stage is queued. The one exception is the graded-work entry, which the owner asked to be specified and built inside the audit's fix stage (brief, Nov 14).
 
@@ -609,4 +609,391 @@ Desktop: every session start goes through `startSessionOrAsk` (`D/app/sessionHan
 
 ---
 
-Sections 3 onward (the walks one by one, the same surfaces side by side, the scorecard, findings, defects with ledger rows, proposals with sketches, and the proposed fix stages) are added when the persona walks are complete.
+## 3. The first wave of walks
+
+### 3.1 What was walked
+
+Each walk is an agent playing one person, given only that person's goals and the screen (`docs/reviews/ux-walk-harness.md`). The walks and their screenshots are private, under `fixtures-local/ux-walks/<walk>/`; this audit cites them by walk name and step number ("student-1 #42"). Seven screenshots that show only synthetic content and no book page are copied, reduced, to `docs/reviews/artifacts/ux-journey-audit/`.
+
+| Walk | Person | Start | Models | Steps | Length |
+|---|---|---|---|---|---|
+| student-1 | second-year student, linear algebra midterm on Dec 9; a textbook chapter and last year's quiz | empty install | live (ChatGPT plan) | 150 | 19 min |
+| seasoned-1 | four weeks in, three goals (one paused), twenty minutes to check progress, fix goals, add reading and practise | established vault | live | 151 | 8 min |
+| beginner-1 | did algebra at school, wants machine learning, has no book or course | empty install | live | 121 | 7 min |
+| retainer-1 | curious reader, no deadline, wants a few things to stick with ten minutes of review a day at most | fresh vault (one sample page) | live | 79 | 4 min |
+| phone-2 | desktop user with five minutes on the bus, one hand | established vault | **faked** | 55 | 3 min |
+| phone-1 | the same, steps 1 to 5 only: the pairing page after the QR scan | established vault | faked | 5 used | 1 min |
+
+The walkers act much faster than people (a step every few seconds), so "hesitation" here means repeated looks, backtracking and clicks that changed nothing, not long pauses: no walk has a gap over 60 seconds before an action.
+
+### 3.2 How to read them: what is the harness, not LearnLoop
+
+- **No text selection.** The walk cannot select text. Everything that starts from a selection (keeping a passage, notes, highlights, the intent box, Ask on a chosen passage, compare or show me from a selection, "teach me this" in the notes rail) is in 3.3, not scored. Where the screen asked for a selection, this audit only says whether a person would have known one was wanted.
+- **No Decider and no embeddings.** The walk environment has no OpenRouter key, so the decision-model and embedding routes were unreachable in every walk. Intent routing, compare scope, meaning search and the deliverable's topic matching behaved as on an install without them. This probably explains "0 topics from your books · 2 not in your library yet" and "No active goal covers this book" after a goal naming the book's own topics (student-1 #24-48, beginner-1 #51-53).
+- **The `back` verb is browser history.** A desktop window has none. "Back took me out of LearnLoop" (seasoned-1 #42, beginner-1 #9-11) is the harness; the app's own way out of the Add dialog is Esc.
+- **Numbered targets go stale.** A walker's step refers to the numbers of its last look. When content arrived in between, the step hit another control: the goal form that "folded up" (student-1 #12-14) was the walker typing into the "why ▸" and "learning this for something? ▸" buttons after the reading path landed above the form. The layout shift itself is real and is part of finding F15.
+- **Typing into a date field.** Typing "2026-12-09" into Chromium's native date input fills the year slot first (student-1 #18, the screenshot shows "mm/dd/261209"); the walker then fixed it by segments (#20-22). Not a finding.
+- **Fixture artefacts.** The seasoned vault already had the chapter on its shelf (seasoned-1 #20), and the fresh vault already had the elevator article, so retainer-1's upload made a second copy (#68). The quiz's solutions file reached the student's files after their chooser was open (student-1 #32).
+- **Faked models on the phone.** phone-2's questions, grades and feedback are made up; only its flow is judged. Its "The look into this answer didn't finish. Your grade stands." (#11, #18) appears two seconds after Submit with no diagnosis request in the logs; whether that is the walk environment or the product is not settled (3.3).
+- **UX-1 hides Today's design for two walks.** On the live route, writing questions for the chapter failed ("inventory output exceeded its configured token budget"; Retry the same) in student-1 #101-120 and beginner-1 #74-94, so neither ever got practice from their chapter. Before that, though, both sat behind a different, real gate: no questions were written at all until they found "Questions wait for your OK · Review" on the Library card (student-1 #33-101, beginner-1 #42-72). Retainer-1 chose "Not now" there and never got questions. The findings below keep these apart.
+
+### 3.3 Not testable in this wave
+
+| What | Why | Where it came up |
+|---|---|---|
+| Keeping a passage, notes, highlights, capture on the desktop | needs a text selection | retainer-1 goals 2, 3, 8 (#9-23); beginner-1 #61-65; student-1 #132-142 |
+| The intent box and its actions; compare, show me and "teach me this" from a selection | needs a selection | — |
+| Ask on a chosen passage | needs a selection (the default anchor is in F10) | student-1 #132-142 |
+| Intent routing, compare scope, meaning search, deliverable topic matching | Decider and embeddings unreachable | student-1 #24, beginner-1 #51 |
+| Teacher lessons | no walk was offered or reached a lesson; the beginner looked for one (#58) and found none | — |
+| The workbench and the help ladder | not reached | — |
+| Show me figures | reached only by accident (defect UX-3) | seasoned-1 #76 |
+| Cold checks, short diagnostic checks, the practice exam | not reached | — |
+| Phone answers as content; the phone's "look into this answer" | faked models | phone-2 #11, #18 |
+| A real interruption on the phone (app backgrounded, reloaded) | the "pause" was a three-second wait | phone-2 #23 |
+| Taking a session back between phone and desktop | not walked | — |
+| Terminal app, chat (MCP), the no-model condition, transitions between personas, the project, returner, expert and own-notes personas | not in this wave | — |
+
+---
+
+## 4. Walk by walk
+
+Each walk: what happened, where the person's report and the screens disagree, and what they did not mention.
+
+### 4.1 student-1: the exam student, empty install
+
+**What happened.** The chapter opened in the Reader within four seconds of choosing the file (#5-6). The student found "learning this for something?" in the Reader's guide (#10), saved "Linear algebra midterm covering this chapter…" with Dec 9 as an exam (#24), and got "your deliverable ▸: 0 topics from your books · 2 not in your library yet". The receipt showed "resolved by gpt-6.1-sol · 2026-11-18" (#26), not the deadline; the deadline first appeared on Today (#40). The old quiz, added as "This is a past exam or problem set", raised a red error naming its internal id, "Source 'src_…' was ingested with the reader off (per-source setting).", which stayed on screen for 24 steps (#33-57), and its card offered no way to open or sit it (#37). Today offered nothing: "Practise for this goal" gave "Nothing for this goal is ready to practise yet." as a red toast (#42), "Keep going" changed nothing (#44), "Something new" said "Nothing new is ready yet. Keep reading and LearnLoop will have more." (#45). The student read for ten minutes, answered the one quick check the Reader wrote (#92-99; "compare with the source" was below the fold of the side panel, #95), then found the question-writing gate on the Library card, gave the OK, and hit UX-1 (#101-120). Progress was empty and the goal report contradicted itself ("BEHIND", "exam not ready", "all facets certified — hold the line until the due date." at 0 attempts, #128). Ask gave a good, grounded worked example after about 40 seconds (#136-141), anchored to a passage the student was not looking at (#132). Wrap-up's "revisit once" put the question on Today as a thread (#146-147), its line in raw TeX ("Suppose that \(\uvec\) is an eigenvector…").
+
+**Report against the screens.** The form did not fold by itself (3.2). The click on the covariance paragraph never happened (#134 failed: the harness). "Scrolling the chapter didn't help" was a scroll inside the answer box (#94). The missing solutions file is the fixture. The report never says that "Questions wait for your OK · Review" was on the Library card from #33, 68 steps before they clicked it, nor that the Today thread they liked shows the wrong passage in raw TeX (#147).
+
+**Not mentioned.** The quick check was ready at #67 and offered again at #69 but opened only at #92. Seven waits on an unchanged screen at "93 %" (#74-80). Library clicked while already in Library (#38). Library → Reader → menu → Library while the retry ran (#116-120).
+
+### 4.2 seasoned-1: the month-in user, established vault
+
+**What happened.** Progress showed bare decimals ("0.86", "0.91", "0.61") and the knowledge field's internal words ("Ready variance 0.0043", "evidence mass 5.39", "no BlueprintRecipe…", #3-10); nothing showed change over the month except a small trajectory inside one goal's details (#32). The goal card's details explained "on track" well enough ("predicted recall 82% · target 80%", "roughly 1 day; the due date allows 20.42 days", #12) after a ten-second load. The person could find only one of their three goals (the goal overlay: "Midterm: eigenvalues to variance — 0 at risk / 3", #23), no way to move Dec 9 to Dec 16 ("plan around my week" sets study days, #28; "edit why" edits the reason, #30; the palette: "No command matches “goal”", #35), and no trace of the paused goal. Adding the chapter offered no course choice; "learning this for something?" looked like making a new goal, so they cancelled (#52). The elevator article opened with "No active goal covers this book" (#59), which was what they wanted. Practice went well: Begin went straight to a fair question, six answers, all "Right", feedback that tied their wording to the book's (#61-110). To dispute one rubric line they opened Ask on the feedback (#74): the panel's only button was "show me ▸", which they pressed (#76); that sent their sentence as a figure request, and the panel showed "◐ building an interactive version · keep working" under "(nothing asked yet on this attempt)" and never answered (UX-3). Between blocks Next returned to Today and needed Begin again (#82, #98). The plan ended at "Done for today · 2 minutes." while the session summary said "5 minutes · 6 questions" (#134). The minute chips were gone once the plan was done (#110 on), and Settings had no daily amount (#140-149). "Mistake history" (found through the palette, #121) held one entry: "recalibration · … Estimates recomputed; your underlying evidence did not change." (#130).
+
+**Report against the screens.** "I raised my objection through Ask" and "didn't know whether my objection had been recorded": no question was sent; the panel said "(nothing asked yet on this attempt)" throughout (#79). Next returned to Today after every block, not only the first. The chapter "already on the shelf" is the fixture.
+
+**Not mentioned.** "About 22 minutes left of today's suggested time" did not move across three answers (#82, #98); "About 25 minutes suggested today" covered rows of about six minutes (#0). The ⋯ menu opened and closed with nothing chosen (#17-19); "edit why" opened and closed (#30-31); Done → full list → back to the plan with no change (#135-137); eight page-scrolls through Settings (#142-149).
+
+### 4.3 beginner-1: no book, a wish in their own words
+
+**What happened.** The first screens all asked for a source (Library; Today: "Nothing to plan yet. Add a book, paper or lecture…", #1-3). Looking for a place to say what they wanted, the beginner tried More options, the ⋯ menu, Keyboard & help and Under the hood → Subjects & topics ("Pick a subject to review its facet registry.", an empty picker, #12-20), Progress ("0 concepts · 0 edges · 0 misconception s", #21), the goal overlay ("goal: no goals defined", #23), palette "Start today's plan" (the same empty Today, #27), "Check what I already know" (the same empty Progress, #30) and palette "Ask the tutor about this" ("Nothing here to ask about: open a question, feedback or a note first.", #34-36). Only after adding the one article on offer did they find "learning this for something?" in the Reader (#48) and save their goal in their own words, which LearnLoop read as two topics (#51). "add it" on a topic not in the library did nothing (#54; UX-7). "why ▸" called the article "an initial overview" while the article began by revisiting eigenvectors (#56). The OK for question writing was behind "Review" on the Library card (#70-74), then UX-1 (#90-93). The palette's "Ask the tutor about this", with the article open, picked a passage itself and gave a clear answer with small numbers after 38 seconds (#100-110), below an empty follow-up box they had to scroll past (#106-110). Wrap-up kept the question for a revisit (#119). The goal report read "BEHIND", "0 attempts · 0/0 facets examined", "all facets certified — hold the line until the due date." on an open-ended goal, with a red "Nothing for this goal is ready to practise yet." that stayed on every screen to the end (#80-120; screenshot `beginner-1-0084-empty-goal-report.png`).
+
+**Report against the screens.** Back leaving the app is the harness (#9). The article was open three seconds after the upload, not after "a minute or two" (#42). Progress was not checked again after the article was filed (#67 was the last look), so "the concept map stayed empty after I added the article" is unverified. The tutor's chosen sentence ("In this case, we say that $A$ is orthogonally diagonalizable.", #100) was not the one the answer cited. They chose "guide me" (#102); the saved thread is labelled "answer directly" (#108): not checked further (section 11).
+
+**Not mentioned.** Three visits to an empty Progress (#21, #30, #67); five palette opens (#25, #29, #34, #94, #99); Today ↔ Library ↔ Reader loops while waiting for questions (#69-98); four clicks that changed nothing (#27, #30, #54, #60).
+
+### 4.4 retainer-1: the open-ended reader
+
+**What happened.** "+ Add" → "Choose a file…" → the article was open in the Reader in about six seconds (#1-5), and the chapter likewise (#19). "get the idea" matched what they wanted. Keeping sentences and a takeaway needed a selection (3.3); "mark for later" changed the reading mode and turned the quick-check control into "quick checks while reading closely" (#13), and clicking text did nothing (#15, #23). "find this section in my other books" found the elevator article and "side by side" opened it beside the chapter in one click (#26-28): the walk's best moment. Nothing showed tomorrow or next week (Progress: zero concepts, #30; Today's full list: "Nothing else for today.", #33; the palette's search for "review" found only "Mistake history", #46). Asking for less review: Settings showed model routes, "Embeddings", "Decision models" (#37-41); the palette's tutor wanted an open question first (#49); the Reader's Ask answered honestly, "I haven't changed any settings. I can't access your review schedule or save a daily time limit from this chat…", and suggested a timer (#58). Today: "Nothing planned for today."; "Keep going" changed nothing (#63; UX-4). "Review" on the Library card opened "Get questions on what you read", which they declined (#70-73), so no question was ever written; Today never said so.
+
+**Report against the screens.** The answer took about 30 seconds, not eight (#55-58). The dollar signs they mention were in the walk's text dump, not on screen; the red `\vvec` was (#19).
+
+**Not mentioned.** The stale notice "Nothing here to ask about…" came back on Today after they had asked in the Reader (#49, #61). Side by side was gone after they left the Reader, and their attempt to close it failed (#51-52). The library listed the article twice (a fixture interaction, but the app took the second copy silently).
+
+### 4.5 phone-2: five minutes on the bus (faked models)
+
+**What happened.** The QR link opened the old pairing page ("Pair this device… Scan its QR code or enter the manual code here.") with an empty Manual code box; Pair worked anyway (the code was in the link), then "Paired. Keep this token private; it is shown only once." and "Copy this token into your private Shortcut setup:" before "Open LearnLoop" (#1-3). Today's 10-minute choice and Begin went straight to a question (#5-9); two short answers by thumb, the full answer on the feedback screen, Next (#9-20). Today mid-session showed "Router: push:69df627c79fbbb9b · by the rules · push:69df627c79fbbb9b 89%, stop for today 7%, … · floor 2% details" (#22; screenshot `phone-2-0022-router-line-on-today.png`), and "About 8 minutes left" never changed (#22-54). Leaving a half-typed answer and coming back: Next returned to the question with the draft kept (#26), the walk's best moment. Capture from the question: "Saved." and "1 waiting to send." (#31; the desktop had already accepted it, HTTP 201), then the line vanished with no word (#48; UX-9). Progress: "Your goals and past answers are coming to the phone in a later update." (#33). Read opened the book at its first section in red `\vvec`, under a primary button "Finish the book's last section" (#37; the web page is one section). "Something else would help" offered "Learn Dot product (on the desktop)"; choosing it said "Learn Dot product is a lesson, and lessons wait on the desktop. Your choice is saved." (#44-46). The Today tab, tapped from Read, opened the unfinished question rather than the plan (#40).
+
+**Report against the screens.** The bus-stop pause was a three-second wait, so draft survival across a real interruption was not tested. The capture had reached the desktop when they wondered whether it would.
+
+### 4.6 phone-1, steps 1 to 5: the pairing page
+
+The same screen five times: "Pair this device · Run learnloop-mobile pair on your desktop. Scan its QR code or enter the manual code here. · Manual code [empty] · Device label "Phone" · Pair". Nothing said the scan had worked. The person looked three times and waited, about a minute in all, then said: "I just scanned the code. I thought that would take me into LearnLoop, but I'm looking at a form asking for a manual code. I don't remember seeing any digits on the computer…" (#5). This is the clearest hesitation in the phone walks.
+
+---
+
+## 5. The same surfaces, side by side
+
+### 5.1 Five surfaces, five people
+
+| Surface | student-1 | seasoned-1 | beginner-1 | retainer-1 | phone-2 |
+|---|---|---|---|---|---|
+| **Today** | Empty all session; three buttons led nowhere (#42-45); the goal card had the date (#40); one thread at the end (#147) | Begin straight into a fair question (#61); back to Today between blocks (#82, #98) | Asked for a book until one was added; then "Nothing planned for today." and the goal (#78) | "Nothing planned for today."; Keep going did nothing (#63) | 10 min → a question in two taps (#5-9); a router line (#22) |
+| **The Reader** | Fast open, a good quick check, a grounded Ask; raw macros, two percentages | Opened both files fast; "learning this for something?" read as "new goal" (#52) | Where the goal box was hiding (#48); the tutor helped once found through the palette (#100) | Fast open, depth choice, side by side in one click (#26-28) | First section, red macros, "Finish the book's last section" (#37) |
+| **Capture and keeping** | Not testable (selection); revisit-once worked | Not attempted | Not testable; revisit-once worked | The walk's goal; not testable on the desktop | "Saved." then a count that vanished (#31, #48) |
+| **The plan's size** | No minutes anywhere; "about 10 min of reading" in the guide only | Chose 25, got six minutes of rows; chips gone after done; no default | Never shown | Never shown; no forecast; no "less" | 10 min worked; "8 minutes left" never moved |
+| **The stop offer** | Never reached (empty plan) | "Done for today · 2 minutes." beside "5 minutes · 6 questions" (#134) | Never reached | Never reached | "Stop for today" only inside "Something else would help" (#44) |
+
+**What helped one and hindered another.**
+
+- **Opening on the book.** Add → Reader in seconds helped everyone with a file (all four desktop walks). It left the beginner, who had no file, with nowhere to start: every empty state says "add a book".
+- **The goal box inside the Reader.** It was right there for the student, already in the Reader (#10). The beginner needed 48 steps to find it, and for the seasoned learner the same box meant "start another goal" when they wanted "this belongs to my course".
+- **Today's one sentence.** For the seasoned learner with built questions it was the fastest way in. For the three new vaults it was a dead end that never named the reason (questions waiting for an OK, or failing).
+- **The router line and "why?".** Kept for the owner's calibration; to the phone user it was noise ("Router", "push" and "floor 2%" meant nothing).
+- **Side by side** helped the retainer at once; nobody else needed it in this wave.
+- **The plan's minutes.** The phone user's 10 minutes were respected; the seasoned learner's 25 produced six minutes and then the chips were gone.
+
+### 5.2 Transitions between personas
+
+Not walked in this wave (student after the exam → open-ended learner; beginner → project; open-ended → exam). The nearest is the seasoned learner adding a personal article beside a course (#55-59), which worked: "No active goal covers this book".
+
+### 5.3 What the app already knew without asking
+
+| | student-1 | seasoned-1 | beginner-1 | retainer-1 | phone-2 |
+|---|---|---|---|---|---|
+| A goal with a date | Dec 9, an exam (#23, #40) | Dec 9, 21 days, target 80%, 2.14 answers a day (#12) | an open-ended goal in their words (#51) | none | a step on the course's topics (#22) |
+| Sources | the chapter, a practice-only quiz | the course chapters | one article, filed under a subject named from its title (#88) | two readings, related sections found (#26) | the course book (#35) |
+| Time of day | "Wednesday evening" | same | same | same | — |
+| Reading depth | "Asked once for this book" | same | same | same | — |
+| An AI connected | yes ("set up to use ChatGPT"), yet it asked for an OK | yes | yes, yet an OK | yes, yet an OK | — |
+| Time since last session | none (new) | four weeks of history | none | none | — |
+| Device | desktop | desktop | desktop | desktop | phone; the draft; the QR secret |
+| Not asked, though it would have helped | minutes a day to the exam; the weakest topic | which goal to show; whether the chapter belongs to the course | their level, what they already know | how much review they want | whether the capture arrived |
+
+---
+
+## 6. Scorecard by journey
+
+Pass / partial / fail / not seen against the four questions of the criteria page (section H), with the criteria each journey fails. "Who" names the walks that reached it.
+
+| Journey | Who | Discover | Understand | Recover | Flow | Fails |
+|---|---|---|---|---|---|---|
+| First run: add a file and read | all desktop | pass | pass | pass | pass | — (J1 and J3 met) |
+| First run with no file (a wish) | beginner | fail | fail | partial | fail | J1, N-D, M2 |
+| Say the exam or goal | student, beginner, seasoned | partial (Reader only) | fail (receipt, "deliverable") | partial | pass | N-D, H2, O3, N-C |
+| See and change goals | seasoned | fail | partial | fail | — | N-D, H3, O9, I11 |
+| Bring past exams | student | partial | fail | fail | — | J3, N-F, H9, M10 |
+| Today with built questions | seasoned, phone | pass | partial (three clocks) | pass | partial | O2, H4, I8 |
+| Today on a new vault | student, beginner, retainer | pass | fail | fail | fail | J3, N-F, H1, H9, O8 |
+| Practice and feedback | seasoned, phone | pass | pass | partial (no way to flag a rubric line) | pass | O9 |
+| Ask in the Reader | student, retainer, beginner | partial | partial (anchor, placement) | pass | pass | U1, U3, N-F |
+| Ask on feedback | seasoned | fail (no send button) | fail | fail | fail | N-S, I9, H1 (UX-3) |
+| Cross-book: find-section, side by side | retainer | pass | pass | partial (lost on leaving) | pass | J10 |
+| Keeping things | retainer, phone | not testable (desktop) / pass (phone) | — / fail (phone delivery) | — | — | H1 (phone) |
+| The plan's size and load | seasoned, retainer, student | fail | fail | fail | partial | I11, M4, J7 |
+| The stop offer | seasoned | pass | fail (two numbers) | pass | pass | O2, H4 |
+| Progress | all desktop | pass | fail | — | — | O3, H2, N-C, M8 |
+| Mistake history (last week's miss) | seasoned | fail (palette only) | fail | — | — | I9, N-D |
+| Settings (workload, consent) | seasoned, retainer | pass | fail | — | — | J7, O3 |
+| Phone pairing | phone-1, phone-2 | partial | fail | pass | — | J1, N-F, O3 |
+| Phone session and resume | phone-2 | pass | partial (router line) | pass | pass | O3, J8 |
+| Phone reader | phone-2 | pass | partial (macros) | pass | — | — |
+| Lessons, workbench, figures, cold checks | — | not seen | | | | |
+
+---
+
+## 7. Defects
+
+Things that are simply broken. Each has a drafted row for `docs/reviews/refactor-bug-ledger.md` (7.2); UX-1 already has its own and is being fixed.
+
+### 7.1 The list
+
+| Id | Severity | Defect | Seen in | Size |
+|---|---|---|---|---|
+| UX-1 | S1 | On the live route, writing questions for a web chapter fails with "inventory output exceeded its configured token budget"; Retry fails the same way; the internal sentence reaches the card. One fixed output budget per unit, and a web page is one unit. | student-1 #101-120; beginner-1 #74-94 | being fixed |
+| UX-2 | S2 | A source's own TeX macros (the chapter defines 64 with `\newcommand`, e.g. `\vvec`, `\real`, `\amp`, `\twovec`) are not carried, so formulas show red raw commands, `\real` shows as ℜ, and one-line snippets show raw TeX ("Suppose that \(\uvec\)…" on Today's thread, the Ask chip). Desktop and phone. | student-1 #18, #132, #147; beginner-1 #61, #106; retainer-1 #19, #61; phone-2 #37 | M, backend + frontend |
+| UX-3 | S1 | The Ask panel on practice and feedback (with figures on) has no visible send button: the only button, "show me ▸", sends the learner's words as a figure request; a text question goes only on Enter, which nothing says. The figure then polled for about a minute and its outcome was never shown once the panel closed. | seasoned-1 #74-81, #87 (`seasoned-1-0079-ask-panel-only-show-me.png`) | S, frontend |
+| UX-4 | S2 | "Keep going" on a done or empty plan with nothing to add changes nothing and says nothing (`plan_keep_going` returns ok; Today redraws the same). | student-1 #44; retainer-1 #63 | S, frontend |
+| UX-5 | S2 | Adding a source as "This is a past exam or problem set" makes the app try to open it in the Reader; the refusal shows as a red error with the internal id, "Source 'src_…' was ingested with the reader off (per-source setting).", which stays until dismissed. | student-1 #33-57 (`student-1-0045-empty-today-red-toasts.png`) | S, frontend |
+| UX-6 | S3 | Empty states are sent as errors: "Nothing for this goal is ready to practise yet." and "Nothing here to ask about: open a question, feedback or a note first." show as red toasts that stay over every screen until dismissed (the error channel never expires), and the second came back on Today after the learner had asked in the Reader. | beginner-1 #80-120; student-1 #42 on; retainer-1 #49, #61 | S, frontend |
+| UX-7 | S2 | "add it" for a topic not in the library does nothing when the library has no subject yet: `curriculum_scope_decide` answers `no_subject`, and the subject picker it should open renders only when subjects exist (`DeliverableScope.tsx`). | beginner-1 #54 | S, frontend |
+| UX-8 | S2 | The goal report states vacuous truths on an empty goal: "all facets certified — hold the line until the due date." with "0 attempts · 0/0 facets examined", beside "BEHIND", on an open-ended goal with no due date; it also offers "practice at-risk facets ↵" with none. | student-1 #128; beginner-1 #84 (`beginner-1-0084-empty-goal-report.png`) | S, backend copy |
+| UX-9 | S3 | Phone capture shows "1 waiting to send." after the desktop has already accepted the capture (HTTP 201), then the line disappears with no word; no screen ever confirms delivery. | phone-2 #31-48 (`phone-2-0031-waiting-to-send.png`) | S, phone frontend |
+| UX-10 | S2, owner | The one-time AI OK ("LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback") gates only question writing. The Reader's path, its quick check, the goal resolver and Ask had already sent passages to the same provider before the OK was asked (student-1 #11, #26 "resolved by gpt-6.1-sol", #64, then the OK at #101; beginner-1 #46-51, then #72). Either the plan sign-in is the consent (then question writing should not ask again), or the OK must come first for every route. | student-1, beginner-1, retainer-1 | S once decided |
+
+Checked and dismissed:
+
+| Candidate | Verdict |
+|---|---|
+| With the Add dialog open a click on Library does nothing, and Back leaves the app (seasoned-1 #39-52, beginner-1 #9-11) | The Library click was blocked by the app's own modal dialog, as expected. Back is the harness's browser-history verb. A small note is kept under F17: the Add dialog shows no close control in its text. |
+| The goal form folds while being filled; the date puts digits in the year slot (student-1 #12-26) | Harness: stale numbered targets and typing into a native date input (3.2). The layout shift under an open form is real (F15). |
+| The goal "receipt" shows today's date (student-1 #26) | Works as built: the receipt is the date the goal was read plus the model's name. A design finding (F3). |
+| "Done for today · 2 minutes" beside "5 minutes · 6 questions" (seasoned-1 #134) | Not a computation bug: the plan counts time spent answering (`daily_plan/view.py`, `_actual_minutes`), the summary counts the session's window. A design finding (F9). |
+| The Reader's top percent and the guide's percent disagree | Works as built: the top is position in the text, the guide is amount read. A design finding (F15). |
+| "Review" in the Library opens a permission prompt | Works as built (`connect_ai`); the label misleads. A design finding (F7), with UX-10 behind it. |
+| The phone's "The look into this answer didn't finish" | Not settled: faked models, no diagnosis request in the logs (3.3). The message's lack of a next step is part of F13. |
+| Today showing "Router", "push" ids and "floor 2%" on the phone | Works as built (`ui.show_router_decisions = true`, the owner's deliberate exception for calibration). A design finding (F14). |
+
+### 7.2 Drafted ledger rows
+
+To go under a new heading in `docs/reviews/refactor-bug-ledger.md`, "Due at the UX fix stages" (the stage that owns each is in section 10).
+
+```markdown
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| UX-2 | UX journey audit, walks student-1, beginner-1, retainer-1, phone-2 | A web source's own TeX macros (`\newcommand` in the page, e.g. `\vvec`, `\real`, `\amp`) are dropped at extraction, so the Reader (desktop and phone) renders them as red raw commands, `\real` as ℜ, and one-line snippets (Today's thread line, the Ask chip) show raw `\(…\)`. | new: an extraction test that a page's macro block reaches the rendered passage; a render test that a snippet line renders or strips TeX | Keep the source's macro definitions with its extraction and pass them to KaTeX on both frontends; render or strip TeX in one-line snippets | open |
+| UX-3 | UX journey audit, walk seasoned-1 #74-81 | The Ask panel (practice, feedback; `ask.figures` on) has no visible send control: "show me ▸" is the only button and sends the words as a figure request; Enter sends a question unannounced. A figure built that way is lost when the panel closes. | new: the `AskOverlay` panel renders a send button that calls `send()`; "show me" is secondary | A visible "ask ↵" beside "show me ▸"; keep a pending figure's outcome when the panel reopens | open |
+| UX-4 | UX journey audit, walks student-1 #44, retainer-1 #63 | "Keep going" on a done or empty plan with nothing to add redraws the same Today and says nothing. | new: `TodayPlace` shows a line when `planKeepGoing` returns a plan with no new rows | Say why nothing was added and the one thing that would add something | open |
+| UX-5 | UX journey audit, walk student-1 #33 | Adding a source as a past exam opens it in the Reader; the `reader_disabled_for_source` refusal shows as a red error with the source id. | new: `openAddedItem` does not open a reader-off source; the card says what "for practice only" means | Don't open reader-off sources; one plain line on the card | open |
+| UX-6 | UX journey audit, walks beginner-1 #80-120, retainer-1 #49-61 | "Nothing for this goal is ready to practise yet." and "Nothing here to ask about…" are raised through `onError`, so they show as red errors that never expire and outlive their cause. | new: these two lines are notices (neutral, self-expiring, resolved by their cause) | Move empty states to the notice channel | open |
+| UX-7 | UX journey audit, walk beginner-1 #54 | "add it" on a deliverable topic not in the library fails silently when the vault has no subject: `no_subject` sets `askSubject`, but the picker renders only when `subjects.length > 0`. | new: `DeliverableScope` with zero subjects offers a way to name one (or uses the open book's subject) after `no_subject` | Name the subject in place, defaulting to the open book's | open |
+| UX-8 | UX journey audit, walks student-1 #128, beginner-1 #84 | The goal report on a goal with 0 examined facets says "all facets certified — hold the line until the due date." beside "BEHIND", including for open-ended goals; it offers "practice at-risk facets" with none. | new: the report's verdict line for 0/0 examined facets and for a goal with no due date | A plain empty-goal state ("Nothing checked yet for this goal") | open |
+| UX-9 | UX journey audit, walk phone-2 #31-48 | Phone capture shows "1 waiting to send." after the host returned 201, then the line vanishes; delivery is never confirmed. | new: the capture screen shows the sent state after the outbox drains | A "sent to your desktop" line that stays until the next capture | open |
+| UX-10 | UX journey audit, walks student-1, beginner-1, retainer-1 | The one-time AI OK gates only question writing; Reader paths, quick checks, the goal resolver and Ask send passages to the same provider before it is asked. | depends on the owner's ruling | Owner: is the plan sign-in the consent? Then question writing should not ask again; otherwise gate the Reader's model actions on the same OK | owner |
+```
+
+---
+
+## 8. Design findings, ranked by learner impact
+
+Works as built, fails a criterion. Each: who met it, the step, what they expected, what happened, the criterion, and whether the inventory shows the feature exists but could not be found.
+
+**F1 (S1). Today never says why there is nothing to do, or what would change it.** Student-1 #40-45, beginner-1 #78-82, retainer-1 #61-63 (`student-1-0045-empty-today-red-toasts.png`). Expected: a first session, or the one step that would make one. Happened: "Nothing planned for today." with three buttons that led nowhere; the reason, "Questions wait for your OK · Review", sat on a Library card (student-1 from #33, beginner-1 from #42, retainer-1 throughout); after the OK, UX-1's failure also showed only on the card. Fails J3, N-F, H1, H9, O8, M4. Inventory: the states exist on the book card (2.6); Today shows none of them. Separate from UX-1: before the OK, no question was being written at all.
+
+**F2 (S1). There is no place to see and manage goals.** Seasoned-1 #17-37. Expected: all three goals, Dec 9 → Dec 16, what pausing means. Happened: one goal on the card and the overlay; "plan around my week" changes study days; "edit why" edits the reason; the palette has no goal command. Fails N-D, H3, O9, I11. Inventory 2.8: changing a deadline or scope has no control and no client call; pause and complete are classic-shell only; a paused goal has no simple-shell surface.
+
+**F3 (S1). Nobody can start from a goal, and the goal box speaks in internal words.** Beginner-1 #3-48 (found at #48), seasoned-1 #52, student-1 #24-26. Expected: "tell it what I want to learn" on the first screen; "receipt" to confirm the deadline. Happened: every empty state says "add a book"; the goal box lives in the Reader's guide as "learning this for something? ▸", answers "your deliverable ▸", and its "receipt" shows the model's name and today's date; the deadline appears only on Today. Fails J1, N-D, M2, H2, O3. Inventory 2.8: three ways to make a goal with three field sets; this one is the best and the hardest to find (the student audit's finding 4).
+
+**F4 (S1 for the retainer). The learner can't see tomorrow's load or say "less".** Retainer-1 #30-63, seasoned-1 #110-149, student-1 #144-149. Expected: how many minutes tomorrow and next week; "ten minutes max" or "less, please". Happened: no forecast anywhere; the minute chips disappear once the plan is done; Settings has no daily amount; the tutor said it could not do it. Fails I11, M4, J7, O1. Inventory 2.2: the minute choice exists only before the plan is done; the projected review load the planner uses (overview §10) is never shown.
+
+**F5 (S2). Progress does not answer "how am I doing, and what is weakest?".** Seasoned-1 #3-10, student-1 #122-129, beginner-1 #21-30, retainer-1 #30. Expected: topics in words, change over weeks, the weakest topic, or "not enough evidence yet". Happened: "Progress" opens the concept-graph editor with bare decimals, "0 concepts · 0 edges", and words like "Ready variance", "evidence mass", "BlueprintRecipe", "only Ready fogs". Fails O3, H2, N-C, M8. Inventory 2.15 and 2.20.
+
+**F6 (S2). The goal report contradicts itself and speaks the model's language.** Student-1 #128, beginner-1 #84, seasoned-1 #12. "BEHIND" beside "all facets certified" (UX-8); "ON TRACK" in the report and "on track / getting there" on the card; "≈ 1 qualifying attempts outstanding", "20.42 days", "certified · examined · untouched", "held-out coverage". Fails O2, O3, H2.
+
+**F7 (S2). "Review" asks for permission.** Student-1 #101, beginner-1 #70-74, retainer-1 #70 (`retainer-1-0070-review-opens-connect-ai.png`). Expected: questions to answer. Happened: "Get questions on what you read", a consent dialog naming ChatGPT, OpenRouter and Perplexity, although ChatGPT was already connected. Fails I9, H4, N-C. Inventory 2.20. UX-10 is the question behind it.
+
+**F8 (S2). Past exams can be stored but not used.** Student-1 #28-39. Expected: sit last year's quiz, reveal the solutions when ready, or attach an answer key. Happened: "PDF · for practice only", no way to open or start it, no word on what "practice only" does, and UX-5's raw error. Fails J3, N-F, M10. Inventory 2.6: the practice exam exists only through a goal's held-out pool; graded work is CLI-only. The owner's graded-work entry belongs here.
+
+**F9 (S2). The plan's clocks disagree and its blocks surprise.** Seasoned-1 #0, #82, #98, #110, #134 (`seasoned-1-0134-two-clocks.png`); phone-2 #22-54. "About 25 minutes suggested" covered about six minutes of rows; "22 minutes left" and the phone's "8 minutes left" did not move across answers (the plan counts only answering time); "Done for today · 2 minutes." beside "5 minutes · 6 questions"; "a step further" held three questions; Next returned to Today after each block and needed Begin again. Fails O2, H1, H4, I8.
+
+**F10 (S2). Ask in the Reader points at the wrong passage and hides its answer.** Student-1 #132, beginner-1 #100-110. "ASKING ABOUT" showed an exercise the learner had scrolled past; the answer cited another passage; the answer landed below an empty follow-up box and needed three scrolls. Fails U1, U3, N-F. Choosing the passage was not testable (selection).
+
+**F11 (S2). The phone's pairing page does not know the scan worked.** Phone-1 #1-5, phone-2 #1-3. "Scan its QR code or enter the manual code here." with an empty box after a scan; then "Keep this token private" and "your private Shortcut setup" before "Open LearnLoop". Fails J1, N-F, O3. Inventory 2.16: this is the old `pair.html`, not the app's pairing screen.
+
+**F12 (S3). Adding reading to an existing course has no verb.** Seasoned-1 #39-54. Expected: "this chapter belongs to my linear algebra course". Happened: no course choice in Add or on the shelf; the goal box looked like a new goal. Fails M2, N-M. Inventory: the student audit's finding 5.
+
+**F13 (S3). The phone does not say what reached the desktop.** Phone-2 #31-53, with UX-9; also "The look into this answer didn't finish. Your grade stands." gives no next step (#11). Fails H1, J10.
+
+**F14 (S3). The router's line is on the learner's main screens.** Phone-2 #22-54 (`phone-2-0022-router-line-on-today.png`); the desktop's feedback (inventory 2.4). Ids, percentages and "floor 2%" meant nothing to the person. Fails O3, J8. This is the owner's deliberate exception (`ui.show_router_decisions`, for calibration); the proposal moves it under *details* for the learner's view, the owner to decide.
+
+**F15 (S3). Reader details that cost attention.** Two unlabelled percentages (student-1 #69-99, beginner-1 #113-115); the reading path lands above an open form and shifts it (student-1 #11-13); side by side is lost on leaving the Reader (retainer-1 #51-52); the quick check's "compare with the source" sits below the side panel's fold (student-1 #93-96); "mark for later" relabels the quick-check toggle (retainer-1 #13). Fails U9, J10, H4, N-S.
+
+**F16 (S3). "Mistake history" is not a history of mistakes.** Seasoned-1 #111-130. Palette-only ("under the hood · was Review · learnloop diff"); it shows a model-change ledger ("recalibration … your underlying evidence did not change"). Last week's wrong answer and its follow-ups have no surface. Fails I9, N-D, M4.
+
+**F17 (S3). Settings is an engine room.** Seasoned-1 #140-149, retainer-1 #37-41. Model routes, "Embeddings", "Decision models", token budgets; no daily amount; the signed-in account shown in full. Fails J7, O3; the owner's Nov 8 item. Also: the Add dialog lists no close control.
+
+**F18 (S3). Words the people did not know.** "vault", "arXiv id", "facet registry", "knowledge field", "only Ready fogs", "your deliverable", "receipt", "held-out coverage", "Ingested", "per-source setting", "token", "Shortcut", "Router", "push", "floor". Fails O3, H2. The deny-list test covers some learner components; these surfaces are outside it.
+
+**F19 (S3). The phone's Today tab lands on different screens.** Phone-2 #40-43: from Read it opens the unfinished question; "Back to Today" gives the plan. Fails H4, I9.
+
+**What worked, to keep.** Add → reading in seconds (every desktop walk). The depth choice in plain words. The Reader's Ask: grounded, small numbers, the book's own passage (student-1 #141, beginner-1 #110). Wrap-up's "revisit once" coming back on Today (student-1 #147, beginner-1 #119). Find-section → side by side in one click (retainer-1 #26-28). Feedback that tied the learner's wording to the book's (seasoned-1 #61-110). The phone: Begin to a question in two taps, and a half-typed answer kept (phone-2 #5-9, #26). The tutor's honest "I can't change that" (retainer-1 #58).
+
+---
+
+## 9. Proposals
+
+Sketches in text. Copy in *italics* is proposed wording. None is a spec; the stages in section 10 say which start with one.
+
+**P1. Today says why, and offers the one step (F1, UX-4, UX-6).** The empty plan names its cause from the states the book card already has, and carries its action:
+
+```
+Wednesday evening
+Nothing to practise yet: questions for "Symmetric Matrices and Variance"
+are waiting for your OK.              [ Write them ]   what's sent ▸
+Meanwhile: keep reading · about 10 min left in this section   [ Continue ]
+```
+
+The other states: *Writing questions for … · usually a few minutes · keep reading*; *Couldn't write questions for … · Try again*; *Nothing more to add right now: everything you've read has its questions.* "Practise for this goal" with nothing ready says the same line, as a neutral notice, never red.
+
+**P2. A Goals place (F2, F12, F3 in part, "Am I ready?" outside the Reader).**
+
+```
+Goals                                                     + new goal
+  Midterm: eigenvalues to variance   Dec 9 ▾   on track   Am I ready?
+    covers: Symmetric matrices, Eigenvalues, Dot product    + add reading
+  Proofs practice                    paused    resume · what pausing does ▸
+  Read the elevator article          no date   …
+```
+
+Reached from Today's goal card (*all goals ▸*), the ⋯ menu and the palette ("goal"). The date is editable in place; *add reading* attaches a source to the goal's scope (the one-course question).
+
+**P3. Start from a goal, in words (F3).** The first-run screen keeps Add and gains one box:
+
+```
+What do you want to learn?
+[ only what's on my midterm: ch 1-4, eigenvalues, no proofs        ]
+                         or drop a book, paper or lecture here
+```
+
+The box is the Reader's goal resolver, moved. With no book it asks two plain questions about what the learner already knows, then says what the goal rests on and what to add. The words "deliverable" and "receipt" go; the card echoes the deadline: *Midterm · Dec 9 · 14 topics from your books, 2 to add*.
+
+**P4. Ask sends what you asked (UX-3).**
+
+```
+[ ask in your words                                   ]
+ask ↵      show me ▸ (a figure, free here)       helping you reason · change
+```
+
+**P5. Your load, visible and steerable (F4, F9).** The minute chips stay after the plan is done; the done line reads one clock; a quiet forecast follows:
+
+```
+Done for today · 6 questions in about 5 minutes.
+Tomorrow: about 8 min · next 7 days: about 7 min a day      less ▾  more ▾
+```
+
+*less* lowers the daily amount and shows the new forecast at once (*Tomorrow: about 5 min*), with undo.
+
+**P6. Help shows what it gave away (owner decision 2, O11).** Under the verdict, on each rubric line the help covered:
+
+```
+✓ Says why, in a line.
+  ◌ with help: the tutor showed you this step at 18:04 —
+    "an orthonormal basis of eigenvectors, so A = QDQᵀ"   ▸ the whole answer
+```
+
+The quote is the help's own words and the time is when it was shown; the line replaces the bare "◌ Practice with help." and the details' percentage. The same on the phone's feedback, which today has no with-help line at all. Waits for the feedback refactor steps (section 10).
+
+**P7. Margin cues with their own sentence (owner decision 4).** The hover line stays one row; the popover leads with the quote:
+
+```
+◌┆  A new use of something you've shown: dot product.
+     "the variance in the direction u is uᵀCu"   — this paragraph
+     because: you answered a dot-product question on Mon · ◇ LearnLoop's model, not a test
+```
+
+The quoted sentence is exact (verified in code, as compare cells are); the one-line explanation is the model's, marked ◇. Dismiss reasons stay as they are and become the decision model's labels.
+
+**P8. One search box in the Reader (owner decision 3).** A visible field at the top of the Reader's rail, the same with a book open or not, returning passages grouped by book, each with peek and open. Ctrl+Shift+F focuses it. It replaces the front door's search and the hidden "ask your library" door, whose model notes stay one press away (*notes on these passages ▸*). Syntopic reading sits beside it: *compare these books ▸* under the results.
+
+**P9. Phone: in after the scan, and sure it arrived (F11, F13, UX-9, F19).** After a QR link the page pairs at once and opens LearnLoop (*Paired · this phone is "Phone"*), with the manual code under *no camera? enter a code ▸*; "token" and "Shortcut" appear only on the Shortcut page. Capture keeps a line: *Sent to your desktop · 2 min ago*. The Today tab always opens the plan, with *Resume your answer ▸* when a draft waits.
+
+**P10. Progress in words (F5, F6, F16).** Three lines, the well's three questions, before any map:
+
+```
+On your own: symmetric matrices, eigenvalues            (since Oct 21)
+Fading:      dot product · last shown 9 days ago         practise ▸
+Next:        variance and covariance · not tried yet
+Not enough evidence yet to name a weakest topic.        (shown when true)
+```
+
+Decimals, the graph editor and the knowledge field move under *details ▸* and Under the hood. "Mistake history" becomes *Your misses and what came after*: a wrong answer, its follow-ups and the later check.
+
+---
+
+## 10. Proposed fix stages
+
+Ordered for learner impact and dependencies. Sizes: **S** about a day, **M** two to four days, **L** a week or more. "Frontend-only" means no sidecar or schema change. Waits follow the brief: feedback, hypotheses and repair wait for arc G's G1, G3 and K6 with G6; hints and tutor context wait for H1 and H2; frontend-only fixes wait for nothing.
+
+| # | Stage | Contents | Size | Kind | Waits for |
+|---|---|---|---|---|---|
+| 1 | Broken controls | UX-3 (Ask send), UX-4 (Keep going), UX-5 (past-exam open), UX-6 (empty states as notices), UX-7 ("add it" with no subject), UX-9 (phone delivery) | S-M | frontend-only | nothing |
+| 2 | Math and empty-goal copy | UX-2 (source macros, snippets), UX-8 (goal report on an empty goal); UX-10 once the owner rules | M | backend + frontend | the owner's ruling, for UX-10 only |
+| 3 | Today explains itself | P1 (cause and one step from the card states), "Practise for this goal" says why, one clock (F9's labels), minute chips after done, the "Review" label (F7) | M | frontend-only (the states exist); the plan's "nothing to add" reason may need one field | nothing |
+| 4 | Phone small fixes | P9 (pairing after a scan, the delivery line, the Today tab); F14's router line under *details* if the owner agrees | S | phone frontend-only | the owner's call, for F14 |
+| 5 | Course setup and graded work (spec first) | P3 (start from a goal, one course for a student's materials, the deadline echoed); F8 and the owner's graded-work entry (grades, dates, the question-to-topic mapping to review, over `seed-exam-attempts`); sitting a stored practice exam; an answer key kept hidden until finished; the student audit's findings 3 to 6 | L | backend + frontend | nothing (owner: built inside the audit's fix) |
+| 6 | A Goals place (spec first) | P2: all goals, deadline and scope edits, pause and resume, *add reading*, "Am I ready?" outside the Reader | M-L | backend (a goal update call) + frontend | nothing; a scope change that moves persisted meaning follows the algorithm-change playbook |
+| 7 | Load you can see and steer | P5: tomorrow and next-week forecast from the planner's projected load, *less / more*, a default daily amount | M | backend + frontend | nothing |
+| 8 | Progress in words and the jargon sweep | P10, F6's wording, F16, F18; extend the deny-list test to Progress, the goal report, the inspector and the phone | M | mostly frontend; small backend copy | nothing |
+| 9 | Settings cleared | F17 and the owner's Nov 8 item: retired utilities out; a daily amount and spend caps visible; switches the learner can find | M | frontend + small backend | nothing |
+| 10 | Help that shows what it gave away | P6 (owner decision 2) on desktop and phone feedback; F10's Ask anchor and answer placement | M | backend + frontend | G1, G3, K6 with G6 (feedback); H1, H2 (tutor context) |
+| 11 | The Reader redo | P8 search (decision 3), P7 cues (decision 4: the decision model, the explanation, the exact quote), F15's details, syntopic reading | L | backend (cue model, search) + frontend | the frontend parts wait for nothing; the cue model is its own backend step |
+| 12 | Teacher screens remade | the owner's Nov 8 item, after a walk that reaches lessons (none did in this wave) | M-L | frontend | a lesson walk (section 11) |
+
+After each stage, re-run the walk it came from (criterion I2); after stages 1 to 4, re-run all six.
+
+---
+
+## 11. What this wave could not check, and the next wave
+
+**Not checked here.** Everything in 3.3. Also: whether the help-style choice reached the answer (beginner-1 chose "guide me", the thread says "answer directly", #102, #108); whether "due in 22d" for Dec 9 on Nov 18 is an off-by-one (student-1 #128); whether a second copy of the same article is expected (retainer-1 #68, a fixture interaction); the phone's "look into this answer" on a live route; rendering in the real WebKitGTK window (the fidelity table).
+
+**A second wave, proposed.**
+
+1. Give the harness a way to select text (a `select` verb over a passage's words), so capture, the intent box, compare and show me from a selection can be walked.
+2. Decide with the owner whether walks get the Decider and embedding routes (an OpenRouter key in the walk config, a small spend), so routing, compare scope and topic matching behave as for the owner.
+3. Walk what no one reached: a lesson from Today and from "Learn this"; the workbench and the help ladder; figures on purpose; a cold check and a short diagnostic check; the practice exam.
+4. The remaining personas: the project-driven learner, the returner (a vault three weeks idle, a goal date passed), the expert (a paper, "I know this"), the learner with their own notes; the phone beyond five minutes, with a real interruption and a session taken back on the desktop.
+5. The conditions: no model available; the learner disagreeing (a grade, a topic); two courses at once.
+6. After fix stages 1 to 4: the same six walks again, for before and after.
