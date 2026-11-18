@@ -32,6 +32,7 @@ from pathlib import Path
 from learnloop import activation_journal
 from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
+    GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
@@ -119,6 +120,9 @@ class Link:
 UPGRADES: tuple[Link, ...] = (
     # The facet-belief fixes move the belief and what each attempt derived from it.
     Link(FACET_BELIEF_FIX_ALGORITHM_VERSION, whole_vault_rebuild),
+    # The grade channel fixes re-read, once, the answers whose live observation earlier rebuilds never superseded,
+    # which moves canonical facet cells.
+    Link(GRADE_CHANNEL_FIX_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 

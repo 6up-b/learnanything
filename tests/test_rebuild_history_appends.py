@@ -1,7 +1,7 @@
 """A rebuild replays history; it must not grow it (refactor bug ledger D-36, D-52, D-53).
 
 Replay re-applies every recorded practice attempt. Before the grade channel
-fixes (mvp-0.59, ``replay.grade_channel_fixes``) each application re-minted the
+fixes (mvp-0.60, ``replay.grade_channel_fixes``) each application re-minted the
 attempt's grade channel: one more ``activity_observations`` row,
 ``raw_grade_events`` row and ``grade_interpretations`` row and four
 ``measurement_events`` per graded answer, at every rebuild. Those four tables
@@ -17,8 +17,8 @@ so belief was equal after every rebuild, but two readers were not:
 
 With the fixes replay keeps the observation and appends only what changed (a
 regrade's grade, a re-reading under another calibration or projection version),
-never over a head a review wrote unless the grade changed. Switched off, or at
-the floor mvp-0.58, a rebuild re-mints the chain exactly as before; the readers
+never over a head a review wrote unless the grade changed. Switched off, or
+below the tag (mvp-0.59), a rebuild re-mints the chain exactly as before; the readers
 read each attempt's newest observation either way, so a vault already rebuilt
 that way lists a flagged grade once.
 """
@@ -31,7 +31,7 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import FIGURE_WAIT_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FACET_BELIEF_FIX_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
 from learnloop.attempts import grade_resolution
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.attempts.grade_resolution import append_adjudication, flag_observation_for_review
@@ -138,12 +138,12 @@ def test_the_first_rebuild_of_a_vault_written_at_the_head_appends_no_grade_chann
     assert _grown(live, _raw_ledgers(repository, GRADE_CHANNEL)) == {}
 
 
-@pytest.mark.parametrize("served", ["switched_off", "at_the_floor"])
-def test_off_or_at_the_floor_every_rebuild_re_mints_each_answers_chain(tmp_path, served):
+@pytest.mark.parametrize("served", ["switched_off", "below_the_tag"])
+def test_off_or_below_the_tag_every_rebuild_re_mints_each_answers_chain(tmp_path, served):
     vault, repository = _history(
         tmp_path,
         grade_channel_fixes=served != "switched_off",
-        version=FIGURE_WAIT_ALGORITHM_VERSION if served == "at_the_floor" else LATEST_ALGORITHM_VERSION,
+        version=FACET_BELIEF_FIX_ALGORITHM_VERSION if served == "below_the_tag" else LATEST_ALGORITHM_VERSION,
     )
     live = _raw_ledgers(repository, GRADE_CHANNEL)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)

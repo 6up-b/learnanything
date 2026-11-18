@@ -489,7 +489,7 @@ def _append_interpretation(
 
 
 def grade_channel_fixes_on(config: Any) -> bool:
-    """The grade channel fixes (mvp-0.59, ``replay.grade_channel_fixes``): replay
+    """The grade channel fixes (mvp-0.60, ``replay.grade_channel_fixes``): replay
     keeps each practice answer's observation and appends only what changed.
     Their only reader, so the tag lives in one place
     (``algorithm_versions.GRADE_CHANNEL_FIX_VERSIONS``)."""

@@ -922,6 +922,19 @@ FIGURE_WAIT_ALGORITHM_VERSION = "mvp-0.58"
 # exactly; a whole-vault rebuild records the switch it derived under). No migration. ONE constant.
 FACET_BELIEF_FIX_ALGORITHM_VERSION = "mvp-0.59"
 
+# mvp-0.60 (the grade channel fixes; refactor bug ledger D-36, D-52, owner decision 2026-11-17 "I accept the rebuild
+# fix's value changes, ship it as mvp-0.60"; docs/reviews/refactor-adfix3.md), on top of the facet-belief fixes'
+# mvp-0.59. Replay re-applied each practice answer through the live write path, which minted a fresh observation and
+# grade chain (an observation, a raw grade event, an interpretation, four measurement events) at every rebuild, so
+# history grew by one chain per answer per rebuild and an owner's adjudication or review flag was left on a copy the
+# projection no longer reads. Replay now reuses the answer's newest observation and appends a raw grade event only
+# when the grade changed and an interpretation only when it differs from the head (never over an adjudicated, flagged
+# or quarantined head unless the grade changed). The first rebuild under the tag re-reads, once, the answers whose
+# live observation earlier rebuilds never superseded (D-55), which moves canonical facet cells, so activation is a
+# whole-vault rebuild. Kill switch ``replay.grade_channel_fixes`` (off, or below the tag: a rebuild writes the grade
+# channel exactly as mvp-0.59 does). No migration. ONE constant.
+GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -979,6 +992,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     SLIP_GAP_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
+    GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
 )
 
 
@@ -1025,13 +1039,10 @@ FACET_BELIEF_FIX_VERSIONS: frozenset[str] = successors_from(FACET_BELIEF_FIX_ALG
 # new tag would replace this one line (``diagnosis.probe_robust.robust_gate_fixes_on`` is the only reader).
 ROBUST_GATE_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
 
-# mvp-0.59 also holds the grade channel fixes (refactor bug ledger D-36, D-52; docs/reviews/refactor-adfix3.md),
-# behind ``replay.grade_channel_fixes``: replay reuses each practice answer's newest observation and appends a raw grade
-# event only when the grade changed and an interpretation only when it differs from the head (never over an adjudicated,
-# flagged or quarantined head unless the grade changed), so a rebuild no longer grows history or drops an adjudication.
-# Made before any vault was known to hold mvp-0.59, so they share its tags; were a vault already there, a new tag would
-# replace this one line (``attempts.grade_resolution.grade_channel_fixes_on`` is the only reader).
-GRADE_CHANNEL_FIX_VERSIONS: frozenset[str] = FACET_BELIEF_FIX_VERSIONS
+# Versions whose replay reuses each practice answer's newest observation and appends to its grade channel only what
+# changed (the grade channel fixes; ``attempts.grade_resolution.grade_channel_fixes_on`` is the only reader). Every
+# later successor keeps them; gates must use this set, never equality.
+GRADE_CHANNEL_FIX_VERSIONS: frozenset[str] = successors_from(GRADE_CHANNEL_FIX_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

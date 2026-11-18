@@ -27,6 +27,7 @@ from learnloop import activation_journal
 from learnloop.activation_journal import InterruptedActivation, journal_path
 from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
+    GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     OLDEST_SUPPORTED,
     SUCCESSOR_CHAIN,
@@ -56,6 +57,7 @@ from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 #: One row per link: how it activates. A successor adds its row here and in ``UPGRADES``.
 EXPECTED_ACTIVATIONS = {
     FACET_BELIEF_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
+    GRADE_CHANNEL_FIX_ALGORITHM_VERSION: whole_vault_rebuild,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)
@@ -189,8 +191,9 @@ def test_the_floor_reaches_each_tag_through_the_table(tmp_path, link):
 
 @LINKS
 def test_a_jump_is_refused_and_nothing_changes(tmp_path, link):
-    # A vault below the floor: refused with the route through pre-floor, at the table and at the command.
-    below = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(link.predecessor) - 1]
+    # A vault below the floor: refused with the route through pre-floor, at the table and at the command. (The tag
+    # below the floor, not below the link's predecessor: from a later link's, the floor walks the table.)
+    below = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(OLDEST_SUPPORTED) - 1]
     paths = create_basic_vault(tmp_path / "below")
     re_tag = paths.root / "learnloop.toml"
     re_tag.write_text(re.sub(r'algorithm_version = "[^"]+"', f'algorithm_version = "{below}"',

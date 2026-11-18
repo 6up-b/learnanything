@@ -30,9 +30,9 @@ OLD = SLIP_GAP_ALGORITHM_VERSION
 
 def test_the_successor_is_one_constant_after_slip_or_gap_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.57"
-    # The facet-belief successor (mvp-0.59) follows it and keeps it.
-    assert TAG == "mvp-0.58" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
-    assert FIGURE_WAIT_VERSIONS == frozenset({TAG, "mvp-0.59"})
+    # The facet-belief successor (mvp-0.59) and the grade channel fixes (mvp-0.60) follow it and keep it.
+    assert TAG == "mvp-0.58" == SUCCESSOR_CHAIN[-3] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.60"
+    assert FIGURE_WAIT_VERSIONS == frozenset({TAG, "mvp-0.59", "mvp-0.60"})
 
 
 def test_the_switch_defaults_on_and_is_classified():

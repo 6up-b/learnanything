@@ -50,10 +50,11 @@ LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
 
 
-def test_the_successor_is_one_constant_after_the_figure_wait_estimate_and_the_latest():
+def test_the_successor_is_one_constant_after_the_figure_wait_estimate():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.58"
-    assert TAG == "mvp-0.59" == SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION
-    assert FACET_BELIEF_FIX_VERSIONS == frozenset({TAG})
+    # The grade channel fixes (mvp-0.60) follow it and keep it.
+    assert TAG == "mvp-0.59" == SUCCESSOR_CHAIN[-2] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.60"
+    assert FACET_BELIEF_FIX_VERSIONS == frozenset({TAG, "mvp-0.60"})
 
 
 def test_the_switch_defaults_on_and_is_classified():
@@ -155,6 +156,7 @@ def test_with_the_switch_off_the_belief_is_the_predecessors_exactly(tmp_path):
 
 def test_at_the_tag_the_three_fixes_and_the_uncertainty_show(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, TAG)  # a later successor's vault writes its own tag on the row
     vault, repository = _play(paths)
     recall, _capability, uncertainty_rows = _belief(repository)
     aggregate = next(row for row in recall if row[2] is None)
@@ -192,6 +194,7 @@ def test_a_whole_vault_rebuild_reproduces_the_belief_and_the_uncertainty(tmp_pat
 
 def test_a_legacy_era_uncertainty_row_is_never_the_successors_prior_or_read(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, TAG)
     vault, repository = _play(paths)
     # Make the row an mvp-0.6-era one, which a canonical vault upgraded from that tag may still hold for an LO it
     # never replayed: it was derived under another belief.

@@ -46,7 +46,7 @@ FOLLOWUP_KEYS: dict[str, object] = {
 def test_the_successor_is_one_constant_after_ro6_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.49"
     # Teacher TE2 (mvp-0.51) landed after it and keeps it.
-    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.59"
+    assert TAG == "mvp-0.50" == SUCCESSOR_CHAIN[-11] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.60"
 
 
 def test_the_switches_default_on():
