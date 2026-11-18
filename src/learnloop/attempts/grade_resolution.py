@@ -1531,15 +1531,12 @@ def append_adjudication(
     fraction_new = score_fraction.get(str(leading_new)) if leading_new is not None else None
     fraction_old = score_fraction.get(str(leading_old)) if leading_old is not None else None
     attempt_id = repository.observation_attempt_id(observation_id)
+    restates = _another_adjudication_wrote_the_grade(repository, attempt_id, adjudication_id)
     if leading_new is None:
         evidence_revision = {"status": "skipped_ambiguous_leading_class", "evidence_ids": []}
     elif fraction_new is None:
         evidence_revision = {"status": "skipped_class_without_score_fraction", "evidence_ids": []}
-    elif (
-        fraction_new == fraction_old
-        and not attempt_grade_held(repository, attempt_id)
-        and not _another_adjudication_wrote_the_grade(repository, attempt_id, adjudication_id)
-    ):
+    elif fraction_new == fraction_old and not (attempt_grade_held(repository, attempt_id) or restates):
         evidence_revision = {"status": "skipped_direction_unchanged", "evidence_ids": []}
     elif attempt_id is None:
         evidence_revision = {"status": "skipped_no_attempt", "evidence_ids": []}

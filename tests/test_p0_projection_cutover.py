@@ -251,10 +251,10 @@ def test_adjudication_reverses_projection_and_preserves_history(tmp_path):
     assert any(r["algorithm_version"] == "mvp-0.8" for r in rebuilds)
 
 
-def test_adjudicating_up_raises_credit_and_unchanged_direction_skips(tmp_path):
+def test_adjudicating_up_raises_credit_and_unchanged_direction_keeps_the_grade(tmp_path):
     """Ruling A symmetry: an upward adjudication raises banked credit through
     the same superseding-revision door, and an adjudication that does not flip
-    the leading class leaves the ledger untouched (typed skip)."""
+    the leading class keeps the grade it confirms."""
 
     vault, repo = _p0_vault(tmp_path)
     result = _attempt(vault, repo, points=0, confidence=2)
@@ -281,9 +281,10 @@ def test_adjudicating_up_raises_credit_and_unchanged_direction_skips(tmp_path):
     assert total_after > total_before
 
     # Re-adjudicating to the same class flips nothing: the ledger already says
-    # success, so the revision is skipped with a typed reason, and the previous
-    # adjudication revision stays the live direction.
-    live_before = {r.id for r in repo.fetch_grading_evidence(result.attempt_id)}
+    # success. The confirmation writes that grade again as its own revision
+    # (same points), so replay keeps the confirming ruling as the head; the
+    # direction and the banked credit are unchanged.
+    live_before = {(r.criterion_id, r.points_awarded) for r in repo.fetch_grading_evidence(result.attempt_id)}
     raw2 = repo.raw_grade_events_for_observation(observation["id"])[0]
     adj2 = append_adjudication(
         repo,
@@ -295,8 +296,12 @@ def test_adjudicating_up_raises_credit_and_unchanged_direction_skips(tmp_path):
         vault=vault,
         clock=CLOCK,
     )
-    assert adj2["evidence_revision"]["status"] == "skipped_direction_unchanged"
-    assert {r.id for r in repo.fetch_grading_evidence(result.attempt_id)} == live_before
+    assert adj2["evidence_revision"]["status"] == "revised"
+    live = repo.fetch_grading_evidence(result.attempt_id)
+    assert {(r.criterion_id, r.points_awarded) for r in live} == live_before
+    assert {r.evidence for r in live} == {f"adjudicated:{adj2['adjudication_id']}"}
+    project_canonical_facet_state(vault, repo)
+    assert _cells(repo) == after
 
 
 def test_grading_evidence_write_discipline_is_append_only_with_supersession():
