@@ -101,7 +101,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E1 | Split the router's switches from the availability rule and the projection switches | landed | `50e5b760e3` | [refactor-e1.md](refactor-e1.md) | — |
 | E2 | Extract the chooser's pure decision function | in the gate | — | [refactor-e2.md](refactor-e2.md) | — |
 | E3 | Move job control and clocks out of choice | in the gate | — | [refactor-e3.md](refactor-e3.md) | E2 |
-| E4 | Move trace assembly out of the chooser | waiting on | — | — | E3 |
+| E4 | Move trace assembly out of the chooser | in the gate | — | [refactor-e4.md](refactor-e4.md) | E3 |
 | E5 | Separate objective terms from rollout arithmetic | waiting on | — | — | E4 |
 | E6 | Put each router action in one place | waiting on | — | — | E5 |
 | E7 | Build the shared view of evidence once | waiting on | — | — | E6 and the [evidence packet spec](../specs/spec_evidence_packets_v1.md) |

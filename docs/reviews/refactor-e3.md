@@ -159,7 +159,7 @@ by name and calls it as its own module attribute, as before, so `tests/pinned_dr
 `objective_chooser.numeric_seed`) and every test that replaces it there still reach every call; all four callers are
 in the chooser. `mix_seed` calls `mix.seed_for` through its module, which `pinned_draws` wraps.
 
-### `daily_plan/objective_job.py` (new, 495 lines)
+### `daily_plan/objective_job.py` (new, 493 lines after the comment commit)
 
 | Definition | From | Lines | Body |
 |---|---|---|---|
