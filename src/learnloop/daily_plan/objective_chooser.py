@@ -33,17 +33,20 @@ logger, which writes the trace (``router_objective_traces``) in the block's tran
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
+from functools import partial
 import json
 import logging
 import math
-import threading
 import time
 from typing import Any
 
-from learnloop.clock import parse_utc
+from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.daily_plan import objective_inputs as OI
+from learnloop.daily_plan import objective_job as J
+from learnloop.daily_plan.objective_job import NUMERIC, NumericPolicy
+from learnloop.daily_plan.objective_seeds import mix_seed, numeric_seed
 from learnloop.daily_plan.router_chooser import (
     INSERT_NOW,
     NO_INTERVENTION,
@@ -51,7 +54,6 @@ from learnloop.daily_plan.router_chooser import (
     RestraintGate,
     RestraintOutcome,
     RouterChooser,
-    _await,
     _build_card,
     _card_fields,
     _hash,
@@ -74,11 +76,7 @@ from learnloop.daily_plan.router_runtime import (
     TIMEOUT,
     ComponentResult,
     Prefetch,
-    RouterRuntime,
-    call_decider,
-    call_llm,
     seen,
-    wall_now,
 )
 from learnloop.daily_plan.staged_frame import StagedChooser
 from learnloop.daily_plan.types import (
@@ -105,21 +103,6 @@ from learnloop.router_objective_switches import failure_share_to_other_policy_on
 
 LOG = logging.getLogger(__name__)
 
-NUMERIC = "numeric"
-#: The prefetch material's key for the numeric policy's latest complete uncorrected answer (F1): a serve that finds
-#: the job still waiting on the LLM policy's forecasts uses it instead of a timeout.
-PUBLISHED = "numeric_published"
-#: RO6's landing ruling R12: the prefetch material's key for the residual record with the carried valuation, set by
-#: the job after the answer released the serve's wait; a serve that comes first censors that backup.
-CARRIED = "numeric_carried_valuation"
-#: The follow-up batch's item 4 (``carried_in_prefetch``): a decision's carried valuation deferred to the next
-#: boundary's prefetch travels with the served answer (``NumericPolicy.carried``; Codex review F3), is registered at
-#: the serve, run there, off the serving path, and recorded in a later trace.
-#: ``keep`` (a resource bound): the most deferred carried valuations kept per database; past it the oldest is dropped
-#: and its backup stays censored ``cutoff_unmatched``.
-CARRY_LIMIT = 32
-_CARRY_LOCK = threading.Lock()
-_CARRY: dict[str, list[dict[str, Any]]] = {}
 MODE = C.MODE
 KEY_VERSION = 1
 WHY_VERSION = C.WHY_VERSION
@@ -161,71 +144,6 @@ def objective_settings(config: Any) -> dict[str, Any]:
     out["miss_cause_sensor"] = miss_cause_sensor_on(config)
     out["miss_cause_in_value"] = miss_cause_in_value_on(config)
     return out
-
-
-def numeric_seed(identity: Mapping[str, Any]) -> str:
-    """The numeric policy's random seed for one boundary (router speed stage 2, landing ruling R2): derived from the
-    boundary identity the prefetch key hashes, less ``SEED_NEUTRAL_SWITCHES`` in its switch snapshot. Those switches
-    change no value at a fixed draw count, so whatever they are the draws are main's (with both off, main's exactly);
-    they stay in the key itself, the generator payload and ``serving_switches``."""
-
-    from learnloop.router_objective_switches import (
-        SEED_NEUTRAL_IDENTITY_KEYS,
-        SEED_NEUTRAL_OBJECTIVE_KEYS,
-        SEED_NEUTRAL_SWITCHES,
-    )
-
-    objective = identity.get("objective")
-    switches = objective.get("followup_switches") if isinstance(objective, Mapping) else None
-    if isinstance(switches, Mapping):
-        objective = {**objective, "followup_switches": {
-            key: value for key, value in switches.items() if key not in SEED_NEUTRAL_SWITCHES}}
-        identity = {**identity, "objective": objective}
-    # IH4: what the key names only so a preference or a flip starts a new job (no value moves with it).
-    if isinstance(objective, Mapping) and any(key in objective for key in SEED_NEUTRAL_OBJECTIVE_KEYS):
-        identity = {**identity, "objective": {key: value for key, value in objective.items()
-                                              if key not in SEED_NEUTRAL_OBJECTIVE_KEYS}}
-    if any(key in identity for key in SEED_NEUTRAL_IDENTITY_KEYS):
-        identity = {key: value for key, value in identity.items() if key not in SEED_NEUTRAL_IDENTITY_KEYS}
-    identity = _without_miss_cause(identity)
-    return _hash({"numeric": _hash(dict(identity))})
-
-
-def _without_miss_cause(identity: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Slip or gap: the identity less what it names only so a flip or a changed sensor starts a new job (both switches,
-    the sensor's mark, the sensor on an offer's card record): a decision is valued on the same draws whatever they are
-    (``router_objective_switches.COMMON_DRAW_OBJECTIVE_KEYS``). Below the tag, or with nothing of it present, the
-    identity itself (so the seed keeps the predecessor's bytes)."""
-
-    from learnloop.router_objective_switches import (
-        COMMON_DRAW_IDENTITY_KEYS,
-        COMMON_DRAW_OBJECTIVE_KEYS,
-        MISS_CAUSE_OFFER_KEY,
-    )
-
-    def bare_row(row: Any) -> Any:
-        annotations = row.get("annotations") if isinstance(row, Mapping) else None
-        offer = annotations.get("lesson_offer") if isinstance(annotations, Mapping) else None
-        if not (isinstance(offer, Mapping) and MISS_CAUSE_OFFER_KEY in offer):
-            return row
-        bare = {key: value for key, value in offer.items() if key != MISS_CAUSE_OFFER_KEY}
-        return {**row, "annotations": {**annotations, "lesson_offer": bare}}
-
-    objective = identity.get("objective")
-    if isinstance(objective, Mapping) and any(key in objective for key in COMMON_DRAW_OBJECTIVE_KEYS):
-        identity = {**identity, "objective": {key: value for key, value in objective.items()
-                                              if key not in COMMON_DRAW_OBJECTIVE_KEYS}}
-    if any(key in identity for key in COMMON_DRAW_IDENTITY_KEYS):
-        identity = {key: value for key, value in identity.items() if key not in COMMON_DRAW_IDENTITY_KEYS}
-    if isinstance(identity.get("support"), list):
-        support = [bare_row(row) for row in identity["support"]]
-        if support != identity["support"]:
-            identity = {**identity, "support": support}
-    if isinstance(identity.get("offer"), Mapping):
-        offer = bare_row(identity["offer"])
-        if offer is not identity["offer"]:
-            identity = {**identity, "offer": offer}
-    return identity
 
 
 def _miss_cause_mark(repository: Any, config: Any, candidates: Sequence[Any], now_iso: str) -> dict[str, Any]:
@@ -301,23 +219,6 @@ def _held_link(config: Any) -> bool:
     from learnloop.router_objective_switches import followup_on
 
     return followup_on(config, "held_ad_link")
-
-
-def _pooled(config: Any) -> Any:
-    """Router speed stage 2, item 4 (its Codex review F2): the objective job's connection pool
-    (``db.connection.reused_connections``) only at the follow-up batch's tag with ``[router_objective]
-    pooled_connections``; off, a connection opened at every ``connect()`` (main e9ceaf8d44's job, at its time per
-    build, so a deadline-bound evaluation completes the draws it completed then)."""
-
-    from contextlib import nullcontext
-
-    from learnloop.router_objective_switches import followup_on
-
-    if config is None or not followup_on(config, "pooled_connections"):
-        return nullcontext()
-    from learnloop.db.connection import reused_connections
-
-    return reused_connections()
 
 
 def _serving_switches(config: Any) -> dict[str, Any]:
@@ -486,41 +387,6 @@ def current_weight(repository: Any, config: Any, *, at: str) -> tuple[float, dic
 
 
 # -- the numeric policy ----------------------------------------------------------------------------------
-
-
-@dataclass
-class NumericPolicy:
-    """What π_Q computed for one decision (its status, choice, evaluation and the trace's sections)."""
-
-    status: str
-    choice: str | None = None
-    tie: Mapping[str, Any] = field(default_factory=dict)
-    evaluation: V.Evaluation | None = None
-    inputs: V.Inputs | None = None
-    actions: tuple[V.Action, ...] = ()
-    sources: Mapping[str, Any] = field(default_factory=dict)
-    price: P.Seeded | None = None
-    frontier: Mapping[str, Any] = field(default_factory=dict)
-    baselines: Mapping[str, Any] = field(default_factory=dict)
-    corrected: bool = False
-    latency_ms: int | None = None
-    error: str | None = None
-    #: ``final`` (the job's last answer), or ``published_uncorrected`` (served from the job's earlier publication
-    #: while it was still waiting on the LLM policy's forecasts: F1)
-    stage: str = "final"
-    #: RO6 (§10): the learned tail's residual record (:mod:`learnloop.router_objective.tail_serve`); None below the
-    #: tag, with the switch off, or on a decision it does not value (a mid-block follow-up)
-    residual: Mapping[str, Any] | None = None
-    #: The follow-up batch's item 4 (Codex review F3): this answer's own carried valuation, frozen to the inputs it
-    #: used (``compute(deadline=...)``), when its residual is pending; whichever answer serves (an early publication
-    #: or the final one) hands its own to the next boundary's prefetch. Never serialized.
-    carried: Callable[..., dict[str, Any]] | None = field(default=None, repr=False, compare=False)
-    #: Landing ruling R12: the follow-up batch's generator switches this answer was computed under (frozen at the
-    #: job's start), which the trace records, never the serving config's; None below the batch's tag.
-    switches: Mapping[str, bool] | None = None
-    #: IH4 (spec_instruct_handoff_v1 §7): the choice model's frozen sensor and ``w_pref``
-    #: (:mod:`learnloop.router_objective.preferences`); None with its switch off or nothing on record
-    preference: Mapping[str, Any] | None = None
 
 
 def generator_now(config: Any, objective: str | None = None) -> str:
@@ -707,7 +573,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
         # serve (``published_uncorrected``) before the job installs anything, so it carries its own pending carried
         # valuation, frozen to its own (uncorrected) inputs; off, or below the tag, RO6's publication exactly.
         early_carry: float | None = None
-        if publish is not None and defer_carried is not None and residual_record is not None and _carry_on(config):
+        if publish is not None and defer_carried is not None and residual_record is not None and J.carry_on(config):
             from learnloop.router_objective import tail_serve
 
             early_carry = tail_serve.carried_cutoff(residual_record)
@@ -760,7 +626,7 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
                 compute = carried_compute(pending, inputs, tuple(actions), carried)
                 defer_carried(compute)
                 residual_record = pending
-                if _carry_on(config):
+                if J.carry_on(config):
                     # The follow-up batch's item 4: the answer carries its own (Codex review F3).
                     own_carry = compute
             elif carried is not None:
@@ -787,276 +653,37 @@ def _reference_description(action: V.Action, titles: Mapping[str, str]) -> str:
             f"practice on {topics}, then a session of the suggested minutes each day.")
 
 
-def _llm_forecasts(entry: Prefetch) -> Any:
-    """The numeric job's view of the LLM policy's forecasts: None while it is out, else ``(per option, reference)``
-    (both None when it failed)."""
-
-    event = entry.events.get(LLM)
-    if event is not None and not event.is_set():
-        return None
-    result = entry.components.get(LLM)
-    parsed = getattr(result, "parsed", None)
-    if result is None or result.status != ANSWERED or not isinstance(parsed, rq.ParsedPolicy):
-        return ({}, None)
-    by_ref = {ref: values.get("p_cold_7") for ref, values in parsed.forecasts.items()}
-    return by_ref, parsed.reference.get("p_cold_7")
-
-
-def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlite_path: Any, session_id: str | None,
-                   plan_id: str | None) -> None:
-    import contextvars
+def _policy_request(vault: Any, repository: Any, entry: Prefetch) -> rq.PolicyRequest:
+    """The LLM policy's request for one boundary, built on its job's thread (:mod:`learnloop.daily_plan.objective_job`)
+    inside the job's reads: RO2's decision card over the support, the tail's next action as the reference row. The
+    card's record and the request are left on the job's material, where the decision reads them."""
 
     from learnloop.daily_plan.objective_card import decision_card
-    from learnloop.db.repositories import Repository
 
     material = entry.material
-    repository = Repository.attach(sqlite_path)
     config = vault.config
-    # Router speed, item 2: the card's build and the numeric policy's share one read of the combiner's fit while no
-    # write is committed between them (OI.decision_reads; Codex review F2). Router speed stage 2, item 4: the job's
-    # own thread reuses its SQLite connections (db.connection.reused_connections: each given back reset, never shared
-    # across threads, never kept in a transaction); the model calls' threads open their own. Behind [router_objective]
-    # pooled_connections (its Codex review F2: faster builds leave the deadline-bound refinement more draws).
-    with _pooled(config), runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER,
-                                                owner_id=entry.key), OI.decision_reads():
-        threads: list[threading.Thread] = []
-
-        def run(name: str, request: Any, parse: Any) -> None:
-            with entry.lock:
-                entry.started_components.add(name)
-            budget = entry.remaining(runtime.clock())
-            call = call_decider if name == DECIDER else call_llm
-            try:
-                result, raw = call(runtime, vault, repository, request, card_hash=material.get("card_hash"), budget=budget)
-                if result.status == ANSWERED:
-                    try:
-                        result.parsed = parse(raw, request)
-                    except rq.RouterResponseInvalid as exc:
-                        result.status, result.error = INVALID, str(exc)[:300]
-            except Exception as exc:  # noqa: BLE001 - a component never takes the job down
-                result = ComponentResult(name=name, status=FAILED, error=type(exc).__name__)
-            with entry.lock:
-                entry.components[name] = result
-            entry.events[name].set()
-
-        def start(name: str, request: Any, parse: Any) -> None:
-            if runtime.inline:
-                run(name, request, parse)
-                return
-            context = contextvars.copy_context()
-            thread = threading.Thread(target=context.run, args=(run, name, request, parse),
-                                      name=f"learnloop-objective-{name}", daemon=True)
-            thread.start()
-            threads.append(thread)
-
-        if DECIDER in entry.events:
-            # The Decider: advice and a comparator only, on the learner-state card (v3) and the options.
-            request = rq.BoundaryRequest(options=tuple(material["options"]),
-                                         state=rq.state_text(material["card_text"], material["options"],
-                                                             evidence=material["evidence"]),
-                                         evidence=tuple(material["evidence"]))
-            start(DECIDER, request, rq.parse_decider_choice)
-        if LLM in entry.events:
-            try:
-                built, actions, _sources = OI.build(vault, repository, state=material["state"],
-                                                    support=material["support"], candidates=material["by_id"],
-                                                    now_iso=material["decided_at"])
-                reference = V._Model(built, 1, "reference").tail_action()
-                titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
-                card = decision_card(vault, repository, [material["by_id"][ref] for ref in material["support"]
-                                                         if ref in material["by_id"]],
-                                     served_at=material["decided_at"], goals=_sources.get("goals") or {},
-                                     session=_sources.get("session") or {},
-                                     budget=int(config.router_objective.llm_card_token_budget))
-                policy_request = rq.PolicyRequest(
-                    options=tuple(material["options"]),
-                    reference=rq.BlockOption(V.REFERENCE_REF, _reference_description(reference, titles)),
-                    state=json.dumps(card["state"], sort_keys=True, ensure_ascii=False, default=str),
-                    evidence=tuple(card["evidence_ids"]))
-                entry.material["policy_card"] = {key: card[key] for key in ("evidence_ids", "left_out", "bytes", "items")}
-                if card.get("statements"):
-                    entry.material["policy_card"]["statements"] = {
-                        "card": card["state"]["card"], "entries": card["statements"],
-                        "left_out": dict((card.get("left_out") or {}).get("learner_statements") or {})}
-                entry.material["policy_request"] = policy_request
-                start(LLM, policy_request, rq.parse_llm_policy)
-            except Exception as exc:  # noqa: BLE001 - the card never blocks the plan: the LLM policy fails
-                LOG.warning("router objective: the LLM policy's card was not built", exc_info=True)
-                with entry.lock:
-                    entry.components[LLM] = ComponentResult(name=LLM, status=FAILED, error=f"card: {type(exc).__name__}")
-                entry.events[LLM].set()
-        with entry.lock:
-            entry.started_components.add(NUMERIC)
-
-        def publish(policy: NumericPolicy) -> None:
-            with entry.lock:
-                entry.material[PUBLISHED] = policy
-
-        deferred: list[Callable[[], dict[str, Any]]] = []
-
-        numeric = run_numeric(
-            vault, repository, state=material["state"], support=material["support"], candidates=material["by_id"],
-            now_iso=material["decided_at"], seed=material["numeric_seed"], deadline=entry.deadline,
-            keep_going=lambda: LLM in entry.events and not entry.events[LLM].is_set() and runtime.clock() < entry.deadline,
-            forecasts=(lambda: _wait_llm(entry, runtime)) if LLM in entry.events else None, clock=runtime.clock,
-            publish=publish, learned_tail=True, tail_snapshot=material.get("tail_snapshot"),
-            defer_carried=deferred.append)
-        with entry.lock:
-            entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
-                                                        latency_ms=numeric.latency_ms, error=numeric.error)
-        # Landing ruling R12: the answer releases the serve's wait; the carried valuation runs only after it, and a
-        # serve that has already taken the answer censors that backup (``_decide_objective``).
-        carry = _carry_on(config)
-        # The follow-up batch's item 4: this decision's own carried valuation waits for the next boundary's prefetch;
-        # each answer that can serve (the final one above, an early publication) carries its own (``carried``,
-        # Codex review F3), so the serve registers it whichever comes first.
-        entry.events[NUMERIC].set()
-        if carry:
-            # ... and this job runs the ones earlier decisions left, now that its own answer is out.
-            _drain_carry(sqlite_path, deadline=entry.deadline)
-            deferred = []
-        for compute in deferred:
-            try:
-                carried_record = compute()
-            except Exception:  # noqa: BLE001 - the backup's value never fails the decision: it is censored
-                LOG.warning("router objective: the carried valuation failed", exc_info=True)
-                continue
-            with entry.lock:
-                entry.material[CARRIED] = carried_record
-        for thread in threads:
-            thread.join(timeout=entry.remaining(runtime.clock()) + 1.0)
-
-
-def _with_carried(numeric: "NumericPolicy | None", entry: Any) -> "NumericPolicy | None":
-    """Landing ruling R12: the served answer's residual with the carried valuation if the job had it before this
-    serve (``CARRIED``), else marked valued too late (``not_valued_before_the_serve``: the backup into this
-    decision is censored ``cutoff_unmatched``). An answer with nothing pending is returned as it is."""
-
-    from learnloop.router_objective import tail_serve
-
-    if numeric is None or not tail_serve.is_pending(numeric.residual):
-        return numeric
-    lock = getattr(entry, "lock", None)
-    material = getattr(entry, "material", {}) or {}
-    if lock is not None:
-        with lock:
-            carried = material.get(CARRIED)
-    else:
-        carried = material.get(CARRIED)
-    if isinstance(carried, Mapping):
-        return replace(numeric, residual=carried)
-    return replace(numeric, residual=tail_serve.not_before_the_serve(numeric.residual))
-
-
-def _carry_on(config: Any) -> bool:
-    # One predicate for the serving side and the reading side (tail_data.logged; Codex review F1).
-    from learnloop.router_objective import tail_data as TD
-
-    return TD.carried_in_prefetch_on(config)
-
-
-def _register_carry(sqlite_path: Any, decision_id: str, compute: Callable[[], dict[str, Any]]) -> None:
-    """The follow-up batch's item 4: a decision served before its carried valuation existed leaves the valuation
-    (its own frozen inputs, in ``compute``) to the next boundary's prefetch."""
-
-    with _CARRY_LOCK:
-        waiting = _CARRY.setdefault(str(sqlite_path), [])
-        waiting.append({"decision_id": decision_id, "compute": compute, "record": None, "carriers": []})
-        del waiting[:-CARRY_LIMIT]
-
-
-def _drain_carry(sqlite_path: Any, *, deadline: float | None = None) -> int:
-    """Run every deferred carried valuation of this database not yet run (a prefetch job's, after its own answer
-    released the serve's wait; the no-model branch's thread, after its serve), each by ``deadline`` (the runner's
-    own). Never the serving thread's work. Returns how many ran."""
-
-    with _CARRY_LOCK:
-        todo = [entry for entry in _CARRY.get(str(sqlite_path), []) if entry["record"] is None
-                and not entry.get("running")]
-        for entry in todo:
-            entry["running"] = True
-    ran = 0
-    for entry in todo:
-        try:
-            record = entry["compute"](deadline=deadline)
-        except Exception:  # noqa: BLE001 - the backup stays censored; the decision is untouched
-            LOG.warning("router objective: a deferred carried valuation failed", exc_info=True)
-            record = {"previous": {"q_status": "not_valued_in_the_next_prefetch"}}
-        with _CARRY_LOCK:
-            entry["record"] = record
-            entry["running"] = False
-        ran += 1
-    return ran
-
-
-def _carried_for(repository: Any, decision_id: str) -> list[dict[str, Any]]:
-    """The deferred carried valuations ready to be recorded in this decision's trace (``carried_for``). Each stays
-    waiting until a trace that holds it is known to be written (a choice computed and never logged writes nothing),
-    then is dropped, so a record is carried until one carrier is in the log."""
-
-    key = str(repository.sqlite_path)
-    with _CARRY_LOCK:
-        waiting = list(_CARRY.get(key, []))
-    carriers = sorted({carrier for entry in waiting for carrier in entry["carriers"]})
-    written: set[str] = set()
-    if carriers:
-        marks = ",".join("?" for _ in carriers)
-        with repository.connection() as connection:
-            written = {str(row[0]) for row in connection.execute(
-                f"SELECT decision_id FROM router_objective_traces WHERE decision_id IN ({marks})", carriers)}
-    out: list[dict[str, Any]] = []
-    with _CARRY_LOCK:
-        kept = []
-        for entry in _CARRY.get(key, []):
-            if written & set(entry["carriers"]):
-                continue
-            record = entry["record"]
-            valued = (isinstance(record, Mapping) and isinstance(record.get("previous"), Mapping)
-                      and record["previous"].get("q_status") == "valued")
-            if record is not None and not valued:
-                continue  # it ran and found no value (deadline, failure): nothing to carry
-            kept.append(entry)
-            if valued:
-                entry["carriers"].append(decision_id)
-                out.append({"decision_id": entry["decision_id"], "previous": dict(record["previous"]),
-                            "basis": "the decision's own frozen inputs, valued at its earlier decision's cutoff in a "
-                                     "later boundary's prefetch (off the serving path)"})
-        _CARRY[key] = kept
-    return out
-
-
-def _wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any:
-    event = entry.events.get(LLM)
-    if event is not None and not event.is_set():
-        event.wait(entry.remaining(runtime.clock()))
-    return _llm_forecasts(entry)
-
-
-def _numeric_answer(entry: Any, results: dict[str, ComponentResult]) -> "NumericPolicy | None":
-    """The numeric policy's answer a serve takes: the no-model branch's own, the job's final one, or, while the job
-    still waits on the LLM policy's forecasts for its optional correction, its uncorrected publication, labelled
-    ``published_uncorrected`` (``results`` then names it answered, so the numeric policy's availability never waits on
-    the LLM's); else its status alone, or None with no job."""
-
-    material = entry.material
-    numeric_result = results.get(NUMERIC)
-    numeric: NumericPolicy | None = material.get("numeric")
-    if numeric is None and numeric_result is not None:
-        lock = getattr(entry, "lock", None)
-        if lock is not None:
-            with lock:
-                published = material.get(PUBLISHED)
-        else:
-            published = material.get(PUBLISHED)
-        if isinstance(numeric_result.parsed, NumericPolicy):
-            numeric = numeric_result.parsed
-        elif numeric_result.status == TIMEOUT and isinstance(published, NumericPolicy):
-            numeric = replace(published, stage="published_uncorrected")
-            results[NUMERIC] = ComponentResult(name=NUMERIC, status=ANSWERED, parsed=numeric,  # type: ignore[arg-type]
-                                               latency_ms=numeric.latency_ms)
-        else:
-            numeric = NumericPolicy(status=numeric_result.status, error=numeric_result.error)
-    return numeric
+    built, actions, _sources = OI.build(vault, repository, state=material["state"],
+                                        support=material["support"], candidates=material["by_id"],
+                                        now_iso=material["decided_at"])
+    reference = V._Model(built, 1, "reference").tail_action()
+    titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
+    card = decision_card(vault, repository, [material["by_id"][ref] for ref in material["support"]
+                                             if ref in material["by_id"]],
+                         served_at=material["decided_at"], goals=_sources.get("goals") or {},
+                         session=_sources.get("session") or {},
+                         budget=int(config.router_objective.llm_card_token_budget))
+    policy_request = rq.PolicyRequest(
+        options=tuple(material["options"]),
+        reference=rq.BlockOption(V.REFERENCE_REF, _reference_description(reference, titles)),
+        state=json.dumps(card["state"], sort_keys=True, ensure_ascii=False, default=str),
+        evidence=tuple(card["evidence_ids"]))
+    entry.material["policy_card"] = {key: card[key] for key in ("evidence_ids", "left_out", "bytes", "items")}
+    if card.get("statements"):
+        entry.material["policy_card"]["statements"] = {
+            "card": card["state"]["card"], "entries": card["statements"],
+            "left_out": dict((card.get("left_out") or {}).get("learner_statements") or {})}
+    entry.material["policy_request"] = policy_request
+    return policy_request
 
 
 # -- the decision -------------------------------------------------------------------------------------------
@@ -1404,9 +1031,6 @@ class ObjectiveChooser(RouterChooser):
 
     name: str = mix.POLICY
 
-    def _seed(self, key: str, decision_id: str) -> str:
-        return self.runtime.seed(key, decision_id) if self.runtime.seed is not None else mix.seed_for(key, decision_id)
-
     def choose(self, state: PlanState, feasible: Sequence[BlockCandidate]) -> BlockChoice:
         # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): a lesson offer the boundary added is never the staged rule's
         # pick nor in staged's top-k order: it joins the support beside them (one offer a decision). With none, the
@@ -1477,24 +1101,15 @@ class ObjectiveChooser(RouterChooser):
             if entry is None:
                 entry = self._start_objective(key, state, feasible, support, by_id, ready, now_iso,
                                               numeric_seed=seed)
-            _await(self.runtime, entry, may_defer=self.may_defer, timeout=float(config.router.timeout_seconds))
+            J.await_job(self.runtime, entry, may_defer=self.may_defer, config=config)
         else:
             card = _build_card(self.card_builder, state, feasible)
-            # The follow-up batch's item 4: at its tag the carried valuation is deferred (run after the serve, off
-            # its path); below it, R3: no second valuation at all here.
-            no_model_deferred: list[Callable[..., dict[str, Any]]] = []
-            carry = _carry_on(config)
-            numeric = run_numeric(self.vault, self.repository, state=state, support=support, candidates=by_id,
-                                  now_iso=now_iso, seed=seed,
-                                  deadline=self.runtime.clock() + float(config.router.timeout_seconds),
-                                  clock=self.runtime.clock, learned_tail=True,
-                                  tail_snapshot=self._tail_snapshot(now_iso),
-                                  # R3: the answer is served at once here; no second valuation on the serving path.
-                                  carried_valuation=carry,
-                                  defer_carried=no_model_deferred.append if carry else None)
-            # (the answer carries its own carried valuation, ``numeric.carried``, when one is pending)
-            entry = _NoModels(key, {"card": card, "evidence": list(rq.evidence_from_card(card.json)),
-                                    "decided_at": now_iso, "numeric": numeric}, self.runtime.clock())
+            entry = J.answer_without_models(
+                self.runtime, key, config=config, card=card, now_iso=now_iso,
+                numeric=partial(run_numeric, self.vault, self.repository, state=state, support=support,
+                                candidates=by_id, now_iso=now_iso, seed=seed, learned_tail=True),
+                tail_snapshot=partial(self._tail_snapshot, now_iso))
+
         def decided() -> BlockChoice:
             self._freeze_objective(record, staged, feasible, support)
             return self._decide_objective(entry, state, staged, staged_ref, record, support, by_id, feasible,
@@ -1504,33 +1119,6 @@ class ObjectiveChooser(RouterChooser):
         return self._noting(entry, decided, extra={NUMERIC: {
             "status": computed.status, "latency_ms": computed.latency_ms}} if computed is not None else None,
             as_of=identity["as_of"])
-
-    def _defer_carry(self, numeric: "NumericPolicy", entry: Any, decision_id: str) -> "NumericPolicy":
-        """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation
-        existed hands it to the next boundary's prefetch (the no-model branch, which has none, to a thread of its own
-        started after this decision), off the serving path; a later decision's trace records it. The decision's own
-        record says where its value went.
-
-        The valuation is the served answer's own (``numeric.carried``, frozen to that answer's inputs: Codex review
-        F3), so an early publication served before the job completes hands over its own, and a final answer its."""
-
-        from learnloop.router_objective import tail_serve
-
-        residual = numeric.residual if isinstance(numeric.residual, Mapping) else None
-        previous = (residual or {}).get("previous")
-        if not isinstance(previous, Mapping) or previous.get("q_status") != tail_serve.NOT_BEFORE_THE_SERVE:
-            return numeric
-        if numeric.carried is None:
-            return numeric
-        _register_carry(self.repository.sqlite_path, decision_id, numeric.carried)
-        no_models = entry.__class__.__name__ == "_NoModels"
-        if no_models:
-            deadline = self.runtime.clock() + float(self.vault.config.router.timeout_seconds)
-            thread = threading.Thread(target=_drain_carry, args=(self.repository.sqlite_path,),
-                                      kwargs={"deadline": deadline}, name="learnloop-objective-carried", daemon=True)
-            thread.start()
-        return replace(numeric, residual={**dict(residual or {}), "previous": {
-            **dict(previous), "deferred_to": "own_thread_after_the_serve" if no_models else "next_prefetch"}})
 
     def _tail_snapshot(self, now_iso: str) -> Mapping[str, Any] | None:
         """RO6: the residual's mutable inputs read now, in the decision's own thread at its moment (F4); None below
@@ -1552,9 +1140,6 @@ class ObjectiveChooser(RouterChooser):
     def _start_objective(self, key: str, state: PlanState, feasible: Sequence[BlockCandidate], support: Sequence[str],
                          by_id: Mapping[str, BlockCandidate], ready: tuple[str, ...], now_iso: str, *,
                          numeric_seed: str) -> Prefetch:
-        from functools import partial
-
-        config = self.vault.config
         card = _build_card(self.card_builder, state, feasible)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         options = [_offer_option(by_id[ref], titles) if ref in by_id and by_id[ref].subtype == LESSON_OFFER_SUBTYPE
@@ -1570,12 +1155,9 @@ class ObjectiveChooser(RouterChooser):
         frozen = self._tail_snapshot(now_iso)
         if frozen is not None:
             material["tail_snapshot"] = frozen
-        return self.runtime.start(
-            self.scope, key, kind="plan_block", budget=float(config.router.prefetch_timeout_seconds),
-            material=material, components=(*ready, NUMERIC),
-            job=partial(_objective_job, runtime=self.runtime, vault=self.vault, sqlite_path=self.repository.sqlite_path,
-                        session_id=self.session_id, plan_id=state.plan_id),
-        )
+        return J.start_job(self.runtime, self.scope, key, vault=self.vault, sqlite_path=self.repository.sqlite_path,
+                           session_id=self.session_id, plan_id=state.plan_id, material=material, ready=ready,
+                           reads=OI.decision_reads, build_policy_request=_policy_request, numeric_policy=run_numeric)
 
     def _decide_objective(self, entry: Any, state: PlanState, staged: BlockChoice, staged_ref: str,
                           record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate],
@@ -1589,12 +1171,7 @@ class ObjectiveChooser(RouterChooser):
         material = entry.material
         card = material["card"]
         # -- the reads --------------------------------------------------------------------------------------
-        results = entry.results()
-        results_at = wall_now()  # a model answering after this was discarded (``why``)
-        for name in (DECIDER, LLM):
-            if name not in results:
-                results[name] = ComponentResult(name=name, status=NOT_READY, error=str(readiness.get(name) or "not_ready"))
-        numeric = _with_carried(_numeric_answer(entry, results), entry)
+        results, results_at, numeric = J.job_answers(entry, readiness)
         llm = results[LLM]
         parsed = llm.parsed if llm.status == ANSWERED and isinstance(llm.parsed, rq.ParsedPolicy) else None
         llm_dist = dict(parsed.distribution) if parsed is not None else None
@@ -1603,12 +1180,13 @@ class ObjectiveChooser(RouterChooser):
         w, weight_record = current_weight(self.repository, config, at=now_iso)
         to_other = failure_share_to_other_policy_on(config)
         decision_id = new_ulid()
-        carry = _carry_on(config)
+        carry = J.carry_on(config)
         # The served answer's carried valuation is registered here, before the choice, which never reads it: it
         # needs only the answer and the decision's id, and it leaves the answer's status and choice as they were.
         if carry and numeric is not None:
-            numeric = self._defer_carry(numeric, entry, decision_id)
-        seed = self._seed(entry.key, decision_id)
+            numeric = J.defer_carry(numeric, entry, decision_id, runtime=self.runtime,
+                                    sqlite_path=self.repository.sqlite_path, config=config)
+        seed = mix_seed(self.runtime, entry.key, decision_id)
         # What the stop coin is frozen with is read before its uniform: the session's minutes on the serving clock
         # at this decision (the coin skips the session's opening boundary, where no stop is being decided), then
         # the availability, only where the coin applies.
@@ -1628,7 +1206,7 @@ class ObjectiveChooser(RouterChooser):
             numeric_choice=numeric.choice if numeric is not None else None,
             w=w, to_other_policy=to_other, epsilon=float(settings["epsilon_min"]), seed=seed,
             stop_rate=rate, session_minutes=coin_minutes, availability=availability, staged_why=staged.why,
-            no_models=entry.__class__.__name__ == "_NoModels", boundary_key=entry.key,
+            no_models=isinstance(entry, _NoModels), boundary_key=entry.key,
             algorithm_version=config.algorithms.algorithm_version,
             question_set_version=getattr(policy_request, "question_set_version", None),
             llm_schema_version=rq.LLM_POLICY_SCHEMA,
@@ -1659,7 +1237,7 @@ class ObjectiveChooser(RouterChooser):
         if carry:
             # The follow-up batch's item 4: earlier decisions' carried valuations a later prefetch ran, recorded
             # here (read as of this trace's own time; the transition into each is then no longer censored).
-            carried_for = _carried_for(self.repository, decision_id)
+            carried_for = J.carried_for(self.repository, decision_id)
             if carried_for:
                 trace["carried_for"] = carried_for
         if coin is not None:
@@ -1796,7 +1374,7 @@ class ObjectiveRestraintGate(RestraintGate):
                     "objective": objective_settings(config), "ready": ready,
                     **_preference_mark(self.repository, config),
                     **_miss_cause_mark(self.repository, config, candidates,
-                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
+                                       utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
@@ -1824,7 +1402,7 @@ class ObjectiveRestraintGate(RestraintGate):
                     "settings": settings, "objective": objective_settings(config), "ready": ready,
                     **_preference_mark(self.repository, config),
                     **_miss_cause_mark(self.repository, config, [insert, cont, lesson],
-                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
+                                       utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         topic = titles.get(item.learning_object_id, item.learning_object_id)
@@ -1869,7 +1447,7 @@ class ObjectiveRestraintGate(RestraintGate):
         settings = router_settings(config)
         support = list(support)
         by_id = {candidate.candidate_id: candidate for candidate in candidates}
-        now_iso = __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock)
+        now_iso = utc_now_iso(self.clock)
         # π_Q: the follow-up now (a repair block before the rest) or after the rest (at the next boundary).
         values = dict(valued) if valued is not None else by_id
         if sequences is None:
@@ -1915,7 +1493,7 @@ class ObjectiveRestraintGate(RestraintGate):
         effective = mix.effective_weights(w, failed, to_other_policy=to_other)
         parts = mix.components(support, INSERT_NOW, llm=llm_dist, numeric_ref=numeric.choice if numeric_ok else None)
         decision_id = new_ulid()
-        seed = self.runtime.seed(entry.key, decision_id) if self.runtime.seed is not None else mix.seed_for(entry.key, decision_id)
+        seed = mix_seed(self.runtime, entry.key, decision_id)
         drawn = mix.draw(support, parts, effective, float(settings["epsilon_min"]), seed)
         card = entry.material["card"]
         decider = results.get(DECIDER)
@@ -2162,7 +1740,7 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
                        else {}),
                     **_preference_mark(self.repository, config),
                     **_miss_cause_mark(self.repository, config, [*candidates, *([lesson] if lesson is not None else [])],
-                                       __import__("learnloop.clock", fromlist=["utc_now_iso"]).utc_now_iso(self.clock))}
+                                       utc_now_iso(self.clock))}
         key = _hash(identity)
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         lo = str(workflow["learning_object_id"])

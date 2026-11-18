@@ -116,7 +116,8 @@ def test_f3_no_carried_cutoff_leaves_the_rollouts_as_ro4s():
 
 
 def test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features(tmp_path, monkeypatch):
-    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan import objective_job as J
+    from learnloop.daily_plan.router_runtime import RouterRuntime
     from learnloop.db.stores import router_objective as store
     from learnloop.router_objective import decision_state as DS
 
@@ -125,23 +126,28 @@ def test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_featu
     from tests.ro4_objective_serving_helpers import policy_answer
 
     state = {"queued": 0}
-    real_pending, real_job = DS._pending_reports, OC._objective_job
+    real_pending, real_start = DS._pending_reports, RouterRuntime.start
 
     def pending(connection, now_iso):
         found = dict(real_pending(connection, now_iso))
         found["diagnosis_jobs"] = int(found.get("diagnosis_jobs") or 0) + state["queued"]
         return found
 
-    def job(entry, **kwargs):
-        # A diagnosis queued after the decision froze its moment, before the prefetch job computes anything.
-        state["queued"] = 1
-        try:
-            return real_job(entry, **kwargs)
-        finally:
-            state["queued"] = 0
+    def start(self, scope, key, *, job, components, **kwargs):
+        def queued(entry):
+            # A diagnosis queued after the decision froze its moment, before the prefetch job computes anything.
+            state["queued"] = 1
+            try:
+                return job(entry)
+            finally:
+                state["queued"] = 0
+
+        # Only the objective boundary's job (the one with a numeric component).
+        return real_start(self, scope, key, job=queued if J.NUMERIC in components else job, components=components,
+                          **kwargs)
 
     monkeypatch.setattr(DS, "_pending_reports", pending)
-    monkeypatch.setattr(OC, "_objective_job", job)
+    monkeypatch.setattr(RouterRuntime, "start", start)
     env = mixture_env(tmp_path, fake_runtime(llm=FakeLLM(answer=policy_answer)),
                       version=LATEST_ALGORITHM_VERSION)
     run(env, steps=4)

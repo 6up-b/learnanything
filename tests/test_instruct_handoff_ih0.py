@@ -224,16 +224,17 @@ def test_the_call_returns_while_the_model_is_out_and_the_serve_waits_for_that_an
 def test_a_slow_llm_within_the_wait_is_served_and_does_not_fall_back(make_world, monkeypatch):
     """No prefetched job here (Keep going has none to start): the serve starts its own and waits the router's 40 s."""
 
-    from learnloop.daily_plan import objective_chooser
+    from learnloop.daily_plan.router_runtime import Prefetch
 
+    # What the serve waits on its job for: the router's 40 s (the job's own 45 s budget has hardly begun).
     waits: list[float] = []
-    real = objective_chooser._await
+    real = Prefetch.wait
 
-    def recording(runtime: Any, entry: Any, *, may_defer: bool, timeout: float) -> None:
+    def recording(self: Any, timeout: float) -> None:
         waits.append(timeout)
-        real(runtime, entry, may_defer=may_defer, timeout=timeout)
+        real(self, timeout)
 
-    monkeypatch.setattr(objective_chooser, "_await", recording)
+    monkeypatch.setattr(Prefetch, "wait", recording)
     llm = FakeLLM(answer=policy_answer)
     world = make_world(llm=llm, inline=False)
     assert world.to_boundary()["started"] is True

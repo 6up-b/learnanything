@@ -454,14 +454,16 @@ def _twins_with_one_slow_carry(tmp_path, monkeypatch, *, joined: bool) -> tuple[
 
     import time
 
-    real = OC._drain_carry
+    from learnloop.daily_plan import objective_job as J
+
+    real = J.drain_carry
 
     def slow(sqlite_path, *, deadline=None):
         if "/on/" in str(sqlite_path):
             time.sleep(1.5)
         return real(sqlite_path, deadline=deadline)
 
-    monkeypatch.setattr(OC, "_drain_carry", slow)
+    monkeypatch.setattr(J, "drain_carry", slow)
     if joined:
         join_carried_valuations(monkeypatch)
     pinned = _pin(monkeypatch)

@@ -45,6 +45,10 @@ def _pin(monkeypatch):
     monkeypatch.setattr(OC, "_hash", lambda value: real_hash(
         {k: v for k, v in value.items() if k not in ("version", "plan_id")} if isinstance(value, dict) else value))
     monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
+    # The numeric seed hashes the same identity: the same keys out.
+    real_seed = OC.numeric_seed
+    monkeypatch.setattr(OC, "numeric_seed", lambda identity: real_seed(
+        {k: v for k, v in identity.items() if k not in ("version", "plan_id")}))
     return lambda _key, _decision: "pinned-seed"
 
 

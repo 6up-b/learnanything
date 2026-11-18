@@ -24,10 +24,12 @@ def _pin(monkeypatch) -> Any:
     monkeypatch.setattr(OC, "_hash", lambda value: real_hash(
         {k: v for k, v in value.items() if k not in ("version", "plan_id")} if isinstance(value, dict) else value))
     monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
-    # The numeric seed is production's own hash of that pinned identity, not the suite's default map
-    # (tests/pinned_draws.py), which would put the twins on another seed: there sg1's twins make 5 or 6 decisions from
-    # one run to the next (ledger D-19).
-    monkeypatch.setattr(OC, "numeric_seed", production(OC.__name__, "numeric_seed"))
+    # The numeric seed is production's own of that pinned identity (the same keys left out), not the suite's default
+    # map (tests/pinned_draws.py), which would put the twins on another seed: there sg1's twins make 5 or 6 decisions
+    # from one run to the next (ledger D-19).
+    real_seed = production(OC.__name__, "numeric_seed")
+    monkeypatch.setattr(OC, "numeric_seed", lambda identity: real_seed(
+        {k: v for k, v in identity.items() if k not in ("version", "plan_id")}))
     return lambda _key, _decision: "pinned-seed"
 
 

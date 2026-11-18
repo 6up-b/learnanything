@@ -1,5 +1,5 @@
 """Router speed stage 2, item 4: SQLite connections reused within one objective job (``db.connection.
-reused_connections``, opened by ``objective_chooser._objective_job``).
+reused_connections``, opened by the objective job, ``daily_plan.objective_job``).
 
 * The pool: one connection per database and mode serves every ``connect()`` of the scope's thread; other threads open
   their own; a connection in use is never handed out twice; a connection given back is reset as a fresh one (no
@@ -310,6 +310,7 @@ def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains
 
     from learnloop.adaptive_difficulty import reading_cache
     from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan import objective_job as J
 
     from tests.rospeed_join_helpers import _journey
 
@@ -329,7 +330,7 @@ def test_the_pool_completes_more_draws_by_one_deadline_and_switched_off_is_mains
                 patch.setattr(reading_cache, "held_on", lambda _config: False)
             token = DBC._REUSED.set(None)
             try:
-                with reused_connections() if branch else OC._pooled(None):
+                with reused_connections() if branch else J.pooled(None):
                     start = clock()
                     policy = real(vault, repository, **{
                         **kwargs, "clock": clock, "keep_going": lambda: refine, "forecasts": None, "publish": None,
@@ -380,7 +381,7 @@ def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
 
     from learnloop.adaptive_difficulty import reading_cache
     from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
-    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan import objective_job as J
     from learnloop.router_objective_switches import (FOLLOWUP_GENERATOR_SWITCHES, FOLLOWUP_SWITCHES,
                                                      followup_generator_switches)
     from learnloop.vault.loader import load_vault
@@ -393,7 +394,7 @@ def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
 
     def state() -> tuple[bool, bool, dict | None]:
         config = load_vault(paths.root).config
-        return (not isinstance(OC._pooled(config), nullcontext), reading_cache.held_on(config),
+        return (not isinstance(J.pooled(config), nullcontext), reading_cache.held_on(config),
                 followup_generator_switches(config))
 
     set_algorithm_version(paths, ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
@@ -409,7 +410,7 @@ def test_the_pool_and_the_held_map_follow_their_switches(tmp_path):
     pooled, held, switches = state()
     assert (pooled, held) == (False, False)
     assert switches["pooled_connections"] is False and switches["held_reading_map"] is False
-    assert isinstance(OC._pooled(None), nullcontext)
+    assert isinstance(J.pooled(None), nullcontext)
 
 
 def test_switched_off_the_job_opens_a_connection_at_every_connect(tmp_path, monkeypatch):
@@ -441,7 +442,8 @@ def test_switched_off_the_job_opens_a_connection_at_every_connect(tmp_path, monk
 
 
 def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
-    from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan import objective_job as J
+    from learnloop.daily_plan.router_runtime import RouterRuntime
 
     from tests.rospeed_join_helpers import _journey
 
@@ -453,17 +455,22 @@ def test_the_job_opens_a_handful_of_connections(tmp_path, monkeypatch):
         counter["n"] += 1
         return real_connect(*args, **kwargs)
 
-    real_job = OC._objective_job
+    real_start = RouterRuntime.start
 
-    def job(*args, **kwargs):
-        before = counter["n"]
-        try:
-            return real_job(*args, **kwargs)
-        finally:
-            opens.append(counter["n"] - before)
+    def start(self, scope, key, *, job, components, **kwargs):
+        def counted(entry):
+            before = counter["n"]
+            try:
+                return job(entry)
+            finally:
+                opens.append(counter["n"] - before)
+
+        # Only the objective boundary's job (the one with a numeric component) is counted.
+        return real_start(self, scope, key, job=counted if J.NUMERIC in components else job, components=components,
+                          **kwargs)
 
     monkeypatch.setattr(sqlite3, "connect", counting)
-    monkeypatch.setattr(OC, "_objective_job", job)
+    monkeypatch.setattr(RouterRuntime, "start", start)
     _journey(tmp_path, version=ROUTER_FOLLOWUPS_ALGORITHM_VERSION)
     # Landing ruling R4: a checkout that ran a PRAGMA with an argument (the repositories' ``table_info`` column
     # checks) or a write (the job's model-call receipts) closes its connection, so a job opens about a dozen (5

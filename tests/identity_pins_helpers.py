@@ -847,6 +847,7 @@ def _chooser_boundary() -> Any:
     import tempfile
 
     from learnloop.daily_plan import objective_chooser as OC
+    from learnloop.daily_plan import objective_seeds as OS
     from learnloop.daily_plan.router_runtime import DecisionPending
     from learnloop.daily_plan.types import BlockCandidate, PlanState
     from learnloop.vault.paths import VaultPaths
@@ -881,13 +882,15 @@ def _chooser_boundary() -> Any:
         # start_only: the chooser assembles the identity, starts the boundary's job (stubbed) and leaves the decision open.
         chooser = OC.ObjectiveChooser(vault, repository, runtime, start_only=True)
         chooser._start_objective = lambda *args, **kwargs: None  # type: ignore[method-assign]
-        OC._hash = recording
+        # Both hashes the identity reaches are recorded, the key's and the numeric seed's (its own module), so the
+        # last one recorded is the seed's reduced identity, as when the two sat in one module.
+        OC._hash = OS._hash = recording
         try:
             chooser.choose(state, [candidate("blk_a", "maintain", 5.0, 0.5), candidate("blk_b", "new", 6.0, 0.4)])
         except DecisionPending:
             pass
         finally:
-            OC._hash = real_hash
+            OC._hash = OS._hash = real_hash
     identity = seen[-1]
     return {"identity": identity, "key": real_hash(identity), "numeric_seed": OC.numeric_seed(identity)}
 
@@ -1520,7 +1523,7 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
     IdentitySite(
         "C3", "router settings and the numeric policy's seed (whole RouterWeights)",
         ("src/learnloop/daily_plan/router_chooser.py::router_settings",
-         "src/learnloop/daily_plan/objective_chooser.py::numeric_seed"),
+         "src/learnloop/daily_plan/objective_seeds.py::numeric_seed"),
         "the prefetch boundary key and the numeric policy's rollout RNG (router_objective/value.py)",
         "different draws at a fixed input (P-draw fails) and prefetched decisions miss",
         {**{f"router_settings.{name}": _router_settings(name) for name in OBJECTIVE_CONFIGS},

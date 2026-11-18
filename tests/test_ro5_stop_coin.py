@@ -135,6 +135,10 @@ def test_every_arm_off_at_the_tag_is_mvp_047_exactly(tmp_path, monkeypatch):
         {k: v for k, v in value.items() if k not in ("version", "plan_id")} if isinstance(value, dict) else value))
     # The key also names the plan's id and the newest attempt's id, fresh ULIDs in each run.
     monkeypatch.setattr(OC, "_latest_attempt", lambda _repository: "pinned-attempt")
+    # The numeric seed hashes the same identity: the same keys out.
+    real_seed = OC.numeric_seed
+    monkeypatch.setattr(OC, "numeric_seed", lambda identity: real_seed(
+        {k: v for k, v in identity.items() if k not in ("version", "plan_id")}))
     pinned = lambda _key, _decision: "pinned-seed"  # noqa: E731
     old = mixture_env(tmp_path / "old", fake_runtime(seed=pinned), version=OLD)
     off = mixture_env(tmp_path / "off", fake_runtime(seed=pinned), version=ROUTER_CALIBRATION_ALGORITHM_VERSION, toml=ARMS_OFF)
