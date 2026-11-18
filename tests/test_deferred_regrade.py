@@ -505,6 +505,69 @@ def test_explicit_regrade_keeps_a_score_only_import(tmp_path):
     assert repo.practice_item_state(attempt["practice_item_id"]) == state
 
 
+def _explicit_regrade_refused(vault, repo, attempt_id):
+    class NoCall(_RegradeClient):
+        def run_grading_proposal(self, context):
+            pytest.fail("The grader received a score-only import")
+
+    attempt = repo.fetch_practice_attempt(attempt_id)
+    evidence = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+    with pytest.raises(ValueError, match="score-only exam import"):
+        regrade_attempt(vault, repo, attempt, runtime=_ready_runtime(), client=NoCall(score=4, points=4),
+                        grading_source="ai", clock=FrozenClock(NOW))
+    assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == evidence
+
+
+@pytest.mark.parametrize("answer", ["\t\n", "  ", "\r\x0b\x0c　"], ids=["tab_newline", "nbsp_em", "cr_vt_ff"])
+def test_a_legacy_import_whose_answer_is_only_whitespace_is_score_only(tmp_path, answer):
+    """The importer before the work/score record kept a truthy answer verbatim;
+    new imports call it score-only when ``str.strip`` leaves nothing, and so
+    does the fallback for rows written before the record."""
+
+    _, vault, repo = _exam_vault(tmp_path)
+    attempt_id = seed_exam_attempts(vault, repo, outcomes=_outcomes(outcomes={"1": 0.5})).entries[0].attempt_id
+    assert not answer.strip()
+    with repo.connection() as conn:
+        conn.execute("UPDATE practice_attempts SET learner_answer_md = ? WHERE id = ?", (answer, attempt_id))
+        conn.execute("UPDATE grading_evidence SET notes = NULL WHERE attempt_id = ?", (attempt_id,))
+        conn.commit()
+    assert attempt_id not in [row["id"] for row in repo.pending_self_grade_regrade_attempts()]
+    assert repo.is_score_only_exam_import(attempt_id)
+    _explicit_regrade_refused(vault, repo, attempt_id)
+
+
+def test_the_legacy_whitespace_rule_is_pythons():
+    from learnloop.db.stores.attempts import PYTHON_WHITESPACE_CODE_POINTS
+
+    assert PYTHON_WHITESPACE_CODE_POINTS == tuple(point for point in range(0x110000) if chr(point).isspace())
+
+
+def test_a_legacy_import_with_no_import_rows_is_score_only(tmp_path):
+    """An import seeded before the importer refused an empty rubric wrote the
+    attempt and no criterion row; a rubric supplied later must not make its
+    placeholder gradable."""
+
+    _, vault, repo = _exam_vault(tmp_path)
+    attempt_id = seed_exam_attempts(vault, repo, outcomes=_outcomes(outcomes={"1": 0.5})).entries[0].attempt_id
+    with repo.connection() as conn:
+        # What the old producer left: the attempt alone (no criterion to write a row for).
+        conn.execute("DELETE FROM grading_evidence WHERE attempt_id = ?", (attempt_id,))
+        conn.commit()
+    assert repo.is_score_only_exam_import(attempt_id)
+    _explicit_regrade_refused(vault, repo, attempt_id)
+
+
+def test_an_attempt_that_is_not_an_import_is_never_score_only_by_absence(tmp_path):
+    _, vault, repo = _exam_vault(tmp_path)
+    self_grade = complete_self_graded_attempt(
+        vault, repo,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="SVD is U Sigma V^T."),
+        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+        clock=FrozenClock(NOW),
+    )
+    assert not repo.is_score_only_exam_import(self_grade.attempt_id)
+
+
 @pytest.mark.parametrize("provider_name", ["codex", "deepseek_flash"])
 def test_startup_regrades_real_answers_but_leaves_score_only_exam_import(tmp_path, monkeypatch, provider_name):
     _, vault, repository = _exam_vault(tmp_path)

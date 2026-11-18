@@ -27,10 +27,22 @@ from learnloop.ids import new_ulid
 from learnloop.outcome_contract import LABEL_VERSION
 
 
+#: The code points ``str.isspace`` accepts, the whitespace an import's
+#: ``answer_md.strip()`` removes when it decides an outcome is score-only.
+#: SQLite's one-argument ``trim`` removes spaces only, so an old answer of
+#: "\t\n" would read as learner work. ``tests/test_deferred_regrade.py`` pins the
+#: list to Python's.
+PYTHON_WHITESPACE_CODE_POINTS = (
+    9, 10, 11, 12, 13, 28, 29, 30, 31, 32, 133, 160, 5760,
+    8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202,
+    8232, 8233, 8239, 8287, 12288,
+)
+_PYTHON_WHITESPACE_SQL = "char(" + ", ".join(str(point) for point in PYTHON_WHITESPACE_CODE_POINTS) + ")"
+
 # Only imports predating the work/score record need the answer-text fallback.
-_EXAM_IMPORT_HAS_WORK = """(
+_EXAM_IMPORT_HAS_WORK = f"""(
     e.notes = 'learner_work'
-    OR (e.notes IS NULL AND trim(a.learner_answer_md) != ''
+    OR (e.notes IS NULL AND trim(a.learner_answer_md, {_PYTHON_WHITESPACE_SQL}) != ''
         AND a.learner_answer_md NOT LIKE '[imported exam outcome: score %]')
 )"""
 
@@ -942,17 +954,27 @@ class AttemptStoreMixin:
             return cursor.rowcount
 
     def is_score_only_exam_import(self, attempt_id: str) -> bool:
-        # An explicit regrade can arrive after the seeding rows were superseded.
+        """Whether the attempt is an exam import with no learner work to grade.
+
+        The attempt says it is an import (``exam_evidence`` is written by exam
+        seeding alone); its import rows say whether it carries work. One with
+        no import row at all (seeded before an empty rubric was refused) is
+        score-only: nothing records work for it. Superseded rows count, since
+        an explicit regrade can come after the seeding rows were replaced."""
+
         with self.connection() as connection:
             row = connection.execute(
                 f"""
-                SELECT MAX(CASE WHEN {_EXAM_IMPORT_HAS_WORK} THEN 1 ELSE 0 END) AS has_work
-                FROM grading_evidence e JOIN practice_attempts a ON a.id = e.attempt_id
-                WHERE a.id = ? AND e.local_grader_id = 'exam_import'
+                SELECT a.attempt_type AS attempt_type,
+                       MAX(CASE WHEN e.id IS NOT NULL AND {_EXAM_IMPORT_HAS_WORK} THEN 1 ELSE 0 END) AS has_work
+                FROM practice_attempts a
+                LEFT JOIN grading_evidence e ON e.attempt_id = a.id AND e.local_grader_id = 'exam_import'
+                WHERE a.id = ?
+                GROUP BY a.id
                 """,
                 (attempt_id,),
             ).fetchone()
-        return row["has_work"] == 0  # NULL means this attempt has no import evidence.
+        return row is not None and row["attempt_type"] == "exam_evidence" and not row["has_work"]
 
     def pending_self_grade_regrade_attempts(self, limit: int | None = None) -> list[dict[str, Any]]:
         limit_clause = "" if limit is None else " LIMIT ?"
