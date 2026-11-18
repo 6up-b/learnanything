@@ -1,6 +1,6 @@
 # Refactor status
 
-- Running next: E2 (the router's choice as a pure function), then E3–E6; the two replay switches left from arc D (`replay.ledger_bounded`, `mastery.claim_fixes_enabled`).
+- Running next: E2 (the router's choice as a pure function), then E3–E6.
 - On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1; S1, S2 and M1; the K5 review with its two high fixes.
 - After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
 - The owner still needs to decide: three K5 questions (whether an unattributable pass closes a repair case; the FSRS clock on skipped reviews; what a certificate probe counts), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
@@ -72,14 +72,14 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | D4 | Remove constant attempt, mastery and grading gates | landed | `41387e1236` | [refactor-d4.md](refactor-d4.md) | — |
 | D5 | Remove constant rebuild, projection and doctor gates | landed | `a4bd9f2b77` | [part 1](refactor-d5.md), [part 2](refactor-d5b.md) | — |
 | D6 | Remove remaining constant gates and unused version sets | landed | `b4c8fbad98` | [refactor-d6.md](refactor-d6.md) | — |
-| D7 | Retire eligible switches and record the kept groups | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
+| D7 | Retire eligible switches and record the kept groups | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | Replay-read follow-up in batch 1 part 5 below |
 | D7 inventory | List switches and their readers before removal | landed | `00bdf58da8` | [refactor-d7-inventory.md](refactor-d7-inventory.md) | — |
 | D7.0 | Report vault switches and hold the version floor | landed | `3405215424` | [refactor-d7.0.md](refactor-d7.0.md) | — |
 | D7 batch 1 part 1 | Retire teacher weights and five practice switches | landed | `72b771471a` | [refactor-d7a.md](refactor-d7a.md) | — |
 | D7 batch 1 part 2 | Retire cold-help and stuck prompt switches | landed | `5c561264c7` | [refactor-d7a.md](refactor-d7a.md) | — |
 | D7 batch 1 part 3 | Retire eligibility and its predecessor cold lane | landed | `1d122fee33` | [refactor-d7a.md](refactor-d7a.md) | — |
 | D7 batch 1 part 4 | Retire diagnosis split and shadow switches | landed | `250b0e16fe` | [refactor-d7a.md](refactor-d7a.md) | — |
-| D7 batch 1 part 5 | Retire bounded replay and claim fixes switches | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | Switch work moved out of D7 |
+| D7 batch 1 part 5 | Retire bounded replay and claim fixes switches | pending gate | — | [refactor-d7f.md](refactor-d7f.md) | Bounded replay retired. Claim fixes held at the MasteryConfig shape pin |
 | D7 batch 2 | Retire placement, follow-up and stopping switches | deferred | — | [refactor-d7-inventory.md](refactor-d7-inventory.md) | D7 closed. Simulation needs the switches. |
 | D7 batch 3 part 1 | Retire seven Today switches and their old paths | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |
 | D7 batch 3 part 2 | Retire the lesson, teacher and data capture switches | landed | `52bbf14de9` | [refactor-d7e.md](refactor-d7e.md) | — |

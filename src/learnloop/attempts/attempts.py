@@ -510,9 +510,7 @@ class ApplyAttemptInput:
     # Replay recomputes an attempt with the whole ledger already on disk, so
     # everything it reads of the ledger (the recent-attempt windows, the
     # canonical facet projection) is bounded to the attempts before this one:
-    # the ledger the live write saw (rebuild equivalence, 2026-10-25). Set
-    # only from the successor ``REPLAY_LEDGER_ALGORITHM_VERSION`` on, with
-    # ``replay.ledger_bounded`` on (``replay_reads_bounded_ledger``).
+    # the ledger the live write saw.
     replay_ledger_position: tuple[str, str] | None = None
     # Teacher TE2 (spec_teacher_v1 rev 5 §11.3): a lesson probe's topic-wide exposure, the reveal ledger's
     # reason (``production_admissibility``) when the lesson showed text on the probe's topic before the answer;
@@ -1305,16 +1303,6 @@ def complete_codex_graded_attempt(
 _REPLAY_IDENTITY_FROM_LEDGER: Any = object()
 
 
-def replay_reads_bounded_ledger(vault: LoadedVault) -> bool:
-    """Whether replay bounds its ledger reads at the replayed attempt
-    (rebuild equivalence, the kill switch ``replay.ledger_bounded``). Off,
-    replay reads the whole ledger as the predecessor did. Live writes never
-    ask."""
-
-    replay_config = getattr(vault.config, "replay", None)
-    return bool(getattr(replay_config, "ledger_bounded", True))
-
-
 def replay_existing_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -1447,7 +1435,7 @@ def replay_existing_attempt(
             unrecorded_correctness=reading.unrecorded_correctness if unrecorded else None,
             replay_ledger_position=(
                 (str(attempt["created_at"]), str(attempt["id"]))
-                if attempt.get("created_at") is not None and replay_reads_bounded_ledger(vault)
+                if attempt.get("created_at") is not None
                 else None
             ),
         ),

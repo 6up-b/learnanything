@@ -38,8 +38,6 @@ NOT_A_TABLED_SWITCH = {
 #: in one commit; a line left behind fails ``test_the_kept_because_list_names_only_live_switches_at_or_below_the_floor``.
 #: A switch that stays after D7 keeps its line with the reason it stays, and the list is the short one the rule asks for.
 _STANDING_WHEN_THE_TABLE_LANDED = (
-    "mastery.claim_fixes_enabled",
-    "replay.ledger_bounded",
     "placement.enabled",
     "placement.initial_probes",
     "placement.unevidenced_return",
@@ -112,6 +110,9 @@ _STANDING_WHEN_THE_TABLE_LANDED = (
 )
 KEPT_BECAUSE_AT_OR_BELOW_THE_FLOOR: dict[str, str] = dict.fromkeys(
     _STANDING_WHEN_THE_TABLE_LANDED, "present when the table landed; D7's removal batches shrink this list")
+KEPT_BECAUSE_AT_OR_BELOW_THE_FLOOR["mastery.claim_fixes_enabled"] = (
+    "Retirement changes the C1/C2 MasteryConfig shape pin in identity_shapes.toml."
+)
 
 
 def _leaves(model: type[BaseModel], prefix: str = "") -> Iterator[str]:

@@ -1343,14 +1343,6 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "nearest deliverable naming the lesson's topics and its path (primaries whole, alternates as outline), "
         "and the learner's linked notes as headers with read_note. Off: the brief has none of it."
     ),
-    "replay.ledger_bounded": (
-        "Kill switch for the rebuild-equivalence successor (mvp-0.34). "
-        "On, replay recomputes each attempt from the ledger as its live write saw it: the recent-attempt "
-        "windows (familiarity, event severity, item quality) and the canonical facet cache stop at the "
-        "replayed attempt's position, so a rebuild reproduces live mastery, surprise, item quality and "
-        "schedules. Off, replay reads the whole ledger exactly as mvp-0.31 did. Dormant below the "
-        "successor; a live write never reads it."
-    ),
     "workbench.field_signals_enabled": (
         "Kill switch for reader workbench RW2d's successor (learnloop.field.workbench_signals). On, the "
         "field's interaction-signal derivation reads a mid-work workbench stuck step with text and help "

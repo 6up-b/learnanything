@@ -57,6 +57,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("AIConfig", ("agent_harness_opt_in",), bool, False, "C4"),
     # Kill switches the version floor passed (ADR-019). ``[teacher.weight]``, ``[proof_check]``,
     # ``[required_method]``, ``[stuck_prompt]`` and ``[eligibility]``: each section whole.
+    RetiredField("LearnLoopConfig", ("replay", "ledger_bounded"), bool, True, "D7"),
     RetiredField("TeacherConfig", ("weight", "learned"), bool, True, "D7"),
     RetiredField("TeacherConfig", ("weight", "source"), Literal["pool", "parametric"], "pool", "D7"),
     RetiredField("LearnLoopConfig", ("proof_check", "enabled"), bool, True, "D7"),

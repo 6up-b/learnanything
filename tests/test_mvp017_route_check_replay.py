@@ -148,9 +148,8 @@ def test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_noth
 
 #: Rebuild equivalence (2026-10-25; its Codex review F3 and F4): the fixture's
 #: derived rows were written by a replay that read the attempts recorded after
-#: the one it recomputed (the replay of every version below that successor,
-#: served now only with ``replay.ledger_bounded`` off); the successor's bounded
-#: replay moves exactly these tables, on the LOs with more than one attempt.
+#: the one it recomputed. Bounded replay moves exactly these tables, on the
+#: LOs with more than one attempt.
 REPLAY_CORRECTED_TABLES = ["attempt_surprise", "learning_object_mastery", "practice_item_quality_state"]
 SINGLE_ATTEMPT_LO = "lo_transpose"
 
