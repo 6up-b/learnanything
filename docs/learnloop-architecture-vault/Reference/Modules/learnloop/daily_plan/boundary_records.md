@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/boundary_records.py](../../../../../../src/learnloop/daily_plan/boundary_records.py) |
-| Source lines | 337 |
+| Source lines | 338 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `forced_entry(item_id: Any, *, origin: Any, workflow: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 93) — One forced item as a record names it: its id and origin, and its follow-up workflow, source attempt and state when a workflow holds it (a follow-up from a recorded need has none).
 - `forced_facts(entries: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 108) — The forced items' ids, workflows and source attempts as lists (capped), and how many there were.
 - `plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, config: Any, stop: bool, trace_id: str | None=None, parent_id: str | None=None, trigger_attempt: str | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 136) — A boundary decision's plan_block record, its components' model_answer records and any failed step's record, oldest first.
-- `component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *, timeouts: Mapping[str, Any], waited_ms: Any, crashed: bool, models: Mapping[str, Any] | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 270) — One ``model_answer`` per component of ``block``'s decision (the Decider, the LLM, the numeric policy, the staged rule), from the router's record of it: a plan block's (B2) or a follow-up's ``plan_interrupt`` (B3).
+- `component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *, timeouts: Mapping[str, Any], waited_ms: Any, crashed: bool, models: Mapping[str, Any] | None=None) -> list[DecisionRecord]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 271) — One ``model_answer`` per component of ``block``'s decision (the Decider, the LLM, the numeric policy, the staged rule), from the router's record of it: a plan block's (B2) or a follow-up's ``plan_interrupt`` (B3).
 
 ### Module constants
 
@@ -95,8 +95,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 76)
 - `_favoured(distribution: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 80)
 - `_superseding(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 127) — IH2's contest: the open offer this decision replaces (its block and its decision).
-- `_derived_part(decision: Any, router: Mapping[str, Any], mixture: Mapping[str, Any], seen: Mapping[str, Any], *, config: Any, chosen: str, support: list[str], crashed: bool) -> tuple[DecisionRecord, set[str]]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 224) — The decision's own part of its record, read off the chooser's record dict, for a chooser with no core that returns one (staged, the R2 mixture) and for every fallback; with the refs it names, which the container's alternatives then skip.
-- `_answer(name: str, *, status: str, raw: str, chosen_ref: Any, block: DecisionRecord, distribution: Mapping[str, Any], facts: Mapping[str, Any], versions: Mapping[str, Any], error_type: str | None) -> DecisionRecord` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 313)
+- `_derived_part(decision: Any, router: Mapping[str, Any], mixture: Mapping[str, Any], seen: Mapping[str, Any], *, config: Any, chosen: str, support: list[str], crashed: bool) -> tuple[DecisionRecord, set[str]]` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 225) — The decision's own part of its record, read off the chooser's record dict, for a chooser with no core that returns one (staged, the R2 mixture) and for every fallback; with the refs it names, which the container's alternatives then skip.
+- `_answer(name: str, *, status: str, raw: str, chosen_ref: Any, block: DecisionRecord, distribution: Mapping[str, Any], facts: Mapping[str, Any], versions: Mapping[str, Any], error_type: str | None) -> DecisionRecord` ([source](../../../../../../src/learnloop/daily_plan/boundary_records.py), line 314)
 
 ## Who imports or calls it
 
