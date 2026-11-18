@@ -842,7 +842,45 @@ def _boundary(config_name: str) -> dict[str, Any]:
 def _chooser_boundary() -> Any:
     """The identity ``ObjectiveChooser.choose`` assembles for an objective block, captured as the chooser hashes it, on a
     new vault at the head and two fixed candidates: so a field the chooser adds, drops or reorders (its own literal, a
-    candidate's ``log_row``, the settings it reads) moves the pin, which ``_boundary``'s hand-built dictionary cannot."""
+    candidate's ``log_row``, the settings it reads) moves the pin, which ``_boundary``'s hand-built dictionary cannot.
+
+    What it holds is the numeric seed's input: the last identity hashed is the one ``numeric_seed`` reduces (less the
+    seed-neutral switches), so its ``identity`` and ``key`` are that reduced identity and its hash, not the boundary
+    key. A field only the key names (a seed-neutral switch) can leave this pin as it was; ``start_key`` pins the key
+    itself."""
+
+    seen, _started = _run_chooser_boundary()
+    identity = seen[-1]
+    from learnloop.daily_plan import objective_chooser as OC
+
+    return {"identity": identity, "key": OC._hash(identity), "numeric_seed": OC.numeric_seed(identity)}
+
+
+def _chooser_start_key() -> Any:
+    """The boundary key ``ObjectiveChooser.choose`` hands to its job's start (``_start_objective``) for the same fixed
+    boundary as ``_chooser_boundary``: the key a prefetched job is looked up by at the serve, the full identity hashed
+    (every seed-neutral switch included)."""
+
+    _seen, started = _run_chooser_boundary()
+    assert len(started) == 1, started
+    return {"key": started[0]}
+
+
+def _mix_seed() -> Any:
+    """The mix's (and the stop coin's) seed for a fixed boundary key and decision id through production's own
+    derivation (``objective_seeds.mix_seed`` with no runtime seed, so ``mix.seed_for``), unwrapped: the pinned draws
+    map each distinct seed to its first-seen ordinal, which an argument swap keeps."""
+
+    from types import SimpleNamespace
+
+    from learnloop.daily_plan.objective_seeds import mix_seed
+
+    return {"seed": mix_seed(SimpleNamespace(seed=None), "boundary-key-pin", "01JPINDECISION0000000000000")}
+
+
+def _run_chooser_boundary() -> tuple[list[dict[str, Any]], list[str]]:
+    """Run ``ObjectiveChooser.choose`` (``start_only``) on the fixed boundary: every objective-block identity it hashed,
+    in order, and the keys it handed to ``_start_objective`` (stubbed: nothing starts)."""
 
     import tempfile
 
@@ -867,6 +905,7 @@ def _chooser_boundary() -> Any:
                       lane_minutes_left={"maintain": 10.0, "new": 10.0}, days_since_last_activity=0, streak_days=1,
                       current_block_id=None, items_left=4)
     seen: list[dict[str, Any]] = []
+    started: list[str] = []
     real_hash = OC._hash
 
     def recording(value: Any) -> str:
@@ -881,7 +920,7 @@ def _chooser_boundary() -> Any:
         runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM())
         # start_only: the chooser assembles the identity, starts the boundary's job (stubbed) and leaves the decision open.
         chooser = OC.ObjectiveChooser(vault, repository, runtime, start_only=True)
-        chooser._start_objective = lambda *args, **kwargs: None  # type: ignore[method-assign]
+        chooser._start_objective = lambda key, *args, **kwargs: started.append(key)  # type: ignore[method-assign]
         # Both hashes the identity reaches are recorded, the key's and the numeric seed's (its own module), so the
         # last one recorded is the seed's reduced identity, as when the two sat in one module.
         OC._hash = OS._hash = recording
@@ -891,8 +930,7 @@ def _chooser_boundary() -> Any:
             pass
         finally:
             OC._hash = OS._hash = real_hash
-    identity = seen[-1]
-    return {"identity": identity, "key": real_hash(identity), "numeric_seed": OC.numeric_seed(identity)}
+    return seen, started
 
 
 def _numeric_seed(config_name: str) -> Callable[[], Any]:
@@ -1534,7 +1572,14 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
          "src/learnloop/daily_plan/types.py::BlockCandidate.log_row"),
         "the prefetch boundary key and the numeric policy's seed (a started job is looked up by it at the serve)",
         "prefetched decisions miss and the numeric draws move at a fixed input",
-        {"chooser": _chooser_boundary}),
+        {"chooser": _chooser_boundary, "start_key": _chooser_start_key}),
+    IdentitySite(
+        "C3m", "the mix's and the stop coin's seed for one decision (boundary key, decision id)",
+        ("src/learnloop/daily_plan/objective_seeds.py::mix_seed",
+         "src/learnloop/router_objective/mix.py::seed_for"),
+        "the mix's two uniforms and the stop coin's, and the seed every decision record and trace names",
+        "every decision draws differently at a fixed input (P-draw fails), and a recorded seed no longer recomputes",
+        {"seed": _mix_seed}),
     IdentitySite(
         "C4", "objective settings and the follow-up switch snapshot (the kill-switch list D7 deletes)",
         ("src/learnloop/daily_plan/objective_chooser.py::objective_settings",
