@@ -116,6 +116,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `seed_for`; statically calls `seed_for`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; statically calls `component_distributions`, `draw_with_uniforms`, `effective_weights`, `uniform`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; statically calls `uniform`
+- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`
 - [[Reference/Modules/learnloop/router_objective/mix|learnloop.router_objective.mix]] — imports `module`; statically calls `Draw`, `_pick`, `normalized`, `uniform`
 - [[Reference/Modules/learnloop/router_objective/picks|learnloop.router_objective.picks]] — imports `module`; statically calls `uniform`
 - [[Reference/Modules/learnloop/router_objective/stop_coin|learnloop.router_objective.stop_coin]] — imports `module`; statically calls `_pick`, `uniform`
@@ -139,7 +140,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/router_retrieval|learnloop.daily_plan.router_retrieval]], [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]], [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -147,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
+- [tests/test_choose.py](../../../../../../tests/test_choose.py) — direct import
+  - `test_the_coin_draws_after_the_mix_on_its_own_uniform_and_leaves_the_mixs_draw_alone`
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
   - `test_a_model_that_answers_is_untouched`
   - `test_not_ready_draws_from_the_fallback_distribution_with_its_floor_and_exact_propensity`

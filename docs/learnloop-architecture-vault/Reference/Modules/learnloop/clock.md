@@ -815,6 +815,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_submission.py](../../../../../tests/test_characterization_probe_submission.py) — direct import
 - [tests/test_chatgpt_plan_landing.py](../../../../../tests/test_chatgpt_plan_landing.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_and_forecasts`
+- [tests/test_choose.py](../../../../../tests/test_choose.py) — direct import
+  - `test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone`
 - [tests/test_cli_generate_practice.py](../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`
 - [tests/test_codex_attempt_flow.py](../../../../../tests/test_codex_attempt_flow.py) — direct import

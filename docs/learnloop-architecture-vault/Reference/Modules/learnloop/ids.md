@@ -333,6 +333,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_probe_regrade.py](../../../../../tests/test_characterization_probe_regrade.py) — direct import
   - `test_deferred_regrade_rewrites_summary_but_posterior_does_not_follow`
 - [tests/test_characterization_probe_replay.py](../../../../../tests/test_characterization_probe_replay.py) — direct import
+- [tests/test_choose.py](../../../../../tests/test_choose.py) — direct import
+  - `test_it_reads_no_database_clock_or_id_stream_and_leaves_its_inputs_alone`
 - [tests/test_daily_loop_reader_authored_practice.py](../../../../../tests/test_daily_loop_reader_authored_practice.py) — direct import
   - `test_written_question_keeps_returning_after_it_is_answered`
 - [tests/test_daily_loop_reentry_break.py](../../../../../tests/test_daily_loop_reentry_break.py) — direct import

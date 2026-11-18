@@ -113,6 +113,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `components`, `draw`, `effective_weights`, `fallback_label`, `seed_for`
+- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; statically calls `components`, `draw`, `effective_weights`, `fallback_label`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `recompute`; statically calls `recompute`
 
 ## Dependencies
@@ -133,7 +134,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]], [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -142,6 +143,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/router_model_fakes.py](../../../../../../tests/router_model_fakes.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
+- [tests/test_choose.py](../../../../../../tests/test_choose.py) — direct import
+  - `test_a_block_with_no_code_has_no_rule_and_the_staged_pick_keeps_the_plans_why`
+  - `test_a_failed_llm_policys_share_goes_to_the_numeric_policy_with_the_switch_on`
+  - `test_a_numeric_choice_outside_the_support_fails_the_numeric_policy`
+  - `test_a_served_block_carries_its_own_reason_code_and_sentence`
+  - `test_an_offered_stop_the_coin_chose_shows_no_models_words`
+  - `test_both_failed_leave_staged_the_whole_mix_and_a_missing_answer_reads_not_ready`
+  - `test_the_choice_returns_its_own_plan_block_record`
+  - `test_with_no_coin_the_logged_distribution_is_the_mixs_and_the_propensity_its_draws`
+  - `test_with_the_switch_off_a_failed_policys_share_goes_to_staged`
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`
 - [tests/test_ih3_learner_preferences.py](../../../../../../tests/test_ih3_learner_preferences.py) — direct import

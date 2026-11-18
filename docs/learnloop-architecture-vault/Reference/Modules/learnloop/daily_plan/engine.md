@@ -903,6 +903,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f6_the_check_is_a_phone_origins_too`
 - [tests/test_mobile_v3_carried.py](../../../../../../tests/test_mobile_v3_carried.py) — direct import
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+- [tests/test_objective_decision_record.py](../../../../../../tests/test_objective_decision_record.py) — direct import
+  - `test_the_cores_record_is_the_one_the_container_derived`
 - [tests/test_objective_refinement.py](../../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_placement_unevidenced_return.py](../../../../../../tests/test_placement_unevidenced_return.py) — direct import
   - `test_the_plan_admits_it_as_new_material`

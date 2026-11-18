@@ -220,6 +220,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
   - `test_a_refused_router_request_is_refused_at_once_while_a_reader_holds_a_snapshot`
   - `test_a_refused_router_request_still_leaves_its_record_when_nothing_holds_a_lock`
+- [tests/test_choose.py](../../../../../../tests/test_choose.py) — direct import
+  - `test_the_statuses_it_compares_are_the_runtimes`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f1_a_failed_generation_keeps_its_reservation`
   - `test_f1_an_in_flight_generation_reserves_against_the_next`

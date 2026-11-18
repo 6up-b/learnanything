@@ -47,51 +47,52 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py) |
-| Source lines | 468 |
+| Source lines | 481 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `is_code(value: Any) -> bool` ([source](../../../../../src/learnloop/provenance.py), line 71) — Whether ``value`` is a string :func:`write` keeps (an id, a rule name, a version).
-- `class DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 94) — One decision at a meaningful boundary: what won, what lost and why, as of then.
-  - `as_dict(self) -> dict[str, Any]` (line 120; public)
-- `current_trace() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 134) — The trace this code runs under, or ``None`` outside every entry point.
-- `new_record_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 145) — A new record id (a ULID), from the records' own stream; a builder that names its record's id ahead uses it.
-- `new_trace_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 151)
-- `trace_scope(trace_id: str | None=None) -> Iterator[str]` ([source](../../../../../src/learnloop/provenance.py), line 156) — Run the block under ``trace_id``, or under a new trace when it is ``None``.
-- `current_cause() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 176) — The record that caused the work running now (a queued job's ``job_enqueued``), or ``None``.
-- `continue_trace(trace_id: str | None, *, cause: str | None=None) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 182) — Continue earlier work's trace for the rest of the innermost :func:`trace_scope`; the trace now current.
-- `where(exc: BaseException) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 205) — ``module:function:line`` of the frame that raised ``exc``: the record's ``error_where``.
-- `cap_alternatives(alternatives: Sequence[Mapping[str, Any]], *, limit: int=MAX_ALTERNATIVES) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../src/learnloop/provenance.py), line 222) — The first ``limit`` alternatives, and how many more lost by each rule.
-- `check_no_prose(record: DecisionRecord) -> list[str]` ([source](../../../../../src/learnloop/provenance.py), line 235) — Paths of the record's values that are not an id, a number or a code constant (empty when clean).
-- `write(connection: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 289) — Insert ``record`` on the caller's connection; its id, or ``None`` when it was not written.
-- `write_through(repository: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 345) — Write ``record`` through ``repository``'s connection; its id, or ``None`` when it was not written.
-- `read(connection: Any, target: str='latest', *, kind: str | None=None, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 383) — The records ``target`` names, oldest first; empty when none (or the vault is below migration 253).
-- `read_children(connection: Any, parent_ids: Sequence[str], *, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 434) — The records whose ``parent_id`` is one of ``parent_ids`` (what happened next, in any trace), oldest first.
-- `read_kind(connection: Any, kind: str, *, limit: int=5000) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 443) — Every record of ``kind`` across traces, oldest first (``why --first-build`` walks them in order).
-- `read_naming(connection: Any, ref: str, *, kind: str | None=None, limit: int=5) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 449) — The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
+- `is_code(value: Any) -> bool` ([source](../../../../../src/learnloop/provenance.py), line 72) — Whether ``value`` is a string :func:`write` keeps (an id, a rule name, a version).
+- `ref(value: Any) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 82) — An option's id as a record keeps it: the id itself, or a short hash of one that isn't a code (a space in a vault's id would otherwise drop the whole record).
+- `class DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 107) — One decision at a meaningful boundary: what won, what lost and why, as of then.
+  - `as_dict(self) -> dict[str, Any]` (line 133; public)
+- `current_trace() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 147) — The trace this code runs under, or ``None`` outside every entry point.
+- `new_record_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 158) — A new record id (a ULID), from the records' own stream; a builder that names its record's id ahead uses it.
+- `new_trace_id() -> str` ([source](../../../../../src/learnloop/provenance.py), line 164)
+- `trace_scope(trace_id: str | None=None) -> Iterator[str]` ([source](../../../../../src/learnloop/provenance.py), line 169) — Run the block under ``trace_id``, or under a new trace when it is ``None``.
+- `current_cause() -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 189) — The record that caused the work running now (a queued job's ``job_enqueued``), or ``None``.
+- `continue_trace(trace_id: str | None, *, cause: str | None=None) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 195) — Continue earlier work's trace for the rest of the innermost :func:`trace_scope`; the trace now current.
+- `where(exc: BaseException) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 218) — ``module:function:line`` of the frame that raised ``exc``: the record's ``error_where``.
+- `cap_alternatives(alternatives: Sequence[Mapping[str, Any]], *, limit: int=MAX_ALTERNATIVES) -> tuple[list[dict[str, Any]], dict[str, int]]` ([source](../../../../../src/learnloop/provenance.py), line 235) — The first ``limit`` alternatives, and how many more lost by each rule.
+- `check_no_prose(record: DecisionRecord) -> list[str]` ([source](../../../../../src/learnloop/provenance.py), line 248) — Paths of the record's values that are not an id, a number or a code constant (empty when clean).
+- `write(connection: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 302) — Insert ``record`` on the caller's connection; its id, or ``None`` when it was not written.
+- `write_through(repository: Any, record: DecisionRecord) -> str | None` ([source](../../../../../src/learnloop/provenance.py), line 358) — Write ``record`` through ``repository``'s connection; its id, or ``None`` when it was not written.
+- `read(connection: Any, target: str='latest', *, kind: str | None=None, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 396) — The records ``target`` names, oldest first; empty when none (or the vault is below migration 253).
+- `read_children(connection: Any, parent_ids: Sequence[str], *, limit: int=500) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 447) — The records whose ``parent_id`` is one of ``parent_ids`` (what happened next, in any trace), oldest first.
+- `read_kind(connection: Any, kind: str, *, limit: int=5000) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 456) — Every record of ``kind`` across traces, oldest first (``why --first-build`` walks them in order).
+- `read_naming(connection: Any, ref: str, *, kind: str | None=None, limit: int=5) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 462) — The newest records (of ``kind``) that name ``ref`` as what won, an alternative or a fact; newest first.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 47)
-- `TABLE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 49)
-- `STATUSES` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 52)
-- `SUBJECT_KINDS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 58)
-- `MAX_ALTERNATIVES` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 63)
-- `_TOKEN` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 68)
-- `_COLUMNS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 80)
-- `_TRACE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 86)
-- `_SCOPE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 88)
-- `_CAUSE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 90)
-- `_RECORD_IDS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 142)
+- `LOG` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 48)
+- `TABLE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 50)
+- `STATUSES` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 53)
+- `SUBJECT_KINDS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 59)
+- `MAX_ALTERNATIVES` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 64)
+- `_TOKEN` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 69)
+- `_COLUMNS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 93)
+- `_TRACE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 99)
+- `_SCOPE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 101)
+- `_CAUSE` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 103)
+- `_RECORD_IDS` ([src/learnloop/provenance.py](../../../../../src/learnloop/provenance.py), line 155)
 
 ## Internal implementation anchors
 
-- `_completed(record: DecisionRecord) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 274)
-- `_record(row: Sequence[Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 370)
-- `_select(connection: Any, where: str, args: Sequence[Any], *, limit: int) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 422)
+- `_completed(record: DecisionRecord) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 287)
+- `_record(row: Sequence[Any]) -> DecisionRecord` ([source](../../../../../src/learnloop/provenance.py), line 383)
+- `_select(connection: Any, where: str, args: Sequence[Any], *, limit: int) -> list[DecisionRecord]` ([source](../../../../../src/learnloop/provenance.py), line 435)
 
 ## Who imports or calls it
 
@@ -102,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`; statically calls `get`, `trace_scope`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `trace_scope`
-- [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`
+- [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] — imports `DecisionRecord`, `module`, `ref`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `new_record_id`, `new_trace_id`, `ref`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `current_trace`, `read`, `where`, `write`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `module`; statically calls `current_trace`, `read`, `write`
 - [[Reference/Modules/learnloop/daily_plan/plan_records|learnloop.daily_plan.plan_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `is_code`, `new_record_id`, `where`
@@ -113,6 +114,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; statically calls `DecisionRecord`, `check_no_prose`, `current_trace`, `new_trace_id`, `where`
 - [[Reference/Modules/learnloop/refusal_records|learnloop.refusal_records]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `current_cause`, `current_trace`, `is_code`, `where`, `write`, `write_through`
 - [[Reference/Modules/learnloop/router/decisions|learnloop.router.decisions]] — imports `DecisionRecord`, `is_code`, `where`; statically calls `DecisionRecord`, `is_code`, `where`
+- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `is_code`, `ref`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`
 - [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `module`; statically calls `is_code`, `read`, `read_children`, `read_kind`, `read_naming`, `where`
@@ -132,7 +134,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `dataclasses`, `datetime`, `json`, `logging`, `math`, `re`, `sqlite3`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `contextvars`, `dataclasses`, `datetime`, `hashlib`, `json`, `logging`, `math`, `re`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -142,7 +144,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 20 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/boundary_records|learnloop.daily_plan.boundary_records]] and 21 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -184,6 +186,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
   - `test_a_withdrawal_names_the_forced_probe_its_workflow_and_the_next_decision_points_to_it`
   - `test_the_builders_keep_ids_numbers_and_codes_only`
+- [tests/test_objective_decision_record.py](../../../../../tests/test_objective_decision_record.py) — direct import
+  - `test_the_cores_record_is_the_one_the_container_derived`
 - [tests/test_probe_records.py](../../../../../tests/test_probe_records.py) — direct import
   - `test_block_settlement_decline_precedes_grade_and_is_reachable`
   - `test_grade_hook_failure_completes_the_attempt`

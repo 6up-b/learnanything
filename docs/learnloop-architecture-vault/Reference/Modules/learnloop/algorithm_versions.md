@@ -371,6 +371,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_te3b_and_the_latest`
 - [tests/test_mvp017_route_check_replay.py](../../../../../tests/test_mvp017_route_check_replay.py) — direct import
   - `test_an_mvp017_history_at_the_floor_replays_its_grades_and_then_changes_nothing`
+- [tests/test_objective_decision_record.py](../../../../../tests/test_objective_decision_record.py) — direct import
+  - `test_the_cores_record_is_the_one_the_container_derived`
 - [tests/test_objective_refinement.py](../../../../../tests/test_objective_refinement.py) — direct import
 - [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
   - `test_p0_replays_bulk_load_calibration_references_once`

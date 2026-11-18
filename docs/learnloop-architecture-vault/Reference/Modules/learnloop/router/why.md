@@ -120,10 +120,11 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `objective_why`, `rationale_guard`, `sentence`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `objective_why`, `rationale_guard`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`; statically calls `model_why`, `rationale_guard`, `sentence`, `stop_code`
 - [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]] — imports `module`; statically calls `sentence`, `stop_code`, `topic_phrase`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `DETAILS_STAGED`, `mixture_details`; statically calls `mixture_details`
+- [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; statically calls `objective_why`, `rationale_guard`, `sentence`
 
 ## Dependencies
 
@@ -143,12 +144,18 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/daily_plan/staged_frame|learnloop.daily_plan.staged_frame]], [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_choose.py](../../../../../../tests/test_choose.py) — direct import
+  - `test_a_rationale_that_passes_is_shown_with_its_evidence`
+  - `test_a_served_block_carries_its_own_reason_code_and_sentence`
+  - `test_a_served_stop_is_the_stop_offer`
+  - `test_an_offered_stop_the_coin_chose_shows_no_models_words`
+  - `test_the_guard_refuses_a_rationale_and_the_rules_sentence_is_shown`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_why_names_the_path_and_stays_plain`
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
