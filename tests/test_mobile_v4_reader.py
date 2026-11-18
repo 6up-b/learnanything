@@ -401,10 +401,11 @@ def test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_onc
     would, once."""
 
     import learnloop.reader.reader_progression as progression
+    import learnloop.reader.section_generation as generation
     from learnloop.content.pipeline.jobs import IngestJobManager
 
     enqueued: list[dict] = []
-    monkeypatch.setattr(progression, "section_generation_candidates",
+    monkeypatch.setattr(generation, "section_generation_candidates",
                         lambda vault, repository, *, extraction_id, section_id: ["lo_svd_definition"])
     monkeypatch.setattr(progression, "source_refs_for_section", lambda *args, **kwargs: [])
     monkeypatch.setattr(IngestJobManager, "enqueue_practice_expansion",

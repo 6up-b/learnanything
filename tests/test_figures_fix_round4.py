@@ -29,7 +29,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.diagnosis.text_gaps import pipeline as gap_pipeline
 from learnloop.diagnosis.text_gaps import tier1 as gap_tier1
-from learnloop.diagnosis.text_gaps import sources as gap_sources
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps.jobs import process_next_gap_job, sweep_backlog
 from learnloop.figures import grammar as G
 from learnloop.figures import spec as S
@@ -79,7 +79,7 @@ def test_f5_an_explanation_after_a_checkpointed_reading_is_its_own_text(tmp_path
         (payload,) = [json.loads(row[0]) for row in connection.execute("SELECT payload_json FROM learner_text_gap_jobs")]
     assert payload["reading"] and payload["markers"] == {"explanation_read": False}
     call(ctx, "reader.figure_explain", {"predictionId": prediction_id, "text": "p sets the split"})
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert ("reader_formative", explained, "queued") in _gap_jobs(repository)
     later = FrozenClock(datetime.now(UTC) + timedelta(days=30))  # past the retry backoff
     while process_next_gap_job(paths.root, repository, owner="t", clients=clients, clock=later) is not None:

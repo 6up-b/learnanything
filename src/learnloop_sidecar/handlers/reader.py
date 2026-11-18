@@ -2064,10 +2064,8 @@ def _trigger_section_generation(ctx: SidecarContext, vault: Any, repository: Any
     untriggered section, the desktop's own completion; :data:`DEFERRED_TO_PRIMARY`: one the
     phone finished). Either way the stamp is taken once, before anything is enqueued."""
 
-    from learnloop.reader.reader_progression import (
-        section_generation_candidates,
-        source_refs_for_section,
-    )
+    from learnloop.reader.reader_progression import source_refs_for_section
+    from learnloop.reader.section_generation import section_generation_candidates
 
     def stamp(batch_id: str) -> bool:
         if from_stamp is None:

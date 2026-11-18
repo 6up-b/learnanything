@@ -29,6 +29,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from learnloop.content.sources.exam_material import source_ref_keys
+from learnloop.diagnosis.text_gaps.figure_inputs import figure_input_keys, figure_input_manifest, figure_prediction_id
 from learnloop.db.stores.write_provenance import (
     GRADING,
     Inputs,
@@ -308,8 +309,6 @@ def figure_prediction_record(connection: Any, prediction_id: str, *, topics: Ite
     Codex review F1), and the topics. The figure's own values are computed by
     code from that passage. A later explanation's source (``...:explained``)
     has its prediction's record."""
-
-    from learnloop.diagnosis.text_gaps.sources import figure_input_keys, figure_input_manifest, figure_prediction_id
 
     prediction_id, _explained = figure_prediction_id(prediction_id)
     row = connection.execute(

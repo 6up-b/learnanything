@@ -14,6 +14,7 @@ source_paths:
   - src/learnloop/reader/reader_capture.py
   - src/learnloop/reader/reader_dialogue.py
   - src/learnloop/reader/reader_progression.py
+  - src/learnloop/reader/section_generation.py
   - src/learnloop/reader/reader_quick_check.py
   - src/learnloop/reader/reader_requests.py
   - src/learnloop_sidecar/handlers/reader.py
@@ -34,6 +35,8 @@ The Reader turns an already imported, revisioned source into grounded reading, n
 
 > [!info] Surface availability
 > Reader is a desktop workflow backed by sidecar handlers. There is no equivalent `learnloop reader` CLI command in mvp-0.9.
+
+Section completion uses `learnloop.reader.section_generation.section_generation_candidates` to identify learning objects that need practice.
 
 ## Prerequisites
 

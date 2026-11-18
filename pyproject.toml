@@ -1220,7 +1220,6 @@ ignore_imports = [
     "learnloop.ops.startup -> learnloop.attempts.regrade",
     "learnloop.params.fitted_params -> learnloop.scheduling.fsrs",
     "learnloop.params.parameter_registry -> learnloop.substrate.activities",
-    "learnloop.params.sensitivity_certificates -> learnloop.sim.sweep",
     "learnloop.params.sensitivity_certificates -> learnloop.substrate.activities",
     "learnloop.reader.reader_authoring -> learnloop.attempts.salience_firewall",
     "learnloop.reader.reader_authoring -> learnloop.curriculum.commitments",
