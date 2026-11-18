@@ -522,9 +522,11 @@ class SidecarContext:
         sends another model request from then on (review F1). Then the ingest
         drain, its quick checks and the reading sweep, the exam graders, the
         post-attempt worker's three slots (a gap or diagnosis job in flight
-        stops before its next paid request, review F2) and the approach-map
-        builds are each told to stop and joined for a bounded time (never
-        hangs), and last the cancelled jobs are joined, bounded too. A thread
+        stops before its next paid request, review F2), the approach-map
+        builds and the router's carried valuations (each ends at its
+        rollouts' next action; none of them is recorded in a later trace) are
+        each told to stop and joined for a bounded time (never hangs), and
+        last the cancelled jobs are joined, bounded too. A thread
         that outlived its context kept polling the vault it was started for:
         in one test process that was hundreds of threads (test-thread-leak).
         Idempotent; a later ``load``, request or submit starts work again, as
@@ -535,10 +537,27 @@ class SidecarContext:
         self.ingest_jobs.shutdown()
         self.post_attempt_worker.shutdown()
         self.close_background_builds()
+        self._stop_carried_valuations()
         self.background_jobs.close()
         _forget_reading_choice()
         # followups-nov1c B: the canonical fold's memo and its database watcher.
         forget_fold_memo()
+
+    def _stop_carried_valuations(self) -> None:
+        """The router's deferred carried valuations of this vault (``objective_job.stop_carries``): stopped, taken off
+        the registry and joined for a bounded time. Never raises: closing never fails on them."""
+
+        import sys
+
+        # A process that never loaded the job has deferred nothing; importing it here would only slow every close.
+        job = sys.modules.get("learnloop.daily_plan.objective_job")
+        if self.repository is None or job is None:
+            return
+        try:
+            if not job.stop_carries(self.repository.sqlite_path):
+                _LOGGER.warning("a carried valuation was still running when the context closed")
+        except Exception:  # noqa: BLE001 - a close never fails on the router's background work
+            _LOGGER.warning("the router's carried valuations were not stopped", exc_info=True)
 
     def _prefetch_gaps(self) -> None:
         from learnloop_sidecar.prefetch_runtime import notify

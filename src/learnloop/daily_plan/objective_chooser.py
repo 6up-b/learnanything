@@ -37,6 +37,8 @@ from dataclasses import dataclass, replace
 from functools import partial
 import json
 import logging
+import math
+import threading
 import time
 from typing import Any
 
@@ -547,14 +549,19 @@ def run_numeric(vault: Any, repository: Any, *, state: PlanState, support: Seque
 
             at_draws, at_deadline = draws, deadline
 
-            def compute(record: Mapping[str, Any] = record, deadline: float | None = None) -> dict[str, Any]:
+            def compute(record: Mapping[str, Any] = record, deadline: float | None = None,
+                        stop: threading.Event | None = None) -> dict[str, Any]:
                 from learnloop.router_objective import tail_serve as TS
 
                 # ``deadline``: a later prefetch's own, when the valuation was deferred to it (the follow-up
-                # batch's item 4); else this job's.
-                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed,
-                                           deadline=at_deadline if deadline is None else deadline,
-                                           clock=clock, cutoff=at_cutoff, **rollout)
+                # batch's item 4); else this job's. ``stop`` (its session closed or its plan was replaced) ends it at
+                # the rollouts' next deadline check, as the deadline would: once set, the clock reads just past it
+                # (a finite reading, so the evaluation's elapsed time stays a number).
+                until = at_deadline if deadline is None else deadline
+                timed = clock if stop is None or until is None else (
+                    lambda: max(clock(), math.nextafter(until, math.inf)) if stop.is_set() else clock())
+                at_previous = ROL.evaluate(at_inputs, at_actions, draws=at_draws, seed=seed, deadline=until,
+                                           clock=timed, cutoff=at_cutoff, **rollout)
                 return TS.with_carried_values(record, at_previous)
 
             return compute
@@ -872,7 +879,8 @@ class ObjectiveChooser(RouterChooser):
         # needs only the answer and the decision's id, and it leaves the answer's status and choice as they were.
         if carry and numeric is not None:
             numeric = J.defer_carry(numeric, entry, decision_id, runtime=self.runtime,
-                                    sqlite_path=self.repository.sqlite_path, config=config)
+                                    sqlite_path=self.repository.sqlite_path, config=config,
+                                    session_id=self.session_id, plan_id=state.plan_id)
         seed = mix_seed(self.runtime, entry.key, decision_id)
         # What the stop coin is frozen with is read before its uniform: the session's minutes on the serving clock
         # at this decision (the coin skips the session's opening boundary, where no stop is being decided), then
@@ -904,7 +912,8 @@ class ObjectiveChooser(RouterChooser):
         contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
         # Earlier decisions' carried valuations a later prefetch ran, recorded in this trace (read as of the trace's
         # own time; the transition into each is then no longer censored).
-        carried_for = J.carried_for(self.repository, decision_id) if carry else []
+        carried_for = (J.carried_for(self.repository, decision_id, session_id=self.session_id, plan_id=state.plan_id)
+                       if carry else [])
         trace = T.objective_trace(choice, support=support, by_id=by_id, feasible=feasible, titles=titles,
                                   numeric=numeric, llm=llm, decider=results.get(DECIDER), staged_ref=staged_ref,
                                   weight=(w, weight_record), seed=seed, config=config, now_iso=now_iso,

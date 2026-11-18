@@ -2139,6 +2139,7 @@ def build_plan(
         if with_insert is not None:
             with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
+    _stop_superseded_carries(env, plan_id)
     record = _reload(env, plan_id)
     if not first_block:
         return record
@@ -2157,6 +2158,19 @@ def build_plan(
     except BoundaryTaken:
         pass  # another read decided it first, and that block stands
     return _reload(env, plan_id)
+
+
+def _stop_superseded_carries(env: PlanEnv, plan_id: str) -> None:
+    """A new plan replaces every earlier one: the router's carried valuations deferred by another plan (or session) are
+    stopped and joined for a bounded time, and no trace of this plan records them (``objective_job.stop_carries``).
+    Never raises: a plan is never refused over the router's background work."""
+
+    try:
+        from learnloop.daily_plan import objective_job
+
+        objective_job.stop_carries(env.repository.sqlite_path, keep=(env.session_id, plan_id))
+    except Exception:  # noqa: BLE001 - background work never blocks a plan
+        logging.getLogger(__name__).warning("the earlier plans' carried valuations were not stopped", exc_info=True)
 
 
 def _config_hash(config: Any) -> str:
