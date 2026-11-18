@@ -127,6 +127,7 @@ class ExamSeedEntry:
     rubric_score: int | None = None
     correctness: float | None = None
     detail: str | None = None
+    ai_will_grade: bool | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -139,6 +140,7 @@ class ExamSeedEntry:
             "rubric_score": self.rubric_score,
             "correctness": self.correctness,
             "detail": self.detail,
+            "ai_will_grade": self.ai_will_grade,
         }
 
 
@@ -153,11 +155,21 @@ class ExamSeedingResult:
     rebuild: RebuildResult | None = None
     rebuilt_learning_object_ids: list[str] = field(default_factory=list)
 
+    @property
+    def ai_will_grade_count(self) -> int:
+        return sum(entry.ai_will_grade is True for entry in self.entries)
+
+    @property
+    def keep_imported_score_count(self) -> int:
+        return sum(entry.ai_will_grade is False for entry in self.entries)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "exam_date": self.exam_date,
             "dry_run": self.dry_run,
             "entries": [entry.as_dict() for entry in self.entries],
+            "ai_will_grade_count": self.ai_will_grade_count,
+            "keep_imported_score_count": self.keep_imported_score_count,
             "seeded_count": self.seeded_count,
             "skipped_existing_count": self.skipped_existing_count,
             "no_outcome_count": self.no_outcome_count,
@@ -318,6 +330,16 @@ def seed_exam_attempts(
             f"{EXAM_QUESTION_TAG_PREFIX}<n>): {', '.join(unmatched)}"
         )
 
+    # Without a criterion row neither the imported score nor its source can be
+    # recorded. Check the whole input before writing any backdated attempts.
+    for question in outcomes.outcomes:
+        item = exam_items[question]
+        rubric = vault.rubric_for_item(item)
+        if (rubric is None or not rubric.criteria) and not _has_exam_attempt_on_date(
+            repository, item.id, outcomes.exam_date,
+        ):
+            raise ExamSeedingError(f"{item.id} has no rubric criteria for the imported score")
+
     config = vault.config.exam_seeding
     base_instant = datetime(
         outcomes.exam_date.year,
@@ -366,6 +388,7 @@ def seed_exam_attempts(
             for criterion in rubric.criteria
         }
         rubric_score = calculate_rubric_score(rubric, criterion_points, [])
+        has_work = bool((outcome.answer_md or "").strip())
         if dry_run:
             seeded += 1
             entries.append(
@@ -373,6 +396,7 @@ def seed_exam_attempts(
                     question=question,
                     practice_item_id=item.id,
                     status="would_seed",
+                    ai_will_grade=has_work,
                     learning_object_id=item.learning_object_id,
                     score=outcome.score,
                     rubric_score=rubric_score,
@@ -384,7 +408,7 @@ def seed_exam_attempts(
         now_iso = exam_clock.now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
         attempt_id = new_ulid()
         confidence = outcome.confidence if outcome.confidence is not None else config.default_learner_confidence
-        answer_md = outcome.answer_md or f"[imported exam outcome: score {outcome.score:.2f}]"
+        answer_md = outcome.answer_md if has_work else f"[imported exam outcome: score {outcome.score:.2f}]"
         evidence_rows = [
             {
                 "id": new_ulid(),
@@ -395,7 +419,7 @@ def seed_exam_attempts(
                     f"{criterion_points[criterion.id]:g}/{criterion.points:g} "
                     f"(score {outcome.score:.2f})."
                 ),
-                "notes": None,
+                "notes": "learner_work" if has_work else "score_only",
                 "local_grader_id": "exam_import",
                 "grader_tier": 1,
                 "learner_confidence": "hedged" if confidence <= 2 else "confident",
@@ -438,6 +462,7 @@ def seed_exam_attempts(
                 question=question,
                 practice_item_id=item.id,
                 status="seeded",
+                ai_will_grade=has_work,
                 attempt_id=result.attempt_id,
                 learning_object_id=result.learning_object_id,
                 score=outcome.score,

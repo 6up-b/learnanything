@@ -17,8 +17,6 @@ export function simplePracticeFeedback(): boolean {
 export function unestablishedRepairCopy(check: ColdCheckResultDto): string {
   const result = check.passed ? "You passed this check." : "You didn't pass this check.";
   switch (check.claimDowngradedReason) {
-    case "attempt_on_overlapping_facets":
-      return `${result} Other practice on this topic came in between, so this check can't show whether the repair helped.`;
     case "episode_reveal_over_budget":
       return `${result} The repair showed too much of the answer for this check to tell whether it helped.`;
     default:

@@ -1270,10 +1270,11 @@ def seed_exam_attempts_command(
         return
     for entry in result.entries:
         if entry.status in {"seeded", "would_seed"}:
+            grading = "AI will grade when available" if entry.ai_will_grade else "keeps imported score"
             verb = "Seeded" if entry.status == "seeded" else "Would seed"
             typer.echo(
                 f"{verb} q{entry.question} -> {entry.practice_item_id} "
-                f"(score={entry.score:.2f}, rubric_score={entry.rubric_score})"
+                f"(score={entry.score:.2f}, rubric_score={entry.rubric_score}) {grading}"
             )
         elif entry.status == "skipped_existing":
             typer.echo(f"Skipped q{entry.question} -> {entry.practice_item_id}: {entry.detail}")
@@ -1281,7 +1282,8 @@ def seed_exam_attempts_command(
             typer.echo(f"Warning q{entry.question} -> {entry.practice_item_id}: {entry.detail}")
     summary = (
         f"exam_date={result.exam_date} seeded={result.seeded_count} "
-        f"skipped={result.skipped_existing_count} no_outcome={result.no_outcome_count}"
+        f"skipped={result.skipped_existing_count} no_outcome={result.no_outcome_count} "
+        f"ai_will_grade={result.ai_will_grade_count} keep_imported_score={result.keep_imported_score_count}"
     )
     if dry_run:
         summary = f"[dry-run] {summary}"

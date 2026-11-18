@@ -726,6 +726,49 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
     assert r_next()["status"] != GRADE_HELD_FOR_REVIEW and r_next()["value"] is not None
 
 
+@pytest.mark.parametrize("held", [True, False], ids=["held", "assessed"])
+def test_owner_confirms_current_class(tmp_path, monkeypatch, held):
+    from learnloop.attempts import attempts
+    from learnloop.attempts.grade_resolution import append_adjudication
+    from learnloop.substrate.replay import replay_learning_object
+
+    _paths, vault, repo = split_vault(tmp_path, seed=False)
+    result = submit(vault, repo, HOLDING() if held else VALIDATING(), answer=ALTERNATIVE, when=T)
+    attempt_id = result.attempt_id
+    assert attempt_grade_held(repo, attempt_id) is held
+    obs = repo.observation_by_attempt(attempt_id)
+    head = repo.active_interpretation_for_observation(obs["id"])
+    posterior = json.loads(head["response_posterior_json"])
+    before = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+    later = FrozenClock(T + timedelta(days=20))
+    adj = append_adjudication(
+        repo, observation_id=obs["id"], administration_id=obs["administration_id"],
+        reviewed_raw_event_ids=[head["raw_grade_event_id"]], adjudicator_source="human_owner",
+        resolved_class=max(posterior, key=posterior.get), vault=vault, clock=later,
+    )
+    if held:
+        assert adj["evidence_revision"]["status"] == "revised"
+        assert all(row.grader_tier == 4 for row in repo.fetch_grading_evidence(attempt_id))
+    else:
+        assert adj["evidence_revision"]["status"] == "skipped_direction_unchanged"
+        assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == before
+    assert not attempt_grade_held(repo, attempt_id)
+
+    reviews = []
+    original = attempts.apply_review
+
+    def observe(*args):
+        reviews.append(args)
+        return original(*args)
+
+    monkeypatch.setattr(attempts, "apply_review", observe)
+    replay_learning_object(vault, repo, repo.fetch_practice_attempt(attempt_id)["learning_object_id"], clock=later)
+    state = repo.practice_item_state(ITEM)
+    assert len(reviews) == 1 and reviews[0][0] is None
+    assert state.last_attempt_at == _iso(T)
+    assert _iso(T) < state.due_at < _iso(later.now())
+
+
 def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_path):
     """Review F1, the predicate's two evaluations: a regrade supersedes the
     machine tiers only, so an owner's adjudication (tier 4) stays live beside

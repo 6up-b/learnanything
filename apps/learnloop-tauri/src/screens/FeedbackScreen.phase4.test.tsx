@@ -173,8 +173,8 @@ afterEach(() => {
 });
 
 it.each([
-  ["simple", true, "attempt_on_overlapping_facets", "You passed this check. Other practice on this topic came in between, so this check can't show whether the repair helped."],
-  ["classic", false, "attempt_on_overlapping_facets", "You didn't pass this check. Other practice on this topic came in between, so this check can't show whether the repair helped."],
+  ["simple", true, "attempt_on_overlapping_facets", "You passed this check. This check can't show whether the repair helped."],
+  ["classic", false, "attempt_on_overlapping_facets", "You didn't pass this check. This check can't show whether the repair helped."],
   ["simple", false, null, "You didn't pass this check. This check can't show whether the repair helped."],
   ["classic", true, "episode_reveal_over_budget", "You passed this check. The repair showed too much of the answer for this check to tell whether it helped."],
 ] as const)("reports an unestablished repair effect in %s feedback (passed=%s, reason=%s)", async (mode, passed, reason, copy) => {

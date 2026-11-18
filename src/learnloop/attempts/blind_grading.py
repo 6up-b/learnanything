@@ -704,6 +704,7 @@ def validate_blind_grading_proposal(
         vault=vault,
         learner_answer_md=learner_answer_md,
         rubric=rubric,
+        ordinary_practice=True,
     )
     validated_traces: list[dict[str, Any]] = []
     for index, suggestion in enumerate(grade.repair_suggestions or []):

@@ -469,13 +469,13 @@ def apply_valid_alternative_gate(
         return GateOutcome(proposal)
     maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
     awarded = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
-    below = {cid for cid, maximum in maxima.items() if awarded.get(cid, maximum) + 1e-9 < maximum}
+    below = {cid for cid, maximum in maxima.items() if cid in awarded and awarded[cid] + 1e-9 < maximum}
     located: set[str] = set()
     for attribution in proposal.error_attributions:
         if _located(attribution, learner_answer_md):
             located.update(_attribution_criteria(attribution))
     exempt = {str(value) for value in method_criterion_ids}
-    unverified = {cid for cid in below if cid not in located and cid not in exempt}
+    unverified = (maxima.keys() - awarded.keys()) | (below - located - exempt)
     unverified.update(str(cid) for cid in declared_unverified if str(cid) in below)
     if not unverified:
         return GateOutcome(proposal)
@@ -623,8 +623,8 @@ def apply_route_rule(
         return unchanged
     maxima = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
     awarded = {row.criterion_id: float(row.points_awarded) for row in proposal.criterion_evidence}
-    # Review F1: an omitted criterion is worth what validation scores it, 0.
-    below = {cid for cid, maximum in maxima.items() if awarded.get(cid, 0.0) + 1e-9 < maximum}
+    omitted = maxima.keys() - awarded.keys()
+    below = omitted | {cid for cid in awarded if cid in maxima and awarded[cid] + 1e-9 < maxima[cid]}
     reply = (clarification_answer_md or "").strip()
     texts = (learner_answer_md, reply)
     in_answer: set[str] = set()
@@ -640,8 +640,8 @@ def apply_route_rule(
     declared = [cid for cid in maxima if cid in below and cid in declared_ids and cid not in previously]
     unlocated = [
         cid for cid in maxima
-        if cid in below and cid not in located and cid not in previously and cid not in declared_ids
-        and cid not in method_ids
+        if (cid in omitted or (cid in below and cid not in located and cid not in method_ids))
+        and cid not in previously and cid not in declared_ids
     ]
     unverified = previously | set(unlocated) | set(declared)
     method_route = tuple(
@@ -838,8 +838,7 @@ def revalidated_support(
         str(row.get("criterion_id")): float(row.get("points_awarded") or 0.0)
         for row in record.get("criteria") or ()
     }
-    # An omitted criterion is worth what validation scored it, 0 (review F1).
-    still_below = {cid for cid, maximum in maxima.items() if points.get(cid, 0.0) + 1e-9 < maximum}
+    still_below = {cid for cid, maximum in maxima.items() if cid in points and points[cid] + 1e-9 < maximum}
     in_force = any(
         str(attribution.get("validity_scope") or "valid_measurement") != "grader_interpretation"
         for attribution in record.get("error_attributions") or ()
@@ -1168,6 +1167,11 @@ def request_blind_grading_run(
                     assessed_shortfall=rule.assessed_shortfall,
                 )
                 support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
+    reported = {row.criterion_id for row in proposal.criterion_evidence}
+    omitted = {criterion.id for criterion in rubric.criteria} - reported
+    if omitted:
+        support["unverified_criterion_ids"] = sorted(omitted.union(support.get("unverified_criterion_ids", ())))
+        support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
     return BlindGradingRun(
         proposal=proposal,
         prompt_version=blind_prompt_version(context),

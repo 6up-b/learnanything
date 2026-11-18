@@ -331,3 +331,65 @@ def test_the_core_leaves_its_inputs_as_they_were():
     _apply(inputs, prior=prior)
 
     assert (repr(inputs), repr(prior)) == before
+
+
+@pytest.mark.parametrize("primed", [True, False], ids=["primed_answer", "plan_skip"])
+def test_forgetting_clock_live_and_rebuilt(tmp_path, monkeypatch, primed):
+    from learnloop.attempts import attempts
+    from learnloop.attempts.attempts import SelfGradeInput, complete_self_graded_attempt
+    from learnloop.daily_plan.engine import advance, build_plan
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    item = "pi_svd_define_001"
+    clock = MovableClock(instant=NOW)
+    env = make_env(paths.root, [scheduled(item, "lo_svd_definition", forgetting_risk=1.0)], clock=clock, requested=[item])
+    repo = env.repository
+    elapsed = []
+    original = attempts.apply_review
+
+    def observe(memory, rating, elapsed_days, weights):
+        elapsed.append(elapsed_days)
+        return original(memory, rating, elapsed_days, weights)
+
+    monkeypatch.setattr(attempts, "apply_review", observe)
+
+    def answer(assisted=False):
+        complete_self_graded_attempt(
+            env.vault, repo, AttemptDraft(practice_item_id=item, learner_answer_md="U Sigma V^T", primed=assisted),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=clock,
+        )
+
+    answer()
+    initial = repo.practice_item_state(item)
+    clock.instant += timedelta(days=4)
+    if primed:
+        answer(assisted=True)
+    else:
+        build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
+        _, step = advance(env, serve=False)
+        assert step.get("practice_item_id") == item, step
+        advance(env, serve=False, skip_practice_item_id=item)
+        with repo.connection() as conn:
+            assert conn.execute("SELECT COUNT(*) FROM attention_block_events WHERE kind='item_skipped'").fetchone()[0] == 1
+
+    def check_day_four():
+        state = repo.practice_item_state(item)
+        assert (state.stability, state.difficulty, state.due_at) == (initial.stability, initial.difficulty, initial.due_at)
+        assert state.last_attempt_at == (iso(clock.instant) if primed else initial.last_attempt_at)
+
+    check_day_four()
+    elapsed.clear()
+    rebuild_all_derived_state(env.vault, repo, clock=clock)
+    check_day_four()
+    assert elapsed == [0.0]
+    clock.instant += timedelta(days=3)
+    answer()
+    assert elapsed == [0.0, 3.0 if primed else 7.0]
+    final = repo.practice_item_state(item)
+    elapsed.clear()
+    rebuild_all_derived_state(env.vault, repo, clock=clock)
+    assert elapsed == [0.0, 3.0 if primed else 7.0]
+    assert repo.practice_item_state(item) == final

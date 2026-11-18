@@ -164,6 +164,8 @@ def regrade_attempt(
     answer text. Everything else about the regrade is unchanged, deliberately —
     A8 resolves a grade through the door that already exists rather than
     building a second grading path whose semantics could drift."""
+    if attempt.get("attempt_type") == "exam_evidence" and repository.is_score_only_exam_import(attempt["id"]):
+        raise GradingValidationError("A score-only exam import has no learner answer to regrade")
     item = vault.practice_items[attempt["practice_item_id"]]
     learning_object = vault.learning_objects[attempt["learning_object_id"]]
     # Method-explicit items (re-review F1): the answer is regraded under the
@@ -359,7 +361,7 @@ def regrade_attempt(
             list(validated.fatal_errors),
         )
     else:
-        criterion_evidence = list(validated.criterion_evidence)
+        criterion_evidence = validated.evidence_for_storage()
         new_score = validated.rubric_score
         if unverified:
             new_score = assessed_rubric_score(
@@ -639,6 +641,32 @@ def _publish_regrade(
         held=blind_record is not None and grade_held_for_review(blind_record.get("grading_support") or {}),
         clock=clock,
     )
+    # Replay projects supporting credit from the exercised facets already on the ledger.
+    from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION as _grading_version
+
+    if validated.exercised_facets:
+        try:
+            repository.insert_trace_exercised_facets(
+                attempt["id"],
+                [
+                    {
+                        "facet_id": observation.facet,
+                        "evidence": observation.evidence,
+                        "observation_scope": observation.observation_scope,
+                        "criterion_id": observation.criterion_id,
+                        "agent_run_id": agent_run_id,
+                        "grading_prompt_version": _grading_version,
+                    }
+                    for observation in validated.exercised_facets
+                ],
+                clock=clock,
+            )
+        except Exception:  # pragma: no cover - a bonus channel never fails a regrade
+            LOGGER.warning(
+                "failed to record trace-exercised facets on regrade of %s",
+                attempt["id"],
+                exc_info=True,
+            )
     # Q9 (diagnosis input provenance): the replay below re-mints this
     # attempt's error events; the new ones record the ids they replace.
     replaced_event_ids = [str(event["id"]) for event in repository.raw_error_events_for_attempt(attempt["id"])]
@@ -702,39 +730,8 @@ def _publish_regrade(
         related_concept_id=learning_object.concept,
         clock=clock,
     )
-    # Meas §3.A6/§3.A8: a re-grade reads the same trace and can see facets the
-    # first pass missed, and can ask a question the first pass did not. Neither
-    # is recorded by the attempt path here (that runs only inside `apply_attempt`),
-    # so without these two calls a re-grade's observations vanish and — worse — a
-    # re-grade's clarification request stamps `provisional_pending_clarification`
-    # on the attempt with no row behind it, leaving a question the learner can
-    # never be shown. Both writers are idempotent and swallow their own failures.
-    from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION as _grading_version
     from learnloop.attempts.clarification import record_clarification
 
-    if validated.exercised_facets:
-        try:
-            repository.insert_trace_exercised_facets(
-                attempt["id"],
-                [
-                    {
-                        "facet_id": observation.facet,
-                        "evidence": observation.evidence,
-                        "observation_scope": observation.observation_scope,
-                        "criterion_id": observation.criterion_id,
-                        "agent_run_id": agent_run_id,
-                        "grading_prompt_version": _grading_version,
-                    }
-                    for observation in validated.exercised_facets
-                ],
-                clock=clock,
-            )
-        except Exception:  # pragma: no cover - a bonus channel never fails a regrade
-            LOGGER.warning(
-                "failed to record trace-exercised facets on regrade of %s",
-                attempt["id"],
-                exc_info=True,
-            )
     if validated.clarification:
         try:
             record_clarification(

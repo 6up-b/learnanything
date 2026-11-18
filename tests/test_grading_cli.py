@@ -15,7 +15,9 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.clock import FrozenClock
+from learnloop.clock import FrozenClock, SystemClock
+from learnloop.substrate import replay
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import (
     AttemptDraft,
@@ -119,6 +121,40 @@ def test_reviews_lists_quarantined_then_adjudicate_clears_and_receipt(tmp_path):
     assert rec["calibration"]["calibration_model_hash"] == rec["active_interpretation"]["calibration_model_hash"]
     assert rec["calibration"]["calibration_model_hash"]
     assert rec["registry_entries"]  # resolved decision-parameter registry projection
+
+
+@pytest.mark.parametrize("interrupt", [False, True], ids=["rebuild", "rollback"])
+def test_adjudicate_replays_before_commit(tmp_path, monkeypatch, interrupt):
+    paths, vault, repo = _p0_vault(tmp_path)
+    attempt_id = _attempt(vault, repo).attempt_id
+    obs = repo.observation_by_attempt(attempt_id)["id"]
+    head = repo.active_interpretation_for_observation(obs)["id"]
+    monkeypatch.setattr(SystemClock, "now", lambda self: NOW)
+
+    def state():
+        return (repo.mastery_state("lo_svd_definition"), repo.practice_item_state(ITEM).due_at,
+                repo.facet_capability_evidence_all())
+
+    before = state()
+    evidence = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+    if interrupt:
+        def fail(*args, **kwargs):
+            raise RuntimeError("replay interrupted")
+        monkeypatch.setattr(replay, "replay_learning_object", fail)
+    out = runner.invoke(app, ["grading", "adjudicate", head, "--resolved-class", "other", "--vault", str(paths.root)])
+    if interrupt:
+        assert isinstance(out.exception, RuntimeError)
+        assert "downstream state rebuilt" not in out.output
+        assert repo.active_interpretation_for_observation(obs)["id"] == head
+        assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == evidence
+        assert state() == before
+    else:
+        assert out.exit_code == 0, out.exception
+        assert "downstream state rebuilt" in out.output
+        after = state()
+        rebuild_all_derived_state(vault, repo, clock=CLOCK)
+        assert after == state()
+        assert all(old != new for old, new in zip(before, after, strict=True))
 
 
 def test_retire_surface_from_cli_preserves_evidence_and_logs_reason(tmp_path):

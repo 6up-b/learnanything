@@ -13,13 +13,14 @@ from learnloop.ai.routing import AIProviderSelection, ResolvedClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
 from learnloop.attempts.ai_contracts import GradingContext
-from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, ExercisedFacetObservation, GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.learner.facet_state_reader import facet_recall_state_for_lo, facet_uncertainty_states_for_lo
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.attempts.regrade import run_deferred_ai_regrades, run_deferred_regrades
+from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades, run_deferred_regrades
 from learnloop.ops.startup import run_startup_maintenance
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
@@ -178,6 +179,47 @@ def test_deferred_regrade_replays_targeted_error_attribution_facets(tmp_path):
     }
     assert uncertainty["numeric"].status == "open"
     assert uncertainty["numeric"].opened_reason == "low_facet_outcome"
+
+
+def test_regrade_projects_new_exercised_supporting_facet(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    item_id = "pi_svd_define_001"
+    path = paths.practice_item_path("linear-algebra", item_id)
+    item = read_yaml(path)
+    item["grading_rubric"] = {"max_points": 4, "criteria": [{
+        "id": "correctness", "description": "Correct decomposition.", "points": 4,
+        "targets": [
+            {"facet": "recall", "capability": "procedure_execution", "role": "primary"},
+            {"facet": "algebra", "capability": "procedure_execution", "role": "supporting"},
+        ],
+    }]}
+    write_yaml(path, item)
+    write_facets(paths, [
+        {"id": "recall", "kind": "definition", "claim": "The decomposition."},
+        {"id": "algebra", "kind": "procedure_contract", "claim": "Manipulate the factors."},
+    ])
+    vault = load_vault(paths.root)
+    repo = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repo, clock=clock)
+    complete_self_graded_attempt(vault, repo, AttemptDraft(practice_item_id=item_id, learner_answer_md="U Sigma V^T"),
+                                 SelfGradeInput(criterion_points={"correctness": 4}, confidence=4), clock=clock)
+
+    class FacetGrader(_RegradeClient):
+        def run_grading_proposal(self, context):
+            proposal = super().run_grading_proposal(context)
+            return proposal.model_copy(update={"exercised_facets": [
+                ExercisedFacetObservation(facet="algebra", criterion_id="correctness", evidence="U Sigma V^T"),
+            ]})
+
+    result = run_deferred_regrades(vault, repo, runtime=_ready_runtime(),
+                                   codex_client=FacetGrader(score=4, points=4), clock=clock)
+    assert result.regraded == 1
+    live = repo.facet_capability_evidence("algebra", "procedure_execution")
+    rebuild_all_derived_state(vault, repo, clock=clock)
+    rebuilt = repo.facet_capability_evidence("algebra", "procedure_execution")
+    assert rebuilt.embedded_positive_mass > 0
+    assert live == rebuilt
 
 
 def test_deferred_regrade_preserves_blank_answer_manual_review(tmp_path):
@@ -355,7 +397,8 @@ def test_deferred_regrade_skips_when_runtime_not_ready(tmp_path):
     assert result.as_dict() == {"attempted": 0, "regraded": 0, "failed": 0, "skipped_reason": "provider_missing_config"}
 
 
-def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp_path):
+@pytest.mark.parametrize("empty", [False, True], ids=["unknown", "empty"])
+def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp_path, empty):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     vault = load_vault(vault_root)
@@ -370,11 +413,14 @@ def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp
         clock=clock,
     )
 
+    before = repository.fetch_grading_evidence(attempt.attempt_id)
+    due = repository.practice_item_state("pi_svd_define_001").due_at
+
     result = run_deferred_regrades(
         vault,
         repository,
         runtime=_ready_runtime(),
-        codex_client=_InvalidRegradeClient(),
+        codex_client=_InvalidRegradeClient(empty=empty),
         clock=clock,
     )
     evidence = repository.fetch_grading_evidence(attempt.attempt_id)
@@ -382,6 +428,8 @@ def test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed(tmp
         agent_status = connection.execute("SELECT status FROM agent_runs WHERE purpose = 'grading_regrade'").fetchone()[0]
 
     assert result.as_dict() == {"attempted": 1, "regraded": 0, "failed": 1, "skipped_reason": None}
+    assert evidence == before
+    assert repository.practice_item_state("pi_svd_define_001").due_at == due
     assert evidence[0].grader_tier == 1
     assert agent_status == "failed"
 
@@ -419,6 +467,42 @@ def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_pa
     assert result.deferred_regrades.regraded == 1
     assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
     assert repository.fetch_grading_evidence(attempt.attempt_id)[0].grader_tier == 3
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["recorded", "legacy"])
+def test_exam_regrade_selection_reads_import_record(tmp_path, legacy):
+    _, vault, repo = _exam_vault(tmp_path)
+    seeded = seed_exam_attempts(vault, repo, outcomes=_outcomes(outcomes={
+        "1": {"score": 1, "answer_md": "[imported exam outcome: score 1.00]"}, "2": 0.5,
+    }))
+    work, score, _ = seeded.entries
+    with repo.connection() as conn:
+        # A future placeholder can have any wording. Older imports had NULL notes.
+        conn.execute("UPDATE practice_attempts SET learner_answer_md = 'score supplied' WHERE id = ?", (score.attempt_id,))
+        if legacy:
+            conn.execute("UPDATE grading_evidence SET notes = NULL")
+        conn.commit()
+    eligible = [row["id"] for row in repo.pending_self_grade_regrade_attempts()]
+    assert eligible == ([score.attempt_id] if legacy else [work.attempt_id])
+
+
+def test_explicit_regrade_keeps_a_score_only_import(tmp_path):
+    _, vault, repo = _exam_vault(tmp_path)
+    seeded = seed_exam_attempts(vault, repo, outcomes=_outcomes(outcomes={"1": 0.75}))
+    attempt_id = seeded.entries[0].attempt_id
+    attempt = repo.fetch_practice_attempt(attempt_id)
+    evidence = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+    state = repo.practice_item_state(attempt["practice_item_id"])
+
+    class NoCall(_RegradeClient):
+        def run_grading_proposal(self, context):
+            pytest.fail("The grader received a score-only import")
+
+    with pytest.raises(ValueError, match="score-only exam import"):
+        regrade_attempt(vault, repo, attempt, runtime=_ready_runtime(), client=NoCall(score=4, points=4),
+                        grading_source="ai", clock=FrozenClock(NOW))
+    assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == evidence
+    assert repo.practice_item_state(attempt["practice_item_id"]) == state
 
 
 @pytest.mark.parametrize("provider_name", ["codex", "deepseek_flash"])
@@ -548,12 +632,15 @@ class _RepairingRegradeClient(_RegradeClient):
 
 
 class _InvalidRegradeClient(JointGraderAlsoBlind, StructuredClientFake):
+    def __init__(self, *, empty):
+        self.empty = empty
+
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         return GradingProposal(
             attempt_id=context.attempt_id,
             practice_item_id=context.practice_item_id,
             rubric_score=4,
-            criterion_evidence=[
+            criterion_evidence=[] if self.empty else [
                 CriterionEvidence(
                     criterion_id="missing",
                     points_awarded=4,
