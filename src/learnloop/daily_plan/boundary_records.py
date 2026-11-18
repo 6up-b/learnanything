@@ -159,8 +159,9 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
 
     own = getattr(choice, "decision_record", None)
     if own is not None and not decision.fallback and own.chosen_ref == ref(chosen):
-        # The decision's core built its own part of the record (refactor rule L6): the support's alternatives,
-        # the draw's facts and the versions. A fallback replaced its choice, so the container's rule decides then.
+        # The decision's core built its own part of the record (the support's alternatives, the draw's facts and the
+        # versions), so a branch the core gains is recorded without this module learning it. A fallback replaced
+        # the core's choice, so its record is not this decision's then.
         part, taken = own, {chosen, *support}
     else:
         part, taken = _derived_part(decision, router, mixture, seen, config=config, chosen=chosen, support=support,

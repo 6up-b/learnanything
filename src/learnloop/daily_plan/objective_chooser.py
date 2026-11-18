@@ -1034,8 +1034,9 @@ def _wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any:
 
 def _numeric_answer(entry: Any, results: dict[str, ComponentResult]) -> "NumericPolicy | None":
     """The numeric policy's answer a serve takes: the no-model branch's own, the job's final one, or, while the job
-    still waits on the LLM policy's forecasts for its optional correction (F1), its uncorrected publication, labelled
-    ``published_uncorrected`` (``results`` then names it answered); else its status alone, or None with no job."""
+    still waits on the LLM policy's forecasts for its optional correction, its uncorrected publication, labelled
+    ``published_uncorrected`` (``results`` then names it answered, so the numeric policy's availability never waits on
+    the LLM's); else its status alone, or None with no job."""
 
     material = entry.material
     numeric_result = results.get(NUMERIC)
@@ -1608,8 +1609,9 @@ class ObjectiveChooser(RouterChooser):
         if carry and numeric is not None:
             numeric = self._defer_carry(numeric, entry, decision_id)
         seed = self._seed(entry.key, decision_id)
-        # RO5 §9 item 1: what the coin is frozen with is read before its uniform (landing ruling R4: the session's
-        # minutes on the serving clock at this decision; none at the session's opening boundary).
+        # What the stop coin is frozen with is read before its uniform: the session's minutes on the serving clock
+        # at this decision (the coin skips the session's opening boundary, where no stop is being decided), then
+        # the availability, only where the coin applies.
         rate = stop_coin_rate(config)
         coin_minutes = self._session_minutes(now_iso) if C.coin_reads_minutes(rate, support) else None
         availability = ({**self._availability(state, numeric), "session_minutes": coin_minutes}
