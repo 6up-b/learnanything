@@ -1231,6 +1231,7 @@ def complete_codex_graded_attempt(
             vault=vault,
             learner_answer_md=draft.learner_answer_md,
             rubric=rubric,
+            ordinary_practice=True,
         )
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
@@ -1249,7 +1250,7 @@ def complete_codex_graded_attempt(
         # (§8). Persisting the traces here as repair suggestions would offer
         # a repair the diagnoser never chose.
         validated = replace(validated, repair_suggestions=[])
-    unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
+    unverified = tuple(dict.fromkeys([*unverified_criterion_ids, *validated.omitted_criterion_ids]))
     if unverified:
         # PF-c: the attempt's grade is over the assessed criteria only. With
         # nothing assessed and nothing validated (a hold: mvp-0.17's route
@@ -4927,12 +4928,8 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
     fsrs_weights_fitted = fsrs_weights is not FSRS6_DEFAULT_WEIGHTS
     elapsed_days = _elapsed_days(previous_state, observed_at)
     previous_memory = _memory_state(previous_state)
-    # The practice observation's real evidence eligibility decides whether the
-    # review applies: a practice administration is scheduling-eligible unless its
-    # evidence is ineligible (feedback revealed before response, quarantined /
-    # out-of-band). For an eligible practice attempt -- the common case that reaches
-    # apply_attempt -- the review applies; an INELIGIBLE observation leaves card
-    # scheduling state EXACTLY as it was (no memory rewrite, no due-date recompute).
+    # Practice grades enter as ordinary practice observations. Separate
+    # administrations carry their own purpose and feedback eligibility.
     from learnloop.substrate.activities import evidence_eligibility_for
     from learnloop.substrate.administration_adapters import hot_path_applies_practice_review
 
@@ -4948,9 +4945,6 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         primed=draft.primed,
         hints_used=draft.hints_used,
     )
-    # A grade held for review leaves the item's scheduling
-    # state exactly as it was, as an ineligible observation does,
-    # until a regrade or an adjudication assesses a criterion.
     if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
         attempt_type=draft.attempt_type,
         eligible=observation_eligible,
@@ -4963,10 +4957,8 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         review_skipped = None
     else:
-        # Skipped: scheduling state is left EXACTLY as it
-        # was. A first-ever ineligible observation creates NO memory state
-        # (never apply_review(None, ...)); a retained prior memory keeps its stored
-        # interval / due_at unchanged (never a rewritten due-date).
+        # Working the item restarts elapsed time via last_attempt_at, even
+        # when no review applies. Keep the last applied memory and due date.
         next_memory = previous_memory
         interval_days = None
         due_at = previous_state.due_at if previous_state is not None else None
@@ -5555,7 +5547,7 @@ def resolved_codex_grade(
             "learner_confidence": evidence.learner_confidence,
             "created_at": now_iso,
         }
-        for evidence in validated.criterion_evidence
+        for evidence in validated.evidence_for_storage()
     ]
     return ResolvedGrade(
         rubric_score=validated.rubric_score,

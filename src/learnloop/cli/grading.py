@@ -44,45 +44,54 @@ def grading_adjudicate(
 
     from learnloop.attempts.grade_resolution import append_adjudication
     from learnloop.substrate.p0_projection import record_reinterpretation_if_changed
+    from learnloop.substrate.replay import replay_learning_object
     from learnloop.vault.loader import load_vault
 
     root = _root(vault)
     repository = _repository(root)
-    interp = repository.grade_interpretation(interpretation_id)
-    if interp is None:
-        typer.echo(f"No grade interpretation {interpretation_id!r}.")
-        raise typer.Exit(code=1)
-    observation_id = interp["observation_id"]
-    administration_id = interp["administration_id"]
-    raws = repository.raw_grade_events_for_observation(observation_id)
-    adj = append_adjudication(
-        repository,
-        observation_id=observation_id,
-        administration_id=administration_id,
-        reviewed_raw_event_ids=[r["id"] for r in raws],
-        adjudicator_source=source,
-        resolved_class=resolved_class,
-        rationale=rationale,
-        # Ruling A: a direction flip must land as a superseding grading_evidence
-        # revision; the vault supplies rubric points where contract lineage is
-        # absent (legacy attempts).
-        vault=load_vault(root),
-    )
-    new_head = repository.grade_interpretation(adj["interpretation_id"])
-    event_id = record_reinterpretation_if_changed(
-        repository,
-        administration_id=administration_id,
-        observation_id=observation_id,
-        from_interpretation=interp,
-        to_interpretation=new_head,
-    )
+    loaded = load_vault(root)
+    with repository.atomic():
+        interp = repository.grade_interpretation(interpretation_id)
+        if interp is None:
+            typer.echo(f"No grade interpretation {interpretation_id!r}.")
+            raise typer.Exit(code=1)
+        observation_id = interp["observation_id"]
+        administration_id = interp["administration_id"]
+        raws = repository.raw_grade_events_for_observation(observation_id)
+        adj = append_adjudication(
+            repository,
+            observation_id=observation_id,
+            administration_id=administration_id,
+            reviewed_raw_event_ids=[r["id"] for r in raws],
+            adjudicator_source=source,
+            resolved_class=resolved_class,
+            rationale=rationale,
+            # Ruling A: a direction flip must land as a superseding grading_evidence
+            # revision; the vault supplies rubric points where contract lineage is
+            # absent (legacy attempts).
+            vault=loaded,
+        )
+        new_head = repository.grade_interpretation(adj["interpretation_id"])
+        event_id = record_reinterpretation_if_changed(
+            repository,
+            administration_id=administration_id,
+            observation_id=observation_id,
+            from_interpretation=interp,
+            to_interpretation=new_head,
+        )
+        attempt_id = repository.observation_attempt_id(observation_id)
+        attempt = repository.fetch_practice_attempt(attempt_id) if attempt_id else None
+        if attempt is not None:
+            replay_learning_object(loaded, repository, attempt["learning_object_id"])
     payload = {"adjudication": adj, "reinterpretation_event_id": event_id}
     if json_output:
         typer.echo(_dump(payload))
         return
     typer.echo(f"Adjudicated {interpretation_id} -> new head {adj['interpretation_id']}")
     if event_id:
-        typer.echo(f"Reinterpretation event: {event_id} (downstream state rebuilt)")
+        typer.echo(f"Reinterpretation event: {event_id}")
+    if attempt is not None:
+        typer.echo("downstream state rebuilt")
 
 @grading_app.command("receipt")
 def grading_receipt(

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from tests.structured_ai import StructuredClientFake
 
+import json
 import shutil
+
+from typer.testing import CliRunner
+from learnloop.cli import app
 
 import pytest
 
@@ -79,6 +83,48 @@ def test_seed_creates_backdated_discounted_attempts(tmp_path):
         state = repository.practice_item_state(f"pi_exam_q{question}")
         assert state is not None
         assert state.last_attempt_at.startswith(EXAM_DATE)
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+@pytest.mark.parametrize("as_json", [True, False])
+def test_seed_reports_deferred_grading_per_outcome(tmp_path, as_json, dry_run):
+    root, _vault, repo = _exam_vault(tmp_path)
+    path = tmp_path / "outcomes.json"
+    path.write_text(json.dumps({"exam_date": EXAM_DATE, "outcomes": {
+        "1": {"score": 1, "answer_md": "My solution"}, "2": {"score": 0.5, "answer_md": "  "}}}))
+    args = ["seed-exam-attempts", "--vault", str(root), "--outcomes", str(path)]
+    if dry_run:
+        args.append("--dry-run")
+    if as_json:
+        args.append("--json")
+    out = CliRunner().invoke(app, args)
+    assert out.exit_code == 0, out.exception
+    if as_json:
+        report = json.loads(out.output)["exam_seeding"]
+        assert [row["ai_will_grade"] for row in report["entries"]] == [True, False, None]
+        assert report["ai_will_grade_count"] == report["keep_imported_score_count"] == 1
+    else:
+        lines = out.output.splitlines()
+        assert any("q1 " in line and "AI will grade" in line for line in lines)
+        assert any("q2 " in line and "keeps imported score" in line for line in lines)
+        assert "ai_will_grade=1 keep_imported_score=1" in lines[-1]
+    attempts = repo.list_attempts_by_learning_object("lo_svd_definition")
+    if dry_run:
+        assert not attempts
+    else:
+        assert [{row.notes for row in repo.fetch_grading_evidence(attempt["id"])} for attempt in attempts] == [
+            {"learner_work"}, {"score_only"},
+        ]
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_seed_cannot_record_an_outcome_without_any_criterion(tmp_path, dry_run):
+    _, vault, repo = _exam_vault(tmp_path)
+    item = vault.practice_items["pi_exam_q2"]
+    item.grading_rubric.criteria.clear()
+    with pytest.raises(ExamSeedingError, match="pi_exam_q2.*no rubric criteria"):
+        seed_exam_attempts(vault, repo, outcomes=_outcomes(), dry_run=dry_run)
+    assert not repo.list_attempts_by_learning_object("lo_svd_definition")
 
 
 def test_seed_rerun_is_idempotent(tmp_path):

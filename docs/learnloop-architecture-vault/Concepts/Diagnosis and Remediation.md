@@ -46,7 +46,7 @@ Diagnosis tracks possible causes of a miss and connects them to probes and repai
 A probe episode measures against a locked set of hypotheses; the causal repair lane tracks an unresolved cause factor and its repair choices.
 Grading and diagnosis have separate roles: see [[ADR-016 Learner-blind grading with an asynchronous diagnoser]].
 
-A delayed repair check can record a pass or a fail. Feedback gives a verdict about the repair only when the final coldness receipt qualifies the check to measure its effect. If other practice on the topic came in between, for example, feedback shows the result and explains why the repair's effect is unclear.
+A passed cold check confirms the repair, including after other practice on the same facets. A failed cold check escalates it. Both verdicts require a final receipt qualifying the retrieval as cold and recording a passing administration window. A repair that showed more of the answer than its budget allows gets neither verdict. Without those facts, feedback gives the measured result and leaves the repair effect unestablished. The research receipt also checks for intervening retrieval when attributing the effect to the repair.
 
 ## Episode lifecycle
 

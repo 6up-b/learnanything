@@ -14,6 +14,7 @@ import pytest
 
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.attempts import AttemptValidationError
 from learnloop.attempts.blind_grading import (
     BLIND_CALIBRATION_PROMPT_VERSION,
     BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
@@ -28,9 +29,12 @@ from learnloop.attempts.blind_grading import (
     validate_blind_grading_proposal,
 )
 from learnloop.attempts.grading import GradingValidationError
+from learnloop.outcome_contract import unassessed_evidence_row
+from learnloop.vault.models import Rubric
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
+from tests.split_live_helpers import submit
 
 
 @pytest.fixture()
@@ -273,3 +277,45 @@ def test_shared_fakes_answer_the_blind_and_diagnosis_purposes(seeded):
     proposal = request_blind_grading_proposal(Fake(), context)
     assert proposal.rubric_score == 4 and proposal.local_analysis_md == "Correct."
     assert structured_ai._HANDLER_FOR_PURPOSE["diagnosis"] == "run_diagnosis_proposal"
+
+
+def test_reporting_only_a_zero_weight_criterion_cannot_award_the_omitted_points(seeded):
+    vault, _ = seeded
+    item = vault.practice_items["pi_svd_compute_001"]
+    rubric = vault.rubric_for_item(item)
+    setup, result = rubric.criteria
+    rubric = Rubric(criteria=[setup.model_copy(update={"points": 0}), result])
+    proposal = _proposal(
+        criterion_evidence=[{"criterion_id": "setup", "points_awarded": 0, "evidence": "setup"}],
+        repaired_traces=[],
+        error_attributions=[],
+    )
+    with pytest.raises(GradingValidationError, match="criterion evidence"):
+        validate_blind_grading_proposal(proposal, attempt_id="att_new", item=item, vault=vault, rubric=rubric)
+
+
+@pytest.mark.parametrize("empty", [True, False], ids=["empty", "partial"])
+def test_ordinary_grade_requires_assessed_evidence(seeded, empty):
+    vault, repository = seeded
+    item_id = "pi_svd_compute_001"
+
+    class SparseGrader(ReviewFakeClient):
+        def _blind_grading(self, request, context):
+            proposal = super()._blind_grading(request, context)
+            rows = [] if empty else [proposal.criterion_evidence[0].model_copy(update={"points_awarded": 2})]
+            return proposal.model_copy(update={"criterion_evidence": rows, "error_attributions": []})
+
+    before = repository.practice_item_state(item_id)
+    if empty:
+        with pytest.raises(AttemptValidationError, match="criterion evidence"):
+            submit(vault, repository, SparseGrader(), pipeline=False)
+        assert repository.practice_item_state(item_id) == before
+    else:
+        result = submit(vault, repository, SparseGrader(), pipeline=False)
+        assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 4
+        record = repository.latest_blind_grade_record(result.attempt_id)["record"]
+        assert record["rubric_score"] == 4
+        assert [row["criterion_id"] for row in record["criteria"]] == ["setup"]
+        assert record["grading_support"]["unverified_criterion_ids"] == ["result"]
+        rows = repository.fetch_grading_evidence(result.attempt_id)
+        assert {row.criterion_id for row in rows if unassessed_evidence_row(row.attribution_json)} == {"result"}

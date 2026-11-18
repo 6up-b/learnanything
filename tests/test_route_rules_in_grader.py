@@ -34,6 +34,8 @@ from learnloop.algorithm_versions import (
     SOURCE_FIRST_NEEDS_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
+from learnloop.attempts.attempts import AttemptValidationError
+from learnloop.attempts.grading import GradingValidationError
 from learnloop.attempts.blind_grading import BlindErrorAttribution
 from learnloop.attempts.grading_support import (
     HELD_REVIEW_REASON,
@@ -575,11 +577,6 @@ def _exchange(answer=CLARIFIED_ERROR, question="Why is f differentiable on the i
 
 
 def test_f1_an_omitted_criterion_is_unlocated_and_with_nothing_assessed_holds():
-    """Validation scores an omitted criterion 0 (the sum of the rows
-    present), so on a divergent route it is a mark-down with no located
-    error: unlocated, so unassessed, and the hold is computed from what is
-    actually assessed."""
-
     rule = _rule(_proposal({"setup": 0.0}))
     assert rule.applied and rule.unlocated == ("setup", "result")
     assert rule.unverified == ("result", "setup")
@@ -591,10 +588,10 @@ def test_f1_an_omitted_criterion_is_unlocated_and_with_nothing_assessed_holds():
     partial = _rule(_proposal({"setup": 2.0}))
     assert partial.unlocated == ("result",) and partial.held_for_review is False
     assert partial.assessed_shortfall is False
-    # An omitted criterion an attribution in force locates stays assessed (0).
+    # A located attribution cannot supply a missing criterion grade.
     located = _rule(_proposal({"setup": 0.0}, [_attribution("result", "x squared is positive")]))
-    assert located.unlocated == ("setup",) and located.held_for_review is False
-    assert located.assessed_shortfall is True
+    assert located.unlocated == ("setup", "result") and located.held_for_review is True
+    assert located.assessed_shortfall is False
     # Off a divergent route the rule does not read the grade at all.
     assert not _rule(_proposal({"setup": 0.0}), divergent=False).applied
 
@@ -604,6 +601,11 @@ def test_f1_live_an_incomplete_grade_with_nothing_located_is_held(tmp_path, grad
     _paths, vault, repository = split_vault(tmp_path, version=VERSION)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
+    if grader is EmptyGrader:
+        with pytest.raises(AttemptValidationError, match="criterion evidence"):
+            submit(vault, repository, grader(), answer=ALTERNATIVE)
+        assert _schedule(repository) == before
+        return
     held = submit(vault, repository, grader(), answer=ALTERNATIVE + " (again)",
                   when=CLOCK.now() + timedelta(days=3))
     attempt = repository.fetch_practice_attempt(held.attempt_id)
@@ -626,9 +628,14 @@ def test_f1_live_an_incomplete_regrade_keeps_an_existing_hold(tmp_path):
     held = submit(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE + " (again)",
                   when=CLOCK.now() + timedelta(days=3))
     for index, grader in enumerate((OmittingGrader(), EmptyGrader())):
-        regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
-                        runtime=ReadyRuntime(), client=grader, grading_source="ai",
-                        clock=FrozenClock(CLOCK.now() + timedelta(days=4 + index)))
+        kwargs = dict(runtime=ReadyRuntime(), client=grader, grading_source="ai",
+                      clock=FrozenClock(CLOCK.now() + timedelta(days=4 + index)))
+        attempt = repository.fetch_practice_attempt(held.attempt_id)
+        if isinstance(grader, EmptyGrader):
+            with pytest.raises(GradingValidationError, match="criterion evidence"):
+                regrade_attempt(vault, repository, attempt, **kwargs)
+        else:
+            regrade_attempt(vault, repository, attempt, **kwargs)
         rule = _support(repository, held.attempt_id)["proof_route_check"]
         assert rule["held_for_review"] is True, type(grader).__name__
         attempt = repository.fetch_practice_attempt(held.attempt_id)

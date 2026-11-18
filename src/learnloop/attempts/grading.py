@@ -424,6 +424,15 @@ class ValidatedCodexGrade:
     # clean rotation — whether a facet write was suppressed. `None` on every item
     # that is not an error hunt, so the A3 population stays countable.
     error_hunt: dict[str, Any] | None = None
+    omitted_criterion_ids: tuple[str, ...] = ()
+
+    def evidence_for_storage(self) -> list[ValidatedCriterionEvidence]:
+        # Replay reads unassessed markers from ledger rows. Keep the blind
+        # record and attribution checks limited to what the grader supplied.
+        return self.criterion_evidence + [
+            ValidatedCriterionEvidence(cid, 0.0, "Criterion omitted by grader.", notes="Unassessed.")
+            for cid in self.omitted_criterion_ids
+        ]
 
 
 # Deliberately stricter than canonical_projection.FAILURE_THRESHOLD (0.40).
@@ -821,6 +830,7 @@ def validate_codex_grading_proposal(
     vault: LoadedVault,
     learner_answer_md: str | None = None,
     rubric: Rubric | None = None,
+    ordinary_practice: bool = False,
 ) -> ValidatedCodexGrade:
     rubric = rubric or resolved_rubric(vault, item)
     if proposal.attempt_id != attempt_id:
@@ -829,6 +839,8 @@ def validate_codex_grading_proposal(
         raise GradingValidationError(f"Grading practice_item_id {proposal.practice_item_id} does not match {item.id}")
 
     criteria = {criterion.id: criterion for criterion in rubric.criteria}
+    if ordinary_practice and criteria and not proposal.criterion_evidence:
+        raise GradingValidationError("Ordinary practice requires criterion evidence")
     seen: set[str] = set()
     validated_evidence: list[ValidatedCriterionEvidence] = []
     for evidence in proposal.criterion_evidence:
@@ -857,7 +869,14 @@ def validate_codex_grading_proposal(
     # retained only as audit telemetry; trusting it created impossible states
     # such as an overall 4/4 "success" while a 3-point criterion was partial in
     # a rubric whose criteria were actually worth five points.
-    derived_score = int(round(sum(evidence.points_awarded for evidence in validated_evidence)))
+    awarded = sum(evidence.points_awarded for evidence in validated_evidence)
+    omitted = tuple(cid for cid in criteria if cid not in seen) if ordinary_practice else ()
+    if omitted:
+        maximum = sum(criterion.points for cid, criterion in criteria.items() if cid in seen)
+        if maximum <= 0:
+            raise GradingValidationError("Ordinary practice requires criterion evidence with a positive weight")
+        awarded = rubric.max_points * awarded / maximum
+    derived_score = int(round(awarded))
     derived_score = max(0, min(int(rubric.max_points), derived_score))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     unknown_fatal = sorted(set(proposal.fatal_errors) - set(fatal_by_id))
@@ -1524,6 +1543,7 @@ def validate_codex_grading_proposal(
     return ValidatedCodexGrade(
         rubric_score=derived_score,
         criterion_evidence=validated_evidence,
+        omitted_criterion_ids=omitted,
         fatal_errors=proposal.fatal_errors,
         error_attributions=validated_errors,
         grader_confidence=proposal.grader_confidence,

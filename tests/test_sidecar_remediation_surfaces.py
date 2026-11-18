@@ -150,15 +150,18 @@ def test_cold_check_result_reports_the_span_and_the_claim(tmp_path):
 @pytest.mark.parametrize(
     ("scenario", "points", "expected_claim", "expected_reason"),
     [
-        ("interleaved practice", 4, "repair_effect_unestablished", "attempt_on_overlapping_facets"),
-        ("interleaved practice", 0, "repair_effect_unestablished", "attempt_on_overlapping_facets"),
+        ("interleaved practice", 4, "repair_confirmed", None),
+        ("interleaved practice", 0, "escalated_unrepaired", None),
+        ("recent practice", 4, "repair_effect_unestablished", "attempt_on_overlapping_facets"),
+        ("failed window", 4, "repair_effect_unestablished", "opened_before_not_before"),
+        ("unknown window", 4, "repair_effect_unestablished", "no_administration_open_recorded"),
         ("no final receipt", 4, "repair_effect_unestablished", None),
         ("over-budget repair", 4, "repair_effect_unestablished", "episode_reveal_over_budget"),
         ("clean check", 4, "repair_confirmed", None),
         ("clean check", 0, "escalated_unrepaired", None),
     ],
 )
-def test_cold_check_feedback_obeys_the_final_repair_claim(
+def test_cold_check_feedback_requires_cold_retrieval_and_intact_window(
     tmp_path, monkeypatch, scenario, points, expected_claim, expected_reason,
 ):
     vault, repository, misconception_id = _setup(tmp_path, third_item=True)
@@ -188,13 +191,16 @@ def test_cold_check_feedback_obeys_the_final_repair_claim(
     )
     assert task["context"]["repair_class_id"]
     day1 = FrozenClock(NOW + timedelta(days=1))
-    record_administration_snapshot(vault, repository, task=task, clock=day1)
-    if scenario == "interleaved practice":
+    if scenario != "unknown window":
+        opened = repair_clock if scenario == "failed window" else day1
+        record_administration_snapshot(vault, repository, task=task, clock=opened)
+    if scenario in {"interleaved practice", "recent practice"}:
         other_item = next(
             item for item in (ITEM, "pi_svd_define_002", THIRD_ITEM)
             if item not in (treatment["primed_item_id"], cold_item)
         )
-        _attempt(vault, repository, other_item, clock=day1)
+        practice = FrozenClock(NOW + timedelta(days=2, minutes=-1)) if scenario == "recent practice" else day1
+        _attempt(vault, repository, other_item, clock=practice)
 
     if scenario == "no final receipt":
         monkeypatch.setattr(
@@ -207,6 +213,9 @@ def test_cold_check_feedback_obeys_the_final_repair_claim(
     if scenario == "no final receipt":
         assert receipt is None
     else:
+        assert receipt["derived"]["qualifies_as_cold_retrieval"] is (scenario != "recent practice")
+        expected_window = {"failed window": "fail", "unknown window": "unknown"}.get(scenario, "pass")
+        assert receipt["dimensions"]["window_integrity"]["status"] == expected_window
         assert receipt["derived"]["qualifies_as_repair_effect_verification"] is (scenario == "clean check")
 
     result = feedback_bundle(vault, repository, cold.attempt_id)["coldCheckResult"]

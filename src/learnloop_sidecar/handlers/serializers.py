@@ -746,9 +746,9 @@ def _cold_check_result(
 
     The verdict is deliberately reported in TWO parts. ``passed`` says whether
     the unassisted answer was right. ``claim`` says what the system is licensed
-    to conclude from it. A measured pass or failure can survive an intervening
-    retrieval or a missing receipt, so the outcome alone cannot answer whether
-    the repair helped.
+    to conclude from it. The learner verdict requires a cold retrieval in an
+    intact window. The receipt separately records whether the repair effect
+    can be attributed in isolation.
     """
 
     attempt_id = str(attempt["id"])
@@ -769,7 +769,14 @@ def _cold_check_result(
         passed = outcome == "cold_success"
         downgraded_reason = None
         if outcome in {"cold_success", "cold_failure"}:
-            if derived.get("qualifies_as_repair_effect_verification") is True:
+            window = ((receipt or {}).get("dimensions") or {}).get("window_integrity") or {}
+            # A repair that showed more of the answer than its budget keeps its
+            # downgrade: otherwise assistance could buy a confirmation.
+            if (
+                derived.get("qualifies_as_cold_retrieval") is True
+                and window.get("status") == "pass"
+                and not derived.get("claim_downgraded_reason")
+            ):
                 claim = "repair_confirmed" if passed else "escalated_unrepaired"
             else:
                 claim = "repair_effect_unestablished"

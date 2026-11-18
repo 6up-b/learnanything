@@ -18,6 +18,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.held_grades import attempt_grade_held
 from learnloop.substrate.activities import (
     canonical_json,
     append_observation,
@@ -1360,7 +1361,8 @@ def append_adjudication(
     ``grading_evidence`` revision (see
     :func:`append_adjudication_evidence_revision`), because the ledger — not
     the interpretation chain — is the directional authority. The returned dict
-    carries the typed outcome under ``evidence_revision``."""
+    carries the typed outcome under ``evidence_revision``. A held grade also
+    needs assessed rows when the owner confirms its provisional class."""
 
     head = repository.active_interpretation_for_observation(observation_id)
     reviewed = list(reviewed_raw_event_ids)
@@ -1487,8 +1489,8 @@ def append_adjudication(
     # Ruling A: a direction flip lands in the ledger. Fractions come from the
     # same COARSE_RESPONSE score map the projection reads, so the ledger and
     # the unresolved-cause override can never disagree about what a class is
-    # worth. Ties and unknown classes skip with a typed status — bounded-trust
-    # blends that fail to flip the leading class leave the ledger alone.
+    # worth. A held grade needs assessed rows to release it even when the
+    # adjudicated fraction matches its provisional score.
     from learnloop.attempts.outcome_schemas import (
         COARSE_RESPONSE_SLUG,
         ensure_builtin_schemas,
@@ -1505,27 +1507,26 @@ def append_adjudication(
     leading_old = _leading_class(base)
     fraction_new = score_fraction.get(str(leading_new)) if leading_new is not None else None
     fraction_old = score_fraction.get(str(leading_old)) if leading_old is not None else None
+    attempt_id = repository.observation_attempt_id(observation_id)
     if leading_new is None:
         evidence_revision = {"status": "skipped_ambiguous_leading_class", "evidence_ids": []}
     elif fraction_new is None:
         evidence_revision = {"status": "skipped_class_without_score_fraction", "evidence_ids": []}
-    elif fraction_old is not None and fraction_new == fraction_old:
+    elif fraction_new == fraction_old and not attempt_grade_held(repository, attempt_id):
         evidence_revision = {"status": "skipped_direction_unchanged", "evidence_ids": []}
+    elif attempt_id is None:
+        evidence_revision = {"status": "skipped_no_attempt", "evidence_ids": []}
     else:
-        attempt_id = repository.observation_attempt_id(observation_id)
-        if attempt_id is None:
-            evidence_revision = {"status": "skipped_no_attempt", "evidence_ids": []}
-        else:
-            evidence_revision = append_adjudication_evidence_revision(
-                repository,
-                attempt_id=attempt_id,
-                resolved_fraction=float(fraction_new),
-                adjudication_id=adjudication_id,
-                adjudicator_source=adjudicator_source,
-                rationale=rationale,
-                vault=vault,
-                clock=clock,
-            )
+        evidence_revision = append_adjudication_evidence_revision(
+            repository,
+            attempt_id=attempt_id,
+            resolved_fraction=float(fraction_new),
+            adjudication_id=adjudication_id,
+            adjudicator_source=adjudicator_source,
+            rationale=rationale,
+            vault=vault,
+            clock=clock,
+        )
     return {
         "adjudication_id": adjudication_id,
         "interpretation_id": interpretation_id,

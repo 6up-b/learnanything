@@ -27,6 +27,14 @@ from learnloop.ids import new_ulid
 from learnloop.outcome_contract import LABEL_VERSION
 
 
+# Only imports predating the work/score record need the answer-text fallback.
+_EXAM_IMPORT_HAS_WORK = """(
+    e.notes = 'learner_work'
+    OR (e.notes IS NULL AND trim(a.learner_answer_md) != ''
+        AND a.learner_answer_md NOT LIKE '[imported exam outcome: score %]')
+)"""
+
+
 @dataclass(frozen=True)
 class GradingEvidenceRecord:
     id: str
@@ -933,6 +941,19 @@ class AttemptStoreMixin:
             connection.commit()
             return cursor.rowcount
 
+    def is_score_only_exam_import(self, attempt_id: str) -> bool:
+        # An explicit regrade can arrive after the seeding rows were superseded.
+        with self.connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT MAX(CASE WHEN {_EXAM_IMPORT_HAS_WORK} THEN 1 ELSE 0 END) AS has_work
+                FROM grading_evidence e JOIN practice_attempts a ON a.id = e.attempt_id
+                WHERE a.id = ? AND e.local_grader_id = 'exam_import'
+                """,
+                (attempt_id,),
+            ).fetchone()
+        return row["has_work"] == 0  # NULL means this attempt has no import evidence.
+
     def pending_self_grade_regrade_attempts(self, limit: int | None = None) -> list[dict[str, Any]]:
         limit_clause = "" if limit is None else " LIMIT ?"
         parameters: list[Any] = [] if limit is None else [limit]
@@ -950,11 +971,7 @@ class AttemptStoreMixin:
                     -- seeder's score placeholder would overwrite real evidence.
                     AND (
                       e.local_grader_id = 'self'
-                      OR (
-                        e.local_grader_id = 'exam_import'
-                        AND trim(a.learner_answer_md) != ''
-                        AND a.learner_answer_md NOT LIKE '[imported exam outcome: score %]'
-                      )
+                      OR (e.local_grader_id = 'exam_import' AND {_EXAM_IMPORT_HAS_WORK})
                     )
                 )
                 AND NOT EXISTS (
