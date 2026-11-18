@@ -150,12 +150,11 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
     material = entry.material
     repository = Repository.attach(sqlite_path)
     config = vault.config
-    # Router speed, item 2: the card's build and the numeric policy's share one read of the combiner's fit while no
-    # write is committed between them (``reads``, OI.decision_reads; Codex review F2). Router speed stage 2, item 4:
-    # the job's own thread reuses its SQLite connections (db.connection.reused_connections: each given back reset,
-    # never shared across threads, never kept in a transaction); the model calls' threads open their own. Behind
-    # [router_objective] pooled_connections (its Codex review F2: faster builds leave the deadline-bound refinement
-    # more draws).
+    # The card's build and the numeric policy's share one read of the combiner's fit (``reads``), so no write
+    # committed between them can give the two policies different fits. The job's own thread reuses its SQLite
+    # connections (``pooled``: each given back reset, never shared across threads, never kept in a transaction); the
+    # model calls' threads open their own. Behind ``[router_objective] pooled_connections``, because faster builds
+    # leave the deadline-bound refinement more draws, and so a different choice.
     with pooled(config), runtime.spend.metered(repository, config, owner_kind=RECEIPT_OWNER,
                                                owner_id=entry.key), reads():
         threads: list[threading.Thread] = []
@@ -222,12 +221,12 @@ def _objective_job(entry: Prefetch, *, runtime: RouterRuntime, vault: Any, sqlit
         with entry.lock:
             entry.components[NUMERIC] = ComponentResult(name=NUMERIC, status=numeric.status, parsed=numeric,  # type: ignore[arg-type]
                                                         latency_ms=numeric.latency_ms, error=numeric.error)
-        # Landing ruling R12: the answer releases the serve's wait; the carried valuation runs only after it, and a
-        # serve that has already taken the answer censors that backup (``_decide_objective``).
+        # The answer releases the serve's wait before any carried valuation runs: run first, the backup would keep
+        # the serve waiting; a serve that has already taken the answer censors that backup (``_with_carried``).
         carry = carry_on(config)
-        # The follow-up batch's item 4: this decision's own carried valuation waits for the next boundary's prefetch;
-        # each answer that can serve (the final one above, an early publication) carries its own (``carried``,
-        # Codex review F3), so the serve registers it whichever comes first.
+        # With carries in the prefetch, this decision's own carried valuation waits for the next boundary's job;
+        # each answer that can serve (the final one above, an early publication) carries its own (``carried``), so the
+        # serve registers whichever it takes.
         entry.events[NUMERIC].set()
         if carry:
             # ... and this job runs the ones earlier decisions left, now that its own answer is out.
@@ -423,17 +422,16 @@ def await_job(runtime: RouterRuntime, entry: Prefetch, *, may_defer: bool, confi
 def answer_without_models(runtime: RouterRuntime, key: str, *, config: Any, card: Any, now_iso: str,
                           numeric: Callable[..., NumericPolicy], tail_snapshot: Callable[[], Any]) -> _NoModels:
     """No model is set up, so no job: the numeric policy (``numeric``, bound to the boundary's inputs) runs on this
-    thread by ``router.timeout_seconds`` from now. At the follow-up batch's tag its carried valuation is deferred (run
-    after the serve, off its path: :func:`defer_carry`); below it, RO6's landing ruling R3: no second valuation at all
-    here. ``tail_snapshot()`` is read after the deadline is set, as the decision's own thread reads it."""
+    thread by ``router.timeout_seconds`` from now, with no refinement (nothing is out). With carries in the prefetch
+    its carried valuation is deferred (:func:`defer_carry`); without, none is computed here. ``tail_snapshot()`` is
+    read after the deadline is set, in the order the chooser read them, so a clock charged per read gives the same
+    deadline."""
 
-    # The follow-up batch's item 4: at its tag the carried valuation is deferred (run after the serve, off
-    # its path); below it, R3: no second valuation at all here.
+    # Never a second valuation on the serving path: deferred to a thread of its own after the serve, or none.
     no_model_deferred: list[Callable[..., dict[str, Any]]] = []
     carry = carry_on(config)
     computed = numeric(deadline=runtime.clock() + float(config.router.timeout_seconds), clock=runtime.clock,
                        tail_snapshot=tail_snapshot(),
-                       # R3: the answer is served at once here; no second valuation on the serving path.
                        carried_valuation=carry,
                        defer_carried=no_model_deferred.append if carry else None)
     # (the answer carries its own carried valuation, ``numeric.carried``, when one is pending)
@@ -447,13 +445,12 @@ _CARRY_THREADS: list[threading.Thread] = []
 
 def defer_carry(numeric: NumericPolicy, entry: Any, decision_id: str, *, runtime: RouterRuntime, sqlite_path: Any,
                 config: Any) -> NumericPolicy:
-    """The follow-up batch's item 4 (RO6's open items 1 and 3): a decision served before its carried valuation
-    existed hands it to the next boundary's prefetch (the no-model branch, which has none, to a thread of its own
-    started after this decision), off the serving path; a later decision's trace records it. The decision's own
-    record says where its value went.
+    """A decision served before its carried valuation existed hands it to the next boundary's job (with no models,
+    to a thread of its own started after this decision), off the serving path; a later decision's trace records it.
+    The decision's own record says where its value went.
 
-    The valuation is the served answer's own (``numeric.carried``, frozen to that answer's inputs: Codex review
-    F3), so an early publication served before the job completes hands over its own, and a final answer its."""
+    The valuation is the served answer's own (``numeric.carried``, frozen to that answer's inputs), so an early
+    publication served before the job completes hands over its own, and a final answer its."""
 
     from learnloop.router_objective import tail_serve
 

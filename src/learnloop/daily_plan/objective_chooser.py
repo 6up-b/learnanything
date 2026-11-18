@@ -655,7 +655,7 @@ def _reference_description(action: V.Action, titles: Mapping[str, str]) -> str:
 
 def _policy_request(vault: Any, repository: Any, entry: Prefetch) -> rq.PolicyRequest:
     """The LLM policy's request for one boundary, built on its job's thread (:mod:`learnloop.daily_plan.objective_job`)
-    inside the job's reads: RO2's decision card over the support, the tail's next action as the reference row. The
+    inside the job's reads: the decision card over the support, the tail's next action as the reference row. The
     card's record and the request are left on the job's material, where the decision reads them."""
 
     from learnloop.daily_plan.objective_card import decision_card
