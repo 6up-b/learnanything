@@ -1267,11 +1267,16 @@ class ActivityStoreMixin:
         return [_decode_surface(row) for row in rows]
 
     def observation_by_attempt(self, attempt_id: str) -> dict[str, Any] | None:
-        """Idempotency key for backfill step 4: an attempt is replayed at most once."""
+        """The attempt's newest observation (None when it has none): the one the
+        authoritative ledger reads (``observation_ledger``, same order). Also
+        the backfill's idempotency key. A vault rebuilt before replay reused
+        observations holds one per rebuild, so the order is the query's, never
+        an index's."""
 
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
+                "SELECT * FROM activity_observations WHERE attempt_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
                 (attempt_id,),
             ).fetchone()
         return dict(row) if row is not None else None

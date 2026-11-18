@@ -222,11 +222,11 @@ Choices (owner or orchestrator):
 2. **Reproduce the base exactly.** Not possible without reproducing the defect: the branch would have to skip re-interpretation for exactly the attempts whose live observation sorts after replay's clock.
 3. **Narrow the fix.** Keep the reuse but never append an interpretation-only re-reading (append only on a regrade): no value moves on the copies' re-interpreted attempts, but calibration and projection-version changes would never reach any attempt again, which the orchestrator ruled out.
 
-Ledger D-54 records the defect; with choice 1 it is fixed by `cf96a8c566`.
+Ledger D-55 records the defect; with choice 1 it is fixed by `cf96a8c566`.
 
 ## Adjudications made before the fix
 
-A vault adjudicated and then rebuilt by the base keeps its adjudication on a superseded observation, unread after the fix too. Not repaired here (ledger D-55). Doctor could list them:
+A vault adjudicated and then rebuilt by the base keeps its adjudication on a superseded observation, unread after the fix too. Not repaired here (ledger D-56). Doctor could list them:
 
 ```sql
 SELECT ga.id AS adjudication_id, o.attempt_id
@@ -258,7 +258,7 @@ The orchestrator upheld the stop: the delta is the owner's to read before D-36 a
 | | `linear_algebra` | `arxiv_v2` | `probability` |
 |---|---|---|---|
 | attempts with an observation | 85 | 3 | 3 |
-| attempts the base never re-reads (D-54) | 13 | 2 | 1 |
+| attempts the base never re-reads (D-55) | 13 | 2 | 1 |
 | attempts the branch appends to (all among those) | 7: interpretation only | 2: raw event + interpretation | 1: raw event + interpretation |
 | why | another calibration model than at live grading (model hash, reference priors, posterior, certainty, LCB, interval, influence flag; same fallback reason, same leading class) | `raw_output_json.max_points` (live: the item's maximum; replay: the cited contract's), and then another calibration model | `max_points` only; the interpretation equals the base's |
 | attempts whose read interpretation differs from the base's | 7 | 2 | 0 |
@@ -303,7 +303,7 @@ Every changed reading is **more certain** than the one read today (9 up, 0 down)
 - **Today**: the headline and the LO classes do not move. The scheduler's selection reads `predicted_facet_recall` continuously (the `predictedCorrect` moves above); I did not build a Today plan on the copies, so whether an item's rank changes is not determined.
 - The review queue's order reads the influence flag: 9 grades lose it, but none of them is flagged for review, so the queue is empty on every copy either way.
 
-## D-54 for the owner
+## D-55 for the owner
 
 Since `mvp-0.8` (commit `02c3e6e10f`, 2026-07-21, which added the grade channel's dual write; the code tagged `pre-floor` has it), every answer's attempt row and its grade observation are stamped by the wall clock at whole seconds, in one transaction, with the observation written last. When that transaction crosses a second boundary, the observation is stamped one or two seconds after the attempt. A rebuild re-mints the observation at the attempt's own time, so for those answers every re-mint sorts before the live observation, and the projection, which reads each answer's newest observation, kept reading the one written when the answer was graded. A rebuild has therefore never re-interpreted those answers under a newer calibration model (13 of 85 answers on `linear_algebra`, 2 of 3 on `arxiv_v2`, 1 of 3 on `probability`), and a practice regrade of one of them would have reached the projection's grade channel only through its grading-evidence direction, not through its interpretation. On the three copies that second fault did no harm: 8 answers were regraded (7, 1, 0), 1 of them is such an answer, and every answer's read grade channel carries its current score at the base (0 of 91 differ, base and branch alike). Nothing else reads the observation's order: mastery, due dates, every other derived table and the review queue are unaffected. With D-36's fix those answers are re-read once, at the first rebuild under `mvp-0.59`, which is what moves the facet cells above.
 
