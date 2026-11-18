@@ -30,6 +30,7 @@ This module is a leaf: it imports only the primitives (``learnloop.ids``).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -76,6 +77,18 @@ def is_code(value: Any) -> bool:
     """
 
     return isinstance(value, str) and _TOKEN.fullmatch(value) is not None
+
+
+def ref(value: Any) -> str | None:
+    """An option's id as a record keeps it: the id itself, or a short hash of one that isn't a code (a space in a
+    vault's id would otherwise drop the whole record)."""
+
+    if value is None:
+        return None
+    text = str(value)
+    if is_code(text):
+        return text
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 _COLUMNS = (
     "id", "trace_id", "parent_id", "kind", "status", "subject_kind", "subject_id", "chosen_ref", "decided_by",

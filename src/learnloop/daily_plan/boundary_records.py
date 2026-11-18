@@ -24,13 +24,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timezone
-import hashlib
 import math
 import re
 from typing import Any
 
 from learnloop import provenance
-from learnloop.provenance import DecisionRecord
+from learnloop.provenance import DecisionRecord, ref
 
 PLAN_BLOCK = "plan_block"
 MODEL_ANSWER = "model_answer"
@@ -52,18 +51,6 @@ def wall_now() -> str:
     """The wall clock in the receipts' format (``ai.execution``): a record's time is compared with theirs."""
 
     return datetime.now(timezone.utc).isoformat()
-
-
-def ref(value: Any) -> str | None:
-    """An option's id as a record keeps it: the id itself, or a short hash of one that isn't a code (a space in a
-    vault's id would otherwise drop the whole record)."""
-
-    if value is None:
-        return None
-    text = str(value)
-    if provenance.is_code(text):
-        return text
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
 def _code(value: Any) -> str | None:
