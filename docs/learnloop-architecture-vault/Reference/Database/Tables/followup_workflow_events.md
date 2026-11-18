@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_migration.py`
 - `tests/test_followup_reserved_only.py`
+- `tests/test_goal_series.py`
 - `tests/test_mobile_v3_probes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

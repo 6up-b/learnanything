@@ -101,6 +101,7 @@ None found by exact static reference scan.
 
 - `tests/followup_migration_helpers.py`
 - `tests/teacher_te2_migration_helpers.py`
+- `tests/test_goal_series.py`
 - `tests/test_teacher_te2_lessons.py`
 - `tests/test_teacher_te2_migration.py`
 - `tests/test_teacher_te2_probes.py`

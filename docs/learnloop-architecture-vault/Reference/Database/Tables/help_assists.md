@@ -199,8 +199,8 @@ None found by exact static reference scan.
 - `tests/test_figure_predictions.py`
 - `tests/test_figures_help.py`
 - `tests/test_followups_nov2_help_fold.py`
+- `tests/test_goal_series.py`
 - `tests/test_help_assist_figures_migration.py`
-- `tests/test_help_assist_work_md_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -127,6 +127,7 @@ Database triggers:
 
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/test_goal_series.py`
 - `tests/diagnosis_input_provenance_helpers.py`
 - `tests/mcp_world.py`
 - `tests/test_diagnosis_async_router.py`

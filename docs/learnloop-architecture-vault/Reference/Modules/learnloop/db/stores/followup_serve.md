@@ -160,6 +160,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_binding_is_appended_and_the_row_stays_as_it_was`
 - [tests/test_followup_workflow.py](../../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_settled_workflow_takes_nothing_more`
+- [tests/test_goal_series.py](../../../../../../../tests/test_goal_series.py) — direct import
 - [tests/test_ih2_lessons_compete.py](../../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_a_lesson_win_after_a_miss_generates_nothing_and_the_offer_page_opens_from_next`
   - `test_a_probe_win_after_a_miss_generates_and_serves_as_before`

@@ -109,6 +109,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/test_goal_series.py`
 - `tests/test_sidecar_trace_and_clarification.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

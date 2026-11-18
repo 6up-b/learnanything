@@ -150,6 +150,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/test_goal_series.py`
 - `tests/test_help_outcomes.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_required_method_grading.py`
@@ -168,7 +169,6 @@ Database triggers:
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_forecast_receipts.py`
-- `tests/test_grading_support.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

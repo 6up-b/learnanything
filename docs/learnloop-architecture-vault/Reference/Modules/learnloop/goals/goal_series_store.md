@@ -46,38 +46,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py) |
-| Source lines | 109 |
+| Source lines | 132 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `prune_rows(connection, table: str, column: str, values: list[Any], *, delete_rows: bool=True, depth: int=0) -> None` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 63) — Prune scratch rows while respecting non-cascading foreign keys.
+- `drop_scratch_delete_guards(connection) -> list[str]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 17) — Drop the scratch copy's append-only delete guards, so replay can prune it.
+- `prune_rows(connection, table: str, column: str, values: list[Any], *, delete_rows: bool=True, depth: int=0) -> None` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 86) — Prune scratch rows while respecting non-cascading foreign keys.
 
 ### Module constants
 
-- `_MAX_PRUNE_DEPTH` ([src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py), line 9)
-- `_PRUNE_CHUNK` ([src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py), line 10)
+- `_MAX_PRUNE_DEPTH` ([src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py), line 10)
+- `_PRUNE_CHUNK` ([src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py), line 11)
+- `_DELETE_GUARD` ([src/learnloop/goals/goal_series_store.py](../../../../../../src/learnloop/goals/goal_series_store.py), line 14)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `drop_scratch_delete_guards`
 - `prune_rows`
 
 ## Internal implementation anchors
 
-- `_chunked(values: list[Any]) -> list[list[Any]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 13)
-- `_referencing_columns(connection, table: str) -> list[tuple[str, str, str, str]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 20) — Return child references as ``(table, column, parent, on_delete)``.
-- `_distinct_column(connection, table: str, column: str, key: str, values: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 40)
+- `_chunked(values: list[Any]) -> list[list[Any]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 36)
+- `_referencing_columns(connection, table: str) -> list[tuple[str, str, str, str]]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 43) — Return child references as ``(table, column, parent, on_delete)``.
+- `_distinct_column(connection, table: str, column: str, key: str, values: list[Any]) -> list[Any]` ([source](../../../../../../src/learnloop/goals/goal_series_store.py), line 63)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `prune_rows`; statically calls `prune_rows`
+- [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `drop_scratch_delete_guards`, `prune_rows`; statically calls `drop_scratch_delete_guards`, `prune_rows`
 
 ## Dependencies
 
@@ -87,7 +90,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `typing`
+- Standard library: `__future__`, `re`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -102,9 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_goal_series.py](../../../../../../tests/test_goal_series.py) — imports consumer [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]]
+- [tests/test_goal_series.py](../../../../../../tests/test_goal_series.py) — direct import
+  - `test_the_scratch_guard_drop_reads_every_delete_guard_from_the_schema`
 
 ## Modification guidance
 

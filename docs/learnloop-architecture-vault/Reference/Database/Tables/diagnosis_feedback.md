@@ -118,6 +118,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/test_goal_series.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_diagnosis_card.py`
 

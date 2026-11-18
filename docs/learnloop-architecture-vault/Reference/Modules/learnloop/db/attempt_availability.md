@@ -119,6 +119,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_available_at_is_received_at_else_created_at`
+  - `test_blank_received_at_stores_null_and_agrees_at_cutoffs`
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`
   - `test_the_router_cards_decision_time_reads_use_availability_at_the_tag`
 - [tests/test_ro1_availability_reads.py](../../../../../../tests/test_ro1_availability_reads.py) — direct import

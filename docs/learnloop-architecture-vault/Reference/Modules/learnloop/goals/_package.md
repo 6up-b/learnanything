@@ -76,7 +76,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] | [[Reference/Modules/learnloop/goals/goal_pace#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] | [[Reference/Modules/learnloop/goals/goal_projection#^module-purpose|purpose]] | `ACTIVE` | 22 | 9 |
 | [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] | [[Reference/Modules/learnloop/goals/goal_series#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] | [[Reference/Modules/learnloop/goals/goal_series_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] | [[Reference/Modules/learnloop/goals/goal_series_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/goals/receipt_contributions|learnloop.goals.receipt_contributions]] | [[Reference/Modules/learnloop/goals/receipt_contributions#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/goals/use_weights|learnloop.goals.use_weights]] | [[Reference/Modules/learnloop/goals/use_weights#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 

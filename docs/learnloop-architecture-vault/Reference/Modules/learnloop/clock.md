@@ -1219,6 +1219,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unreachable_contract_cell_makes_attempts_unknowable`
 - [tests/test_goal_series.py](../../../../../tests/test_goal_series.py) — direct import
   - `test_series_caps_points_and_keeps_recent_window`
+  - `test_series_prunes_append_only_rows_only_in_scratch`
   - `test_series_reflects_evidence_arriving_over_time`
   - `test_series_replays_past_an_adjudicated_attempt`
   - `test_series_replays_past_non_cascading_attempt_references`
@@ -1827,6 +1828,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro0_row5_event_times.py](../../../../../tests/test_ro0_row5_event_times.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../tests/test_ro1_availability.py) — direct import
   - `test_an_ordinary_attempt_records_no_received_at`
+  - `test_blank_received_at_stores_null_and_agrees_at_cutoffs`
   - `test_the_weeks_activity_counts_an_import_inside_its_week_once_it_is_known`
 - [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
 - [tests/test_ro1_interval_factor.py](../../../../../tests/test_ro1_interval_factor.py) — direct import

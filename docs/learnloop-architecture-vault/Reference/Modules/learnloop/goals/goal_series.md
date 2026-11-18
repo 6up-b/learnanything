@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_series.py](../../../../../../src/learnloop/goals/goal_series.py) |
-| Source lines | 247 |
+| Source lines | 249 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `backup_database`; calls `backup_database`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`; calls `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`
-- [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] — imports `prune_rows`; calls `prune_rows`
+- [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] — imports `drop_scratch_delete_guards`, `prune_rows`; calls `drop_scratch_delete_guards`, `prune_rows`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `rebuild_derived_state`; calls `rebuild_derived_state`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `Goal`, `LoadedVault`
 
@@ -111,6 +111,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_goal_series.py](../../../../../../tests/test_goal_series.py) — direct import
   - `test_series_caps_points_and_keeps_recent_window`
+  - `test_series_prunes_append_only_rows_only_in_scratch`
   - `test_series_reflects_evidence_arriving_over_time`
   - `test_series_replays_past_an_adjudicated_attempt`
   - `test_series_replays_past_non_cascading_attempt_references`

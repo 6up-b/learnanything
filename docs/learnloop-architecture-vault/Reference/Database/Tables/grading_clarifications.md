@@ -112,6 +112,7 @@ None found by exact static reference scan.
 
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_route_rules_in_grader.py`
+- `tests/test_goal_series.py`
 - `tests/test_mobile_phone_contract.py`
 - `tests/test_sidecar_trace_and_clarification.py`
 
