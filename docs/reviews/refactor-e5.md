@@ -129,7 +129,8 @@ Commits, in order (in this worktree, on `refactor/e5-objective-apart`):
 4. `a016539ec0`: `_terms`'s one comment says why without naming a ruling; the structure golden.
 5. `03fd594dd2`: `test_rofu_carried`'s three patches of `OC.V.evaluate`, which the first targeted run found (it
    reached the module through the chooser's alias and never imported it, so the script's pattern missed it).
-6. This record, the vault note, the status row; then the regenerated references.
+6. `b8288f4e2f`: the Router Objective vault note, the router notes' and the Developer Map's pointers, the status row.
+7. `18da825269`: the regenerated references. 8. This record.
 
 Mechanical edits by script, each exact-pattern and asserted to match: the four modules were written from the base's
 exact line ranges of `value.py` (`git show d69880ac7b:...`, every line of it placed once except the docstring, the
