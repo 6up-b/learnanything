@@ -26,7 +26,7 @@ import pytest
 from learnloop.content.authoring import pf_sandbox
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as figure_store
-from learnloop.diagnosis.text_gaps import sources as gap_sources
+from learnloop.diagnosis.text_gaps import figure_inputs
 from learnloop.diagnosis.text_gaps.jobs import sweep_backlog
 from learnloop.figures import grammar as G
 from learnloop.figures import build as FB
@@ -80,7 +80,7 @@ def test_f1_a_later_explanation_of_a_held_out_figure_is_skipped_too(tmp_path, mo
     assert [outcome.state for outcome in _drain(paths.root, repository, clients)] == ["done"]
     sent = len(llm.calls)
     call(ctx, "reader.figure_explain", {"predictionId": prediction_id, "text": "p sets the split"})
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     assert ("reader_formative", explained, "queued") in _gap_jobs(repository)
     _hold_out(monkeypatch, "p5")  # the caption paragraph after the figure: context only
     outcomes = _drain(paths.root, repository, clients)
@@ -231,7 +231,7 @@ def test_f7_a_build_committed_between_the_reads_is_reused_inside_the_lock(tmp_pa
 def test_f5_off_save_on_sweep_reads_the_explanation_once(tmp_path):
     paths, repository, ctx, found = _missed_prediction(tmp_path)
     prediction_id = found["predictionId"]
-    explained = prediction_id + gap_sources.FIGURE_EXPLANATION_SUFFIX
+    explained = prediction_id + figure_inputs.FIGURE_EXPLANATION_SUFFIX
     _llm, clients = _clients()
     assert [outcome.state for outcome in _drain(paths.root, repository, clients)] == ["done"]
     _gaps_switch(paths, False)

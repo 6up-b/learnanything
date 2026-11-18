@@ -208,12 +208,12 @@ def enqueue_figure_explanation(
     its reading reads the text as it is then, explanation included. Once
     that reading has started or finished (or never had a job), the
     explanation is its own text, ``<prediction id>`` +
-    :data:`~.sources.FIGURE_EXPLANATION_SUFFIX` (the answer with the
+    :data:`~.figure_inputs.FIGURE_EXPLANATION_SUFFIX` (the answer with the
     explanation): a later reading that may name or clear a different gap,
     the earlier one kept as it was read (Codex review F5). Same switches as
     the prediction."""
 
-    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX
+    from learnloop.diagnosis.text_gaps.figure_inputs import FIGURE_EXPLANATION_SUFFIX
 
     if not pipeline_enabled(vault) or not figures_enabled(vault):
         return None
@@ -465,7 +465,8 @@ def _unread_figure_explanations(repository: Repository, job_rows: Mapping[tuple[
     source already queued or read (the caller's ``known``). ``job_rows`` and
     ``gap_rows`` are read before this sweep queued anything."""
 
-    from learnloop.diagnosis.text_gaps.sources import FIGURE_EXPLANATION_SUFFIX, explained_predictions
+    from learnloop.diagnosis.text_gaps.figure_inputs import FIGURE_EXPLANATION_SUFFIX
+    from learnloop.diagnosis.text_gaps.sources import explained_predictions
 
     owed: list[str] = []
     for prediction_id, _explanation in explained_predictions(repository):

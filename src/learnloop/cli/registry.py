@@ -119,6 +119,7 @@ def registry_certify(
 
     from learnloop.params import parameter_registry as pr
     from learnloop.params import sensitivity_certificates as sc
+    from learnloop.sim import certify as certification
     from learnloop.sim.profiles import ProfileError, load_profile
 
     if ":" in path:
@@ -143,7 +144,7 @@ def registry_certify(
     # The sweep's simulated vault copies are scratch: the certificate keeps only
     # its metrics, so the directory is removed even when the sweep raises.
     with tempfile.TemporaryDirectory(prefix="learnloop-certify-") as scratch:
-        certificate = sc.certify(
+        certificate = certification.certify(
             path=path,
             covered_value=covered_value,
             low=low,
@@ -204,6 +205,7 @@ def registry_promote(
 
     from learnloop.params import parameter_registry as pr
     from learnloop.params import sensitivity_certificates as sc
+    from learnloop.sim import certify as certification
     from learnloop.sim.profiles import ProfileError, load_profile
 
     if ":" in path:
@@ -228,7 +230,7 @@ def registry_promote(
     # The sweep's simulated vault copies are scratch: the certificate keeps only
     # its metrics, so the directory is removed even when the sweep raises.
     with tempfile.TemporaryDirectory(prefix="learnloop-promote-") as scratch:
-        certificate = sc.certify(
+        certificate = certification.certify(
             path=path,
             covered_value=covered_value,
             low=low,
