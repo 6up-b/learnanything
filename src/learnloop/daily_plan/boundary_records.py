@@ -155,18 +155,18 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
     decided_at = seen.get("decided_wall") or wall_now()
     crashed = decision.fallback_reason == "chooser_error"
     chosen = choice.candidate_id
-    pi = dict(mixture.get("pi") or {})
     support = [str(option) for option in mixture.get("support") or ()]
-    fallback_from = decision.fallback_from if decision.fallback and not crashed else None
 
-    alternatives: list[dict[str, Any]] = []
-    if fallback_from is not None and fallback_from != chosen:
-        alternatives.append({"ref": ref(fallback_from), "lost_by": _code(decision.fallback_reason)})
-    taken = {chosen, *(item["ref"] for item in alternatives)}
-    for option in support:
-        if option not in taken:
-            alternatives.append(_compact({"ref": ref(option), "p": _number(pi.get(option)), "lost_by": "not_drawn"}))
-            taken.add(option)
+    own = getattr(choice, "decision_record", None)
+    if own is not None and not decision.fallback and own.chosen_ref == ref(chosen):
+        # The decision's core built its own part of the record (refactor rule L6): the support's alternatives,
+        # the draw's facts and the versions. A fallback replaced its choice, so the container's rule decides then.
+        part, taken = own, {chosen, *support}
+    else:
+        part, taken = _derived_part(decision, router, mixture, seen, config=config, chosen=chosen, support=support,
+                                    crashed=crashed)
+
+    alternatives = list(part.alternatives)
     feasible_ids = [candidate.candidate_id for candidate in decision.feasible]
     for option in feasible_ids:
         if option not in taken:
@@ -180,44 +180,25 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
     timeouts = {"timeout_s": _number(config.router.timeout_seconds),
                 "prefetch_timeout_s": _number(config.router.prefetch_timeout_seconds)}
     waited_ms = _number(mixture.get("waited_ms")) if "waited_ms" in mixture else _number(seen.get("waited_ms"))
-    model_ids = dict(router.get("model_ids") or {})
-    block = DecisionRecord(
-        kind=PLAN_BLOCK,
-        status="fallback" if decision.fallback else "chosen",
+    block = replace(
+        part,
         subject_kind="block",
         subject_id=block_id,
-        chosen_ref=ref(chosen),
-        decided_by="lane_quota" if decision.fallback else _code(router.get("decided_by") or choice.chosen_by),
-        rule=_code(decision.fallback_reason) if decision.fallback else _code(router.get("why_code")),
         alternatives=tuple(alternatives),
         facts=_compact({
+            **part.facts,
             "stop": bool(stop),
             "stop_offered": bool(decision.stop_offered),
-            "propensity": _number(choice.propensity),
             "feasible_n": len(feasible_ids),
             "candidates_n": len(decision.candidates),
             **timeouts,
             "waited_ms": waited_ms,
             "may_defer": seen.get("may_defer"),
-            "boundary_key": _code(mixture.get("boundary_key") or seen.get("boundary_key")),
             "prefetch_trace": _code(seen.get("prefetch_trace")),
-            "chooser_decided_by": _code(router.get("decided_by")) if decision.fallback else None,
-            "drawn_component": _code(mixture.get("drawn_component") or router.get("drawn_component")),
-            "mix_fallback": _code(router.get("fallback")),
-            "option_count": _number(router.get("option_count")),
             "card_error": _code(router.get("card_error")),
             "trigger_attempt": ref(trigger_attempt),
             **_forced(seen.get("forced") or ()),
             **_superseding(seen.get("superseding")),
-        }),
-        versions=_compact({
-            "algorithm_version": _code(getattr(config.algorithms, "algorithm_version", None)),
-            "policy": _code(router.get("policy")),
-            "design": _code(router.get("design")),
-            "seed": _code(router.get("seed")),
-            "why_version": _code(router.get("why_version")),
-            "question_set_version": _code(router.get("question_set_version")),
-            "llm_schema_version": _code(model_ids.get("llm_schema_version")),
         }),
         detail_table="router_decisions" if detail_id else None,
         detail_id=detail_id,
@@ -237,6 +218,52 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
         records.append(replace(failure, parent_id=block.id, trace_id=block.trace_id, subject_kind=block.subject_kind,
                                subject_id=block.subject_id, created_at=block.created_at, id=failure.id or provenance.new_record_id()))
     return records
+
+
+def _derived_part(decision: Any, router: Mapping[str, Any], mixture: Mapping[str, Any], seen: Mapping[str, Any], *,
+                  config: Any, chosen: str, support: list[str], crashed: bool) -> tuple[DecisionRecord, set[str]]:
+    """The decision's own part of its record, read off the chooser's record dict, for a chooser with no core that
+    returns one (staged, the R2 mixture) and for every fallback; with the refs it names, which the container's
+    alternatives then skip."""
+
+    choice = decision.choice
+    pi = dict(mixture.get("pi") or {})
+    fallback_from = decision.fallback_from if decision.fallback and not crashed else None
+    alternatives: list[dict[str, Any]] = []
+    if fallback_from is not None and fallback_from != chosen:
+        alternatives.append({"ref": ref(fallback_from), "lost_by": _code(decision.fallback_reason)})
+    taken = {chosen, *(item["ref"] for item in alternatives)}
+    for option in support:
+        if option not in taken:
+            alternatives.append(_compact({"ref": ref(option), "p": _number(pi.get(option)), "lost_by": "not_drawn"}))
+            taken.add(option)
+    model_ids = dict(router.get("model_ids") or {})
+    part = DecisionRecord(
+        kind=PLAN_BLOCK,
+        status="fallback" if decision.fallback else "chosen",
+        chosen_ref=ref(chosen),
+        decided_by="lane_quota" if decision.fallback else _code(router.get("decided_by") or choice.chosen_by),
+        rule=_code(decision.fallback_reason) if decision.fallback else _code(router.get("why_code")),
+        alternatives=tuple(alternatives),
+        facts=_compact({
+            "propensity": _number(choice.propensity),
+            "boundary_key": _code(mixture.get("boundary_key") or seen.get("boundary_key")),
+            "chooser_decided_by": _code(router.get("decided_by")) if decision.fallback else None,
+            "drawn_component": _code(mixture.get("drawn_component") or router.get("drawn_component")),
+            "mix_fallback": _code(router.get("fallback")),
+            "option_count": _number(router.get("option_count")),
+        }),
+        versions=_compact({
+            "algorithm_version": _code(getattr(config.algorithms, "algorithm_version", None)),
+            "policy": _code(router.get("policy")),
+            "design": _code(router.get("design")),
+            "seed": _code(router.get("seed")),
+            "why_version": _code(router.get("why_version")),
+            "question_set_version": _code(router.get("question_set_version")),
+            "llm_schema_version": _code(model_ids.get("llm_schema_version")),
+        }),
+    )
+    return part, taken
 
 
 def component_records(block: DecisionRecord, router: Mapping[str, Any], mixture: Mapping[str, Any], *,

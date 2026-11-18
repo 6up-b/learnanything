@@ -95,6 +95,7 @@ from learnloop.daily_plan.types import (
 from learnloop.ids import new_ulid
 from learnloop.router import requests as rq
 from learnloop.router import why as router_why
+from learnloop.router_objective import choose as C
 from learnloop.router_objective import mix
 from learnloop.router_objective import price as P
 from learnloop.router_objective import stop_coin as SC
@@ -119,9 +120,9 @@ CARRIED = "numeric_carried_valuation"
 CARRY_LIMIT = 32
 _CARRY_LOCK = threading.Lock()
 _CARRY: dict[str, list[dict[str, Any]]] = {}
-MODE = "objective"
+MODE = C.MODE
 KEY_VERSION = 1
-WHY_VERSION = "router_why_v3"
+WHY_VERSION = C.WHY_VERSION
 #: Per decision: the LLM policy's and the numeric policy's statuses a share can fall back from.
 _FAILURES = frozenset({TIMEOUT, FAILED, INVALID, NOT_READY, "spend", "unreachable"})
 
@@ -1031,6 +1032,32 @@ def _wait_llm(entry: Prefetch, runtime: RouterRuntime) -> Any:
     return _llm_forecasts(entry)
 
 
+def _numeric_answer(entry: Any, results: dict[str, ComponentResult]) -> "NumericPolicy | None":
+    """The numeric policy's answer a serve takes: the no-model branch's own, the job's final one, or, while the job
+    still waits on the LLM policy's forecasts for its optional correction (F1), its uncorrected publication, labelled
+    ``published_uncorrected`` (``results`` then names it answered); else its status alone, or None with no job."""
+
+    material = entry.material
+    numeric_result = results.get(NUMERIC)
+    numeric: NumericPolicy | None = material.get("numeric")
+    if numeric is None and numeric_result is not None:
+        lock = getattr(entry, "lock", None)
+        if lock is not None:
+            with lock:
+                published = material.get(PUBLISHED)
+        else:
+            published = material.get(PUBLISHED)
+        if isinstance(numeric_result.parsed, NumericPolicy):
+            numeric = numeric_result.parsed
+        elif numeric_result.status == TIMEOUT and isinstance(published, NumericPolicy):
+            numeric = replace(published, stage="published_uncorrected")
+            results[NUMERIC] = ComponentResult(name=NUMERIC, status=ANSWERED, parsed=numeric,  # type: ignore[arg-type]
+                                               latency_ms=numeric.latency_ms)
+        else:
+            numeric = NumericPolicy(status=numeric_result.status, error=numeric_result.error)
+    return numeric
+
+
 # -- the decision -------------------------------------------------------------------------------------------
 
 
@@ -1096,6 +1123,14 @@ def _offer_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.Bl
 
 def _is_contest(candidate: BlockCandidate) -> bool:
     return bool((candidate.annotations or {}).get(FOLLOWUP_CONTEST_NOTE))
+
+
+def _option_facts(candidate: BlockCandidate) -> C.OptionFacts:
+    """What the choice's rule sentence reads of a candidate (``router_chooser._rule_sentence``'s annotations)."""
+
+    notes = dict(candidate.annotations or {})
+    return C.OptionFacts(reason_code=str(notes.get("reason_code") or ""), topic=notes.get("topic"),
+                         section=notes.get("section"))
 
 
 def _contest_option(candidate: BlockCandidate, titles: Mapping[str, str]) -> rq.BlockOption:
@@ -1545,78 +1580,60 @@ class ObjectiveChooser(RouterChooser):
                           record: dict[str, Any], support: Sequence[str], by_id: Mapping[str, BlockCandidate],
                           feasible: Sequence[BlockCandidate], readiness: Mapping[str, str | None],
                           settings: Mapping[str, Any], now_iso: str) -> BlockChoice:
+        """The boundary's decision in three parts: the reads gathered into ``ChoiceInputs``, the choice
+        (:func:`learnloop.router_objective.choose.choose`, pure), then what the decision writes from it (its trace,
+        the router's record and the served block). Nothing between the reads and the writes decides."""
+
         config = self.vault.config
         material = entry.material
         card = material["card"]
+        # -- the reads --------------------------------------------------------------------------------------
         results = entry.results()
         results_at = wall_now()  # a model answering after this was discarded (``why``)
         for name in (DECIDER, LLM):
             if name not in results:
                 results[name] = ComponentResult(name=name, status=NOT_READY, error=str(readiness.get(name) or "not_ready"))
-        numeric_result = results.get(NUMERIC)
-        numeric: NumericPolicy | None = material.get("numeric")
-        if numeric is None and numeric_result is not None:
-            lock = getattr(entry, "lock", None)
-            if lock is not None:
-                with lock:
-                    published = material.get(PUBLISHED)
-            else:
-                published = material.get(PUBLISHED)
-            if isinstance(numeric_result.parsed, NumericPolicy):
-                numeric = numeric_result.parsed
-            elif numeric_result.status == TIMEOUT and isinstance(published, NumericPolicy):
-                # F1: the job answered and is still waiting on the LLM policy's forecasts for its optional
-                # correction; its uncorrected answer serves, labelled.
-                numeric = replace(published, stage="published_uncorrected")
-                results[NUMERIC] = ComponentResult(name=NUMERIC, status=ANSWERED, parsed=numeric,  # type: ignore[arg-type]
-                                                   latency_ms=numeric.latency_ms)
-            else:
-                numeric = NumericPolicy(status=numeric_result.status, error=numeric_result.error)
-        numeric = _with_carried(numeric, entry)
+        numeric = _with_carried(_numeric_answer(entry, results), entry)
         llm = results[LLM]
-        llm_dist = (dict(llm.parsed.distribution) if llm.status == ANSWERED and isinstance(llm.parsed, rq.ParsedPolicy)
-                    else None)
-        numeric_ok = numeric is not None and numeric.status == ANSWERED and numeric.choice in support
-        failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
+        parsed = llm.parsed if llm.status == ANSWERED and isinstance(llm.parsed, rq.ParsedPolicy) else None
+        llm_dist = dict(parsed.distribution) if parsed is not None else None
+        rationale = getattr(parsed, "rationale", None) if parsed is not None else None
+        cited = tuple(getattr(parsed, "evidence_ids", ()) or ()) if parsed is not None else ()
         w, weight_record = current_weight(self.repository, config, at=now_iso)
         to_other = failure_share_to_other_policy_on(config)
-        effective = mix.effective_weights(w, failed, to_other_policy=to_other)
-        parts = mix.components(list(support), staged_ref, llm=llm_dist,
-                               numeric_ref=numeric.choice if numeric_ok and numeric is not None else None)
         decision_id = new_ulid()
         carry = _carry_on(config)
+        # The served answer's carried valuation is registered here, before the choice, which never reads it: it
+        # needs only the answer and the decision's id, and it leaves the answer's status and choice as they were.
         if carry and numeric is not None:
             numeric = self._defer_carry(numeric, entry, decision_id)
         seed = self._seed(entry.key, decision_id)
-        drawn = mix.draw(list(support), parts, effective, float(settings["epsilon_min"]), seed)
-        # RO5 §9 item 1: the stop coin, on its own uniform, never the mix's; the availability it is frozen with is
-        # read before that uniform. ``policy`` serves the mix's draw.
-        coin = None
+        # RO5 §9 item 1: what the coin is frozen with is read before its uniform (landing ruling R4: the session's
+        # minutes on the serving clock at this decision; none at the session's opening boundary).
         rate = stop_coin_rate(config)
-        # Landing ruling R4: the coin skips the session's opening boundary (no active minute yet: not a stop
-        # decision); the minutes are the serving clock's at this decision, read before the coin's uniform.
-        coin_minutes = self._session_minutes(now_iso) if rate > 0 and SC.STOP in support else None
-        if rate > 0 and SC.eligible(support, session_minutes=coin_minutes):
-            coin = SC.flip(seed, rate, support=list(support), mu=drawn.pi, drawn=drawn.chosen,
-                           availability={**self._availability(state, numeric), "session_minutes": coin_minutes})
-        served_ref = coin.served if coin is not None else drawn.chosen
-        chosen = by_id.get(served_ref)
-        code, rule = _rule_sentence(chosen, state) if chosen is not None else ("stop_offer", router_why.sentence("stop_offer"))
-        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
-        rationale = getattr(llm.parsed, "rationale", None) if llm_dist is not None else None
-        cited = tuple(getattr(llm.parsed, "evidence_ids", ()) or ()) if llm_dist is not None else ()
-        favoured = max(llm_dist, key=lambda ref: llm_dist[ref]) if llm_dist else None
+        coin_minutes = self._session_minutes(now_iso) if C.coin_reads_minutes(rate, support) else None
+        availability = ({**self._availability(state, numeric), "session_minutes": coin_minutes}
+                        if C.coin_applies(rate, support, coin_minutes) else None)
         policy_card = material.get("policy_card") or {}
-        guard_known = set(policy_card.get("evidence_ids") or ())
-        guard = router_why.rationale_guard(rationale, cited, guard_known) if rationale is not None else "absent"
-        if guard is None and drawn.component == mix.LLM and drawn.chosen != favoured:
-            guard = "another_option"
-        shown = drawn.component == mix.LLM and guard is None
-        if coin is not None and served_ref != drawn.chosen:
-            # The coin, not the mix, chose what is served: no model's rationale is shown for it.
-            shown = False
-        why, why_kind = router_why.objective_why(drawn.component if served_ref == drawn.chosen else mix.STAGED, rule,
-                                                 option_count=len(support), rationale=rationale, rationale_shown=shown)
+        policy_request = material.get("policy_request")
+        # -- the choice -------------------------------------------------------------------------------------
+        choice = C.choose(C.ChoiceInputs(
+            support=tuple(support), staged_ref=staged_ref,
+            options={ref: _option_facts(by_id[ref]) for ref in support if ref in by_id},
+            llm_status=llm.status, llm_distribution=llm_dist, rationale=rationale, cited=cited,
+            card_evidence_ids=frozenset(policy_card.get("evidence_ids") or ()),
+            numeric_status=numeric.status if numeric is not None else None,
+            numeric_choice=numeric.choice if numeric is not None else None,
+            w=w, to_other_policy=to_other, epsilon=float(settings["epsilon_min"]), seed=seed,
+            stop_rate=rate, session_minutes=coin_minutes, availability=availability, staged_why=staged.why,
+            no_models=entry.__class__.__name__ == "_NoModels", boundary_key=entry.key,
+            algorithm_version=config.algorithms.algorithm_version,
+            question_set_version=getattr(policy_request, "question_set_version", None),
+            llm_schema_version=rq.LLM_POLICY_SCHEMA,
+        ))
+        # -- the writes -------------------------------------------------------------------------------------
+        drawn, coin = choice.drawn, choice.coin
+        titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         session_minutes = numeric.inputs.session_minutes if numeric is not None and numeric.inputs is not None else None
         mbar = numeric.inputs.price.remembered if numeric is not None and numeric.inputs is not None else None
         guard_at = P.guard_minutes(config, float(mbar)) if mbar else None
@@ -1624,7 +1641,7 @@ class ObjectiveChooser(RouterChooser):
                                                                          and session_minutes >= guard_at)}
         trace = _trace(support=support, by_id=by_id, feasible=feasible, titles=titles, numeric=numeric, llm=llm,
                        decider=results.get(DECIDER), staged_ref=staged_ref, weight=(w, weight_record),
-                       effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
+                       effective=choice.effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso,
                        guard=guard_state, stop_in_support=STOP_FOR_TODAY in support, card_version=card.version)
         contested = next((ref for ref in support if ref in by_id and _is_contest(by_id[ref])), None)
         if policy_card.get("statements"):
@@ -1643,47 +1660,43 @@ class ObjectiveChooser(RouterChooser):
             carried_for = _carried_for(self.repository, decision_id)
             if carried_for:
                 trace["carried_for"] = carried_for
-        pending_assignments: list[dict[str, Any]] = []
         if coin is not None:
             # RO5: what was served and its exact probability under the coin and the mix together; the mix's own
             # draw and μ stay beside it (a ``policy`` decision's score reads μ, exact given the independent coin).
-            trace["mixing"].update(drawn_chosen=drawn.chosen, chosen=served_ref, propensity=coin.served_propensity)
+            trace["mixing"].update(drawn_chosen=drawn.chosen, chosen=choice.served, propensity=coin.served_propensity)
             trace["stop_coin"] = coin.as_dict()
             if coin.arm != SC.POLICY:
                 trace["evaluation"]["score"] = f"none: {SC.FORCED} (the coin chose what was served)"
-            pending_assignments.append(SC.pending_assignment(coin, seed=seed, support=support))
         decider = results.get(DECIDER)
         decider_dist = (dict(decider.parsed.distribution) if decider is not None and decider.status == ANSWERED
                         and getattr(decider, "parsed", None) is not None else None)
         latencies = [r.latency_ms for r in results.values() if r.latency_ms is not None]
         costs = [r.cost_usd for r in results.values() if r.cost_usd is not None]
-        policy_request = material.get("policy_request")
         payloads = _payloads({name: result for name, result in results.items() if name != NUMERIC})
         record.update(
-            policy=mix.POLICY, decided_by=MODE if entry.__class__.__name__ != "_NoModels" else "objective_no_models",
-            decision_id=decision_id, design=mix.DESIGN, seed=seed, why_code=code or None,
-            drawn_component=drawn.component, option_count=len(support), fallback=mix.fallback_label(failed),
-            fallback_reasons={name: (llm.status if name == mix.LLM else (numeric.status if numeric else NOT_READY))
-                              for name in failed},
-            rationale_hidden=bool(drawn.component == mix.LLM and not shown),
-            evidence_labels=[ref for ref in cited if ref in guard_known] if shown else [],
+            policy=mix.POLICY, decided_by=choice.decided_by,
+            decision_id=decision_id, design=mix.DESIGN, seed=seed, why_code=choice.rule_code or None,
+            drawn_component=drawn.component, option_count=len(support), fallback=choice.fallback,
+            fallback_reasons=dict(choice.fallback_reasons),
+            rationale_hidden=choice.rationale_hidden,
+            evidence_labels=list(choice.evidence_labels),
             mixture={
                 "boundary_key": entry.key, "support": list(support), "staged_ref": staged_ref, "k": settings["k"],
-                "epsilon": settings["epsilon_min"], "ties_only": settings["ties_only"], "effective_weights": effective,
-                "w": w, "failed": failed, "llm_distribution": llm_dist,
+                "epsilon": settings["epsilon_min"], "ties_only": settings["ties_only"],
+                "effective_weights": choice.effective, "w": w, "failed": list(choice.failed), "llm_distribution": llm_dist,
                 **_failure_rule_field(to_other),
-                "numeric_choice": numeric.choice if numeric_ok and numeric is not None else None,
+                "numeric_choice": choice.numeric_choice,
                 "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
                 "models": {name: result.summary() for name, result in sorted(results.items())},
-                "rationale": {"text": rationale, "guard": guard, "shown": shown, "evidence_ids": list(cited),
-                              "about": favoured},
+                "rationale": {"text": rationale, "guard": choice.guard, "shown": choice.shown,
+                              "evidence_ids": list(cited), "about": choice.favoured},
                 "prefetched_at": material.get("decided_at"),
                 "waited_ms": int(round(max(self.runtime.clock() - entry.started, 0.0) * 1000)),
             },
             mixture_weights={"configured": {"w": w, "ell_l": config.router_objective.llm_min_share,
                                             "ell_q": config.router_objective.numeric_min_share},
-                             "effective": effective},
-            model_distributions={"llm": llm_dist, "numeric": parts.get(mix.NUMERIC), "decider": decider_dist},
+                             "effective": choice.effective},
+            model_distributions={"llm": llm_dist, "numeric": choice.components.get(mix.NUMERIC), "decider": decider_dist},
             question_set_version=getattr(policy_request, "question_set_version", None),
             model_ids={"decider": results[DECIDER].model, "llm": llm.model, "llm_schema_version": rq.LLM_POLICY_SCHEMA},
             latency_ms=max(latencies) if latencies else None,
@@ -1697,19 +1710,13 @@ class ObjectiveChooser(RouterChooser):
             # The router's ledger logs each candidate's probability of being served: under the coin, the served
             # distribution (exact); the mix's own μ stays beside it.
             record["mixture"]["stop_coin"] = coin.as_dict()
-            record["mixture"]["served"] = served_ref
+            record["mixture"]["served"] = choice.served
             record["mixture"]["mix_pi"] = dict(drawn.pi)
-            record["mixture"]["pi"] = SC.served_distribution(drawn.pi, coin.rate, list(support))
-            record["ro5_assignments"] = pending_assignments
-            return BlockChoice(candidate_id=served_ref, chosen_by="mixture", propensity=coin.served_propensity,
-                               why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
-                               router_record=record, provenance=provenance)
-        return BlockChoice(
-            candidate_id=drawn.chosen, chosen_by="mixture",
-            propensity=1.0 if drawn.deterministic else drawn.propensity,
-            why=why or staged.why, why_kind=why_kind,  # type: ignore[arg-type]
-            router_record=record, provenance=provenance,
-        )
+            record["mixture"]["pi"] = dict(choice.pi)
+            record["ro5_assignments"] = list(choice.assignments)
+        return BlockChoice(candidate_id=choice.served, chosen_by="mixture", propensity=choice.propensity,
+                           why=choice.why, why_kind=choice.why_kind,  # type: ignore[arg-type]
+                           router_record=record, provenance=provenance, decision_record=choice.record)
 
     def _session_minutes(self, now_iso: str) -> float | None:
         """The objective session's active minutes at ``now_iso`` on the serving clock (``price.session_active_minutes``,

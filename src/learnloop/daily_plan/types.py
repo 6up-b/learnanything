@@ -202,6 +202,10 @@ class BlockChoice:
     #: (a receipt finishing later was discarded) and the trace that started the prefetch. Kept off
     #: ``router_record``, which the router's ledger stores as it is.
     provenance: Mapping[str, Any] | None = field(default=None, compare=False, hash=False)
+    #: The decision's own ``plan_block`` record (a ``provenance.DecisionRecord``) when a pure core made it
+    #: (``router_objective.choose``): the container completes it with what only it knows and writes it
+    #: (``boundary_records.plan_block_records``).
+    decision_record: Any = field(default=None, compare=False, hash=False)
 
 
 class BlockChooser(Protocol):
