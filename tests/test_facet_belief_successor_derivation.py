@@ -78,8 +78,12 @@ def _two_facet_item(paths, *, criterion_facet_weights=None, targets=None):
     }, clock=FrozenClock(NOW))
 
 
-def _two_facet_vault(root, *, belief_fixes=True, **item):
+def _two_facet_vault(root, *, belief_fixes=True, version=None, **item):
     paths = create_basic_vault(root)
+    if version is not None:
+        from tests.helpers import set_algorithm_version
+
+        set_algorithm_version(paths, version)
     if not belief_fixes:
         set_config_switch(paths.root, SWITCH, False)
     write_facets(paths, [
@@ -130,8 +134,9 @@ def test_s1_a_rebuild_after_the_items_mapping_changed_keeps_the_uncertainty_wher
 
 
 def test_s1_explicit_criterion_targets_place_the_uncertainty_without_an_items_map(tmp_path):
+    # At the successor's own tag: a later successor's vault stamps its own tag on the row.
     paths, vault, repository = _two_facet_vault(
-        tmp_path / "vault", targets={"c_def": "recall", "c_rot": "geometry"},
+        tmp_path / "vault", version=TAG, targets={"c_def": "recall", "c_rot": "geometry"},
     )
     attempt = _answer_failing_the_definition(vault, repository)
     live = _uncertainty_rows(repository)
