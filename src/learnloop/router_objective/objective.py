@@ -153,7 +153,7 @@ def _terms(ledger: _Ledger, model: Any = None) -> dict[str, float]:
         "terminal": float(ledger.terminal.mean()),
     }
     if model is not None and model.unmeasured is not None:
-        # RO6's landing ruling R7: the unmeasured topics' share of q (the measurable part is q minus it).
+        # The unmeasured topics' share of q, kept apart for the learned tail (the measurable part is q minus it).
         terms["unmeasured_reward"] = float(ledger.unmeasured.mean())
     return terms
 
