@@ -85,8 +85,8 @@ def candidate_row(ref: str, candidate: Any, *, titles: Mapping[str, str], valued
                        "source": ((numeric.sources if numeric is not None else {}).get("topics") or {}).get(lo),
                        "reached_qbar": True}
         if lo in miss_topics:
-            # SG1 (spec_slip_vs_gap_v1 §3 item 2): beside RO's per-topic sensors. It reaches Q̄ only with SG2 on
-            # and a diagnosis in force (the split's record, ``miss_cause.in_value``, says how).
+            # The miss's cause, beside the topic's other sensors. It reaches Q̄ only with the cause in the value and a
+            # diagnosis in force (the split's record, ``miss_cause.in_value``, says how).
             sensors[lo]["miss_cause"] = {
                 **dict(miss_topics[lo]),
                 "reached_qbar": bool((miss_cause or {}).get("in_value"))
@@ -102,7 +102,7 @@ def candidate_row(ref: str, candidate: Any, *, titles: Mapping[str, str], valued
                  "q_minus_stop": (valued.q - stop_q) if stop_q is not None else None,
                  "paired_se_vs_top": V.paired_standard_error(top, valued) if top is not None and top.ref != ref else 0.0}
         if residual_applied:
-            # RO6 (§10): ŵ, V_tail (the tail's Q̄ above), V_residual and Ṽ per candidate.
+            # The learned tail's ŵ, V_tail (the tail's Q̄ above), V_residual and Ṽ for this option.
             from learnloop.router_objective import tail_serve
 
             terms.update(tail_serve.candidate_terms(numeric.residual, ref, valued.q))  # type: ignore[union-attr, arg-type]
@@ -122,7 +122,7 @@ def candidate_row(ref: str, candidate: Any, *, titles: Mapping[str, str], valued
         "branches": dict(valued.extra.get("branches") or {}) if valued is not None else None,
     }
     if kind == LESSON_OFFER:
-        # Teacher TE3b (spec_teacher_v1 rev 5 §15.1a): the offer's sensors, its branches' terms and the split.
+        # A lesson offer's own section: its sensors, its branches' terms and the split.
         row["offer"] = _offer_trace(candidate, valued, action, numeric.inputs if numeric is not None else None,
                                     topic_by_lo, row.get("terms"))
     return row
@@ -245,8 +245,8 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
     order = sorted(rows, key=lambda ref: -rows[ref].q)
     top = rows[order[0]] if order else None
     inputs = numeric.inputs if numeric is not None else None
-    # Landing ruling R12: the generator switches the numeric answer was computed under (frozen with it); with no
-    # numeric answer, the serving config's (R8's ``followup_generator_switches``; None below the batch's tag).
+    # The generator switches the numeric answer was computed under (frozen with it), not the serving config's, which
+    # may have changed since the job started; with no numeric answer, the serving config's (None below their tag).
     served_switches = (numeric.switches if numeric is not None and numeric.switches is not None
                        else _serving_switches(config).get("serving_switches"))
     topic_by_lo = {topic.lo: topic for topic in (inputs.topics if inputs is not None else ())}
@@ -254,7 +254,7 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
     llm_parsed = getattr(llm, "parsed", None) if llm is not None and llm.status == ANSWERED else None
     residual_record = numeric.residual if numeric is not None else None
     residual_applied = bool(residual_record) and residual_record.get("status") == "applied"  # type: ignore[union-attr]
-    # Slip or gap SG1: the sensor the numeric policy's inputs read (absent off, or below the tag: no key anywhere).
+    # The miss-cause sensor the numeric policy's inputs read (absent off, or below its tag: no key anywhere).
     miss_cause = ((numeric.sources if numeric is not None else {}) or {}).get(MISS_CAUSE_SOURCE)
     miss_topics = dict((miss_cause or {}).get("topics") or {})
     candidates: dict[str, Any] = {}
@@ -274,7 +274,7 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
     window_closes = (decided + timedelta(days=window)).strftime("%Y-%m-%dT%H:%M:%SZ") if decided is not None else None
     baselines = numeric.baselines if numeric is not None else {}
     sources = dict(numeric.sources) if numeric is not None else {}
-    # §8.7's population, frozen from the goals and retention commitments alone (F11): a candidate-only topic is
+    # The scored population, frozen from the goals and retention commitments alone: a candidate-only topic is
     # valued in the rollouts but is not one of the uses either policy is scored on.
     population = (sources.get("population") or {}).get("los") or {}
     uses = {
@@ -291,8 +291,8 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
     c0 = (window * kappa0 * float(mbar) / 2.0) if mbar else None
     extra: dict[str, Any] = {}
     if residual_record is not None:
-        # RO6 (§10): the learned tail's record, frozen (ŵ with its slope and rank, the fit, each candidate's features,
-        # V_tail, V_residual and Ṽ), so the terms recompute from the trace alone.
+        # The learned tail's record, frozen (ŵ with its slope and rank, the fit, each candidate's features, V_tail,
+        # V_residual and Ṽ), so the terms recompute from the trace alone.
         section_record = dict(residual_record)
         if residual_applied:
             from learnloop.router_objective import tail_serve
@@ -303,11 +303,12 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
                 for ref, entry in (residual_record.get("candidates") or {}).items()}
         extra["residual"] = section_record
     if miss_cause is not None:
-        # SG1/SG2: the whole sensor and, with SG2, beta's fit, each topic's calibration and the cause slopes.
+        # The whole miss-cause sensor and, with the cause in the value, beta's fit, each topic's calibration and the
+        # cause slopes.
         extra["miss_cause"] = dict(miss_cause)
     preference_record = numeric.preference if numeric is not None else None
     if preference_record is not None:
-        # IH4 (spec_instruct_handoff_v1 §7 item 2): the choice model's sensor and w_pref, frozen, with V_pref at this Q̄.
+        # The preferences' choice model: its sensor and w_pref, frozen, with V_pref at this Q̄.
         from learnloop.router_objective import preferences as PF
 
         extra["preference"] = (PF.with_values(preference_record, {ref: rows[ref].q for ref in rows})
@@ -365,15 +366,15 @@ def decision_trace(*, support: Sequence[str], by_id: Mapping[str, Any], feasible
                      "card": card_version, "llm_schema": rq.LLM_POLICY_SCHEMA,
                      "goals": {goal_id: {"source": goal.get("source"), "contract": goal.get("contract_version_id")}
                                for goal_id, goal in ((numeric.sources if numeric is not None else {}).get("goals") or {}).items()},
-                     # The follow-up batch's landing ruling R1: the rollouts' review draw, named only when it serves
-                     # (below the tag, or off, the trace keeps mvp-0.49's bytes).
+                     # The rollouts' review draw, named only when it serves (below its tag, or off, the trace keeps
+                     # the predecessor's bytes).
                      **({"review_draw": V.REVIEW_DRAW_VERSION}
                         if served_switches is not None and served_switches.get("consistent_review_draw") else {}),
-                     # Landing ruling R9: AD's own predictive in the rollouts, named only when it serves.
+                     # AD's own predictive in the rollouts, named only when it serves.
                      **({"ad_link": V.AD_LINK_VERSION}
                         if inputs is not None and inputs.ad_link is not None else {}),
-                     # Landing ruling R8: the batch's serving switches as they served, part of the generator
-                     # payload (``tail_data.generator``); only at the batch's tag. R12: the numeric answer's own.
+                     # The serving switches the numeric answer was computed under, part of the generator payload
+                     # (``tail_data.generator``); only at their tag.
                      **({"serving_switches": dict(served_switches)} if served_switches is not None else {})},
     }
 
@@ -398,22 +399,22 @@ def objective_trace(choice: Any, *, support: Sequence[str], by_id: Mapping[str, 
                            pi=drawn.pi, drawn=drawn, seed=seed, config=config, now_iso=now_iso, guard=guard_state,
                            stop_in_support=STOP_FOR_TODAY in support, card_version=card_version)
     if policy_card.get("statements"):
-        # IH4 §7 item 6: which card the LLM read, its entries and what the budget left out of them.
+        # Which statements card the LLM read, its entries and what the budget left out of them.
         trace["learner_statements"] = dict(policy_card["statements"])
     if contested is not None:
-        # IH2 §5: a lesson offer against the boundary's follow-ups: the offer's declined branch is the follow-up.
+        # A lesson offer against the boundary's follow-up: the offer's declined branch is the follow-up.
         trace["followup_contest"] = {"candidate_id": contested, "item_ids": list(by_id[contested].item_ids),
                                      "offer_declined_branch": "the follow-up (it stays available)"}
-    # RO5 §9 item 3 (Codex review F7): every active dated goal's frozen forecast, for the goal-date read,
-    # whatever its distance; the policy comparison's uses keep only the window's.
+    # Every active dated goal's frozen forecast, for the goal-date read, whatever its distance; the policy
+    # comparison's uses keep only the window's, so a goal past the window would otherwise have no forecast.
     trace["goal_dates"] = goal_dates(numeric)
     if carried_for:
-        # The follow-up batch's item 4: earlier decisions' carried valuations a later prefetch ran, recorded
-        # here (read as of this trace's own time; the transition into each is then no longer censored).
+        # Earlier decisions' carried valuations a later job ran, recorded here (read as of this trace's own time;
+        # the transition into each is then no longer censored).
         trace["carried_for"] = carried_for
     if coin is not None:
-        # RO5: what was served and its exact probability under the coin and the mix together; the mix's own
-        # draw and μ stay beside it (a ``policy`` decision's score reads μ, exact given the independent coin).
+        # What was served and its exact probability under the coin and the mix together; the mix's own draw and μ
+        # stay beside it (a ``policy`` decision's score reads μ, exact given the independent coin).
         trace["mixing"].update(drawn_chosen=drawn.chosen, chosen=choice.served, propensity=coin.served_propensity)
         trace["stop_coin"] = coin.as_dict()
         if coin.arm != SC.POLICY:
