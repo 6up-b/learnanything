@@ -618,6 +618,7 @@ class PreparedInventory:
     model: str
     windows: tuple[dict[str, Any], ...]
     valid_span_ids: frozenset[str]
+    #: One window's output budget, not the unit's: each window is sent under it.
     output_budget_tokens: int | None
     prompt_version: str
     schema_version: int
@@ -873,7 +874,18 @@ def execute_prepared_inventory(
     progress: Callable[[int, int], None] | None = None,
     checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None = None,
 ) -> InventoryExecution:
-    """Run provider windows without touching SQLite."""
+    """Run provider windows without touching SQLite.
+
+    The output budget is one window's (UX-1). Each window's request is sent
+    under it, so a unit is allowed that amount per window and its window count
+    is known before the first call: a long unit split into windows is never
+    held to one window's amount. A window is charged for what the model wrote:
+    the usage its provider reports, else the estimate of its reply before the
+    service writes its own ids into it. A fresh window over its limit still
+    fails the unit, after it is saved; a saved window is reused without being
+    charged again (it was judged and paid when it was made), so a retry asks
+    only for the windows not yet answered instead of failing where it stopped.
+    """
 
     per_window: list[SourceUnitInventory] = []
     usage: dict[str, Any] = {
@@ -881,7 +893,7 @@ def execute_prepared_inventory(
         "input_tokens_estimate": 0,
     }
     total_windows = len(prepared.windows)
-    remaining_output = prepared.output_budget_tokens
+    window_limit = prepared.output_budget_tokens
     usage["reused_windows"] = 0
     for ordinal, window in enumerate(prepared.windows, start=1):
         context = SourceUnitInventoryContext(
@@ -893,30 +905,28 @@ def execute_prepared_inventory(
         )
         cached = prepared.cached_windows[ordinal - 1] if prepared.cached_windows else None
         if cached is not None:
-            assigned = cached
+            # Judged and paid when it was made: not charged again.
+            validate_inventory(cached, set(prepared.valid_span_ids))
             usage["reused_windows"] += 1
+            assigned = cached
         else:
-            if remaining_output is not None and remaining_output <= 0:
-                raise InventoryValidationError("inventory output budget exhausted before the next window")
             meter = UsageMeter(client)
-            with generation_limit(remaining_output):
+            with generation_limit(window_limit):
                 raw = request_source_unit_inventory(client, context)
             usage["input_tokens_estimate"] += max(1, len(source_unit_inventory_prompt(context)) // _CHARS_PER_TOKEN, meter.reported().input_tokens)
+            # What the model wrote, measured before the service's ids replace
+            # its own: the limit it was sent under is on its reply, not on ours.
+            window_tokens = meter.output_charge(max(1, len(raw.model_dump_json()) // _CHARS_PER_TOKEN))
             assigned = assign_deterministic_ids(raw, unit_id=prepared.unit_id, window_ordinal=window["window_ordinal"])
             assigned.semantic_hash = prepared.semantic_hash
             usage["calls"] += 1
-        validate_inventory(assigned, set(prepared.valid_span_ids))
-        window_tokens = max(1, len(assigned.model_dump_json()) // _CHARS_PER_TOKEN)
-        if cached is None:
-            window_tokens = meter.output_charge(window_tokens)
-        # Save before the budget check. The key does not include the budget:
-        # a window that validated is reusable whatever budget the retry runs
-        # under, and it has already been paid for.
-        if cached is None and checkpoint is not None and prepared.window_keys:
-            checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
-        if remaining_output is not None:
-            remaining_output -= window_tokens
-            if remaining_output < 0:
+            validate_inventory(assigned, set(prepared.valid_span_ids))
+            # Save before the budget check. The key does not include the
+            # budget: a window that validated is reusable whatever budget the
+            # retry runs under, and it has already been paid for.
+            if checkpoint is not None and prepared.window_keys:
+                checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
+            if window_limit is not None and window_tokens > window_limit:
                 raise InventoryValidationError("inventory output exceeded its configured token budget")
         per_window.append(assigned)
         if progress is not None:
@@ -925,16 +935,11 @@ def execute_prepared_inventory(
     merged = merge_windows(per_window)
     merged.unit_id = prepared.unit_id
     merged.semantic_hash = prepared.semantic_hash
+    # The stored inventory's size, recorded. No limit is checked on it: it is
+    # the windows already held to theirs, plus the service's ids.
     usage["output_tokens_estimate"] = max(
         1, len(merged.model_dump_json()) // _CHARS_PER_TOKEN
     )
-    if (
-        prepared.output_budget_tokens is not None
-        and usage["output_tokens_estimate"] > prepared.output_budget_tokens
-    ):
-        raise InventoryValidationError(
-            "inventory output exceeded its configured token budget"
-        )
     return InventoryExecution(inventory=merged, usage=usage)
 
 
