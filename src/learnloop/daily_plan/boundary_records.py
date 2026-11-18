@@ -143,8 +143,9 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
     router's ``plan_block`` row, when one was logged. All records share one trace, the serving request's.
     ``parent_id``: the record that caused this boundary (an offer taken back for forced items, or the triggering
     attempt's record); ``trigger_attempt``: the newest attempt as of the decision, the one its boundary key names.
-    ``decision.seen`` may add the forced items (``forced``), an offer this decision replaces (``superseding``) and the
-    steps that failed before it (``failures``).
+    ``decision.seen`` may add the forced items (``forced``), an offer this decision replaces (``superseding``), the
+    steps that failed before it (``failures``) and the decision's own failed steps (``decision_failures``: its record's
+    construction, the chooser's).
     """
 
     router = dict(decision.router_record or {})
@@ -214,8 +215,8 @@ def plan_block_records(decision: Any, *, block_id: str, detail_id: str | None, c
     records += component_records(block, router, mixture, timeouts=timeouts, waited_ms=waited_ms, crashed=crashed,
                                  models=seen.get("models"))
     # Refactor B3: the boundary's steps that failed before its decision (the day's check, the lesson offer's builder),
-    # as its children.
-    for failure in seen.get("failures") or ():
+    # then the decision's own (its record's construction), as its children.
+    for failure in (*(seen.get("failures") or ()), *(seen.get("decision_failures") or ())):
         records.append(replace(failure, parent_id=block.id, trace_id=block.trace_id, subject_kind=block.subject_kind,
                                subject_id=block.subject_id, created_at=block.created_at, id=failure.id or provenance.new_record_id()))
     return records

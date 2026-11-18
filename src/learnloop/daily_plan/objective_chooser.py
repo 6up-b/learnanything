@@ -1003,7 +1003,7 @@ class ObjectiveChooser(RouterChooser):
             record["ro5_assignments"] = list(choice.assignments)
         own_record, failure = _built_record(choice, inputs, question_set_version)
         if failure is not None:
-            provenance = {**provenance, "failures": (*tuple(provenance.get("failures") or ()), failure)}
+            provenance = {**provenance, "decision_failures": (failure,)}
         return BlockChoice(candidate_id=choice.served, chosen_by="mixture", propensity=choice.propensity,
                            why=choice.why, why_kind=choice.why_kind,  # type: ignore[arg-type]
                            router_record=record, provenance=provenance, decision_record=own_record)

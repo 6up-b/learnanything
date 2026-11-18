@@ -108,7 +108,7 @@ from learnloop.daily_plan.types import (
 from learnloop import provenance
 from learnloop.daily_plan import boundary_records
 from learnloop.daily_plan import measurement as objectives
-from learnloop.daily_plan import plan_records
+from learnloop.daily_plan import objective_job, plan_records
 from learnloop.daily_plan.boundary_records import FAILURE_NOTE, wall_now
 from learnloop.data_capture import prefilter
 from learnloop.router_objective import ask_availability, decision_state
@@ -2139,7 +2139,7 @@ def build_plan(
         if with_insert is not None:
             with_insert()
         store.insert_plan(connection, {"id": plan_id, **prepared.row})
-    _stop_superseded_carries(env, plan_id)
+    objective_job.stop_carries(env.repository.sqlite_path, keep=(env.session_id, plan_id))  # earlier plans' carries end
     record = _reload(env, plan_id)
     if not first_block:
         return record
@@ -2158,19 +2158,6 @@ def build_plan(
     except BoundaryTaken:
         pass  # another read decided it first, and that block stands
     return _reload(env, plan_id)
-
-
-def _stop_superseded_carries(env: PlanEnv, plan_id: str) -> None:
-    """A new plan replaces every earlier one: the router's carried valuations deferred by another plan (or session) are
-    stopped and joined for a bounded time, and no trace of this plan records them (``objective_job.stop_carries``).
-    Never raises: a plan is never refused over the router's background work."""
-
-    try:
-        from learnloop.daily_plan import objective_job
-
-        objective_job.stop_carries(env.repository.sqlite_path, keep=(env.session_id, plan_id))
-    except Exception:  # noqa: BLE001 - background work never blocks a plan
-        logging.getLogger(__name__).warning("the earlier plans' carried valuations were not stopped", exc_info=True)
 
 
 def _config_hash(config: Any) -> str:
@@ -2834,9 +2821,7 @@ def _note_for_records(env: PlanEnv, decision: Decision, *, forced: Sequence[Any]
     the workflow reads can't delay it; never raises."""
 
     try:
-        # The chooser's own failed steps (its decision record's construction) come after the boundary's earlier ones.
-        chooser_failures = tuple((decision.seen or {}).get("failures") or ())
-        note: dict[str, Any] = {"failures": (*tuple(failures), *chooser_failures), "parent_record": parent_record}
+        note: dict[str, Any] = {"failures": tuple(failures), "parent_record": parent_record}
         if forced:
             note["forced"] = _forced_entries(env, forced, forced_origin)
         if superseding is not None:
