@@ -224,6 +224,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evidence_followup_keeps_the_full_inventory_in_its_cached_prefix`
 - [tests/test_inventory_choice.py](../../../../../../../tests/test_inventory_choice.py) — direct import
   - `test_a_row_under_the_current_prompt_label_beats_an_older_label`
+- [tests/test_inventory_output_allowance.py](../../../../../../../tests/test_inventory_output_allowance.py) — direct import
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
 - [tests/test_normalize_cases.py](../../../../../../../tests/test_normalize_cases.py) — direct import
   - `test_a_failing_nominator_is_recorded_beside_the_mint_verdicts_and_never_fails_the_build`

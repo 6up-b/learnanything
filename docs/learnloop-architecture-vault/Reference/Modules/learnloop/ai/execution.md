@@ -384,6 +384,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_interaction_signals.py](../../../../../../tests/test_interaction_signals.py) — direct import
   - `test_hidden_physical_retry_blocked_before_network`
+- [tests/test_inventory_output_allowance.py](../../../../../../tests/test_inventory_output_allowance.py) — direct import
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_call_labels_reach_the_start_event_and_refuse_unknown_labels`
   - `test_receipts_store_labels_and_unlabelled_calls_work_below_175`
