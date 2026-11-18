@@ -681,6 +681,7 @@ source_modules = [
     "learnloop.outcome_contract",
     "learnloop.params",
     "learnloop.placement",
+    "learnloop.plan_refs",
     "learnloop.practice_index",
     "learnloop.projects",
     "learnloop.provenance",
