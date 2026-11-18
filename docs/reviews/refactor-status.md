@@ -198,7 +198,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | K4 | Map writers outside the ingestion pipeline | deferred | — | — | Owner's Nov 17 queue |
-| K5 | Review grading, regrade, coldness and certification | landed | `1b63838666` | [refactor-k5.md](refactor-k5.md) | Sixteen ledger rows (K5-1 to K5-16): K5-14 and K5-2 fixed (`2b2c2fb155`, [refactor-k5-fixes-1.md](refactor-k5-fixes-1.md)); K5-1, K5-9, K5-10, K5-13, K5-15 and K5-16 fixed (`cd39afc328`, [refactor-k5-fixes-2.md](refactor-k5-fixes-2.md)); K5-3's plain part, K5-8's exceptions, K5-11 and K5-12 go with the next algorithm tag; K5-5 to K5-7 with G6; K5-4 with the evidence packet spec |
+| K5 | Review grading, regrade, coldness and certification | landed | `1b63838666` | [refactor-k5.md](refactor-k5.md) | Sixteen ledger rows (K5-1 to K5-16): K5-14 and K5-2 fixed (`2b2c2fb155`, [refactor-k5-fixes-1.md](refactor-k5-fixes-1.md)); K5-1, K5-9, K5-10, K5-13, K5-15 and K5-16 fixed (`cd39afc328`, [refactor-k5-fixes-2.md](refactor-k5-fixes-2.md)); holes the arc E review found in that batch: ER-1, ER-3 and ER-6 fixed and ER-2 left for the next algorithm tag (`fix/arc-e-review-grading`, [refactor-efix1.md](refactor-efix1.md)); K5-3's plain part, K5-8's exceptions, K5-11 and K5-12 go with the next algorithm tag; K5-5 to K5-7 with G6; K5-4 with the evidence packet spec |
 | K6 | Map Reader Ask and retrieval side effects | waiting on | — | — | G1 and G3 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |

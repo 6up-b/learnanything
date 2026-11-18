@@ -57,9 +57,10 @@ The important shape is convergence: every grading door resolves a grade before t
 - AI grading builds a bounded context, requests `GradingProposal`, and validates it before use.
 - Optional AI failure can fall back to supported manual/self-grade semantics; required AI fails explicitly.
 - Regrade creates correction/reinterpretation records rather than erasing the original attempt.
-- Ordinary model grading requires criterion evidence on a nonempty rubric. An omitted criterion is unassessed. Teach-back grades the criteria the student asked about.
-- Regrade publishes replacement evidence and newly observed exercised facets before replaying the learning object. Owner adjudication replays in the same transaction as the ruling. Confirming a provisional class releases its hold.
-- Startup defers learner self-grades until an AI grader is ready. Exam seeding records which outcomes contain learner work and reports the rows that will receive an AI grade. A score-only import keeps its reported grade, and simulated grades and learner self-reports stay out of the queue.
+- Ordinary model grading requires a criterion row for every criterion of a nonempty rubric. A grade that leaves one out is refused like an empty one (the required door fails, the optional door falls back, a regrade keeps the live rows). Teach-back grades the criteria the student asked about.
+- A grade taken over the assessed criteria never divides by zero points: when only criteria worth nothing would stay assessed, they are unassessed too, so the grade is held when nothing validated the answer.
+- Regrade publishes replacement evidence and newly observed exercised facets before replaying the learning object. Owner adjudication (`learnloop grading adjudicate`) replays in the same transaction as the ruling on a vault at `mvp-0.60` or later, and commits only with the ruling as the head of the observation the ledger reads; below that tag it does not replay and says so. A ruling that confirms an earlier ruling's revised grade writes it again as its own. Confirming a provisional class releases its hold.
+- Startup defers learner self-grades until an AI grader is ready. Exam seeding records which outcomes contain learner work and reports the rows that will receive an AI grade. A score-only import keeps its reported grade, and simulated grades and learner self-reports stay out of the queue. An import written before that record is score-only when its answer is whitespace (by Python's rule) or the placeholder, or when it has no import row at all.
 
 ## Semantic validation
 
