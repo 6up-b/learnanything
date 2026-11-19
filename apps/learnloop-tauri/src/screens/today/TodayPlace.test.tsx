@@ -41,6 +41,7 @@ vi.mock("../../components/GoalBanner", async () => {
 vi.mock("../../components/GoalWizard", () => ({ GoalWizard: () => <div data-testid="goal-wizard" /> }));
 
 import { TodayPlace, type TodayPlaceProps } from "./TodayPlace";
+import { KEEP_GOING_NOTHING } from "../../app/todayPlan";
 
 /** No count of waiting things (rule 10), no lane names, no percentages (rule 9). */
 const WAITING_WORDS = /due now|probe queue|later today|follow-ups?\b|\bqueue\b|overdue|backlog|to review|pending|slipped|\bitems?\b/i;
@@ -633,6 +634,34 @@ describe("the states (§7.1)", () => {
     await waitFor(() => expect(f.endSession).toHaveBeenCalledWith("s1"));
     expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1", stop: true });
     await waitFor(() => expect(props.onEndSession).toHaveBeenCalledWith({ sessionId: "s1" }));
+  });
+
+  // UX journey audit UX-4 (student-1 #44, retainer-1 #63): Keep going with
+  // nothing to add redrew the same Today and said nothing.
+  it("UX-4: Keep going with nothing to add says so, in place, and what would give LearnLoop more", async () => {
+    const empty = body({ status: "complete", blocks: [], currentBlockId: null, projected: [], totals: { ...body().totals, plannedItems: 0, readingBlocks: 0 } });
+    const f = apis(dto(empty), { planKeepGoing: vi.fn(async () => dto({ ...empty, id: "plan_kg", kind: "keep_going" })) });
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    expect(screen.queryByTestId("today-keep-going-nothing")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
+    const line = await screen.findByTestId("today-keep-going-nothing");
+    expect(line.textContent).toBe(KEEP_GOING_NOTHING);
+    expect(line.getAttribute("role")).toBe("status");
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+  });
+
+  it("UX-4: Keep going that adds a block says nothing extra", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    const more = body({ id: "plan_kg", kind: "keep_going", blocks: [block({ id: "blk_kg" })], currentBlockId: "blk_kg", projected: [] });
+    const f = apis(dto(done), { planKeepGoing: vi.fn(async () => dto(more)) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-done");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledOnce());
+    await flush();
+    expect(screen.queryByTestId("today-keep-going-nothing")).toBeNull();
   });
 
   it("loading: the frame, never 'Loading today's queue'", async () => {
