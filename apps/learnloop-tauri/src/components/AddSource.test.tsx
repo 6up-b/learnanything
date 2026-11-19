@@ -2,7 +2,8 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AddSourceResultDto } from "../api/dto";
-import { AddSourceBox, useAddSource } from "./AddSource";
+import { findJargon } from "../copy/denyList";
+import { AddSourceBox, addedItemDestination, pastExamKeptLine, useAddSource } from "./AddSource";
 
 const { api, openDialog } = vi.hoisted(() => ({
   api: { addSource: vi.fn() },
@@ -124,5 +125,38 @@ describe("useAddSource", () => {
     });
     expect(hook.current.message).toBe("Those pages don't look right — try a page or a range like 3-27. (Range 9-3 runs backwards.)");
     expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+// UX journey audit UX-5 (student-1 #33-39): "This is a past exam or problem
+// set" was then opened in the Reader, whose refusal showed as a red error
+// naming the source's id.
+describe("UX-5: a past exam or problem set is kept in the Library, never opened in the Reader", () => {
+  const EXAM = { ...PDF_ITEM, source: "/exams/quiz1.pdf", sourceId: "src_exam", title: "18.06 Linear Algebra, Exam 1" };
+
+  it("the hook does not open it, and hands it over as kept", async () => {
+    api.addSource.mockResolvedValue({ items: [EXAM], opened: EXAM });
+    const onOpened = vi.fn();
+    const onKept = vi.fn();
+    const { result: hook } = renderHook(() => useAddSource({ onOpened, onKept }));
+    await act(async () => {
+      await hook.current.add(["/exams/quiz1.pdf"], { problemSet: true });
+    });
+    expect(api.addSource).toHaveBeenCalledWith({ sources: ["/exams/quiz1.pdf"], problemSet: true });
+    expect(onOpened).not.toHaveBeenCalled();
+    expect(onKept).toHaveBeenCalledWith(EXAM);
+  });
+
+  it("an added item whose library card has the reader off is kept too; the rest open as before", () => {
+    expect(addedItemDestination(EXAM, { readerEnabled: false })).toBe("kept");
+    expect(addedItemDestination(EXAM, { readerEnabled: true })).toBe("reader");
+    expect(addedItemDestination(EXAM, undefined)).toBe("reader");
+    expect(addedItemDestination({ ...EXAM, status: "queued", sourceId: null }, undefined)).toBe("wait");
+  });
+
+  it("says where it went and what it does, with no id and no jargon", () => {
+    const line = pastExamKeptLine(EXAM.title);
+    expect(line).toBe("\u201c18.06 Linear Algebra, Exam 1\u201d is in your Library as a past exam. It doesn't open in the Reader, and LearnLoop doesn't write questions from it.");
+    expect(findJargon(line)).toEqual([]);
   });
 });

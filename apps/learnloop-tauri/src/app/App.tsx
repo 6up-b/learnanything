@@ -6,7 +6,7 @@ import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, C
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
 import { DockedAsk } from "../components/DockedAsk";
-import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
+import { AddPopover, DropOverlay, addedItemDestination, pastExamKeptLine, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
 import { SessionElsewherePrompt } from "../components/SessionElsewherePrompt";
@@ -1662,6 +1662,17 @@ export function App() {
   }, []);
 
   // Add (§6.2): a file opens in the Reader at once; a link opens when ready.
+  // UX-5 (audit student-1 #33): a past exam or problem set is kept in the
+  // Library (the Reader refuses it); say where it went and what it does.
+  const keepAddedItem = useCallback(
+    (item: AddSourceItemDto) => {
+      setAddOpen(false);
+      setLibraryView("books");
+      setTab("library");
+      notify(pastExamKeptLine(item.title));
+    },
+    [notify]
+  );
   const openAddedItem = useCallback(
     async (item: AddSourceItemDto) => {
       setAddOpen(false);
@@ -1677,6 +1688,10 @@ export function App() {
         card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);
       } catch {
         card = undefined;
+      }
+      if (addedItemDestination(item, card) === "kept") {
+        keepAddedItem(item);
+        return;
       }
       openBook(
         card ?? {
@@ -1699,9 +1714,9 @@ export function App() {
         }
       );
     },
-    [openBook, notify]
+    [openBook, notify, keepAddedItem]
   );
-  const adder = useAddSource({ onOpened: (item) => void openAddedItem(item) });
+  const adder = useAddSource({ onOpened: (item) => void openAddedItem(item), onKept: keepAddedItem });
   const addSources = adder.add;
   const fileDragging = useSourceFileDrop({
     enabled: snapshot !== null,
