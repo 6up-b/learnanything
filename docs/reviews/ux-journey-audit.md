@@ -808,7 +808,7 @@ Checked and dismissed:
 
 ### 7.2 Drafted ledger rows
 
-To go under a new heading in `docs/reviews/refactor-bug-ledger.md`, "Due at the UX fix stages" (the stage that owns each is in section 10).
+These rows are in `docs/reviews/refactor-bug-ledger.md` under "From the UX journey audit's walks" (the stage that owns each is in section 10).
 
 ```markdown
 | Id | Found in | Bug | Fail-first test | Fix | Status |
