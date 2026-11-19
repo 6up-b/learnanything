@@ -934,15 +934,16 @@ FACET_BELIEF_FIX_ALGORITHM_VERSION = "mvp-0.59"
 # (owner rule 2026-11-16). No migration. ONE constant.
 GRADE_CHANNEL_FIX_ALGORITHM_VERSION = "mvp-0.60"
 
-# mvp-0.61 (the evidence reading fixes; refactor bug ledger G3-1, ER-2, K5-3, K5-11, K5-12;
-# docs/reviews/algorithm-mvp-0.61.md), on top of the grade channel fixes' mvp-0.60. Five readings of recorded evidence
+# mvp-0.61 (the evidence reading fixes; refactor bug ledger G3-1, ER-2, K5-3, K5-8, K5-11, K5-12;
+# docs/reviews/algorithm-mvp-0.61.md), on top of the grade channel fixes' mvp-0.60. Six readings of recorded evidence
 # change, each on this tag and later and exactly as before below it: a probe answer given after its feedback was shown
-# or after a reveal is contaminated evidence in its episode, as the discriminating observation already refused it as
-# not independent (G3-1); a criterion row marked unassessed is no assessed zero to either diagnosis reader (ER-2); a
-# replacement grade replays under its own source, and a replaced exam answer reaches the exam channel (K5-11); a grader
-# confidence of 0.0 stays 0.0 on replay (K5-12); a certificate probe whose every criterion is unassessed abstains
-# (K5-3, policy v2). What a rebuild derives moves, so activation is a whole-vault rebuild. No kill switch (owner rule
-# 2026-11-16). No migration. ONE constant. (Ledger K5-8, the forgetting clock, may join this tag before it lands.)
+# or after a reveal updates no belief in its episode and qualifies nothing, as the discriminating observation already
+# refused it as not independent (G3-1); a criterion row marked unassessed is no assessed zero to either diagnosis
+# reader (ER-2); a replacement grade replays under its own source, and a replaced exam answer reaches the exam channel
+# (K5-11); a grader confidence of 0.0 stays 0.0 on replay (K5-12); a certificate probe whose every criterion is
+# unassessed abstains (K5-3, policy v2); a request for an easier or harder variant is no FSRS review of its source item
+# and leaves its forgetting clock, memory and due date as they were (K5-8). What a rebuild derives moves, so
+# activation is a whole-vault rebuild. No kill switch (owner rule 2026-11-16). No migration. ONE constant.
 EVIDENCE_READING_FIX_ALGORITHM_VERSION = "mvp-0.61"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
