@@ -504,24 +504,45 @@ def lexical_reserve_reveal(
     return hash_hit or fp_hit or overlap >= READER_REVEAL_OVERLAP_THRESHOLD, overlap
 
 
+def _shown_reserve_fields(view: Mapping[str, Any] | None,
+                          citations: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """The answer's other visible text fields, by name (K6-6): the verified
+    excerpt's quote, the bridge, and a citation's excerpt where one is sent.
+    The explanation and the citation labels are read by
+    :func:`lexical_reserve_reveal` itself."""
+
+    view = view or {}
+    fields = {
+        "excerpt": str((view.get("excerpt") or {}).get("quote") or ""),
+        "bridge": str(view.get("bridge_md") or ""),
+        "citation_excerpt": "\n".join(str(c.get("excerpt") or "") for c in citations),
+    }
+    return {name: text for name, text in fields.items() if text.strip()}
+
+
 def _detect_revealed_reserves(
     repository: Repository,
     *,
     answer_md: str,
     citations: Sequence[Mapping[str, Any]],
     caller_supplied: Sequence[str],
-) -> list[str]:
+    shown: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     """Server-side reveal detection (L3): map the answer's text + validated citations
     against every LIVE assessment reserve by surface_hash / fingerprint / verbatim
     overlap (>= ``READER_REVEAL_OVERLAP_THRESHOLD``). Returns the reserved surface ids
-    the answer leaked that the caller did NOT already declare -- so the caller-supplied
-    ids are UNIONed with these before burning."""
+    the answer leaked that the caller did NOT already declare, each with the field
+    that matched -- so the caller-supplied ids are UNIONed with these before burning.
+
+    K6-6: ``shown`` is every other text field the answer displays (the
+    verified excerpt, the bridge), each held to the same floor: a reserve the
+    learner read in the excerpt alone is as seen as one the explanation quotes."""
 
     reserves = repository.reserved_assessment_surfaces()
     if not reserves:
-        return []
+        return {}
     caller_set = set(caller_supplied)
-    detected: list[str] = []
+    detected: dict[str, str] = {}
     for surface in reserves:
         sid = surface["id"]
         if sid in caller_set or sid in detected:
@@ -529,7 +550,12 @@ def _detect_revealed_reserves(
         # Hash/fingerprint tokens the answer text or a citation label may echo
         # verbatim, or word-bigram overlap with the reserved statement.
         if lexical_reserve_reveal(answer_md, surface, citations=citations)[0]:
-            detected.append(sid)
+            detected[sid] = "answer" if lexical_reserve_reveal(answer_md, surface)[0] else "citation_label"
+            continue
+        for name, text in (shown or {}).items():
+            if lexical_reserve_reveal(text, surface)[0]:
+                detected[sid] = name
+                break
     return detected
 
 
@@ -778,6 +804,7 @@ def ask(
         answer_md=result.get("answer_md") or "",
         citations=result.get("citations") or [],
         caller_supplied=revealed_surface_ids,
+        shown=_shown_reserve_fields(result.get("reader_tutor"), result.get("citations") or []),
     )
     all_revealed: list[str] = list(dict.fromkeys([*revealed_surface_ids, *detected]))
 
@@ -808,7 +835,9 @@ def ask(
             kind="externally_reported",
             purpose="instructional",
             consumes_unseen=False,
-            detail={"reader_span": span_key, "reason": "reader_answer_revealed_cue"},
+            detail={"reader_span": span_key, "reason": "reader_answer_revealed_cue",
+                    # K6-6: which shown field the detector matched (absent when declared).
+                    **({"matched_field": detected[surface_id]} if surface_id in detected else {})},
             clock=clock,
         )
         burned.append(surface_id)

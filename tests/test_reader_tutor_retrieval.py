@@ -462,3 +462,83 @@ def test_the_reader_tutor_writes_no_learning_state(tmp_path, monkeypatch):
     root = ask(ctx)
     ask(ctx, "Explain it another way", parentExchangeId=root["readerAnswerEventId"], retrievalIntent="alternative")
     assert table_counts(repository, tables) == before
+
+
+# --- K6-6: the reserve detector reads every field the answer shows ---------------------------------
+
+#: The book's passage (``ext_book:s7``) a reserved question reproduces word for word.
+RESERVED_STEM = "The determinant changes sign when two rows of a matrix are swapped."
+
+
+def _reserve_reproducing_the_passage(paths, repository):
+    """Reserve ``pi_eigen_1`` for assessment with the book's sentence as its stem."""
+
+    from learnloop.clock import FrozenClock
+    from learnloop.substrate.activities import evaluate_held_out_eligibility, reserve_surface, resolve_legacy_item
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+    from datetime import UTC, datetime
+
+    path = paths.practice_item_path("linear-algebra", "pi_eigen_1")
+    payload = read_yaml(path)
+    payload.update(prompt=RESERVED_STEM, expected_answer="row swaps negate it")
+    write_yaml(path, payload)
+    clock = FrozenClock(datetime(2026, 10, 19, 9, tzinfo=UTC))
+    vault = load_vault(paths.root)
+    resolved = resolve_legacy_item(vault, repository, vault.practice_items["pi_eigen_1"], purpose="assessment",
+                                   clock=clock)
+    reserve_surface(repository, surface_id=resolved.surface_id, purpose="assessment", clock=clock)
+    surface = repository.fetch_surface(resolved.surface_id)
+    assert evaluate_held_out_eligibility(repository, surface=surface, purpose="assessment").is_unseen is True
+    return resolved.surface_id
+
+
+def _reader_reveal_exposures(repository, surface_id: str) -> list[dict]:
+    import json as _json
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT detail_json FROM activity_exposure_events WHERE surface_id = ? AND kind = 'externally_reported'",
+            (surface_id,)).fetchall()
+    return [_json.loads(row[0] or "{}") for row in rows]
+
+
+@pytest.mark.parametrize("field", ["excerpt", "bridge"])
+def test_a_reserve_shown_only_in_the_excerpt_or_the_bridge_is_burned_once(tmp_path, monkeypatch, field):
+    from learnloop.substrate.activities import evaluate_held_out_eligibility
+    from tests.library_ask_fixtures import context as fresh_context
+
+    tutor = LookupTutor(answer_md="Swapping rows flips the sign.",
+                        excerpt=_quote_of(("ext_book", "s7")) if field == "excerpt" else None,
+                        bridge_md=f'Your step "swap rows" is this: {RESERVED_STEM}' if field == "bridge" else None)
+    paths, _ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    surface_id = _reserve_reproducing_the_passage(paths, repository)
+    if field == "bridge":
+        _workbench_steps(repository, "pi_determinant_2", ["swap rows 1 and 2", "det stays 5"])
+    ctx = fresh_context(paths.root)
+    ctx.reader_tutor_rerank_client = _ctx.reader_tutor_rerank_client
+    answer = ask(ctx, spanId="t2", selectionSpanIds=["t2"], selectionQuote="Eigenvalues are the roots")
+    shown = answer["tutor"]["excerpt"]["quote"] if field == "excerpt" else answer["tutor"]["bridgeMd"]
+    assert RESERVED_STEM in shown and RESERVED_STEM not in answer["answerMd"]
+    assert surface_id in answer["burnedSurfaceIds"]
+    assert evaluate_held_out_eligibility(repository, surface=repository.fetch_surface(surface_id),
+                                         purpose="assessment").is_unseen is False
+    exposures = _reader_reveal_exposures(repository, surface_id)
+    assert len(exposures) == 1 and exposures[0].get("matched_field") == field
+
+
+def test_a_reserve_no_shown_field_reproduces_stays_unseen(tmp_path, monkeypatch):
+    from learnloop.substrate.activities import evaluate_held_out_eligibility
+    from tests.library_ask_fixtures import context as fresh_context
+
+    tutor = LookupTutor(answer_md="Swapping rows flips the sign.", excerpt=_quote_of(("ext_text", "t2")),
+                        bridge_md='Your step "swap rows 1 and 2" is where the sign flips.')
+    paths, _ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    surface_id = _reserve_reproducing_the_passage(paths, repository)
+    _workbench_steps(repository, "pi_determinant_2", ["swap rows 1 and 2", "det stays 5"])
+    ctx = fresh_context(paths.root)
+    ctx.reader_tutor_rerank_client = _ctx.reader_tutor_rerank_client
+    answer = ask(ctx, spanId="t2", selectionSpanIds=["t2"], selectionQuote="Eigenvalues are the roots")
+    assert surface_id not in answer["burnedSurfaceIds"]
+    assert evaluate_held_out_eligibility(repository, surface=repository.fetch_surface(surface_id),
+                                         purpose="assessment").is_unseen is True
