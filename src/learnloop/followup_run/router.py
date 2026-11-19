@@ -95,11 +95,7 @@ class FollowupDecision:
 def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None:
     """§5: what still refuses, in the orchestrator's own terms, before anything is spent."""
 
-    from learnloop.diagnosis.probe_hard_stops import (
-        causal_origin,
-        episode_conflict_reason,
-        learner_preference,
-    )
+    from learnloop.diagnosis.probe_hard_stops import learner_preference, probe_episode_conflict
     from learnloop.diagnosis.machine_checks import pending_machine_checks_for_factor
 
     preference = learner_preference(
@@ -112,12 +108,9 @@ def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, 
     if pending_machine_checks_for_factor(repository, factor_id=factor_id,
                                          learning_object_id=str(row["learning_object_id"])):
         return "pending_machine_checks"
-    existing = repository.open_probe_episode(str(row["learning_object_id"]))
-    if existing is not None and str(existing.origin or "") != causal_origin(factor_id):
-        reason = episode_conflict_reason(repository, existing)
-        if reason is not None:
-            return str(reason)
-    return None
+    # The repair lane's own check (one copy, K9-9): another episode owns the learning object and has measured.
+    reason = probe_episode_conflict(repository, factor_id=factor_id, learning_object_id=str(row["learning_object_id"]))
+    return str(reason) if reason is not None else None
 
 
 def observational(repository: Repository, factor_id: str) -> dict[str, Any]:

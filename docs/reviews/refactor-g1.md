@@ -348,3 +348,17 @@ G2 can add it to `ProbeFacts` as a hard stop.
 - P-shadow on a fresh private copy at base and tip: the orchestrator's.
 
 Implementer: one Opus session, no subagents; token use not available to the implementer.
+
+## Added at the landing (orchestrator)
+
+**K9-9 closed.** The ledger row was due "with G1 or K9 close". The follow-up router's `hard_refusal` kept its own
+copy of the "another probe episode is open" check, which disagreed with `probe_hard_stops.probe_episode_conflict`
+on an empty learning-object id. The router now calls the shared check. `None` (the caller does not know the
+learning object) asks nothing; an empty string is looked up like any id. Tests:
+`tests/test_probe_episode_conflict_one_check.py`.
+
+**The rebuild on a fresh private copy (the orchestrator's part of the proof).** A backup-API copy of today's
+copy of one owner vault was rebuilt once with the base's code and once with this branch's, at the vault's own
+tag. Of the 29 dumped tables (every derived table, item state and attempts), 28 are byte-equal and one differs
+only in a timestamp; no due date, mastery value, certification, label or headline differs. Aggregates only; the
+copies stayed in a gitignored directory and were deleted.

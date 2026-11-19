@@ -137,9 +137,16 @@ def episode_conflict_reason(
 def probe_episode_conflict(
     repository: Repository, *, factor_id: str, learning_object_id: str | None
 ) -> str | None:
-    """The conflict that would make ``accept_probe_offer`` refuse, if any."""
+    """The conflict that would make ``accept_probe_offer`` refuse, if any.
 
-    if not learning_object_id:
+    The one check for "another probe episode owns this learning object and has already measured": the repair
+    lane's offer and the follow-up router's hard refusal both ask it (ledger K9-9: they were two copies that
+    disagreed on an empty id). ``None`` means the caller does not know the learning object, so nothing is asked.
+    An empty string is an id like any other: it is looked up, and an open foreign episode stored under it
+    refuses, because a second episode on the same learning object would measure under two locked sets.
+    """
+
+    if learning_object_id is None:
         return None
     existing = repository.open_probe_episode(learning_object_id)
     if existing is None or str(existing.origin or "") == _causal_origin(factor_id):
