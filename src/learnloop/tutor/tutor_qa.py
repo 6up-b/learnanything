@@ -939,6 +939,7 @@ def ask_question(
             submission_id=submission_id,
             workbench_session_id=workbench_session_id,
             aliases=attempt_aliases,
+            reader_withheld=reader_held_out,
         )
     )
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -1980,7 +1981,12 @@ def _thread(
     submission_id: str | None = None,
     workbench_session_id: str | None = None,
     aliases: AttemptAliases | None = None,
+    reader_withheld: Any = None,
 ) -> list[dict[str, Any]]:
+    """The earlier turns a question's model context carries. ``reader_withheld`` (the Reader's destination
+    material: held out on the desktop, also exam material on the phone) decides which earlier same-span Reader
+    answers are sent as written (:func:`sendable_reader_answer_md`)."""
+
     if context == "practice":
         # B3: only this attempt's turns (an earlier serving's are not this
         # conversation); Reader CA2 (K5, C6): only this submission's (and its
@@ -2007,11 +2013,61 @@ def _thread(
             "question_md": event["question_md"],
             # The conversation as the learner had it (a withheld worked answer
             # is its take step, Codex review F2).
-            "answer_md": delivered_answer_md(event),
+            "answer_md": (sendable_reader_answer_md(event, reader_withheld) if context == "reader"
+                          else delivered_answer_md(event)),
             "question_type": event["question_type"],
         }
         for event in events
     ]
+
+
+#: What a model reads in place of an earlier Reader answer that drew on material now withheld from it (the
+#: learner's question stays).
+READER_ANSWER_WITHHELD = "[An earlier answer is left out: it drew on material that is now held out.]"
+
+
+def reader_answer_places(event: Mapping[str, Any]) -> list[tuple[str, str]] | None:
+    """Every ``(reading, span)`` a stored Reader question's answer may quote: its anchor, every passage the
+    tutor was given, its citations, its excerpt and the passages it retrieved, read from the question row the
+    tutor wrote. None when the row does not record what the tutor was given.
+
+    Read from the question row rather than the Reader's ``reader_answer_submitted`` event
+    (``reader_dialogue.ask_provenance``, which judges a branch's ancestors): a direct caller of
+    :func:`ask_question` writes only this row."""
+
+    stored = event.get("source_context")
+    if not isinstance(stored, Mapping) or "source_spans" not in stored:
+        return None
+    anchor = str(stored.get("extraction_id") or "")
+    places: list[tuple[str, str]] = []
+
+    def add(value: Any) -> None:
+        if isinstance(value, Mapping) and value.get("span_id"):
+            places.append((str(value.get("extraction_id") or anchor), str(value["span_id"])))
+
+    view = stored.get("reader_tutor") if isinstance(stored.get("reader_tutor"), Mapping) else {}
+    for value in [stored, *(stored.get("source_spans") or []), *(stored.get("citations") or []),
+                  view.get("excerpt")]:
+        add(value)
+    for key in (view.get("retrieval") or {}).get("span_keys") or []:
+        reading, _, span = str(key).partition(":")  # as ``reader_tutor.shown_span_keys`` reads them
+        if reading and span:
+            places.append((reading, span))
+    return places
+
+
+def sendable_reader_answer_md(event: Mapping[str, Any], withheld: Any) -> str | None:
+    """An earlier same-span Reader answer as a model may read it again: as delivered, or
+    :data:`READER_ANSWER_WITHHELD` when ``withheld`` covers a passage it may quote, or its row does not say which
+    passages those were. The answer's prose quotes what it was given and cited, so a mark made since it was
+    answered withholds the answer too. ``withheld`` None (no destination named) sends it as delivered."""
+
+    if withheld is None:
+        return delivered_answer_md(event)
+    places = reader_answer_places(event)
+    if places is None or any(withheld.covers(reading, span) for reading, span in places):
+        return READER_ANSWER_WITHHELD
+    return delivered_answer_md(event)
 
 
 #: Codex review F2 (K9, §7.5): the ladder's worked-help rungs a withheld

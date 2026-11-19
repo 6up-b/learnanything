@@ -307,8 +307,12 @@ def build_reader_manifest(
         "goal_invariants": dict(goal_invariants) if goal_invariants is not None else None,
         "prior_exchanges": [
             # Orchestrator fix F12: what the learner was shown (a withheld
-            # worked answer is its take step), never a stored raw answer.
-            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e)}
+            # worked answer is its take step), never a stored raw answer. The
+            # same-span thread is recorded as the tutor reads it: an answer
+            # drawing on material withheld now is its placeholder.
+            {"question_md": e["question_md"],
+             "answer_md": (tutor_qa.delivered_answer_md(e) if prior_exchanges is not None
+                           else tutor_qa.sendable_reader_answer_md(e, withheld))}
             for e in prior
         ],
         # Explicit negative space -- asserted by tests; the ability estimate and any
@@ -332,8 +336,9 @@ def _with_learner_state(manifest: dict[str, Any], learner_state: Any) -> None:
 # ---------------------------------------------------------------------------
 
 #: K6-4: what the tutor reads in place of an earlier answer of the branch that
-#: drew on material now held out (the learner's own question stays).
-ANCESTOR_ANSWER_WITHHELD = "[An earlier answer is left out: it drew on material that is now held out.]"
+#: drew on material now held out (the learner's own question stays); the same
+#: words stand in for an answer of the same-span thread.
+ANCESTOR_ANSWER_WITHHELD = tutor_qa.READER_ANSWER_WITHHELD
 
 
 def _sendable_exchanges(repository: Repository, extraction_id: str, withheld: Any) -> set[str]:

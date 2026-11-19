@@ -1519,9 +1519,14 @@ def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_refused(probe: Pr
         call(ctx, "reader.library_ask_notes", {"askId": ask_id})
 
 
-def _legacy_thread_ask(probe: Probe, own: str) -> RecordingModel:
-    """Reader Ask with its inquiry branches off: an answer given on the control passage cites its neighbour (the
-    reserved item's unit heading); that unit is then held out, and the learner asks again on the same passage."""
+EARLIER_QUESTION = "What does this passage say?"
+EARLIER_ANSWER = "As the next section says, GSIXCLEANRES holds the answer."
+
+
+def _thread_ask(probe: Probe, own: str, *, inquiry: bool, unit: str = "c_res") -> RecordingModel:
+    """Reader Ask: an answer given on the control passage cites its neighbour (the reserved item's unit heading);
+    ``unit`` is then held out, and the learner asks again on the same passage: with the inquiry branches off the
+    same-span thread, on a follow-up of that answer."""
 
     from types import SimpleNamespace
     from unittest import mock
@@ -1532,33 +1537,98 @@ def _legacy_thread_ask(probe: Probe, own: str) -> RecordingModel:
 
     target = replace(probe.base.targets["0.control"], row=f"0.control-{own}")
     world = probe.world(target, own=own)
-    apply_config_updates(world.root / "learnloop.toml", {("reader_inquiry", "enabled"): False})
+    apply_config_updates(world.root / "learnloop.toml", {("reader_inquiry", "enabled"): inquiry})
     extraction, span = _span(target)
     neighbour = "s4"  # the next unit's heading: GSIXCLEANRES
-    tutor = LookupTutor(answer_md="As the next section says, GSIXCLEANRES holds the answer.",
-                        cite=lambda context: [(extraction, neighbour)])
-    params = {"extraction_id": extraction, "span_id": span, "question": "What does this passage say?"}
+    tutor = LookupTutor(answer_md=EARLIER_ANSWER, cite=lambda context: [(extraction, neighbour)])
+    params = {"extraction_id": extraction, "span_id": span, "question": EARLIER_QUESTION}
     with mock.patch.object(reader_handlers, "ready_tutor_qa_provider",
                            lambda vault: ("g6", SimpleNamespace(ready=True), tutor)):
-        _call(probe, target, "reader.ask", params, phone=False, own=own)
+        first = _call(probe, target, "reader.ask", params, phone=False, own=own)
     assert tutor.contexts and any(entry["span_id"] == neighbour for entry in tutor.contexts[0]["source_spans"])
-    _mark_held(world, "c_res")
+    _mark_held(world, unit)
+    again = {**params, "question": "And again?"}
+    if inquiry:
+        again["parent_exchange_id"] = first["readerAnswerEventId"]
     model = RecordingModel()
     with _tutor(model):
         with pytest.raises(ModelReached):
-            _call(probe, target, "reader.ask", {**params, "question": "And again?"}, phone=False, own=own)
+            _call(probe, target, "reader.ask", again, phone=False, own=own)
     return model
 
 
-def test_a_legacy_reader_thread_sends_an_answer_grounded_in_a_passage_held_out_since(probe: Probe) -> None:
-    """Today's answer (RA, inquiry branches off): the held-out neighbour is out of the new manifest, but the earlier
-    answer that quoted it is in the next model context."""
+@pytest.mark.parametrize("inquiry", [False, True], ids=["legacy-thread", "branch"])
+def test_a_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe, inquiry: bool) -> None:
+    """G6-P3: an earlier answer on a safe anchor that quoted a passage held out since is not sent to the model
+    again, with the inquiry branches off (the same-span thread) or on (the follow-up's ancestor); the learner's
+    question stays and the placeholder stands in for the answer."""
 
-    model = _legacy_thread_ask(probe, "legacy-today")
-    assert model.carried("GSIXCLEANRES")
+    from learnloop.tutor.tutor_qa import READER_ANSWER_WITHHELD
 
-
-@pytest.mark.xfail(strict=True, reason="G6-P3: a legacy Reader thread re-sends history with no current admission")
-def test_a_legacy_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe) -> None:
-    model = _legacy_thread_ask(probe, "legacy-desired")
+    model = _thread_ask(probe, f"thread-{inquiry}", inquiry=inquiry)
     assert model.prompts and not model.carried("GSIXCLEANRES")
+    assert model.carried(EARLIER_QUESTION) and model.carried(READER_ANSWER_WITHHELD)
+
+
+def test_a_reader_thread_keeps_an_answer_whose_passages_stay_admissible(probe: Probe) -> None:
+    """G6-P3's other side: a mark on a unit the earlier answer never drew on leaves that answer in the thread."""
+
+    from learnloop.tutor.tutor_qa import READER_ANSWER_WITHHELD
+
+    model = _thread_ask(probe, "thread-unrelated", inquiry=False, unit="c_grade")
+    assert model.carried(EARLIER_ANSWER) and not model.carried(READER_ANSWER_WITHHELD)
+
+
+def test_a_direct_reader_question_leaves_out_an_earlier_answer_grounded_in_held_out_material(probe: Probe) -> None:
+    """G6-P3, the direct caller of ``tutor_qa.ask_question`` (no Reader dialogue, so no Reader answer event):
+    its same-span thread is judged by the question rows; the stored rows are unchanged."""
+
+    from learnloop.tutor import tutor_qa
+    from tests.reader_tutor_fakes import LookupTutor
+
+    target = replace(probe.base.targets["0.control"], row="0.control-direct")
+    world = probe.world(target, own="thread-direct")
+    extraction, span = _span(target)
+    tutor = LookupTutor(answer_md=EARLIER_ANSWER, cite=lambda context: [(extraction, "s4")])
+
+    def ask(client: Any, question: str) -> Any:
+        return tutor_qa.ask_question(world.vault(), world.repository, client, context="reader",
+                                     question_md=question, extraction_id=extraction, span_id=span, clock=CLOCK)
+
+    first = ask(tutor, EARLIER_QUESTION)
+    stored = world.repository.question_event(first["event_id"])
+    model = RecordingModel()
+    with pytest.raises(ModelReached):
+        ask(model, "Before the mark?")
+    assert model.carried(EARLIER_ANSWER)
+    _mark_held(world, "c_res")
+    model = RecordingModel()
+    with pytest.raises(ModelReached):
+        ask(model, "And again?")
+    assert model.prompts and not model.carried("GSIXCLEANRES")
+    assert model.carried(EARLIER_QUESTION) and model.carried(tutor_qa.READER_ANSWER_WITHHELD)
+    assert world.repository.question_event(first["event_id"]) == stored
+
+
+def test_an_earlier_reader_answer_with_no_recorded_passages_is_left_out() -> None:
+    """G6-P3, fail closed: a row that does not say what the tutor was given is not sent again, and a failing
+    protection read refuses rather than sends."""
+
+    from learnloop.tutor.tutor_qa import READER_ANSWER_WITHHELD, sendable_reader_answer_md
+
+    class Nothing:
+        def covers(self, reading: str, span: str) -> bool:
+            return False
+
+    class Broken:
+        def covers(self, reading: str, span: str) -> bool:
+            raise RuntimeError("source sets unreadable")
+
+    recorded = {"answer_md": "GSIXCLEANCTRL.", "source_context": {"extraction_id": "e", "span_id": "s1",
+                                                                  "source_spans": []}}
+    assert sendable_reader_answer_md(recorded, Nothing()) == "GSIXCLEANCTRL."
+    assert sendable_reader_answer_md({**recorded, "source_context": None}, Nothing()) == READER_ANSWER_WITHHELD
+    assert sendable_reader_answer_md({**recorded, "source_context": {"extraction_id": "e", "span_id": "s1"}},
+                                     Nothing()) == READER_ANSWER_WITHHELD
+    with pytest.raises(RuntimeError):
+        sendable_reader_answer_md(recorded, Broken())
