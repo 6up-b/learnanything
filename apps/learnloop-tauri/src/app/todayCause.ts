@@ -140,7 +140,9 @@ export const GOAL_NOT_UP_TODAY = "Nothing for this goal is up today. Its questio
 
 export function goalCauseSentence(cause: TodayCause): string {
   const sentence = causeSentence(cause);
-  return `${GOAL_NOTHING_LEAD} ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}`;
+  // After the colon the sentence starts in lower case, except a name ("LearnLoop needs…").
+  const joined = sentence.startsWith("LearnLoop") ? sentence : `${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}`;
+  return `${GOAL_NOTHING_LEAD} ${joined}`;
 }
 
 /** The finished plan's line: nothing else is asked of the learner today. */
