@@ -109,6 +109,27 @@ def is_phone(ctx: Any) -> bool:
     return getattr(ctx, "request_origin", None) is not None
 
 
+def destination_material(ctx: Any, vault: Any, repository: Any) -> Any:
+    """At a phone origin, the material the phone is never sent, as one ``Material`` for the Reader's
+    context assembly (K6-4): the request's selection is refused by :func:`refuse_if_withheld`, and this
+    keeps the same predicate's material out of its neighbours, the blocks they cite, retrieved passages
+    and earlier answers. None for the desktop. Unreadable: the request is refused (fail closed)."""
+
+    if not is_phone(ctx):
+        return None
+    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material
+
+    try:
+        return exam_material(vault, repository).material
+    except Exception:  # noqa: BLE001 - fail closed: an unreadable predicate sends nothing
+        import logging
+
+        logging.getLogger(__name__).exception("exam material unreadable for a phone Ask")
+        from learnloop_sidecar.errors import SidecarError
+
+        raise SidecarError(HELD_OUT_CODE, HELD_OUT_REFUSAL) from None
+
+
 def refuse_if_withheld(ctx: Any, vault: Any, repository: Any, extraction_id: str | None,
                        span_ids: Iterable[str | None] = ()) -> None:
     """At a phone origin, refuse a request that names protected material (or a reading that

@@ -331,6 +331,23 @@ def _with_learner_state(manifest: dict[str, Any], learner_state: Any) -> None:
 # Learner -> AI (Ask).
 # ---------------------------------------------------------------------------
 
+#: K6-4: what the tutor reads in place of an earlier answer of the branch that
+#: drew on material now held out (the learner's own question stays).
+ANCESTOR_ANSWER_WITHHELD = "[An earlier answer is left out: it drew on material that is now held out.]"
+
+
+def _sendable_exchanges(repository: Repository, extraction_id: str, withheld: Any) -> set[str]:
+    """The completed exchanges of ``extraction_id`` none of whose passages ``withheld`` covers (K6-4).
+
+    An earlier answer's prose quotes what it was given and cited, so a mark made
+    since it was answered withholds the answer too before it is sent to a model
+    again; an exchange the stored events do not account for is not sent (fail
+    closed: absent from the set)."""
+
+    return {event_id for event_id, places in ask_provenance(repository, extraction_id=extraction_id).items()
+            if not any(withheld.covers(reading, span) for reading, span in places)}
+
+
 def _branch_ancestors(
     repository: Repository, *, extraction_id: str, span_id: str,
     parent_exchange_id: str | None,
@@ -584,9 +601,18 @@ def ask(
     reader_caller: Mapping[str, Any] | None = None,
     reader_binding: Any | None = None,
     learner_state: Any | None = None,
+    context_withheld: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``context_withheld`` (K6-4: a ``content.sources.exam_material.Material``
+    the adapter derives for its destination, the phone's exam material) joins
+    the held-out material for everything this question assembles: the
+    selection's neighbours and the blocks they cite, retrieved passages, the
+    excerpt, and each earlier answer of the branch, judged by the passages
+    its stored exchange names. None (the desktop) changes nothing but the
+    last, which the held-out material alone decides.
 
     ``learner_state`` (learner-blindness relax, ``reader_tutor.
     learner_state_enabled``: a ``learnloop.reader_learner_state.
@@ -671,6 +697,9 @@ def ask(
         )
     thread: list[dict[str, Any]] | None = None
     ancestors: list[dict[str, Any]] = []
+    held_out = held_out_material(vault, repository)
+    if context_withheld is not None:
+        held_out = held_out.union(context_withheld)
     if branches:
         ancestors = _branch_ancestors(
             repository, extraction_id=extraction_id, span_id=span_id,
@@ -682,13 +711,15 @@ def ask(
             selection_span_ids = parent["selection_span_ids"]
             selection_quote_md = parent["selection_quote_md"]
             selection_source_quote_md = parent.get("selection_source_quote_md")
+        sendable = _sendable_exchanges(repository, extraction_id, held_out) if ancestors else set()
         thread = [
-            {"question_md": e["question_md"], "answer_md": tutor_qa.delivered_answer_md(e), "question_type": "other"}
+            {"question_md": e["question_md"],
+             "answer_md": tutor_qa.delivered_answer_md(e) if e["event_id"] in sendable else ANCESTOR_ANSWER_WITHHELD,
+             "question_type": "other"}
             for e in ancestors[-READER_BRANCH_PROMPT_ANCESTORS:]
         ]
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
-    held_out = held_out_material(vault, repository)
     manifest = build_reader_manifest(
         repository,
         extraction_id=extraction_id,
@@ -764,6 +795,7 @@ def ask(
         reader_caller=reader_caller,
         reader_binding=reader_binding,
         **({"reader_learner_state": learner_state} if learner_state is not None else {}),
+        **({"reader_withheld": context_withheld} if context_withheld is not None else {}),
         clock=clock,
     )
     if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:
@@ -1034,7 +1066,10 @@ def ask_provenance(repository: Repository, *, extraction_id: str) -> dict[str, l
         tutor = payload.get("tutor") if isinstance(payload.get("tutor"), dict) else {}
         places = [(extraction_id, str(span)) for span in
                   [payload.get("span_id") or subject_id[len(prefix):], *(selection.get("span_ids") or [])] if span]
-        for value in [*(payload.get("citations") or []), tutor.get("excerpt"), *(tutor.get("explorable") or [])]:
+        # K6-4: every passage the tutor was given (the manifest's spans: neighbours, the blocks
+        # they cite, retrieved ones) is named too, since the stored answer may quote any of them.
+        for value in [*(payload.get("citations") or []), tutor.get("excerpt"), *(tutor.get("explorable") or []),
+                      *(manifest.get("source_spans") or [])]:
             place = located(value)
             if place is not None:
                 places.append(place)

@@ -486,3 +486,64 @@ def test_doses_from_the_phone_are_the_desktops_draw_and_rows(tmp_path, monkeypat
     assert outcomes[0] == outcomes[1]
     kinds = [row["row_kind"] for row in outcomes[1][0]]
     assert kinds.count("delivered") == 1 and kinds.count("taken") == 1
+
+
+# -- K6-4: the phone's predicate covers the whole Reader request, not only the selection ------------
+
+#: A unit the source sets override to ``exam`` (rule 2): exam material, so withheld from the phone, but not
+#: held out, so the desktop's Reader reads it as context. One block is a neighbour of the Ask's passage, the
+#: other the theorem it cites by number, far from it.
+NEIGHBOUR_SENTINEL = "Neighbour sentinel: every subspace contains the zero vector."
+REFERENCE_SENTINEL = "Theorem 1.2 (Zero vector). Reference sentinel: the zero vector of a space is unique."
+_K64_BLOCKS = {
+    "b0": ("SectionHeader", 0, "1 Vectors"),
+    "b1": ("Text", 0, REFERENCE_SENTINEL),
+    "b2": ("SectionHeader", 0, "2 Lists"),
+    "b3": ("Text", 0, "A list of length n is an ordered collection of n elements."),
+    "b4": ("Text", 1, "Two lists are equal when they have the same length and the same elements."),
+    "b5": ("Text", 1, "Lists differ from sets in that order matters."),
+    "b6": ("Text", 1, "Repetition is allowed in a list."),
+    "b7": ("SectionHeader", 1, "3 Exam warm-up"),
+    "b8": ("Text", 2, NEIGHBOUR_SENTINEL),
+    "b9": ("SectionHeader", 2, "4 Spans"),
+    "b10": ("Text", 2, "The span of a list is the set of all linear combinations of it, by Theorem 1.2."),
+}
+_K64_UNITS = (("u1", "1 Vectors", ["b0", "b1"]), ("u2", "2 Lists", ["b2", "b3", "b4", "b5", "b6"]),
+              ("u3", "3 Exam warm-up", ["b7", "b8"]), ("u4", "4 Spans", ["b9", "b10"]))
+
+
+def test_the_phones_ask_never_sends_exam_material_in_its_context_or_reply(tmp_path, monkeypatch):
+    import tests.mobile_v4_reader_helpers as helpers
+    import learnloop_sidecar.handlers.reader as reader_handlers
+    from learnloop.reader.reader_dialogue import StubReaderClient
+    from learnloop.vault.writer import upsert_source_set
+
+    monkeypatch.setattr(helpers, "_BLOCKS", _K64_BLOCKS)
+    monkeypatch.setattr(helpers, "_UNITS", _K64_UNITS)
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    add_book(paths.root, repository, held_out=False)
+    upsert_source_set(paths.root, {
+        "id": "set_k64", "subject_id": "linear-algebra", "title": "Book", "members": [{
+            "source_id": "src1", "revision_id": "rev1", "default_role": "primary_textbook",
+            "scope_extraction_id": EXTRACTION, "scope_revision_id": "rev1",
+            "scope": [{"unit_id": "u1", "role_override": "exam"}, {"unit_id": "u3", "role_override": "exam"}]}]})
+    tutor = StubReaderClient(answer_md="A span is every combination of the list.")
+
+    class Ready:
+        ready = True
+
+    monkeypatch.setattr(reader_handlers, "ready_tutor_qa_provider", lambda vault: ("fake", Ready(), tutor))
+    # The desktop's Reader reads both (held-out protection only, the owner's default).
+    answer = call(desktop(paths.root), "reader.ask", {"extractionId": EXTRACTION, "spanId": "b10", "question": "why?"})
+    given = {span["text"] for span in tutor.contexts[-1].source_spans}
+    assert {NEIGHBOUR_SENTINEL, REFERENCE_SENTINEL} <= given and answer["answerMd"]
+    device = pair(repository)
+    with TestClient(host(paths.root, tmp_path / "pages"), base_url=f"https://{HOSTNAME}") as client:
+        phone = Phone(client, device, capabilities=READER_APP)
+        reply = job(phone, "reader.ask", {"extractionId": EXTRACTION, "spanId": "b10", "question": "why?"}, "k64_ask")
+    given = {span["text"] for span in tutor.contexts[-1].source_spans}
+    assert len(tutor.contexts) == 2
+    assert NEIGHBOUR_SENTINEL not in given and REFERENCE_SENTINEL not in given
+    sent = json.dumps(reply)
+    assert "Neighbour sentinel" not in sent and "Reference sentinel" not in sent

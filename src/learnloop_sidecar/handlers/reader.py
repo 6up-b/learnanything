@@ -179,6 +179,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # Learner-blindness relax: the learner's state on the passage's learning
     # objects (None while reader_tutor.learner_state_enabled is off).
     learner_state = RTU.learner_state(vault, repository, params, restricted)
+    # K6-4: the phone's predicate covers the whole request, not only the selection.
+    destination = PR.destination_material(ctx, vault, repository)
     try:
         result = RD.ask(
             vault,
@@ -206,6 +208,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             # Stored with the question, so nothing rebuilt from it reads wider.
             **({"reader_caller": restricted.stored()} if restricted.stored() else {}),
             **({"learner_state": learner_state} if learner_state is not None else {}),
+            **({"context_withheld": destination} if destination is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(

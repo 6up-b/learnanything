@@ -1004,3 +1004,52 @@ def test_a_retrieved_spans_reference_to_an_exercise_caption_is_refused_while_pra
         allow=reference_filter(vault, repository, scope, item=item), delivered={("ext_lecture", "s3")})
     assert found.spans == []
     assert [(entry["span_id"], entry["reason"]) for entry in found.unresolved] == [("s2", LEAD_REFUSED)]
+
+
+# -- K6-4: an ancestor's answer is rechecked against today's protection -------------------------------
+
+PRELUDE = "Prelude sentinel: an orthogonal matrix has determinant plus or minus one."
+
+
+class _CitingReader(RD.StubReaderClient):
+    """A Reader tutor whose answer quotes and cites the first passage containing ``cite``."""
+
+    def __init__(self, *, cite: str, answer_md: str) -> None:
+        super().__init__(answer_md=answer_md)
+        self.cite = cite
+
+    def complete(self, request):
+        from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
+
+        answer = super().complete(request)
+        spans = [span for span in self.contexts[-1].source_spans if self.cite in str(span.get("text") or "")]
+        citations = [TutorCitation(extraction_id=str(span["extraction_id"]), span_id=str(span["span_id"]), label="")
+                     for span in spans[:1]] or list(answer.citations)
+        return TutorAnswer(answer_md=answer.answer_md, question_type="other", facets=[], citations=citations)
+
+
+def test_a_branchs_earlier_answer_from_a_now_held_out_passage_never_reaches_the_tutor(tmp_path):
+    prelude = {"ch_prev": ("Chapter 3 Prelude", [(PRELUDE, 1)])}
+    paths, repository = _vault(tmp_path, extra_units=prelude)
+    step = _span_of(repository, "Paragraph two")
+    vault = load_vault(paths.root)
+    tutor = _CitingReader(cite="Prelude sentinel", answer_md=f"Your book says: {PRELUDE}")
+    root = RD.ask(vault, repository, tutor, extraction_id="ext_text", span_id=step, question_md="Why?",
+                  clock=CLOCK)
+    assert PRELUDE in {span["text"] for span in tutor.contexts[-1].source_spans}
+    assert any(citation["span_id"] == _span_of(repository, "Prelude sentinel") for citation in root["citations"])
+    # While it is allowed, the branch's follow-up reads the earlier answer as it was given.
+    allowed = RD.StubReaderClient()
+    RD.ask(vault, repository, allowed, extraction_id="ext_text", span_id=step, question_md="So?",
+           parent_exchange_id=root["reader_answer_event_id"], clock=CLOCK)
+    assert [turn["answer_md"] for turn in allowed.contexts[-1].thread] == [f"Your book says: {PRELUDE}"]
+    # The prelude is held out after the answer was given; the learner continues the branch.
+    save_unit_selection(repository, "ext_text", ["ch_prev", "ch_sym"],
+                        exam_use_modes={"ch_prev": "held_out_evaluation"})
+    follow = RD.StubReaderClient()
+    RD.ask(load_vault(paths.root), repository, follow, extraction_id="ext_text", span_id=step,
+           question_md="And then?", parent_exchange_id=root["reader_answer_event_id"], clock=CLOCK)
+    context = follow.contexts[-1]
+    assert [turn["question_md"] for turn in context.thread] == ["Why?"]  # the learner's own words stay
+    assert all("Prelude sentinel" not in str(turn.get("answer_md") or "") for turn in context.thread)
+    assert "Prelude sentinel" not in repr(context)

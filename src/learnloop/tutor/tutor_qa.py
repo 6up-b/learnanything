@@ -766,6 +766,7 @@ def ask_question(
     attempt_aliases: AttemptAliases | None = None,
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     reader_learner_state: Any = None,
+    reader_withheld: Any = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -895,6 +896,11 @@ def ask_question(
         # is written or sent; a held-out neighbour of the passage is left out
         # of the manifest (``_reader_source_spans``).
         reader_held_out = held_out_material(vault, repository)
+        if reader_withheld is not None:
+            # K6-4: the destination's own predicate (the phone's exam material) withholds
+            # from every passage this context assembles -- neighbours, the blocks they cite,
+            # retrieved passages, the excerpt -- not only from the selection its door checked.
+            reader_held_out = reader_held_out.union(reader_withheld)
         if held_out_among(reader_held_out, extraction_id, [span_id, *selection_span_ids]):
             raise HeldOutMaterialRefused(held_out_refusal(reader_held_out, extraction_id))
         note_id = reader_span_key(extraction_id, span_id)
