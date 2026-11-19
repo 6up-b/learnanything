@@ -34,6 +34,7 @@ export function TodayScreen({
   onBegin,
   onOpen,
   onEnd,
+  onResume,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -43,6 +44,8 @@ export function TodayScreen({
   onBegin: (minutes: number) => void;
   onOpen: (row: ScheduledItemDto) => void;
   onEnd: () => void;
+  /** UX fix stage 4 (F19): a question left for Today has a draft; this reopens it as it was. */
+  onResume?: (() => void) | null;
   onError: (error: unknown) => void;
 }) {
   const sessionId = session?.sessionId ?? null;
@@ -100,6 +103,11 @@ export function TodayScreen({
       {!head && !query.loading ? <p className="dim">Nothing more for now.</p> : null}
       {waiting ? <p className="dim" role="status">{waiting}</p> : null}
       <div className="actions">
+        {onResume ? (
+          <button className="plain block" type="button" onClick={onResume}>
+            Resume your answer <span aria-hidden="true">▸</span>
+          </button>
+        ) : null}
         {head ? (
           <button className="primary block" type="button" onClick={() => onOpen(head)}>Next: {head.learningObjectTitle}</button>
         ) : null}

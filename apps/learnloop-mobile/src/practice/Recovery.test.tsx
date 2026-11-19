@@ -557,7 +557,9 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       fireEvent.click(screen.getByRole("button", { name: "Capture" }));
       expect(await screen.findByLabelText("A thought, a problem or a link")).toBeTruthy();
       expect(screen.queryByRole("textbox", { name: "Your answer" })).toBeNull();
+      // UX fix stage 4 (F19): the Today tab opens Today's list, the question kept under it behind "Resume your answer".
       fireEvent.click(screen.getByRole("button", { name: "Today" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Resume your answer" }));
       expect(screen.getByRole("textbox", { name: "Your answer" }).textContent).toContain("Half an answer");
       expect(called("get_practice_item")).toHaveLength(serves);
     });

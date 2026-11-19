@@ -3,8 +3,8 @@
 // desktop and is counted, the stop offer goes both ways, and a randomized check offers no help.
 import { findJargon } from "@desktop/copy/denyList";
 import {
-  answers, App, cacheSessionId, called, cleanup, describe, expect, feedback, fireEvent, getAnswers, installFakeHost, it, item, render,
-  screen, session, waitFor
+  answers, App, cacheSessionId, called, cleanup, describe, expect, fakeFetch, feedback, fireEvent, getAnswers, installFakeHost, it, item, render,
+  screen, session, vi, waitFor
 } from "../test/fakeHost";
 
 installFakeHost();
@@ -311,6 +311,95 @@ describe("help on the phone (J16 partial) and the randomized check (J6)", () => 
     render(<App />);
     await screen.findByText("Define it.");
     expect(await screen.findByRole("button", { name: "Hint" })).toBeTruthy();
+  });
+});
+
+// UX fix stage 4 (audit F19, P9; phone-2 #40-43): the Today tab, tapped from another place while a question was open,
+// opened the question, and "Back to Today" opened the plan. The Today tab now always opens the plan, and a draft
+// left there waits behind "Resume your answer", which brings it back as it was.
+describe("the Today tab always opens the plan (F19)", () => {
+  async function halfAnswer(text: string) {
+    answers.get_daily_plan = reply();
+    answers.next_plan_item = reply({}, { step: itemStep() });
+    await beginPlan();
+    const editor = screen.getByRole("textbox", { name: "Your answer" });
+    editor.textContent = text;
+    fireEvent.input(editor);
+  }
+
+  it("F19: from another place, the Today tab opens the plan with Resume your answer, which brings the draft back", async () => {
+    await halfAnswer("Half an answer");
+    const serves = called("next_plan_item").length;
+    const opens = called("get_practice_item").length;
+    fireEvent.click(screen.getByRole("button", { name: "Capture" }));
+    await screen.findByLabelText("A thought, a problem or a link");
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(await screen.findByTestId("today-sentence")).toBeTruthy();
+    // The question is kept under the plan, out of sight (and out of reach of a screen reader).
+    expect(screen.queryByRole("textbox", { name: "Your answer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
+    // The plan is Today's own screen: the tab bar is there, and no Back covers it.
+    expect(screen.getByRole("navigation", { name: "Places" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Back to Today" })).toBeNull();
+    const resume = screen.getByRole("button", { name: "Resume your answer" });
+    expect(screen.getByRole("button", { name: "Next" })).toBeTruthy();
+    expect(findJargon(resume.textContent ?? "")).toEqual([]);
+    fireEvent.click(resume);
+    await screen.findByText("Define it.");
+    const editor = screen.getByRole("textbox", { name: "Your answer" });
+    expect(editor.textContent).toBe("Half an answer");
+    // Neither leaving nor resuming served anything (M2a's F5: ordinary navigation keeps the draft, with no second serve).
+    expect(called("next_plan_item").length).toBe(serves);
+    expect(called("get_practice_item").length).toBe(opens);
+    // Resumed, the answer goes to the same presentation it was served under.
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByText("3 / 4");
+    expect(called("submit_attempt")[0].params).toMatchObject({ practiceItemId: "i1", answerMd: "Half an answer", planPresentationId: "pp_i1" });
+  });
+
+  it("F19: Back to Today from a question with a draft offers Resume your answer too, which reopens it on the draft", async () => {
+    await halfAnswer("Half an answer");
+    const serves = called("next_plan_item").length;
+    fireEvent.click(screen.getByRole("button", { name: "Back to Today" }));
+    // Back saves the draft at once, as before.
+    await waitFor(() => expect(called("save_practice_draft").at(-1)?.params).toMatchObject({ practiceItemId: "i1", answerMd: "Half an answer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Resume your answer" }));
+    const editor = await screen.findByRole("textbox", { name: "Your answer" });
+    await waitFor(() => expect(editor.textContent).toBe("Half an answer"));
+    expect(called("next_plan_item").length).toBe(serves);
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await screen.findByText("3 / 4");
+    expect(called("submit_attempt")[0].params).toMatchObject({ practiceItemId: "i1", answerMd: "Half an answer", planPresentationId: "pp_i1" });
+  });
+
+  it("F19: with nothing typed there is no draft to resume: the plan shows its Next only", async () => {
+    await halfAnswer("");
+    fireEvent.click(screen.getByRole("button", { name: "Capture" }));
+    await screen.findByLabelText("A thought, a problem or a link");
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(await screen.findByRole("button", { name: "Next" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume your answer" })).toBeNull();
+  });
+
+  it("F19: an answer on its way is not left: the Today tab shows it until its reply lands", async () => {
+    await halfAnswer("My answer");
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/rpc" && JSON.parse(init?.body as string).method === "submit_attempt") await held;
+      return fakeFetch(input, init);
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Back to Today" }).hasAttribute("disabled")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Capture" }));
+    await screen.findByLabelText("A thought, a problem or a link");
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    expect(await screen.findByText("Define it.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume your answer" })).toBeNull();
+    release();
+    expect(await screen.findByText("3 / 4")).toBeTruthy();
   });
 });
 
