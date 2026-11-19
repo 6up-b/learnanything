@@ -17,6 +17,7 @@ from typing import Any, Iterable, Mapping
 
 from learnloop.followup_serve.gates import generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_entry
+from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.probes import ProbeEpisodeRecord
@@ -1254,7 +1255,7 @@ def episode_posterior(
 
 def probe_answer_admissibility(
     repository: Repository, *, probe_attempt_id: str | None
-) -> "ProductionAdmissibility | None":  # noqa: F821  imported in the body; postponed annotations never evaluate it
+) -> ProductionAdmissibility | None:
     """Was the probe answer produced before anything was revealed to it?
 
     ``None`` when there is no probe attempt to assess (an out-of-band
@@ -1269,8 +1270,6 @@ def probe_answer_admissibility(
     (refactor bug ledger G3-1). It lives here, beside the episode reader, so
     the episode does not import the discrimination module.
     """
-
-    from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
 
     if not probe_attempt_id:
         return None
