@@ -55,24 +55,24 @@ EXPECTED_TABLE = """
 fixture           | TE MR RA PS CK GU FI IP SC SQ MC | CI BS RI LF RF | RT OT PK SS DV PF EX EH CO SE | LP AP AD LC | PW PG PI RV GP PA PH AS DO | ML LA OR LJ PT TJ TB LS DH FB FD KY BG CM | RD RN CN
 0.control         | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  S  S  S  S  S  -  S | S  S  S  S  S  S  S  S  S  -  -  -  S  S | S  -  -
 1.paper           | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  R  W | S  -  -
-2.exam            | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  S
+2.exam            | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  W
 2.neighbor        | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  S  S  S  -  S | S  S  S  S  S  S  S  S  S  -  -  -  S  S | S  -  -
-2.split-exam      | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  S
+2.split-exam      | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  W
 2.split-theory    | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  W  S  S  -  S | S  S  S  S  S  S  R  S  S  -  -  -  W  S | S  -  -
-3.held            | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  S  S
+3.held            | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  W  W
 3.unresolved      | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  R  W | S  -  -
 3.neighbor        | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  S  S  S  -  W | S  S  S  S  S  S  S  S  S  -  -  -  S  S | S  -  -
-3.camel           | W  W  R  R  R  W  W  -  W  W  W | R  W  S  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  S  S
+3.camel           | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  W  W
 4.unmarked        | W  W  R  R  R  W  W  -  W  W  W | R  W  R  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  W | S  W  R  R  R  S  R  W  S  -  -  -  R  W | S  -  -
 4.legacy          | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  R  W | S  -  -
 5.signal          | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  S  S
 5.unknown         | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  R  W | S  -  -
 6.1canonical      | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  R  R  R  W  W  - | S  W  R  R  W  S  R  S  S  -  S  S  R  W | S  -  -
 6.1block          | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  R  R  R  W  -  - | S  W  R  R  W  S  R  S  S  -  S  S  R  W | S  -  -
-6.2canonical      | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  W  W  R  W  W  - | S  W  R  R  W  S  R  S  S  -  S  S  W  W | S  S  S
-6.2block          | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  W  W  R  W  -  - | S  W  R  R  W  S  R  S  S  -  S  S  W  W | S  S  S
-6.3canonical      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
-6.3block          | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  -  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
+6.2canonical      | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  W  W  R  W  W  - | S  W  R  R  W  S  R  S  S  -  S  S  W  W | S  S  W
+6.2block          | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  W  W  R  W  -  - | S  W  R  R  W  S  R  S  S  -  S  S  W  W | S  S  W
+6.3canonical      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  W  W
+6.3block          | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  -  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  W  W
 6.4canonical      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  S  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  R  R  R  W  W  - | S  W  R  R  R  S  R  W  S  -  S  S  R  W | S  -  -
 6.4block          | W  W  R  R  R  W  W  S  W  W  W | R  W  R  S  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  R  R  R  W  -  - | S  W  R  R  R  S  R  W  S  -  S  S  R  W | S  -  -
 6.5canonical      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
@@ -87,7 +87,7 @@ fixture           | TE MR RA PS CK GU FI IP SC SQ MC | CI BS RI LF RF | RT OT PK
 7.reader-import   | W  W  S  S  S  S  W  S  W  W  W | R  W  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | W  R  R  R  R  R  W  W  - | S  W  R  R  W  S  R  S  S  -  S  S  R  W | S  -  -
 8.invalid         | R  R  R  R  R  R  R  W  R  R  R | R  R  R  R  R | R  R  R  R  S  S  S  R  S  S | W  W  W  W | W  R  R  R  R  R  W  W  W | S  R  R  R  R  S  R  S  S  -  S  R  R  R | R  -  -
 8.empty           | R  R  R  R  R  R  R  W  R  R  R | R  R  R  R  R | R  R  R  R  S  S  S  R  S  S | W  W  W  W | W  R  R  R  R  R  W  W  W | S  R  R  R  R  S  R  S  S  -  S  R  R  R | R  -  -
-9.switch-off      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | S  S  S  S  S  S  S  S  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
+9.switch-off      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | S  S  S  S  S  S  S  S  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  W  W
 +.shown           | S  S  S  S  S  S  S  S  S  S  S | S  S  S  S  S | S  W  S  S  S  S  W  W  S  R | S  S  S  S | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 +.held-feedback   | -  -  -  -  -  -  -  -  -  -  - | -  -  -  -  - | -  -  -  -  -  -  -  -  -  - | -  -  -  - | -  -  -  -  -  -  -  -  - | -  -  -  -  -  -  -  -  -  W  -  S  -  - | -  -  -
 """
@@ -1415,20 +1415,77 @@ def test_an_exam_reserved_items_own_passage_is_withheld_from_figure_prebuilds(pr
     assert _figure_item_passages(probe, target) == W
 
 
-@pytest.mark.xfail(strict=True, reason="G6-P6: the Reader import's held-out check reads only snake_case span_id")
 def test_a_camel_case_selection_of_held_out_material_is_refused_before_the_author(probe: Probe) -> None:
     assert _reader_import(probe, probe.base.targets["3.held"]) == R
     assert _reader_import(probe, probe.base.targets["3.camel"]) == R
 
 
-@pytest.mark.xfail(strict=True, reason="G6-P7: the Reader import's author context adds unchecked neighbours")
 def test_the_reader_imports_author_never_sees_a_held_out_neighbour(probe: Probe) -> None:
     assert _reader_neighbour(probe, probe.base.targets["3.held"]) == W
 
 
-@pytest.mark.xfail(strict=True, reason="G6-P7: the canonical import's author context adds unchecked neighbours")
 def test_the_canonical_imports_author_never_sees_an_exam_neighbour(probe: Probe) -> None:
     assert _canonical_neighbour(probe, probe.base.targets["2.exam"]) == W
+
+
+def _safe_selection_beside(probe: Probe, own: str) -> tuple[World, str, str, str]:
+    """The clean control exercise and the clean block after it, on a world of its own."""
+
+    target = replace(probe.base.targets["0.control"], row=f"0.control-{own}")
+    world = probe.world(target, own=own)
+    extraction, span = _span(target)
+    blocks = list(world.repository.load_document_ir(extraction).blocks)
+    index = next(at for at, block in enumerate(blocks) if block.span_id == span)
+    return world, extraction, span, blocks[index + 1].text
+
+
+def test_the_reader_imports_author_keeps_a_safe_neighbour(probe: Probe) -> None:
+    """G6-P7's other side (RN): a neighbour no protection covers stays in the author's context."""
+
+    from unittest import mock
+
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import JobContext
+    from tests.protection_matrix_helpers import reader_import_context
+
+    world, extraction, span, neighbour = _safe_selection_beside(probe, "rn-safe")
+    author = _Author()
+    ctx = reader_import_context(world.root, world.repository, extraction_id=extraction,
+                                nodes=[{"span_id": span, "quote": _block_text(world, extraction, span)}],
+                                client=author, source_id=probe.base.targets["0.control"].source_id)
+    with mock.patch.object(JobContext, "report", lambda self, *a, **k: None), pytest.raises(ModelReached):
+        jobs.handle_reader_exercise_import(ctx)
+    assert _author_saw(author, " ".join(neighbour.split())) == S
+
+
+def test_the_canonical_imports_author_keeps_a_safe_neighbour(probe: Probe) -> None:
+    """G6-P7's other side (CN): a neighbour no protection covers stays in the author's context."""
+
+    from learnloop.content.authoring.source_exercise_import import import_source_exercise
+
+    world, extraction, span, neighbour = _safe_selection_beside(probe, "cn-safe")
+    author = _Author()
+    with pytest.raises(ModelReached):
+        import_source_exercise(world.root, world.repository, extraction_id=extraction, span_ids=[span],
+                               caller="learner", clients={"authoring": author}, clock=CLOCK)
+    assert _author_saw(author, " ".join(neighbour.split())) == S
+
+
+def test_the_shared_author_refuses_a_protected_selected_segment_before_any_call(probe: Probe) -> None:
+    """G6-P7: the shared author admits the assembled context itself: a selected block the caller's set covers
+    refuses the whole request with no author call, whichever caller named the set."""
+
+    from learnloop.content.authoring.exercise_authoring import ExerciseAuthoringError, author_exercises
+    from learnloop.content.sources.exam_material import Material
+
+    world, extraction, span, _neighbour = _safe_selection_beside(probe, "author-final")
+    author = _Author()
+    covering = Material(spans=frozenset({(extraction, span)}))
+    with pytest.raises(ExerciseAuthoringError):
+        author_exercises(world.root, world.repository, author, extraction_id=extraction,
+                         raw_selection={"nodes": [{"span_id": span, "quote": _block_text(world, extraction, span)}]},
+                         clock=CLOCK, context_withheld=covering)
+    assert author.seen == []
 
 
 def _mark_held(world: World, unit: str) -> None:

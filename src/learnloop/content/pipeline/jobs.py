@@ -3270,6 +3270,8 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
             revision_id=revision_id,
             learning_object_hint=str(payload.get("learning_object_hint") or "") or None,
             clock=ctx.clock,
+            # The Reader's set: a held-out neighbor of the selection never reaches the author.
+            context_withheld=exam.held_out,
         )
     except EX.ExerciseAuthoringError as exc:
         raise IngestRunnerError(str(exc)) from exc
