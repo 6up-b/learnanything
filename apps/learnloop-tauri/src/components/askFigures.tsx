@@ -69,6 +69,12 @@ function updateHost(hostKey: string, change: (state: PanelFigureHostState) => Pa
   for (const listener of panelFigureListeners) listener();
 }
 
+/** The take-step token kept for a host, read when a request is made: two requests in one
+ *  render must see the same token, or the second would take the step again. */
+function keptTokenOf(hostKey: string): { key: string; token: string } | null {
+  return panelFigureHosts.get(hostKey)?.token ?? null;
+}
+
 function subscribeHosts(listener: () => void): () => void {
   panelFigureListeners.add(listener);
   return () => { panelFigureListeners.delete(listener); };
@@ -158,7 +164,6 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const attemptKey = target ? `${target.submissionId ?? ""}|${target.workbenchSessionId ?? ""}` : "";
-  const keptToken = hostState.token;
 
   const land = useCallback((key: string, result: FigureBuildResultDto | null, host: string) => {
     const figure = quickOnly(result?.figure ?? null);
@@ -188,6 +193,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       let takeStepToken: string | null = null;
       if (cold && target.context === "practice") {
         // §11.3: the take step converts the attempt first; its token goes with the request.
+        const keptToken = keptTokenOf(host);
         if (keptToken?.key === attemptKey) {
           takeStepToken = keptToken.token;
         } else {
@@ -208,7 +214,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     } catch (error) {
       setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }), host);
     }
-  }, [enabled, target, cold, attemptKey, land, hostKey, setLines, keptToken]);
+  }, [enabled, target, cold, attemptKey, land, hostKey, setLines]);
 
   /** The chooser's explore_figure line opens its figure here (§11.4). */
   const open = useCallback(async (figureId: string, label: string) => {
@@ -220,12 +226,13 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     setLines((list) => list.some((line) => line.key === key) ? list
       : [...list, { key, goal: label, state: "pending", figure: null, help: null, message: null }], host);
     try {
+      const keptToken = keptTokenOf(host);
       const opened = await api.figureOpen({ figureId, hostRef, takeStepToken: keptToken?.key === attemptKey ? keptToken.token : null });
       land(key, { figure: opened.figure, reused: true, help: opened.help }, host);
     } catch (error) {
       setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }), host);
     }
-  }, [enabled, target, attemptKey, land, hostKey, setLines, keptToken]);
+  }, [enabled, target, attemptKey, land, hostKey, setLines]);
 
   const contract: FiguresContract = useMemo(() => ({ predictions: true, region: false, revisions: true, showMe: true }), []);
   const ctl: FiguresCtl = useMemo(() => {
@@ -250,6 +257,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
         // Codex review F4: the version is asked on the host it is open on now (a Reader figure
         // opened from the chooser's line too), so it is recorded and reveal-checked on this attempt.
         const hostRef = target ? figureHostRef(target) : null;
+        const keptToken = keptTokenOf(host);
         const takeStepToken = keptToken?.key === attemptKey ? keptToken.token : null;
         void settle(() => api.readerFigureRevise({ figureId: figure.figureId, note, hostRef, takeStepToken }))
           .then((result) => land(key, result, host))
@@ -277,7 +285,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       optInSpanId: null,
       answerManimOptIn: () => undefined
     };
-  }, [enabled, contract, lines, expandedKey, land, target, attemptKey, hostKey, setLines, keptToken]);
+  }, [enabled, contract, lines, expandedKey, land, target, attemptKey, hostKey, setLines]);
 
   const dismiss = (key: string) => setLines((list) => list.filter((line) => line.key !== key));
   return { enabled, lines, send, open, ctl, converted, dismiss };
