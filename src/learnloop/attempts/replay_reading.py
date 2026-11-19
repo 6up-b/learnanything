@@ -18,6 +18,12 @@ from learnloop.algorithm_versions import evidence_reading_fixes_on
 MODEL_GRADER_TIER = 3
 #: The grading sources of a model grader (the soft-score lane; ``attempts._interpretation_variance``).
 MODEL_GRADING_SOURCES = frozenset({"ai", "codex"})
+#: The ``agent_runs.purpose`` of a run that grades an answer (``attempts.grading``, ``attempts.regrade``,
+#: ``attempts.blind_grading``, ``attempts.clarification``, ``tutor.teach_back``): only such a run can name a
+#: replacement grade's source.
+GRADING_RUN_PURPOSES = frozenset(
+    {"grading", "grading_regrade", "blind_grading", "grading_clarification_resolution", "teach_back"}
+)
 
 
 def replayed_grader_confidence(vault: Any, stored: Any) -> float:
@@ -44,7 +50,9 @@ def replayed_grading_source(vault: Any, repository: Any, attempt: Mapping[str, A
     (:func:`grading_source_for_run`). A recorded model source stands (a model regrade of a model grade stays on the
     model's lane, and a run's provider column can be a default rather than a name), and so does every other case:
     the first grade still current, or a replacement no model run wrote (an owner's adjudication revises a grade
-    without grading it again)."""
+    without grading it again). The source is never invented: the current rows must name exactly one model run other
+    than the first grade's, and that run must exist and be a grading run (:data:`GRADING_RUN_PURPOSES`); a missing,
+    pruned or unrelated run, or two candidate runs, keep the recorded source."""
 
     attempt_id = str(attempt["id"])
     feedback = repository.raw_attempt_feedback_metadata(attempt_id) or {}
@@ -62,9 +70,12 @@ def replayed_grading_source(vault: Any, repository: Any, attempt: Mapping[str, A
         }
         - {first_run}
     )
-    if not runs:
+    if len(runs) != 1:
         return recorded
-    return grading_source_for_run(repository.agent_run(runs[-1]) or {})
+    run = repository.agent_run(runs[0])
+    if run is None or run.get("purpose") not in GRADING_RUN_PURPOSES:
+        return recorded
+    return grading_source_for_run(run)
 
 
 def grading_source_for_run(run: Mapping[str, Any]) -> str:
@@ -117,6 +128,7 @@ def _graded_more_than_once(repository: Any, attempt_id: str) -> bool:
 
 
 __all__ = [
+    "GRADING_RUN_PURPOSES",
     "MODEL_GRADER_TIER",
     "MODEL_GRADING_SOURCES",
     "grading_source_for_run",

@@ -227,6 +227,65 @@ def test_k5_11_an_ai_regrade_of_a_self_grade_replays_as_the_ai(tmp_path, tag):
     assert live == rebuilt == expected
 
 
+class _Rows:
+    """A grading-evidence row's two fields the source rule reads."""
+
+    def __init__(self, run_id, tier=3):
+        self.agent_run_id, self.grader_tier = run_id, tier
+
+
+class _Runs:
+    """The repository reads ``replayed_grading_source`` makes: the first grade's feedback and the runs by id."""
+
+    def __init__(self, runs):
+        self.runs = runs
+
+    def raw_attempt_feedback_metadata(self, _attempt_id):
+        return {"grading_source": "self", "agent_run_id": None}
+
+    def agent_run(self, run_id):
+        return self.runs.get(run_id)
+
+
+@pytest.mark.parametrize(("runs", "rows", "expected"), [
+    ({"run_a": {"purpose": "grading", "provider": "deepseek_flash"}}, [_Rows("run_a")], "ai"),
+    ({}, [_Rows("run_missing")], "self"),
+    ({"run_a": {"purpose": "tutor_qa", "provider": "deepseek_flash"}}, [_Rows("run_a")], "self"),
+    ({"run_a": {"purpose": "grading", "provider": "deepseek_flash"},
+      "run_b": {"purpose": "grading", "provider": "codex_cli"}}, [_Rows("run_a"), _Rows("run_b")], "self"),
+], ids=["one_grading_run", "missing_run", "run_of_another_purpose", "two_candidate_runs"])
+def test_r4_a_replacements_source_is_never_invented(monkeypatch, runs, rows, expected):
+    """Only one existing grading run on the current rows names a replaced self-grade's source; a missing, unrelated
+    or ambiguous run keeps the recorded one (the review's T61-4)."""
+
+    from learnloop.attempts import replay_reading
+
+    monkeypatch.setattr(replay_reading, "_graded_more_than_once", lambda _repository, _attempt_id: True)
+    vault = type("Vault", (), {"config": _Config(TAG)})()
+    assert replay_reading.replayed_grading_source(vault, _Runs(runs), {"id": "att"}, rows) == expected
+
+
+@BOTH_TAGS
+def test_r4_a_regrade_whose_run_is_gone_replays_under_its_recorded_source(tmp_path, tag):
+    """The review's pruned history: a self-grade regraded by a model below the tag (its channel ``self, self``), the
+    regrade's run no longer on record. Read at ``tag``, nothing says which provider graded the replacement, so the
+    recorded source stands and nothing is appended (before, the missing run read as ``ai``)."""
+
+    paths, vault, repository = _vault(tmp_path, BELOW)
+    attempt_id = _self_graded(vault, repository).attempt_id
+    _ai_regrade_pending(vault, repository)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("DELETE FROM agent_runs WHERE id IN (SELECT agent_run_id FROM grading_evidence "
+                           "WHERE attempt_id = ? AND agent_run_id IS NOT NULL)", (attempt_id,))
+        connection.commit()
+    set_algorithm_version(paths, tag)
+    _rebuild(paths)
+    _rebuild(paths)
+
+    assert [row["grader_provider"] for row in _raw_events(paths, attempt_id)] == ["self", "self"]
+
+
 def _exam_vault_at(tmp_path, tag):
     vault_root, _vault_unused, _repository = _exam_vault(tmp_path)
     paths = VaultPaths(vault_root, load_vault(vault_root).config)
