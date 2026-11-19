@@ -900,7 +900,8 @@ def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:
             _attribution_from_dict(attribution)
             for attribution in (payload.get("error_attributions") or [])
         ],
-        grader_confidence=float(payload.get("grader_confidence") or 1.0),
+        # A grader may answer exactly 0.0 (no reliability): only a missing value reads as full.
+        grader_confidence=1.0 if payload.get("grader_confidence") is None else float(payload["grader_confidence"]),
         confidence=payload.get("confidence"),
         manual_review_reason=payload.get("manual_review_reason"),
         feedback_md=payload.get("feedback_md"),
