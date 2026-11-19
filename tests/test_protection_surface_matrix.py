@@ -1650,37 +1650,60 @@ def test_a_completed_pinned_answer_is_refused_when_protection_cannot_be_read(pro
         call_rpc(ctx, "reader.library_job", {"jobId": job_id})
 
 
-MISSING_KEY = "g6missing_extraction:s1"
+#: A well-formed key naming no passage: its reading does not exist, or its reading does but has no such block.
+MISSING = {"extraction": ("g6missing_extraction", "s1"), "span": (None, "s999")}
 
 
-def _ask_naming_a_missing_passage(probe: Probe, own: str):
-    target = replace(probe.base.targets["0.control"], row=f"0.control-{own}", extraction_id="g6missing_extraction",
-                     span_id="s1")
-    return _stored_ask(probe, target, own=own)
+def _ask_naming_a_missing_passage(probe: Probe, own: str, missing: str):
+    control = probe.base.targets["0.control"]
+    extraction, span = MISSING[missing]
+    target = replace(control, row=f"0.control-{own}", extraction_id=extraction or control.extraction_id,
+                     span_id=span)
+    return (*_stored_ask(probe, target, own=own), f"{target.extraction_id}:{span}", probe.world(target, own=own))
 
 
-def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_returned(probe: Probe) -> None:
-    """Today's answers of the organizer (OR) and the kept job (LJ) for a well-formed key naming no passage."""
+@pytest.mark.parametrize("missing", sorted(MISSING))
+def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_refused(probe: Probe, missing: str) -> None:
+    """G6-P5 (LJ, OR): a kept job or an organizer whose key names no passage refuses the whole result, with the
+    kept results' wording: the kept job at every read, the organizer before it judges and before it hands back
+    notes it stored."""
 
-    from tests.library_ask_fixtures import OrganizerFake, call, call_rpc
-
-    ctx, ask_id, job_id = _ask_naming_a_missing_passage(probe, "missing-today")
-    assert MISSING_KEY in json.dumps(call_rpc(ctx, "reader.library_job", {"jobId": job_id})["result"])
-    ctx.library_organizer_client = OrganizerFake()
-    assert call(ctx, "reader.library_ask_notes", {"askId": ask_id})["status"] == "empty_pool"
-
-
-@pytest.mark.xfail(strict=True, reason="G6-P5: a cached key's protection check does not prove the passage exists")
-def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_refused(probe: Probe) -> None:
+    from learnloop.source_retrieval import library_ask as LA
     from learnloop_sidecar.errors import SidecarError
     from tests.library_ask_fixtures import OrganizerFake, call, call_rpc
 
-    ctx, ask_id, job_id = _ask_naming_a_missing_passage(probe, "missing-desired")
-    with pytest.raises(SidecarError):
-        call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+    ctx, ask_id, job_id, key, world = _ask_naming_a_missing_passage(probe, f"missing-{missing}", missing)
+    for _read in range(2):
+        with pytest.raises(SidecarError) as refused:
+            call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+        assert str(refused.value) == LA.RESULT_WITHHELD
     ctx.library_organizer_client = OrganizerFake()
     with pytest.raises(SidecarError):
         call(ctx, "reader.library_ask_notes", {"askId": ask_id})
+    # Notes stored for it (judged before the passage went): not handed back either.
+    LA._update(world.repository, ask_id, organizer_json=json.dumps(
+        {"status": "judged", "notes": [{"key": key, "note": "GSIXCLEANCTRL"}], "order": [key]}))
+    with pytest.raises(SidecarError):
+        call(ctx, "reader.library_ask_notes", {"askId": ask_id})
+    assert LA.withheld_now(world.vault(), world.repository, [key]) == [key]
+
+
+def test_a_kept_answers_existing_passages_still_pass_the_check(probe: Probe) -> None:
+    """G6-P5's other side: a key naming a clean passage that exists is not withheld; a read that fails withholds."""
+
+    from unittest import mock
+
+    from learnloop.source_retrieval import library_ask as LA
+
+    world = probe.base
+    extraction, span = _span(world.targets["0.control"])
+    assert LA.withheld_now(world.vault(), world.repository, [f"{extraction}:{span}"]) == []
+
+    def failing(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("database is locked")
+
+    with mock.patch.object(LA, "blocks_by_key", failing):
+        assert LA.withheld_now(world.vault(), world.repository, [f"{extraction}:{span}"]) == [f"{extraction}:{span}"]
 
 
 EARLIER_QUESTION = "What does this passage say?"

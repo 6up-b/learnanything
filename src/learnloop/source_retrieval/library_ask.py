@@ -825,12 +825,16 @@ def withheld_now(vault: LoadedVault, repository: Repository, keys: Sequence[str]
     that names no passage, withholds."""
 
     parsed = {key: tuple(key.split(":", 1)) for key in keys}
+    pairs = sorted(pair for pair in parsed.values() if len(pair) == 2)
     try:
-        held = set(EM.exam_material(vault, repository).withheld(
-            sorted(pair for pair in parsed.values() if len(pair) == 2)))
-    except Exception:  # noqa: BLE001 - fail closed: protection that can't be read withholds
+        held = set(EM.exam_material(vault, repository).withheld(pairs))
+        # Exam membership says nothing of existence: a well-formed key naming no passage is no
+        # exam material, yet nothing vouches for what a result says it read there.
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            found = set(blocks_by_key(connection, pairs))
+    except Exception:  # noqa: BLE001 - fail closed: protection or passages that can't be read withhold
         return list(keys)
-    return [key for key, pair in parsed.items() if len(pair) != 2 or pair in held]
+    return [key for key, pair in parsed.items() if len(pair) != 2 or pair in held or pair not in found]
 
 
 def refuse_withheld(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> None:
