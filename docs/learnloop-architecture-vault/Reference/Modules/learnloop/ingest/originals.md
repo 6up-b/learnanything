@@ -80,6 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `store_original_bytes`; statically calls `store_original_bytes`
 - [[Reference/Modules/learnloop/projects/capture|learnloop.projects.capture]] — imports `canonical_source_raw_path`, `store_original_bytes`; statically calls `canonical_source_raw_path`, `store_original_bytes`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `is_pdf_file`, `stored_original_path`; statically calls `is_pdf_file`, `stored_original_path`
+- [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] — imports `PDF_MAGIC`, `stored_original_path`; statically calls `stored_original_path`
 - [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `is_pdf_file`, `resolve_original_file`; statically calls `is_pdf_file`, `resolve_original_file`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `canonical_source_raw_path`; statically calls `canonical_source_raw_path`
@@ -102,7 +103,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/capture/inbox|learnloop.capture.inbox]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]], [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -149,6 +150,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pdf_view_manifest_from_originals_store`
   - `test_pdf_view_resolves_source_ref_like_render_view`
 - [tests/test_source_retrieval_suites.py](../../../../../../tests/test_source_retrieval_suites.py) — direct import
+- [tests/test_ux2_macros_protection.py](../../../../../../tests/test_ux2_macros_protection.py) — direct import
+  - `test_ux2_the_second_pane_of_a_book_with_a_held_out_unit_gets_no_macros`
+- [tests/test_ux2_source_macros.py](../../../../../../tests/test_ux2_source_macros.py) — direct import
+  - `test_ux2_the_second_pane_gets_its_own_books_macros`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
   - `test_u2_pdf_view_lists_each_passages_page_for_a_text_only_extraction`
 

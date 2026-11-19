@@ -2504,6 +2504,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
   - `test_attaches_that_never_write_refuse_while_the_journal_stands`
   - `test_each_activation_kind_commits_its_own_receipt_once`
+- [tests/test_ux2_macros_protection.py](../../../../../../tests/test_ux2_macros_protection.py) — direct import
 - [tests/test_ux_phase1_finish.py](../../../../../../tests/test_ux_phase1_finish.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../../tests/test_ux_phase1_landing.py) — direct import
   - `test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked`

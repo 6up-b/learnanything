@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/reader/phone_media.py`
+- `src/learnloop/reader/source_macros.py`
 - `src/learnloop/source_retrieval/deliverables.py`
 - `src/learnloop/substrate/dataset.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/MarkdownMath.tsx](../../../../../../apps/learnloop-tauri/src/render/MarkdownMath.tsx) |
-| Source lines | 35 |
+| Source lines | 45 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
@@ -54,12 +54,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 20
+- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 21
 
 ## Internal implementation anchors
 
-- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 14
-- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 15
+- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 15
+- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 16
+- `const macros = useMathMacros()` — const, line 34
+- `const rehypePlugins = useMemo<MarkdownProps["rehypePlugins"]>( ()` — const, line 35
 
 ## Who imports or calls it
 
@@ -107,6 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/render/markdownPipeline|src/render/markdownPipeline.ts]] — import-or-re-export; imports `REMARK_PLUGINS`, `normalizeMathDelimiters`
+- [[Reference/Desktop/TypeScript/render/mathMacros|src/render/mathMacros.tsx]] — import-or-re-export; imports `useMathMacros`
 
 ### Assets, platform, and third-party dependencies
 
@@ -123,6 +126,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts](../../../../../../apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/render/sourceMacros.test.tsx](../../../../../../apps/learnloop-tauri/src/render/sourceMacros.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.

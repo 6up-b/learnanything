@@ -28,6 +28,7 @@ source_paths:
   - "src/learnloop/reader/recap.py"
   - "src/learnloop/reader/section_generation.py"
   - "src/learnloop/reader/source_identity.py"
+  - "src/learnloop/reader/source_macros.py"
   - "src/learnloop/reader/source_objects.py"
   - "src/learnloop/reader/source_render_views.py"
   - "src/learnloop/reader/source_review.py"
@@ -94,6 +95,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] | [[Reference/Modules/learnloop/reader/recap#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
 | [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] | [[Reference/Modules/learnloop/reader/section_generation#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] | [[Reference/Modules/learnloop/reader/source_identity#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] | [[Reference/Modules/learnloop/reader/source_macros#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] | [[Reference/Modules/learnloop/reader/source_objects#^module-purpose|purpose]] | `ACTIVE` | 6 | 10 |
 | [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]] | [[Reference/Modules/learnloop/reader/source_review#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -108,11 +110,11 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 26 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 18 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 19 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 16 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 14 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
-- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 11 static module edges
+- [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 12 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 10 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 8 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 8 static module edges
@@ -129,7 +131,7 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 50 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 52 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 27 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
@@ -163,15 +165,15 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_sidecar_handlers -->|50| center
+    n_learnloop_sidecar_handlers -->|52| center
     n_learnloop_source_retrieval -->|27| center
     center -->|26| n_learnloop
     center -->|20| n_learnloop_db
-    center -->|18| n_learnloop_content_sources
+    center -->|19| n_learnloop_content_sources
     center -->|16| n_learnloop_ai
     center -->|14| n_learnloop_db_stores
     center -->|14| n_learnloop_vault
-    center -->|11| n_learnloop_ingest
+    center -->|12| n_learnloop_ingest
     center -->|10| n_learnloop_substrate
 ```
 

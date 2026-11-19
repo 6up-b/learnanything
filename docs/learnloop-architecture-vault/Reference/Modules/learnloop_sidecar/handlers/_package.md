@@ -198,8 +198,8 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 323 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 52 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 50 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 37 static module edges
@@ -261,8 +261,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop_sidecar.handlers"]
     n_learnloop_sidecar["learnloop_sidecar"]
-    n_learnloop["learnloop"]
     n_learnloop_reader["learnloop.reader"]
+    n_learnloop["learnloop"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_ai["learnloop.ai"]
@@ -272,8 +272,8 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_sidecar -->|6| center
     center -->|323| n_learnloop_sidecar
+    center -->|52| n_learnloop_reader
     center -->|50| n_learnloop
-    center -->|50| n_learnloop_reader
     center -->|41| n_learnloop_source_retrieval
     center -->|39| n_learnloop_instructional
     center -->|37| n_learnloop_ai

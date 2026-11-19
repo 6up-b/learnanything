@@ -36,7 +36,7 @@ Reader request-state coordination extracted from the main reader screen.
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/reader/ActiveReadingCard|ActiveReadingCard.tsx]] | `ACTIVE` | Implements the `ActiveReadingCard` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/AlsoInBooks|AlsoInBooks.tsx]] | `ACTIVE` | Implements the `AlsoInBooks` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/AskRail|AskRail.tsx]] | `ACTIVE` | Implements the `AskRail` routed desktop screen and coordinates its learner-facing workflow state. | 11 | 1 |
+| [[Reference/Desktop/TypeScript/screens/reader/AskRail|AskRail.tsx]] | `ACTIVE` | Implements the `AskRail` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ComingUp|ComingUp.tsx]] | `ACTIVE` | Implements the `ComingUp` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|CompareKeep.tsx]] | `ACTIVE` | Implements the `CompareKeep` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 5 |
 | [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|ComparePointTable.tsx]] | `ACTIVE` | Implements the `ComparePointTable` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
@@ -53,7 +53,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/InquiryQuickCheck|InquiryQuickCheck.tsx]] | `ACTIVE` | Implements the `InquiryQuickCheck` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/IntentBox|IntentBox.tsx]] | `ACTIVE` | Implements the `IntentBox` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/KeptMark|KeptMark.tsx]] | `ACTIVE` | Implements the `KeptMark` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|LibraryAnswer.tsx]] | `ACTIVE` | Implements the `LibraryAnswer` routed desktop screen and coordinates its learner-facing workflow state. | 12 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|LibraryAnswer.tsx]] | `ACTIVE` | Implements the `LibraryAnswer` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|LibraryPane.tsx]] | `ACTIVE` | Implements the `LibraryPane` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/MarginMark|MarginMark.tsx]] | `ACTIVE` | Implements the `MarginMark` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|ModelActionState.tsx]] | `ACTIVE` | Implements the `ModelActionState` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 15 |
@@ -61,7 +61,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/NotesRail|NotesRail.tsx]] | `ACTIVE` | Implements the `NotesRail` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/PreparingView|PreparingView.tsx]] | `ACTIVE` | Implements the `PreparingView` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ProposalExercises|ProposalExercises.tsx]] | `ACTIVE` | Implements the `ProposalExercises` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 3 |
-| [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|ReaderAskBranches.tsx]] | `ACTIVE` | Implements the `ReaderAskBranches` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 4 |
+| [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|ReaderAskBranches.tsx]] | `ACTIVE` | Implements the `ReaderAskBranches` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderCorrespondenceSettings|ReaderCorrespondenceSettings.tsx]] | `ACTIVE` | Implements the `ReaderCorrespondenceSettings` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderCueSettings|ReaderCueSettings.tsx]] | `ACTIVE` | Implements the `ReaderCueSettings` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|ReaderNotes.tsx]] | `ACTIVE` | Implements the `ReaderNotes` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 4 |
@@ -70,7 +70,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/RecapCard|RecapCard.tsx]] | `ACTIVE` | Implements the `RecapCard` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/ReconnectLine|ReconnectLine.tsx]] | `ACTIVE` | Implements the `ReconnectLine` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ScopeFromPassage|ScopeFromPassage.tsx]] | `ACTIVE` | Implements the `ScopeFromPassage` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|SideBySidePane.tsx]] | `ACTIVE` | Implements the `SideBySidePane` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 3 |
+| [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|SideBySidePane.tsx]] | `ACTIVE` | Implements the `SideBySidePane` routed desktop screen and coordinates its learner-facing workflow state. | 11 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|TutorAnswer.tsx]] | `ACTIVE` | Implements the `TutorAnswer` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 3 |
 | [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|TutorOffers.tsx]] | `ACTIVE` | Implements the `TutorOffers` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|WrapUpOffer.tsx]] | `ACTIVE` | Implements the `WrapUpOffer` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |

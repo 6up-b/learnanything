@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderAskBranches.tsx) |
-| Source lines | 280 |
+| Source lines | 281 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,40 +54,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReaderExchange` — interface, line 20
-- `export interface AskAbout extends SourceIdentity` — interface, line 50
-- `export const aboutLine = (about: AskAbout): string` — const, line 62
-- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 64
-- `export function ReaderAskBranches(` — function, line 89
+- `export interface ReaderExchange` — interface, line 21
+- `export interface AskAbout extends SourceIdentity` — interface, line 51
+- `export const aboutLine = (about: AskAbout): string` — const, line 63
+- `export type InquiryCommitment = "test_me_later" | "help_me_remember"` — type, line 65
+- `export function ReaderAskBranches(` — function, line 90
 
 ## Internal implementation anchors
 
-- `interface Props` — interface, line 66
-- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 87
-- `const byId = new Map(exchanges.map((exchange)` — const, line 104
-- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 105
-- `const parents = new Map<string, string | null>()` — const, line 106
-- `let parent = exchange.parentExchangeId` — let, line 110
-- `const seen = new Set([exchange.id])` — const, line 111
-- `let cursor = parent` — let, line 112
-- `const ancestor = byId.get(cursor)` — const, line 114
-- `const search = query.trim().toLowerCase()` — const, line 125
-- `const visible = new Set<string>()` — const, line 126
-- `let id: string | null = exchange.id` — let, line 129
-- `const buttonStyle =` — const, line 136
-- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 138
-- `const resolution = exchange.resolution ?? "open"` — const, line 140
-- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 142
-- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 143
-- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 144
-- `function statusChips(root: ReaderExchange)` — function, line 166
-- `const resolution = root.resolution ?? "open"` — const, line 168
-- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 169
-- `function branch(exchange: ReaderExchange, depth: number)` — function, line 195
-- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 197
-- `const replies = children.get(exchange.id) ?? []` — const, line 198
-- `const isRoot = depth === 0` — const, line 199
-- `const resolution = exchange.resolution ?? "open"` — const, line 200
+- `interface Props` — interface, line 67
+- `const STATUS_WORDS: Record<InquiryResolution, string> =` — const, line 88
+- `const byId = new Map(exchanges.map((exchange)` — const, line 105
+- `const children = new Map<string | null, ReaderExchange[]>()` — const, line 106
+- `const parents = new Map<string, string | null>()` — const, line 107
+- `let parent = exchange.parentExchangeId` — let, line 111
+- `const seen = new Set([exchange.id])` — const, line 112
+- `let cursor = parent` — let, line 113
+- `const ancestor = byId.get(cursor)` — const, line 115
+- `const search = query.trim().toLowerCase()` — const, line 126
+- `const visible = new Set<string>()` — const, line 127
+- `let id: string | null = exchange.id` — let, line 130
+- `const buttonStyle =` — const, line 137
+- `const onHeaderKey = (event: KeyboardEvent<HTMLButtonElement>, exchange: ReaderExchange, isRoot: boolean)` — const, line 139
+- `const resolution = exchange.resolution ?? "open"` — const, line 141
+- `const scope = event.currentTarget.closest("[data-ask-threads]") ?? document` — const, line 143
+- `const headers = Array.from(scope.querySelectorAll<HTMLButtonElement>("[data-exchange-header]"))` — const, line 144
+- `const next = headers[headers.indexOf(event.currentTarget) + (event.key === "ArrowDown" ? 1 : -1)]` — const, line 145
+- `function statusChips(root: ReaderExchange)` — function, line 167
+- `const resolution = root.resolution ?? "open"` — const, line 169
+- `const done = committed?.(root) ?? new Set<InquiryCommitment>()` — const, line 170
+- `function branch(exchange: ReaderExchange, depth: number)` — function, line 196
+- `const expanded = Boolean(search) || !collapsedIds.has(exchange.id)` — const, line 198
+- `const replies = children.get(exchange.id) ?? []` — const, line 199
+- `const isRoot = depth === 0` — const, line 200
+- `const resolution = exchange.resolution ?? "open"` — const, line 201
 
 ## Who imports or calls it
 
@@ -106,6 +106,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InquiryResolution`, `ReaderAnswerMode`, `ReaderTutorViewDto`, `SourceIdentity`, `TutorCitationDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `plainMathLine`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export; imports `ExchangeOffers`, `TutorAnswer`, `TutorRailProps`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `answerModeLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `LearnerVoice`, `MeaningLabel`, `SourceVoice`

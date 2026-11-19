@@ -43,7 +43,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/AnimationPlayer|AnimationPlayer.tsx]] | `ACTIVE` | Provides the reusable `AnimationPlayer` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/AsPrinted|AsPrinted.tsx]] | `ACTIVE` | Provides the reusable `AsPrinted` interaction surface used by one or more desktop workflows. | 5 | 6 |
 | [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|AsciiLoadingBar.tsx]] | `ACTIVE` | Provides the reusable `AsciiLoadingBar` interaction surface used by one or more desktop workflows. | 1 | 2 |
-| [[Reference/Desktop/TypeScript/components/AskOverlay|AskOverlay.tsx]] | `ACTIVE` | Provides the reusable `AskOverlay` interaction surface used by one or more desktop workflows. | 14 | 9 |
+| [[Reference/Desktop/TypeScript/components/AskOverlay|AskOverlay.tsx]] | `ACTIVE` | Provides the reusable `AskOverlay` interaction surface used by one or more desktop workflows. | 15 | 9 |
 | [[Reference/Desktop/TypeScript/components/BookCard|BookCard.tsx]] | `ACTIVE` | Provides the reusable `BookCard` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/BookShelf|BookShelf.tsx]] | `ACTIVE` | Provides the reusable `BookShelf` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/CapturePhoto|CapturePhoto.tsx]] | `ACTIVE` | Provides the reusable `CapturePhoto` interaction surface used by one or more desktop workflows. | 4 | 2 |
