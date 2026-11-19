@@ -296,7 +296,16 @@ the ladder's order on facts, and that a threshold the ladder does not reach is n
 
 ## 8. Gate
 
-(filled after the targeted run)
+Targeted tests at the tip of the source commits: 988 files (the 984 `scripts/affected_tests.py --files` selects from
+the changed files, every test naming `decide_probe`, `probe_facts`, `causal_probe_decision`,
+`resolve_cold_probe_parameters` or `resolve_causal_probe_parameters`, P2's 42 files, `test_identity_pins`,
+`test_retired_config_identities`, `test_effective_defaults_golden`, `test_cli_help_snapshot`,
+`test_structure_ratchets`, `test_diagnosis_journey_golden`), in 17 chunks of at most 60 at `-n 2`,
+`-m "not arc_close"`, each in a 5 GB scope: 24,891 passed, 0 failed. Alone at `-n 1`: `test_architecture` 18
+passed, `test_test_layout` 3 passed. `lint-imports --no-cache` 43 kept, 0 broken; `ruff check` clean;
+`check_gate_partition` 31,196 + 65 = 31,261; the vault validators pass (the desktop catalog reported `_generated.md`
+stale before the regeneration, which is what the regeneration is for). Identity pins pass with nothing written; the
+structure golden is not raised (no ratcheted number rose). No run was killed for memory.
 
 ## 9. What G2 should know
 
