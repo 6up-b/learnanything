@@ -253,6 +253,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_roles_are_kept_with_confidence_judge_and_ledger_and_never_exclude`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
 - [tests/test_reader_rw3b_protection.py](../../../../../../tests/test_reader_rw3b_protection.py) — direct import
   - `test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown`

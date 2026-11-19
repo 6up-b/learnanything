@@ -109,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/mobile_v4_reader_helpers.py](../../../../../../tests/mobile_v4_reader_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
 - [tests/test_capture_domain.py](../../../../../../tests/test_capture_domain.py) — direct import
   - `test_image_sanitization_and_raw_fingerprint`

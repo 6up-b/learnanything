@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/exam_scope_fixtures.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/teacher_fakes.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_deliverable_path.py`

@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_goal_contracts.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_contamination_report.py`
 - `tests/test_familiarity.py`

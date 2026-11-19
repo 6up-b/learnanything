@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/plan_determinism_helpers.py](../../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/plan_follows_path_helpers.py](../../../../../../tests/plan_follows_path_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/test_ad1_migration.py](../../../../../../tests/test_ad1_migration.py) — direct import
   - `test_the_head_fixture_is_at_head_with_empty_ad1_tables`
 - [tests/test_ad23_fix_r5.py](../../../../../../tests/test_ad23_fix_r5.py) — direct import

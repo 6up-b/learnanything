@@ -235,6 +235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/reading_request_sweep_helpers.py](../../../../../../tests/reading_request_sweep_helpers.py) — direct import

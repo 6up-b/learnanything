@@ -101,6 +101,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/protection_matrix_helpers.py`
 - `tests/test_probe_block_end.py`
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_episodes.py`

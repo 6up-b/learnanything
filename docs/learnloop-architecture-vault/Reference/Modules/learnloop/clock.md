@@ -592,6 +592,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/probe_predictive_eig_helpers.py](../../../../../tests/probe_predictive_eig_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/project_support.py](../../../../../tests/project_support.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/quick_add_helpers.py](../../../../../tests/quick_add_helpers.py) — direct import
 - [tests/reader_cues_helpers.py](../../../../../tests/reader_cues_helpers.py) — direct import
 - [tests/reader_dialogue_helpers.py](../../../../../tests/reader_dialogue_helpers.py) — direct import

@@ -132,6 +132,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/curriculum_c2b_past_papers_helpers.py](../../../../../../../tests/curriculum_c2b_past_papers_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../../tests/exam_scope_fixtures.py) — direct import
 - [tests/facet_authority_review_helpers.py](../../../../../../../tests/facet_authority_review_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/ro2_history_protection_helpers.py](../../../../../../../tests/ro2_history_protection_helpers.py) — direct import
 - [tests/section_coverage_fixtures.py](../../../../../../../tests/section_coverage_fixtures.py) — direct import
 - [tests/source_set_synthesis_helpers.py](../../../../../../../tests/source_set_synthesis_helpers.py) — direct import
@@ -209,6 +210,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_held_out_sentinel_is_never_offered_by_the_view_the_arm_or_the_fallback`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_cues.py](../../../../../../../tests/test_reader_cues.py) — direct import
   - `test_a_cue_on_held_out_material_cannot_be_tapped`
   - `test_a_held_out_section_never_carries_a_cue_though_the_rail_still_lists_it`

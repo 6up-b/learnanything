@@ -41,7 +41,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/today/LessonSuggestionCard|LessonSuggestionCard.tsx]] | `ACTIVE` | Implements the `LessonSuggestionCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/today/QuestionInProgress|QuestionInProgress.tsx]] | `ACTIVE` | Implements the `QuestionInProgress` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/screens/today/SomethingElse|SomethingElse.tsx]] | `ACTIVE` | Implements the `SomethingElse` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 6 |
-| [[Reference/Desktop/TypeScript/screens/today/TodayPlace|TodayPlace.tsx]] | `ACTIVE` | Implements the `TodayPlace` routed desktop screen and coordinates its learner-facing workflow state. | 21 | 1 |
+| [[Reference/Desktop/TypeScript/screens/today/TodayPlace|TodayPlace.tsx]] | `ACTIVE` | Implements the `TodayPlace` routed desktop screen and coordinates its learner-facing workflow state. | 22 | 1 |
 | [[Reference/Desktop/TypeScript/screens/today/reentry|reentry.ts]] | `ACTIVE` | Provides `reentryRefreshers`, `reentryRefresherLine` within the desktop's TypeScript/screens/today ownership area. | 1 | 1 |
 
 ## Modification guidance

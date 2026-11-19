@@ -606,6 +606,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolves_video_time_range`
   - `test_web_original_is_used_when_the_canonical_uri_is_local`
 - [tests/test_probe_belief_posterior.py](../../../../../../tests/test_probe_belief_posterior.py) — direct import
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca5a_find_section.py](../../../../../../tests/test_reader_ca5a_find_section.py) — direct import
   - `test_a_peeked_paragraph_that_is_the_replacement_surfaces_source_is_skipped_by_the_reschedule`
   - `test_f2_a_peeked_paragraph_that_is_a_cold_items_source_makes_the_receipt_see_it`

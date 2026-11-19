@@ -374,6 +374,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_re_f2_the_composed_gate_admits_on_one_snapshot`
 - [tests/test_notes_vault_search.py](../../../../../../tests/test_notes_vault_search.py) — direct import
   - `test_an_unreadable_protection_predicate_keeps_every_annotation_out`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca5_also_in_books.py](../../../../../../tests/test_reader_ca5_also_in_books.py) — direct import
   - `test_an_unreadable_protection_predicate_shows_nothing_through_the_cache`
   - `test_crossing_sections_reuses_one_library_and_parses_each_reading_once`

@@ -452,6 +452,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_learning_context_fails_closed_when_protection_cannot_be_read`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_an_exam_reading_plans_nothing_through_its_path`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_a_quotes_reference_in_every_form`
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_a_session_on_exam_material_is_never_sent`
 - [tests/test_reader_pdf_selection.py](../../../../../../../tests/test_reader_pdf_selection.py) — direct import

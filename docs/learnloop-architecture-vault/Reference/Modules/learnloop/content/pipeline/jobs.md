@@ -382,6 +382,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
 - [tests/glm_ocr_helpers.py](../../../../../../../tests/glm_ocr_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reading_request_sweep_helpers.py](../../../../../../../tests/reading_request_sweep_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`
@@ -500,6 +501,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_features_grant`
 - [tests/test_plan_first_transport_grant_scope.py](../../../../../../../tests/test_plan_first_transport_grant_scope.py) — direct import
   - `test_the_reader_imports_background_key_check_never_uses_the_grant`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 - [tests/test_query_student.py](../../../../../../../tests/test_query_student.py) — direct import

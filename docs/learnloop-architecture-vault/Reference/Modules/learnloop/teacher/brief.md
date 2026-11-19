@@ -199,6 +199,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
   - `test_a_lesson_without_added_sections_keeps_its_recap_when_the_same_section_is_held_out`
   - `test_a_section_held_out_after_the_fact_is_revoked_for_the_lesson`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_teacher_te1b_landing_r2.py](../../../../../../tests/test_teacher_te1b_landing_r2.py) — direct import
   - `test_the_protection_check_matches_the_lessons_opening`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import

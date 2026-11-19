@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayPlan.ts](../../../../../../apps/learnloop-tauri/src/app/todayPlan.ts) |
-| Source lines | 369 |
+| Source lines | 387 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -58,23 +58,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface TodayRow` — interface, line 92
 - `export function onYourOwnItem(item: PlanItemDto): boolean` — function, line 145
 - `export function todayRows(plan: Plan): TodayRow[]` — function, line 151
-- `export function planSentence(plan: Plan): string | null` — function, line 180
-- `export function reentrySentence(plan: Plan): string` — function, line 221
-- `export function reentryWhy(plan: Plan): string | null` — function, line 227
-- `export function splitWhy(plan: Plan): string[]` — function, line 236
-- `export function doneLine(data: DailyPlanDto): string` — function, line 251
-- `export const KEEP_GOING_NOTHING = "Nothing more to add today. Reading on, or adding a book, gives LearnLoop more to plan."` — const, line 258
-- `export const GOAL_NOTHING_READY = "Nothing for this goal is ready to practise yet."` — const, line 261
-- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 263
-- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 268
-- `export const THREADS_SHOWN = 3` — const, line 276
-- `export type TodayThread = |` — type, line 278
-- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 288
-- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 299
-- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 305
-- `export function fullListWhy(item: ScheduledItemDto): string` — function, line 318
-- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 340
-- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 355
+- `export function planSentence(plan: Plan): string | null` — function, line 194
+- `export function reentrySentence(plan: Plan): string` — function, line 236
+- `export function reentryWhy(plan: Plan): string | null` — function, line 242
+- `export function splitWhy(plan: Plan): string[]` — function, line 251
+- `export function doneLine(data: DailyPlanDto): string` — function, line 270
+- `export const GOAL_NOTHING_READY = "Nothing for this goal is ready to practise yet."` — const, line 278
+- `export function planWasEmpty(data: DailyPlanDto): boolean` — function, line 281
+- `export function streakLine(streak: StreakSummary | null | undefined): string | null` — function, line 286
+- `export const THREADS_SHOWN = 3` — const, line 294
+- `export type TodayThread = |` — type, line 296
+- `export function questionThread(row: QuestionQueueRowDto): TodayThread` — function, line 306
+- `export function problemThread(problem: WorkbenchOpenProblemDto): TodayThread` — function, line 317
+- `export function todayThreads(questionRows: readonly QuestionQueueRowDto[], problems: readonly WorkbenchOpenProblemDto[]): TodayThread[]` — function, line 323
+- `export function fullListWhy(item: ScheduledItemDto): string` — function, line 336
+- `export function onYourOwnWhy(item: ScheduledItemDto): string | null` — function, line 358
+- `export async function implicitSessionMinutes(): Promise<number | null>` — function, line 373
 
 ## Internal implementation anchors
 
@@ -100,26 +99,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function sentencePhrase(row:` — function, line 161
 - `function joinPhrases(phrases: string[]): string` — function, line 168
 - `function minutesWord(minutes: number): string` — function, line 174
-- `const phrases: string[] = []` — const, line 181
-- `const begun = plan.blocks.some((block)` — const, line 202
-- `const past = Math.round(plan.minutesPastPlan ?? 0)` — const, line 205
-- `const suggested = begun ? past > 0 ? `About $` — const, line 206
-- `const head = begun ? `About $` — const, line 213
-- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 222
-- `const reentry = plan.reentry` — const, line 228
-- `const away = `You were away $` — const, line 230
-- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 231
-- `const words: Record<PlanLane, string> =` — const, line 237
-- `const lines = plan.split.lanes .filter((lane)` — const, line 243
-- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 252
-- `const days = `$` — const, line 270
-- `function oneLine(markdown: string, limit = 80): string` — function, line 282
-- `const text = markdown.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").trim()` — const, line 283
-- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 300
-- `const open = questionRows.filter((row)` — const, line 306
-- `const dated: Array<` — const, line 307
-- `const plan = await api.getDailyPlan(null)` — const, line 357
-- `const summary = await api.getStartSummary()` — const, line 363
+- `function roomWords(minutesLeft: number): string` — function, line 179
+- `const minutes = Math.max(1, Math.round(minutesLeft))` — const, line 180
+- `const phrases: string[] = []` — const, line 195
+- `const begun = plan.blocks.some((block)` — const, line 216
+- `const list = `$` — const, line 217
+- `const past = Math.round(plan.minutesPastPlan ?? 0)` — const, line 220
+- `const suggested = begun ? past > 0 ? `About $` — const, line 221
+- `const head = begun ? `Room for $` — const, line 228
+- `const minutes = plan.reentry ? Math.max(1, Math.round(plan.reentry.planMinutes)) : Math.max(1, Math.round(plan.minutesBudget))` — const, line 237
+- `const reentry = plan.reentry` — const, line 243
+- `const away = `You were away $` — const, line 245
+- `const named = reentry.slippedNames.length ? ` Today's catch-up starts with what faded most: $` — const, line 246
+- `const words: Record<PlanLane, string> =` — const, line 252
+- `const lines = plan.split.lanes .filter((lane)` — const, line 258
+- `const minutes = wholeMinutes(data.day?.actualMinutes)` — const, line 271
+- `const reading = (data.day?.readingBlocks ?? 0) > 0 ? " and reading" : ""` — const, line 273
+- `const days = `$` — const, line 288
+- `function oneLine(markdown: string, limit = 80): string` — function, line 300
+- `const text = markdown.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").trim()` — const, line 301
+- `const steps = problem.stepCount === 1 ? "1 step written" : problem.stepCount > 1 ? `$` — const, line 318
+- `const open = questionRows.filter((row)` — const, line 324
+- `const dated: Array<` — const, line 325
+- `const plan = await api.getDailyPlan(null)` — const, line 375
+- `const summary = await api.getStartSummary()` — const, line 381
 
 ## Who imports or calls it
 
@@ -127,7 +130,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `implicitSessionMinutes`; references `implicitSessionMinutes`
-- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOTHING_READY`, `KEEP_GOING_NOTHING`, `THREADS_SHOWN`, `TodayThread`, `dayPhrase`, `doneLine`, `fullListWhy`, `onYourOwnWhy`, `planSentence`, `planWasEmpty`, `reentrySentence`, `reentryWhy`, `splitWhy`, `streakLine`, `todayRows`, `todayThreads`; references `GOAL_NOTHING_READY`, `KEEP_GOING_NOTHING`, `THREADS_SHOWN`, `TodayThread`, `dayPhrase`, `doneLine`, `fullListWhy`, `onYourOwnWhy`, `planSentence`, `planWasEmpty`, `reentrySentence`, `reentryWhy`, `splitWhy`, `streakLine`, `todayRows`, `todayThreads`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOTHING_READY`, `THREADS_SHOWN`, `TodayThread`, `dayPhrase`, `doneLine`, `fullListWhy`, `onYourOwnWhy`, `planSentence`, `planWasEmpty`, `reentrySentence`, `reentryWhy`, `splitWhy`, `streakLine`, `todayRows`, `todayThreads`; references `GOAL_NOTHING_READY`, `THREADS_SHOWN`, `TodayThread`, `dayPhrase`, `doneLine`, `fullListWhy`, `onYourOwnWhy`, `planSentence`, `planWasEmpty`, `reentrySentence`, `reentryWhy`, `splitWhy`, `streakLine`, `todayRows`, `todayThreads`
 
 ## Dependencies
 
@@ -151,7 +154,6 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- [apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/today/LessonOfferBlock.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/LessonOfferBlock.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/todayPlan.test.ts](../../../../../../apps/learnloop-tauri/src/app/todayPlan.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 

@@ -244,6 +244,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phone_opens_its_question_burns_it_as_the_phones_and_the_desktop_is_refused`
   - `test_the_phones_answer_releases_the_held_feedback_and_the_question_is_never_served_again`
   - `test_without_phone_probes_the_phone_is_v2s`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
   - `test_r8_each_arm_can_be_drawn_with_its_logged_probability_and_no_intervention_serves_no_probe`
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
