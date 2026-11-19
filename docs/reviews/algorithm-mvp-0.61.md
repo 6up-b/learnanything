@@ -110,3 +110,25 @@ All through the worktree's isolated wrappers, each in a 5 GB scope, `-n 2` at mo
 - Grade channel: one appended raw grade event and interpretation for each model regrade of a self-grade (source `ai` or `codex`), and through it mastery and canonical cells of its learning object; one new observation chain for each regraded exam answer, and its cells' evidence and certification credit.
 - Confidence: nothing for zeros an earlier rebuild already wrote over; an untouched live 0.0 keeps zero reliability.
 - Certificate probes: no stored verdict changes; new all-unassessed probe answers abstain.
+
+## Measured on the owner's vaults (orchestrator, 2026-11-19; aggregates only)
+
+Fresh backup-API copies of the three vaults (dated 2026-11-18) were upgraded to mvp-0.60 with main's code, then to
+mvp-0.61 with this branch's, then rebuilt once more. The copies stayed in a gitignored directory and were deleted.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Due dates that move | 0 of 75 | 0 of 99 | 0 of 77 |
+| Mastery values that move | 0 of 37 | 0 of 21 | 0 of 18 |
+| Certifications, labels, Today headline, knowledge map that differ | none | none | none |
+| Grade-channel rows added | 0 | 0 | 0 |
+| Rows of predicted surprise that move | 1 of 53 | 1 of 70 | 0 of 3 |
+| Derived rows whose only change is the tag they are stamped with | all | all | all |
+| Second rebuild at mvp-0.61 | 29 of 29 dumped tables byte-equal | 29 of 29 | 29 of 29 |
+
+Probe episodes on arxiv_v2 (the only vault with answered probes): four answered probes, one in each of four
+episodes. At mvp-0.60 all four count toward completing their episode. At mvp-0.61 one does and three do not: the
+three are the answers G3 found given after feedback or a reveal, now read as exposed. They still update the
+episode's belief at the configured contaminated weight; whether an exposed answer should update it at all is the
+owner's choice (judgment call 1 of the build). No regraded self-grade or zero-confidence grade exists in these
+vaults in a state the tag changes, so K5-11 and K5-12 move nothing there today.
