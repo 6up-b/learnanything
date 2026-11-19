@@ -863,7 +863,8 @@ describe("the goal card (3.4)", () => {
     const card = await screen.findByTestId("goal-card");
     fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
     const line = await screen.findByTestId("goal-nothing-ready");
-    expect(line.textContent).toBe("Nothing for this goal is ready to practise yet.");
+    // UX fix stage 3: a goal with questions of its own that are not up today says so.
+    expect(line.textContent).toBe("Nothing for this goal is up today. Its questions come back on the days they're due.");
     expect(line.getAttribute("role")).toBe("status");
     expect(props.onError).not.toHaveBeenCalled();
     expect(f.planLearnerPick).not.toHaveBeenCalled();
@@ -1279,5 +1280,42 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
       cleanup();
       clear();
     }
+  });
+});
+
+describe("UX fix stage 3: Practise for this goal with nothing ready says why, and offers the step", () => {
+  it("a goal with no questions yet: the same cause as an empty Today, for the goal, with its action", async () => {
+    const f = emptyToday([libraryCard(LINE.waitingOk)], {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal({ practicableItemCount: 0 })] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1)]))
+    }, body());
+    const props = show(causeProps({ session: SESSION }));
+    const card = await screen.findByTestId("goal-card");
+    fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
+    const line = await screen.findByTestId("goal-nothing-ready");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: questions for “Symmetric Matrices and Variance” are waiting for your OK.");
+    fireEvent.click(within(line).getByRole("button", { name: "what's sent ▸" }));
+    expect(line.textContent).toContain(WHAT_LEAVES);
+    fireEvent.click(within(line).getByRole("button", { name: "Give your OK" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(f.planLearnerPick).not.toHaveBeenCalled();
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+  });
+
+  it("a goal whose books' questions are all written: reading on brings more", async () => {
+    const book = libraryCard(LINE.built);
+    emptyToday([book], {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal({ practicableItemCount: 0 })] })),
+      getTodayQueue: vi.fn(async () => queue([]))
+    }, body());
+    const props = show(causeProps({ session: SESSION, aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const card = await screen.findByTestId("goal-card");
+    fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
+    const line = await screen.findByTestId("goal-nothing-ready");
+    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: everything you've read has its questions. Reading on brings more.");
+    fireEvent.click(within(line).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(book);
   });
 });

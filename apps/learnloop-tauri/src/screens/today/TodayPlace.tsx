@@ -73,11 +73,13 @@ import {
 } from "../../app/todayPlan";
 import { errorMessage, type ErrorReport } from "../../errors";
 import {
+  GOAL_NOT_UP_TODAY,
   PLAN_FINISHED,
   WHATS_SENT,
   causeActionLabel,
   causeSendsPassages,
   causeSentence,
+  goalCauseSentence,
   todayCause,
   type TodayCause
 } from "../../app/todayCause";
@@ -816,6 +818,16 @@ export function TodayPlace({
     <CauseLine cause={cause} whatLeaves={aiConnection?.whatLeaves ?? null} busy={busy} onAction={causeAction(cause)} />
   ) : null;
 
+  // Stage 3 (UX-6's line, now with its cause): "Practise for this goal" found
+  // nothing on today's list. A goal with questions of its own says they are
+  // not up today; one with none yet names the books' cause, as an empty Today
+  // does (Today cannot tell which books a goal reads from, so the line names
+  // the book it is about).
+  const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0;
+  const goalCause = goalNothingReady && !goalHasQuestions
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems: 0 })
+    : null;
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event)) return;
@@ -1035,9 +1047,21 @@ export function TodayPlace({
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />
         ) : null}
         {!list && primaryGoal && goalNothingReady ? (
-          <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
-            {GOAL_NOTHING_READY}
-          </div>
+          goalCause ? (
+            <CauseLine
+              testId="goal-nothing-ready"
+              sentence={goalCauseSentence(goalCause)}
+              cause={goalCause}
+              whatLeaves={aiConnection?.whatLeaves ?? null}
+              busy={busy}
+              onAction={causeAction(goalCause)}
+              style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}
+            />
+          ) : (
+            <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
+              {goalHasQuestions ? GOAL_NOT_UP_TODAY : GOAL_NOTHING_READY}
+            </div>
+          )
         ) : null}
         {!list ? <Threads wrapUp={wrapUp} onOpenPassage={onOpenPassage} onResumeProblem={onResumeProblem} onAsk={onAsk} /> : null}
         {!list ? <CapturesLine subjects={subjects} onAsk={onAsk} /> : null}
@@ -1068,19 +1092,26 @@ function CauseLine({
   cause,
   whatLeaves,
   busy,
-  onAction
+  onAction,
+  sentence,
+  testId = "today-cause",
+  style
 }: {
   cause: TodayCause;
   whatLeaves: string | null;
   busy: boolean;
   onAction: (() => void) | null;
+  /** The line's own words where it is not Today's (the goal card's). */
+  sentence?: string;
+  testId?: string;
+  style?: CSSProperties;
 }) {
   const [sent, setSent] = useState(false);
   const label = causeActionLabel(cause);
   return (
-    <div data-testid="today-cause" role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5 }}>
+    <div data-testid={testId} role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
       <div>
-        {causeSentence(cause)}{" "}
+        {sentence ?? causeSentence(cause)}{" "}
         {label && onAction ? (
           <button type="button" style={linkButton} disabled={busy} onClick={onAction}>
             {label}
