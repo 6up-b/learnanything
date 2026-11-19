@@ -31,3 +31,25 @@ it("a book that opens in the Reader has no such line", () => {
   fireEvent.click(screen.getByRole("button", { name: /details/ }));
   expect(screen.queryByText(PAST_EXAM_DETAILS)).toBeNull();
 });
+
+// UX fix stage 3 (audit F7, student-1 #101, beginner-1 #70-74, retainer-1 #70):
+// "Questions wait for your OK · Review" opened the one-time OK, and the learner
+// expected questions. The label now says what the press does at that moment.
+it("F7: the card's OK action says it asks for the OK, and still opens the same sheet", () => {
+  const onAction = vi.fn();
+  const card = { ...EXAM, readerEnabled: true, statusLine: { text: "Questions wait for your OK", tone: "quiet" as const, action: { kind: "connect_ai" as const, label: "Review" }, details: null } };
+  render(<BookCard card={card} onContinue={vi.fn()} onAction={onAction} />);
+  expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Give your OK" }));
+  expect(onAction).toHaveBeenCalledWith("connect_ai", card);
+});
+
+it("F7: other actions keep their own words (changes to look at are still Review; no AI is still Connect)", () => {
+  const changes = { ...EXAM, readerEnabled: true, statusLine: { text: "2 changes need a look", tone: "quiet" as const, action: { kind: "open_changes" as const, label: "Review" }, details: null } };
+  render(<BookCard card={changes} onContinue={vi.fn()} onAction={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "Review" })).toBeTruthy();
+  cleanup();
+  const connect = { ...EXAM, readerEnabled: true, statusLine: { text: "Questions need an AI connection", tone: "quiet" as const, action: { kind: "connect_ai" as const, label: "Connect" }, details: null } };
+  render(<BookCard card={connect} onContinue={vi.fn()} onAction={vi.fn()} />);
+  expect(screen.getByRole("button", { name: "Connect" })).toBeTruthy();
+});

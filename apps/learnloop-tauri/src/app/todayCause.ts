@@ -14,15 +14,9 @@
 // reads the list instead of guessing.
 
 import type { AiConnectionDto, PendingAddDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
-import { readableTitle } from "../components/BookCard";
+import { CONSENT_ACTION, SIDECAR_CONSENT_LABEL, readableTitle } from "../components/BookCard";
 
-/** The book card's action that asks for the one-time OK to write questions
- *  (audit F7: it read "Review", and the learner expected questions). The same
- *  words on the card and on Today. */
-export const CONSENT_ACTION = "Give your OK";
-
-/** The sidecar's label on that action (add_source.py, `needs_consent`). */
-const SIDECAR_CONSENT_LABEL = "Review";
+export { CONSENT_ACTION };
 
 /** The failure labels of a card's retry (add_source.py: an import that
  *  failed, "Try again"; question writing that stopped, "Retry"). Other retry
