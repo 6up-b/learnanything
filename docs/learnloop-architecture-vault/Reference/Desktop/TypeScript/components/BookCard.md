@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/BookCard.tsx](../../../../../../apps/learnloop-tauri/src/components/BookCard.tsx) |
-| Source lines | 193 |
+| Source lines | 197 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,25 +54,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function readableTitle(title: string): string` — function, line 35
-- `export function StatusLine(` — function, line 51
-- `export function BookCard(` — function, line 73
-- `export function PendingCard(` — function, line 168
+- `export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it."` — const, line 11
+- `export function readableTitle(title: string): string` — function, line 38
+- `export function StatusLine(` — function, line 54
+- `export function BookCard(` — function, line 76
+- `export function PendingCard(` — function, line 172
 
 ## Internal implementation anchors
 
-- `const linkButton: CSSProperties =` — const, line 10
-- `const primaryButton: CSSProperties =` — const, line 22
-- `const trimmed = (title || "").trim()` — const, line 36
-- `const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]` — const, line 38
-- `const words = name.split(/[_\-.\s]+/).filter(Boolean)` — const, line 39
-- `const lower = words.every((word)` — const, line 41
-- `function toneColor(tone: SourceStatusLineDto["tone"]): string` — function, line 45
-- `const ready = card.readiness === "ready"` — const, line 91
-- `const readable = card.readerEnabled !== false` — const, line 92
-- `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 93
-- `const noun = card.kindNoun ?? "book"` — const, line 94
-- `const failed = entry.statusLine?.tone === "problem"` — const, line 178
+- `const linkButton: CSSProperties =` — const, line 13
+- `const primaryButton: CSSProperties =` — const, line 25
+- `const trimmed = (title || "").trim()` — const, line 39
+- `const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]` — const, line 41
+- `const words = name.split(/[_\-.\s]+/).filter(Boolean)` — const, line 42
+- `const lower = words.every((word)` — const, line 44
+- `function toneColor(tone: SourceStatusLineDto["tone"]): string` — function, line 48
+- `const ready = card.readiness === "ready"` — const, line 94
+- `const readable = card.readerEnabled !== false` — const, line 95
+- `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 96
+- `const noun = card.kindNoun ?? "book"` — const, line 97
+- `const failed = entry.statusLine?.tone === "problem"` — const, line 182
 
 ## Who imports or calls it
 
@@ -104,6 +105,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/BookShelf.test.tsx](../../../../../../apps/learnloop-tauri/src/components/BookShelf.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/components/BookCard.test.tsx](../../../../../../apps/learnloop-tauri/src/components/BookCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 
