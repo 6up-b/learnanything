@@ -12,6 +12,7 @@ from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEM
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.attempts.replay_reading import replaced_exam_purpose, replayed_grader_confidence, replayed_grading_source
 from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
@@ -1404,7 +1405,7 @@ def replay_existing_attempt(
                 error_attributions=error_attributions
                 if error_attributions is not None
                 else _replay_error_attributions(vault, error_type, error_events=error_events),
-                grader_confidence=_replayed_grader_confidence(vault, attempt.get("grader_confidence")),
+                grader_confidence=replayed_grader_confidence(vault, attempt.get("grader_confidence")),
                 confidence=attempt.get("confidence"),
                 manual_review_reason=manual_review_reason,
             ),
@@ -1413,9 +1414,8 @@ def replay_existing_attempt(
             error_event_ids_override=error_event_ids,
             # Replay must re-enter the same observation lane the live write
             # used: an ai/codex attempt replays through the soft-score channel,
-            # a self/deterministic one through the raw fraction. From the
-            # evidence reading fixes (mvp-0.61) a grade that replaced the first
-            # one replays under its own source (``replayed_grading_source``).
+            # a self/deterministic one through the raw fraction; from mvp-0.61 a
+            # replacement grade under its own source (``replay_reading``).
             grading_source=replayed_grading_source(vault, repository, attempt, evidence),
             # Slice 1 §6.3: a blind-graded attempt replays as blind (its
             # grade-channel identity, no in-transaction materialization unless
@@ -1440,80 +1440,6 @@ def replay_existing_attempt(
         ),
         clock=clock,
     )
-
-
-def replayed_grading_source(
-    vault: LoadedVault,
-    repository: Repository,
-    attempt: Mapping[str, Any],
-    current_rows: Sequence[GradingEvidenceRecord],
-) -> str:
-    """The grading source a persisted grade replays under.
-
-    The feedback row records the source of the attempt's FIRST grade, and no regrade rewrites it, so below the
-    evidence reading fixes (mvp-0.61) a model regrade of a self-grade (the startup's deferred regrade) replayed as
-    "self": no channel variance, and "self" in the grade channel (refactor bug ledger K5-11). From the tag the source
-    is the current grading epoch's: when the attempt has been graded more than once, a model run other than the
-    first grade's wrote the current epoch, and the recorded source is not a model's, the source is that run's
-    (:func:`grading_source_for_run`). A recorded model source stands (a model regrade of a model grade stays on the
-    model's lane, and the run's provider column can be a default rather than a name), and so does every other case:
-    the first grade still current, or a replacement no model run wrote (an owner's adjudication revises a grade
-    without grading it again)."""
-
-    from learnloop.algorithm_versions import evidence_reading_fixes_on
-
-    attempt_id = str(attempt["id"])
-    feedback = repository.raw_attempt_feedback_metadata(attempt_id) or {}
-    recorded = feedback.get("grading_source", "self")
-    if not evidence_reading_fixes_on(vault.config) or recorded in MODEL_GRADING_SOURCES:
-        return recorded
-    from learnloop.grading_epochs import group_epochs
-
-    if len(group_epochs(repository.fetch_grading_evidence(attempt_id, include_superseded=True))) < 2:
-        return recorded
-    first_run = feedback.get("agent_run_id")
-    runs = sorted(
-        {
-            str(row.agent_run_id)
-            for row in current_rows
-            if row.agent_run_id and int(row.grader_tier) == MODEL_GRADER_TIER
-        }
-        - {first_run}
-    )
-    if not runs:
-        return recorded
-    return grading_source_for_run(repository.agent_run(runs[-1]) or {})
-
-
-#: The ``grading_evidence`` tier a model grader writes (a live AI or Codex grade and a regrade alike).
-MODEL_GRADER_TIER = 3
-#: The grading sources of a model grader (the soft-score lane; ``_interpretation_variance``).
-MODEL_GRADING_SOURCES = frozenset({"ai", "codex"})
-
-
-def grading_source_for_run(run: Mapping[str, Any]) -> str:
-    """The grading source of a model grading run, from its ``agent_runs`` row: ``codex`` for a provider
-    ``CODEX_PROVIDER_NAMES`` lists, else ``ai``: the split the regrade door makes when it names a provider's source
-    (``learnloop_sidecar.handlers.ai_providers.grading_source_for_provider``), by the provider name alone."""
-
-    from learnloop.config.schema import CODEX_PROVIDER_NAMES
-
-    return "codex" if run.get("provider") in CODEX_PROVIDER_NAMES else "ai"
-
-
-def _replayed_grader_confidence(vault: LoadedVault, stored: Any) -> float:
-    """The grader confidence a persisted grade replays with.
-
-    A grader may answer exactly 0.0 (``blind_grading``): the grade then carries no reliability, live. Below the
-    evidence reading fixes (mvp-0.61) replay read that 0.0 as missing (``or 1.0``), so every rebuild or regrade
-    replay gave the grade full reliability and wrote 1.0 back to the attempt (refactor bug ledger K5-12). From the
-    tag only a missing value (a legacy NULL) falls back to 1.0."""
-
-    from learnloop.algorithm_versions import evidence_reading_fixes_on
-
-    if not evidence_reading_fixes_on(vault.config):
-        return float(stored or 1.0)
-    return 1.0 if stored is None else float(stored)
 
 
 @dataclass(frozen=True)
@@ -2739,18 +2665,11 @@ def _dual_write_grade_channel(
         # routed through apply_attempt is an ordinary practice attempt.
         if attempt_type == "diagnostic_probe":
             return
-        purpose = "practice"
-        if "exam" in attempt_type:
-            # The exam path writes an exam answer's channel once, at the sitting (or not at all, for an import),
-            # so a regrade's replacement never reached it below the evidence reading fixes (refactor bug ledger
-            # K5-11). From mvp-0.61 a replay of an exam answer whose grade was replaced writes the replacement on
-            # the exam channel's administration (assessment purpose), appended once like a practice regrade; an
-            # exam answer graded once is still the exam path's alone.
-            if not (attempt.replace_existing and _exam_grade_was_replaced(vault, repository, application)):
+        purpose: str | None = "practice"
+        if "exam" in attempt_type:  # K5-11: from mvp-0.61 a replaced exam answer's replay reaches the exam channel
+            purpose = replaced_exam_purpose(vault, repository, application.result.attempt_id, attempt.replace_existing)
+            if purpose is None:
                 return
-            from learnloop.attempts.grade_resolution import EXAM_GRADE_PURPOSE
-
-            purpose = EXAM_GRADE_PURPOSE
         item = vault.practice_items.get(attempt.draft.practice_item_id)
         if item is None:
             return
@@ -2821,20 +2740,6 @@ def _dual_write_grade_channel(
             getattr(getattr(attempt, "draft", None), "practice_item_id", None),
             exc_info=True,
         )
-
-
-def _exam_grade_was_replaced(vault: LoadedVault, repository: Repository, application: "AttemptApplication") -> bool:
-    """At the evidence reading fixes (mvp-0.61), whether a replayed exam answer's grade replaced its first one (the
-    attempt has more than one grading epoch); always False below the tag."""
-
-    from learnloop.algorithm_versions import evidence_reading_fixes_on
-
-    if not evidence_reading_fixes_on(vault.config):
-        return False
-    from learnloop.grading_epochs import group_epochs
-
-    rows = repository.fetch_grading_evidence(application.result.attempt_id, include_superseded=True)
-    return len(group_epochs(rows)) > 1
 
 
 def _record_lesson_probe(
