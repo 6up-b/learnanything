@@ -61,7 +61,6 @@ import {
   onYourOwnWhy,
   planSentence,
   GOAL_NOTHING_READY,
-  KEEP_GOING_NOTHING,
   planWasEmpty,
   reentrySentence,
   reentryWhy,
@@ -74,6 +73,7 @@ import {
 import { errorMessage, type ErrorReport } from "../../errors";
 import {
   GOAL_NOT_UP_TODAY,
+  KEEP_GOING_NOTHING_LEAD,
   PLAN_FINISHED,
   WHATS_SENT,
   causeActionLabel,
@@ -520,7 +520,7 @@ export function TodayPlace({
     [session?.sessionId, session?.availableMinutes, planOff, offMinutes]
   );
   const queueQuery = useCachedQuery(
-    queueInput && (list || planOff || emptyDay) ? ["get_today_queue", queueInput] : null,
+    queueInput && (list || planOff || emptyDay || keptGoingToNothing) ? ["get_today_queue", queueInput] : null,
     () => api.getTodayQueue(queueInput!),
     { tags: [TAG.queue] }
   );
@@ -536,7 +536,8 @@ export function TodayPlace({
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
   const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
-  const cause: TodayCause | null = emptyDay
+  // Item 6: Keep going that came back with nothing open says the day's cause too.
+  const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
     ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems })
     : null;
   // While a book's questions are on their way, the cause is read again as the
@@ -706,8 +707,17 @@ export function TodayPlace({
     setKeptGoingToNothing(false);
     const result = await run(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
     // UX-4 (audit student-1 #44): an extension with nothing in it comes back
-    // closed, the same Today; say so rather than redraw it silently.
-    if (result && result.plan && result.plan.status !== "open") setKeptGoingToNothing(true);
+    // closed, the same Today; say so rather than redraw it silently. Stage 3
+    // (item 6): what follows the line is the day's cause, read from today's
+    // list and the books, the same for every way a plan comes back closed.
+    // The plan can't say which way it was (a stop the router chose with work
+    // left, or nothing left to plan: its stopReason is free text), so the
+    // list says whether there is more. Keep going never returns an abandoned
+    // plan (only an earlier day's open plan is abandoned) nor a stopped one
+    // (on a stopped plan it builds a new extension). With the plan off it
+    // answers `enabled: false` and no plan, and Today becomes the plan-off
+    // Begin: nothing to add there.
+    if (result && result.enabled !== false && result.plan && result.plan.status !== "open") setKeptGoingToNothing(true);
   }
 
   async function somethingNew(confirm: boolean) {
@@ -920,7 +930,7 @@ export function TodayPlace({
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
           {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
         </div>
-        {empty ? causeLine : (
+        {empty ? causeLine : keptGoingToNothing ? null : (
           <div data-testid="today-finished" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
             {PLAN_FINISHED}
           </div>
@@ -941,6 +951,7 @@ export function TodayPlace({
           ) : null}
         </div>
         {keptGoingToNothing ? <KeepGoingNothing /> : null}
+        {keptGoingToNothing && !empty ? causeLine : null}
         {moreNew ? (
           <div data-testid="today-more-new" style={{ fontSize: 12, color: COLOR.textDim }}>
             {moreNew.available ? (
@@ -1132,7 +1143,7 @@ function CauseLine({
 function KeepGoingNothing() {
   return (
     <div data-testid="today-keep-going-nothing" role="status" style={{ fontSize: 12, color: COLOR.textDim }}>
-      {KEEP_GOING_NOTHING}
+      {KEEP_GOING_NOTHING_LEAD}
     </div>
   );
 }

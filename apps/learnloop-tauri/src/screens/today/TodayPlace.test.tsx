@@ -41,7 +41,7 @@ vi.mock("../../components/GoalBanner", async () => {
 vi.mock("../../components/GoalWizard", () => ({ GoalWizard: () => <div data-testid="goal-wizard" /> }));
 
 import { TodayPlace, type TodayPlaceProps } from "./TodayPlace";
-import { KEEP_GOING_NOTHING } from "../../app/todayPlan";
+import { KEEP_GOING_NOTHING_LEAD } from "../../app/todayCause";
 
 /** No count of waiting things (rule 10), no lane names, no percentages (rule 9). */
 const WAITING_WORDS = /due now|probe queue|later today|follow-ups?\b|\bqueue\b|overdue|backlog|to review|pending|slipped|\bitems?\b/i;
@@ -647,7 +647,8 @@ describe("the states (§7.1)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
     await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
     const line = await screen.findByTestId("today-keep-going-nothing");
-    expect(line.textContent).toBe(KEEP_GOING_NOTHING);
+    // UX fix stage 3 (item 6): the line now leads into the day's cause, said beside it.
+    expect(line.textContent).toBe(KEEP_GOING_NOTHING_LEAD);
     expect(line.getAttribute("role")).toBe("status");
     expect(findJargon(line.textContent ?? "")).toEqual([]);
   });
@@ -1317,5 +1318,61 @@ describe("UX fix stage 3: Practise for this goal with nothing ready says why, an
     expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: everything you've read has its questions. Reading on brings more.");
     fireEvent.click(within(line).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(book);
+  });
+});
+
+describe("UX fix stage 3 (item 6): Keep going that comes back with nothing open says the right thing for each way", () => {
+  const finished = () => body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+  const extension = () => dto(body({ id: "plan_kg", kind: "keep_going", status: "complete", stopReason: "nothing more worth doing today", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS }));
+
+  it("nothing left to plan: says so where Keep going was pressed, and the day's cause with its action", async () => {
+    const book = libraryCard(LINE.built);
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [book], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([])),
+      planKeepGoing: vi.fn(async () => extension())
+    });
+    const props = show(causeProps({ session: SESSION, aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    expect((await screen.findByTestId("today-finished")).textContent).toBe("Nothing else is needed today.");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
+    expect((await screen.findByTestId("today-keep-going-nothing")).textContent).toBe("Nothing more to plan today.");
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Everything you've read has its questions. Reading on brings more.");
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(book);
+  });
+
+  it("a stop with questions still on today's list: never 'nothing to add', the list is offered", async () => {
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)])),
+      planKeepGoing: vi.fn(async () => extension())
+    });
+    show(causeProps({ session: SESSION }));
+    await screen.findByTestId("today-done");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledOnce());
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Today's list still has questions, if you'd like some.");
+    expect(surface()).not.toMatch(/everything you've read|Reading on, or adding a book/i);
+    fireEvent.click(within(cause).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("the plan switched off meanwhile: no 'nothing more' line and no error (Today becomes the plan-off Begin)", async () => {
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      planKeepGoing: vi.fn(async () => dto(null, { reason: "plan_disabled" }))
+    });
+    const props = show(causeProps({ session: SESSION }));
+    await screen.findByTestId("today-done");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledOnce());
+    await flush();
+    expect(screen.queryByTestId("today-keep-going-nothing")).toBeNull();
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+    expect(props.onError).not.toHaveBeenCalled();
   });
 });
