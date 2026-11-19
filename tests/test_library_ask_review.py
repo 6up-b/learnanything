@@ -282,6 +282,30 @@ def test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open(lib
     assert compared.value.code == "cold_attempt"
 
 
+def test_the_pinned_tutor_counts_a_bound_asks_help_on_its_item_once(library, monkeypatch):
+    """K6-2: the pinned tutor of an ask made inside a bound workbench session
+    accounts for its help on that item exactly as the workbench's own Reader
+    Ask does: one hint-equivalent question and its reveal, visible to submit."""
+
+    from tests.source_service_fakes import set_item_answer
+
+    paths, repository, _spans = library
+    set_item_answer(paths, "pi_eigen_1", "the determinant changes sign when two rows are swapped")
+    session = _bound_session(repository)
+    ctx = context(paths.root)
+    asked = _ask(ctx, workbenchSessionId=session)
+    _ready_tutor(monkeypatch, tutor_with_citations([("ext_text", "t2")],
+                                                   answer_md="From your passages: the determinant changes sign."))
+    answer = call(ctx, "reader.library_ask_tutor", {"askId": asked["askId"], "pinnedSpanKeys": ["ext_text:t2"]})
+    assert repository.count_hint_equivalent_question_events("pi_eigen_1", None, item_window_only=True) == 1
+    reveals = repository.reveal_events(practice_item_id="pi_eigen_1", source_kind="tutor_answer")
+    assert [row["question_event_id"] for row in reveals] == [answer["eventId"]]
+    assert reveals[0]["amount"] > 0
+    # Its cited pin is one source review, not one per accounting branch.
+    reviews = repository.reveal_events(practice_item_id="pi_eigen_1", source_kind="source_review")
+    assert [row["question_event_id"] for row in reviews] == [answer["eventId"]]
+
+
 # -- F5: the organizer's cap is atomic; a subscription route is never refused by it ----------------
 
 

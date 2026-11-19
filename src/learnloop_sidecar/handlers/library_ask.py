@@ -754,6 +754,34 @@ class LibraryAskTutorInput(ParamsModel):
     passages_id: str | None = None
 
 
+def _pinned_binding(vault: Any, repository: Any, row: dict[str, Any], caller: Any) -> tuple[Any, Any]:
+    """The pinned tutor's workbench binding and stored restriction (K6-2).
+
+    The pins of an ask made inside a bound workbench session are filtered by
+    that item (``OnlyPinned``); the answer's help must count on it too, or a
+    substantive answer from the pins reaches the next attempt as clean
+    evidence. So the tutor gets the very ``BoundAsk`` the workbench's own
+    Reader Ask builds (``reader_tutor.bound_ask``), from the session the ask
+    recorded, with that path's switches: both RW1c switches off, none, as
+    there. The session must still bind the ask's item, else nothing is
+    answered under a binding the ask never had."""
+
+    from types import SimpleNamespace
+
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
+    session_id = ((row.get("manifest") or {}).get("caller") or {}).get("workbench_session_id")
+    if not caller.item_id or not session_id:
+        return None, None
+    params = SimpleNamespace(cold_active=False, extraction_id=row.get("extraction_id"),
+                             workbench_session_id=session_id)
+    restricted = RTU.restriction(vault, repository, params)
+    if restricted.active and restricted.item_id != caller.item_id:
+        raise SidecarError("caller_mismatch",
+                           "This question's workbench session now names a different practice item.")
+    return RTU.bound_ask(vault, repository, params, restricted), restricted.stored()
+
+
 @method("reader.library_ask_tutor", LibraryAskTutorInput)
 def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) -> dict[str, Any]:
     """The tutor on request, answering only from the pinned passages (§3.4 item 11)."""
@@ -803,9 +831,13 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     provider = LA.OnlyPinned(PinnedSpanProvider(pinned_keys), item=item)
 
     def work(worker_repo: Any) -> dict[str, Any]:
+        binding, stored = _pinned_binding(vault, worker_repo, row, caller)
+
         def answer(*, question_md: str, extraction_id: str, span_id: str) -> dict[str, Any]:
             return RD.ask(vault, worker_repo, client, extraction_id=extraction_id, span_id=span_id,
-                          question_md=question_md, source_span_provider=provider)
+                          question_md=question_md, source_span_provider=provider,
+                          **({"reader_binding": binding} if binding is not None else {}),
+                          **({"reader_caller": stored} if stored else {}))
 
         try:
             result = LA.ask_tutor(vault, worker_repo, params.ask_id, pinned_keys=pinned_keys,

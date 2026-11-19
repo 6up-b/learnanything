@@ -993,8 +993,11 @@ def ask_question(
     # the submit's existing fold (``hint_equivalents_for_submission``, the
     # item's window) and the reveal ledger see it, as they see a
     # practice-context question. Fix round 5 (R1): the binding is its own
-    # value, so it holds with retrieval off too.
-    binding = reader_binding if context == "reader" and source_span_provider is None else None
+    # value, so it holds with retrieval off too. K6-2: it holds with the
+    # learner's pins too ("ask the tutor about these" from a bound library
+    # ask): the pins-only provider still decides what is delivered, the
+    # binding what the answer's help costs the item.
+    binding = reader_binding if context == "reader" else None
     bound_item: PracticeItem | None = binding.item if binding is not None else None
     if binding is not None:
         question_row["practice_item_id"] = bound_item.id
@@ -1371,7 +1374,9 @@ def ask_question(
                 attempt_id=attempt_id,
                 clock=clock,
             )
-        if provided_spans is not None and citations:
+        if provided_spans is not None and citations and bound_item is None:
+            # (A bound Reader answer's cited pins are its source review above,
+            # counted once: K6-2.)
             # Slice 2 T6: a cited retrieved span opens in the Ask overlay, so
             # what it exposes of the expected answer is a reveal of its own
             # (the tutor's prose is scored above). Spans that reproduce the
