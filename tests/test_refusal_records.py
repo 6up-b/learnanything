@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -423,12 +424,17 @@ def test_a_value_check_that_fails_is_named_on_the_gates_record(tmp_path, monkeyp
     import learnloop.diagnosis.causal_probe_coherence as coherence
     from tests.followup_serve_helpers import AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs
 
-    def exploding(*_args, **_kwargs):
-        raise LookupError(PLANTED)
+    real = coherence.repair_class_need_for_factor
+
+    def exploding(*args, **kwargs):
+        # The value checks' one read, the factor's repair classes, fails for the router only: commissioning reads
+        # the same function, and failing it there would change the journey the gate's record is read from.
+        if sys._getframe(1).f_globals.get("__name__") == "learnloop.followup_run.router":
+            raise LookupError(PLANTED)
+        return real(*args, **kwargs)
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, _outcome = miss_with_rivals(vault, repository)
-    # The value checks' one read: the factor's repair classes.
     monkeypatch.setattr(coherence, "repair_class_need_for_factor", exploding)
     run_jobs(vault, repository, clients=author_clients(AuthorFake()))
     [record] = _all(repository.sqlite_path, "followup_gate")

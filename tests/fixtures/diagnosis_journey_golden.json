@@ -36772,7 +36772,7 @@
 "learning_object_id": "lo_svd_definition",
 "logged": false,
 "propensity": 1.0,
-"value_check": "skip_no_discrimination",
+"value_check_absent": "no_instrument_before_authoring",
 "wait_feasible": true,
 "workflow_id": "fw_d3e63e04d50b580e1c831651d4"
 },
