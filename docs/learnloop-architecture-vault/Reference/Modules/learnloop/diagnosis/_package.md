@@ -50,6 +50,7 @@ source_paths:
   - "src/learnloop/diagnosis/probe_dialogue.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_evidence.py"
+  - "src/learnloop/diagnosis/probe_facts.py"
   - "src/learnloop/diagnosis/probe_families.py"
   - "src/learnloop/diagnosis/probe_hard_stops.py"
   - "src/learnloop/diagnosis/probe_hypotheses.py"
@@ -118,7 +119,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] | [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/causal_health|learnloop.diagnosis.causal_health]] | [[Reference/Modules/learnloop/diagnosis/causal_health#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] | [[Reference/Modules/learnloop/diagnosis/causal_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
-| [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] | [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence#^module-purpose|purpose]] | `ACTIVE` | 18 | 16 |
+| [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] | [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence#^module-purpose|purpose]] | `ACTIVE` | 18 | 17 |
 | [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] | [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] | [[Reference/Modules/learnloop/diagnosis/causal_reads#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
 | [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] | [[Reference/Modules/learnloop/diagnosis/chain_records#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
@@ -152,6 +153,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] | [[Reference/Modules/learnloop/diagnosis/probe_dialogue#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] | [[Reference/Modules/learnloop/diagnosis/probe_episodes#^module-purpose|purpose]] | `ACTIVE` | 24 | 62 |
 | [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] | [[Reference/Modules/learnloop/diagnosis/probe_evidence#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop/diagnosis/probe_facts|learnloop.diagnosis.probe_facts]] | [[Reference/Modules/learnloop/diagnosis/probe_facts#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] | [[Reference/Modules/learnloop/diagnosis/probe_families#^module-purpose|purpose]] | `ACTIVE` | 19 | 24 |
 | [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] | [[Reference/Modules/learnloop/diagnosis/probe_hard_stops#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] | [[Reference/Modules/learnloop/diagnosis/probe_hypotheses#^module-purpose|purpose]] | `ACTIVE` | 14 | 10 |
@@ -199,10 +201,10 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 3 static module edges
+- [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
-- [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 1 static module edge
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
@@ -219,7 +221,7 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 32 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 25 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 21 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 20 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 21 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 13 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 13 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 11 static module edges
@@ -275,7 +277,7 @@ flowchart LR
     n_learnloop_cli -->|25| center
     n_learnloop_learner -->|5| center
     center -->|18| n_learnloop_learner
-    n_learnloop_followup_run -->|20| center
+    n_learnloop_followup_run -->|21| center
     n_learnloop_scheduling -->|11| center
     center -->|9| n_learnloop_scheduling
 ```

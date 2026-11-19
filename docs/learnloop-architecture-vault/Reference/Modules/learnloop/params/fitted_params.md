@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/params/fitted_params.py](../../../../../../src/learnloop/params/fitted_params.py) |
-| Source lines | 124 |
+| Source lines | 164 |
 | Owning package | [[Reference/Modules/learnloop/params/_package|learnloop.params]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 
 - `class GraderChannelPrior` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 48)
 - `resolve_grader_channel_prior(repository: Repository) -> GraderChannelPrior` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 53) — Active fitted grader-channel prior knobs, else the pinned defaults.
-- `resolve_fsrs_weights(repository: Repository) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 90) — Active fitted FSRS weights, else the pinned FSRS-6 defaults.
-- `fitted_fsrs_provenance(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 106) — Fitted-set id when fitted weights are active and valid, else None.
+- `resolve_bounded_knobs(repository: Repository | None, scope: str, defaults: Mapping[str, float], bounds: Mapping[str, tuple[float, float]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 81) — One scope's active fitted knobs, else its pinned defaults, as the keyword arguments of that scope's parameters dataclass: ``values``, ``lifecycle``, ``fitted_set_id``, ``invalid_keys``.
+- `resolve_fsrs_weights(repository: Repository) -> tuple[float, ...]` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 130) — Active fitted FSRS weights, else the pinned FSRS-6 defaults.
+- `fitted_fsrs_provenance(repository: Repository) -> str | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 146) — Fitted-set id when fitted weights are active and valid, else None.
 
 ### Module constants
 
@@ -71,8 +72,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 
 ## Internal implementation anchors
 
-- `_validated_float(raw: Any, *, low: float, high: float) -> float | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 81)
-- `_validated_weights(params: dict[str, Any]) -> tuple[float, ...] | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 115)
+- `_validated_float(raw: Any, *, low: float, high: float) -> float | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 121)
+- `_validated_weights(params: dict[str, Any]) -> tuple[float, ...] | None` ([source](../../../../../../src/learnloop/params/fitted_params.py), line 155)
 
 ## Who imports or calls it
 
@@ -89,10 +90,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[Con
 - [[Reference/Modules/learnloop/daily_plan/intent_cost|learnloop.daily_plan.intent_cost]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/daily_plan/reentry|learnloop.daily_plan.reentry]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
-- [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `CAUSAL_PROBE_POLICY_SCOPE`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `resolve_bounded_knobs`; statically calls `resolve_bounded_knobs`
+- [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `CAUSAL_PROBE_POLICY_SCOPE`, `resolve_bounded_knobs`; statically calls `resolve_bounded_knobs`
 - [[Reference/Modules/learnloop/diagnosis/gate_score|learnloop.diagnosis.gate_score]] — imports `FOLLOWUP_GATE_SCOPE`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
-- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `CERTIFICATION_COLD_PROBE_SCOPE`
+- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `CERTIFICATION_COLD_PROBE_SCOPE`, `resolve_bounded_knobs`; statically calls `resolve_bounded_knobs`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `resolve_fsrs_weights`; statically calls `resolve_fsrs_weights`
@@ -122,7 +124,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/effective_observation|learnloop.attempts.effective_observation]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

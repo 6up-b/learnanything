@@ -66,7 +66,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 20 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 21 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 16 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 12 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
@@ -107,7 +107,7 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_vault["learnloop.vault"]
-    center -->|20| n_learnloop_diagnosis
+    center -->|21| n_learnloop_diagnosis
     center -->|16| n_learnloop_followup_serve
     center -->|12| n_learnloop
     center -->|9| n_learnloop_db

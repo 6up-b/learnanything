@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/refusal_records.py](../../../../../src/learnloop/refusal_records.py) |
-| Source lines | 436 |
+| Source lines | 438 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,9 +65,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `router_row_record(row: Mapping[str, Any], exc: BaseException) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 278) — The ledger refused a router decision row; the caller's behaviour applies all the same (``applied``).
 - `plan_logger_record(*, decision_kind: str, block_id: Any, plan_id: Any, logger: Any, exc: BaseException, logged_ref: Any=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 303) — A plan decision's logger raised: the block it describes is served all the same, with no ledger row (or, for a follow-up's interrupt, with a row whose linked rows stopped at ``logged_ref``).
 - `followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool, retry: bool=False, value_check_error: BaseException | None=None) -> DecisionRecord` ([source](../../../../../src/learnloop/refusal_records.py), line 328) — The follow-up gate's decision for one workflow: what it chose, the rule, the arms, the components' answers.
-- `built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 396)
-- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 406) — Build and write one record through ``repository`` (joining its open transaction without committing it, else a short one of its own); its id, or None.
-- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 420) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
+- `built(kind: str, build: Callable[[], DecisionRecord]) -> DecisionRecord | None` ([source](../../../../../src/learnloop/refusal_records.py), line 398)
+- `write(repository: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 408) — Build and write one record through ``repository`` (joining its open transaction without committing it, else a short one of its own); its id, or None.
+- `write_on(connection: Any, kind: str, build: Callable[[], DecisionRecord]) -> str | None` ([source](../../../../../src/learnloop/refusal_records.py), line 422) — Build and write one record on ``connection``, inside the transaction the caller holds; never raises.
 
 ### Module constants
 

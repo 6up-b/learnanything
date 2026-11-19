@@ -23,10 +23,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/params/fitted_params.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
-  - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/gate_score.py"
-  - "src/learnloop/goals/certification_cold_probe.py"
+  - "src/learnloop/substrate/replay.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -104,10 +102,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/fit.py`
-- `src/learnloop/diagnosis/causal_orchestrator.py`
-- `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/gate_score.py`
-- `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/params/fitted_params.py`
 - `src/learnloop/substrate/replay.py`
 
