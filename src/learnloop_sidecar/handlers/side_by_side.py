@@ -98,7 +98,7 @@ def reader_side_by_side_section(ctx: SidecarContext, params: SideBySideSectionIn
     # The other book's own TeX macros: the second pane renders its formulas with them, never the open book's.
     from learnloop.reader.source_macros import extraction_math_macros
 
-    macros = extraction_math_macros(vault.root, repository, resolved)
+    macros = extraction_math_macros(vault, repository, resolved)
     if macros:
         view["math_macros"] = macros
     # Every block shown is a delivered passage, recorded before it is returned.

@@ -206,7 +206,8 @@ def test_ux2_the_second_pane_gets_its_own_books_macros(tmp_path):
     from tests.reading_path_fixtures import context
     from tests.section_coverage_fixtures import build_coverage_vault
 
-    paths, repository = build_coverage_vault(tmp_path / "vault")
+    # No held-out unit on this book: a protected book's pane carries none (tests/test_ux2_macros_protection.py).
+    paths, repository = build_coverage_vault(tmp_path / "vault", held_out=False)
     run = repository.get_extraction_run("ext_lay")
     revision = repository.get_source_revision(run["revision_id"])
     # The other book's original, kept under its revision's digest as an import keeps it.

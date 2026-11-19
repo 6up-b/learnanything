@@ -716,7 +716,7 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     # source defines none, so every other reading's reply is byte for byte what it was.
     from learnloop.reader.source_macros import extraction_math_macros
 
-    macros = extraction_math_macros(vault.root, repository, resolved)
+    macros = extraction_math_macros(vault, repository, resolved)
     if macros:
         payload["math_macros"] = macros
     return versioned(payload)

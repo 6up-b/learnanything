@@ -22,13 +22,17 @@ formula that uses it.
 
 from __future__ import annotations
 
+import logging
 import re
 from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.ingest.originals import PDF_MAGIC, stored_original_path
+
+LOG = logging.getLogger(__name__)
 
 #: keep (bounds an untrusted document): at most this many macros per source. PreTeXt books carry
 #: about 60-120; past the cap the rest are ignored, never an error.
@@ -251,12 +255,40 @@ def source_math_macros(vault_root: Path, revision: dict[str, Any] | None) -> dic
     return dict(_cached_macros(str(path), digest))
 
 
-def extraction_math_macros(vault_root: Path, repository: Any, extraction_id: str | None) -> dict[str, str]:
-    """The macros of the source an extraction was read from (see :func:`source_math_macros`)."""
+def extraction_math_macros(vault: Any, repository: Any, extraction_id: str | None) -> dict[str, str]:
+    """The macros of the source an extraction was read from (see :func:`source_math_macros`), or ``{}``
+    while anything of that source is protected.
+
+    The table comes from the whole original, so a definition in a withheld part (a past paper's solutions,
+    a held-out unit: ``\\newcommand{\\ans}{x = 3}``) would otherwise reach a view of another part. Where the
+    definitions sit is not mapped to spans, so one protected passage anywhere withholds the whole table."""
 
     run = repository.get_extraction_run(extraction_id) if extraction_id else None
     revision = repository.get_source_revision(run["revision_id"]) if run and run.get("revision_id") else None
-    return source_math_macros(vault_root, revision)
+    macros = source_math_macros(vault.root, revision)
+    if not macros or _anything_protected(vault, repository, revision or {}):
+        return {}
+    return macros
+
+
+def _anything_protected(vault: Any, repository: Any, revision: dict[str, Any]) -> bool:
+    """Whether exam material (rules 1-4, the held-out partition included: the predicate the phone's
+    ``phone_withheld`` and the Reader's section withholding read) covers any reading of this source, or
+    of the same original under another source, wholly or in part. Fails closed: a predicate that cannot
+    be read counts as protected."""
+
+    try:
+        material = exam_material(vault, repository)
+        with repository.connection() as connection:
+            rows = connection.execute(
+                "SELECT r.id FROM source_extraction_runs r JOIN source_revisions v ON v.id = r.revision_id "
+                "WHERE v.source_id = ? OR v.asset_hash = ?",
+                (str(revision.get("source_id") or ""), str(revision.get("asset_hash") or "")),
+            ).fetchall()
+    except Exception:  # noqa: BLE001 - fail closed: an unreadable predicate sends no table
+        LOG.exception("exam material unreadable; no math macros for revision %s", revision.get("id"))
+        return True
+    return bool({str(row[0]) for row in rows} & material.material.touched)
 
 
 __all__ = [
