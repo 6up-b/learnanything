@@ -401,6 +401,10 @@ def test_a_hard_refusal_and_no_plan_each_leave_the_gates_record(tmp_path):
                                                                                   "no_plan")
     assert record.facts["logged"] is False and record.subject_id == wf.get(repository, outcome.workflow_id)[
         "source_attempt_id"]
+    # Rival causes with different repairs: the value checks reach no verdict before the probe is authored, and the
+    # record names why instead of a verdict.
+    assert record.facts["value_check_absent"] == router.VERDICT_ABSENT_NO_INSTRUMENT
+    assert "value_check" not in record.facts
 
     vault, repository, _paths = rival_causes_vault(tmp_path / "refused")
     _result, outcome = miss_with_rivals(vault, repository)
@@ -419,12 +423,13 @@ def test_a_value_check_that_fails_is_named_on_the_gates_record(tmp_path, monkeyp
     import learnloop.diagnosis.causal_probe_coherence as coherence
     from tests.followup_serve_helpers import AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs
 
-    def exploding(**_kwargs):
+    def exploding(*_args, **_kwargs):
         raise LookupError(PLANTED)
 
     vault, repository, _paths = rival_causes_vault(tmp_path)
     _result, _outcome = miss_with_rivals(vault, repository)
-    monkeypatch.setattr(coherence, "decide_probe", exploding)
+    # The value checks' one read: the factor's repair classes.
+    monkeypatch.setattr(coherence, "repair_class_need_for_factor", exploding)
     run_jobs(vault, repository, clients=author_clients(AuthorFake()))
     [record] = _all(repository.sqlite_path, "followup_gate")
     assert record.facts["value_check"] == "failed" and record.facts["value_check_error_type"] == "LookupError"

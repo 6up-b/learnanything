@@ -378,6 +378,8 @@ def followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool,
             "lesson_offer": True if getattr(decision, "lesson_offer", False) else None,
             # The value checks that log and do not decide (§5 item 5): their answer, or that they failed (S14).
             "value_check": "failed" if value_check_error is not None else _code(observational.get("decide_probe")),
+            # Where the value checks could not reach a verdict (no instrument yet), why.
+            "value_check_absent": _code(observational.get("decide_probe_absent")),
             "value_check_error_type": error_type, "value_check_error_where": error_where,
         }),
         versions=_compact({

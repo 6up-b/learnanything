@@ -2,7 +2,8 @@
 
 The router decides whether and when; the orchestrator keeps the measurement. The value
 checks log and do not decide on this lane (the Nov 2 decision that the nat-scale rule stop
-deciding): ``decide_probe`` runs and its answer is on the row. What still refuses is hard:
+deciding): the repair classes and, where they settle it, the repair lane's verdict are on the
+row; where they don't, the verdict is recorded as absent, since no instrument exists yet. What still refuses is hard:
 a learner's own "Not now", pending machine checks, and an episode that is already measuring.
 
 The decision is appended to the immutable ``router_decisions``, naming the workflow; a
@@ -125,28 +126,36 @@ def observational(repository: Repository, factor_id: str) -> dict[str, Any]:
     return _observe(repository, factor_id)[0]
 
 
-def _observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]:
-    """The value checks' answer, or ``{}`` and the exception that stopped them (which never decides)."""
+#: Why the logged verdict is absent when the repair classes leave the question open: the gain, the change
+#: probability and the burden are facts about an instrument, and this lane authors its probe after deciding.
+VERDICT_ABSENT_NO_INSTRUMENT = "no_instrument_before_authoring"
 
-    from learnloop.diagnosis.causal_probe_coherence import decide_probe, repair_class_need_for_factor
+
+def _observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]:
+    """The value checks' answer, or ``{}`` and the exception that stopped them (which never decides).
+
+    The repair-lane verdict is logged only where the repair classes settle it; otherwise its absence and the reason.
+    A verdict computed from zeros put in for the instrument's facts would read like a finding and is not one.
+    """
+
+    from learnloop.diagnosis.causal_probe_coherence import repair_class_need_for_factor
+    from learnloop.diagnosis.probe_facts import settled_by_repair_classes
 
     try:
         need = repair_class_need_for_factor(repository, factor_id)
-        check = decide_probe(
-            repair_class_ids=list(need.get("repair_class_ids") or []),
-            common_repair_covers=bool(need.get("common_repair_covers")),
-            # No instrument exists yet, so the orchestrator's own pinned fallback.
-            expected_information_gain=0.0,
-            probability_information_changes_repair=0.0,
-            probe_burden_minutes=0.0,
-            avoided_overteaching_minutes=0.0,
-            repository=repository,
+        classes = list(need.get("repair_class_ids") or [])
+        covers = bool(need.get("common_repair_covers"))
+        # `need`'s classes are already distinct, non-empty and sorted, so more than one means different repairs.
+        settled = settled_by_repair_classes(common_repair_covers=covers, different_repairs=len(classes) > 1)
+        verdict = (
+            {"decide_probe": settled[0]} if settled is not None
+            else {"decide_probe_absent": VERDICT_ABSENT_NO_INSTRUMENT}
         )
         return {
-            "decide_probe": check.decision,
-            "repair_class_ids": list(need.get("repair_class_ids") or []),
+            **verdict,
+            "repair_class_ids": classes,
             "repair_class_divergence": bool(need.get("repair_class_divergence")),
-            "common_repair_covers": bool(need.get("common_repair_covers")),
+            "common_repair_covers": covers,
         }, None
     except Exception as exc:  # noqa: BLE001 - what is only logged never decides
         LOG.warning("follow-up value checks not logged for %s", factor_id, exc_info=True)

@@ -177,7 +177,10 @@ def test_the_value_checks_are_on_the_record_and_decide_nothing(tmp_path):
     _result, outcome = miss_with_rivals(vault, repository)
     factor = repository.unresolved_cause_factors_for_attempt(wf.get(repository, outcome.workflow_id)["source_attempt_id"])[0]
     seen = router.observational(repository, factor["id"])
-    assert seen["repair_class_divergence"] is True and seen["decide_probe"]
+    # The rivals need different repairs, so only an instrument's facts could decide: none exists before authoring,
+    # and the record says so instead of a verdict on zeros put in for those facts.
+    assert seen["repair_class_divergence"] is True and "decide_probe" not in seen
+    assert seen["decide_probe_absent"] == router.VERDICT_ABSENT_NO_INSTRUMENT
 
 
 def test_decide_runs_the_gate_against_the_standing_plan(tmp_path, monkeypatch):
