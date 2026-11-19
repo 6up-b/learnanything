@@ -151,6 +151,8 @@ Every Tauri API the frontend uses:
 | `plugin-opener` `openUrl` | unavailable | "The app asked to open <url> in your web browser (that does not happen on this walk)" |
 | `select_vault` | emulated as in `SidecarManager::select_vault`, restricted to folders inside the walk | another folder: "Opening that folder is not available in browser mode" |
 | `run_cli_command` | emulated: forwards; `populate-goal` on the one sidecar, then `reload_vault` | — |
+| text selection (no Tauri API: the webview's own) | emulated by pointer actions: `walk select` presses before the first character, moves and releases after the last, as a mouse drag; when that does not give exactly the planned selection (the phone's touch emulation, a passage longer than the screen) it is set through the Selection API with the drag's pointer-up and mouse-up (second round) | `Selection: "…"` in the observation while one exists |
+| native date, time and month pickers (the webview's own) | emulated: `walk type` sets the value a person picking it would, with input and change events (second round) | the observation shows the ISO value (`value "2026-12-09"`); the screenshot shows the field's own `12/09/2026` |
 | frame guard | unavailable | — |
 | CSP | emulated: the app's CSP with its custom schemes mapped to the bridge's origin and Tauri's inline-script hashes | — |
 
@@ -262,3 +264,131 @@ then reads `analyst/steps.jsonl` beside the persona's notes.
   dev-server mode (`WALK_BRIDGE_PORT`) was not exercised.
 - The phone walk stopped at the first screen.
 - Why the feedback's "pattern analysis" did not complete on the fake model was not investigated.
+
+## Second round (2026-11-18)
+
+Six changes after the first wave of persona walks (`docs/reviews/ux-journey-audit.md` 3.2, 3.3, 11).
+Nothing outside `scripts/ux_walk/`, the test file and these two documents changed; `browser-harness/`
+is untouched.
+
+### The changes
+
+1. **`walk select`** (`walk_client.py`, `driver.py`, `walk_perceive.py`, `walk_protocol.py`'s new verb
+   table). `select "a phrase"`, `select "first words" --to "last words"`, `select 14`. The driver finds the
+   words in the page's visible text (case and whitespace ignored, typeset math as `$TeX$`, as the
+   observation prints it), takes the first match on the screen, else the first on the page and scrolls to
+   it, and drags: WebDriver pointer actions press just inside the first character, move, and release just
+   inside the last. It then compares the page's selection with the planned range as a person reads them;
+   if they differ it sets the range through the Selection API and sends the pointer-up and mouse-up the
+   drag ends with (the Reader listens to mouse-up on its body). `analyst/steps.jsonl` records which
+   (`detail.method`: `drag`, or `drag, corrected through the selection api`). The observation carries
+   `Selection: "…"` (200 characters at most) while a selection exists. Text not on the page: `The text "…"
+   is not on this page.` `walk_commands.py` is the Tauri command table and holds no walk verbs, so the
+   verb table went to `walk_protocol.py` (`VERBS`, `refusal`).
+2. **`start.py --phone` without a built phone app** refuses before making the vault: "the phone app is
+   not built (src/learnloop_mobile/static/app/index.html is missing): run `npm ci` and then `npm run
+   build` in apps/learnloop-mobile, then start the walk again".
+3. **`back` on the desktop** is refused (`walk_protocol.refusal`): "A desktop window has no Back button.
+   To leave a dialog or panel press Escape (`walk key Escape`); to go elsewhere use the app's own controls
+   (its tabs, Close, ←)." On the phone it stays the browser's Back.
+4. **Date fields.** `type` into `<input type=date|time|datetime-local|month>` parses ISO, the locale's
+   order (read from the page: `mm/dd/yyyy` at `--lang=en-US`), month names and 12-hour times, sets the
+   value through the input prototype's setter and dispatches input and change (so React's value tracker
+   sees it); a text the field cannot take fails with the two forms it can.
+5. **Default files**: everything under `samples/` but `NOTICE` (now four documents, the quiz's solutions
+   among them).
+6. **The owner's Decider in live walks**: `start.py --decider perplexity` (refused without `--models
+   live`) makes the bridge write `[ai.providers.perplexity_decider]` and route the eight Decider tasks to
+   it; the key stays the app's business (`settings.env` in the walk config directory, loaded by
+   `load_config`, which `route_check.py` calls in the sidecar's environment). Readiness for a decider
+   profile is key presence only (no request), so the route check reports those routes `live` with the key
+   and `unreachable` without it. `routes.json` now keeps only `provider`, `kind` and `status` for a live
+   route; an unreachable route keeps the runtime's message (it names the missing variable).
+
+### Proof
+
+Established vault, desktop, faked models (walk `uxh2-est-2`; `uxh2-est-1` was a first run whose
+selection check compared the browser's own strings and refused a span over math, fixed before
+`uxh2-est-2`):
+
+- **Select, intent box, actions** — #3 `select "This section explored both symmetric matrices and
+  variance."`: `Selection: "This section explored both symmetric matrices and variance."` and the Reader's
+  intent box `[14] textbox "What do you want to do with this?"` with `↵ ask · tab actions · esc`; method
+  `drag`. #4 `key Tab`: the actions (`ask`, `explain differently`, … `### Mark` `highlight`, `note`,
+  `confusing`, `not worth remembering`).
+- **Highlight listed** — #5 `click "note"` saved it (the tab reads NOTES 1 in the screenshot); #6 the
+  notes rail: `“ This section explored both symmetric matrices and variance. ” ✓ saved` and `button
+  "highlighted ✓" (disabled)`; #7 `Annotations [28] clickable "highlight exact “ This section explored
+  both symmetric matrices and variance. ” add note delete"`.
+- **A span over math, a note** — #9 `select "In the next section" to "line or subspace."`: `Selection: "In
+  the next section, we will use an orthogonal diagonalization of the covariance matrix $C$ to find …"`
+  (method `drag`); #11 typed the note into `your note (optional)…`, #16 `highlight` (`✓ saved`); #18 the
+  second annotation in the list, and the screenshot shows its note "next: PCA via the covariance matrix"
+  with `edit note`.
+- **Ask about the selection** — #20 `select "A matrix $A$ is orthogonally diagonalizable" to "basis of
+  eigenvectors."` (math inside the phrase; `drag`); #21 typed the question into the intent box with Enter:
+  `Notice: status: → Understand · ask (LearnLoop's model couldn't choose, so this asks)` and the Ask tab
+  `answers now, grounded in the selected passage … FOLLOW-UP TO: why does an orthonormal eigenbasis make
+  it orthogonally diagonalizable? A matrix 𝐴 A is orthogonally diagonalizable if there is an orthonormal
+  basis of eigenvectors.` (`reader_ask` ok; the fake model answered `ReaderTutorShowMeAnswerWithTools`).
+- **Other select cases** — #46 `select "Suppose that" (the first of 5 on the screen)`; #49 `select
+  "Evaluating the following Sage cell loads a dataset" (it was not on the screen: scrolled to it)`,
+  method `drag`, `scrolled: true`; #52 `select 23`: `Selection: "highlight exact “This section explored
+  both symmetric matrices and variance.” add note delete"`; #47 and #48: `The text "…" is not on this
+  page.` (The multiple-match wording was reworded after this walk to "it is on the page 5 times: the first
+  one on the screen, number 1 in reading order"; the phone walk shows the new form.)
+- **Date field** — new goal, step 3 "by when": #39 `[2] textbox empty` and "pick a date, or tick
+  open-ended, to continue."; #40 `type "2026-12-09" into textbox "" (set to 2026-12-09)`: `[2] textbox
+  (focused) value "2026-12-09"`, the hint gone and `[5] button "next →"` enabled; #41 `type "12/10/2026"
+  … (set to 2026-12-10)`, the screenshot shows `12/10/2026` in the field; #42 `type "2026-13-40"`:
+  `"2026-13-40" is not a date this field takes: type it as 2026-12-09 or as the field shows it
+  (mm/dd/yyyy).`
+- **Back on the desktop** — #43 `back — did not work`, `Problem: A desktop window has no Back button. To
+  leave a dialog or panel press Escape (`walk key Escape`); to go elsewhere use the app's own controls
+  (its tabs, Close, ←).`; the goal dialog stayed open behind it.
+
+Phone, established vault (walk `uxh2-phone-1`): #5 opened the book from Read (`button "Back to your
+books"`, the text); #6 `back`: `Window title: Pair LearnLoop`, the pairing page, so the phone's Back is
+the browser's. #7 `select "pair" (it is on the page 3 times: the first one on the screen, number 1 in
+reading order)`, `Selection: "Pair"`, method `drag, corrected through the selection api` (a mouse drag
+under touch emulation selects nothing).
+
+Peak memory: desktop bridge 439 MB, driver 799 MB; phone 235 MB and 409 MB.
+
+### Seen on the way (for the audit, not the harness)
+
+- Clicking `show inherited passage` in Ask (#25) scrolled the window's own content, so the title bar and
+  the tabs left the screen and no scroll brought them back; only the palette's "Go to Today" (#32-33)
+  restored them. The same programmatic scroll would happen in the WebKitGTK window; worth a check there.
+- A note typed in the capture card after the passage was highlighted has no save control (it goes with
+  `highlight` only), seen in `uxh2-est-1` #6-7.
+- The capture card's quote of a passage over typeset math reads "covariance matrix 𝐶 C" (#10), the stored
+  annotation `\(C\)`: the app quotes `Selection.toString()`, which carries both KaTeX layers. A real drag
+  gives the same string.
+- The NOTES tab shows its count ("NOTES 2") but its accessible name is `notes`; the goal form's date field
+  has no accessible name (`textbox ""`).
+- On the phone, Back from a book returned to the pairing page (the app adds no history entries).
+
+### Still not possible in a walk
+
+- Buttons inside a clickable card are not numbered (the card is one `clickable`): the annotation list's
+  `add note`, `edit note` and `delete` cannot be reached by number, and `click "add note"` hits the card.
+  A long card name is cut (`…`), so an annotation's note shows only in the screenshot. A perception change
+  (number a pointer-only clickable and still walk its children) would fix both; not made here.
+- Selecting inside a text field (no text nodes), a long-press selection on the phone (the Selection API
+  path stands in), and a drag-and-drop of the selection.
+- A ctrl+drag box selection (the Reader's marquee, on text or on a PDF page): `select` makes a text
+  selection only. A selection on a PDF's text layer was not tried in this round.
+- Everything else in the first round's list (native file drops, window controls, external links, the
+  frame guard, network).
+
+### Tests and checks (second round)
+
+`tests/test_ux_walk_harness.py`: 31 tests without a browser (9 new: `select`'s arguments; the
+`Selection:` line and its 200-character cut; every client verb in the protocol's table; `back` refused
+on the desktop and sent on the phone through the driver's step; the date parser; the phone-build refusal
+before the walk directory exists; the default files; `--decider` refused without live; the Perplexity
+profile and routing written, and the route check's `unreachable` without the key, `live` with a dummy
+one, no message kept); the browser test was not rerun (the walks above drove Chromium instead).
+`tests/test_sqlite_file_copies.py` (no copy call added or removed), `tests/test_public_tip_guards.py`,
+`tests/test_structure_ratchets.py`, `ruff check` and `lint-imports --no-cache` pass.

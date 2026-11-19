@@ -20,9 +20,66 @@ from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from typing import Any
 
+#: A page function: the text of DOM ranges as a person sees it highlighted (typeset math as its TeX,
+#: nothing visually hidden, a space between blocks, whitespace collapsed). Shared with the driver,
+#: which compares a selection with the one it meant to make the same way.
+RANGE_TEXT_JS = r"""
+function walkRangeText(ranges) {
+  const out = [];
+  let lastBlock = null;
+  const mathSeen = new Set();
+  const hiddenCache = new Map();
+  function hidden(element) {
+    if (!element || element === document.documentElement) return false;
+    if (hiddenCache.has(element)) return hiddenCache.get(element);
+    const style = getComputedStyle(element);
+    const own = style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" ||
+      style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "");
+    const result = own || hidden(element.parentElement);
+    hiddenCache.set(element, result);
+    return result;
+  }
+  function blockOf(element) {
+    for (let e = element; e; e = e.parentElement) {
+      if (!getComputedStyle(e).display.startsWith("inline")) return e;
+    }
+    return null;
+  }
+  for (const range of ranges) {
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(root.nodeType === Node.TEXT_NODE ? root.parentNode : root,
+      NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!range.intersectsNode(node)) continue;
+      const parent = node.parentElement;
+      const katex = parent && parent.closest(".katex");
+      if (katex) {
+        if (!mathSeen.has(katex)) {
+          mathSeen.add(katex);
+          const tex = katex.querySelector('annotation[encoding="application/x-tex"]');
+          if (tex) out.push(" $" + tex.textContent + "$ ");
+        }
+        continue;
+      }
+      if (hidden(parent)) continue;
+      const start = node === range.startContainer ? range.startOffset : 0;
+      const end = node === range.endContainer ? range.endOffset : node.textContent.length;
+      const piece = node.textContent.slice(start, end);
+      if (!piece) continue;
+      const block = blockOf(parent);
+      if (lastBlock && block !== lastBlock) out.push(" ");
+      lastBlock = block;
+      out.push(piece);
+    }
+  }
+  return out.join("").replace(/\s+/g, " ").trim();
+}
+"""
+
 #: Runs in the page. Returns {title, focus, viewport, scroll, nodes, elements}: ``elements`` are
 #: WebElement references (by node ``ref``) so a later click needs no DOM marker.
-DUMP_JS = r"""
+DUMP_JS = RANGE_TEXT_JS + r"""
 const viewport = { w: window.innerWidth, h: window.innerHeight };
 const nodes = [];
 const elements = [];
@@ -143,56 +200,10 @@ const page = document.scrollingElement || document.documentElement;
 function selectedText() {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
-  const out = [];
-  let lastBlock = null;
-  const mathSeen = new Set();
-  const hiddenCache = new Map();
-  function hidden(element) {
-    if (!element || element === document.documentElement) return false;
-    if (hiddenCache.has(element)) return hiddenCache.get(element);
-    const style = getComputedStyle(element);
-    const own = style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" ||
-      style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "");
-    const result = own || hidden(element.parentElement);
-    hiddenCache.set(element, result);
-    return result;
-  }
-  function blockOf(element) {
-    for (let e = element; e; e = e.parentElement) {
-      if (!getComputedStyle(e).display.startsWith("inline")) return e;
-    }
-    return null;
-  }
-  for (let r = 0; r < sel.rangeCount; r++) {
-    const range = sel.getRangeAt(r);
-    const root = range.commonAncestorContainer;
-    const walker = document.createTreeWalker(root.nodeType === Node.TEXT_NODE ? root.parentNode : root,
-      NodeFilter.SHOW_TEXT);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      if (!range.intersectsNode(node)) continue;
-      const parent = node.parentElement;
-      const katex = parent && parent.closest(".katex");
-      if (katex) {
-        if (!mathSeen.has(katex)) {
-          mathSeen.add(katex);
-          const tex = katex.querySelector('annotation[encoding="application/x-tex"]');
-          if (tex) out.push(" $" + tex.textContent + "$ ");
-        }
-        continue;
-      }
-      if (hidden(parent)) continue;
-      const start = node === range.startContainer ? range.startOffset : 0;
-      const end = node === range.endContainer ? range.endOffset : node.textContent.length;
-      const block = blockOf(parent);
-      if (lastBlock && block !== lastBlock) out.push(" ");
-      lastBlock = block;
-      out.push(node.textContent.slice(start, end));
-    }
-  }
-  const joined = out.join("").replace(/\s+/g, " ").trim();
+  const ranges = [];
+  for (let r = 0; r < sel.rangeCount; r++) ranges.push(sel.getRangeAt(r));
   // A selection inside a text field has no text nodes in the range: the browser's own string.
-  return joined || sel.toString().replace(/\s+/g, " ").trim() || null;
+  return walkRangeText(ranges) || sel.toString().replace(/\s+/g, " ").trim() || null;
 }
 let selection = null;
 try { selection = selectedText(); } catch (error) { selection = null; }

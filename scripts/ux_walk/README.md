@@ -35,8 +35,10 @@ uv run python scripts/ux_walk/stop.py student-1
   (misses, primed retries, follow-ups), three goals (a dated exam, an open goal, a paused goal), due and
   overdue items, and a web page whose first section is marked read (`make_vault.py`; build it on the walk's day).
 - `--phone`: the phone app (`learnloop_mobile`) at a phone viewport, paired as if its QR code was
-  scanned (needs `npm ci && npm run build` in `apps/learnloop-mobile` once).
-- `--files a.pdf b.html`: this person's own files for `walk upload` (default: three samples).
+  scanned (needs `npm ci && npm run build` in `apps/learnloop-mobile` once; without the build
+  `start.py` refuses before making the vault and names those two commands).
+- `--files a.pdf b.html`: this person's own files for `walk upload` (default: every sample document,
+  everything under `samples/` but `NOTICE`, so a brief can name the quiz's solutions too).
 
 The walk lives in `fixtures-local/ux-walks/<name>/` (gitignored):
 
@@ -56,10 +58,11 @@ driver, chromedriver and Chromium). `stop.py` records their peak memory and stop
 ```
 walk look                                   what is on the screen now
 walk click 7 | click "Start session" | click --role button "Next"
+walk select "a phrase" | select "first words" --to "last words" | select 14
 walk type "text" [--into 4|"label"] [--enter] [--clear]
 walk key Enter | Escape | Tab | Shift+Tab | Control+k | ArrowDown
 walk scroll down|up|left|right [--page | --lines N] [--in 3]
-walk back                                   browser history (the desktop window has no back button)
+walk back                                   the phone browser's Back; refused on the desktop (no Back button)
 walk hover 5
 walk wait 3 | wait --for "Saved" --limit 20
 walk upload notes.pdf | upload --folder my-library | upload --cancel
@@ -67,7 +70,28 @@ walk resize 1024 768 | resize desktop | resize phone
 walk say "I expected a Save button here"    a note for the record; the app never sees it
 ```
 
-Numbers refer to the latest observation only. `upload` answers an open file chooser (the app's
+Numbers refer to the latest observation only.
+
+`select` selects text the way a person drags over it: a real pointer drag (press before the first
+character, move, release after the last), so the Reader's intent box, its actions, highlights, notes
+and Ask on the passage react as to a mouse. The words are matched in the page's visible text with
+whitespace and case ignored, typeset math written as in the observation (`$A=QDQ^T\text{,}$`);
+`--to` runs from the start of the first phrase to the end of the next match of the second; a number
+selects that element's whole text. With several matches it takes the first one on the screen, else the
+first on the page and scrolls to it, and says which. When the drag does not produce exactly that
+selection (the phone's touch emulation, a passage longer than the screen), the selection is set through
+the Selection API and the drag's pointer-up and mouse-up are sent; `analyst/steps.jsonl` records which
+(`detail.method`). While a selection exists the observation has a `Selection: "…"` line (200 characters
+at most).
+
+`type` into a date, time, month or date-and-time field sets the value a person picking it would (ISO,
+`2026-12-09`, or the order the field shows, `12/09/2026`; month names and `2:30 PM` work too), with the
+input and change events, instead of sending keys to the field's segments.
+
+`back` on the desktop is refused with a line saying the window has no Back button and to use Escape or
+the app's own controls; on the phone it is the browser's Back.
+
+`upload` answers an open file chooser (the app's
 native dialog becomes a request the driver shows: "A file chooser is open over the app") with a
 file from `files/`; while one is open other actions are refused, as a modal dialog would.
 
@@ -103,7 +127,8 @@ indeterminate progress bars and `aria-busy` regions on screen.
 The frontend is the production code; only `@tauri-apps/*` is swapped. Of the 422 Tauri commands,
 420 are exact forwards (the table is parsed from `commands.rs` at bridge start, and the bridge
 refuses to start if a command's body is not a plain forward it knows); `select_vault` and
-`run_cli_command` are emulated. Rendering is Chromium, not WebKitGTK. Not available: dropping
+`run_cli_command` are emulated. Rendering is Chromium, not WebKitGTK. Text selection is emulated by
+pointer actions (`select`), date fields by setting the picked value. Not available: dropping
 files from the desktop (use `upload`), window minimize/maximize, opening external links (the
 observation says which URL would have opened), the frame guard for the sketch compartment, and
 any network access (a pasted web link fails with the app's own "Couldn't reach the page"). The
@@ -118,8 +143,9 @@ Answers are built from each request's JSON schema (`fake_model.py`): words no mo
 `[walk fake model: …]`, a grade gives half credit on every rubric criterion, and decision and
 forecast routes are declined so the app takes its no-model path (`fake_answers.json`). Decider and
 embedding routes have no credential in the walk and behave as on an unconfigured install. The bridge
-checks every route before the browser opens (`analyst/routes.json`) and refuses to start if one would
-reach a live model.
+checks every route before the browser opens (`analyst/routes.json`: provider, kind and, for a route
+that is not live, the runtime's message; a live route keeps only its status, because its message can
+name the signed-in account) and refuses to start if one would reach a live model.
 
 A walk on the owner's ChatGPT-plan route (the owner decides at launch; it spends plan usage):
 
@@ -134,6 +160,15 @@ The sign-in is the owner's own browser flow, into a config directory used only f
 `~/.config/learnloop`); the tokens go to its file store because the walk's environment has no
 session bus for the OS keyring. In live mode the bridge passes no proxy guard and no fake profile,
 and sets the vault back to the template's `chatgpt` profile.
+
+The owner's Decider: add `--decider perplexity` (live only). The walk vault then gets the profile
+`[ai.providers.perplexity_decider]` (`type = "decider"`, `api = "perplexity"`, `model =
+"pplx-decider-v1.3"`, `base_url = "https://api.perplexity.ai"`, `api_key_env = "PERPLEXITY_API_KEY"`)
+and `[ai.routing]` sends `learner_gap_decider`, `reader_intent`, `hint_chooser`,
+`llm_probability_decider`, `router_decider`, `tier1_decider`, `compare_scope` and
+`ad_forecast_decider` to it. The harness never handles the key: the app reads `PERPLEXITY_API_KEY` from
+the walk config directory's `settings.env`, as it reads its other settings. `routes.json` shows those
+routes `live` when the key is there and `unreachable` when it is not; the walk starts either way.
 
 ## Rerun a recorded walk
 

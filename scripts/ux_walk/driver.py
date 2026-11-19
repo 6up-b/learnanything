@@ -232,13 +232,19 @@ return { ok: true, start, end, drag: start.visible && end.visible, count: spans.
 #: After the drag: is the page's selection the planned one? When it is not and arguments[0] is true,
 #: set it through the Selection API and send the pointer-up and mouse-up a drag ends with (at
 #: arguments[1]), which is what the app listens for.
-SELECT_CHECK_JS = r"""
+SELECT_CHECK_JS = walk_perceive.RANGE_TEXT_JS + r"""
 const plan = window.__walkSelection;
 if (!plan) return { ok: false };
+// Compared as a person reads them (typeset math once, as TeX): the browser's own strings differ on math.
 const squash = (s) => String(s || "").replace(/\s+/g, "").toLowerCase();
-const wanted = squash(plan.range.toString());
+const wanted = squash(walkRangeText([plan.range]));
 const sel = window.getSelection();
-const same = () => !!sel && !sel.isCollapsed && squash(sel.toString()) === wanted;
+const current = () => {
+  const ranges = [];
+  for (let r = 0; sel && r < sel.rangeCount; r++) ranges.push(sel.getRangeAt(r));
+  return squash(walkRangeText(ranges));
+};
+const same = () => !!sel && !sel.isCollapsed && current() === wanted;
 if (same() || !arguments[0]) return { ok: same(), fallback: false };
 sel.removeAllRanges();
 sel.addRange(plan.range.cloneRange());
@@ -887,11 +893,11 @@ class Driver:
         if "number" in target:
             where = ""
         elif plan.get("onScreen"):
-            where = (f" (the first of {plan['count']} on the screen)" if plan.get("count", 1) > 1 else "")
+            where = (f" (it is on the page {plan['count']} times: the first one on the screen, "
+                     f"number {plan['index']} in reading order)" if plan.get("count", 1) > 1 else "")
         else:
-            where = (" (it was not on the screen: the first of "
-                     f"{plan['count']} in the document, scrolled to it)" if plan.get("count", 1) > 1
-                     else " (it was not on the screen: scrolled to it)")
+            where = (f" (it was not on the screen: the first of its {plan['count']} places on the page, "
+                     "scrolled to it)" if plan.get("count", 1) > 1 else " (it was not on the screen: scrolled to it)")
         return f"select {what}{where}", {"method": method, "matches": plan.get("count"),
                                           "on_screen": plan.get("onScreen"), "scrolled": plan.get("scrolled")}
 
