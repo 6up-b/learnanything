@@ -339,6 +339,34 @@ def _context_blocks(ir: Any, span_ids: list[str], withheld: Callable[[str], bool
     return view
 
 
+def _anchored_segments(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any],
+                       render_view_id: str | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The selection as the author reads it: the translation (each node's block, by either key spelling, a render
+    view's display node or a quote re-anchored) and its segments with text."""
+
+    translation = translate_selection(
+        repository,
+        extraction_id=extraction_id,
+        raw_selection=raw_selection,
+        render_view_id=render_view_id,
+    )
+    return translation, [
+        segment
+        for segment in translation.get("segments", [])
+        if _normalize(str(segment.get("exact_quote") or ""))
+    ]
+
+
+def selected_span_ids(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any],
+                      render_view_id: str | None = None) -> list[str]:
+    """The blocks :func:`author_exercises` will read for ``raw_selection``, in order, each once: what a caller
+    checks before sending it (a check of the raw nodes' keys would miss ``spanId`` or a display node)."""
+
+    _translation, segments = _anchored_segments(repository, extraction_id=extraction_id,
+                                                raw_selection=raw_selection, render_view_id=render_view_id)
+    return list(dict.fromkeys(str(segment.get("span_id") or "") for segment in segments if segment.get("span_id")))
+
+
 def _catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]:
     """The bounded LO catalog the model maps into: id, title, summary, and the
     canonical facet vocabulary each object exposes."""
@@ -508,17 +536,8 @@ def author_exercises(
     the Reader's set (``held_out_material``).
     """
 
-    translation = translate_selection(
-        repository,
-        extraction_id=extraction_id,
-        raw_selection=raw_selection,
-        render_view_id=render_view_id,
-    )
-    segments = [
-        segment
-        for segment in translation.get("segments", [])
-        if _normalize(str(segment.get("exact_quote") or ""))
-    ]
+    translation, segments = _anchored_segments(repository, extraction_id=extraction_id, raw_selection=raw_selection,
+                                               render_view_id=render_view_id)
     if not segments:
         raise ExerciseAuthoringError(
             "the selection could not be anchored to any source block; reselect the exercise text"

@@ -3236,19 +3236,16 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
     # held-out partition) never becomes practice, whoever selects it. Checked
     # before any model call.
     from learnloop.content.sources.exam_material import exam_material, scope_only_among
-    from learnloop.reader.annotations import translate_selection
     from learnloop.vault.loader import load_vault
 
     vault = load_vault(ctx.vault_root)
     exam = exam_material(vault, ctx.repo)
     render_view_id = str(payload.get("render_view_id") or "") or None
-    # The blocks the author will read, translated once as the author translates them (either key spelling, a
+    # The blocks the author will read, translated as the author translates them (either key spelling, a
     # render view's display node, a quote re-anchored): a check of the raw nodes' keys misses a selection
     # spelled ``spanId`` or named by its display node. Scope and provenance read the same blocks.
-    translation = translate_selection(ctx.repo, extraction_id=extraction_id, raw_selection=raw_selection,
-                                      render_view_id=render_view_id)
-    selected = list(dict.fromkeys(str(segment.get("span_id") or "") for segment in translation.get("segments") or ()
-                                  if segment.get("span_id")))
+    selected = EX.selected_span_ids(ctx.repo, extraction_id=extraction_id, raw_selection=raw_selection,
+                                    render_view_id=render_view_id)
     held = [span for span in selected if exam.is_held_out(extraction_id, span)]
     if held:
         raise IngestRunnerError(
