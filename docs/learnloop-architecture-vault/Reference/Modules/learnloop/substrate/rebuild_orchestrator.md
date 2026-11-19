@@ -217,6 +217,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_split_vault_rebuild_is_a_fixed_point_and_keeps_diagnosis_sourced_causes`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_replay_preserves_paid_inputs_without_models`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`
+  - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_replay_never_reads_the_switch`
@@ -289,6 +292,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
 - [tests/test_practice_index_dossiers.py](../../../../../../tests/test_practice_index_dossiers.py) — direct import
   - `test_rebuild_preserves_dossiers_and_calls_no_model`
+- [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
+  - `test_approving_an_answered_probe_keeps_its_scheduling_state`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
   - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`

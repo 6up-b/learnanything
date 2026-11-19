@@ -130,6 +130,7 @@ Indexes and uniqueness:
 
 - `tests/test_ad23_fix_review.py`
 - `tests/test_ad_guard_reachable_reads.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_rebuild_history_appends.py`

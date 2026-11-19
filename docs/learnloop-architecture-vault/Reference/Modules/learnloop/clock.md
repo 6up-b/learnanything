@@ -1033,6 +1033,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gate_section_counts_manual_false_negatives`
   - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
+- [tests/test_evidence_reading_successor.py](../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_r1_a_stored_answer_reads_the_same_at_any_reading_time`
+  - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
   - `test_item_in_at_most_one_unreleased_pool`
@@ -1068,6 +1071,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seeded_exam_interleaves_before_later_live_attempt`
 - [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
   - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
+  - `test_a_staged_grade_with_no_reliability_keeps_it_at_the_finish`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_in_window_near_due_date`
   - `test_availability_open_ended_goal_never_in_window_but_startable`
@@ -1590,6 +1594,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stop_and_teach_ends_measurement_and_segments_evidence`
 - [tests/test_probe_hierarchy.py](../../../../../tests/test_probe_hierarchy.py) — direct import
 - [tests/test_probe_instance_generation.py](../../../../../tests/test_probe_instance_generation.py) — direct import
+  - `test_approving_an_answered_probe_keeps_its_scheduling_state`
 - [tests/test_probe_lifecycle.py](../../../../../tests/test_probe_lifecycle.py) — direct import
 - [tests/test_probe_llm_instances.py](../../../../../tests/test_probe_llm_instances.py) — direct import
 - [tests/test_probe_longform_families.py](../../../../../tests/test_probe_longform_families.py) — direct import

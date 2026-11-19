@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `tests/test_data_capture_codex_rereview.py`
 - `tests/test_data_capture_codex_review.py`
 - `tests/test_data_capture_phone.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_rebuild_history_appends.py`
 - `tests/test_administration_adapters.py`

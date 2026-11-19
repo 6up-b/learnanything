@@ -203,7 +203,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 37 static module edges
-- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 32 static module edges
+- [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 30 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 27 static module edges
@@ -277,7 +277,7 @@ flowchart LR
     center -->|41| n_learnloop_source_retrieval
     center -->|39| n_learnloop_instructional
     center -->|37| n_learnloop_ai
-    center -->|32| n_learnloop_diagnosis
+    center -->|33| n_learnloop_diagnosis
     center -->|30| n_learnloop_attempts
     center -->|28| n_learnloop_learner
     center -->|27| n_learnloop_db_stores

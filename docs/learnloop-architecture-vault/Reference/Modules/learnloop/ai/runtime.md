@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_committed_joint_grade_carries_its_receipt_and_grading_record`
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
 - [tests/test_e2e_codex_mock.py](../../../../../../tests/test_e2e_codex_mock.py) — direct import
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
 - [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — direct import
   - `test_status_reports_readiness_without_probing_a_runtime`

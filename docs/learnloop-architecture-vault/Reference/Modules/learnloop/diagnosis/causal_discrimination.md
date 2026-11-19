@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py) |
-| Source lines | 716 |
+| Source lines | 678 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,10 +60,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `outcome(self) -> str` (line 141; public)
   - `observation_id(self) -> str | None` (line 145; public)
   - `as_dict(self) -> dict[str, Any]` (line 148; public)
-- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 292) — Record a falsifiable expectation the learner's OWN question asserted.
-- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 371) — Classify an administered probe AND act on the verdict (§6, §7).
-- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 563) — The graded probe attempt's own criterion outcomes, as a feature vector.
-- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 628) — Close the loop automatically when a probe answer can be read by machine.
+- `record_learner_embedded_prediction(repository: Repository, *, factor_id: str, prediction: str, question_event_id: str, attempt_id: str | None=None, practice_item_id: str | None=None, remediation_episode_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 252) — Record a falsifiable expectation the learner's OWN question asserted.
+- `record_probe_classification(repository: Repository, *, presentation_id: str, observed_features: Mapping[str, Any], feature_source: str, probe_attempt_id: str | None=None, clock: Clock | None=None) -> DiscriminatingObservation` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 331) — Classify an administered probe AND act on the verdict (§6, §7).
+- `deterministic_probe_features(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 525) — The graded probe attempt's own criterion outcomes, as a feature vector.
+- `auto_classify_pinned_probe(vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> DiscriminatingObservation | None` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 590) — Close the loop automatically when a probe answer can be read by machine.
 
 ### Module constants
 
@@ -71,14 +71,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `OBSERVATION_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 45)
 - `VALIDATOR_OWNED_FEATURE_SOURCES` ([src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 52)
 - `DETERMINISTIC_FEATURE_PREFIX` ([src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 55)
-- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 289)
+- `_EMBEDDED_PREDICTION_OUTCOME` ([src/learnloop/diagnosis/causal_discrimination.py](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 249)
 
 ## Internal implementation anchors
 
 - `_measured_hypotheses(repository: Repository, classification: Mapping[str, Any], observed_features: Mapping[str, Any]) -> tuple[set[str], set[str]]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 161) — Which of the locked set's concrete hypotheses the observation MEASURED.
 - `_observation_support_scores(classification: Mapping[str, Any], measured: set[str]) -> dict[str, float]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 217) — Support mass a discriminating observation licenses, and nothing more.
-- `_probe_production_admissibility(repository: Repository, *, probe_attempt_id: str | None) -> 'ProductionAdmissibility | None'` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 244) — Was the probe answer produced before anything was revealed to it?
-- `_deterministic_probe_features_with_reason(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[dict[str, Any], str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 588)
+- `_deterministic_probe_features_with_reason(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[dict[str, Any], str | None]` ([source](../../../../../../src/learnloop/diagnosis/causal_discrimination.py), line 550)
 
 ## Who imports or calls it
 
@@ -93,7 +92,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `ProductionAdmissibility`, `production_admissibility`; calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] — imports `DISCRIMINATING_OUTCOMES`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `OBSERVATION_CHANNEL_LEARNER_QUESTION`, `Repository`
@@ -103,7 +101,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`; calls `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; calls `record_probe_classification_declined`
 - [[Reference/Modules/learnloop/diagnosis/content_ids|learnloop.diagnosis.content_ids]] — imports `content_id`; calls `content_id`
-- [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `probe_answer_exposed`; calls `probe_answer_exposed`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `probe_answer_admissibility`; calls `probe_answer_admissibility`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `unassessed_evidence_row`; calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 

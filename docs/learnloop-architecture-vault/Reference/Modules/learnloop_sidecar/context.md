@@ -396,6 +396,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_settings_health_checks_each_profile_of_a_pf_list_route`
   - `test_settings_health_checks_each_route_under_its_own_task`
   - `test_sidecar_never_offers_or_persists_an_embedding_profile_for_generation`
+- [tests/test_evidence_reading_successor.py](../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_protection_identity.py](../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_f15_the_plans_reading_step_never_offers_held_out_material_in_either_order`

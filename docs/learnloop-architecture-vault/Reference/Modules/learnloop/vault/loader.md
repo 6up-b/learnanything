@@ -1202,6 +1202,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_the_upgrade`
+  - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`
+  - `test_r1_a_stored_answer_reads_the_same_at_any_reading_time`
+  - `test_r1_an_answers_own_feedback_in_its_second_never_exposes_it`
+  - `test_r1_causes_shown_in_the_answers_own_second_expose_it`
+  - `test_r2_the_router_reads_an_exposed_answer_as_no_update`
+  - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_calibration.py](../../../../../../tests/test_exam_calibration.py) — direct import
   - `test_empty_calibration_is_defined`
@@ -2370,6 +2378,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_enter_probe_reduces_target_with_strong_claim`
 - [tests/test_probe_hierarchy.py](../../../../../../tests/test_probe_hierarchy.py) — direct import
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
+  - `test_approving_an_answered_probe_keeps_its_scheduling_state`
   - `test_generation_is_idempotent`
   - `test_provisional_family_instances_park_behind_review`
   - `test_trusted_family_generation_unparks_episode_with_provenance`

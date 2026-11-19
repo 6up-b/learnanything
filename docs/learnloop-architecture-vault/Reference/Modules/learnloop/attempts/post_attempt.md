@@ -149,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
 - [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
   - `test_completion_resume_enqueues_the_diagnosis_once`
+- [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
   - `test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow`

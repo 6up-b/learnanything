@@ -55,7 +55,7 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
 | [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] | [[Reference/Modules/learnloop/config/retired#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/config/scheduler_switches|learnloop.config.scheduler_switches]] | [[Reference/Modules/learnloop/config/scheduler_switches#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 36 | 107 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 37 | 107 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 
 ## Cross-package dependencies
@@ -72,8 +72,8 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
+- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 6 static module edges
-- [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 4 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
@@ -118,8 +118,8 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_attempts["learnloop.attempts"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_projects["learnloop.projects"]
     n_learnloop_ai -->|11| center
@@ -128,8 +128,8 @@ flowchart LR
     n_learnloop_ops -->|9| center
     n_learnloop_content_pipeline -->|8| center
     n_learnloop_sidecar_handlers -->|7| center
+    n_learnloop_attempts -->|6| center
     n_learnloop_diagnosis -->|6| center
-    n_learnloop_attempts -->|5| center
     n_learnloop_learner -->|4| center
     n_learnloop_projects -->|4| center
 ```

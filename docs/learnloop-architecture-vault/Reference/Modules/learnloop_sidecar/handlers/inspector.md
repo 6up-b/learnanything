@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/inspector.py](../../../../../../src/learnloop_sidecar/handlers/inspector.py) |
-| Source lines | 228 |
+| Source lines | 233 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,13 +62,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_causes_on_screen(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 77) — FG1c, R1: the inspector shows an attempt's raw causes, whatever is held, so a probe's later answer has to know.
-- `_note_detail(vault: Any, identifier: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 87)
-- `_note_title(body: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 118)
-- `_search_suggestions(vault: Any, query: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 126)
-- `_match_score(query: str, value: str | None) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 194)
-- `_subsequence_score(query: str, haystack: str) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 212)
-- `_normalize(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 227)
+- `_causes_on_screen(ctx: SidecarContext, vault: Any, repository: Any, attempt_id: str) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 82) — FG1c, R1: the inspector shows an attempt's raw causes, whatever is held, so a probe's later answer has to know.
+- `_note_detail(vault: Any, identifier: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 92)
+- `_note_title(body: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 123)
+- `_search_suggestions(vault: Any, query: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 131)
+- `_match_score(query: str, value: str | None) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 199)
+- `_subsequence_score(query: str, haystack: str) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 217)
+- `_normalize(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/inspector.py), line 232)
 
 ## Who imports or calls it
 
@@ -81,6 +81,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `ANSWER_EXPOSED`, `effective_episode_observations`; calls `effective_episode_observations`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `record_inspector_exposure`; calls `record_inspector_exposure`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `to_camel`, `versioned`; calls `to_camel`, `versioned`
