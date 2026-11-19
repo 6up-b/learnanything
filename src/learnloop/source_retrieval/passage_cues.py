@@ -1448,6 +1448,12 @@ def discovered_candidates(vault: LoadedVault, repository: Repository, *, extract
     if not links:
         return []
     guard = protection(vault, repository, extraction_id)
+    # K6-14: discovery never shows the judge a solution (``model_reader_withheld``); a link made
+    # before its passage's effective role became ``solution`` (a re-read lead, a region that now
+    # reaches it) is resolved under the same role check, so the margin never quotes a solution.
+    solutions = {key for key, reason in model_reader_withheld(
+        vault, repository, [(extraction_id, str(link["span_id"])) for link in links]).items()
+        if reason == "solution"}
     sections = list(plan.get("sections") or [])
     section_of: dict[str, tuple[int, dict[str, Any]]] = {}
     for ordinal, section in enumerate(sections):
@@ -1460,6 +1466,8 @@ def discovered_candidates(vault: LoadedVault, repository: Repository, *, extract
     for link in links:
         target = by_state.get((link["target_kind"], link["target_id"], link["state_key"]))
         if target is None or not guard.allows((extraction_id, str(link["span_id"]))):
+            continue
+        if (extraction_id, str(link["span_id"])) in solutions:
             continue
         if link["relation"] == "try_first" and not try_first:
             continue

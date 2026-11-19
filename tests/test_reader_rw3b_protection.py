@@ -84,6 +84,43 @@ def test_a_link_made_before_its_passage_was_held_out_is_never_shown_or_tapped(tm
                                      "plan_id": "p"})
 
 
+def test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown(tmp_path):
+    """K6-14: discovery withholds a solution block from the judge; a link made before the block's
+    effective role became ``solution`` must not reach the margin plan, its quote included."""
+
+    paths, repository, _spans = build_cue_vault(tmp_path / "v")
+    set_config(paths, "cues", holdout_rate=0.0, density="more")
+    ctx = context(paths.root)
+    ctx.cue_discovery_inline = True
+    ctx.cue_judge_client = CueJudgeFake()
+    call(ctx, "reader.cue_discovery", {"extraction_id": "ext_text", "source_open_id": "open_1"})
+    before = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]["marks"]
+    discovered = [mark for mark in before if mark.get("link_id")]
+    assert discovered, "discovery placed a margin note to reclassify"
+    span_id = discovered[0]["span_id"]
+    with repository.connection() as connection:
+        quote = next(link["quote"] for link in store.links_for_extraction(connection, "ext_text")
+                     if link["span_id"] == span_id)
+        # The block before it becomes a "Solution." lead (a re-read heading the region), so the
+        # passage itself -- same span, same text, same target -- is now a solution region's body.
+        ordinal = connection.execute("SELECT ordinal FROM source_document_blocks WHERE extraction_id = 'ext_text' "
+                                     "AND span_id = ?", (span_id,)).fetchone()[0]
+        connection.execute("UPDATE source_document_blocks SET role_hint = 'solution', text = 'Solution.' "
+                           "WHERE extraction_id = 'ext_text' AND ordinal = (SELECT MAX(ordinal) FROM "
+                           "source_document_blocks WHERE extraction_id = 'ext_text' AND ordinal < ?)", (ordinal,))
+        connection.commit()
+    from learnloop.source_retrieval.corpus import model_reader_withheld
+
+    assert model_reader_withheld(loaded(paths), repository, [("ext_text", span_id)]) == {
+        ("ext_text", span_id): "solution"}
+    plan = snake(call(ctx, "reader.guide_plan", {"extraction_id": "ext_text"}))["cues"]
+    direct = PC.merged_cues(loaded(paths), repository, extraction_id="ext_text",
+                            plan=build_guide_plan(loaded(paths), repository, extraction_id="ext_text"))
+    assert span_id not in {mark["span_id"] for mark in direct["marks"]}
+    assert span_id not in {mark["span_id"] for mark in plan["marks"]}
+    assert quote not in json.dumps(plan)
+
+
 def test_a_reading_held_out_whole_is_never_searched(tmp_path):
     paths, repository, _spans = build_cue_vault(tmp_path / "v")
     vault = loaded(paths)
