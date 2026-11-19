@@ -1404,7 +1404,7 @@ def replay_existing_attempt(
                 error_attributions=error_attributions
                 if error_attributions is not None
                 else _replay_error_attributions(vault, error_type, error_events=error_events),
-                grader_confidence=float(attempt.get("grader_confidence") or 1.0),
+                grader_confidence=_replayed_grader_confidence(vault, attempt.get("grader_confidence")),
                 confidence=attempt.get("confidence"),
                 manual_review_reason=manual_review_reason,
             ),
@@ -1442,6 +1442,21 @@ def replay_existing_attempt(
         ),
         clock=clock,
     )
+
+
+def _replayed_grader_confidence(vault: LoadedVault, stored: Any) -> float:
+    """The grader confidence a persisted grade replays with.
+
+    A grader may answer exactly 0.0 (``blind_grading``): the grade then carries no reliability, live. Below the
+    evidence reading fixes (mvp-0.61) replay read that 0.0 as missing (``or 1.0``), so every rebuild or regrade
+    replay gave the grade full reliability and wrote 1.0 back to the attempt (refactor bug ledger K5-12). From the
+    tag only a missing value (a legacy NULL) falls back to 1.0."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return float(stored or 1.0)
+    return 1.0 if stored is None else float(stored)
 
 
 @dataclass(frozen=True)
