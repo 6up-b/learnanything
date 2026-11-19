@@ -844,6 +844,10 @@ class IngestBudgetsConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     inventory_input_tokens: int = 20000
+    # One inventory window's output budget, not a unit's (UX-1): a unit split
+    # into windows by inventory_input_tokens is allowed this amount for each.
+    # Every window's request is sent under it, and a window whose reply (as the
+    # model wrote it, before the service's ids) is over it fails its unit.
     inventory_output_tokens: int = 3000
     synthesis_shard_input_tokens: int = 40000
     synthesis_shard_output_tokens: int = 10000

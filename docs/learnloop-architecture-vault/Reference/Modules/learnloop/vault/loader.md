@@ -1865,6 +1865,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_coverage_reads_the_row_synthesis_reads`
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — direct import
   - `test_synthesis_gather_folds_merged_group_once_with_member_fallback`
+- [tests/test_inventory_output_allowance.py](../../../../../../tests/test_inventory_output_allowance.py) — direct import
+  - `test_a_build_that_stopped_does_not_show_the_internal_reason_on_the_library_card`
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
   - `test_difficulty_source_round_trips_through_the_writer`
 - [tests/test_irt_end_to_end.py](../../../../../../tests/test_irt_end_to_end.py) — direct import

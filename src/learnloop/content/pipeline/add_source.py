@@ -2235,6 +2235,15 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, config
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
 
 
+# A build that stopped: the job's own message is an internal sentence (UX-1:
+# "inventory output exceeded its configured token budget" reached the card's
+# details). It stays with the job, which Imports & builds shows on demand.
+BUILD_STOPPED_DETAILS = (
+    "LearnLoop stopped before these questions were written. Retry tries again; "
+    "“See how it was added and built” shows what went wrong."
+)
+
+
 _RESTORE_READING_DETAILS = (
     "Reading it again read a file that has changed since (or is missing), so the book showed no reading. "
     "The reading you had is still here: this opens it again."
@@ -2479,9 +2488,8 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return _line("Chapters found", "working")
     if outcome is None:
         # Retry plans again; it is not the learner's "Build them" (no approval).
-        error = latest.get("error") or {}
         return _line(f"Questions for this {noun} need another try", "problem", ("retry", "Retry"),
-                     error.get("message"))
+                     BUILD_STOPPED_DETAILS)
     kind = outcome.get("outcome")
     phrase = chapter_phrase(outcome.get("chapters") or [], whole=bool(outcome.get("whole_source")), noun=noun)
     if kind == "skipped":
@@ -2532,7 +2540,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.
             return _health_line(repo, source_id, config=vault.config if vault else None)
-        return _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), state["error"])
+        return _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), BUILD_STOPPED_DETAILS)
     if not state["applied"]:
         return _line(f"Questions for {phrase} need a look", "quiet", ("open_changes", "Review"))
     if state["pending"]:

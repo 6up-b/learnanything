@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_unit_inventory.py](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py) |
-| Source lines | 1065 |
+| Source lines | 1070 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -71,15 +71,15 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `merge_windows(inventories: list[SourceUnitInventory]) -> SourceUnitInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 471) — Deterministic concat + dedup by assigned id (§7).
 - `class InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 593)
 - `class PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 603) — Cache-missed inventory work with every database read already resolved.
-- `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 629) — Fresh provider output awaiting runner-thread persistence.
-- `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 636) — Resolve one inventory from cache or return provider-only work.
-- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 812) — One inventory window's checkpoint.
-- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 825) — Checkpoint identity of one inventory window.
-- `inventory_row_key(*, provider: str, model: str, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 842) — What an inventory row was asked, compared before the row is reused: the request key of the inventory prompt rendered over an empty context, under the schema version, provider and model.
-- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 869) — Run provider windows without touching SQLite.
-- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 941) — Persist fresh provider output on the runner thread.
-- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 980) — Produce or reuse one effective unit inventory under a role/profile (§7).
-- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 1031) — Whether a unit already has a cached inventory (wires the M3 outline seam).
+- `class InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 630) — Fresh provider output awaiting runner-thread persistence.
+- `prepare_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION) -> InventoryResult | PreparedInventory` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 637) — Resolve one inventory from cache or return provider-only work.
+- `window_checkpoint(repo: Any, key: str, valid_span_ids: Collection[str]) -> ModelCheckpoint[SourceUnitInventory]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 813) — One inventory window's checkpoint.
+- `inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 826) — Checkpoint identity of one inventory window.
+- `inventory_row_key(*, provider: str, model: str, schema_version: int) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 843) — What an inventory row was asked, compared before the row is reused: the request key of the inventory prompt rendered over an empty context, under the schema version, provider and model.
+- `execute_prepared_inventory(prepared: PreparedInventory, client: Any, *, progress: Callable[[int, int], None] | None=None, checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None=None) -> InventoryExecution` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 870) — Run provider windows without touching SQLite.
+- `persist_prepared_inventory(repo: Repository, prepared: PreparedInventory, execution: InventoryExecution, *, clock: Clock | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 946) — Persist fresh provider output on the runner thread.
+- `run_unit_inventory(repo: Repository, extraction_id: str, unit_id: str, *, unit_ids: list[str] | None=None, role: str, profile: str | None=None, client: Any=None, provider: str | None=None, model: str | None=None, input_budget_tokens: int=20000, output_budget_tokens: int | None=3000, clock: Clock | None=None, prompt_version: str=SOURCE_UNIT_INVENTORY_PROMPT_VERSION, schema_version: int=INVENTORY_SCHEMA_VERSION, progress: Callable[[int, int], None] | None=None) -> InventoryResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 985) — Produce or reuse one effective unit inventory under a role/profile (§7).
+- `inventory_marker(repo: Repository, extraction_id: str, unit_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_unit_inventory.py), line 1036) — Whether a unit already has a cached inventory (wires the M3 outline seam).
 
 ### Module constants
 
@@ -183,6 +183,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_full_inventory_cache_hit_never_constructs_provider`
   - `test_merged_inventory_marker_covers_member_units`
   - `test_synthesis_gather_folds_merged_group_once_with_member_fallback`
+- [tests/test_inventory_output_allowance.py](../../../../../../../tests/test_inventory_output_allowance.py) — direct import
+  - `test_a_build_that_stopped_does_not_show_the_internal_reason_on_the_library_card`
+  - `test_a_unit_long_enough_for_several_windows_is_allowed_one_windows_amount_for_each`
+  - `test_a_window_that_keeps_to_its_limit_is_not_charged_for_the_ids_the_service_adds`
+  - `test_after_a_window_writes_past_its_limit_retry_goes_on_from_where_it_stopped`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
