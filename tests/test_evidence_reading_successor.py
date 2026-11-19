@@ -17,6 +17,7 @@ from datetime import timedelta
 
 import pytest
 
+from learnloop import activation_journal
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.algorithm_versions import (
     EVIDENCE_READING_FIX_ALGORITHM_VERSION,
@@ -29,6 +30,7 @@ from learnloop.attempts.ai_contracts import CriterionEvidence, GradingContext, G
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
+    GradeAttribution,
     ResolvedGrade,
     SelfGradeInput,
     apply_attempt,
@@ -39,6 +41,7 @@ from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.causal_attribution import causal_episode_for_attempt
 from learnloop.diagnosis.probe_episodes import effective_episode_observations, episode_posterior
 from learnloop.followup_serve import workflow as wf
 from learnloop.goals.certification_cold_probe import (
@@ -48,18 +51,22 @@ from learnloop.goals.certification_cold_probe import (
     schedule_certification_cold_probes,
 )
 from learnloop.goals.exam_seeding import seed_exam_attempts
+from learnloop.ops import upgrades
+from learnloop.ops.upgrades import upgrade
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
 
-from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, LO_ID, _attempt, _certify
+from tests.certain_grade_helpers import make_grade_certain
+from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, LO_ID, _attempt, _blueprint, _certify
 from tests.exam_seeding_helpers import _exam_vault, _outcomes
 from tests.followup_journey_helpers import _Runtime, _call, _generate
 from tests.followup_serve_helpers import CLOCK as PROBE_CLOCK
-from tests.followup_serve_helpers import miss_with_rivals, rival_causes_vault
-from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+from tests.followup_serve_helpers import AuthorFake, miss_with_rivals, rival_causes_vault
+from tests.helpers import NOW, add_followup_item, create_basic_vault, set_algorithm_version
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 TAG = EVIDENCE_READING_FIX_ALGORITHM_VERSION
@@ -513,3 +520,232 @@ def test_g3_1_an_exposed_answer_recorded_below_the_tag_reads_contaminated_after_
     for label in prior:
         assert abs(damped[label] - prior[label]) <= abs(full[label] - prior[label]) + 1e-12
 
+
+# -- the upgrade: one vault holding every case at mvp-0.60, upgraded to mvp-0.61, then rebuilt again -----------------
+
+
+def _at(hours):
+    return FrozenClock(NOW + timedelta(hours=hours))
+
+
+def _exam_item(root):
+    upsert_practice_item(
+        root,
+        {
+            "id": "pi_exam_q3", "learning_object_id": "lo_svd_definition", "subjects": None,
+            "practice_mode": "constructed_response", "attempt_types_allowed": ["independent_attempt", "dont_know"],
+            "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
+            "prompt": "Exam question 3 about SVD.", "expected_answer": "Model solution.",
+            "tags": ["exam_question", "exam_q:3"],
+            "grading_rubric": {"max_points": 4, "criteria": [{"id": "correctness", "points": 4,
+                                                                "description": "Correct."}], "fatal_errors": []},
+            "created_at": "2026-05-19T12:00:00Z", "updated_at": "2026-05-19T12:00:00Z",
+        },
+        clock=CLOCK,
+    )
+
+
+def _unassessed_diagnosed_attempt(vault, repository, *, clock):
+    """A diagnosed miss whose one hypothesis claims its one criterion fell short, the criterion left unassessed."""
+
+    attempt_id = "att_unassessed_diagnosed"
+    return apply_attempt(
+        vault, repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(practice_item_id="pi_svd_apply_001", learner_answer_md="U Sigma V, by another route."),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=0, criterion_points={"uses_factorization": 0.0},
+                evidence_rows=[{
+                    "id": f"ge_{attempt_id}", "criterion_id": "uses_factorization", "points_awarded": 0.0,
+                    "evidence": "Not located on this route.", "notes": None, "local_grader_id": "test",
+                    "grader_tier": 1, "created_at": clock.now().isoformat(),
+                }],
+                error_attributions=[GradeAttribution(
+                    error_type="conceptual_slip", severity=0.7, evidence="The factorization is not used.",
+                    is_misconception=True, misconception_statement="Treats V and V transpose as one.",
+                    resolution_status="unresolved", cause_scope="learner_state", operation="transpose_confusion",
+                    model_reported_causal_confidence=0.65,
+                    candidate_causes=[{"statement": "Treats V and V transpose as one.", "cause_scope": "learner_state",
+                                       "target_ref": {"kind": "criterion", "criterion_id": "uses_factorization"}}],
+                    postdictive_claims=[{"criterion_id": "uses_factorization", "must": "not_full_credit"}],
+                )],
+                grader_confidence=0.9, confidence=4, manual_review_reason=None,
+                feedback_md="Use the factorization.", repair_suggestions=[],
+            ),
+            unverified_criterion_ids=("uses_factorization",),
+        ),
+        clock=clock,
+    )
+
+
+def _every_case_vault(tmp_path, monkeypatch):
+    """The follow-up journey's vault at mvp-0.60, holding every case the tag reads differently; the attempt id of
+    each."""
+
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
+    cases = {}
+    _expose(ctx, repository, result, row, "shown_anyway")
+    cases["probe_shown_anyway"] = _answer_probe(ctx, repository, row)
+    vault, _ = ctx.require_vault()
+    second, outcome = miss_with_rivals(vault, repository, attempt_id="att_second_miss")
+    author = AuthorFake()
+    author.calls = 1  # its question and surface are the second ones, not a copy of the first probe's
+    _generate(ctx, repository, fake=author)
+    second_row = wf.get(repository, outcome.workflow_id)
+    assert second_row["presentation_id"] and second_row["presentation_id"] != row["presentation_id"]
+    _expose(ctx, repository, second, second_row, "reveal")
+    cases["probe_reveal"] = _answer_probe(ctx, repository, second_row)
+
+    vault, _ = ctx.require_vault()
+    cases["unassessed_diagnosed"] = _unassessed_diagnosed_attempt(vault, repository, clock=_at(2)).attempt_id
+    # On a learning object no regrade below replays, so the live 0.0 is still on the attempt at the upgrade (a
+    # replay at mvp-0.60 writes 1.0 over it: test_k5_12_a_zero_an_earlier_rebuild_wrote_over_is_not_restored).
+    cases["zero_confidence"] = complete_attempt_with_ai_fallback(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_svd_clone_001", learner_answer_md="SVD factors a matrix."),
+        SelfGradeInput(criterion_points={}, confidence=3), runtime=_ready_runtime(),
+        ai_client=_ProbeGrader({}, confidence=0.0, full=True), clock=_at(3),
+    ).attempt_id
+    cases["regraded_self_grade"] = _self_graded(vault, repository, clock=_at(4)).attempt_id
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(cases["regraded_self_grade"]),
+                    runtime=_ready_runtime(), client=_Grader(points=4), grading_source="ai", clock=_at(5))
+
+    _exam_item(paths.root)
+    _blueprint(paths)
+    add_followup_item(paths.root)
+    add_followup_item(paths.root, "pi_svd_cert_001")  # the certifying surface, on the recipe's recall cell
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository, clock=_at(6))
+    cases["regraded_exam_answer"] = _seed_exam_answer(vault, repository)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(cases["regraded_exam_answer"]),
+                    runtime=_ready_runtime(), client=_Grader(points=4), grading_source="ai", clock=_at(7))
+
+    certifying = _attempt(vault, repository, "pi_svd_cert_001", points=4, clock=_at(8))
+    make_grade_certain(vault, repository, certifying.attempt_id, clock=_at(8))
+    assert current_certificate(vault, repository, vault.learning_objects[LO_ID]) is not None
+    schedule_certification_cold_probes(vault, repository, clock=_at(8))
+    due = FrozenClock(NOW + timedelta(hours=8, days=resolve_cold_probe_parameters(repository).horizon_days))
+    (task,) = [task for task in repository.followup_tasks_of_kind("certification_cold_probe")
+               if task["status"] == "pending"]
+    cases["unassessed_certificate_probe"] = _unassessed_answer(
+        vault, repository, str(task["selected_item_id"]), clock=due).attempt_id
+    assert repository.certification_cold_probe_outcome_for_attempt(cases["unassessed_certificate_probe"])
+    return paths, cases
+
+
+#: The grade channel and derived tables an idempotent second rebuild must leave as they are (row counts).
+_COUNTED = ("activity_observations", "raw_grade_events", "grade_interpretations", "measurement_events",
+            "probe_observations", "causal_discriminating_observations", "certification_cold_probe_outcomes")
+
+
+def _reading(paths, cases):
+    """What the five fixes read, per case, at the vault's tag now."""
+
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    reading = {}
+    for name in ("probe_shown_anyway", "probe_reveal"):
+        stored, effective, qualifying = _episode_reading(vault, repository, cases[name])
+        reading[name] = {
+            "stored": (stored.contamination, stored.independent_evidence_discount, stored.eligible_for_completion),
+            "effective": (effective.contamination, effective.independent_evidence_discount,
+                          effective.eligible_for_completion),
+            "qualifying": qualifying,
+        }
+    episode = causal_episode_for_attempt(repository, cases["unassessed_diagnosed"])
+    receipt = episode["receipt"]
+    (claiming,) = [key for key, row in receipt["trace_consistency_detail"]["by_hypothesis"].items()
+                   if row["claims_attributed"] == 1]
+    (outcome,) = receipt["criterion_outcomes"]
+    reading["unassessed_diagnosed"] = (receipt["trace_consistency"][claiming], outcome["assessable"],
+                                       outcome["passed"])
+    reading["zero_confidence"] = (
+        repository.fetch_practice_attempt(cases["zero_confidence"])["grader_confidence"],
+        [row["model_confidence"] for row in _raw_events(paths, cases["zero_confidence"])],
+    )
+    reading["regraded_self_grade"] = [row["grader_provider"]
+                                      for row in _raw_events(paths, cases["regraded_self_grade"])]
+    reading["regraded_exam_answer"] = _exam_channel(paths, cases["regraded_exam_answer"])
+    probe = repository.certification_cold_probe_outcome_for_attempt(cases["unassessed_certificate_probe"])
+    reading["unassessed_certificate_probe"] = (probe["verdict"], probe["policy_version"])
+    return reading
+
+
+def _derived(paths):
+    """The derived state a rebuild writes (its write times aside) and the ledgers' row counts."""
+
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        mastery = connection.execute(
+            "SELECT learning_object_id, logit_mean, logit_variance, evidence_count FROM learning_object_mastery "
+            "ORDER BY learning_object_id").fetchall()
+        recall = connection.execute(
+            "SELECT facet_id, capability_key, practice_item_id, recall_mean, recall_variance, consecutive_failures "
+            "FROM facet_recall_state ORDER BY facet_id, capability_key, practice_item_id").fetchall()
+        items = connection.execute(
+            "SELECT practice_item_id, due_at, stability, difficulty FROM practice_item_state "
+            "ORDER BY practice_item_id").fetchall()
+        cells = connection.execute(
+            "SELECT facet_id, capability, direct_positive_mass, direct_negative_mass, embedded_positive_mass, "
+            "embedded_negative_mass, certification_credit, independent_surface_groups_json "
+            "FROM facet_capability_evidence ORDER BY facet_id, capability").fetchall()
+        counts = {table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in _COUNTED}
+    return {"mastery": mastery, "recall": recall, "items": items, "cells": cells, "counts": counts}
+
+
+def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
+    paths, cases = _every_case_vault(tmp_path, monkeypatch)
+    before = _reading(paths, cases)
+    before_derived = _derived(paths)
+
+    result = upgrade(paths.root, to=TAG, clock=FrozenClock(NOW + timedelta(days=40)))
+    assert result.upgraded and (result.from_version, result.to_version) == (BELOW, TAG)
+    assert Repository(paths.sqlite_path).has_whole_vault_rebuild(algorithm_version=TAG)
+    after = _reading(paths, cases)
+    derived = _derived(paths)
+    # What the upgrade moved in this vault's derived state: the regraded exam answer reaches its channel (one
+    # observation, a raw grade event, an interpretation, measurement events) and with it the recall cell it
+    # exercises, the regraded self-grade appends its "ai" raw grade event and interpretation, and the learning
+    # object both regrades replayed moves its mastery. The probe, receipt and certificate cases store nothing derived.
+    moved = {key for key in derived if derived[key] != before_derived[key]}
+    assert moved == {"mastery", "recall", "cells", "counts"}
+    assert {name: derived["counts"][name] - before_derived["counts"][name] for name in _COUNTED} == {
+        "activity_observations": 1, "raw_grade_events": 2, "grade_interpretations": 2, "measurement_events": 6,
+        "probe_observations": 0, "causal_discriminating_observations": 0, "certification_cold_probe_outcomes": 0,
+    }
+
+    rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path),
+                              clock=FrozenClock(NOW + timedelta(days=41)))
+    assert _reading(paths, cases) == after
+    assert _derived(paths) == derived
+
+    exposed = {"probe_shown_anyway": "followup_feedback_shown_anyway", "probe_reveal": "post_reveal_not_independent"}
+    weight = load_vault(paths.root).config.probe.episode.contaminated_evidence_weight
+    for name, reason in exposed.items():
+        assert before[name] == {"stored": (None, 1.0, True), "effective": (None, 1.0, True), "qualifying": 1}
+        assert after[name] == {"stored": (None, 1.0, True), "effective": ({"answer_exposed": reason}, weight, False),
+                               "qualifying": 0}
+    assert before["unassessed_diagnosed"] == ("consistent_with_claims", True, False)
+    assert after["unassessed_diagnosed"] == ("unknown", False, False)
+    assert before["zero_confidence"] == after["zero_confidence"] == (0.0, [0.0])
+    assert before["regraded_self_grade"] == ["self", "self"]
+    assert after["regraded_self_grade"] == ["self", "self", "ai"]
+    assert before["regraded_exam_answer"] == []
+    assert after["regraded_exam_answer"] == [("assessment", "ai", 4)]
+    # The outcome store is append-only and a rebuild records no probe again: the verdict keeps its rule.
+    assert before["unassessed_certificate_probe"] == after["unassessed_certificate_probe"] == (
+        "held", "certification_cold_probe_policy_v1")
+
+
+def test_k5_12_a_zero_an_earlier_rebuild_wrote_over_is_not_restored(tmp_path):
+    """The fix stops replay from turning 0.0 into 1.0; it cannot read back a 0.0 a rebuild below the tag already wrote
+    over on the attempt row (the first raw grade event still holds it)."""
+
+    paths, vault, repository = _vault(tmp_path, BELOW)
+    attempt_id = _model_graded(vault, repository, points=4, confidence=0.0).attempt_id
+    _rebuild(paths)
+    set_algorithm_version(paths, TAG)
+    _rebuild(paths)
+    assert repository.fetch_practice_attempt(attempt_id)["grader_confidence"] == 1.0
+    assert [row["model_confidence"] for row in _raw_events(paths, attempt_id)] == [0.0, 1.0]
