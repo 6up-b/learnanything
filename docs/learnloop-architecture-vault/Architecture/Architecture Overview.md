@@ -67,7 +67,7 @@ The adapter coordinates but does not reimplement domain rules. Provider mechanic
 |---|---|---|
 | primitives | `clock`, `ids`, `numeric`, `attempt_types` | stable dependency-free vocabulary |
 | infrastructure | `config`, `vault`, `db`, `ingest`, `ai` | I/O, storage, migration, extraction, provider mechanics |
-| domains | `attempts`, `learner`, `scheduling`, `goals`, `diagnosis`, `curriculum`, `substrate`, `content`, `reader`, `tutor`, `ops`, `params` | learning behavior and policy |
+| domains | `attempts`, `learner`, `scheduling`, `goals`, `diagnosis`, `curriculum`, `substrate`, `content`, `reader`, `tutor`, `figures`, `ops`, `params` | learning behavior and policy; [[Concepts/Figures\|Figures]] owns explorable illustrations and explanation videos |
 | evaluation | `sim` | policy measurement, simulation, sensitivity |
 | adapters | `cli`, `tui`, `learnloop_sidecar` | translate user/protocol input to public APIs |
 | application coordinators | `bootstrap`, `app_launch`, `migration_coordinator` | composition that legitimately spans infrastructure boundaries |
@@ -85,6 +85,7 @@ See [[Package Boundaries]] for enforced direction and [[Module Catalog]] for exa
 - **Substrate** owns activity/card/surface identity, canonical projection, replay, and compatibility seams.
 - **Content** owns sources, inventory, synthesis, proposals, authoring, and the durable pipeline.
 - **Reader/Tutor** own source-grounded interaction workflows rather than generic AI chat.
+- **Figures** owns help illustrations, simulations and explanation videos; see [[Concepts/Figures|Figures]] for the request, protection, build and presentation boundaries.
 - **Ops/Params** own maintenance and governed parameters respectively.
 
 ## Architectural goals

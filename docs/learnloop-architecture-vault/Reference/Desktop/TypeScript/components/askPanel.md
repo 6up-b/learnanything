@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/askPanel.tsx](../../../../../../apps/learnloop-tauri/src/components/askPanel.tsx) |
-| Source lines | 131 |
+| Source lines | 134 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -58,19 +58,19 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const ANSWER_MODE_LABEL: Record<AnswerMode, string> =` — const, line 21
 - `export const ONE_QUESTION_MODES: ReadonlyArray<` — const, line 28
 - `export const ASK_COPY =` — const, line 40
-- `export function answerCountLabel(` — function, line 71
-- `export function useStoredHelpStyle(): HelpStyle` — function, line 80
-- `export function StoredHelpStyle(` — function, line 87
-- `export function shortDate(iso: string): string` — function, line 127
+- `export function answerCountLabel(` — function, line 74
+- `export function useStoredHelpStyle(): HelpStyle` — function, line 83
+- `export function StoredHelpStyle(` — function, line 90
+- `export function shortDate(iso: string): string` — function, line 130
 
 ## Internal implementation anchors
 
 - `const STYLE_LABELS: ReadonlyArray<` — const, line 34
-- `const style = useStoredHelpStyle()` — const, line 88
-- `const choose = async (next: HelpStyle)` — const, line 91
-- `const saved = await api.setHelpStyle(next)` — const, line 95
-- `const checked = style === option.value` — const, line 109
-- `const date = new Date(iso)` — const, line 128
+- `const style = useStoredHelpStyle()` — const, line 91
+- `const choose = async (next: HelpStyle)` — const, line 94
+- `const saved = await api.setHelpStyle(next)` — const, line 98
+- `const checked = style === option.value` — const, line 112
+- `const date = new Date(iso)` — const, line 131
 
 ## Who imports or calls it
 
@@ -103,6 +103,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/askFigures.test.tsx](../../../../../../apps/learnloop-tauri/src/components/askFigures.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/AskOverlay.panel.test.tsx](../../../../../../apps/learnloop-tauri/src/components/AskOverlay.panel.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

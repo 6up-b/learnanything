@@ -5,13 +5,13 @@ aliases:
   - decision_records
   - Why x and not y
 status: active
-doc_version: 1.0.0
+doc_version: 1.0.1
 implementation_version: mvp-0.59
 decision_date: 2026-11-10
 decision_status: accepted
-last_reviewed: 2026-11-17
-source_commit: 0f11cb1053075cf6a271edf65355265f5732a059
-source_commit_timestamp: "2026-11-10T04:17:59-05:00"
+last_reviewed: 2026-11-19
+source_commit: e6314fc0df008db528d657cbf3f80fe8dedd0982
+source_commit_timestamp: "2026-11-18T23:18:17-05:00"
 source_paths:
   - docs/specs/refactor_strategy_v3.md
   - src/learnloop/provenance.py
@@ -23,6 +23,9 @@ source_paths:
   - src/learnloop/db/stores/model_calls.py
   - src/learnloop/cli/app.py
   - tests/test_provenance.py
+  - src/learnloop/figures/prefetch_model.py
+  - src/learnloop/figures/prefetch_ledger.py
+  - src/learnloop/figures/records.py
 tags:
   - learnloop/decision
   - learnloop/debugging
@@ -170,9 +173,14 @@ B8 read the remaining boundaries (teacher lessons and checks, Reader retrieval, 
 
 **Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the Quick Add scope fallback; the teacher brief's swallowed reads; rich figure attempts' problem codes (B4's `AuthorAttempts`, wired through `figures/rich.py`'s several exits).
 
+## Amended: figure prefetch rule name (2026-11-19)
+
+The `decided_by` example `prefetch_eu_v1` in the record-shape table above is obsolete. The current default is `prefetch_decision_v2` (`src/learnloop/figures/prefetch_model.py`, `MODEL_VERSION`); `src/learnloop/figures/records.py` (`prebuild_record`) copies the decision row's `model_version` into `decided_by`. With the pressed-waits switch off or an algorithm tag outside the supported set, `src/learnloop/figures/prefetch_ledger.py` (`pressed_waits_on`, `load_model`) retains `prefetch_decision_v1`. See [[Concepts/Figures#Prefetch and predictions|Figures: prefetch and predictions]] for the model and [[Concepts/Figures#Cancellation, restart and video traces|Figures: cancellation, restart and video traces]] for the trace boundary.
+
 ## Related notes
 
 - [[ADR-003 Explicit table roles govern rebuild]]
 - [[ADR-007 Immutable evidence and append-only correction]]
 - [[Inspect Persistent State]]
+- [[Concepts/Figures|Figures]]
 - [[Design Decision Index]]

@@ -182,7 +182,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `SETTLE_ATTEMPTS`, `SETTLE_PAUSE_SECONDS`, `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
-- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `settled_load_vault`; statically calls `settled_load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `load_vault`; statically calls `load_vault`
@@ -1106,6 +1106,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_resolution_writes_the_scope_through_the_lock_and_a_repeat_pays_nothing`
   - `test_scope_view_lists_topics_unmatched_and_the_receipt`
   - `test_unmatched_phrases_never_create_an_lo_without_the_learners_yes`
+  - `test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject`
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — direct import

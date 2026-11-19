@@ -276,6 +276,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_animation_video_path_is_content_addressed`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
 - [tests/test_daily_plan_review_regressions.py](../../../../../../tests/test_daily_plan_review_regressions.py) — direct import
+- [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
+  - `test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject`
 - [tests/test_diagnostic_generation.py](../../../../../../tests/test_diagnostic_generation.py) — direct import
 - [tests/test_diagnostic_pack.py](../../../../../../tests/test_diagnostic_pack.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
