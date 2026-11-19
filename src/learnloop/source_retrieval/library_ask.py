@@ -810,6 +810,36 @@ def _passages(vault: LoadedVault, repository: Repository, keys: Sequence[str], *
     return out
 
 
+#: K6-5: what a reopened library result says when a passage it shows is
+#: protected now (the kept comparison's wording, ``handlers.library_ask``).
+RESULT_WITHHELD = ("Part of this answer is held out for an exam now (or its sources can't be checked), "
+                   "so it isn't shown. Ask again to search what you can read.")
+
+
+def withheld_now(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> list[str]:
+    """The passage keys (``extraction:span``) exam material covers NOW (K6-5).
+
+    A library answer was checked when it was searched; its stored keys, its
+    organizer's notes and its kept job are read again later, after a mark the
+    owner may have made since. Fail closed: an unreadable predicate, or a key
+    that names no passage, withholds."""
+
+    parsed = {key: tuple(key.split(":", 1)) for key in keys}
+    try:
+        held = set(EM.exam_material(vault, repository).withheld(
+            sorted(pair for pair in parsed.values() if len(pair) == 2)))
+    except Exception:  # noqa: BLE001 - fail closed: protection that can't be read withholds
+        return list(keys)
+    return [key for key, pair in parsed.items() if len(pair) != 2 or pair in held]
+
+
+def refuse_withheld(vault: LoadedVault, repository: Repository, keys: Sequence[str]) -> None:
+    """Raise :class:`LibraryAskError` when any of ``keys`` is withheld now (K6-5)."""
+
+    if withheld_now(vault, repository, list(dict.fromkeys(keys))):
+        raise LibraryAskError("exam_material", RESULT_WITHHELD)
+
+
 def _earlier_notes(repository: Repository, ledger_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
     """The validated notes an earlier ask stored for these ledger rows."""
 
@@ -869,11 +899,16 @@ def organize(
 
     row = ask_row(repository, ask_id)
     stored = row["organizer"] or {}
+    keys = _shown_keys(row)
+    # K6-5: the answer's passages are read again under today's protection
+    # before any is sent to the judge or its stored notes are handed back: a
+    # mark made since the search withholds the notes over it (the passages and
+    # the lines about them alike), as a kept comparison is withheld.
+    refuse_withheld(vault, repository, keys)
     # Reused once judged, unless a line could not be checked (it may be
     # recoverable now: its paid answer is kept, and nothing is paid again).
     if stored.get("status") in ("judged", "cached") and not stored.get("unchecked_lines"):
         return {"ask_id": ask_id, **shown_organizer(vault, stored), "reused": True}
-    keys = _shown_keys(row)
     task = organizer_task(vault)
     passages = _passages(vault, repository, keys, with_kinds=explorable_task(task))
     keys = [key for key in keys if key in passages]

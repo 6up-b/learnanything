@@ -130,6 +130,33 @@ def destination_material(ctx: Any, vault: Any, repository: Any) -> Any:
         raise SidecarError(HELD_OUT_CODE, HELD_OUT_REFUSAL) from None
 
 
+#: What the phone is told of an Ask answer that named material held out from it (V4 landing, ruling R1).
+ANSWER_WITHHELD_MESSAGE = "This answer drew on material held out from the phone. It's in your history on the desktop."
+
+
+def sendable_exchanges(vault: Any, repository: Any, extraction_id: str,
+                       exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The Reader exchanges (each with its ``event_id``) the phone may be sent now: none of the passages
+    its stored event names (``reader_dialogue.ask_provenance``) is withheld from the phone. An exchange the
+    stored events don't account for is not sent (fail closed). Read at each request: a fresh answer, the
+    Ask history, and a completed job read again (K6-5) all judge by it."""
+
+    from learnloop.reader import reader_dialogue as RD
+
+    provenance = RD.ask_provenance(repository, extraction_id=extraction_id)
+    by_reading: dict[str, set[str]] = {extraction_id: set()}
+    for places in provenance.values():
+        for reading, span in places:
+            by_reading.setdefault(reading, set()).add(span)
+    withheld = {reading: phone_withheld(vault, repository, reading, sorted(spans))
+                for reading, spans in by_reading.items()}
+    if withheld[extraction_id].whole:
+        return []
+    passed = {event_id for event_id, places in provenance.items()
+              if not any(withheld[reading].covers(span) for reading, span in places)}
+    return [exchange for exchange in exchanges if exchange.get("event_id") in passed]
+
+
 def refuse_if_withheld(ctx: Any, vault: Any, repository: Any, extraction_id: str | None,
                        span_ids: Iterable[str | None] = ()) -> None:
     """At a phone origin, refuse a request that names protected material (or a reading that

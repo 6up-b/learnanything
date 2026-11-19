@@ -308,6 +308,52 @@ def test_the_pinned_tutor_counts_a_bound_asks_help_on_its_item_once(library, mon
     assert [row["question_event_id"] for row in reviews] == [answer["eventId"]]
 
 
+# -- K6-5: a result reopened after a new mark is checked against it ---------------------------------
+
+
+def _mark_chapter_5_held_out(repository, spans) -> None:
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+
+    save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"ch5": "held_out_evaluation"})
+
+
+def _ask_job(ctx):
+    job = call_rpc(ctx, "reader.library_ask", {"query": QUESTION, "entry": "reader", "extractionId": "ext_text",
+                                               "spanIds": ["t2"], "learningObjectIds": ["lo_matrices"]})
+    return job, finish_job(ctx, job)
+
+
+def test_a_mark_after_the_ask_withholds_its_cached_notes_and_its_kept_result(library):
+    paths, repository, spans = library
+    ctx = context(paths.root)
+    job, asked = _ask_job(ctx)
+    marked = [hit["key"] for hit in asked["hits"] if hit["key"] in {f"ext_text:{s}" for s in spans["ch5"]}]
+    assert marked, "the ask showed a passage of chapter 5"
+    ctx.library_organizer_client = fake = OrganizerFake()
+    assert call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})["status"] == "judged"
+    _mark_chapter_5_held_out(repository, spans)
+    # The organizer's stored notes are not handed back over a passage held out since.
+    with pytest.raises(SidecarError) as notes:
+        call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
+    assert notes.value.code == "exam_material" and len(fake.prompts) == 1
+    # Nor is the ask's kept job, read again.
+    with pytest.raises(SidecarError) as kept:
+        call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"]})
+    assert kept.value.code == "exam_material"
+
+
+def test_a_mark_after_the_ask_keeps_its_passages_from_the_organizer(library):
+    paths, repository, spans = library
+    ctx = context(paths.root)
+    _job, asked = _ask_job(ctx)
+    assert any(hit["key"] in {f"ext_text:{s}" for s in spans["ch5"]} for hit in asked["hits"])
+    _mark_chapter_5_held_out(repository, spans)
+    ctx.library_organizer_client = fake = OrganizerFake()
+    with pytest.raises(SidecarError) as caught:
+        call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
+    assert caught.value.code == "exam_material" and fake.prompts == []
+
+
 # -- F5: the organizer's cap is atomic; a subscription route is never refused by it ----------------
 
 

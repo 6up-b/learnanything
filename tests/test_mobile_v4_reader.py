@@ -547,3 +547,36 @@ def test_the_phones_ask_never_sends_exam_material_in_its_context_or_reply(tmp_pa
     assert NEIGHBOUR_SENTINEL not in given and REFERENCE_SENTINEL not in given
     sent = json.dumps(reply)
     assert "Neighbour sentinel" not in sent and "Reference sentinel" not in sent
+
+
+# -- K6-5: a completed phone Ask is checked again whenever it is read ----------------------------------
+
+
+def test_a_completed_phone_ask_is_withheld_when_its_passage_is_marked_since(world, monkeypatch):
+    import learnloop_sidecar.handlers.reader as reader_handlers
+    from learnloop import capture
+    from learnloop.reader.reader_dialogue import StubReaderClient
+
+    tutor = StubReaderClient(answer_md="Spans sentinel: every combination of the list.")
+
+    class Ready:
+        ready = True
+
+    monkeypatch.setattr(reader_handlers, "ready_tutor_qa_provider", lambda vault: ("fake", Ready(), tutor))
+    phone, repository = world["phone"], world["repo"]
+    params = {"extractionId": EXTRACTION, "spanId": "b4", "question": "why?"}
+    answered = job(phone, "reader.ask", params, "k65_ask")
+    assert "Spans sentinel" in json.dumps(answered)
+    job_id = capture.job_for_request(repository, "k65_ask")["id"]
+    # The owner marks the passage's section held out on the desktop.
+    repository.upsert_unit_selection(extraction_id=EXTRACTION, source_id="src1", revision_id="rev1",
+                                     selected_unit_ids=["u1", "u2", "u3"],
+                                     exam_use_modes={"u2": "held_out_evaluation", "u3": "held_out_evaluation"},
+                                     exam_paper_metadata=_made_on(EXTRACTION, "rev1"))
+    polled = phone.get(f"/api/v1/jobs/{job_id}").json()
+    assert "Spans sentinel" not in json.dumps(polled)
+    assert polled["state"] == "failed" and polled["error"]["code"] == "held_out_material"
+    retried = phone.post("reader.ask", params, request_id="k65_ask")
+    assert "Spans sentinel" not in retried.text
+    assert retried.status_code == 409 and retried.json()["error"]["code"] == "held_out_material"
+    assert len(tutor.contexts) == 1  # nothing was asked again

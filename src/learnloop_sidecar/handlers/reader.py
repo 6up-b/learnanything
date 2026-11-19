@@ -229,8 +229,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         # Mobile v2 V4 landing (ruling R1): the answer as the Ask stored it (its citations, excerpt and what the
         # tutor retrieved, which the model chose) is judged as its history will judge it, before anything of it
         # is sent; one naming material withheld from the phone is not sent (the desktop still has it).
-        raise SidecarError(PR.HELD_OUT_CODE, "This answer drew on material held out from the phone. "
-                                             "It's in your history on the desktop.")
+        raise SidecarError(PR.HELD_OUT_CODE, PR.ANSWER_WITHHELD_MESSAGE)
     response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": result["reader_answer_event_id"],
@@ -335,19 +334,8 @@ def _phone_ask_history(vault: Any, repository: Any, extraction_id: str,
                        exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]:
     from learnloop_sidecar import phone_reader as PR
 
-    provenance = RD.ask_provenance(repository, extraction_id=extraction_id)
-    by_reading: dict[str, set[str]] = {extraction_id: set()}
-    for places in provenance.values():
-        for reading, span in places:
-            by_reading.setdefault(reading, set()).add(span)
-    withheld = {reading: PR.phone_withheld(vault, repository, reading, sorted(spans))
-                for reading, spans in by_reading.items()}
-    if withheld[extraction_id].whole:
-        return []
-    passed = {event_id for event_id, places in provenance.items()
-              if not any(withheld[reading].covers(span) for reading, span in places)}
-    # An exchange the stored events don't account for is not sent (fail closed).
-    return [exchange for exchange in exchanges if exchange.get("event_id") in passed]
+    # One judgment for the fresh answer, the history and a completed job read again (K6-5).
+    return PR.sendable_exchanges(vault, repository, extraction_id, exchanges)
 
 
 class ReaderSetAnswerModeInput(ParamsModel):

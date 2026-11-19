@@ -537,7 +537,36 @@ class HostRuntime:
             view = self._what_committed(job, job["request_id"], job["device_id"])
             if view is not None:
                 return view
-        return self._view_of(job)
+        return self._deliverable(job, self._view_of(job))
+
+    def _deliverable(self, job: Mapping[str, Any], view: JobView) -> JobView:
+        """K6-5: a completed Reader Ask, read again (a poll, the same request id retried), is judged as
+        the phone's Ask history judges it, by today's marks: one naming material held out from the phone
+        since it finished is answered as the fresh Ask would be, refused, and the stored row is unchanged
+        (the desktop still has the answer). Unreadable: refused (fail closed)."""
+
+        if view.state != capture.COMPLETED or job["method"] != "reader.ask":
+            return view
+        result = view.result if isinstance(view.result, Mapping) else {}
+        params = job.get("params") if isinstance(job.get("params"), Mapping) else {}
+        extraction = params.get("extractionId") or params.get("extraction_id")
+        event = result.get("readerAnswerEventId") or result.get("reader_answer_event_id")
+        from learnloop_sidecar import phone_reader as PR
+
+        try:
+            from learnloop.vault.loader import load_vault
+
+            sendable = bool(extraction and event and PR.sendable_exchanges(
+                load_vault(self._vault), self._read_repo, str(extraction), [{"event_id": str(event)}]))
+        except Exception:  # noqa: BLE001 - fail closed: an answer that can't be judged is not sent
+            LOG.exception("could not judge a completed Reader Ask %s", job.get("id"))
+            sendable = False
+        if sendable:
+            return view
+        from learnloop_mobile.adapter import error_body
+
+        return replace(view, state=capture.FAILED, result=None,
+                       error=error_body(PR.HELD_OUT_CODE, PR.ANSWER_WITHHELD_MESSAGE)["error"])
 
     @staticmethod
     def _committed(repo: Repository, job: Mapping[str, Any] | None, submission_id: str) -> tuple[Any, Any]:

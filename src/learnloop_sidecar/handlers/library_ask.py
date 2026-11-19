@@ -361,6 +361,22 @@ def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work, *,
                                          on_job=on_job))
 
 
+def deliver_passages(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any]:
+    """A library answer's or its notes' kept result as it may go out NOW (K6-5), at every read of the
+    job: one showing a passage exam material covers now (a mark made since the search), or one that
+    can't be checked, is refused whole with the kept comparison's wording; the kept result is unchanged."""
+
+    keys = [str(hit.get("key") or "") for hit in result.get("hits") or ()]
+    keys += [str(note.get("key") or "") for note in result.get("notes") or () if isinstance(note, dict)]
+    if keys:
+        vault, repository = ctx.require_vault()
+        try:
+            LA.refuse_withheld(vault, repository, keys)
+        except LA.LibraryAskError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+    return result
+
+
 def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
     """A comparison job's result as it may go out NOW (RW4d fix round 5, F2),
     at every delivery (the first one, and each cached read through
@@ -499,7 +515,7 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
             result["compared_on"] = KC.compared_on(vault, worker_repo, [hit["key"] for hit in result["hits"]])
         return result
 
-    return _start(ctx, "ask", None, work)
+    return _start(ctx, "ask", None, work, deliver=lambda result: deliver_passages(ctx, result))
 
 
 class LibraryAskIdInput(ParamsModel):
@@ -517,7 +533,7 @@ def reader_library_ask_notes(ctx: SidecarContext, params: LibraryAskIdInput) -> 
     def work(worker_repo: Any) -> dict[str, Any]:
         return LA.organize(vault, worker_repo, params.ask_id, client=client)
 
-    return _start(ctx, "notes", params.ask_id, work)
+    return _start(ctx, "notes", params.ask_id, work, deliver=lambda result: deliver_passages(ctx, result))
 
 
 #: An anchor's blocks: the selection a comparison may start from. A
