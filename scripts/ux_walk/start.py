@@ -2,6 +2,7 @@
 
     python scripts/ux_walk/start.py <walk-name> --from established|fresh|empty [--brief brief.md]
         [--files a.pdf b.html] [--phone] [--walks-dir fixtures-local/ux-walks] [--anchor YYYY-MM-DD]
+        [--models live --allow-live-route --config-dir <dir> [--decider perplexity]]
 
 Creates ``<walks-dir>/<walk-name>/`` with:
 
@@ -35,9 +36,8 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 TAURI = ROOT / "apps" / "learnloop-tauri"
 DEFAULT_WALKS = ROOT / "fixtures-local" / "ux-walks"
-DEFAULT_FILES = [ROOT / "samples" / name for name in (
-    "understanding-linear-algebra-symmetric-matrices-and-variance.html", "wikipedia-elevator-paradox.html",
-    "mit-18.06-spring-2010-quiz1.pdf")]
+SAMPLES = ROOT / "samples"
+PHONE_APP_INDEX = ROOT / "src" / "learnloop_mobile" / "static" / "app" / "index.html"
 SCOPE = ["-p", "MemoryMax=3G", "-p", "MemorySwapMax=1G"]
 PLACEHOLDER_BRIEF = """# Your brief
 
@@ -47,6 +47,23 @@ Run `./walk look` to see the screen, then act with `./walk click`, `./walk type`
 verbs (`./walk help`). Your own files are in files/. Say what you expect, what confuses you and
 where you get stuck with `./walk say "..."` as you go.
 """
+
+
+def default_files(samples: Path | None = None) -> list[Path]:
+    """Every sample document (everything under samples/ but its NOTICE), so a brief can name any of them."""
+
+    samples = samples or SAMPLES
+    return sorted(path for path in samples.rglob("*") if path.is_file() and path.name != "NOTICE")
+
+
+def phone_app_refusal(index: Path | None = None) -> str | None:
+    """Why a phone walk cannot start, or None: the phone host serves a built app, else a not_found page."""
+
+    index = index or PHONE_APP_INDEX
+    if index.is_file():
+        return None
+    return (f"the phone app is not built ({index.relative_to(ROOT) if index.is_relative_to(ROOT) else index} is "
+            "missing): run `npm ci` and then `npm run build` in apps/learnloop-mobile, then start the walk again")
 
 
 def free_port() -> int:
@@ -130,7 +147,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--from", dest="start_point", choices=("empty", "fresh", "established"), required=True)
     parser.add_argument("--walks-dir", default=str(DEFAULT_WALKS))
     parser.add_argument("--brief", type=Path)
-    parser.add_argument("--files", type=Path, nargs="*", help="this person's files (default: three samples)")
+    parser.add_argument("--files", type=Path, nargs="*",
+                        help="this person's files (default: every sample document under samples/)")
     parser.add_argument("--phone", action="store_true", help="the phone app (learnloop_mobile) at a phone viewport")
     parser.add_argument("--anchor", help="the walk's date for the vault (default today, UTC)")
     parser.add_argument("--no-build", action="store_true", help="reuse apps/learnloop-tauri/dist-browser")
@@ -138,9 +156,16 @@ def main(argv: list[str] | None = None) -> int:
                         help="live: the owner's ChatGPT-plan route (needs --allow-live-route and --config-dir)")
     parser.add_argument("--allow-live-route", action="store_true")
     parser.add_argument("--config-dir", type=Path, help="with --models live: the signed-in walk config directory")
+    parser.add_argument("--decider", choices=("perplexity",),
+                        help="with --models live: route the Decider tasks to the owner's Perplexity profile "
+                             "(its key is read from the config directory's settings.env, as the app does)")
     args = parser.parse_args(argv)
     if args.models == "live" and (args.phone or not (args.allow_live_route and args.config_dir)):
         parser.error("--models live is desktop only and needs --allow-live-route and --config-dir")
+    if args.decider and args.models != "live":
+        parser.error("--decider goes with --models live (a faked walk has no Decider)")
+    if args.phone and (refusal := phone_app_refusal()):
+        raise SystemExit(refusal)
 
     walk_root = Path(args.walks_dir).resolve() / args.name
     if walk_root.exists():
@@ -151,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     timings: dict[str, float] = {}
     if args.phone and args.start_point == "empty":
         raise SystemExit("the phone pairs with an existing library: use --from fresh or established")
-    files = args.files if args.files is not None else DEFAULT_FILES
+    files = args.files if args.files is not None else default_files()
     persona = prepare_persona(walk_root, args.brief, files)
 
     vault = walk_root / "vault"
@@ -180,6 +205,8 @@ def main(argv: list[str] | None = None) -> int:
             bridge_command.append("--create-if-missing")
         if args.models == "live":
             bridge_command += ["--models", "live", "--allow-live-route", "--config-dir", str(args.config_dir)]
+            if args.decider:
+                bridge_command += ["--decider", args.decider]
     bridge_unit = f"uxwalk-{args.name}-bridge"
     bridge = scoped(bridge_unit, bridge_command, env, wait=False, log=walk_root / "analyst" / "bridge.out")
     ready = wait_for(walk_root / "run" / "bridge.ready", bridge, 240, "the bridge")
@@ -191,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     wait_for(walk_root / "run" / "driver.ready", driver, 120, "the walk driver")
     wait_for(persona / "observations" / "0000.txt", driver, 120, "the first observation")
     record = {"name": args.name, "start_point": args.start_point, "phone": args.phone, "models": args.models,
-              "port": port,
+              "decider": args.decider, "port": port,
               "units": [bridge_unit, driver_unit], "persona": str(persona), "vault": str(vault),
               "started_at": time.time(), "timings": timings}
     (walk_root / "run" / "walk.json").write_text(json.dumps(record, indent=2), encoding="utf-8")

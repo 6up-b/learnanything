@@ -13,7 +13,7 @@ Everything the persona never sees (each call, its time, every failure, the
 fake model's requests) goes to ``<walk>/analyst/bridge.jsonl``.
 
     python scripts/ux_walk/bridge.py --walk-root <walk> --vault <path> --port <n> [--create-if-missing]
-        [--models fake|live --allow-live-route --config-dir <dir>]
+        [--models fake|live --allow-live-route --config-dir <dir> [--decider perplexity]]
 """
 
 from __future__ import annotations
@@ -54,6 +54,26 @@ IGNORED_PREFIXES = (("canonical-sources", "raw"), ("media", "animations"))
 MAX_MEDIA_RANGE = 4 * 1024 * 1024
 CONTENT_ADDRESSED = re.compile(r"^sha256-[0-9a-fA-F]+$")
 VAULT_FILES_CHANGED = "learnloop://vault-files-changed"
+#: The Decider profiles a live walk can route to (``--decider``), as the owner's vaults configure them.
+#: The key is never the harness's: the app reads ``api_key_env`` from the config directory's settings.env.
+DECIDER_PROFILES: dict[str, tuple[str, dict[str, str]]] = {
+    "perplexity": ("perplexity_decider", {
+        "type": "decider", "api": "perplexity", "model": "pplx-decider-v1.3",
+        "base_url": "https://api.perplexity.ai", "api_key_env": "PERPLEXITY_API_KEY",
+    }),
+}
+#: Every task the owner routes to their Decider profile ([ai.routing]).
+DECIDER_TASKS = ("learner_gap_decider", "reader_intent", "hint_chooser", "llm_probability_decider",
+                 "router_decider", "tier1_decider", "compare_scope", "ad_forecast_decider")
+
+
+def decider_table(choice: str) -> dict[tuple[str, ...], Any]:
+    """The ``learnloop.toml`` keys for ``--decider choice``: the profile and the routing of every Decider task."""
+
+    name, profile = DECIDER_PROFILES[choice]
+    table: dict[tuple[str, ...], Any] = {("ai", "providers", name, key): value for key, value in profile.items()}
+    table.update({("ai", "routing", task): name for task in DECIDER_TASKS})
+    return table
 
 
 # -- errors, in the shapes errors.rs gives the frontend --------------------------------------------
@@ -428,6 +448,7 @@ class Bridge:
         self.bundle = Path(args.bundle).resolve()
         self.port = args.port
         self.models = args.models
+        self.decider = getattr(args, "decider", None)
         self.table = walk_commands.load_table()
         self.events = Events()
         self.stopping = threading.Event()
@@ -489,7 +510,10 @@ class Bridge:
                                  fake_model.provider_table(f"http://127.0.0.1:{self.port}/fake-model/v1"))
         else:
             # make_vault built it with the fake profile active; a live walk serves the template's plan profile.
-            apply_config_updates(self.vault / "learnloop.toml", {("ai", "active_provider"): "chatgpt"})
+            updates: dict[tuple[str, ...], Any] = {("ai", "active_provider"): "chatgpt"}
+            if self.decider:
+                updates.update(decider_table(self.decider))
+            apply_config_updates(self.vault / "learnloop.toml", updates)
 
     def start(self) -> None:
         self.prepare_vault()
@@ -914,9 +938,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-live-route", action="store_true",
                         help="required with --models live: the walk may spend on the owner's model routes")
     parser.add_argument("--config-dir", help="with --models live: the signed-in LearnLoop config directory to use")
+    parser.add_argument("--decider", choices=sorted(DECIDER_PROFILES),
+                        help="with --models live: route every Decider task to this profile")
     args = parser.parse_args(argv)
     if args.models == "live" and not (args.allow_live_route and args.config_dir):
         parser.error("--models live needs --allow-live-route and --config-dir (the owner decides at launch)")
+    if args.decider and args.models != "live":
+        parser.error("--decider goes with --models live")
     walk_root = Path(args.walk_root).resolve()
     if not Path(args.vault).resolve().is_relative_to(walk_root):
         parser.error("the vault must be inside the walk directory (a walk never opens an owner's vault)")

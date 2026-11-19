@@ -5,12 +5,16 @@
     walk click 7                       click element [7] from the last look
     walk click "Start session"         click what is labelled so (or shows that text)
     walk click --role button "Next"    click a button with that name
+    walk select "a phrase"             select exactly that text, as dragging the mouse over it does
+    walk select "first words" --to "last words"   select from the start of one to the end of the other
+    walk select 14                     select the whole text of element [14]
     walk type "my answer"              type into the focused field
     walk type "my answer" --into 4 --enter      click field [4], type, press Enter
     walk type "x" --clear              empty the field first
+    walk type "2026-12-09" --into 6    a date field takes the date (or 12/09/2026, as it shows dates)
     walk key Enter | Escape | Tab | Shift+Tab | Control+k | ArrowDown
     walk scroll down | up [--page | --lines N] [--in 3]
-    walk back                          the browser's back (the desktop window has no back button)
+    walk back                          the phone browser's Back (a desktop window has none: use Escape)
     walk hover 5
     walk wait 3                        wait three seconds, then look
     walk wait --for "Saved" --limit 20 wait until that text appears (at most 20 s)
@@ -142,6 +146,24 @@ def parse(argv: list[str]) -> dict:
         return {"verb": "look"}
     if verb in ("click", "hover"):
         return {"verb": verb, "target": _target(args)}
+    if verb == "select":
+        to = _take(args, "--to")
+        if not args:
+            raise WalkError('select needs the text to select ("a phrase", "first words" --to "last words") '
+                            "or an element's number")
+        what = " ".join(args)
+        if to is not None and not to.strip():
+            raise WalkError("--to needs the last words to select")
+        if what.isdigit():
+            if to is not None:
+                raise WalkError("select N takes an element's whole text; --to goes with words")
+            return {"verb": "select", "target": {"number": int(what)}}
+        if not what.strip():
+            raise WalkError("select needs the text to select")
+        action = {"verb": "select", "target": {"text": what}}
+        if to is not None:
+            action["to"] = to
+        return action
     if verb == "type":
         into = _take(args, "--into")
         enter = _flag(args, "--enter")

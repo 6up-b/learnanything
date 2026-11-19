@@ -269,6 +269,170 @@ def test_the_walk_command_line():
         client.parse(["dance"])
 
 
+def test_select_takes_a_phrase_a_span_or_an_element():
+    assert client.parse(["select", "the spectral", "theorem"]) == {"verb": "select",
+                                                                   "target": {"text": "the spectral theorem"}}
+    assert client.parse(["select", "A symmetric matrix", "--to", "real eigenvalues."]) == {
+        "verb": "select", "target": {"text": "A symmetric matrix"}, "to": "real eigenvalues."}
+    assert client.parse(["select", "--to", "end.", "Start"]) == {"verb": "select", "target": {"text": "Start"},
+                                                                "to": "end."}
+    assert client.parse(["select", "14"]) == {"verb": "select", "target": {"number": 14}}
+    for bad in (["select"], ["select", "--to", "x"], ["select", "14", "--to", "x"], ["select", "a", "--to", " "]):
+        with pytest.raises(client.WalkError):
+            client.parse(bad)
+    assert "walk select" in (client.__doc__ or "")
+
+
+def test_the_selection_is_in_the_observation_while_one_exists():
+    dump = perceive.dump_static_html("<html><body><p>Some text</p></body></html>")
+    assert "Selection:" not in perceive.render_observation(perceive.perceive(dump), header=["Step 1: look"])
+    dump["selection"] = "  A symmetric\n matrix  "
+    rendered = perceive.render_observation(perceive.perceive(dump), header=["Step 1: look"])
+    assert 'Selection: "A symmetric matrix"' in rendered
+    assert rendered.index("Focus:") < rendered.index("Selection:") < rendered.index("--- screen ---")
+    dump["selection"] = "word " * 100
+    line = next(line for line in perceive.render_observation(perceive.perceive(dump), header=[]).splitlines()
+                if line.startswith("Selection: "))
+    assert len(line) == len('Selection: ""') + perceive.SELECTION_LIMIT and line.endswith('…"')
+
+
+def test_every_verb_the_client_sends_is_in_the_protocols_table():
+    examples = [["look"], ["click", "1"], ["select", "x"], ["type", "x"], ["key", "Enter"], ["scroll"], ["back"],
+                ["hover", "1"], ["wait"], ["upload", "--cancel"], ["resize", "phone"], ["say", "x"]]
+    assert {client.parse(argv)["verb"] for argv in examples} == set(protocol.VERBS)
+
+
+@pytest.fixture(scope="module")
+def driver_module():
+    saved_path = list(sys.path)
+    try:
+        yield _load("driver")
+    finally:
+        sys.path[:] = saved_path
+        for name in ("walk_perceive", "walk_protocol"):
+            sys.modules.pop(name, None)
+
+
+class _RecordingWebDriver:
+    def __init__(self):
+        self.requests = []
+
+    def request(self, method, path, body=None, timeout=120):
+        self.requests.append((method, path))
+        return None
+
+
+def _offline_driver(driver_module, tmp_path, viewport):
+    import argparse
+
+    args = argparse.Namespace(walk_root=str(tmp_path / viewport), url="http://127.0.0.1:9/", bridge="http://127.0.0.1:9",
+                              viewport=viewport, chromedriver="", chromium="", settle=0.0)
+    driver = driver_module.Driver(args)
+    driver.bridge_state = lambda: {}
+    driver.webdriver = _RecordingWebDriver()
+    return driver
+
+
+def test_back_is_refused_on_the_desktop_and_is_the_phones_back(driver_module, tmp_path):
+    assert protocol.refusal("back", "desktop") == protocol.DESKTOP_HAS_NO_BACK
+    assert protocol.refusal("back", "phone") is None and protocol.refusal("click", "desktop") is None
+    assert "Escape" in protocol.DESKTOP_HAS_NO_BACK and "no Back button" in protocol.DESKTOP_HAS_NO_BACK
+    desktop = _offline_driver(driver_module, tmp_path, "desktop")
+    with pytest.raises(driver_module.StepFailed, match="no Back button"):
+        desktop.run({"verb": "back"})
+    assert desktop.webdriver.requests == []
+    phone = _offline_driver(driver_module, tmp_path, "phone")
+    assert phone.run({"verb": "back"}) == ("back", {})
+    assert phone.webdriver.requests == [("POST", "/back")]
+
+
+def test_a_date_field_takes_the_date_a_person_would_pick(driver_module):
+    value = driver_module.native_value
+    us, uk = ["month", "day", "year"], ["day", "month", "year"]
+    assert value("date", "2026-12-09", us) == "2026-12-09"
+    assert value("date", "12/09/2026", us) == "2026-12-09"
+    assert value("date", "9/12/2026", uk) == "2026-12-09"
+    assert value("date", "December 9, 2026", us) == "2026-12-09"
+    assert value("date", "9 Dec 2026", us) == "2026-12-09"
+    assert value("month", "2026-12") == value("month", "12/2026") == value("month", "December 2026") == "2026-12"
+    assert value("time", "14:30") == value("time", "2:30 PM") == "14:30"
+    assert value("datetime-local", "2026-12-09T14:30") == value("datetime-local", "12/09/2026, 2:30 pm", us) \
+        == "2026-12-09T14:30"
+    for kind, text in (("date", "13/45/2026"), ("date", "261209"), ("time", "25:00"), ("month", "soon")):
+        with pytest.raises(ValueError):
+            value(kind, text, us)
+    assert driver_module.shown_format("date", us) == "mm/dd/yyyy"
+
+
+# -- start.py --------------------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def start_module():
+    return _load("start")
+
+
+def test_a_phone_walk_refuses_before_the_vault_when_the_phone_app_is_not_built(start_module, tmp_path, monkeypatch):
+    monkeypatch.setattr(start_module, "PHONE_APP_INDEX", tmp_path / "app" / "index.html")
+    with pytest.raises(SystemExit) as refused:
+        start_module.main(["p1", "--from", "established", "--phone", "--walks-dir", str(tmp_path / "walks")])
+    message = str(refused.value)
+    assert "phone app is not built" in message and "npm ci" in message and "npm run build" in message
+    assert "apps/learnloop-mobile" in message
+    assert not (tmp_path / "walks").exists()
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "index.html").write_text("<html></html>", encoding="utf-8")
+    assert start_module.phone_app_refusal() is None
+
+
+def test_a_walk_without_files_gets_every_sample_document(start_module):
+    names = [path.name for path in start_module.default_files()]
+    on_disk = sorted(path.name for path in (ROOT / "samples").rglob("*") if path.is_file())
+    assert "NOTICE" not in names and sorted(names + ["NOTICE"]) == on_disk
+    assert "mit-18.06-spring-2010-quiz1-solutions.pdf" in names
+
+
+def test_the_decider_choice_needs_a_live_walk(start_module, tmp_path, capsys):
+    with pytest.raises(SystemExit) as refused:
+        start_module.main(["d1", "--from", "fresh", "--decider", "perplexity", "--walks-dir", str(tmp_path)])
+    assert refused.value.code == 2 and "--models live" in capsys.readouterr().err
+    assert not (tmp_path / "d1").exists()
+
+
+def test_the_perplexity_decider_is_written_and_its_routes_classified(bridge, tmp_path, monkeypatch):
+    from learnloop.config import load_config
+    from learnloop.ops.settings_store import apply_config_updates
+    from tests.helpers import create_basic_vault
+
+    vault = create_basic_vault(tmp_path / "vault").root
+    # The fake-model mode's machinery: walk_fake active and forced, as the bridge sets it up.
+    apply_config_updates(vault / "learnloop.toml", fake.provider_table("http://127.0.0.1:9/fake-model/v1"))
+    apply_config_updates(vault / "learnloop.toml", bridge.decider_table("perplexity"))
+    monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", fake.FAKE_PROFILE)
+    config = load_config(vault / "learnloop.toml", load_environment=False)
+    profile = config.ai.providers["perplexity_decider"]
+    assert (profile.type, profile.api, profile.model, profile.base_url, profile.api_key_env) == (
+        "decider", "perplexity", "pplx-decider-v1.3", "https://api.perplexity.ai", "PERPLEXITY_API_KEY")
+    assert {task: getattr(config.ai.routing, task) for task in bridge.DECIDER_TASKS} == dict.fromkeys(
+        bridge.DECIDER_TASKS, "perplexity_decider")
+
+    route_check = _load("route_check")
+    monkeypatch.delenv("PERPLEXITY_API_KEY", raising=False)
+    unreachable = route_check.classify(vault, fake.FAKE_PROFILE)
+    for task in bridge.DECIDER_TASKS:
+        route = unreachable["routes"][task]
+        assert (route["provider"], route["kind"]) == ("perplexity_decider", "unreachable")
+        assert "PERPLEXITY_API_KEY" in route["message"]
+    assert not set(bridge.DECIDER_TASKS) & set(unreachable["live"])
+
+    monkeypatch.setenv("PERPLEXITY_API_KEY", "walk-test-not-a-key")
+    live = route_check.classify(vault, fake.FAKE_PROFILE)
+    assert set(bridge.DECIDER_TASKS) <= set(live["live"])
+    for task in bridge.DECIDER_TASKS:
+        assert live["routes"][task] == {"provider": "perplexity_decider", "kind": "live", "status": "ready"}
+    assert all("message" not in route for route in live["routes"].values() if route["kind"] == "live")
+
+
 def test_a_replayed_step_names_its_element_by_role_and_name():
     sys.path.insert(0, str(WALK))
     try:

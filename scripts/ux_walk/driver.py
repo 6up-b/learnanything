@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import argparse
 import base64
+import datetime
 import hashlib
 import json
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -66,6 +68,303 @@ while (walker.nextNode()) {
 return best;
 """
 NO_CONSOLE_JS = "return (window.__walkConsole && window.__walkConsole.drain()) || [];"
+#: Plans a selection the way a person aims a drag: finds the words in the page's visible text (typeset
+#: math reads as $TeX$, as in the observation), prefers a match on the screen, scrolls to the first match
+#: otherwise, and returns where to press and where to release. Arguments: {text, to} and an element
+#: (whose whole text is the selection when no text is given). Keeps the range for SELECT_CHECK_JS.
+SELECT_PLAN_JS = r"""
+const spec = arguments[0] || {};
+const scope = arguments[1] || document.body;
+const vw = window.innerWidth, vh = window.innerHeight;
+const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "NOSCRIPT", "TEMPLATE", "OPTION", "SELECT"]);
+const hiddenCache = new Map();
+function hidden(element) {
+  if (!element || element === document.documentElement) return false;
+  if (hiddenCache.has(element)) return hiddenCache.get(element);
+  const style = getComputedStyle(element);
+  const own = SKIP.has(element.tagName) || style.display === "none" || style.visibility === "hidden" ||
+    style.visibility === "collapse" || parseFloat(style.opacity) === 0 ||
+    style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "");
+  const result = own || hidden(element.parentElement);
+  hiddenCache.set(element, result);
+  return result;
+}
+const blockCache = new Map();
+function blockOf(element) {
+  if (blockCache.has(element)) return blockCache.get(element);
+  let found = null;
+  for (let e = element; e; e = e.parentElement) {
+    if (!getComputedStyle(e).display.startsWith("inline")) { found = e; break; }
+  }
+  blockCache.set(element, found);
+  return found;
+}
+// The flat text: whitespace collapsed, lower case, each character remembering where it came from.
+const chars = [];
+const flat = [];
+let lastBlock = null;
+const mathSeen = new Set();
+function push(ch, where) {
+  if (/\s/.test(ch)) {
+    if (!flat.length || flat[flat.length - 1] === " ") return;
+    ch = " ";
+  } else {
+    const lower = ch.toLowerCase();
+    if (lower.length === 1) ch = lower;
+  }
+  flat.push(ch);
+  chars.push(where);
+}
+const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+while (walker.nextNode()) {
+  const node = walker.currentNode;
+  const parent = node.parentElement;
+  if (!parent) continue;
+  const katex = parent.closest(".katex");
+  if (katex) {
+    if (mathSeen.has(katex)) continue;
+    mathSeen.add(katex);
+    const tex = katex.querySelector('annotation[encoding="application/x-tex"]');
+    if (!tex || hidden(katex)) continue;
+    const block = blockOf(katex);
+    if (lastBlock !== null && block !== lastBlock) push(" ", { el: katex });
+    lastBlock = block;
+    for (const ch of "$" + tex.textContent + "$") push(ch, { el: katex });
+    continue;
+  }
+  if (hidden(parent)) continue;
+  const text = node.textContent;
+  if (!text) continue;
+  const block = blockOf(parent);
+  if (lastBlock !== null && block !== lastBlock) push(" ", { node, offset: 0 });
+  lastBlock = block;
+  for (let k = 0; k < text.length; k++) push(text[k], { node, offset: k });
+}
+const haystack = flat.join("");
+const norm = (s) => Array.from(String(s || "").replace(/\s+/g, " ").trim()).map((c) => {
+  const lower = c.toLowerCase();
+  return lower.length === 1 ? lower : c;
+}).join("");
+function setStart(range, i) {
+  const c = chars[i];
+  if (c.el) range.setStartBefore(c.el); else range.setStart(c.node, c.offset);
+}
+function setEnd(range, i) {
+  const c = chars[i];
+  if (c.el) range.setEndAfter(c.el); else range.setEnd(c.node, c.offset + 1);
+}
+function charRect(i, last) {
+  const c = chars[i];
+  if (c.el) return c.el.getBoundingClientRect();
+  const r = document.createRange();
+  r.setStart(c.node, c.offset);
+  r.setEnd(c.node, c.offset + 1);
+  const rects = Array.from(r.getClientRects()).filter((x) => x.width > 0 || x.height > 0);
+  if (!rects.length) return r.getBoundingClientRect();
+  return last ? rects[rects.length - 1] : rects[0];
+}
+function point(i, which) {
+  const r = charRect(i, which === "end");
+  const inset = Math.min(1, r.width / 4);
+  const x = which === "start" ? r.left + inset : r.right - inset;
+  const y = r.top + r.height / 2;
+  const owner = chars[i].el || chars[i].node.parentElement;
+  let visible = r.width > 0 && r.height > 0 && x >= 0 && y >= 0 && x < vw && y < vh;
+  if (visible) {
+    const hit = document.elementFromPoint(x, y);
+    visible = !!hit && (hit === owner || owner.contains(hit) || hit.contains(owner));
+  }
+  return { x: Math.max(0, Math.min(vw - 1, Math.round(x))), y: Math.max(0, Math.min(vh - 1, Math.round(y))), visible };
+}
+let spans = [];
+if (spec.text) {
+  const first = norm(spec.text);
+  const to = spec.to ? norm(spec.to) : null;
+  if (!first) return { ok: false, error: "Say which words to select." };
+  for (let at = haystack.indexOf(first); at >= 0; at = haystack.indexOf(first, at + 1)) {
+    let end = at + first.length - 1;
+    if (to) {
+      let j = haystack.indexOf(to, at);
+      while (j >= 0 && j + to.length - 1 < end) j = haystack.indexOf(to, j + 1);
+      if (j < 0) continue;
+      end = j + to.length - 1;
+    }
+    spans.push([at, end]);
+  }
+  if (!spans.length) {
+    const found = haystack.indexOf(first) >= 0;
+    return { ok: false, error: found && to
+      ? `"${spec.to}" does not come after "${spec.text}" on this page.`
+      : `The text "${spec.text}" is not on this page.` };
+  }
+} else {
+  let end = chars.length - 1;
+  while (end >= 0 && flat[end] === " ") end--;
+  if (end < 0) return { ok: false, error: "That element has no text to select." };
+  spans = [[0, end]];
+}
+let chosen = spans.findIndex(([s]) => point(s, "start").visible);
+const onScreen = chosen >= 0;
+let scrolled = false;
+if (!onScreen) {
+  chosen = 0;
+  const owner = chars[spans[0][0]].el || chars[spans[0][0]].node.parentElement;
+  owner.scrollIntoView({ block: "center", inline: "nearest" });
+  scrolled = true;
+}
+const [s, e] = spans[chosen];
+let start = point(s, "start");
+let end = point(e, "end");
+if (start.visible && !end.visible) {
+  // A long passage: bring its start to the top so the release point is on the screen too.
+  (chars[s].el || chars[s].node.parentElement).scrollIntoView({ block: "start", inline: "nearest" });
+  scrolled = true;
+  start = point(s, "start");
+  end = point(e, "end");
+}
+const range = document.createRange();
+setStart(range, s);
+setEnd(range, e);
+window.__walkSelection = { range, endElement: chars[e].el || chars[e].node.parentElement };
+return { ok: true, start, end, drag: start.visible && end.visible, count: spans.length, index: chosen + 1,
+  onScreen, scrolled };
+"""
+#: After the drag: is the page's selection the planned one? When it is not and arguments[0] is true,
+#: set it through the Selection API and send the pointer-up and mouse-up a drag ends with (at
+#: arguments[1]), which is what the app listens for.
+SELECT_CHECK_JS = r"""
+const plan = window.__walkSelection;
+if (!plan) return { ok: false };
+const squash = (s) => String(s || "").replace(/\s+/g, "").toLowerCase();
+const wanted = squash(plan.range.toString());
+const sel = window.getSelection();
+const same = () => !!sel && !sel.isCollapsed && squash(sel.toString()) === wanted;
+if (same() || !arguments[0]) return { ok: same(), fallback: false };
+sel.removeAllRanges();
+sel.addRange(plan.range.cloneRange());
+const p = arguments[1] || { x: 0, y: 0 };
+let target = document.elementFromPoint(p.x, p.y);
+if (!target || !(target === plan.endElement || plan.endElement.contains(target) || target.contains(plan.endElement))) {
+  target = plan.endElement;
+}
+const init = { bubbles: true, cancelable: true, composed: true, clientX: p.x, clientY: p.y, button: 0,
+  view: window };
+target.dispatchEvent(new PointerEvent("pointerup", { ...init, pointerType: "mouse", isPrimary: true }));
+target.dispatchEvent(new MouseEvent("mouseup", init));
+return { ok: same(), fallback: true };
+"""
+#: Native pickers: typing sends keys to the field's segments, a person picks a value.
+NATIVE_PICKERS = frozenset({"date", "time", "datetime-local", "month"})
+INPUT_KIND_JS = ("const e = arguments[0]; return e && e.tagName === 'INPUT' ? (e.type || 'text').toLowerCase() "
+                 ": null;")
+#: The order the browser's locale shows a date's parts in (en-US: month, day, year).
+DATE_ORDER_JS = r"""
+const parts = new Intl.DateTimeFormat(navigator.language || undefined).formatToParts(new Date(2026, 11, 9));
+return parts.map((p) => p.type).filter((t) => t === "year" || t === "month" || t === "day");
+"""
+#: Sets a native picker's value as choosing it does: the value, then the input and change events
+#: (through the prototype's setter, so React's value tracker sees a change).
+SET_PICKER_JS = r"""
+const field = arguments[0], value = arguments[1];
+field.focus();
+Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(field, value);
+field.dispatchEvent(new Event("input", { bubbles: true }));
+field.dispatchEvent(new Event("change", { bubbles: true }));
+return field.value;
+"""
+MONTHS = {name: number for number, names in enumerate(
+    (("jan", "january"), ("feb", "february"), ("mar", "march"), ("apr", "april"), ("may",), ("jun", "june"),
+     ("jul", "july"), ("aug", "august"), ("sep", "sept", "september"), ("oct", "october"), ("nov", "november"),
+     ("dec", "december")), start=1) for name in names}
+
+
+def _iso_date(year: int, month: int, day: int) -> str:
+    return datetime.date(year, month, day).isoformat()
+
+
+def _date_value(text: str, order: list[str]) -> str:
+    text = text.strip().rstrip(",").strip()
+    iso = re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", text)
+    if iso:
+        return _iso_date(int(iso[1]), int(iso[2]), int(iso[3]))
+    words = [word for word in re.split(r"[\s,./-]+", text.lower()) if word]
+    named = [word for word in words if word.rstrip(".") in MONTHS]
+    if len(words) == 3 and len(named) == 1:
+        month = MONTHS[named[0].rstrip(".")]
+        rest = [int(re.sub(r"(st|nd|rd|th)$", "", word) or 0) for word in words if word not in named]
+        year, day = (rest[0], rest[1]) if rest[0] > 31 else (rest[1], rest[0])
+        return _iso_date(year, month, day)
+    if len(words) == 3 and all(word.isdigit() for word in words):
+        if len(words[0]) == 4:
+            return _iso_date(int(words[0]), int(words[1]), int(words[2]))
+        parts = dict(zip(order or ["month", "day", "year"], (int(word) for word in words), strict=True))
+        return _iso_date(parts["year"], parts["month"], parts["day"])
+    raise ValueError
+
+
+def _time_value(text: str) -> str:
+    match = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*([ap])?\.?\s*(?:m\.?)?", text.strip().lower())
+    if not match or (match[2] is None and match[4] is None):
+        raise ValueError
+    hour, minute, second = int(match[1]), int(match[2] or 0), match[3]
+    if match[4]:
+        if not 1 <= hour <= 12:
+            raise ValueError
+        hour = hour % 12 + (12 if match[4] == "p" else 0)
+    if hour > 23 or minute > 59 or (second is not None and int(second) > 59):
+        raise ValueError
+    return f"{hour:02d}:{minute:02d}" + (f":{int(second):02d}" if second is not None else "")
+
+
+def native_value(kind: str, text: str, order: list[str] | None = None) -> str:
+    """The value a person picking ``text`` in an ``<input type=kind>`` gives it (ISO forms).
+
+    Takes ISO (2026-12-09, 2026-12, 14:30, 2026-12-09T14:30) or the order the
+    screen shows (``order``: the locale's date parts, e.g. month, day, year for
+    12/09/2026), month names (December 9, 2026) and 12-hour times (2:30 PM).
+    Raises ValueError for anything else."""
+
+    order = order or ["month", "day", "year"]
+    text = text.strip()
+    if kind == "date":
+        return _date_value(text, order)
+    if kind == "time":
+        return _time_value(text)
+    if kind == "month":
+        iso = re.fullmatch(r"(\d{4})-(\d{1,2})", text)
+        if iso:
+            return _iso_date(int(iso[1]), int(iso[2]), 1)[:7]
+        words = [word for word in re.split(r"[\s,./-]+", text.lower()) if word]
+        if len(words) == 2:
+            named = [word for word in words if word.rstrip(".") in MONTHS]
+            if len(named) == 1:
+                year = next(word for word in words if word not in named)
+                return _iso_date(int(year), MONTHS[named[0].rstrip(".")], 1)[:7]
+            if all(word.isdigit() for word in words):
+                first, second = (int(word) for word in words)
+                year, month = (first, second) if len(words[0]) == 4 else (second, first)
+                return _iso_date(year, month, 1)[:7]
+        raise ValueError
+    if kind == "datetime-local":
+        match = re.fullmatch(r"(.+?)[T\s,]+(\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?\s*m\.?)?)", text, re.I)
+        if not match:
+            raise ValueError
+        return f"{_date_value(match[1], order)}T{_time_value(match[2])}"
+    raise ValueError
+
+
+def native_example(kind: str) -> str:
+    return {"date": "2026-12-09", "time": "14:30", "month": "2026-12",
+            "datetime-local": "2026-12-09T14:30"}.get(kind, "2026-12-09")
+
+
+def shown_format(kind: str, order: list[str] | None) -> str:
+    """How the field shows its value, for the persona (en-US: mm/dd/yyyy)."""
+
+    names = {"month": "mm", "day": "dd", "year": "yyyy"}
+    date = "/".join(names[part] for part in (order or ["month", "day", "year"]))
+    return {"date": date, "time": "hh:mm (or 2:30 PM)", "month": "yyyy-mm (or December 2026)",
+            "datetime-local": f"{date}, hh:mm"}.get(kind, date)
 
 
 class WebDriverError(Exception):
@@ -421,6 +720,9 @@ class Driver:
                              "`walk upload --cancel` first.")
         if verb == "_malformed":
             raise StepFailed(action.get("error", "malformed step"))
+        refused = walk_protocol.refusal(str(verb), self.viewport)
+        if refused:
+            raise StepFailed(refused)
         if verb == "look":
             return "look", {}
         if verb == "say":
@@ -435,6 +737,8 @@ class Driver:
                                      "actions": [{"type": "pointerMove", "duration": 100, "x": 0, "y": 0,
                                                   "origin": {ELEMENT_KEY: ref}}]}])
             return f"hover {description}", {"target": description}
+        if verb == "select":
+            return self.select(action)
         if verb == "type":
             return self.type(action)
         if verb == "key":
@@ -451,6 +755,7 @@ class Driver:
         if verb == "scroll":
             return self.scroll(action)
         if verb == "back":
+            # Only the phone gets here (walk_protocol.refusal): its browser has a Back button.
             self.webdriver.request("POST", "/back", {})
             return "back", {}
         if verb == "wait":
@@ -503,6 +808,9 @@ class Driver:
             if not active or str(tag).lower() == "body":
                 raise StepFailed("No field has focus. Click a field first, or use `--into`.")
             ref = active
+        kind = self.webdriver.execute(INPUT_KIND_JS, {ELEMENT_KEY: ref})
+        if kind in NATIVE_PICKERS:
+            return self.pick(ref, str(kind), action, description)
         if action.get("clear"):
             try:
                 self.webdriver.request("POST", f"/element/{ref}/clear", {})
@@ -517,6 +825,75 @@ class Driver:
             raise
         shown = action.get("text", "")
         return f'type "{shown[:80]}" into {description}' + (" and press Enter" if action.get("enter") else ""), {}
+
+    def pick(self, ref: str, kind: str, action: dict, description: str) -> tuple[str, dict]:
+        """A date, time or month field: set the value a person picking it would, not its segments' keys."""
+
+        assert self.webdriver is not None
+        text = str(action.get("text", ""))
+        order = self.webdriver.execute(DATE_ORDER_JS) or ["month", "day", "year"]
+        try:
+            value = native_value(kind, text, list(order))
+        except (ValueError, KeyError, IndexError):
+            raise StepFailed(f'"{text}" is not a {kind.replace("-local", "")} this field takes: type it as '
+                             f'{native_example(kind)} or as the field shows it ({shown_format(kind, order)}).') from None
+        landed = self.webdriver.execute(SET_PICKER_JS, {ELEMENT_KEY: ref}, value)
+        if landed != value:
+            raise StepFailed(f"The field did not take {text!r} (it may be outside the dates it allows).")
+        if action.get("enter"):
+            self.webdriver.actions([{"type": "key", "id": "keyboard", "actions": key_sequence("Enter")}])
+        done = f'type "{text[:80]}" into {description} (set to {value})'
+        return done + (" and press Enter" if action.get("enter") else ""), {"value": value, "kind": kind}
+
+    def select(self, action: dict) -> tuple[str, dict]:
+        """Select text as a mouse drag does: press before the first character, move, release after the last."""
+
+        assert self.webdriver is not None
+        target = action.get("target") or {}
+        element = None
+        if "number" in target:
+            ref, described = self.resolve(target)
+            element = {ELEMENT_KEY: ref}
+            spec: dict = {}
+            what = f"the text of {described}"
+        else:
+            spec = {"text": str(target.get("text") or ""), "to": action.get("to")}
+            what = f'"{spec["text"]}"' + (f' to "{spec["to"]}"' if spec.get("to") else "")
+        plan = self.webdriver.execute(SELECT_PLAN_JS, spec, element)
+        if not plan or not plan.get("ok"):
+            raise StepFailed((plan or {}).get("error") or "That text could not be found.")
+        end = plan["end"]
+        method = "selection api"
+        if plan.get("drag"):
+            start = plan["start"]
+            middle = {"x": round((start["x"] + end["x"]) / 2), "y": round((start["y"] + end["y"]) / 2)}
+            self.webdriver.actions([{"type": "pointer", "id": "mouse", "parameters": {"pointerType": "mouse"},
+                                     "actions": [
+                {"type": "pointerMove", "duration": 0, "origin": "viewport", **start},
+                {"type": "pointerDown", "button": 0},
+                {"type": "pause", "duration": 80},
+                {"type": "pointerMove", "duration": 120, "origin": "viewport", **middle},
+                {"type": "pointerMove", "duration": 120, "origin": "viewport", **end},
+                {"type": "pointerUp", "button": 0},
+            ]}])
+            method = "drag"
+        else:
+            self.webdriver.execute("window.getSelection().removeAllRanges();")
+        check = self.webdriver.execute(SELECT_CHECK_JS, True, end) or {}
+        if check.get("fallback"):
+            method = "drag, corrected through the selection api" if method == "drag" else method
+        if not check.get("ok"):
+            raise StepFailed("The text was found but could not be selected there.")
+        if "number" in target:
+            where = ""
+        elif plan.get("onScreen"):
+            where = (f" (the first of {plan['count']} on the screen)" if plan.get("count", 1) > 1 else "")
+        else:
+            where = (" (it was not on the screen: the first of "
+                     f"{plan['count']} in the document, scrolled to it)" if plan.get("count", 1) > 1
+                     else " (it was not on the screen: scrolled to it)")
+        return f"select {what}{where}", {"method": method, "matches": plan.get("count"),
+                                          "on_screen": plan.get("onScreen"), "scrolled": plan.get("scrolled")}
 
     def scroll(self, action: dict) -> tuple[str, dict]:
         assert self.webdriver is not None

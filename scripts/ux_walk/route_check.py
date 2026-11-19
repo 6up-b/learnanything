@@ -4,8 +4,10 @@ Run by the bridge before the browser opens, with exactly the environment the
 sidecar gets. Prints one JSON object: each route's provider, its kind
 (``fake``: the walk's local fake model; ``unset``; ``unreachable``: a real
 provider with no credential in this environment; ``live``: a real provider
-that would answer) and the runtime's own readiness message. The bridge refuses
-to start in fake mode when any route is ``live``.
+that would answer) and, for a route that is not live, the runtime's own
+readiness message (a live route's message can carry the signed-in account's
+email address, so only its status is kept). The bridge refuses to start in
+fake mode when any route is ``live``.
 
     python scripts/ux_walk/route_check.py <vault> <fake-profile-name>
 """
@@ -41,7 +43,11 @@ def classify(vault: Path, fake_profile: str) -> dict:
             except Exception as exc:  # noqa: BLE001 - a profile the runtime cannot judge counts as live
                 readiness[name] = {"ready": True, "status": "unknown", "message": f"{type(exc).__name__}: {exc}"}
         state = readiness[name]
-        routes[task] = {"provider": name, "kind": "live" if state["ready"] else "unreachable", **state}
+        if state["ready"]:
+            # A ready route's message can name the signed-in account (its email): keep it out of the walk's files.
+            routes[task] = {"provider": name, "kind": "live", "status": state["status"]}
+        else:
+            routes[task] = {"provider": name, "kind": "unreachable", **state}
     return {"routes": routes, "live": sorted(task for task, route in routes.items() if route["kind"] == "live")}
 
 

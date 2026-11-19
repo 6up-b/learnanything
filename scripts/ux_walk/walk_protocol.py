@@ -6,6 +6,9 @@ actions strictly in number order, writes the observation files, then
 ``done-NNNN.json`` (written aside and renamed, so a reader never sees half of
 it), and refreshes ``driver.json`` every second so ``walk`` can tell a slow
 step from a driver that is gone.
+
+``VERBS`` names every verb an action file may carry; ``refusal`` says which
+cannot be done on which screen (a desktop window has no Back button).
 """
 
 from __future__ import annotations
@@ -14,6 +17,33 @@ import json
 import os
 import time
 from pathlib import Path
+
+#: Every verb `walk` sends, with what it does (walk_client.py's help says the same to the persona).
+VERBS: dict[str, str] = {
+    "look": "what is on the screen now",
+    "click": "click an element by number, label, or role and name",
+    "select": "select text as a mouse drag over it does: a phrase, from one phrase to another (--to), "
+              "or the whole text of an element",
+    "type": "type into the focused field or into --into N; a date or time field takes the date itself",
+    "key": "press a key or chord (Enter, Escape, Tab, Control+k)",
+    "scroll": "scroll the page or one region",
+    "back": "the phone browser's Back (refused on the desktop: the window has no Back button)",
+    "hover": "move the pointer over an element",
+    "wait": "wait some seconds, or until a text appears",
+    "upload": "answer an open file or folder chooser from files/",
+    "resize": "resize the window",
+    "say": "a note for the record; the app never sees it",
+}
+DESKTOP_HAS_NO_BACK = ("A desktop window has no Back button. To leave a dialog or panel press Escape (`walk key "
+                       "Escape`); to go elsewhere use the app's own controls (its tabs, Close, ←).")
+
+
+def refusal(verb: str, viewport: str) -> str | None:
+    """Why ``verb`` cannot be done on this kind of screen, or None when it can."""
+
+    if verb == "back" and viewport != "phone":
+        return DESKTOP_HAS_NO_BACK
+    return None
 
 
 def pending(channel: Path, after: int) -> list[int]:

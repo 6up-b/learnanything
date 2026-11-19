@@ -139,7 +139,64 @@ function visit(node, parent) {
 }
 visit(document.body, -1);
 const page = document.scrollingElement || document.documentElement;
-return { title: document.title, viewport, nodes, elements,
+// The text a person sees highlighted: typeset math as its TeX, nothing visually hidden.
+function selectedText() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+  const out = [];
+  let lastBlock = null;
+  const mathSeen = new Set();
+  const hiddenCache = new Map();
+  function hidden(element) {
+    if (!element || element === document.documentElement) return false;
+    if (hiddenCache.has(element)) return hiddenCache.get(element);
+    const style = getComputedStyle(element);
+    const own = style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse" ||
+      style.clip === "rect(0px, 0px, 0px, 0px)" || /inset\(50%/.test(style.clipPath || "");
+    const result = own || hidden(element.parentElement);
+    hiddenCache.set(element, result);
+    return result;
+  }
+  function blockOf(element) {
+    for (let e = element; e; e = e.parentElement) {
+      if (!getComputedStyle(e).display.startsWith("inline")) return e;
+    }
+    return null;
+  }
+  for (let r = 0; r < sel.rangeCount; r++) {
+    const range = sel.getRangeAt(r);
+    const root = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(root.nodeType === Node.TEXT_NODE ? root.parentNode : root,
+      NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!range.intersectsNode(node)) continue;
+      const parent = node.parentElement;
+      const katex = parent && parent.closest(".katex");
+      if (katex) {
+        if (!mathSeen.has(katex)) {
+          mathSeen.add(katex);
+          const tex = katex.querySelector('annotation[encoding="application/x-tex"]');
+          if (tex) out.push(" $" + tex.textContent + "$ ");
+        }
+        continue;
+      }
+      if (hidden(parent)) continue;
+      const start = node === range.startContainer ? range.startOffset : 0;
+      const end = node === range.endContainer ? range.endOffset : node.textContent.length;
+      const block = blockOf(parent);
+      if (lastBlock && block !== lastBlock) out.push(" ");
+      lastBlock = block;
+      out.push(node.textContent.slice(start, end));
+    }
+  }
+  const joined = out.join("").replace(/\s+/g, " ").trim();
+  // A selection inside a text field has no text nodes in the range: the browser's own string.
+  return joined || sel.toString().replace(/\s+/g, " ").trim() || null;
+}
+let selection = null;
+try { selection = selectedText(); } catch (error) { selection = null; }
+return { title: document.title, viewport, nodes, elements, selection,
   pageScroll: { top: page.scrollTop, height: page.scrollHeight, client: page.clientHeight } };
 """
 
@@ -217,6 +274,8 @@ class Perception:
     notices: list[str]
     busy: list[str]
     more: list[str]
+    #: The highlighted text while a selection exists (whitespace collapsed), else None.
+    selection: str | None = None
 
     def element(self, number: int) -> Element | None:
         return next((element for element in self.elements if element.number == number), None)
@@ -605,8 +664,20 @@ def perceive(dump: dict[str, Any]) -> Perception:
     return Perception(
         title=_clean(dump.get("title") or ""), text="\n".join(lines), elements=renderer.elements, focus=focus,
         dialogs=list(dict.fromkeys(renderer.dialogs)), notices=list(dict.fromkeys(renderer.notices)),
-        busy=list(dict.fromkeys(renderer.busy)), more=more,
+        busy=list(dict.fromkeys(renderer.busy)), more=more, selection=_clean(dump.get("selection") or "") or None,
     )
+
+
+SELECTION_LIMIT = 200
+
+
+def selection_line(text: str) -> str:
+    """The selected text, quoted, cut to ``SELECTION_LIMIT`` characters."""
+
+    text = _clean(text)
+    if len(text) > SELECTION_LIMIT:
+        text = text[: SELECTION_LIMIT - 1].rstrip() + "…"
+    return f'"{text}"'
 
 
 def render_observation(perception: Perception, *, header: list[str]) -> str:
@@ -615,6 +686,8 @@ def render_observation(perception: Perception, *, header: list[str]) -> str:
     lines = list(header)
     lines.append(f"Window title: {perception.title or '(none)'}")
     lines.append(f"Focus: {perception.focus or 'nothing in particular'}")
+    if perception.selection:
+        lines.append(f"Selection: {selection_line(perception.selection)}")
     if perception.dialogs:
         lines.append("Dialog open: " + "; ".join(perception.dialogs))
     if perception.notices:
