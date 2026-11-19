@@ -2172,6 +2172,7 @@ def probe_episode_decision(
     *,
     session_id: str | None,
     familiarity: Mapping[str, float] | None = None,
+    qualifying_observations: int | None = None,
 ) -> SiteDecision:
     """(a) Does this episode's next observation pay for its minutes?
 
@@ -2179,6 +2180,13 @@ def probe_episode_decision(
     with its composed ``P(E | H)``: the episode's pinned robust ensemble when
     it has one (the credible set), the point conditionals otherwise. The
     former cap's counterfactual counts the session's qualifying observations.
+
+    ``qualifying_observations``: the episode's qualifying observations as the
+    caller's episode reader counts them (``probe_episodes.effective_episode_observations``,
+    which from mvp-0.61 leaves out an exposed answer, refactor bug ledger G3-1;
+    ``probe_episodes.qualifying_observation_count``);
+    every serving caller passes it, so this module does not import the episode
+    reader. Absent, the stored rows are counted.
     """
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
@@ -2233,7 +2241,7 @@ def probe_episode_decision(
     # §20.7); its counterfactual rides on the same receipt.
     maximum = getattr(episode, "maximum_observations", None)
     if maximum is not None:
-        qualifying = sum(
+        qualifying = qualifying_observations if qualifying_observations is not None else sum(
             1
             for row in ctx.repository.probe_observations_for_episode(episode.id)
             if row["observation"].eligible_for_completion

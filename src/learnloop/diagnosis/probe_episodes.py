@@ -10,7 +10,7 @@ Legacy probe phases replay through their recorded algorithm version.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from math import log
 import json
 from typing import Any, Iterable, Mapping
@@ -1171,7 +1171,7 @@ def episode_posterior(
     posterior = dict(prior)
 
     intervention_at = _first_intervention_at(repository, episode)
-    observation_rows = repository.probe_observations_for_episode(episode.id)
+    observation_rows = effective_episode_observations(vault, repository, episode.id)
     observations_by_attempt = {row["attempt_id"]: row for row in observation_rows}
 
     attempts = repository.list_attempts_by_learning_object(episode.learning_object_id)
@@ -1249,6 +1249,133 @@ def episode_posterior(
         qualifying_observations=qualifying,
         total_observations=total_observations,
         entropy=_entropy(posterior),
+    )
+
+
+def probe_answer_admissibility(
+    repository: Repository, *, probe_attempt_id: str | None
+) -> "ProductionAdmissibility | None":  # noqa: F821  imported in the body; postponed annotations never evaluate it
+    """Was the probe answer produced before anything was revealed to it?
+
+    ``None`` when there is no probe attempt to assess (an out-of-band
+    classification: a replayed transcript, an adjudicated review). That is
+    stored as a NULL ``admissible_as_independent``, which says "not assessed" —
+    a different claim from "assessed and clean".
+
+    THE exposure test of a probe answer, with two callers: the discriminating
+    observation (``causal_discrimination``), and from the evidence reading
+    fixes (mvp-0.61) the probe episode's observation (:func:`answer_exposure`),
+    so the two records cannot differ on whether an answer was independent
+    (refactor bug ledger G3-1). It lives here, beside the episode reader, so
+    the episode does not import the discrimination module.
+    """
+
+    from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
+
+    if not probe_attempt_id:
+        return None
+    attempt = repository.fetch_practice_attempt(probe_attempt_id)
+    if attempt is None:
+        return None
+    from learnloop.followup_serve.workflow import probe_answer_exposed
+
+    exposed = probe_answer_exposed(
+        repository, str(attempt.get("probe_presentation_id") or ""),
+        answered_at=str(attempt.get("created_at") or "") or None,
+    )
+    if exposed is not None:
+        # FG1 §6.0, §7: the learner took "Show anyway", the feedback was released before a
+        # wait, or the causes were displayed before this answer (a recorded exposure, FG1c):
+        # an answer it can't resolve the cause with, whatever the ledger.
+        return ProductionAdmissibility(False, exposed)
+    return production_admissibility(
+        repository,
+        practice_item_id=str(attempt.get("practice_item_id") or "") or None,
+        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+        produced_at=str(attempt.get("created_at") or "") or None,
+        # The production judged, by id (UX Phase 4 round 4): only its own
+        # frozen self-grade disclosure is exempt, never one matched by time.
+        production_id=probe_attempt_id,
+    )
+
+
+#: The contamination key an exposed probe answer carries in its episode observation (G3-1, mvp-0.61): the reason
+#: the shared exposure test gave (:func:`probe_answer_admissibility`).
+ANSWER_EXPOSED = "answer_exposed"
+
+
+def answer_exposure(vault: LoadedVault, repository: Repository, attempt_id: str) -> str | None:
+    """Why a probe answer was not an independent production, or None: the discriminating observation's exposure test
+    (feedback shown before it, a recorded display of its causes, or a reveal in its window), from the evidence
+    reading fixes (mvp-0.61) on. Below them the episode observation never asked, so this is always None there."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return None
+    admissibility = probe_answer_admissibility(repository, probe_attempt_id=attempt_id)
+    if admissibility is None or admissibility.admissible:
+        return None
+    return str(admissibility.reason or "not_independent")
+
+
+def exposed_evidence_weight(vault: LoadedVault, discount: float | None) -> float:
+    """An exposed answer's evidence weight: the configured contaminated weight
+    (``probe.episode.contaminated_evidence_weight``), or less when a task share or a trace bound already held it
+    lower."""
+
+    stored = 1.0 if discount is None else float(discount)
+    return min(stored, float(vault.config.probe.episode.contaminated_evidence_weight))
+
+
+def effective_episode_observations(vault: LoadedVault, repository: Repository, episode_id: str) -> list[dict[str, Any]]:
+    """The episode's observation rows (``probe_observations_for_episode``, the held-grade view) as the episode reads
+    them at the vault's tag.
+
+    Below the evidence reading fixes (mvp-0.61) the episode observation's contamination test looked only at hints,
+    tutor help and the attempt type, so a probe answer given after its feedback was shown, after its causes were
+    displayed, or after a reveal counted at full weight and could complete the episode, while the discriminating
+    observation refused the same answer as not independent (refactor bug ledger G3-1). From the tag the episode
+    applies the same test (:func:`answer_exposure`): an exposed answer is contaminated evidence. It updates the
+    posterior at no more than the configured contaminated weight and qualifies nothing, so it cannot complete an
+    episode. An observation recorded at the tag carries this already (``probe_evidence``); one recorded before reads
+    the same here, its stored row untouched. Its state segment is not closed (a read cannot close one), so a live
+    observation leaves the segments as they were too."""
+
+    rows = repository.probe_observations_for_episode(episode_id)
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not rows or not evidence_reading_fixes_on(vault.config):
+        return rows
+    effective: list[dict[str, Any]] = []
+    for row in rows:
+        observation = row["observation"]
+        contamination = dict(observation.contamination or {})
+        if (observation.updates_belief or observation.eligible_for_completion) and ANSWER_EXPOSED not in contamination:
+            exposure = answer_exposure(vault, repository, observation.attempt_id)
+            if exposure is not None:
+                weight = exposed_evidence_weight(vault, observation.independent_evidence_discount)
+                row = {
+                    **row,
+                    **{key: 0 for key in ("eligible_for_completion",) if key in row},
+                    **{key: weight for key in ("independent_evidence_discount",) if key in row},
+                    "observation": replace(
+                        observation,
+                        contamination={**contamination, ANSWER_EXPOSED: exposure},
+                        independent_evidence_discount=weight,
+                        eligible_for_completion=False,
+                    ),
+                }
+        effective.append(row)
+    return effective
+
+
+def qualifying_observation_count(vault: LoadedVault, repository: Repository, episode_id: str) -> int:
+    """The episode's qualifying observations as the episode reads them (:func:`effective_episode_observations`)."""
+
+    return sum(
+        1 for row in effective_episode_observations(vault, repository, episode_id)
+        if row["observation"].eligible_for_completion
     )
 
 

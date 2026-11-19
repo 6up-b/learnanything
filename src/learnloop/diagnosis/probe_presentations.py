@@ -24,6 +24,7 @@ from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
+    qualifying_observation_count,
 )
 from learnloop.diagnosis.probe_families import (
     SELECTION_POLICY_VERSION,
@@ -458,7 +459,8 @@ def probe_value_block_reason(
     if not any(entry.item.id == practice_item_id for entry in candidates):
         return None, None
     decision = voi.probe_episode_decision(
-        voi.VoiContext(vault, repository), episode, candidates, live.posterior, session_id=session_id
+        voi.VoiContext(vault, repository), episode, candidates, live.posterior, session_id=session_id,
+        qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
     )
     if decision.admits(practice_item_id):
         # The item the learner opened is the one this door commits: the

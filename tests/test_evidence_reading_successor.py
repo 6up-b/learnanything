@@ -36,8 +36,11 @@ from learnloop.attempts.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades
+from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.probe_episodes import effective_episode_observations, episode_posterior
+from learnloop.followup_serve import workflow as wf
 from learnloop.goals.certification_cold_probe import (
     current_certificate,
     false_certification_rate,
@@ -49,9 +52,13 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop_sidecar.context import SidecarContext
 
 from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, LO_ID, _attempt, _certify
 from tests.exam_seeding_helpers import _exam_vault, _outcomes
+from tests.followup_journey_helpers import _Runtime, _call, _generate
+from tests.followup_serve_helpers import CLOCK as PROBE_CLOCK
+from tests.followup_serve_helpers import miss_with_rivals, rival_causes_vault
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
@@ -270,24 +277,26 @@ def test_k5_11_a_regraded_exam_answer_reaches_the_exam_channel(tmp_path, tag):
 
 
 def _unassessed_answer(vault, repository, item_id, *, clock, attempt_id="att_unassessed_probe"):
-    """A full-marks answer whose one criterion the valid-alternative gate left unassessed (PF-c's verified answer:
+    """A full-marks answer whose every criterion the valid-alternative gate left unassessed (PF-c's verified answer:
     correctness 1.0 for scheduling, no measurement)."""
 
+    rubric = vault.rubric_for_item(vault.practice_items[item_id])
+    points = {criterion.id: float(criterion.points) for criterion in rubric.criteria}
     return apply_attempt(
         vault, repository,
         ApplyAttemptInput(
             draft=AttemptDraft(practice_item_id=item_id, learner_answer_md="U Sigma V transpose, another route."),
             attempt_id=attempt_id,
             grade=ResolvedGrade(
-                rubric_score=4, criterion_points={"correctness": 4.0},
+                rubric_score=int(rubric.max_points), criterion_points=points,
                 evidence_rows=[{
-                    "id": f"ge_{attempt_id}", "criterion_id": "correctness", "points_awarded": 4.0,
+                    "id": f"ge_{attempt_id}_{criterion}", "criterion_id": criterion, "points_awarded": awarded,
                     "evidence": "A valid alternative route; not verified.", "notes": None,
                     "local_grader_id": "test", "grader_tier": 1, "created_at": clock.now().isoformat(),
-                }],
+                } for criterion, awarded in points.items()],
                 error_attributions=[], grader_confidence=0.9, confidence=4, manual_review_reason=None,
             ),
-            unverified_criterion_ids=("correctness",),
+            unverified_criterion_ids=tuple(points),
         ),
         clock=clock,
     )
@@ -331,3 +340,176 @@ def test_k5_3_an_assessed_probe_answer_is_scored_at_both_tags(tmp_path, tag):
     assert repository.followup_task(outcome["followup_task_id"])["context"]["policy_version"] == (
         "certification_cold_probe_policy_v1"
     )
+
+
+# -- G3-1: a probe answer given after its feedback was shown, or after a reveal, is contaminated in its episode -------
+
+
+class _ProbeGrader(JointGraderAlsoBlind, StructuredClientFake):
+    """A model grader for a generated probe: ``points`` per criterion, every criterion graded."""
+
+    provider_name = "deepseek_flash"
+    provider_type = "openai_chat"
+    model = "deepseek-v4-flash"
+
+    def __init__(self, points, *, confidence=0.9, full=False):
+        self.points = dict(points)
+        self.confidence = confidence
+        self.full = full  # every criterion at its full points
+
+    def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+        criteria = {str(criterion["id"]): float(criterion["points"]) for criterion in context.rubric.get("criteria") or []}
+        awarded = {criterion: (maximum if self.full else float(self.points.get(criterion, 0.0)))
+                   for criterion, maximum in criteria.items()}
+        return GradingProposal(
+            attempt_id=context.attempt_id,
+            practice_item_id=context.practice_item_id,
+            rubric_score=int(sum(awarded.values())),
+            criterion_evidence=[
+                CriterionEvidence(criterion_id=criterion, points_awarded=points, evidence="Graded.")
+                for criterion, points in awarded.items()
+            ],
+            grader_confidence=self.confidence,
+        )
+
+
+def _probe_journey(tmp_path, monkeypatch, tag):
+    """The follow-up journey (a miss with two rival causes, its generated probe ready) at ``tag``."""
+
+    monkeypatch.setattr(
+        "learnloop_sidecar.handlers.practice.ready_grading_provider",
+        lambda *_args, **_kw: ("fake", _Runtime(), object()),
+    )
+    _vault_unused, _repository, paths = rival_causes_vault(tmp_path, version=tag)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.post_attempt_worker.autostart = False
+    vault, repository = ctx.require_vault()
+    result, outcome = miss_with_rivals(vault, repository)
+    _generate(ctx, repository)
+    row = wf.get(repository, outcome.workflow_id)
+    assert row["presentation_id"], row
+    return paths, ctx, vault, repository, result, row
+
+
+def _expose(ctx, repository, result, row, exposure):
+    if exposure == "shown_anyway":
+        _call(ctx, "followup_show_anyway", {"attemptId": result.attempt_id})
+    elif exposure == "reveal":
+        # A tutor answer on the missed item, an hour before the probe's answer: material exposure for every item of
+        # its learning object (the reveal ledger's window), the probe's included, without priming the probe item.
+        source = repository.fetch_practice_attempt(row["source_attempt_id"])
+        repository.insert_reveal_event(
+            {"practice_item_id": source["practice_item_id"], "learning_object_id": source["learning_object_id"],
+             "source_kind": "tutor_answer", "amount": 1.0, "basis": "tutor_answer"},
+            clock=FrozenClock(PROBE_CLOCK.now() - timedelta(hours=1)),
+        )
+
+
+def _answer_probe(ctx, repository, row):
+    """The probe answered through the model grader (an approved source, so the episode records an observation) and
+    the post-attempt pipeline (which writes the discriminating observation)."""
+
+    _call(ctx, "followup_status", {"attemptId": row["source_attempt_id"]})  # this process's vault reads the new item
+    _call(ctx, "open_queue_item", {"practiceItemId": row["practice_item_id"]})
+    _call(ctx, "get_probe_contract", {"practiceItemId": row["practice_item_id"]})
+    vault, _ = ctx.require_vault()
+    probe = complete_attempt_with_ai_fallback(
+        vault, repository,
+        AttemptDraft(practice_item_id=row["practice_item_id"], learner_answer_md="An answer.",
+                     attempt_type="diagnostic_probe", probe_presentation_id=row["presentation_id"]),
+        SelfGradeInput(criterion_points={}, confidence=3),
+        runtime=_ready_runtime(), ai_client=_ProbeGrader({"fact_0": 0, "fact_1": 2}), clock=PROBE_CLOCK,
+    )
+    run_post_attempt_pipeline(vault, repository, result=probe, followup_surface="desktop", clock=PROBE_CLOCK)
+    return probe.attempt_id
+
+
+def _episode_reading(vault, repository, probe_attempt_id):
+    """(stored observation, effective observation, the episode's qualifying count) for the probe answer."""
+
+    stored = repository.probe_observation_for_attempt(probe_attempt_id)
+    presentation = repository.probe_presentation(str(repository.fetch_practice_attempt(probe_attempt_id)
+                                                     ["probe_presentation_id"]))
+    episode = repository.probe_episode(presentation.probe_episode_id)
+    (effective,) = [row["observation"] for row in effective_episode_observations(vault, repository, episode.id)
+                    if row["observation"].attempt_id == probe_attempt_id]
+    posterior = episode_posterior(vault, repository, episode)
+    return stored, effective, posterior.qualifying_observations
+
+
+EXPOSURES = pytest.mark.parametrize(
+    ("exposure", "reason"),
+    [("shown_anyway", "followup_feedback_shown_anyway"), ("reveal", "post_reveal_not_independent")],
+)
+
+
+@EXPOSURES
+@BOTH_TAGS
+def test_g3_1_an_exposed_probe_answer_is_contaminated_in_its_episode(tmp_path, monkeypatch, tag, exposure, reason):
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, tag)
+    _expose(ctx, repository, result, row, exposure)
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+
+    (discriminating,) = repository.causal_discriminating_observations(factor_id=row["factor_id"])
+    assert (discriminating["admissible_as_independent"], discriminating["inadmissibility_reason"]) == (0, reason)
+    stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    weight = vault.config.probe.episode.contaminated_evidence_weight
+    if tag == TAG:
+        # The episode applies the discriminating observation's test: contaminated, damped to the configured weight,
+        # qualifying nothing, and written so at submission.
+        for observation in (stored, effective):
+            assert observation.contamination == {"answer_exposed": reason}
+            assert observation.independent_evidence_discount == weight
+            assert observation.eligible_for_completion is False and observation.updates_belief is True
+        assert qualifying == 0
+    else:
+        # mvp-0.60, today: the same answer counted at full weight and qualified (ledger G3-1).
+        for observation in (stored, effective):
+            assert observation.contamination is None
+            assert observation.independent_evidence_discount == 1.0
+            assert observation.eligible_for_completion is True
+        assert qualifying == 1
+
+
+def test_g3_1_a_clean_probe_answer_is_unchanged_at_the_tag(tmp_path, monkeypatch):
+    _paths, ctx, vault, repository, _result, row = _probe_journey(tmp_path, monkeypatch, TAG)
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    (discriminating,) = repository.causal_discriminating_observations(factor_id=row["factor_id"])
+    assert discriminating["admissible_as_independent"] == 1
+    stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    assert stored == effective
+    assert (stored.contamination, stored.independent_evidence_discount, stored.eligible_for_completion) == (
+        None, 1.0, True)
+    assert qualifying == 1
+
+
+@EXPOSURES
+def test_g3_1_an_exposed_answer_recorded_below_the_tag_reads_contaminated_after_the_upgrade(
+    tmp_path, monkeypatch, exposure, reason,
+):
+    """A stored observation keeps its row; the episode reads it through the same test once the vault is at the tag,
+    and its posterior then moves by the damped weight, not the full one."""
+
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
+    _expose(ctx, repository, result, row, exposure)
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    _stored, _effective, before_qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    presentation = repository.probe_presentation(row["presentation_id"])
+    episode = repository.probe_episode(presentation.probe_episode_id)
+    full = episode_posterior(vault, repository, episode).posterior
+
+    set_algorithm_version(paths, TAG)
+    vault = load_vault(paths.root)
+    stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    damped = episode_posterior(vault, repository, episode).posterior
+
+    assert (stored.contamination, stored.eligible_for_completion) == (None, True)  # the receipt is untouched
+    assert effective.contamination == {"answer_exposed": reason}
+    assert effective.independent_evidence_discount == vault.config.probe.episode.contaminated_evidence_weight
+    assert (before_qualifying, qualifying) == (1, 0)
+    prior = episode_posterior(vault, repository, episode).prior
+    # Damped: the exposed answer moves each hypothesis less than it did at full weight, in the same direction.
+    for label in prior:
+        assert abs(damped[label] - prior[label]) <= abs(full[label] - prior[label]) + 1e-12
+

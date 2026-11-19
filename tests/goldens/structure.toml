@@ -16,7 +16,7 @@ test_files_named_for_a_stage = 184
 "src/learnloop/daily_plan/engine.py" = 6776
 "src/learnloop/attempts/attempts.py" = 5814
 "src/learnloop/db/repositories.py" = 3025
-"src/learnloop/scheduling/scheduler.py" = 3748
+"src/learnloop/scheduling/scheduler.py" = 3750
 "src/learnloop_sidecar/handlers/reader.py" = 2979
 golden_json_lines = 230730
 
