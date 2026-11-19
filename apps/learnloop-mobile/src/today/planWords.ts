@@ -40,32 +40,53 @@ export function blockPhrase(block: Pick<PlanBlockDto, "lane" | "items" | "learni
   }
 }
 
-/** "About 18 minutes left today: 3 short questions from earlier days." Null with nothing open. */
+/** "about 18 more minutes": the room left in the plan (never below 1), the desktop's `roomWords`. */
+function roomWords(minutesLeft: number): string {
+  const minutes = Math.max(1, Math.round(minutesLeft));
+  return `about ${minutes} more minute${minutes === 1 ? "" : "s"}`;
+}
+
+/**
+ * "Up to 25 minutes today. First: 3 short questions from earlier days." Null with nothing open.
+ *
+ * UX fix stage 4 (audit F9 on the phone; phone-2 #22-54, "About 8 minutes left" that never moved): the number is the
+ * plan's length (`minutesBudget`, an upper bound), or, once begun, the room left in it (`minutesLeft`: the budget less
+ * the estimates of the blocks chosen so far, so it does not move while a block is answered). The words are the
+ * desktop's since stage 3 (`app/todayPlan.ts` `planSentence`), so the two never read as one clock with two values.
+ * The phone names only the block in hand: "First" before the plan is begun, "Next" after. Nothing computed changes.
+ */
 export function planSentence(plan: DailyPlanBodyDto): string | null {
   const open = plan.blocks.filter((block) => block.status !== "done");
   const current = open.find((block) => block.id === plan.currentBlockId) ?? open[0];
-  const ahead = current ? blockPhrase(current) : plan.projected[0] ? "more to choose as you go" : null;
-  if (!ahead) return null;
+  if (!current && !plan.projected[0]) return null;
   const begun = plan.blocks.some((block) => block.status === "done" || Boolean(block.startedAt));
+  const ahead = current ? `${begun ? "Next" : "First"}: ${blockPhrase(current)}.` : "The rest is chosen as you go.";
   if (plan.minutesAreASuggestion) {
+    // Router objective RO4: the plan's minutes are a suggestion; past them, say so plainly.
     const past = Math.round(plan.minutesPastPlan ?? 0);
     const head = begun
       ? past > 0
-        ? `About ${minutesWord(past)} past today's suggested time`
-        : `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left of today's suggested time`
+        ? `About ${minutesWord(past)} planned past today's suggested time`
+        : `Room for ${roomWords(plan.minutesLeft)} of today's suggested time`
       : `About ${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} suggested today`;
-    return `${head}: ${ahead}.`;
+    return `${head}. ${ahead}`;
   }
   const head = begun
-    ? `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left today`
-    : `${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} today`;
-  return `${head}: ${ahead}.`;
+    ? `Room for ${roomWords(plan.minutesLeft)} today`
+    : `Up to ${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} today`;
+  return `${head}. ${ahead}`;
 }
 
-/** "Done for today · 26 minutes." The time spent, never a count of items. */
+/**
+ * "Done for today · 26 minutes spent answering." The time spent, never a count of items. Stage 4 (F9, the desktop's
+ * words since stage 3): `actualMinutes` is each answered question's time plus each reading block's (daily_plan/view.py
+ * `_actual_minutes`), not the session's length, so the words say whose time it is.
+ */
 export function doneLine(data: PhonePlanDto): string {
   const minutes = Math.max(0, Math.round(data.day?.actualMinutes ?? 0));
-  return minutes > 0 ? `Done for today · ${minutesWord(minutes)}.` : "Done for today.";
+  if (minutes <= 0) return "Done for today.";
+  const reading = (data.day?.readingBlocks ?? 0) > 0 ? " and reading" : "";
+  return `Done for today · ${minutesWord(minutes)} spent answering${reading}.`;
 }
 
 /** The one count the phone shows (ux §4.1): what explains an absence. Null when nothing waits. */

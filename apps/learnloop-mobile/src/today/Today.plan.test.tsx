@@ -124,7 +124,7 @@ describe("Today is the plan (J1)", () => {
     answers.get_daily_plan = reply();
     answers.next_plan_item = reply({}, { step: itemStep() });
     render(<App />);
-    expect(await screen.findByText(/25 minutes today: 1 short question from earlier days\./)).toBeTruthy();
+    expect(await screen.findByText(/^Up to 25 minutes today\. First: 1 short question from earlier days\./)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Begin" }));
     await screen.findByText("Define it.");
     expect(called("start_session")[0].params).toEqual({ availableMinutes: 25 });
@@ -187,6 +187,24 @@ describe("Today is the plan (J1)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "40 min" }));
     await screen.findByText(/40 minutes today/);
     expect(called("set_plan_minutes")[0].params).toEqual({ minutes: 40, sessionId: null });
+  });
+
+  // UX fix stage 4 (audit F9 on the phone; phone-2 #22-54): "About 8 minutes left" read as a countdown and never moved.
+  it("F9: a begun plan names its room, not a countdown, and the done line the time spent answering and reading", async () => {
+    cacheSessionId("s1");
+    answers.get_session = session();
+    answers.get_daily_plan = reply({ blocks: [block({ id: "b0", status: "done" }), block()], minutesLeft: 8 });
+    render(<App />);
+    const sentence = await screen.findByTestId("today-sentence");
+    await waitFor(() => expect(sentence.textContent).toMatch(/^Room for about 8 more minutes today\. Next: 1 short question from earlier days\./));
+    expect(findJargon(sentence.textContent ?? "")).toEqual([]);
+    cleanup();
+    answers.get_daily_plan = reply(
+      { status: "complete" },
+      { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 12, plannedItems: 4, readingBlocks: 1 } }
+    );
+    render(<App />);
+    expect(await screen.findByText("Done for today · 12 minutes spent answering and reading.")).toBeTruthy();
   });
 });
 
