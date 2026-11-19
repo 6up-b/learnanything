@@ -7109,7 +7109,7 @@ export interface ReaderRenderViewDto {
    *  decides; reader-pdf-selection). Absent from older sidecars. */
   protection?: ReaderProtectionDto | null;
   /** The source's own TeX macros (`\vvec` -> `{\mathbf v}`), read from its stored original: the extraction keeps
-   *  the formulas but not the page's definitions. Empty for a source with none; absent from older sidecars. */
+   *  the formulas but not the page's definitions. Absent for a source with none, and from older sidecars. */
   mathMacros?: Record<string, string>;
 }
 

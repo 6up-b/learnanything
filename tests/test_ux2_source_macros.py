@@ -118,7 +118,7 @@ def test_ux2_a_source_added_before_reads_its_macros_from_the_stored_original_wit
 
     source_macros._cached_macros.cache_clear()
     view = call(ctx, "reader.render_view", {"extractionId": extraction_id})
-    assert view["mathMacros"] == {}
+    assert "mathMacros" not in view
     assert view["contentHash"] == RENDER_VIEW_CONTENT_HASH
 
 
