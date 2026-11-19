@@ -1355,10 +1355,12 @@ def ask_question(
             # review, as T6's cited retrieved spans are (the guard keeps a
             # passage that reproduces the key out of the context entirely).
             # The excerpt is counted here only: the tutor_answer overlap above
-            # leaves it out (Codex re-review F11).
-            shown_spans = [*citations, *([reader_view["excerpt"]] if (reader_view or {}).get("excerpt") else [])]
+            # leaves it out (Codex re-review F11). K6-9: each is measured on
+            # what it shows -- a chip its label (and excerpt), the excerpt its
+            # verified quote -- never on the passage behind it, which the
+            # learner reads only by opening it (a source exposure of its own).
             span_overlap = max(
-                _cited_span_overlap(shown_spans, ai_context.source_spans, item.expected_answer),
+                _shown_citation_overlap(citations, item.expected_answer),
                 span_answer_overlap(str(((reader_view or {}).get("excerpt") or {}).get("quote") or ""),
                                     item.expected_answer),
             )
@@ -1386,7 +1388,7 @@ def ask_question(
             # failed -- a cited passage is shown alike, so it is measured
             # alike. With no provider at all (source_retrieval.enabled off)
             # the predecessor's accounting stands, as that switch promises.
-            span_overlap = _cited_span_overlap(citations, ai_context.source_spans, item.expected_answer)
+            span_overlap = _shown_citation_overlap(citations, item.expected_answer)
             record_reveal(
                 repository,
                 practice_item_id=item.id,
@@ -1756,22 +1758,22 @@ def span_leaks_expected(text: str, expected_answer: str | dict[str, Any]) -> boo
     return span_answer_overlap(text, expected_answer) >= _LEAK_OVERLAP_THRESHOLD
 
 
-def _cited_span_overlap(
+def _shown_citation_overlap(
     citations: Sequence[Mapping[str, Any]],
-    source_spans: Sequence[Mapping[str, Any]],
     expected_answer: str | dict[str, Any],
 ) -> float:
-    """The largest expected-answer overlap among the cited source spans."""
+    """The largest expected-answer overlap among the citations as shown (K6-9).
 
-    texts = {
-        (str(span.get("extraction_id")), str(span.get("span_id"))): str(span.get("text") or "")
-        for span in source_spans
-    }
-    return max(
-        (span_answer_overlap(texts.get((str(c.get("extraction_id")), str(c.get("span_id"))), ""), expected_answer)
-         for c in citations),
-        default=0.0,
-    )
+    A chip shows its label and, in the Ask panel, its excerpt (the passage's
+    first :data:`CITATION_EXCERPT_CHARS` characters); the rest of the passage
+    is shown only when the learner opens it, which the source viewer records
+    as an exposure of its own. Measuring the whole passage here charged the
+    next attempt for text the learner was never shown."""
+
+    def shown(citation: Mapping[str, Any]) -> str:
+        return "\n".join(str(citation.get(field) or "") for field in ("label", "excerpt"))
+
+    return max((span_answer_overlap(shown(c), expected_answer) for c in citations), default=0.0)
 
 
 def tutor_qa_note_title(question_md: str) -> str:

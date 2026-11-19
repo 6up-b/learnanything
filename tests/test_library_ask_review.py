@@ -290,7 +290,9 @@ def test_the_pinned_tutor_counts_a_bound_asks_help_on_its_item_once(library, mon
     from tests.source_service_fakes import set_item_answer
 
     paths, repository, _spans = library
-    set_item_answer(paths, "pi_eigen_1", "the determinant changes sign when two rows are swapped")
+    # Partial overlap with the answer (determinant, changes, sign) and with the pin's chip label
+    # ("Matrix Theory"), both below the withholding floor.
+    set_item_answer(paths, "pi_eigen_1", "matrix theory determinant changes sign")
     session = _bound_session(repository)
     ctx = context(paths.root)
     asked = _ask(ctx, workbenchSessionId=session)

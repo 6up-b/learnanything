@@ -660,6 +660,29 @@ def test_a_cited_fallback_passage_is_debited_as_a_source_review(tmp_path):
     assert reviews[0]["amount"] == pytest.approx(0.6)
 
 
+# -- K6-9: a cited passage is measured on what its chip shows -----------------------
+
+#: About 830 characters sharing no word with the item's answer: past the chip's 600.
+UNRELATED_LEAD = "Consider the linear map that sends each basis vector to a scaled copy of itself; " * 10
+
+
+def test_a_citations_tail_the_chip_never_shows_is_not_debited(tmp_path):
+    from learnloop.tutor.tutor_qa import CITATION_EXCERPT_CHARS
+    from tests.source_service_fakes import set_item_answer
+
+    tail = UNRELATED_LEAD + TEACHING
+    paths, repository = _linked_vault(tmp_path, [(tail, "Text")], teaching_span="s2")
+    set_item_answer(paths, "pi_eigen_1", "diagonal entries eigenvalues symmetric orthogonal")
+    tutor, result = _ask_fallback(paths, repository)
+    assert [span["text"] for span in tutor.contexts[0].source_spans] == [tail]  # the tutor read it all
+    chip = next(c for c in result["citations"] if (c["extraction_id"], c["span_id"]) == ("ext_eigen", "s2"))
+    assert TEACHING not in chip["excerpt"] and len(chip["excerpt"]) <= CITATION_EXCERPT_CHARS + 1
+    reviews = repository.reveal_events(practice_item_id="pi_eigen_1", source_kind="source_review")
+    # The chip shows the first 600 characters; the overlap in the tail was never shown
+    # (a zero measurement writes no reveal row).
+    assert sum(row["amount"] for row in reviews) == 0.0
+
+
 # -- Codex review F6: a numbered statement ending in a number is not a TOC line ----
 
 
