@@ -64,6 +64,8 @@ export const SCOPE_COPY = {
   nothingYet: "Nothing resolved yet: say what you need below.",
   subject: "a new topic goes in",
   chooseSubject: "choose a subject…",
+  /** UX-7: the server could not file a new topic and there is no subject to pick. */
+  noSubjectYet: "Couldn't add this topic yet: your library has nothing to file it under. Add a book, then try again.",
   pastPapers: "on your past papers",
   pastPapersTitle: "your past papers or problem sets test this topic (LearnLoop read which topics, never their questions)",
   syllabus: "from your syllabus",
@@ -142,7 +144,13 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
       setNotice(null);
       onChanged(out.scope);
     } catch (error) {
-      if (getCommandError(error)?.code === "no_subject") { setAskSubject(true); return; }
+      if (getCommandError(error)?.code === "no_subject") {
+        // UX-7 (audit beginner-1 #54): the picker shows only with subjects to pick; with
+        // none, say so in place rather than leave *add it* doing nothing.
+        if (subjects.length > 0) setAskSubject(true);
+        else setNotice(SCOPE_COPY.noSubjectYet);
+        return;
+      }
       onError(errorMessage(error, "Couldn't save that."));
     } finally {
       setBusy(false);
@@ -201,7 +209,7 @@ export function DeliverableScopePanel({ scope, onChanged, onError }: Deliverable
           )}
         </span>
       ))}
-      {notice ? <Faint style={{ fontSize: 10 }}>{notice}</Faint> : null}
+      {notice ? <span role="status"><Faint style={{ fontSize: 10 }}>{notice}</Faint></span> : null}
       <TextBox label={SCOPE_COPY.notThis} placeholder={SCOPE_COPY.notThisPlaceholder} value={notThis} busy={busy}
         onChange={setNotThis} onSend={() => void send("correction", notThis.trim(), () => setNotThis(""))} />
       <TextBox label={SCOPE_COPY.add} placeholder={SCOPE_COPY.addPlaceholder} value={add} busy={busy}

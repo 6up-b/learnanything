@@ -13,6 +13,7 @@ import {
   markShown,
   resolveNotices,
   restartHidden,
+  placeNotice,
   sessionNotice,
   visibleNotices,
   type ShellNotice
@@ -90,6 +91,14 @@ describe("a notice is true only until it is resolved", () => {
       "Already in your library — opened where you left off.",
       "Could not open the check."
     ]);
+  });
+
+  it("UX-6: drops a notice about this place once the learner moves to another, held or shown", () => {
+    let list = addNotice(empty, placeNotice("Nothing here to ask about: open a question, feedback or a note first."));
+    list = addNotice(list, { kind: "notice", text: "Already in your library — opened where you left off." });
+    list = markShown(list, [list[0].id], 1000);
+    expect(placeNotice("x")).toMatchObject({ kind: "notice", resolvedBy: "place" });
+    expect(resolveNotices(list, "place").map((notice) => notice.text)).toEqual(["Already in your library — opened where you left off."]);
   });
 
   it("marks session-first notices as notices, not errors", () => {

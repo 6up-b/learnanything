@@ -170,13 +170,11 @@ describe("closing Settings dismisses only the message it showed (item 2)", () =>
     await launch();
     for (const word of ["first", "second", "third"]) fireEvent.click(screen.getByRole("button", { name: `fail ${word}` }));
     expect(alertTexts()).toEqual(["First error.", "Second error.", "Third error."]);
-    // A notice behind three errors waits: it has not been delivered.
-    await press({ key: "2", altKey: true });
-    await screen.findByTestId("library-stub");
+    // A notice behind three errors waits: it has not been delivered. (Raised
+    // here, on Today: since UX-6 it is about the place it was said, and is
+    // gone once the learner moves to another.)
     await runPalette("ask the tutor");
     expect(screen.queryByText(NOTHING_TO_ASK)).toBeNull();
-    await press({ key: "1", altKey: true });
-    await screen.findByTestId("start-stub");
     fireEvent.click(screen.getByRole("button", { name: "fail fourth" }));
   }
 

@@ -37,8 +37,9 @@ export function noticeAfterSessionBegins(current: string | null): string | null 
 
 // ── The simple shell's notice list ──────────────────────────────────────
 
-/** What can resolve a notice. */
-export type NoticeCondition = "session";
+/** What can resolve a notice: a session beginning, or (UX-6) the learner
+ *  moving to another place, for a notice about the place it was said in. */
+export type NoticeCondition = "session" | "place";
 
 export interface ShellNotice {
   id: string;
@@ -204,4 +205,11 @@ export function expireNotices(list: ShellNotice[], now: number, ttlMs: number = 
 /** A session-first notice: neutral, and resolved once a session begins. */
 export function sessionNotice(need: keyof typeof NEEDS_SESSION): NoticeInput {
   return { kind: "notice", text: NEEDS_SESSION[need], resolvedBy: "session" };
+}
+
+/** UX-6 (audit retainer-1 #49-61): an empty state about the place the learner
+ *  is in ("nothing here to ask about"): neutral, and gone once they move to
+ *  another place, so it is never held and delivered somewhere it isn't true. */
+export function placeNotice(text: string): NoticeInput {
+  return { kind: "notice", text, resolvedBy: "place" };
 }

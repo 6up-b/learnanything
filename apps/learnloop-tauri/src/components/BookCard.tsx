@@ -7,6 +7,9 @@ import type { PendingAddDto, SourceActionKind, SourceLibraryCard, SourceStatusLi
 import { COLOR, FONT_MONO } from "./term";
 import { IntentControl } from "./IntentControl";
 
+/** UX-5 (audit student-1 #35-39): what "for practice only" means, in details. */
+export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it.";
+
 const linkButton: CSSProperties = {
   background: "none",
   border: "none",
@@ -127,6 +130,7 @@ export function BookCard({
       {detailsOpen ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 5, borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
           {line?.details ? <div style={{ color: COLOR.textFaint, wordBreak: "break-word" }}>{line.details}</div> : null}
+          {readable ? null : <div>{PAST_EXAM_DETAILS}</div>}
           {card.subjectId ? <div>Subject: {card.subjectTitle ?? card.subjectId}</div> : null}
           {/* The words match what each does and what this is (UX Phase 1
               re-test #6): "the whole book" for a paper, beside a line whose

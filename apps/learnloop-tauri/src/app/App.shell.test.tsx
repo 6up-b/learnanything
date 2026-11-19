@@ -28,7 +28,13 @@ vi.mock("../api/client", () => {
         activeSession: null,
         streak: null
       })),
-      getSourceLibrary: vi.fn(async () => ({ sources: [card], pending: [] }))
+      getSourceLibrary: vi.fn(async () => ({ sources: [card], pending: [] })),
+      // UX-5: a past exam added through + Add is kept in the Library, with a notice.
+      addSource: vi.fn(async () => {
+        const exam = { source: "https://example.org/quiz1.pdf", canonical: null, kind: "pdf", kindNoun: "PDF", status: "added",
+                       sourceId: "src_exam", revisionId: "rev_exam", title: "Exam 1", batchId: null, preparing: true, message: null };
+        return { items: [exam], opened: exam };
+      })
     } as Record<string, unknown>,
     { get: (target, name: string) => (name in target ? target[name] : () => new Promise(() => undefined)) }
   );
@@ -249,23 +255,49 @@ describe("simple (the default)", () => {
   it("holds a notice while a book is open in the Reader and delivers it at the destination", async () => {
     stubs.readerOpensBook = true;
     await launch();
+    // A notice raised on the way to the Library (a past exam kept there, UX-5) …
+    fireEvent.click(screen.getByRole("button", { name: "+ Add" }));
+    fireEvent.click(screen.getByRole("button", { name: /More options/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /past exam or problem set/ }));
+    fireEvent.change(screen.getByLabelText("Paste a link"), { target: { value: "https://example.org/quiz1.pdf" } });
+    await act(async () => {
+      fireEvent.keyDown(screen.getByLabelText("Paste a link"), { key: "Enter" });
+    });
+    await screen.findByTestId("library-stub");
+    expect(screen.getByText(/is in your Library as a past exam/)).toBeTruthy();
+    // … waits while a book is open in the Reader …
+    await press({ key: "3", altKey: true });
+    await screen.findByTestId("reader-stub");
+    expect(screen.queryByText(/is in your Library as a past exam/)).toBeNull();
+    // … and is back, whole, at the next destination.
     await press({ key: "2", altKey: true });
     await screen.findByTestId("library-stub");
-    // A notice raised on the Library (nothing there to ask about) …
+    expect(screen.getByText(/is in your Library as a past exam/)).toBeTruthy();
+  });
+
+  // UX journey audit UX-6 (retainer-1 #49-61): "Nothing here to ask about"
+  // was held in the Reader and came back on Today after the learner had asked
+  // there. It is about the place it was said: it goes once the learner moves.
+  it("UX-6: 'Nothing here to ask about' is said where it was asked, as a notice, and is gone once the learner moves on", async () => {
+    stubs.readerOpensBook = true;
+    await launch();
+    await press({ key: "2", altKey: true });
+    await screen.findByTestId("library-stub");
     await press({ key: "k", ctrlKey: true });
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "ask the tutor" } });
     await act(async () => {
       fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     });
     expect(screen.getByText(/Nothing here to ask about/)).toBeTruthy();
-    // … waits while a book is open in the Reader …
+    expect(screen.queryByRole("alert")).toBeNull();
     await press({ key: "3", altKey: true });
     await screen.findByTestId("reader-stub");
+    await press({ key: "1", altKey: true });
+    await screen.findByTestId("today-place-stub");
     expect(screen.queryByText(/Nothing here to ask about/)).toBeNull();
-    // … and is back, whole, at the next destination.
     await press({ key: "2", altKey: true });
     await screen.findByTestId("library-stub");
-    expect(screen.getByText(/Nothing here to ask about/)).toBeTruthy();
+    expect(screen.queryByText(/Nothing here to ask about/)).toBeNull();
   });
 
   // Codex review F5: in the Reader the command closed the palette and did

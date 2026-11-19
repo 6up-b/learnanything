@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AskOverlay.tsx](../../../../../../apps/learnloop-tauri/src/components/AskOverlay.tsx) |
-| Source lines | 1484 |
+| Source lines | 1496 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -125,19 +125,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const sentList = [ target.context === "feedback" ? "the attempt you submitted, its grade and feedback" : "the question", ...(hasDraft && !dropDraft ? [target.workbenchSessionId ? "your steps, as you have them now" : "your draft, as it is now"] : []), ...(targ…` — const, line 799
 - `const panelHeader = panel ? ( <div style=` — const, line 806
 - `const earlierEntry = earlier.find((entry)` — const, line 855
-- `const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? ( <div data-testid="ask-earlier" style=` — const, line 856
-- `const content = ( <>` — const, line 901
-- `const goal = question.trim()` — const, line 1248
-- `const goal = question.trim()` — const, line 1300
-- `const shell = !panel ? ( <div style=` — const, line 1356
-- `const dockedStyle: CSSProperties =` — const, line 1399
-- `const inlineStyle: CSSProperties =` — const, line 1410
-- `const backdropStyle: CSSProperties =` — const, line 1420
-- `const modalStyle: CSSProperties =` — const, line 1432
-- `const headerStyle: CSSProperties =` — const, line 1445
-- `const inputStyle: CSSProperties =` — const, line 1454
-- `const footerStyle: CSSProperties =` — const, line 1465
-- `const saveNoticeStyle: CSSProperties =` — const, line 1476
+- `const askButton = ( <button type="button" aria-label=` — const, line 858
+- `const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? ( <div data-testid="ask-earlier" style=` — const, line 865
+- `const content = ( <>` — const, line 910
+- `const goal = question.trim()` — const, line 1257
+- `const goal = question.trim()` — const, line 1310
+- `const shell = !panel ? ( <div style=` — const, line 1368
+- `const dockedStyle: CSSProperties =` — const, line 1411
+- `const inlineStyle: CSSProperties =` — const, line 1422
+- `const backdropStyle: CSSProperties =` — const, line 1432
+- `const modalStyle: CSSProperties =` — const, line 1444
+- `const headerStyle: CSSProperties =` — const, line 1457
+- `const inputStyle: CSSProperties =` — const, line 1466
+- `const footerStyle: CSSProperties =` — const, line 1477
+- `const saveNoticeStyle: CSSProperties =` — const, line 1488
 
 ## Who imports or calls it
 

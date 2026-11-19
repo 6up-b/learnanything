@@ -6,7 +6,7 @@ import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, C
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
 import { DockedAsk } from "../components/DockedAsk";
-import { AddPopover, DropOverlay, useAddSource } from "../components/AddSource";
+import { AddPopover, DropOverlay, addedItemDestination, pastExamKeptLine, useAddSource } from "../components/AddSource";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PlanFallbackOffer } from "../components/PlanFallbackOffer";
 import { SessionElsewherePrompt } from "../components/SessionElsewherePrompt";
@@ -31,7 +31,7 @@ import { PracticeScreen } from "../screens/PracticeScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
-import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
+import { NEEDS_SESSION, addNotice, dismissNotice, noticeAfterSessionBegins, placeNotice, resolveNotices, sessionNotice, type NoticeInput, type ShellNotice } from "./notices";
 import { matchShellKey, type KeyAction } from "./keymap";
 import { ShellChromeRoot } from "./ShellChromeRoot";
 import {
@@ -96,6 +96,9 @@ import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
 import { RETRY_RAN, errorMessage, getCommandError, type ErrorReport, type NoticeRetry } from "../errors";
 import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
 import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
+
+/** UX-6: the palette's Ask with nothing here to ask about (a notice about this place). */
+const NOTHING_TO_ASK = "Nothing here to ask about: open a question, feedback or a note first.";
 
 type OpenSourceTarget = {
   extractionId: string;
@@ -397,6 +400,10 @@ export function App() {
   const vaultChangesRef = useRef(0);
 
   const pushNotice = useCallback((input: NoticeInput) => setNotices((list) => addNotice(list, input)), []);
+  // UX-6: a notice about one place leaves when the learner moves to another.
+  useEffect(() => {
+    setNotices((list) => resolveNotices(list, "place"));
+  }, [tab]);
   // An error: classic's red toast, or the simple shell's red error. A screen
   // may hand over the rejection and a retry (Codex review F3): the error then
   // shows its code under details, and Try again when the sidecar said it is
@@ -1662,6 +1669,17 @@ export function App() {
   }, []);
 
   // Add (§6.2): a file opens in the Reader at once; a link opens when ready.
+  // UX-5 (audit student-1 #33): a past exam or problem set is kept in the
+  // Library (the Reader refuses it); say where it went and what it does.
+  const keepAddedItem = useCallback(
+    (item: AddSourceItemDto) => {
+      setAddOpen(false);
+      setLibraryView("books");
+      setTab("library");
+      notify(pastExamKeptLine(item.title));
+    },
+    [notify]
+  );
   const openAddedItem = useCallback(
     async (item: AddSourceItemDto) => {
       setAddOpen(false);
@@ -1677,6 +1695,10 @@ export function App() {
         card = (await api.getSourceLibrary()).sources.find((entry) => entry.sourceId === item.sourceId);
       } catch {
         card = undefined;
+      }
+      if (addedItemDestination(item, card) === "kept") {
+        keepAddedItem(item);
+        return;
       }
       openBook(
         card ?? {
@@ -1699,9 +1721,9 @@ export function App() {
         }
       );
     },
-    [openBook, notify]
+    [openBook, notify, keepAddedItem]
   );
-  const adder = useAddSource({ onOpened: (item) => void openAddedItem(item) });
+  const adder = useAddSource({ onOpened: (item) => void openAddedItem(item), onKept: keepAddedItem });
   const addSources = adder.add;
   const fileDragging = useSourceFileDrop({
     enabled: snapshot !== null,
@@ -1931,7 +1953,9 @@ export function App() {
             setReaderAskRequest((count) => count + 1);
             return;
           }
-          notify("Nothing here to ask about: open a question, feedback or a note first.");
+          // UX-6: about this place only; gone once the learner moves on (never held for later).
+          if (shellRef.current === "classic") notify(NOTHING_TO_ASK);
+          else pushNotice(placeNotice(NOTHING_TO_ASK));
         }
       },
       { id: "keys", label: "Keyboard & help", keywords: ["keys", "shortcuts", "help"], run: () => setKeysHelpOpen(true) },
