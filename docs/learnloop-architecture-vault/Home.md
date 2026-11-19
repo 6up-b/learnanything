@@ -48,6 +48,7 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 
 - [[Learning System]] — intent, feedback loop, belief layers, and safety boundaries.
 - [[AI Architecture]] — routing, transports, feature contracts, manual mode, provenance.
+- [[Concepts/Figures|Figures]] — Show me illustrations, simulations and explanation videos, protection, reuse and background builds.
 - [[State and Persistence]] — SQLite roles, write authority, rebuild, shadow evaluation.
 - [[Collection and Dataset Contract]] — offer provenance, collection versions, outcome labels, splits, adjudications, and the dataset export.
 - [[Learner State and Projections]] — the measured, inferred, claimed, predictive, and memory views exposed from evidence.

@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { api } from "../api/client";
-import type { AddSourceItemDto, AddSourceResultDto } from "../api/dto";
+import type { AddSourceItemDto, AddSourceResultDto, SourceLibraryCard } from "../api/dto";
 import { plainError } from "../copy/ingestErrors";
 import { COLOR, FONT_MONO } from "./term";
 import { pickSourceFiles } from "./useSourceFileDrop";
@@ -193,11 +193,31 @@ export function AddSourceBox({
   );
 }
 
+export type AddedDestination = "wait" | "kept" | "reader";
+
+/** Where an added item goes: a link still fetching waits in the Library; a
+ *  source whose card has the reader off (a past exam or problem set) is kept in
+ *  the Library, since the Reader refuses it (UX-5, audit student-1 #33); the
+ *  rest open in the Reader. */
+export function addedItemDestination(item: AddSourceItemDto, card: Pick<SourceLibraryCard, "readerEnabled"> | undefined): AddedDestination {
+  if (item.status === "queued" || !item.sourceId) return "wait";
+  return card?.readerEnabled === false ? "kept" : "reader";
+}
+
+/** UX-5: where a past exam went and what it does, said once it is added. */
+export function pastExamKeptLine(title: string): string {
+  return `\u201c${title}\u201d is in your Library as a past exam. It doesn't open in the Reader, and LearnLoop doesn't write questions from it.`;
+}
+
 /** Add's state: call the sidecar, open what can be opened, say the rest in one line. */
 export function useAddSource({
-  onOpened
+  onOpened,
+  onKept
 }: {
   onOpened: (item: AddSourceItemDto, result: AddSourceResultDto) => void;
+  /** UX-5: "This is a past exam or problem set" adds a source the Reader
+   *  refuses (reader off): it is handed here, never to onOpened. */
+  onKept?: (item: AddSourceItemDto) => void;
   /** Kept for callers that report elsewhere; Add itself never raises a toast. */
   onError?: (message: string) => void;
 }) {
@@ -205,6 +225,8 @@ export function useAddSource({
   const [message, setMessage] = useState<string | null>(null);
   const openedRef = useRef(onOpened);
   openedRef.current = onOpened;
+  const keptRef = useRef(onKept);
+  keptRef.current = onKept;
 
   const add = useCallback(async (sources: string[], options: AddOptions = {}): Promise<AddSourceResultDto | null> => {
     setBusy(true);
@@ -217,7 +239,8 @@ export function useAddSource({
       // that isn't set up) says so plainly (review F9).
       const added = result.items.find((item) => (item.status === "added" || item.status === "queued") && item.message);
       setMessage(unsupported?.message ?? existing?.message ?? added?.message ?? null);
-      if (result.opened) openedRef.current(result.opened, result);
+      if (result.opened && options.problemSet) keptRef.current?.(result.opened);
+      else if (result.opened) openedRef.current(result.opened, result);
       return result;
     } catch (error) {
       setMessage(plainError(error, "LearnLoop couldn't add that.").line);

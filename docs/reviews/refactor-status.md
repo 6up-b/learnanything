@@ -1,12 +1,12 @@
 # Refactor status
 
-- Arc E is closed (E1 to E6, its adversarial review and fix round, and the rows due at its close; E7 waits for the evidence packet spec). The UX journey audit's first wave is done ([ux-journey-audit.md](ux-journey-audit.md): five persona walks, ten defects UX-1 to UX-10 in the bug ledger, twelve proposed fix stages); UX-1 is fixed, and the owner reviews the audit before any fix stage is queued. Arc G has started: G1 is on main (the facts about a probe are apart from the verdict; K9-9 closed with it). Next in arc G: the narrow fix G3-1 with the next algorithm tag, then K6 with G6, then G2.
+- Arc E is closed (E1 to E6, its adversarial review and fix round, and the rows due at its close; E7 waits for the evidence packet spec). The UX journey audit's first wave is done ([ux-journey-audit.md](ux-journey-audit.md): five persona walks, ten defects UX-1 to UX-10 in the bug ledger, twelve proposed fix stages); the owner asked for its fixes on Nov 19, and fix stage 1 (the broken controls: UX-3 to UX-7 and UX-9) is on main with UX-1; stages 3 and 4 are built or being built, stage 2 waits for the Python lane, and a second wave of walks follows stage 4. Arc G has started: G1 is on main (the facts about a probe are apart from the verdict; K9-9 closed with it). Next in arc G: the algorithm tag `mvp-0.61` (G3-1 with the evidence reading fixes and the forgetting-clock cases the owner chose on Nov 19; built, in its review's fix round), then G6 (its design is written; its first step, the protection surface matrix, is being built), then G2.
 - On main: the rebuild fix as `mvp-0.60`; the whole `repositories.py` split (L2a–L2d); the L1b cycle cuts (largest import component 84); E1–E6 (the router's choice is a pure function, its job control and trace assembly are their own modules, the objective's terms are apart from the rollouts, and an action kind has one guard test and one how-to list); G3's measurement of the two diagnosis beliefs; S1, S2 and M1; the K5 review with its two high fixes; `replay.ledger_bounded` removed.
 - After E: G1 and G3, then K6 and G6, then G2; G4 only if G3 finds disagreement. H1 and H2 follow. E7 is built once, as the evidence view of `docs/specs/spec_evidence_packets_v1.md`.
 - The owner decided the three K5 questions on Nov 18 (a repair followed by ordinary practice and a passed cold check confirms the repair; a skip leaves the forgetting clock and an answered attempt without a review restarts it, the due date staying; a certificate probe keeps counting retention with ordinary practice). The owner still needs to decide: the K5-8 paths that do not follow the clock rule (they need a tag), I2's reads on the decision path, K2.4c part B, the CLI-only code for L3, the diagnosis questions for K9.4, K9.13 and K9.17, and the open questions in the two specs.
 - Decide H3–H6 with the AD memory spec. Do K8 and K7 before the terminal app rebuild or MCP v2. L5, T2, T5 and Z run at the close.
 
-The orchestrator updates this file in each landing commit. This snapshot is the landing after main `41c1d97469` (Nov 18) and the owner's Nov 17 decisions.
+The orchestrator updates this file in each landing commit. This snapshot is the landing of UX fix stage 1 on main `e6314fc0df` (Nov 19) and the owner's Nov 19 decisions (the fixes of the UX audit; the forgetting-clock cases for `mvp-0.61`).
 
 ## Baseline and arc A
 
@@ -136,7 +136,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | G3 | Measure disagreement between the two diagnosis beliefs | landed | `8804080fcf` | [refactor-g3.md](refactor-g3.md) | Result on the live arxiv vault: four real pairs, none with different causes, all four one-sided, three with an exposed answer counted at full weight by the episode posterior (ledger G3-1). |
 | G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | [refactor-g3.md](refactor-g3.md) | The narrow fix G3-1 first; the full step is decided after G1 with a rerun of G3. |
 | G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
-| G6 | Use one authority for each protection question | waiting on | — | — | G1 and G3. Runs with K6. |
+| G6 | Use one authority for each protection question | being built | — | [design](refactor-g6-design.md) | G6.1 (the protection surface matrix, tests only) is being built; then G6.2 (each surface names its set in one table), G6.3 (one final passage admission), G6.4 to G6.10 (the fixes for the design's seven defect cells), the display accounting extraction. K6-10 to K6-13 are independent fixes in the same area; K5-5 to K5-7 and K6-1 need a priming successor (a tag) |
 
 ## Arc H
 
@@ -251,7 +251,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K10.12 | Record each attempt by a rich figure job | waiting on | — | — | K10.11 |
 | K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
 | K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
-| K10.15 | Write the Figures note and correct stale lines | not started | — | [ledger K10-4](refactor-bug-ledger.md) | — |
+| K10.15 | Write the Figures note and correct stale lines | landed | this commit | [Figures](../learnloop-architecture-vault/Concepts/Figures.md) | — (K10-4 fixed) |
 | K10.16 | Retire the eight figure content switches | waiting on | — | — | Owner's count for removing legacy reuse reads |
 | K10.17 | Remove the dormant JavaScript animation tier | not started | — | — | — |
 
@@ -270,7 +270,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | L2c | Split attempt, grade and diagnostic store groups | landed | `f10dbf51ae` | [refactor-l2c.md](refactor-l2c.md) | — |
 | L2d | Split content, scheduling and other repository groups | landed | `f243c960e1` | [refactor-l2d.md](refactor-l2d.md) | — |
 | L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner's list of CLI-only code that stays |
-| L4 | Review which learned models need pure cores | not started | — | — | — |
+| L4 | Review which learned models need pure cores | landed (review) | this commit | [refactor-l4-review.md](refactor-l4-review.md) | Six extraction steps, in the order L4.1 claim priors, L4.2 cause slopes, L4.3 the episode posterior, L4.4 lesson-weight replay inputs, L4.5 the AD slot and commission decision, L4.6 the tail's fit-and-record assembly: not started, each under the stop rule. Five reproducibility gaps in the ledger (L4-1 to L4-5) |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
 | L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
 | L6a | Return records from the already extracted cores | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval and the I2 core |
@@ -287,6 +287,27 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | T5 | Merge stage-named tests and review slow tests and goldens | waiting on | — | — | Arc E and the refactor close |
 | Phase 1 review | Review the first phase and land its fixes | landed | `04a0154c0d` | [refactor-phase-1-review.md](refactor-phase-1-review.md) | — |
 | Phase 2 review | Review the second phase and land its fixes | waiting on | — | — | Arc D close |
+
+## UX journey audit: fix stages
+
+The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 10). After a stage lands, the walks it came from are run again.
+
+| Step | What | State | Landing commit | Record | Waits on |
+|---|---|---|---|---|---|
+| UX-1 | Question writing for a long web page fits its output budget | landed | `c67f1931ed` | [ledger UX-1](refactor-bug-ledger.md) | — |
+| Stage 1 | Broken controls: the Ask send control, Keep going, a past exam's open, empty states as notices, "add it" with no subject, the phone's delivery line (UX-3 to UX-7, UX-9) | landed | `99d24e65f6` | [ux-fix-stage-1.md](ux-fix-stage-1.md) | The walks again |
+| Stage 2 | Math macros from the source and the empty goal's report (UX-2, UX-8); the consent question (UX-10) | not started | — | — | The Python test lane; the owner's ruling for UX-10 only |
+| Stage 3 | Today explains itself: the cause and one step, one clock's labels, the "Review" label, refusals said in place | built, not landed | — | — | Stage 1's landing, its gate |
+| Stage 4 | Phone small fixes: in after the scan, sent when, the Today tab, the phone's clock labels | being built | — | — | The owner's call for the router's line (F14), left out of the stage |
+| Stage 5 | Course setup and graded work (spec first) | not started | — | — | — |
+| Stage 6 | A Goals place (spec first) | not started | — | — | — |
+| Stage 7 | Load you can see and steer | not started | — | — | — |
+| Stage 8 | Progress in words and the jargon sweep | not started | — | — | — |
+| Stage 9 | Settings cleared | not started | — | — | — |
+| Stage 10 | Help that shows what it gave away | waiting on | — | — | G6 and the Decider's first stage; H1, H2 |
+| Stage 11 | The Reader redo | not started | — | — | Its cue model is a backend step |
+| Stage 12 | Teacher screens remade | waiting on | — | — | A walk that reaches lessons (second wave) |
+| Second wave of walks | Lessons, the workbench and figures, the practice exam, the returner, the expert, own notes, the project learner, two courses | waiting on | — | — | Stages 1, 3 and 4 on main |
 
 ## Second audit
 

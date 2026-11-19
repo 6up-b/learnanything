@@ -58,6 +58,8 @@ import {
   fullListWhy,
   onYourOwnWhy,
   planSentence,
+  GOAL_NOTHING_READY,
+  KEEP_GOING_NOTHING,
   planWasEmpty,
   reentrySentence,
   reentryWhy,
@@ -449,6 +451,10 @@ export function TodayPlace({
   const [list, setList] = useState(false);
   const [wizard, setWizard] = useState(false);
   const [moreNew, setMoreNew] = useState<DailyPlanDto["preview"] | null>(null);
+  // UX-4: Keep going came back with the day still done, so nothing was added.
+  const [keptGoingToNothing, setKeptGoingToNothing] = useState(false);
+  // UX-6: "Practise for this goal" found nothing ready: said on the card, never as an error.
+  const [goalNothingReady, setGoalNothingReady] = useState(false);
   const now = new Date();
 
   // While the plan is off (its kill switch), the remembered minutes are the start summary's.
@@ -639,10 +645,15 @@ export function TodayPlace({
 
   async function keepGoing() {
     setMoreNew(null);
-    await run(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
+    setKeptGoingToNothing(false);
+    const result = await run(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
+    // UX-4 (audit student-1 #44): an extension with nothing in it comes back
+    // closed, the same Today; say so rather than redraw it silently.
+    if (result && result.plan && result.plan.status !== "open") setKeptGoingToNothing(true);
   }
 
   async function somethingNew(confirm: boolean) {
+    setKeptGoingToNothing(false);
     const result = await run(() => api.planMoreNew({ sessionId: session?.sessionId ?? null, confirm }));
     setMoreNew(confirm ? null : result?.preview ?? null);
   }
@@ -704,11 +715,14 @@ export function TodayPlace({
   // Practise for this goal: the first question on the goal's frontier in
   // today's list (as the goal banner's "practise at-risk" does).
   async function practiseGoal() {
+    setGoalNothingReady(false);
     const input = queueInput ?? todayQueueInput(session);
     const snapshot = await run(() => api.getTodayQueue(input));
-    const target = snapshot?.sections.flatMap((section) => section.items).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
+    if (!snapshot) return;
+    const target = snapshot.sections.flatMap((section) => section.items).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
     if (!target) {
-      onError("Nothing for this goal is ready to practise yet.");
+      // UX-6 (audit beginner-1 #80-120): an empty state, not a failure.
+      setGoalNothingReady(true);
       return;
     }
     await openFromList(target);
@@ -821,6 +835,7 @@ export function TodayPlace({
             </button>
           ) : null}
         </div>
+        {keptGoingToNothing ? <KeepGoingNothing /> : null}
         {moreNew ? (
           <div data-testid="today-more-new" style={{ fontSize: 12, color: COLOR.textDim }}>
             {moreNew.available ? (
@@ -899,6 +914,7 @@ export function TodayPlace({
             </button>
           </div>
         ) : null}
+        {!waiting && rows.length === 0 && !deciding && !inProgress && keptGoingToNothing ? <KeepGoingNothing /> : null}
         {/* IH3 (spec §6): the quiet link at any plan boundary, with a session (the choice is served into it). */}
         {session && data?.somethingElse && !waiting ? (
           <SomethingElse sessionId={session.sessionId} surface="today" enabled canStartLesson={Boolean(onStartLesson)}
@@ -924,6 +940,11 @@ export function TodayPlace({
         {!list && primaryGoal ? (
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />
         ) : null}
+        {!list && primaryGoal && goalNothingReady ? (
+          <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
+            {GOAL_NOTHING_READY}
+          </div>
+        ) : null}
         {!list ? <Threads wrapUp={wrapUp} onOpenPassage={onOpenPassage} onResumeProblem={onResumeProblem} onAsk={onAsk} /> : null}
         {!list ? <CapturesLine subjects={subjects} onAsk={onAsk} /> : null}
       </div>
@@ -942,6 +963,15 @@ export function TodayPlace({
         )}
       </div>
       {wizard ? <GoalWizard onClose={() => setWizard(false)} onCreated={() => void goals.refetch().catch(() => undefined)} onError={onError} /> : null}
+    </div>
+  );
+}
+
+/** UX-4: said in place, where Keep going was pressed; a notice, never an error. */
+function KeepGoingNothing() {
+  return (
+    <div data-testid="today-keep-going-nothing" role="status" style={{ fontSize: 12, color: COLOR.textDim }}>
+      {KEEP_GOING_NOTHING}
     </div>
   );
 }

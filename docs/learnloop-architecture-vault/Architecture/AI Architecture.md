@@ -4,11 +4,11 @@ aliases:
   - Provider Architecture
   - Structured AI
 status: active
-doc_version: 1.0.0
+doc_version: 1.0.1
 implementation_version: mvp-0.9
-last_reviewed: 2026-11-10
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+last_reviewed: 2026-11-19
+source_commit: e6314fc0df008db528d657cbf3f80fe8dedd0982
+source_commit_timestamp: "2026-11-18T23:18:17-05:00"
 source_paths:
   - src/learnloop/ai/transport.py
   - src/learnloop/ai/routing.py
@@ -50,7 +50,7 @@ flowchart LR
 
 ## Task routes
 
-Configuration chooses providers for semantic tasks: grading, canonical ingest (and retry), authoring, tutor QA, teach-back, rung variants, animation, and transcription. `ROUTE_FOR_OPERATION` assigns every structured feature operation to one of those routes. Callers do not infer routing from a method name or instantiate providers locally.
+Configuration chooses providers for semantic tasks: grading, canonical ingest (and retry), authoring, tutor QA, teach-back, rung variants, animation, transcription, and the figure routes `figure_author`, `figure_rich_author` and `figure_prefetch_judge`. `src/learnloop/ai/routing.py` (`ROUTE_FOR_OPERATION`) assigns every structured feature operation to one of those routes. Callers do not infer routing from a method name or instantiate providers locally. See [[Concepts/Figures|Figures]] for the author, video job and background judge.
 
 The complete owner/route ledger is [[AI Operation Registry]].
 

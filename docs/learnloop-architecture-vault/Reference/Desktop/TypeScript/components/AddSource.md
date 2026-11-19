@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AddSource.tsx](../../../../../../apps/learnloop-tauri/src/components/AddSource.tsx) |
-| Source lines | 305 |
+| Source lines | 328 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -57,9 +57,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type AddOptions =` — type, line 13
 - `export const KINDS_LINE = "PDF · image · web page · arXiv · YouTube · Markdown · text · subtitles"` — const, line 19
 - `export function AddSourceBox(` — function, line 44
-- `export function useAddSource(` — function, line 197
-- `export function AddPopover(` — function, line 234
-- `export function DropOverlay()` — function, line 282
+- `export type AddedDestination = "wait" | "kept" | "reader"` — type, line 196
+- `export function addedItemDestination(item: AddSourceItemDto, card: Pick<SourceLibraryCard, "readerEnabled"> | undefined): AddedDestination` — function, line 202
+- `export function pastExamKeptLine(title: string): string` — function, line 208
+- `export function useAddSource(` — function, line 213
+- `export function AddPopover(` — function, line 257
+- `export function DropOverlay()` — function, line 305
 
 ## Internal implementation anchors
 
@@ -75,20 +78,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const onKeyDown = (event: KeyboardEvent<HTMLInputElement>)` — const, line 101
 - `const hero = size === "hero"` — const, line 108
 - `const shown = pickerMessage ?? message` — const, line 109
-- `const openedRef = useRef(onOpened)` — const, line 206
-- `const add = useCallback(async (sources: string[], options: AddOptions =` — const, line 209
-- `const result = await api.addSource(` — const, line 213
-- `const unsupported = result.items.find((item)` — const, line 214
-- `const existing = result.items.find((item)` — const, line 215
-- `const added = result.items.find((item)` — const, line 218
-- `const onKey = (event: globalThis.KeyboardEvent)` — const, line 246
+- `const openedRef = useRef(onOpened)` — const, line 226
+- `const keptRef = useRef(onKept)` — const, line 228
+- `const add = useCallback(async (sources: string[], options: AddOptions =` — const, line 231
+- `const result = await api.addSource(` — const, line 235
+- `const unsupported = result.items.find((item)` — const, line 236
+- `const existing = result.items.find((item)` — const, line 237
+- `const added = result.items.find((item)` — const, line 240
+- `const onKey = (event: globalThis.KeyboardEvent)` — const, line 269
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `AddPopover`, `DropOverlay`, `useAddSource`; references `AddPopover`, `DropOverlay`, `useAddSource`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `AddPopover`, `DropOverlay`, `addedItemDestination`, `pastExamKeptLine`, `useAddSource`; references `AddPopover`, `DropOverlay`, `addedItemDestination`, `pastExamKeptLine`, `useAddSource`
 - [[Reference/Desktop/TypeScript/components/BookShelf|src/components/BookShelf.tsx]] — import-or-re-export: `AddOptions`, `AddSourceBox`; references `AddOptions`, `AddSourceBox`
 - [[Reference/Desktop/TypeScript/screens/LibraryPlace|src/screens/LibraryPlace.tsx]] — import-or-re-export: `AddOptions`; references `AddOptions`
 
@@ -97,7 +101,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AddSourceItemDto`, `AddSourceResultDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AddSourceItemDto`, `AddSourceResultDto`, `SourceLibraryCard`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/useSourceFileDrop|src/components/useSourceFileDrop.ts]] — import-or-re-export; imports `pickSourceFiles`

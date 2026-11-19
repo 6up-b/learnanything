@@ -1335,6 +1335,8 @@ def decide_unmatched(vault: Any, repository: Repository, goal_id: str, phrase: s
         created: dict[str, Any] | None = None
         if decision == "create":
             subject = subject_id or _subject_for(vault, needs)
+            if subject is None and not vault.subjects:
+                subject = _first_subject(vault, entry["proposed_title"], clock=clock)
             if subject is None:
                 raise DeliverableError("no_subject", "Choose the subject this new topic belongs to.")
             try:
@@ -1367,6 +1369,21 @@ def decide_unmatched(vault: Any, repository: Repository, goal_id: str, phrase: s
                                            sort_keys=True), created_at=now)
         written = _publish(vault, repository, goal_id, row, ledger, now=now)
     return {"resolution": written, "created": created}
+
+
+def _first_subject(vault: Any, title: str, *, clock: Clock | None = None) -> str:
+    """A library with no subject yet (no book's questions built so far) gets its first one
+    when the learner says *add it*, named after the topic: there is nothing to choose
+    between, and without it the refusal left *add it* doing nothing (UX journey audit
+    UX-7, beginner-1 #54). Under the caller's vault mutation lock."""
+
+    from learnloop.ids import kebab_case
+    from learnloop.vault.loader import add_subject
+
+    name = " ".join(str(title).split())[:80] or "My library"
+    subject_id = kebab_case(name) or "my-library"
+    add_subject(Path(vault.root), subject_id, name, clock=clock)
+    return kebab_case(subject_id)
 
 
 def _subject_for(vault: Any, needs: Sequence[Mapping[str, Any]]) -> str | None:

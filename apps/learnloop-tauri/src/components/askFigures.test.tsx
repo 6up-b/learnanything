@@ -7,7 +7,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setAlgoConfig } from "../app/algoConfig";
 import { AskOverlay, type AskTarget } from "./AskOverlay";
-import { figureCostLine, figureHostRef, PANEL_FIGURE_COPY } from "./askFigures";
+import { clearPanelFigures, figureCostLine, figureHostRef, PANEL_FIGURE_COPY } from "./askFigures";
+import { ASK_COPY } from "./askPanel";
 
 const { api } = vi.hoisted(() => ({ api: {
   getTutorTranscript: vi.fn(), askTutorQuestion: vi.fn(), previewTutorOpening: vi.fn(),
@@ -52,6 +53,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  clearPanelFigures();
   setAlgoConfig({});
 });
 
@@ -183,6 +185,74 @@ it("the chooser's explore_figure hint is one line that opens its figure on the a
   await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_1"));
   expect(api.figureOpen).toHaveBeenCalledWith({ figureId: "fig_1", takeStepToken: null,
                                                hostRef: { itemId: "pi_1", submissionId: "serve-2", sessionId: "s1" } });
+});
+
+// UX journey audit UX-3 (seasoned-1 #74-81): the panel's only button was
+// "show me ▸", so a question went as a figure request; Enter, which asks,
+// was said nowhere. A figure asked for before the panel closed was lost.
+
+const ANSWERED = { version: 1, eventId: "e1", answerMd: "A", questionType: "clarification", facets: [],
+                   hintEquivalent: false, leakSuspected: false, citations: [], remaining: 2,
+                   answerMode: "help_me_reason" };
+
+it("UX-3: a visible ask ↵ control beside show me ▸ sends the words as a question", async () => {
+  api.askTutorQuestion.mockResolvedValue(ANSWERED);
+  const panel = await openDocked({ context: "feedback", attemptId: "att_1", practiceItemId: "pi_1" });
+  const ask = within(panel).getByRole("button", { name: ASK_COPY.sendName });
+  expect(ask.textContent).toBe(ASK_COPY.send);
+  expect((ask as HTMLButtonElement).disabled).toBe(true);
+  type("Is stating the theorem twice really an explanation?");
+  expect((ask as HTMLButtonElement).disabled).toBe(false);
+  expect(within(panel).getByText(PANEL_FIGURE_COPY.send)).not.toBe(ask);
+  fireEvent.click(ask);
+  await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalledOnce());
+  expect(api.figureRequest).not.toHaveBeenCalled();
+});
+
+it("UX-3: the ask ↵ control is there with figures off too", async () => {
+  setAlgoConfig({ ask: { panelEnabled: true, helpStyle: "balanced" } });
+  api.askTutorQuestion.mockResolvedValue(ANSWERED);
+  const panel = await openDocked();
+  type("What does V mean?");
+  fireEvent.click(within(panel).getByRole("button", { name: ASK_COPY.sendName }));
+  await waitFor(() => expect(api.askTutorQuestion).toHaveBeenCalledOnce());
+});
+
+it("UX-3: a figure asked for before the panel closed shows as still building, then built, when it opens again", async () => {
+  let finish: (value: unknown) => void = () => undefined;
+  api.figureRequest.mockResolvedValue({ version: 1, jobId: "ljob_1", kind: "figure_build", askId: null, state: "pending" });
+  api.readerFigureJob.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  const first = render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalledOnce());
+  type("the area under 2x");
+  fireEvent.click(screen.getByText(PANEL_FIGURE_COPY.send));
+  await waitFor(() => expect(api.readerFigureJob).toHaveBeenCalled());
+  first.unmount();
+
+  render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalledTimes(2));
+  expect(screen.getByTestId("ask-figure-line").dataset.state).toBe("pending");
+  expect(screen.getByTestId("ask-figure-line").textContent).toContain(PANEL_FIGURE_COPY.pending);
+  finish(job({ host: "practice", countsAsHint: true, status: "counted", new: true }));
+  await waitFor(() => expect(screen.getByTestId("figure-inline").textContent).toBe("fig_1"));
+});
+
+it("UX-3: a figure that finished while the panel was closed is there when it opens again", async () => {
+  const first = render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalledOnce());
+  type("the area under 2x");
+  fireEvent.click(screen.getByText(PANEL_FIGURE_COPY.send));
+  first.unmount();
+  await waitFor(() => expect(api.figureRequest).toHaveBeenCalledOnce());
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  render(<AskOverlay variant="docked" target={PRACTICE} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(screen.getByTestId("ask-figure-line").dataset.state).toBe("landed"));
+  // Another attempt's panel does not show it.
+  cleanup();
+  render(<AskOverlay variant="docked" target={{ ...PRACTICE, submissionId: "serve-3" }} onClose={vi.fn()} onToast={vi.fn()} />);
+  await waitFor(() => expect(api.getTutorTranscript).toHaveBeenCalledTimes(3));
+  expect(screen.queryByTestId("ask-figure-line")).toBeNull();
 });
 
 // Reader RW5d P3, Codex review F4.

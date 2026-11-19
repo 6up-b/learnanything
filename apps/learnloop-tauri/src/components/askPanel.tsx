@@ -45,6 +45,9 @@ export const ASK_COPY = {
   coldPlaceholder:
     "ask in your words — a question about the maths makes this practice with help ◌; asking what the question means doesn't",
   placeholder: "ask in your words",
+  /** UX-3: the visible send control for a question (↵ does the same). */
+  send: "ask ↵",
+  sendName: "ask: send your question",
   keepOnMyOwn: "esc keep it on my own",
   empty: "(nothing asked yet on this attempt)",
   /** K11: book first, and honest when the books have nothing kept. */

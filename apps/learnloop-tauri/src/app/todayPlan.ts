@@ -254,6 +254,12 @@ export function doneLine(data: DailyPlanDto): string {
 }
 
 /** Whether the day's plan had anything in it. */
+/** UX-4 (audit student-1 #44, retainer-1 #63): "Keep going" found nothing to add. */
+export const KEEP_GOING_NOTHING = "Nothing more to add today. Reading on, or adding a book, gives LearnLoop more to plan.";
+
+/** UX-6 (audit beginner-1 #80-120): "Practise for this goal" with nothing ready; a notice, never an error. */
+export const GOAL_NOTHING_READY = "Nothing for this goal is ready to practise yet.";
+
 export function planWasEmpty(data: DailyPlanDto): boolean {
   return (data.day?.plannedItems ?? 0) === 0 && (data.day?.readingBlocks ?? 0) === 0;
 }
