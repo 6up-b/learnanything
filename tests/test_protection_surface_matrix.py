@@ -1226,7 +1226,7 @@ FAILING_READERS = ("exam_material", "held_out_material", "held_out_partition", "
 #: ``surface: (answer for 3.held or 6.3canonical, answer for 0.control or 6.held-grade)`` with the readers raising.
 #: ``S`` on the protected target is a surface open to this fault: the device, eligibility and workflow doors, the
 #: shown-material reader and the cold reservation (they read no source set), the MCP library's titles, and the raw
-#: local search and history (``record: docs/reviews/refactor-g6.1.md``).
+#: local search and history: each answers another question than "is this exam material".
 FAULT_EXPECTED: dict[str, tuple[str, str]] = {
     "TE": (R, R), "MR": (R, R), "RA": (R, R), "PS": (R, R), "CK": (R, R), "GU": (R, R), "FI": (R, R),
     "IP": (W, W), "SC": (R, R), "SQ": (R, R), "MC": (R, R), "CI": (R, R), "RI": (R, R), "LF": (R, R),
@@ -1289,6 +1289,107 @@ def _fault_answers(probe: Probe, column: str) -> tuple[str, str]:
 @pytest.mark.parametrize("column", DRIVEN)
 def test_each_surface_with_its_exam_predicate_raising(probe: Probe, column: str) -> None:
     assert _fault_answers(probe, column) == FAULT_EXPECTED[column]
+
+
+
+# --- reach: the cases one column can't show ---------------------------------------------------------------------
+
+#: The Reader's other two check callers (CK's column drives the section check): an inquiry's passage check and an
+#: active-reading selection question, each anchored on the target. ``row: (inquiry, selection)``.
+CHECK_CALLERS: dict[str, tuple[str, str]] = {
+    "0.control": (S, S), "1.paper": (S, S), "2.exam": (S, S), "3.held": (R, R), "3.neighbor": (S, S),
+    "4.unmarked": (R, R), "5.signal": (R, R),
+}
+
+
+@pytest.mark.parametrize("row", sorted(CHECK_CALLERS))
+def test_the_readers_inquiry_and_selection_checks_answer_as_its_section_check(probe: Probe, row: str) -> None:
+    from learnloop.reader.reader_quick_check import SELECTION_STYLES
+
+    target = probe.base.targets[row]
+    inquiry = _check(probe, target, {"scope_kind": "inquiry", "inquiry_root_event_id": "evt_g6_root",
+                                     "anchor_span_ids": "@span"})
+    selection = _check(probe, target, {"scope_kind": "selection", "question_style": sorted(SELECTION_STYLES)[0],
+                                       "anchor_span_ids": "@span"})
+    assert (inquiry, selection) == CHECK_CALLERS[row]
+
+
+#: A quote's reference to fixture 3's held span, in every form a reference takes, and what the quote rule says.
+REFERENCE_FORMS: dict[str, str] = {
+    "locator": W, "explicit_spans": W, "namespaced_span": W, "whole_extraction": W, "revision_only": W,
+    "source_only": W, "neighbour_block": S,
+}
+
+
+def _reference(form: str, target: Target) -> Any:
+    from learnloop.vault.models import SourceRef
+
+    extraction, span = _span(target)
+    base = {"ref_type": "canonical_source", "ref_id": target.source_id}
+    fields = {
+        "locator": {"source_id": target.source_id, "extraction_id": extraction, "locator": f"span:{extraction}/{span}"},
+        "explicit_spans": {"source_id": target.source_id, "extraction_id": extraction, "span_ids": [span]},
+        "namespaced_span": {"source_id": target.source_id, "span_ids": [f"{extraction}/{span}"]},
+        "whole_extraction": {"source_id": target.source_id, "extraction_id": extraction},
+        "revision_only": {"revision_id": target.revision_id},
+        "source_only": {"source_id": target.source_id},
+        "neighbour_block": {"source_id": target.source_id, "extraction_id": extraction, "span_ids": [target.neighbor_of]},
+    }[form]
+    return SourceRef.model_validate({**base, **fields})
+
+
+@pytest.mark.parametrize("form", sorted(REFERENCE_FORMS))
+def test_a_quotes_reference_in_every_form(probe: Probe, form: str) -> None:
+    world = probe.base
+    material = EM.exam_material(world.vault(), world.repository)
+    protected = EM.source_ref_protected(material, _reference(form, world.targets["3.held"]), world.repository)
+    assert (W if protected else S) == REFERENCE_FORMS[form]
+
+
+#: An ordinary item once presented as a diagnostic probe (a completed presentation, not an open one).
+PRESENTED: dict[str, str] = {
+    "LP": W, "AP": W, "AD": S, "IP": W, "MC": W, "RF": S, "RT": S, "OT": S, "SE": S, "CO": S, "LC": W, "EX": S,
+}
+
+
+@pytest.mark.parametrize("column", sorted(PRESENTED))
+def test_an_item_once_presented_as_a_probe(probe: Probe, column: str) -> None:
+    assert ADAPTERS[column](probe, probe.base.targets["6.presented"]) == PRESENTED[column]
+
+
+def test_a_held_grade_is_held_while_its_question_and_answer_stay_eligible(probe: Probe) -> None:
+    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.learner_protection import attempt_result
+
+    world = probe.base
+    attempt_id = world.notes["attempts"]["6.held-grade"]
+    with world.repository.connection() as connection:
+        assert attempt_id in held_for_review_attempts(connection, [attempt_id])
+    assert attempt_result(1.0, True) == "held_for_review"
+    assert _learning_context(probe, world.targets["6.held-grade"]) == S
+
+
+def test_the_phones_media_lift_admits_no_measurement(probe: Probe) -> None:
+    from types import SimpleNamespace
+    from unittest import mock
+
+    from learnloop.reader.phone_media import media_predicate
+    from learnloop.scheduling import device_eligibility as DE
+
+    world = probe.base
+    vault = world.vault()
+    digest = world.pdf_digest[world.targets["0.control"].extraction_id]
+    prompt = f"Look at [the page](llpdf://localhost/sha256-{digest.split(':', 1)[1]}#page=2)."
+
+    def reason(mode: str) -> str | None:
+        item = SimpleNamespace(id="pi_g6_media", practice_mode=mode, teach_back_source=None, error_hunt=None,
+                               laddered_stem=None, prompt=prompt, provenance=None, lesson_id=None, lifecycle=None)
+        with mock.patch.object(DE, "minted_for_lesson", lambda item: False):
+            return DE.ineligibility_reason(vault, item, DE.PHONE, media=True,
+                                           served=media_predicate(vault, world.repository))
+
+    assert reason("short_answer") is None
+    assert all(reason(mode) is not None for mode in sorted(DE.MEASUREMENT_MODES))
 
 
 # --- defects: the desired answer, failing first ---------------------------------------------------------------
@@ -1450,6 +1551,30 @@ def test_a_legacy_reader_thread_sends_an_answer_grounded_in_a_passage_held_out_s
 def test_a_legacy_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe) -> None:
     model = _legacy_thread_ask(probe, "legacy-desired")
     assert model.prompts and not model.carried("GSIXCLEANRES")
+
+
+def test_zz_reach(probe):  # TEMPORARY
+    from learnloop.reader.reader_quick_check import SELECTION_STYLES
+    out = {"checks": {}, "refs": {}, "presented": {}}
+    for row in ("0.control", "1.paper", "2.exam", "3.held", "3.neighbor", "4.unmarked", "5.signal"):
+        t = probe.base.targets[row]
+        try:
+            out["checks"][row] = [_check(probe, t, {"scope_kind": "inquiry", "inquiry_root_event_id": "evt_g6_root", "anchor_span_ids": "@span"}),
+                                  _check(probe, t, {"scope_kind": "selection", "question_style": sorted(SELECTION_STYLES)[0], "anchor_span_ids": "@span"})]
+        except BaseException as exc:
+            out["checks"][row] = repr(exc)[:300]
+    w = probe.base
+    material = EM.exam_material(w.vault(), w.repository)
+    for form in ("locator", "explicit_spans", "namespaced_span", "whole_extraction", "revision_only", "source_only", "neighbour_block"):
+        out["refs"][form] = W if EM.source_ref_protected(material, _reference(form, w.targets["3.held"]), w.repository) else S
+    for col in ("LP", "AP", "AD", "IP", "MC", "RF", "RT", "OT", "SE", "CO", "LC", "EX"):
+        try:
+            out["presented"][col] = ADAPTERS[col](probe, probe.base.targets["6.presented"])
+        except BaseException as exc:
+            out["presented"][col] = repr(exc)[:200]
+    path = "/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/6b94db86-fdc3-456a-8767-851c8bf25992/scratchpad/g61/reach.json"
+    with open(path, "w") as handle:
+        json.dump(out, handle, indent=1)
 
 
 def test_zz_faults(probe):  # TEMPORARY
