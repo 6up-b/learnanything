@@ -1420,6 +1420,51 @@ def test_a_camel_case_selection_of_held_out_material_is_refused_before_the_autho
     assert _reader_import(probe, probe.base.targets["3.camel"]) == R
 
 
+def _held_selection_refusal(probe: Probe, spelling: str) -> tuple[tuple[str, str, Any], int]:
+    """The Reader import job's refusal of the held-out exercise selected one way, and how many author calls ran."""
+
+    from unittest import mock
+
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import IngestRunnerError, JobContext
+    from learnloop.reader.source_render_views import resolve_or_create_render_view
+    from tests.protection_matrix_helpers import reader_import_context
+
+    target = probe.base.targets["3.held"]
+    world = probe.world(target, own=f"import-{spelling}")
+    extraction, span = _span(target)
+    quote = _block_text(world, extraction, span)
+    view_id = None
+    if spelling == "span_id":
+        node = {"span_id": span, "quote": quote}
+    elif spelling == "spanId":
+        node = {"spanId": span, "quote": quote}
+    else:  # named by its display node only, its offsets left to the quote (translated and re-anchored)
+        view_id = resolve_or_create_render_view(world.repository, extraction_id=extraction, clock=CLOCK)["id"]
+        display = next(node["display_node_id"] for node in world.repository.render_crosswalk(view_id)
+                       if node["span_id"] == span)
+        node = {"displayNodeId": display, "quote": quote}
+    author = _Author()
+    ctx = reader_import_context(world.root, world.repository, extraction_id=extraction, nodes=[node], client=author,
+                                source_id=target.source_id)
+    if view_id is not None:
+        ctx.job["payload"]["render_view_id"] = view_id
+    with mock.patch.object(JobContext, "report", lambda self, *a, **k: None), \
+            pytest.raises(IngestRunnerError) as refused:
+        jobs.handle_reader_exercise_import(ctx)
+    return (refused.value.code, str(refused.value), refused.value.details), len(author.seen)
+
+
+def test_every_spelling_of_a_held_out_selection_is_refused_alike_before_the_author(probe: Probe) -> None:
+    """G6-P6: ``span_id``, ``spanId`` and a display-node selection re-anchored by its quote are one selection to
+    the job's held-out check: the same refusal, and no author call."""
+
+    answers = {spelling: _held_selection_refusal(probe, spelling) for spelling in ("span_id", "spanId", "display")}
+    refusal, calls = answers["span_id"]
+    assert refusal[0] == "exam_material" and calls == 0
+    assert answers["spanId"] == answers["display"] == (refusal, 0)
+
+
 def test_the_reader_imports_author_never_sees_a_held_out_neighbour(probe: Probe) -> None:
     assert _reader_neighbour(probe, probe.base.targets["3.held"]) == W
 
