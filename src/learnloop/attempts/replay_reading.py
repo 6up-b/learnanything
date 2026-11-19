@@ -122,9 +122,14 @@ def withholds_review_as_variant_request(vault: Any, repository: Any, attempt_id:
 
 
 def _graded_more_than_once(repository: Any, attempt_id: str) -> bool:
-    from learnloop.grading_epochs import group_epochs
+    """A second write replaced the attempt's first grade. Counting epoch keys is not enough: revision-less rows share
+    ``legacy:<created_at>``, so a regrade written in its original's second falls under the original's key;
+    ``grading_epochs.only_grade`` also reads a superseded row or a second run as a second write. No rows: no grade."""
 
-    return len(group_epochs(repository.fetch_grading_evidence(attempt_id, include_superseded=True))) > 1
+    from learnloop.grading_epochs import only_grade
+
+    rows = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    return bool(rows) and not only_grade(rows)
 
 
 __all__ = [

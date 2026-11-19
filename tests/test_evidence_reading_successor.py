@@ -306,6 +306,33 @@ def _seed_exam_answer(vault, repository):
     return entry.attempt_id
 
 
+def _legacy_same_second(paths, attempt_id):
+    """Make the attempt's grading rows revision-less (``legacy:<created_at>`` epoch keys) and stamped in one second
+    (the exam import's original is stamped at the exam's date): the original and its replacement share one key."""
+
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE grading_evidence SET grading_revision = NULL, created_at = (SELECT MIN(created_at) "
+                           "FROM grading_evidence WHERE attempt_id = ?) WHERE attempt_id = ?", (attempt_id, attempt_id))
+        connection.commit()
+    keys = _rows(paths, "SELECT DISTINCT created_at FROM grading_evidence WHERE attempt_id = ?", attempt_id)
+    assert len(keys) == 1, keys  # one second, one legacy key
+
+
+@BOTH_TAGS
+def test_r5_a_same_second_legacy_regrade_of_a_self_grade_replays_as_the_ai(tmp_path, tag):
+    paths, vault, repository = _vault(tmp_path, BELOW)
+    attempt_id = _self_graded(vault, repository).attempt_id
+    _ai_regrade_pending(vault, repository)
+    _legacy_same_second(paths, attempt_id)
+    set_algorithm_version(paths, tag)
+    _rebuild(paths)
+    _rebuild(paths)
+
+    # The superseded original says a second write came: at the tag the replacement replays under its run's source.
+    expected = ["self", "self", "ai"] if tag == TAG else ["self", "self"]
+    assert [row["grader_provider"] for row in _raw_events(paths, attempt_id)] == expected
+
+
 def _exam_channel(paths, attempt_id):
     """The attempt's grade channel: (administration purpose, grader provider, rubric score) per raw grade event."""
 
@@ -337,6 +364,20 @@ def test_k5_11_a_regraded_exam_answer_reaches_the_exam_channel(tmp_path, tag):
     # one. From mvp-0.61 the replacement is written on the exam channel's (assessment-purpose) administration, once.
     expected = [("assessment", "ai", 4)] if tag == TAG else []
     assert live == _exam_channel(paths, attempt_id) == expected
+
+
+@BOTH_TAGS
+def test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_channel(tmp_path, tag):
+    paths, vault, repository = _exam_vault_at(tmp_path, BELOW)
+    attempt_id = _seed_exam_answer(vault, repository)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(attempt_id), runtime=_ready_runtime(),
+                    client=_Grader(points=4), grading_source="ai", clock=CLOCK)
+    _legacy_same_second(paths, attempt_id)
+    set_algorithm_version(paths, tag)
+    _rebuild(paths)
+    _rebuild(paths)
+
+    assert _exam_channel(paths, attempt_id) == ([("assessment", "ai", 4)] if tag == TAG else [])
 
 
 # -- K5-3: a certificate probe whose every criterion is unassessed abstains -------------------------------------------
