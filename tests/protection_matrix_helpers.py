@@ -585,7 +585,7 @@ def world_in_state(world: World, state: str, root: Path) -> World:
         paths.source_sets_path.write_text("", encoding="utf-8")
     elif state == "switch_off":
         set_config_switch(root, "goals.held_out_selection", False)
-    elif state != "base":
+    elif state not in ("base", "fault"):
         raise ValueError(state)
     return World(root=root, paths=paths, repository=Repository(paths.sqlite_path), targets=world.targets,
                  state=state, pdf_digest=world.pdf_digest, png_digest=world.png_digest, notes=world.notes)

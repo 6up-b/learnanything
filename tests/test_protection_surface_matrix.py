@@ -1213,6 +1213,84 @@ def test_surface_answers_every_fixture_as_pinned(probe: Probe, column: str) -> N
 
 
 
+
+# --- fail closed: the span authority raises ---------------------------------------------------------------------
+# The exam predicate's readers (``exam_material``, ``held_out_material``, ``held_out_partition`` and the readers
+# built on them) patched to raise wherever a module bound them, so every surface meets the failure through its own
+# import. Each surface is asked about a protected target and a clean one. Fixture 8 (the source-sets file
+# unparseable or empty) is the matrix's own rows.
+
+FAILING_READERS = ("exam_material", "held_out_material", "held_out_partition", "held_out_items", "spans_withheld",
+                   "exam_withheld", "role_material", "held_out_spans", "source_marks")
+
+#: ``surface: (answer for 3.held or 6.3canonical, answer for 0.control or 6.held-grade)`` with the readers raising.
+#: ``S`` on the protected target is a surface open to this fault: the device, eligibility and workflow doors, the
+#: shown-material reader and the cold reservation (they read no source set), the MCP library's titles, and the raw
+#: local search and history (``record: docs/reviews/refactor-g6.1.md``).
+FAULT_EXPECTED: dict[str, tuple[str, str]] = {
+    "TE": (R, R), "MR": (R, R), "RA": (R, R), "PS": (R, R), "CK": (R, R), "GU": (R, R), "FI": (R, R),
+    "IP": (W, W), "SC": (R, R), "SQ": (R, R), "MC": (R, R), "CI": (R, R), "RI": (R, R), "LF": (R, R),
+    "RF": (R, R), "RT": (R, R), "OT": (R, R), "PK": (R, R), "SS": (R, R), "DV": (S, S), "PF": (S, S),
+    "EX": (S, S), "EH": (R, R), "CO": (S, S), "SE": (S, S), "LP": (W, W), "AP": (W, W), "AD": (W, W),
+    "LC": (W, W), "PW": (W, W), "PG": (R, R), "PI": (R, R), "RV": (R, R), "GP": (R, R), "PA": (R, R),
+    "PH": (W, W), "AS": (W, W), "ML": (S, S), "LA": (R, R), "OR": (R, R), "LJ": (R, R), "PT": (R, R),
+    "TB": (R, R), "LS": (S, S), "DH": (S, S), "FD": (S, S), "KY": (R, R), "BG": (R, R), "RD": (R, R),
+    "RN": (R, NA), "CN": (R, NA),
+}
+
+_FAULT_TARGETS = {"span": ("3.held", "0.control"), "item": ("6.3canonical", "6.held-grade")}
+
+
+def _fault_targets(probe: Probe, column: str) -> tuple[Target, Target]:
+    applicable = {row for (row, cell_column), value in EXPECTED.items() if cell_column == column and value != NA}
+    kind = "span" if "3.held" in applicable else "item"
+    protected, clean = _FAULT_TARGETS[kind]
+    return (replace(probe.base.targets[protected], state="fault"), replace(probe.base.targets[clean], state="fault"))
+
+
+@contextmanager
+def _readers_raise():
+    import sys
+    from unittest import mock
+
+    def fails(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("the exam predicate could not be read")
+
+    originals = {name: getattr(EM, name) for name in FAILING_READERS}
+    patches = []
+    for module in list(sys.modules.values()):
+        if module is None or not getattr(module, "__name__", "").startswith(("learnloop", "tests.")):
+            continue
+        for name, original in originals.items():
+            if getattr(module, name, None) is original:
+                patches.append(mock.patch.object(module, name, fails))
+    for patch in patches:
+        patch.start()
+    try:
+        yield
+    finally:
+        for patch in reversed(patches):
+            patch.stop()
+
+
+def _fault_answers(probe: Probe, column: str) -> tuple[str, str]:
+    protected, clean = _fault_targets(probe, column)
+    with _readers_raise():
+        answers = []
+        # An authoring neighbour is asked only beside protected material: there is no clean neighbour question.
+        for target in (protected,) if column in ("RN", "CN") else (protected, clean):
+            try:
+                answers.append(ADAPTERS[column](probe, target))
+            except Exception as exc:  # noqa: BLE001 - an adapter that itself raised: the surface refused
+                answers.append(R if "could not be read" in str(exc) else f"raised:{type(exc).__name__}")
+    return answers[0], (answers[1] if len(answers) > 1 else NA)
+
+
+@pytest.mark.parametrize("column", DRIVEN)
+def test_each_surface_with_its_exam_predicate_raising(probe: Probe, column: str) -> None:
+    assert _fault_answers(probe, column) == FAULT_EXPECTED[column]
+
+
 # --- defects: the desired answer, failing first ---------------------------------------------------------------
 # Each pinned cell above keeps today's answer; the test below states the answer the ledger row's fix gives, as a
 # strict xfail, so the fix turns exactly it green (and must flip the pinned cell in the same commit).
@@ -1372,3 +1450,15 @@ def test_a_legacy_reader_thread_sends_an_answer_grounded_in_a_passage_held_out_s
 def test_a_legacy_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe) -> None:
     model = _legacy_thread_ask(probe, "legacy-desired")
     assert model.prompts and not model.carried("GSIXCLEANRES")
+
+
+def test_zz_faults(probe):  # TEMPORARY
+    out = {}
+    for column in DRIVEN:
+        try:
+            out[column] = list(_fault_answers(probe, column))
+        except BaseException as exc:  # noqa: BLE001
+            out[column] = f"ERR {type(exc).__name__}: {str(exc)[:200]}"
+    path = "/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/6b94db86-fdc3-456a-8767-851c8bf25992/scratchpad/g61/faults.json"
+    with open(path, "w") as handle:
+        json.dump(out, handle, indent=1)
