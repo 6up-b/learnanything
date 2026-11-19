@@ -665,6 +665,77 @@ def test_r1_causes_shown_in_the_answers_own_second_expose_it(tmp_path, monkeypat
     assert (effective.updates_belief, qualifying) == (False, 0)
 
 
+# -- R2 (the tag's review): the router reads an episode's effective posterior, not the stored full-weight one -------
+
+
+def _router_readings(vault, repository, row, now_iso):
+    """(the miss-cause sensor's probe posterior, the decision-state snapshot's episode posteriors) for the journey's
+    miss, each read with the caller's effective reader as the router's callers pass it."""
+
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
+    from learnloop.router_objective import decision_state
+    from learnloop.router_objective import miss_cause as MC
+
+    effective = effective_posterior_reader(vault, repository)
+    source = repository.fetch_practice_attempt(row["source_attempt_id"])
+    with repository.connection() as connection:
+        sensed = MC.probe_posterior(connection, row["source_attempt_id"], now_iso, effective)
+        snapshot = decision_state._lo_rows(connection, [source["learning_object_id"]], {}, now_iso, effective)
+    episodes = snapshot[source["learning_object_id"]].get("episodes") or []
+    return sensed, {episode["id"]: episode["posterior"] for episode in episodes}
+
+
+@BOTH_TAGS
+def test_r2_the_router_reads_an_exposed_answer_as_no_update(tmp_path, monkeypatch, tag):
+    _DiscriminatingInstrument(monkeypatch)
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
+    _expose(ctx, repository, result, row, "shown_anyway")
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    stored = repository.probe_observation_for_attempt(probe_attempt_id)
+    assert stored.posterior_after != stored.posterior_before  # recorded below the tag: a full-weight update
+    set_algorithm_version(paths, tag)
+    vault = load_vault(paths.root)
+    now_iso = (PROBE_CLOCK.now() + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+
+    sensed, snapshot = _router_readings(vault, repository, row, now_iso)
+    presentation = repository.probe_presentation(row["presentation_id"])
+    episode = repository.probe_episode(presentation.probe_episode_id)
+    assert sensed is not None and sensed["episode_id"] == episode.id
+    if tag == TAG:
+        # The exposed answer contributes nothing: the posterior before it, as recorded.
+        assert sensed["source"] == "effective"
+        expected = stored.posterior_before
+    else:
+        # mvp-0.60: the stored full-weight posterior (the answer's own receipt, or the completion's).
+        assert sensed["source"] in ("observation", "completion")
+        expected = stored.posterior_after
+    assert _by_class(repository, stored.posterior_before) != pytest.approx(_by_class(repository, stored.posterior_after))
+    assert sensed["p"] == pytest.approx(_by_class(repository, expected))
+    # The episode completed on that answer: its status and completion stay as recorded (nothing reopens it), and the
+    # sensor names the same instant either way, so a decision's identity marks do not move.
+    assert episode.status == "complete" and episode.id not in snapshot
+    assert sensed["at"] == str(episode.completed_at)
+
+    # The decision-state snapshot lists open episodes: the same episode, read as if it were still open.
+    with repository.connection() as connection:
+        connection.execute("UPDATE probe_episodes SET status = 'in_progress' WHERE id = ?", (episode.id,))
+    _sensed, snapshot = _router_readings(vault, repository, row, now_iso)
+    assert snapshot[episode.id] == pytest.approx(dict(expected), abs=1e-5)  # the snapshot rounds its values
+
+
+def _by_class(repository, posterior):
+    from learnloop.router_objective import miss_cause as MC
+
+    with repository.connection() as connection:
+        scopes = {str(row[0]): MC._class(row[1]) for row in connection.execute(
+            "SELECT id, cause_scope FROM causal_hypotheses")}
+    totals = {name: 0.0 for name in MC.CLASSES}
+    for key, mass in posterior.items():
+        totals[scopes.get(str(key), MC.UNKNOWN)] += float(mass)
+    total = sum(totals.values())
+    return {name: value / total for name, value in totals.items()}
+
+
 # -- K5-8: a request for an easier or harder variant is no review of its source item --------------------------------
 
 

@@ -1387,6 +1387,67 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
     return effective
 
 
+def effective_posterior_as_of(
+    vault: LoadedVault, repository: Repository, episode_id: str, now_iso: str,
+) -> tuple[str, dict[str, float]] | None:
+    """The episode's posterior as of ``now_iso`` where the tag reads its stored posteriors differently, as
+    ``(as-of instant, posterior)``; None where the stored posteriors stand (below the evidence reading fixes, or no
+    observation up to ``now_iso`` that the episode now reads as updating no belief while its row recorded an update).
+
+    A stored observation's ``posterior_after`` and an episode's ``completion_posterior`` are receipts of what was
+    believed when they were written, so an exposed answer recorded below the tag is still inside them. A current
+    decision (the router's miss-cause sensor and its decision-state snapshot) reads this instead: the posterior
+    before the first such answer, as recorded, then each later observation up to ``now_iso`` folded in as the episode
+    reads it (:func:`effective_episode_observations`: an exposed answer contributes nothing). The as-of instant is
+    the one the stored reading would name (the newest observation up to ``now_iso``, or the completion when that is
+    newer), so a decision's identity marks do not move. The episode is not reopened or re-decided: its status,
+    completion and chosen repair stay as recorded."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return None
+    stored = repository.probe_observations_for_episode(episode_id)
+    effective = effective_episode_observations(vault, repository, episode_id)
+    pairs = sorted(
+        ((before, after) for before, after in zip(stored, effective, strict=True)
+         if str(before["observation"].created_at) <= now_iso),
+        key=lambda pair: (str(pair[0]["observation"].created_at), str(pair[0]["observation"].id)),
+    )
+    first = next((index for index, (before, after) in enumerate(pairs)
+                  if before["observation"].updates_belief and not after["observation"].updates_belief), None)
+    if first is None:
+        return None
+    episode = repository.probe_episode(episode_id)
+    posterior = dict(pairs[first][0]["observation"].posterior_before)
+    for _before, row in pairs[first:]:
+        observation = row["observation"]
+        if not observation.updates_belief:
+            continue
+        attempt = repository.fetch_practice_attempt(observation.attempt_id) or {}
+        likelihoods = _observation_likelihoods_from_row(vault, repository, episode, attempt, row)
+        if likelihoods is None:
+            continue
+        weight = 1.0 if observation.independent_evidence_discount is None else float(observation.independent_evidence_discount)
+        posterior = _bayes_update(posterior, likelihoods, weight=weight, prior_for_marginal=posterior)
+    at = str(pairs[-1][0]["observation"].created_at)
+    if episode is not None and episode.completed_at and at < str(episode.completed_at) <= now_iso:
+        at = str(episode.completed_at)
+    return at, posterior
+
+
+def effective_posterior_reader(vault: LoadedVault, repository: Repository) -> Any:
+    """:func:`effective_posterior_as_of` bound to this vault, for a reader that cannot import this module (the router
+    objective's sensor and decision state, which sit below diagnosis); None below the evidence reading fixes, where
+    the stored posteriors stand."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return None
+    return lambda episode_id, now_iso: effective_posterior_as_of(vault, repository, episode_id, now_iso)
+
+
 def qualifying_observation_count(vault: LoadedVault, repository: Repository, episode_id: str) -> int:
     """The episode's qualifying observations as the episode reads them (:func:`effective_episode_observations`)."""
 

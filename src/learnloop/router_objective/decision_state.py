@@ -120,7 +120,8 @@ def _item_rows(connection: Any, items: Sequence[str], now: datetime, weights: An
     return out
 
 
-def _lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+def _lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any], now_iso: str = "",
+             effective: Any = None) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {lo: {} for lo in los}
     if not los:
         return out
@@ -144,7 +145,9 @@ def _lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict
             f"WHERE status != 'resolved' AND learning_object_id IN ({marks}) ORDER BY created_at, id", list(los)):
         out[str(row[0])].setdefault("misconceptions", []).append(
             {"id": str(row[1]), "status": str(row[2]), "severity": _round(row[3])})
-    # The stored posterior of each open episode: its newest observation's, else what its newest presentation selected on.
+    # The stored posterior of each open episode: its newest observation's, else what its newest presentation selected on;
+    # where the evidence reading fixes read the stored posteriors differently, the caller's effective one
+    # (``effective``, as in ``miss_cause.probe_posterior``), since a stored posterior can hold an exposed answer.
     for row in connection.execute(
             f"SELECT e.learning_object_id, e.id, e.status, e.hypothesis_set_id, ("
             f"SELECT o.posterior_after_json FROM probe_presentations p JOIN practice_attempts a ON a.probe_presentation_id = p.id "
@@ -155,9 +158,11 @@ def _lo_rows(connection: Any, los: Sequence[str], ad: Mapping[str, Any]) -> dict
             f"FROM probe_episodes e WHERE e.status IN ('pending_items', 'in_progress') AND e.learning_object_id IN ({marks}) "
             f"ORDER BY e.created_at, e.id", list(los)):
         posterior = row[4] or row[5]
+        reread = effective(str(row[1]), now_iso) if effective is not None else None
+        values = reread[1] if reread is not None else (json.loads(posterior) if posterior else None)
         out[str(row[0])].setdefault("episodes", []).append({
             "id": str(row[1]), "status": str(row[2]), "hypothesis_set_id": row[3],
-            "posterior": {str(key): _round(value) for key, value in json.loads(posterior).items()} if posterior else None,
+            "posterior": {str(key): _round(value) for key, value in values.items()} if values else None,
         })
     by_lo = ad.get("los") or {}
     for lo in los:
@@ -292,12 +297,15 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
             stop: Mapping[str, Any] | None = None, voi: Iterable[Mapping[str, Any]] = (),
             pick: tuple[str | None, str | None] | None = None, extra_items: Iterable[str] = (), extra_los: Iterable[str] = (),
             ad_fields: AdFields | Mapping[str, Any] | None = None, versions: Mapping[str, Any] | None = None,
-            omitted: Mapping[str, Any] | None = None, clock: Clock | None = None) -> Material | None:
+            omitted: Mapping[str, Any] | None = None, clock: Clock | None = None,
+            effective_posterior: Any = None) -> Material | None:
     """Read one decision's state. None off, below the migration, or when it cannot be read: it never touches the decision.
 
     ``ad_fields``: the LOs' AD fields, or the reader of them (it runs before anything is written); None says the path
     read none. ``item_minutes``: each candidate item's predicted minutes and source. ``retrievability``:
-    ``scheduling.fsrs``'s, handed in because scheduling is itself a caller (this package stays below it)."""
+    ``scheduling.fsrs``'s, handed in because scheduling is itself a caller (this package stays below it).
+    ``effective_posterior``: ``diagnosis.probe_episodes.effective_posterior_reader``'s, handed in for the same reason
+    (diagnosis imports this package); None reads the stored posteriors."""
 
     config = getattr(vault, "config", None)
     if not objective_receipts_on(config):
@@ -323,7 +331,7 @@ def prepare(vault: Any, repository: Any, *, candidates: Iterable[Mapping[str, An
             session_minutes, day_minutes, reading = _active_minutes(connection, session_id, day_start, now)
             pending = _pending_reports(connection, now_iso)
             item_rows = _item_rows(connection, items, now, weights, retrievability, item_minutes or {})
-            lo_rows = _lo_rows(connection, los, ad)
+            lo_rows = _lo_rows(connection, los, ad, now_iso, effective_posterior)
         verdicts = _voi(voi)
         state: dict[str, Any] = {
             "version": RECEIPT_VERSION,
