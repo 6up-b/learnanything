@@ -98,3 +98,52 @@ def test_the_rpc_and_the_switch(textbook):
     set_config(paths, "source_service", compare=False)
     response = call(paths.root, "compare_sources", {"query": QUESTION, "caller": {"kind": "reader"}})
     assert response["error"]["data"]["code"] == "source_service_disabled"
+
+
+# -- K6-8: a post-attempt display of the item's own passage is debited on every return ----------------
+
+
+def _post_attempt(item_id: str) -> CallerContext:
+    return CallerContext(kind="reader", item_id=item_id, post_attempt_requested=True, window_open=False)
+
+
+def _own_passage_debits(repository, item_id: str) -> list[str]:
+    with repository.connection() as connection:
+        return [row[0] for row in connection.execute(
+            "SELECT basis FROM reveal_events WHERE practice_item_id = ? AND source_kind = 'source_review'",
+            (item_id,))]
+
+
+def _link_own(repository, item_id: str, extraction_id: str, span_id: str) -> None:
+    source = {"ext_text": ("src_text", "rev_text"), "ext_book": ("src_book", "rev_book")}[extraction_id]
+    repository.insert_entity_source_link(
+        entity_type="practice_item", entity_id=item_id, locator=format_block_span(extraction_id, span_id),
+        relation="primary", source_id=source[0], revision_id=source[1], extraction_id=extraction_id)
+
+
+def test_a_reused_comparison_showing_the_items_own_passage_is_debited_like_a_fresh_one(textbook):
+    paths, repository, _spans = textbook
+    item_id = "pi_determinant_2"
+    probe = _compare(paths, repository, FakeServiceLLM())
+    own = next((s["extraction_id"], s["span_id"]) for s in probe.sources if s["extraction_id"] == "ext_text")
+    _link_own(repository, item_id, *own)
+    fresh = _compare(paths, repository, FakeServiceLLM(), caller=_post_attempt(item_id))
+    assert fresh.policy == "post_attempt" and not fresh.reused
+    assert own in {(s["extraction_id"], s["span_id"]) for s in fresh.sources}
+    assert len(_own_passage_debits(repository, item_id)) == 1
+    again = _compare(paths, repository, FakeServiceLLM(), caller=_post_attempt(item_id))
+    assert again.reused and own in {(s["extraction_id"], s["span_id"]) for s in again.sources}
+    # Shown again: a later presentation of the item's own passage, debited again.
+    assert len(_own_passage_debits(repository, item_id)) == 2
+
+
+def test_a_one_source_comparison_showing_the_items_own_passage_is_debited(textbook):
+    paths, repository, _spans = textbook
+    item_id = "pi_determinant_2"
+    probe = _compare(paths, repository, FakeServiceLLM())
+    own = next((s["extraction_id"], s["span_id"]) for s in probe.sources if s["extraction_id"] == "ext_text")
+    _link_own(repository, item_id, *own)
+    single = _compare(paths, repository, FakeServiceLLM(), caller=_post_attempt(item_id), source_ids=["src_text"])
+    assert single.status == "too_few_sources"
+    assert own in {(s["extraction_id"], s["span_id"]) for s in single.sources}
+    assert _own_passage_debits(repository, item_id) == ["compare_sources:post_attempt"]

@@ -267,12 +267,39 @@ def compare_sources(
     # The whole comparison (retrieval, verification and the comparison call) is
     # under the service's shared daily cap, on every entry point (re-review F2).
     with service_spend(vault, repository, clock=clock):
-        return _compare_sources(vault, repository, query, caller=caller, facet_ids=facet_ids,
-                                requested_perspectives=requested_perspectives, pinned_span_ids=pinned_span_ids,
-                                pinned_span_keys=pinned_span_keys, anchor_span_keys=anchor_span_keys,
-                                source_ids=source_ids, by_point=by_point, policy=policy, deadline=deadline,
-                                client=client,
-                                verify_client=verify_client, embedder=embedder, clock=clock, withhold=withhold)
+        result = _compare_sources(vault, repository, query, caller=caller, facet_ids=facet_ids,
+                                  requested_perspectives=requested_perspectives, pinned_span_ids=pinned_span_ids,
+                                  pinned_span_keys=pinned_span_keys, anchor_span_keys=anchor_span_keys,
+                                  source_ids=source_ids, by_point=by_point, policy=policy, deadline=deadline,
+                                  client=client,
+                                  verify_client=verify_client, embedder=embedder, clock=clock, withhold=withhold)
+    _debit_shown_own_passages(vault, repository, caller, result, clock=clock)
+    return result
+
+
+def _debit_shown_own_passages(vault: LoadedVault, repository: Repository, caller: CallerContext,
+                              result: Comparison, *, clock: Clock | None) -> None:
+    """K6-8: a ``post_attempt`` comparison that returns the item's own passage is a full reveal of it,
+    whichever way it returned: a fresh comparison, a reused stored one, one book only
+    (``too_few_sources``), or a route skipped or down with the passages listed. Read from the final
+    passage list, at the one exit every return passes, so a branch added later cannot skip it; each
+    call that returns the passage is a presentation, as Find Sources counts its own."""
+
+    if result.policy != "post_attempt" or not caller.item_id or not result.sources:
+        return
+    item = vault.practice_items.get(caller.item_id)
+    if item is None:
+        return
+    shown = {(str(entry.get("extraction_id")), str(span))
+             for entry in result.sources
+             for span in [entry.get("span_id"), *(entry.get("span_ids") or [])] if span}
+    if not shown & set(item_exclusions(repository, item).spans):
+        return
+    from learnloop.attempts.reveal_ledger import record_reveal
+
+    result.manifest["reveal_id"] = record_reveal(
+        repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
+        source_kind="source_review", amount=1.0, basis="compare_sources:post_attempt", clock=clock)
 
 
 def _compare_sources(
@@ -692,14 +719,7 @@ def _compare_sources(
         )
     result.comparison_id = comparison_id
     result.manifest["usage"] = calls.report()
-    if derived == "post_attempt" and item is not None:
-        own = item_exclusions(repository, item).spans
-        if any((hit.extraction_id, hit.span_id) in own for hit in refs.values()):
-            from learnloop.attempts.reveal_ledger import record_reveal
-
-            result.manifest["reveal_id"] = record_reveal(
-                repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
-                source_kind="source_review", amount=1.0, basis="compare_sources:post_attempt", clock=clock)
+    # (The post-attempt debit of the item's own passage is taken at the exit, K6-8.)
     return result
 
 
