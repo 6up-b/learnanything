@@ -2046,6 +2046,13 @@ export function App() {
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
         {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+        aiConnection={aiConnection}
+        onConnectAi={() => setConnectOpen(true)}
+        onOpenBook={openBook}
+        onOpenLibrary={() => {
+          setLibraryView("books");
+          gotoTab("library");
+        }}
         onError={onError}
       />
     );

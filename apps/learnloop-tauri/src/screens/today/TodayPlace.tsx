@@ -24,6 +24,7 @@ import { api } from "../../api/client";
 import { TAG } from "../../api/queryTags";
 import { useCachedQuery } from "../../api/useCachedQuery";
 import type {
+  AiConnectionDto,
   DailyPlanDto,
   GoalDto,
   PlanReadingDto,
@@ -33,6 +34,7 @@ import type {
   SessionEndSummary,
   SessionSnapshot,
   SomethingElseChosenDto,
+  SourceLibraryCard,
   StreakSummary,
   WorkbenchOpenProblemDto
 } from "../../api/dto";
@@ -70,6 +72,15 @@ import {
   type TodayThread
 } from "../../app/todayPlan";
 import { errorMessage, type ErrorReport } from "../../errors";
+import {
+  PLAN_FINISHED,
+  WHATS_SENT,
+  causeActionLabel,
+  causeSendsPassages,
+  causeSentence,
+  todayCause,
+  type TodayCause
+} from "../../app/todayCause";
 
 export interface TodayPlaceProps {
   session: SessionSnapshot | null;
@@ -99,6 +110,15 @@ export interface TodayPlaceProps {
   wrapUp?: ReactNode;
   /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
   onStartLesson?: (entry: LessonEntry) => void;
+  /** UX fix stage 3 (audit P1): what an empty Today's cause line acts with.
+   *  The AI connection says which OK is missing and what is sent. */
+  aiConnection?: AiConnectionDto | null;
+  /** The one-time OK, or connecting an AI: the shelf's own sheet. */
+  onConnectAi?: () => void;
+  /** Open a book in the Reader, as its card's Continue does. */
+  onOpenBook?: (card: SourceLibraryCard) => void;
+  /** Go to the Library's books, where a card asks for something Today can't do. */
+  onOpenLibrary?: () => void;
   onError: (message: string, report?: ErrorReport) => void;
 }
 
@@ -117,6 +137,10 @@ const linkButton: CSSProperties = {
 };
 
 const dimLink: CSSProperties = { ...linkButton, color: COLOR.textDim };
+
+/** How often an empty day's cause is read again while a book's questions are
+ *  on their way (the shelf reads its cards every 3 s while one works). */
+const CAUSE_POLL_MS = 5000;
 
 function actionButton(primary = false): CSSProperties {
   return {
@@ -439,6 +463,10 @@ export function TodayPlace({
   subjects = [],
   wrapUp,
   onStartLesson,
+  aiConnection = null,
+  onConnectAi,
+  onOpenBook,
+  onOpenLibrary,
   onError
 }: TodayPlaceProps) {
   const planQuery = useDailyPlan(session?.sessionId ?? null);
@@ -464,8 +492,19 @@ export function TodayPlace({
   const minutes = plan ? plan.rememberedMinutes : offMinutes;
   const choices = plan ? plan.minuteChoices : summary.data?.minuteChoices ?? summary.data?.minutesPresets ?? [];
 
+  // UX fix stage 3 (P1): a plan with nothing in it (closed empty, or open with
+  // no block and nothing being chosen, waited on or held) says why, from the
+  // book cards and today's list.
+  const planDone = plan ? plan.status !== "open" : false;
+  const emptyDay =
+    data !== null &&
+    plan !== null &&
+    (planDone
+      ? planWasEmpty(data)
+      : todayRows(plan).length === 0 && plan.deciding !== true && !plan.waiting && !plan.questionInProgress);
+
   // The list is read only when it is shown, or while the plan is off (it
-  // names Begin's first question). With a session, or under the plan, it is
+  // names Begin's first question), or to tell an empty day's cause. With a session, or under the plan, it is
   // Today's own queue read (classic Today's input); with the plan off and no
   // session, the minutes Begin will start (classic Start's preview).
   const queueInput = useMemo(
@@ -479,7 +518,7 @@ export function TodayPlace({
     [session?.sessionId, session?.availableMinutes, planOff, offMinutes]
   );
   const queueQuery = useCachedQuery(
-    queueInput && (list || planOff) ? ["get_today_queue", queueInput] : null,
+    queueInput && (list || planOff || emptyDay) ? ["get_today_queue", queueInput] : null,
     () => api.getTodayQueue(queueInput!),
     { tags: [TAG.queue] }
   );
@@ -494,6 +533,23 @@ export function TodayPlace({
 
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
+  const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
+  const cause: TodayCause | null = emptyDay
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems })
+    : null;
+  // While a book's questions are on their way, the cause is read again as the
+  // shelf reads it, so the line never outlives its state.
+  const refetchLibrary = library.refetch;
+  const refetchQueue = queueQuery.refetch;
+  const onTheWay = cause?.kind === "on_the_way";
+  useEffect(() => {
+    if (!onTheWay) return;
+    const timer = window.setInterval(() => {
+      void refetchLibrary().catch(() => undefined);
+      void refetchQueue().catch(() => undefined);
+    }, CAUSE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [onTheWay, refetchLibrary, refetchQueue]);
 
   const goals = useCachedQuery(["goals_list"], () => api.goalsList(), { tags: [TAG.goals] });
   const primaryGoal: GoalDto | null = useMemo(() => {
@@ -728,6 +784,38 @@ export function TodayPlace({
     await openFromList(target);
   }
 
+  // P1: the one step beside an empty day's cause. A retry the sidecar wants
+  // confirmed (a re-read) is the Library's to ask.
+  async function retryFromToday(target: { sourceId: string } | { batchId: string }) {
+    const result = await run(() => api.sourceAction({ ...target, action: "retry" }));
+    if (result?.needsConfirmation) onOpenLibrary?.();
+  }
+
+  function causeAction(shown: TodayCause): (() => void) | null {
+    switch (shown.kind) {
+      case "list_has_more":
+        return () => setList(true);
+      case "waiting_ok":
+      case "needs_ai":
+        return onConnectAi ?? null;
+      case "failed":
+        return () => void retryFromToday(shown.target);
+      case "needs_look":
+        return onOpenLibrary ?? null;
+      case "on_the_way":
+      case "all_read": {
+        const card = shown.card;
+        return card && onOpenBook ? () => onOpenBook(card) : null;
+      }
+      case "no_reading":
+        return onAdd;
+    }
+  }
+
+  const causeLine = cause ? (
+    <CauseLine cause={cause} whatLeaves={aiConnection?.whatLeaves ?? null} busy={busy} onAction={causeAction(cause)} />
+  ) : null;
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (screenLeavesKey(event)) return;
@@ -820,6 +908,11 @@ export function TodayPlace({
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
           {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
         </div>
+        {empty ? causeLine : (
+          <div data-testid="today-finished" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
+            {PLAN_FINISHED}
+          </div>
+        )}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
             Keep going ↵
@@ -863,6 +956,7 @@ export function TodayPlace({
             why? {why ? "▾" : "▸"}
           </button>
         </div>
+        {causeLine}
         {inProgress ? (
           <QuestionInProgress
             question={inProgress}
@@ -963,6 +1057,42 @@ export function TodayPlace({
         )}
       </div>
       {wizard ? <GoalWizard onClose={() => setWizard(false)} onCreated={() => void goals.refetch().catch(() => undefined)} onError={onError} /> : null}
+    </div>
+  );
+}
+
+/** P1: an empty day's cause in one line, with its one action beside it and,
+ *  where that action sends passages to a model, what is sent on demand. A
+ *  status line, never an error. */
+function CauseLine({
+  cause,
+  whatLeaves,
+  busy,
+  onAction
+}: {
+  cause: TodayCause;
+  whatLeaves: string | null;
+  busy: boolean;
+  onAction: (() => void) | null;
+}) {
+  const [sent, setSent] = useState(false);
+  const label = causeActionLabel(cause);
+  return (
+    <div data-testid="today-cause" role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5 }}>
+      <div>
+        {causeSentence(cause)}{" "}
+        {label && onAction ? (
+          <button type="button" style={linkButton} disabled={busy} onClick={onAction}>
+            {label}
+          </button>
+        ) : null}
+        {whatLeaves && causeSendsPassages(cause) ? (
+          <button type="button" style={dimLink} aria-expanded={sent} onClick={() => setSent((open) => !open)}>
+            {WHATS_SENT} {sent ? "▾" : "▸"}
+          </button>
+        ) : null}
+      </div>
+      {sent && whatLeaves ? <div style={{ fontSize: 12, color: COLOR.textDim }}>{whatLeaves}</div> : null}
     </div>
   );
 }

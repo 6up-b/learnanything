@@ -7,7 +7,7 @@
 // the captures line; the first-run, done, loading and error states.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, WorkbenchOpenProblemDto } from "../../api/dto";
+import type { AiConnectionDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WorkbenchOpenProblemDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
 import { setAlgoConfig, setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
@@ -1101,5 +1101,183 @@ describe("fix round 2: the shell owns Begin's start", () => {
     expect(f.nextPlanItem).not.toHaveBeenCalled();
     expect(props.onBeginSession).not.toHaveBeenCalled();
     expect(props.onError).not.toHaveBeenCalled();
+  });
+});
+
+// ── UX fix stage 3 (UX journey audit P1, F1): Today explains itself ────────
+
+const EMPTY_TOTALS = { plannedMinutes: 0, plannedItems: 0, doneItems: 0, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 0 };
+const emptyPlan = (overrides: Partial<DailyPlanBodyDto> = {}) =>
+  body({ status: "complete", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS, ...overrides });
+
+const WHAT_LEAVES = "LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback.";
+
+function connection(overrides: Partial<AiConnectionDto> = {}): AiConnectionDto {
+  return {
+    canAuthor: false,
+    provider: "codex_medium",
+    providerLabel: "ChatGPT",
+    consentKey: "codex",
+    consented: false,
+    consentedAt: null,
+    needs: "consent",
+    message: null,
+    whatLeaves: WHAT_LEAVES,
+    chatgptSignedIn: true,
+    openrouterKeyPresent: false,
+    ...overrides
+  };
+}
+
+function libraryCard(statusLine: SourceStatusLineDto | null, overrides: Partial<SourceLibraryCard> = {}): SourceLibraryCard {
+  return {
+    sourceId: "src_sym",
+    title: "Symmetric Matrices and Variance",
+    acquisitionKind: "web",
+    canonicalUri: "https://example.org/sym",
+    workId: null,
+    currentRevisionId: "rev_1",
+    revisionCount: 1,
+    readiness: "ready",
+    unitCount: 4,
+    blockCount: 120,
+    extractionStatus: "completed",
+    suggestedRole: null,
+    readerEnabled: true,
+    updateAvailable: false,
+    kindNoun: "article",
+    statusLine,
+    ...overrides
+  };
+}
+
+const LINE = {
+  waitingOk: { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
+  needsAi: { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  writing: { text: "Writing questions for Ch. 1", tone: "working", action: null, details: null },
+  failed: { text: "Questions for Ch. 1 need another try", tone: "problem", action: { kind: "retry", label: "Retry" }, details: null },
+  costs: { text: "Building questions for Ch. 1 would cost about $0.40", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
+  built: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null }
+} satisfies Record<string, SourceStatusLineDto>;
+
+function emptyToday(cards: SourceLibraryCard[], extra: Record<string, ReturnType<typeof vi.fn>> = {}, plan: DailyPlanBodyDto = emptyPlan()) {
+  return apis(dto(plan), {
+    getSourceLibrary: vi.fn(async () => ({ version: 1, sources: cards, pending: [] })),
+    getTodayQueue: vi.fn(async () => queue([])),
+    ...extra
+  });
+}
+
+function causeProps(overrides: Partial<TodayPlaceProps> = {}): Partial<TodayPlaceProps> {
+  return { aiConnection: connection(), onConnectAi: vi.fn(), onOpenBook: vi.fn(), onOpenLibrary: vi.fn(), ...overrides };
+}
+
+describe("UX fix stage 3, P1: an empty or finished Today names its cause and carries its one action", () => {
+  it("questions waiting for the OK: the cause, Give your OK (the one-time OK), and what's sent on demand", async () => {
+    emptyToday([libraryCard(LINE.waitingOk)]);
+    const props = show(causeProps({ session: SESSION }));
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.getAttribute("role")).toBe("status");
+    expect(cause.textContent).toContain("Questions for “Symmetric Matrices and Variance” are waiting for your OK.");
+    expect(cause.textContent).not.toContain(WHAT_LEAVES);
+    fireEvent.click(within(cause).getByRole("button", { name: "what's sent ▸" }));
+    expect(cause.textContent).toContain(WHAT_LEAVES);
+    fireEvent.click(within(cause).getByRole("button", { name: "Give your OK" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("several books waiting: the first by name and how many more; with no AI connected, Connect", async () => {
+    emptyToday([libraryCard(LINE.waitingOk), libraryCard(LINE.waitingOk, { sourceId: "src_2", title: "Elevator Paradox" })]);
+    show(causeProps());
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("Questions for “Symmetric Matrices and Variance” and 1 more are waiting for your OK.");
+    cleanup();
+    clear();
+    emptyToday([libraryCard(LINE.needsAi)]);
+    const props = show(causeProps({ aiConnection: connection({ needs: "connect" }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("LearnLoop needs an AI connected to write questions for “Symmetric Matrices and Variance”.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Connect" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+  });
+
+  it("questions being written: on their way, keep reading, and Continue reading opens the book", async () => {
+    const card = libraryCard(LINE.writing);
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Questions for “Symmetric Matrices and Variance” are on their way. Keep reading meanwhile.");
+    expect(within(cause).queryByRole("button", { name: /what's sent/ })).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("question writing failed: Couldn't get questions ready, Try again retries on the card, with what's sent beside it", async () => {
+    const f = emptyToday([libraryCard(LINE.failed)], { sourceAction: vi.fn(async () => ({ sourceId: "src_sym", action: "retry" })) });
+    show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Couldn't get questions ready for “Symmetric Matrices and Variance”.");
+    expect(within(cause).getByRole("button", { name: "what's sent ▸" })).toBeTruthy();
+    fireEvent.click(within(cause).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.sourceAction).toHaveBeenCalledWith({ sourceId: "src_sym", action: "retry" }));
+  });
+
+  it("a card asking for something else (a cost to approve): the book needs a look, and Open Library goes there", async () => {
+    emptyToday([libraryCard(LINE.costs)]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("“Symmetric Matrices and Variance” needs a look in your Library.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Open Library" }));
+    expect(props.onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+
+  it("everything read has its questions: nothing more to add, and reading on brings more", async () => {
+    const card = libraryCard(LINE.built);
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Everything you've read has its questions. Reading on brings more.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("today's list still has questions: says so (never 'nothing to practise') and opens the list", async () => {
+    emptyToday([libraryCard(LINE.waitingOk)], { getTodayQueue: vi.fn(async () => queue([scheduled(1)])) });
+    show(causeProps());
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Today's list still has questions, if you'd like some.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("an open plan with no rows says its cause too", async () => {
+    emptyToday([libraryCard(LINE.writing)], {}, body({ blocks: [], currentBlockId: null, projected: [], deciding: false, totals: EMPTY_TOTALS }));
+    show(causeProps());
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("are on their way");
+  });
+
+  it("a finished plan: nothing else is needed", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 6 } }), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] }))
+    });
+    show(causeProps({ session: SESSION }));
+    const line = await screen.findByTestId("today-finished");
+    expect(line.textContent).toBe("Nothing else is needed today.");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+  });
+
+  it("every cause line is in plain words", async () => {
+    const lines = [LINE.waitingOk, LINE.needsAi, LINE.writing, LINE.failed, LINE.costs, LINE.built];
+    for (const line of lines) {
+      emptyToday([libraryCard(line)]);
+      show(causeProps());
+      const cause = await screen.findByTestId("today-cause");
+      expect(findJargon(cause.textContent ?? "")).toEqual([]);
+      cleanup();
+      clear();
+    }
   });
 });
