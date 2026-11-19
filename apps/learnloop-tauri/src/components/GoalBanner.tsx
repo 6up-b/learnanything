@@ -100,6 +100,45 @@ function buildPaceSentence(report: GoalReportSummaryDto, pace: GoalPaceDto, dueA
   return `${head} — at your recent ${paceNoun} of ${pace.attemptsPerDay}/day that's roughly ${days} ${days === 1 ? "day" : "days"}; ${allow}. ${verdict}`;
 }
 
+/** How long is left, as the end of a sentence; null for an open-ended goal. */
+function dueSentence(dueAt: string | null): string | null {
+  const d = daysUntil(dueAt);
+  if (d == null) return null;
+  if (d < 0) return `Its due date passed ${-d} ${d === -1 ? "day" : "days"} ago.`;
+  if (d === 0) return "It is due today.";
+  if (d === 1) return "It is due tomorrow.";
+  return `It is due in ${d} days.`;
+}
+
+/**
+ * The report of a goal nothing has checked yet, in plain words; null once anything has been checked (or for a
+ * sidecar too old to say). Every count is zero there, so the pace sentence's "remaining work is zero" reads as
+ * "all certified" and the standing's zero attainment as "BEHIND": both true of the numbers and false of the
+ * learner, who has not started (UX-8). Chooses words only: what the report computed is read, never changed.
+ */
+export function emptyGoalSentence(goal: GoalDto): string | null {
+  const report = goal.report;
+  if (!report || report.examinedCount === undefined) return null;
+  if ((report.examinedCount ?? 0) > 0 || (report.certifiedCount ?? 0) > 0) return null;
+  const answered = report.pace?.attemptsLogged ?? 0;
+  const head =
+    answered > 0
+      ? `You have answered ${answered} ${answered === 1 ? "question" : "questions"}, but none has checked this goal's topics yet.`
+      : "Nothing has been checked for this goal yet.";
+  const next =
+    report.total <= 0
+      ? "None of the topics in your books is part of it so far: add or read a book that covers it, and its questions will count here."
+      : answered > 0
+        ? "This goal's questions, answered on your own, are what count here."
+        : "Answer its questions on your own and this report will start to fill in.";
+  return [head, next, dueSentence(goal.dueAt)].filter(Boolean).join(" ");
+}
+
+/** Whether an empty goal has anything to practise: topics in it, and questions unless the count is unknown. */
+function emptyGoalCanPractise(goal: GoalDto): boolean {
+  return (goal.report?.total ?? 0) > 0 && (goal.practicableItemCount == null || goal.practicableItemCount > 0);
+}
+
 // Tri-state monospace coverage bar: certified ▓ / examined ▒ / untouched ░.
 function SegmentBar({
   certified,
@@ -272,7 +311,9 @@ export function GoalBanner({
 
   const hasDualAxis = report?.attainmentFraction !== undefined;
   const attainment = report?.attainmentFraction ?? report?.onTrackFraction ?? null;
-  const status = statusOf(attainment);
+  // Nothing checked yet: the zero counts below are not a verdict, so the report says what is true instead.
+  const emptySentence = emptyGoalSentence(goal);
+  const status = emptySentence ? { label: "NOT STARTED", color: COLOR.textDim } : statusOf(attainment);
   const targetPct = Math.round(goal.targetRecall * 100);
   const tone = goal.dueAt ? dueTone(goal.dueAt) : status.color;
 
@@ -496,6 +537,7 @@ export function GoalBanner({
                 border: `1px solid ${status.color}`,
                 padding: "2px 8px"
               }}
+              data-testid="goal-status"
             >
               {status.label}
             </span>
@@ -525,8 +567,8 @@ export function GoalBanner({
             <Faint style={{ fontSize: 11 }}>toward target</Faint>
           </div>
 
-          {/* coverage bar (certified / examined / untouched) */}
-          {hasDualAxis && report ? (
+          {/* coverage bar (certified / examined / untouched); all zeros before anything is checked */}
+          {hasDualAxis && report && !emptySentence ? (
             <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <SegmentBar
                 certified={report.certifiedCount ?? 0}
@@ -541,8 +583,8 @@ export function GoalBanner({
             </div>
           ) : null}
 
-          {/* earned progress */}
-          {hasDualAxis && report ? (
+          {/* earned progress; the empty goal's sentence says its one count */}
+          {hasDualAxis && report && !emptySentence ? (
             <div style={{ marginTop: 10, fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
               {pace ? `${pace.attemptsLogged} attempts` : null}
               {pace ? " · " : null}
@@ -552,7 +594,11 @@ export function GoalBanner({
           ) : null}
 
           {/* work remaining + pace — the honest pace sentence (spec §4.2) */}
-          {hasDualAxis && paceSentence ? (
+          {emptySentence ? (
+            <div data-testid="goal-empty-state" style={{ marginTop: 8, fontSize: 12, color: COLOR.textDim, fontFamily: FONT_MONO, lineHeight: 1.55 }}>
+              {emptySentence}
+            </div>
+          ) : hasDualAxis && paceSentence ? (
             <div style={{ marginTop: 8, fontSize: 12, color: paceTone, fontFamily: FONT_MONO, lineHeight: 1.55 }}>
               {paceSentence}
             </div>
@@ -760,14 +806,21 @@ export function GoalBanner({
 
           {/* actions */}
           <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={onPracticeAtRisk}
-              title="goal items are floored in your normal queue — practicing now covers them"
-              style={btnStyle(COLOR.amber)}
-            >
-              practice at-risk facets ↵
-            </button>
+            {!emptySentence ? (
+              <button
+                type="button"
+                onClick={onPracticeAtRisk}
+                title="goal items are floored in your normal queue — practicing now covers them"
+                style={btnStyle(COLOR.amber)}
+              >
+                practice at-risk facets ↵
+              </button>
+            ) : emptyGoalCanPractise(goal) ? (
+              // The same action; before anything is checked every topic is still to do, and "at-risk" claims a check.
+              <button type="button" onClick={onPracticeAtRisk} style={btnStyle(COLOR.amber)}>
+                practise for this goal ↵
+              </button>
+            ) : null}
             {showExamButton ? (
               <button type="button" onClick={() => onTakeExam?.(goal.id)} style={btnStyle(COLOR.cyan)}>
                 take practice exam
