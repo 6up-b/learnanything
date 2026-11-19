@@ -349,7 +349,7 @@ def test_k5_3_an_assessed_probe_answer_is_scored_at_both_tags(tmp_path, tag):
     )
 
 
-# -- G3-1: a probe answer given after its feedback was shown, or after a reveal, is contaminated in its episode -------
+# -- G3-1: a probe answer given after its feedback was shown, or after a reveal, updates no belief in its episode ------
 
 
 class _ProbeGrader(JointGraderAlsoBlind, StructuredClientFake):
@@ -413,7 +413,7 @@ def _expose(ctx, repository, result, row, exposure):
         )
 
 
-def _answer_probe(ctx, repository, row):
+def _answer_probe(ctx, repository, row, *, hints_used=0):
     """The probe answered through the model grader (an approved source, so the episode records an observation) and
     the post-attempt pipeline (which writes the discriminating observation)."""
 
@@ -424,7 +424,8 @@ def _answer_probe(ctx, repository, row):
     probe = complete_attempt_with_ai_fallback(
         vault, repository,
         AttemptDraft(practice_item_id=row["practice_item_id"], learner_answer_md="An answer.",
-                     attempt_type="diagnostic_probe", probe_presentation_id=row["presentation_id"]),
+                     attempt_type="diagnostic_probe", probe_presentation_id=row["presentation_id"],
+                     hints_used=hints_used),
         SelfGradeInput(criterion_points={}, confidence=3),
         runtime=_ready_runtime(), ai_client=_ProbeGrader({"fact_0": 0, "fact_1": 2}), clock=PROBE_CLOCK,
     )
@@ -445,6 +446,29 @@ def _episode_reading(vault, repository, probe_attempt_id):
     return stored, effective, posterior.qualifying_observations
 
 
+class _DiscriminatingInstrument:
+    """The journey's generated probe reads every outcome alike for its two causes (its likelihoods are flat), so no
+    answer moves the episode posterior and a belief update could not be seen. Installed, the instrument separates the
+    causes, live and on replay alike; ``on = False`` makes it flat again (the answer then carries no information)."""
+
+    def __init__(self, monkeypatch):
+        from learnloop.diagnosis import probe_episodes, probe_evidence
+
+        self.on = True
+        self._original = probe_episodes.instrument_observation_likelihoods
+        monkeypatch.setattr(probe_episodes, "instrument_observation_likelihoods", self)
+        monkeypatch.setattr(probe_evidence, "instrument_observation_likelihoods", self)
+
+    def __call__(self, instrument, slot_map, outcome):
+        likelihoods = self._original(instrument, slot_map, outcome)
+        if not likelihoods:
+            return likelihoods
+        labels = sorted(likelihoods)
+        if not self.on:
+            return {label: 0.5 for label in labels}
+        return dict(zip(labels, [0.9, 0.2] + [0.5] * (len(labels) - 2), strict=False))
+
+
 EXPOSURES = pytest.mark.parametrize(
     ("exposure", "reason"),
     [("shown_anyway", "followup_feedback_shown_anyway"), ("reveal", "post_reveal_not_independent")],
@@ -453,7 +477,8 @@ EXPOSURES = pytest.mark.parametrize(
 
 @EXPOSURES
 @BOTH_TAGS
-def test_g3_1_an_exposed_probe_answer_is_contaminated_in_its_episode(tmp_path, monkeypatch, tag, exposure, reason):
+def test_g3_1_an_exposed_probe_answer_updates_no_belief_in_its_episode(tmp_path, monkeypatch, tag, exposure, reason):
+    _DiscriminatingInstrument(monkeypatch)
     paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, tag)
     _expose(ctx, repository, result, row, exposure)
     probe_attempt_id = _answer_probe(ctx, repository, row)
@@ -461,22 +486,48 @@ def test_g3_1_an_exposed_probe_answer_is_contaminated_in_its_episode(tmp_path, m
     (discriminating,) = repository.causal_discriminating_observations(factor_id=row["factor_id"])
     assert (discriminating["admissible_as_independent"], discriminating["inadmissibility_reason"]) == (0, reason)
     stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
-    weight = vault.config.probe.episode.contaminated_evidence_weight
     if tag == TAG:
-        # The episode applies the discriminating observation's test: contaminated, damped to the configured weight,
-        # qualifying nothing, and written so at submission.
+        # The episode applies the discriminating observation's test, and an exposed answer reads as a held grade
+        # does: no belief update, nothing qualifying, the reason recorded; written so at submission.
         for observation in (stored, effective):
             assert observation.contamination == {"answer_exposed": reason}
-            assert observation.independent_evidence_discount == weight
-            assert observation.eligible_for_completion is False and observation.updates_belief is True
+            assert observation.independent_evidence_discount == 0.0
+            assert observation.updates_belief is False and observation.eligible_for_completion is False
+        assert stored.posterior_after == stored.posterior_before
+        assert stored.realized_information_gain == 0.0
         assert qualifying == 0
     else:
         # mvp-0.60, today: the same answer counted at full weight and qualified (ledger G3-1).
         for observation in (stored, effective):
             assert observation.contamination is None
             assert observation.independent_evidence_discount == 1.0
-            assert observation.eligible_for_completion is True
+            assert observation.updates_belief is True and observation.eligible_for_completion is True
+        assert stored.posterior_after != stored.posterior_before
         assert qualifying == 1
+
+
+@BOTH_TAGS
+def test_g3_1_a_hinted_answer_that_was_also_exposed_is_exposed(tmp_path, monkeypatch, tag):
+    _DiscriminatingInstrument(monkeypatch)
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, tag)
+    _expose(ctx, repository, result, row, "shown_anyway")
+    probe_attempt_id = _answer_probe(ctx, repository, row, hints_used=1)
+
+    stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    assert qualifying == 0
+    if tag == TAG:
+        # Exposed wins over the hint's damping: no update at all.
+        for observation in (stored, effective):
+            assert observation.contamination == {"hints_used": 1, "answer_exposed": "followup_feedback_shown_anyway"}
+            assert (observation.independent_evidence_discount, observation.updates_belief) == (0.0, False)
+        assert stored.posterior_after == stored.posterior_before
+    else:
+        # mvp-0.60, today: a hinted answer, damped to the contaminated weight.
+        weight = vault.config.probe.episode.contaminated_evidence_weight
+        for observation in (stored, effective):
+            assert observation.contamination == {"hints_used": 1}
+            assert (observation.independent_evidence_discount, observation.updates_belief) == (weight, True)
+        assert stored.posterior_after != stored.posterior_before
 
 
 def test_g3_1_a_clean_probe_answer_is_unchanged_at_the_tag(tmp_path, monkeypatch):
@@ -492,12 +543,13 @@ def test_g3_1_a_clean_probe_answer_is_unchanged_at_the_tag(tmp_path, monkeypatch
 
 
 @EXPOSURES
-def test_g3_1_an_exposed_answer_recorded_below_the_tag_reads_contaminated_after_the_upgrade(
+def test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_the_upgrade(
     tmp_path, monkeypatch, exposure, reason,
 ):
     """A stored observation keeps its row; the episode reads it through the same test once the vault is at the tag,
-    and its posterior then moves by the damped weight, not the full one."""
+    and its posterior then is the posterior before that answer."""
 
+    instrument = _DiscriminatingInstrument(monkeypatch)
     paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
     _expose(ctx, repository, result, row, exposure)
     probe_attempt_id = _answer_probe(ctx, repository, row)
@@ -505,20 +557,24 @@ def test_g3_1_an_exposed_answer_recorded_below_the_tag_reads_contaminated_after_
     presentation = repository.probe_presentation(row["presentation_id"])
     episode = repository.probe_episode(presentation.probe_episode_id)
     full = episode_posterior(vault, repository, episode).posterior
+    instrument.on = False
+    before = episode_posterior(vault, repository, episode).posterior  # the episode without what the answer says
+    instrument.on = True
 
     set_algorithm_version(paths, TAG)
     vault = load_vault(paths.root)
     stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
-    damped = episode_posterior(vault, repository, episode).posterior
+    after = episode_posterior(vault, repository, episode).posterior
 
-    assert (stored.contamination, stored.eligible_for_completion) == (None, True)  # the receipt is untouched
+    # The receipt is untouched: it still records the full-weight update.
+    assert (stored.contamination, stored.eligible_for_completion, stored.updates_belief) == (None, True, True)
+    assert stored.posterior_after != stored.posterior_before
     assert effective.contamination == {"answer_exposed": reason}
-    assert effective.independent_evidence_discount == vault.config.probe.episode.contaminated_evidence_weight
+    assert (effective.independent_evidence_discount, effective.updates_belief) == (0.0, False)
     assert (before_qualifying, qualifying) == (1, 0)
-    prior = episode_posterior(vault, repository, episode).prior
-    # Damped: the exposed answer moves each hypothesis less than it did at full weight, in the same direction.
-    for label in prior:
-        assert abs(damped[label] - prior[label]) <= abs(full[label] - prior[label]) + 1e-12
+    # Below the tag the answer moved the posterior; read at the tag, the posterior after it equals the one before it.
+    assert full != pytest.approx(before)
+    assert after == pytest.approx(before)
 
 
 # -- the upgrade: one vault holding every case at mvp-0.60, upgraded to mvp-0.61, then rebuilt again -----------------
@@ -648,8 +704,9 @@ def _reading(paths, cases):
     for name in ("probe_shown_anyway", "probe_reveal"):
         stored, effective, qualifying = _episode_reading(vault, repository, cases[name])
         reading[name] = {
-            "stored": (stored.contamination, stored.independent_evidence_discount, stored.eligible_for_completion),
-            "effective": (effective.contamination, effective.independent_evidence_discount,
+            "stored": (stored.contamination, stored.independent_evidence_discount, stored.updates_belief,
+                       stored.eligible_for_completion),
+            "effective": (effective.contamination, effective.independent_evidence_discount, effective.updates_belief,
                           effective.eligible_for_completion),
             "qualifying": qualifying,
         }
@@ -721,11 +778,11 @@ def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tm
     assert _derived(paths) == derived
 
     exposed = {"probe_shown_anyway": "followup_feedback_shown_anyway", "probe_reveal": "post_reveal_not_independent"}
-    weight = load_vault(paths.root).config.probe.episode.contaminated_evidence_weight
     for name, reason in exposed.items():
-        assert before[name] == {"stored": (None, 1.0, True), "effective": (None, 1.0, True), "qualifying": 1}
-        assert after[name] == {"stored": (None, 1.0, True), "effective": ({"answer_exposed": reason}, weight, False),
-                               "qualifying": 0}
+        assert before[name] == {"stored": (None, 1.0, True, True), "effective": (None, 1.0, True, True),
+                                "qualifying": 1}
+        assert after[name] == {"stored": (None, 1.0, True, True),
+                               "effective": ({"answer_exposed": reason}, 0.0, False, False), "qualifying": 0}
     assert before["unassessed_diagnosed"] == ("consistent_with_claims", True, False)
     assert after["unassessed_diagnosed"] == ("unknown", False, False)
     assert before["zero_confidence"] == after["zero_confidence"] == (0.0, [0.0])

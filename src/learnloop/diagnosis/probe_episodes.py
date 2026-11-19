@@ -1318,15 +1318,6 @@ def answer_exposure(vault: LoadedVault, repository: Repository, attempt_id: str)
     return str(admissibility.reason or "not_independent")
 
 
-def exposed_evidence_weight(vault: LoadedVault, discount: float | None) -> float:
-    """An exposed answer's evidence weight: the configured contaminated weight
-    (``probe.episode.contaminated_evidence_weight``), or less when a task share or a trace bound already held it
-    lower."""
-
-    stored = 1.0 if discount is None else float(discount)
-    return min(stored, float(vault.config.probe.episode.contaminated_evidence_weight))
-
-
 def effective_episode_observations(vault: LoadedVault, repository: Repository, episode_id: str) -> list[dict[str, Any]]:
     """The episode's observation rows (``probe_observations_for_episode``, the held-grade view) as the episode reads
     them at the vault's tag.
@@ -1335,11 +1326,14 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
     tutor help and the attempt type, so a probe answer given after its feedback was shown, after its causes were
     displayed, or after a reveal counted at full weight and could complete the episode, while the discriminating
     observation refused the same answer as not independent (refactor bug ledger G3-1). From the tag the episode
-    applies the same test (:func:`answer_exposure`): an exposed answer is contaminated evidence. It updates the
-    posterior at no more than the configured contaminated weight and qualifies nothing, so it cannot complete an
-    episode. An observation recorded at the tag carries this already (``probe_evidence``); one recorded before reads
-    the same here, its stored row untouched. Its state segment is not closed (a read cannot close one), so a live
-    observation leaves the segments as they were too."""
+    applies the same test (:func:`answer_exposure`), and an exposed answer reads as a held grade does: it updates no
+    belief (discount 0.0) and qualifies nothing, its reason recorded as ``answer_exposed``. The instrument's
+    likelihoods are for an answer produced cold; once the feedback, the causes or a reveal were shown the outcome no
+    longer separates the causes, so a damped update would still be a wrong one. A hinted or tutored answer that was
+    also exposed is exposed. An observation recorded at the tag carries this already (``probe_evidence``); one
+    recorded before reads the same here, its stored row (posteriors included) untouched, as the held-grade view leaves
+    a held row's. Its state segment is not closed (a read cannot close one), so a live observation leaves the segments
+    as they were too."""
 
     rows = repository.probe_observations_for_episode(episode_id)
     from learnloop.algorithm_versions import evidence_reading_fixes_on
@@ -1353,15 +1347,16 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
         if (observation.updates_belief or observation.eligible_for_completion) and ANSWER_EXPOSED not in contamination:
             exposure = answer_exposure(vault, repository, observation.attempt_id)
             if exposure is not None:
-                weight = exposed_evidence_weight(vault, observation.independent_evidence_discount)
                 row = {
                     **row,
-                    **{key: 0 for key in ("eligible_for_completion",) if key in row},
-                    **{key: weight for key in ("independent_evidence_discount",) if key in row},
+                    # The joined raw columns too, where the row carries them.
+                    **{key: 0 for key in ("updates_belief", "eligible_for_completion") if key in row},
+                    **{key: 0.0 for key in ("independent_evidence_discount",) if key in row},
                     "observation": replace(
                         observation,
                         contamination={**contamination, ANSWER_EXPOSED: exposure},
-                        independent_evidence_discount=weight,
+                        independent_evidence_discount=0.0,
+                        updates_belief=False,
                         eligible_for_completion=False,
                     ),
                 }

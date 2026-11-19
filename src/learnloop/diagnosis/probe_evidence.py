@@ -193,7 +193,8 @@ def _presentation_contamination(
     if attempt_type != "diagnostic_probe":
         contamination["attempt_type"] = attempt_type
     # G3-1 (mvp-0.61): an answer the shared exposure test refuses as not
-    # independent (``probe_episodes.answer_exposure``) is contaminated evidence.
+    # independent (``probe_episodes.answer_exposure``) carries the reason, and
+    # its observation updates no belief (``_record_presentation_observation``).
     if exposure is not None:
         contamination[ANSWER_EXPOSED] = exposure
     return contamination
@@ -624,10 +625,17 @@ def _record_presentation_observation(
     )
     contaminated = bool(contamination)
     # What the attempt itself carried (hints, tutor help, its type) decides its
-    # activity class and closes the segment, as before; an exposure only damps
-    # this observation and keeps it from qualifying, which is what a stored
-    # observation reads at the tag too (``effective_episode_observations``).
+    # activity class and closes the segment, as before; an exposure only takes
+    # this observation out of the belief and the completion count, which is what
+    # a stored observation reads at the tag too (``effective_episode_observations``).
     instructional = any(key != ANSWER_EXPOSED for key in contamination)
+    # G3-1 (mvp-0.61): the instrument's likelihoods are for an answer produced
+    # cold. After the feedback, the causes or a reveal were shown, the outcome
+    # no longer separates the causes, so an exposed answer updates no belief at
+    # any weight (the held grade's shape below), also when it was hinted or
+    # tutored too; damping it instead would still let it move the choice of
+    # repair, while the discriminating observation refuses it outright.
+    exposed = ANSWER_EXPOSED in contamination
 
     episode_config = vault.config.probe.episode
     weight = episode_config.contaminated_evidence_weight if contaminated else 1.0
@@ -640,9 +648,13 @@ def _record_presentation_observation(
         # §8.2: a multi-obligation response is one instrument — its update is
         # bounded by the assessable share of the task's fixed evidence mass.
         weight = min(weight, max(min(trace_mass, 1.0), 0.0))
-    posterior_after = _bayes_update(
-        dict(posterior_before), likelihoods, weight=weight, prior_for_marginal=posterior_before
-    )
+    if exposed:
+        weight = 0.0
+        posterior_after = dict(posterior_before)
+    else:
+        posterior_after = _bayes_update(
+            dict(posterior_before), likelihoods, weight=weight, prior_for_marginal=posterior_before
+        )
     entropy_before = _entropy(posterior_before)
     entropy_after = _entropy(posterior_after)
     eligible = (
@@ -684,7 +696,7 @@ def _record_presentation_observation(
             "grading_source": grading_source,
             "observed_outcome": outcome,
         },
-        updates_belief=True,
+        updates_belief=not exposed,
         eligible_for_completion=eligible,
         features=features,
         clock=clock,
