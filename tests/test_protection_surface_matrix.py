@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from contextlib import contextmanager
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -1104,7 +1105,7 @@ def _library_ask_once(probe: Probe, world: World, target: Target) -> str:
     return S if _key(target) in {hit["key"] for hit in asked.get("hits") or []} else W
 
 
-def _stored_ask(probe: Probe, target: Target) -> tuple[Any, str, str]:
+def _stored_ask(probe: Probe, target: Target, *, own: str = "library-kept") -> tuple[Any, str, str]:
     """An ask whose kept result shows the target, as a search made before its mark would have kept it: the
     search is answered with the target's passage. Returns the sidecar, the ask id and its job id."""
 
@@ -1115,7 +1116,7 @@ def _stored_ask(probe: Probe, target: Target) -> tuple[Any, str, str]:
     from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
     from tests.library_ask_fixtures import ask_rows, call_rpc
 
-    world = probe.world(target, own="library-kept")
+    world = probe.world(target, own=own)
     ctx = _sidecar(probe, world)
     ctx.post_attempt_worker = PostAttemptWorker(autostart=False)
     extraction, span = _span(target)
@@ -1209,3 +1210,165 @@ def test_surface_answers_every_fixture_as_pinned(probe: Probe, column: str) -> N
     expected = {row: value for (row, cell_column), value in EXPECTED.items() if cell_column == column and value != NA}
     moved = {row: f"pinned {expected[row]}, now {actual[row]}" for row in expected if actual[row] != expected[row]}
     assert not moved, f"{column}: {moved}"
+
+
+
+# --- defects: the desired answer, failing first ---------------------------------------------------------------
+# Each pinned cell above keeps today's answer; the test below states the answer the ledger row's fix gives, as a
+# strict xfail, so the fix turns exactly it green (and must flip the pinned cell in the same commit).
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P1: a figure prebuild's live-item guard omits exam-pool reservations")
+def test_an_exam_reserved_items_own_passage_is_withheld_from_figure_prebuilds(probe: Probe) -> None:
+    target = probe.base.targets["6.exam-reserved"]
+    assert _figure_withheld(probe, target) == S  # its source is clean: the span filter can't catch it
+    assert _figure_item_passages(probe, target) == W
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P6: the Reader import's held-out check reads only snake_case span_id")
+def test_a_camel_case_selection_of_held_out_material_is_refused_before_the_author(probe: Probe) -> None:
+    assert _reader_import(probe, probe.base.targets["3.held"]) == R
+    assert _reader_import(probe, probe.base.targets["3.camel"]) == R
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P7: the Reader import's author context adds unchecked neighbours")
+def test_the_reader_imports_author_never_sees_a_held_out_neighbour(probe: Probe) -> None:
+    assert _reader_neighbour(probe, probe.base.targets["3.held"]) == W
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P7: the canonical import's author context adds unchecked neighbours")
+def test_the_canonical_imports_author_never_sees_an_exam_neighbour(probe: Probe) -> None:
+    assert _canonical_neighbour(probe, probe.base.targets["2.exam"]) == W
+
+
+def _mark_held(world: World, unit: str) -> None:
+    """The owner holds one clean-book unit out now, through the production writer."""
+
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+    from tests.protection_matrix_helpers import CLEAN_UNITS
+
+    save_unit_selection(world.repository, "ext_g6clean", [f"c_{name}" for name in CLEAN_UNITS],
+                        exam_use_modes={unit: "held_out_evaluation"}, clock=CLOCK)
+
+
+def _completed_pinned_answer(probe: Probe, own: str):
+    """A pinned tutor answer over the clean control passage, finished: the sidecar, its job id and the key."""
+
+    from types import SimpleNamespace
+    from unittest import mock
+
+    import learnloop_sidecar.handlers.ai_providers as providers
+    from tests.library_ask_fixtures import call_rpc, tutor_with_citations
+
+    target = replace(probe.base.targets["0.control"], row=f"0.control-{own}")
+    ctx, ask_id, _job = _stored_ask(probe, target, own=own)
+    key = _key(target)
+    tutor = tutor_with_citations([_span(target)], answer_md="GSIXCLEANCTRL is what your passage says.")
+    with mock.patch.object(providers, "ready_tutor_qa_provider",
+                           lambda vault: ("g6", SimpleNamespace(ready=True), tutor)):
+        job = call_rpc(ctx, "reader.library_ask_tutor", {"askId": ask_id, "pinnedSpanKeys": [key]})
+        kept = ctx.library_ask_jobs.get(job["jobId"])
+        assert kept is not None and kept.done.wait(60), "the tutor never finished"
+    return ctx, job["jobId"], probe.world(target, own=own)
+
+
+def test_a_completed_pinned_answer_is_returned_after_its_passage_is_held_out(probe: Probe) -> None:
+    """Today's answer of the completed tutor job (TJ): no current protection read when it is read again."""
+
+    from tests.library_ask_fixtures import call_rpc
+
+    ctx, job_id, world = _completed_pinned_answer(probe, "tj-today")
+    _mark_held(world, "c_ctrl")
+    for _poll in range(2):
+        result = call_rpc(ctx, "reader.library_job", {"jobId": job_id})["result"]
+        assert "GSIXCLEANCTRL" in json.dumps(result)
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P2: a completed pinned-tutor job is delivered with no current check")
+def test_a_completed_pinned_answer_is_refused_once_its_passage_is_held_out(probe: Probe) -> None:
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import call_rpc
+
+    ctx, job_id, world = _completed_pinned_answer(probe, "tj-desired")
+    _mark_held(world, "c_ctrl")
+    for _poll in range(2):
+        with pytest.raises(SidecarError):
+            call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+
+
+MISSING_KEY = "g6missing_extraction:s1"
+
+
+def _ask_naming_a_missing_passage(probe: Probe, own: str):
+    target = replace(probe.base.targets["0.control"], row=f"0.control-{own}", extraction_id="g6missing_extraction",
+                     span_id="s1")
+    return _stored_ask(probe, target, own=own)
+
+
+def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_returned(probe: Probe) -> None:
+    """Today's answers of the organizer (OR) and the kept job (LJ) for a well-formed key naming no passage."""
+
+    from tests.library_ask_fixtures import OrganizerFake, call, call_rpc
+
+    ctx, ask_id, job_id = _ask_naming_a_missing_passage(probe, "missing-today")
+    assert MISSING_KEY in json.dumps(call_rpc(ctx, "reader.library_job", {"jobId": job_id})["result"])
+    ctx.library_organizer_client = OrganizerFake()
+    assert call(ctx, "reader.library_ask_notes", {"askId": ask_id})["status"] == "empty_pool"
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P5: a cached key's protection check does not prove the passage exists")
+def test_a_kept_answer_naming_a_passage_that_does_not_exist_is_refused(probe: Probe) -> None:
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import OrganizerFake, call, call_rpc
+
+    ctx, ask_id, job_id = _ask_naming_a_missing_passage(probe, "missing-desired")
+    with pytest.raises(SidecarError):
+        call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+    ctx.library_organizer_client = OrganizerFake()
+    with pytest.raises(SidecarError):
+        call(ctx, "reader.library_ask_notes", {"askId": ask_id})
+
+
+def _legacy_thread_ask(probe: Probe, own: str) -> RecordingModel:
+    """Reader Ask with its inquiry branches off: an answer given on the control passage cites its neighbour (the
+    reserved item's unit heading); that unit is then held out, and the learner asks again on the same passage."""
+
+    from types import SimpleNamespace
+    from unittest import mock
+
+    import learnloop_sidecar.handlers.reader as reader_handlers
+    from learnloop.ops.settings_store import apply_config_updates
+    from tests.reader_tutor_fakes import LookupTutor
+
+    target = replace(probe.base.targets["0.control"], row=f"0.control-{own}")
+    world = probe.world(target, own=own)
+    apply_config_updates(world.root / "learnloop.toml", {("reader_inquiry", "enabled"): False})
+    extraction, span = _span(target)
+    neighbour = "s4"  # the next unit's heading: GSIXCLEANRES
+    tutor = LookupTutor(answer_md="As the next section says, GSIXCLEANRES holds the answer.",
+                        cite=lambda context: [(extraction, neighbour)])
+    params = {"extraction_id": extraction, "span_id": span, "question": "What does this passage say?"}
+    with mock.patch.object(reader_handlers, "ready_tutor_qa_provider",
+                           lambda vault: ("g6", SimpleNamespace(ready=True), tutor)):
+        _call(probe, target, "reader.ask", params, phone=False, own=own)
+    assert tutor.contexts and any(entry["span_id"] == neighbour for entry in tutor.contexts[0]["source_spans"])
+    _mark_held(world, "c_res")
+    model = RecordingModel()
+    with _tutor(model):
+        with pytest.raises(ModelReached):
+            _call(probe, target, "reader.ask", {**params, "question": "And again?"}, phone=False, own=own)
+    return model
+
+
+def test_a_legacy_reader_thread_sends_an_answer_grounded_in_a_passage_held_out_since(probe: Probe) -> None:
+    """Today's answer (RA, inquiry branches off): the held-out neighbour is out of the new manifest, but the earlier
+    answer that quoted it is in the next model context."""
+
+    model = _legacy_thread_ask(probe, "legacy-today")
+    assert model.carried("GSIXCLEANRES")
+
+
+@pytest.mark.xfail(strict=True, reason="G6-P3: a legacy Reader thread re-sends history with no current admission")
+def test_a_legacy_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe) -> None:
+    model = _legacy_thread_ask(probe, "legacy-desired")
+    assert model.prompts and not model.carried("GSIXCLEANRES")
