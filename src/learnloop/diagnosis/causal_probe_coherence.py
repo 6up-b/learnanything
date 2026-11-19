@@ -40,6 +40,7 @@ from learnloop.diagnosis.causal_attribution import (
     SUPPORT_BASIS_AUTHORITY,
 )
 from learnloop.params.fitted_params import CAUSAL_PROBE_POLICY_SCOPE
+from learnloop.diagnosis.probe_facts import probe_facts, probe_verdict
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.diagnosis.probes import Hypothesis, HypothesisSet
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -425,96 +426,36 @@ def decide_probe(
     avoided over-teaching. The resolver reads a fitted scope that nothing writes
     today (see cli/fit.py), so the defaults serve. Resolved thresholds are returned
     on the decision as a parameter manifest for the receipt.
+
+    The facts come from ``probe_facts`` and the verdict from ``probe_verdict``
+    over them (``diagnosis/probe_facts.py``); this function only resolves the
+    thresholds and carries both onto the receipt's decision.
     """
 
     resolved = parameters or resolve_causal_probe_parameters(repository)
-    classes = tuple(sorted({str(value) for value in repair_class_ids if value}))
-    different_repairs = len(classes) > 1
-    expected_avoided = (
-        max(0.0, avoided_overteaching_minutes)
-        * max(0.0, min(1.0, probability_information_changes_repair))
-        * max(0.0, min(1.0, expected_information_gain))
+    facts = probe_facts(
+        repair_class_ids=repair_class_ids,
+        common_repair_covers=common_repair_covers,
+        expected_information_gain=expected_information_gain,
+        probability_information_changes_repair=probability_information_changes_repair,
+        probe_burden_minutes=probe_burden_minutes,
+        avoided_overteaching_minutes=avoided_overteaching_minutes,
+        pending_machine_checks=pending_machine_checks,
+        session_budget_minutes=session_budget_minutes,
+        learner_preference=learner_preference,
+        recent_diagnostic_burden=recent_diagnostic_burden,
     )
-    base = {
-        "repair_class_ids": classes,
-        "high_priority_need": different_repairs and not common_repair_covers,
-        "blocks_branch_specific_repair": (
-            different_repairs and not common_repair_covers
-        ),
-        "expected_avoided_overteaching_minutes": expected_avoided,
-        "probe_burden_minutes": max(0.0, probe_burden_minutes),
-        "machine_checks_first": tuple(
-            str(value) for value in pending_machine_checks
-        ),
-        "parameters": resolved.manifest(),
-    }
-    if common_repair_covers:
-        return ProbeDecision(
-            decision="skip_common_repair",
-            reason="one low-cost repair covers the plausible cause set",
-            **base,
-        )
-    if not different_repairs:
-        return ProbeDecision(
-            decision="skip_action_equivalent",
-            reason="plausible causes imply the same episode repair class",
-            **base,
-        )
-    if pending_machine_checks:
-        return ProbeDecision(
-            decision="defer_machine_checks",
-            reason="machine-side checks must resolve their uncertainty first",
-            **base,
-        )
-    if learner_preference in {"decline", "teach_now", "no_more_diagnostics"}:
-        return ProbeDecision(
-            decision="defer_learner_preference",
-            reason="learner preference does not permit another probe now",
-            **base,
-        )
-    limit = resolved.recent_diagnostic_limit
-    if limit >= 0 and recent_diagnostic_burden >= limit:
-        return ProbeDecision(
-            decision="defer_recent_burden",
-            reason="recent diagnostic burden reached the session limit",
-            **base,
-        )
-    if (
-        session_budget_minutes is not None
-        and session_budget_minutes < probe_burden_minutes
-    ):
-        return ProbeDecision(
-            decision="defer_session_budget",
-            reason="the remaining session budget is smaller than probe burden",
-            **base,
-        )
-    if expected_information_gain <= resolved["minimum_expected_information_gain"]:
-        return ProbeDecision(
-            decision="skip_no_discrimination",
-            reason="the proposed probe has no expected discriminating information",
-            **base,
-        )
-    if (
-        probability_information_changes_repair
-        <= resolved["minimum_action_change_probability"]
-    ):
-        return ProbeDecision(
-            decision="skip_no_action_change",
-            reason="the proposed information cannot change the selected repair",
-            **base,
-        )
-    if expected_avoided <= (
-        max(0.0, probe_burden_minutes) + resolved["probe_value_margin_minutes"]
-    ):
-        return ProbeDecision(
-            decision="skip_burden_exceeds_value",
-            reason="expected avoided over-teaching does not exceed probe burden",
-            **base,
-        )
+    decision, reason = probe_verdict(facts, resolved)
     return ProbeDecision(
-        decision="probe_now",
-        reason="action-changing information is worth more than its burden",
-        **base,
+        decision=decision,
+        reason=reason,
+        repair_class_ids=facts.repair_class_ids,
+        high_priority_need=facts.action_relevant,
+        blocks_branch_specific_repair=facts.action_relevant,
+        expected_avoided_overteaching_minutes=facts.expected_avoided_overteaching_minutes,
+        probe_burden_minutes=facts.probe_burden_minutes,
+        machine_checks_first=facts.machine_checks_first,
+        parameters=resolved.manifest(),
     )
 
 
