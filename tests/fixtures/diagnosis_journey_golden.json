@@ -51516,6 +51516,7 @@
 "entropy_after": 1.2974429253723423,
 "entropy_before": 1.2911378265444622,
 "features_json": {
+"answer_exposure_judged": true,
 "presentation_latency_seconds": 0,
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
@@ -53906,6 +53907,7 @@ null
 "entropy_after": 1.2885479217357632,
 "entropy_before": 1.2974429253723423,
 "features_json": {
+"answer_exposure_judged": true,
 "presentation_latency_seconds": 0,
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
@@ -79439,6 +79441,7 @@ null
 "entropy_after": 1.2029372939887641,
 "entropy_before": 1.2911378265444622,
 "features_json": {
+"answer_exposure_judged": true,
 "presentation_latency_seconds": 0,
 "robust": {
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",

@@ -28,6 +28,7 @@ from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
 from learnloop.vault.models import LoadedVault
 from learnloop.diagnosis.probe_episodes import (
     ANSWER_EXPOSED,
+    EXPOSURE_JUDGED,
     _bayes_update,
     _entropy,
     _fired_error_types,
@@ -680,6 +681,12 @@ def _record_presentation_observation(
     )
     if robust_snapshot is not None:
         features = dict(features or {}, robust=robust_snapshot)
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if evidence_reading_fixes_on(vault.config):
+        # The verdict is the one judged now: a later reading trusts it, since judging again could count a reveal
+        # written after the answer (``probe_episodes.effective_episode_observations``).
+        features = dict(features or {}, **{EXPOSURE_JUDGED: True})
     repository.insert_probe_observation(
         attempt_id=attempt_id,
         posterior_before=posterior_before,

@@ -1254,7 +1254,8 @@ def episode_posterior(
 
 
 def probe_answer_admissibility(
-    repository: Repository, *, probe_attempt_id: str | None
+    repository: Repository, *, probe_attempt_id: str | None, own_answer_rules: bool = False,
+    read_at: str | None = None,
 ) -> ProductionAdmissibility | None:
     """Was the probe answer produced before anything was revealed to it?
 
@@ -1269,6 +1270,14 @@ def probe_answer_admissibility(
     so the two records cannot differ on whether an answer was independent
     (refactor bug ledger G3-1). It lives here, beside the episode reader, so
     the episode does not import the discrimination module.
+
+    The episode passes ``own_answer_rules`` (:func:`answer_exposure`): the
+    answer's own reveals (its feedback, linked to it by attempt id) never
+    expose it, and a display of the causes stamped in the answer's own second
+    counts as before it. With ``read_at`` (a stored answer judged later) the
+    verdict depends on persisted rows only, never on the reading time. The
+    discriminating observation keeps the defaults, so its records are written
+    as they always were.
     """
 
     if not probe_attempt_id:
@@ -1280,7 +1289,7 @@ def probe_answer_admissibility(
 
     exposed = probe_answer_exposed(
         repository, str(attempt.get("probe_presentation_id") or ""),
-        answered_at=str(attempt.get("created_at") or "") or None,
+        answered_at=str(attempt.get("created_at") or "") or None, same_second=own_answer_rules,
     )
     if exposed is not None:
         # FG1 §6.0, §7: the learner took "Show anyway", the feedback was released before a
@@ -1295,24 +1304,35 @@ def probe_answer_admissibility(
         # The production judged, by id (UX Phase 4 round 4): only its own
         # frozen self-grade disclosure is exempt, never one matched by time.
         production_id=probe_attempt_id,
+        read_at=read_at,
+        excluding_attempt_id=probe_attempt_id if own_answer_rules else None,
     )
 
 
 #: The contamination key an exposed probe answer carries in its episode observation (G3-1, mvp-0.61): the reason
 #: the shared exposure test gave (:func:`probe_answer_admissibility`).
 ANSWER_EXPOSED = "answer_exposed"
+#: The ``features`` key of an observation whose exposure was judged when it was written (at mvp-0.61 and later): its
+#: verdict is its contamination's ``answer_exposed`` (or none), and a later reading trusts it rather than judging again.
+EXPOSURE_JUDGED = "answer_exposure_judged"
 
 
-def answer_exposure(vault: LoadedVault, repository: Repository, attempt_id: str) -> str | None:
+def answer_exposure(
+    vault: LoadedVault, repository: Repository, attempt_id: str, *, recorded_at: str | None = None,
+) -> str | None:
     """Why a probe answer was not an independent production, or None: the discriminating observation's exposure test
     (feedback shown before it, a recorded display of its causes, or a reveal in its window), from the evidence
-    reading fixes (mvp-0.61) on. Below them the episode observation never asked, so this is always None there."""
+    reading fixes (mvp-0.61) on, with the answer's own rules (:func:`probe_answer_admissibility`). Below them the
+    episode observation never asked, so this is always None there. ``recorded_at``: the instant the stored
+    observation was written, for a reading after it; the verdict then depends on persisted rows only."""
 
     from learnloop.algorithm_versions import evidence_reading_fixes_on
 
     if not evidence_reading_fixes_on(vault.config):
         return None
-    admissibility = probe_answer_admissibility(repository, probe_attempt_id=attempt_id)
+    admissibility = probe_answer_admissibility(
+        repository, probe_attempt_id=attempt_id, own_answer_rules=True, read_at=recorded_at,
+    )
     if admissibility is None or admissibility.admissible:
         return None
     return str(admissibility.reason or "not_independent")
@@ -1330,9 +1350,11 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
     belief (discount 0.0) and qualifies nothing, its reason recorded as ``answer_exposed``. The instrument's
     likelihoods are for an answer produced cold; once the feedback, the causes or a reveal were shown the outcome no
     longer separates the causes, so a damped update would still be a wrong one. A hinted or tutored answer that was
-    also exposed is exposed. An observation recorded at the tag carries this already (``probe_evidence``); one
-    recorded before reads the same here, its stored row (posteriors included) untouched, as the held-grade view leaves
-    a held row's. Its state segment is not closed (a read cannot close one), so a live observation leaves the segments
+    also exposed is exposed. An observation recorded at the tag carries its verdict (``probe_evidence`` judges it when
+    it writes the row and marks it :data:`EXPOSURE_JUDGED`), and this reading trusts it: judging again later could
+    count rows written after the answer. One recorded before the tag (or held when written) is judged here from
+    persisted rows only, as of its own writing (``recorded_at``), so every reading of it agrees; its stored row
+    (posteriors included) is untouched, as the held-grade view leaves a held row's. Its state segment is not closed (a read cannot close one), so a live observation leaves the segments
     as they were too."""
 
     rows = repository.probe_observations_for_episode(episode_id)
@@ -1344,8 +1366,9 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
     for row in rows:
         observation = row["observation"]
         contamination = dict(observation.contamination or {})
-        if (observation.updates_belief or observation.eligible_for_completion) and ANSWER_EXPOSED not in contamination:
-            exposure = answer_exposure(vault, repository, observation.attempt_id)
+        judged = bool((observation.features or {}).get(EXPOSURE_JUDGED)) or ANSWER_EXPOSED in contamination
+        if (observation.updates_belief or observation.eligible_for_completion) and not judged:
+            exposure = answer_exposure(vault, repository, observation.attempt_id, recorded_at=observation.created_at)
             if exposure is not None:
                 row = {
                     **row,

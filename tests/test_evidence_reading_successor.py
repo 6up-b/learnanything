@@ -577,6 +577,94 @@ def test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_t
     assert after == pytest.approx(before)
 
 
+# -- R1 (the tag's review): a stored answer's exposure is a function of persisted rows only -------------------------
+
+
+def _feedback_display(repository, *, attempt_id, item_id, clock):
+    """A routine full-answer display on a feedback screen, linked to ``attempt_id`` (``reveal_ledger``)."""
+
+    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
+
+    record_feedback_answer_display_reveal(repository, attempt_id=attempt_id, practice_item_id=item_id,
+                                          display_id=f"display_{attempt_id}_{clock.now().isoformat()}", clock=clock)
+
+
+def _effective_reason(vault, repository, probe_attempt_id):
+    _stored, effective, _qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    return (effective.contamination or {}).get("answer_exposed")
+
+
+def test_r1_a_stored_answer_reads_the_same_at_any_reading_time(tmp_path, monkeypatch):
+    """A routine display stamped two minutes after the answer (a clock that ran ahead when it was written) counted
+    against the answer only while the READER's clock was behind its stamp: the same database read exposed at 12:01
+    and clean at 12:03. At the tag the reading instant is the stored observation's own writing."""
+
+    from learnloop.attempts import reveal_ledger
+
+    _DiscriminatingInstrument(monkeypatch)
+    paths, ctx, vault, repository, _result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    _feedback_display(repository, attempt_id=row["source_attempt_id"], item_id=row["practice_item_id"],
+                      clock=FrozenClock(PROBE_CLOCK.now() + timedelta(minutes=2)))
+    set_algorithm_version(paths, TAG)
+    vault = load_vault(paths.root)
+
+    readings = []
+    for minutes in (1, 3):
+        reading_time = (PROBE_CLOCK.now() + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z")
+        monkeypatch.setattr(reveal_ledger, "utc_now_iso", lambda clock=None, at=reading_time: at)
+        presentation = repository.probe_presentation(row["presentation_id"])
+        posterior = episode_posterior(vault, repository, repository.probe_episode(presentation.probe_episode_id))
+        readings.append((_effective_reason(vault, repository, probe_attempt_id), posterior.posterior))
+    assert readings[0] == readings[1]
+    assert readings[0][0] == "post_reveal_not_independent"  # as of the answer's own record: fail closed
+
+
+@pytest.mark.parametrize("recorded", ["below_the_tag", "at_the_tag"])
+def test_r1_an_answers_own_feedback_in_its_second_never_exposes_it(tmp_path, monkeypatch, recorded):
+    """The answer's own feedback is linked to it by attempt id and shown after it, in the same second at the ledger's
+    precision: it never exposes that answer, whether the row was recorded below the tag (judged on reading) or at it
+    (its stored verdict)."""
+
+    paths, ctx, vault, repository, _result, row = _probe_journey(
+        tmp_path, monkeypatch, BELOW if recorded == "below_the_tag" else TAG)
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    _feedback_display(repository, attempt_id=probe_attempt_id, item_id=row["practice_item_id"], clock=PROBE_CLOCK)
+    set_algorithm_version(paths, TAG)
+    vault = load_vault(paths.root)
+
+    stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    assert stored.contamination is None and effective.contamination is None
+    assert (effective.updates_belief, effective.eligible_for_completion, qualifying) == (True, True, 1)
+    if recorded == "at_the_tag":
+        assert stored.features["answer_exposure_judged"] is True
+
+
+@pytest.mark.parametrize("recorded", ["below_the_tag", "at_the_tag"])
+def test_r1_causes_shown_in_the_answers_own_second_expose_it(tmp_path, monkeypatch, recorded):
+    """A display of the causes stamped in the answer's own second, written before the answer: the stamps give no finer
+    order, and the display existed when the answer was recorded, so it counts as before it (fail closed)."""
+
+    from learnloop.db.stores import hypothesis_marks as marks_store
+
+    paths, ctx, vault, repository, _result, row = _probe_journey(
+        tmp_path, monkeypatch, BELOW if recorded == "below_the_tag" else TAG)
+    stamp = PROBE_CLOCK.now().isoformat().replace("+00:00", "Z")
+    with repository.atomic(), repository.connection() as connection:
+        assert marks_store.insert_exposure(connection, {
+            "attempt_id": row["source_attempt_id"], "factor_id": row["factor_id"], "workflow_id": row["id"],
+            "surface": "why", "hypothesis_version_ids_json": json.dumps(["h1"]), "probe_answered": 0,
+            "shown_at": stamp, "created_at": stamp,
+        })
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    set_algorithm_version(paths, TAG)
+    vault = load_vault(paths.root)
+
+    _stored, effective, qualifying = _episode_reading(vault, repository, probe_attempt_id)
+    assert effective.contamination == {"answer_exposed": "followup_causes_shown_before_probe"}
+    assert (effective.updates_belief, qualifying) == (False, 0)
+
+
 # -- K5-8: a request for an easier or harder variant is no review of its source item --------------------------------
 
 
