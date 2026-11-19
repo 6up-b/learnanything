@@ -145,7 +145,8 @@ def test_approving_an_answered_probe_keeps_its_scheduling_state(tmp_path):
     complete_self_graded_attempt(
         refreshed_vault, repository, AttemptDraft(practice_item_id=probe_item, learner_answer_md="An answer.",
                                                   attempt_type="diagnostic_probe"),
-        SelfGradeInput(criterion_points={criterion.id: criterion.points for criterion in rubric.criteria}, confidence=4),
+        SelfGradeInput(criterion_points={criterion.id: criterion.points for criterion in rubric.criteria},
+                       confidence=4),
         clock=CLOCK,
     )
 

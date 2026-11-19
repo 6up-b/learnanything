@@ -620,7 +620,8 @@ def _clock_history(tmp_path, monkeypatch, tag, *, between):
     elif between == "self_report":
         attempt_id = complete_self_graded_attempt(
             vault, repository,
-            AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="I think I know this.", attempt_type="self_report"),
+            AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="I think I know this.",
+                         attempt_type="self_report"),
             SelfGradeInput(criterion_points={"correctness": 2}, confidence=3), clock=_day(4),
         ).attempt_id
     _self_graded(vault, repository, points=4, clock=_day(7))

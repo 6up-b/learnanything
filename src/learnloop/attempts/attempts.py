@@ -5386,11 +5386,9 @@ def _primary_error_type(attributions: list[GradeAttribution]) -> str | None:
 def _attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> str | None:
     if existing is not None:
         return existing
-    if (
-        draft.attempt_type != "dont_know"
-        and not draft.declared_stuck
-        and not draft.learner_answer_md.strip()
-    ):
+    # A blank submission is flagged for a person to look at, not withheld: like a declared stuck or don't-know, the
+    # learner submitted and saw the feedback, so it stays a recorded retrieval failure, reviewed from its zero.
+    if draft.attempt_type != "dont_know" and not draft.declared_stuck and not draft.learner_answer_md.strip():
         return "blank_answer"
     return None
 

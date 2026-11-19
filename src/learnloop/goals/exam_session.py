@@ -563,7 +563,10 @@ def finish_exam(
     ]
 
     # Apply answered items as exam_attempts, spaced seconds apart at finish time
-    # (same deterministic backdating shape exam_seeding uses).
+    # (same deterministic backdating shape exam_seeding uses). This is when the
+    # answers restart their items' forgetting clocks and get their reviews: a
+    # staged answer writes no item state, so a sitting left unfinished moves no
+    # clock, and anchoring at submission instead would change review timing.
     base_instant = clock.now().astimezone(UTC).replace(microsecond=0)
     applied_results = []
     for index, answer in enumerate(answers):
