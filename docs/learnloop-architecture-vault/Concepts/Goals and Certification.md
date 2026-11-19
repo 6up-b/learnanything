@@ -38,7 +38,7 @@ Exam pools reserve held-out items and quarantine them from ordinary practice. Ex
 
 ## Cold probes
 
-Certification may schedule a delayed cold probe on a fresh surface. It detects false certification after spacing and prevents immediate familiarity from being mistaken for durable ability. If the answer/surface has been revealed before administration, the task is deferred.
+Certification may schedule a delayed cold probe on a fresh surface. It detects false certification after spacing and prevents immediate familiarity from being mistaken for durable ability. If the answer/surface has been revealed before administration, the task is deferred. From `mvp-0.61` (verdict policy `certification_cold_probe_policy_v2`, stamped on the outcome row) an answer whose every criterion is unassessed abstains (`indeterminate`, `grade_unavailable`, no correctness) and stays out of `false_certification_rate`; below the tag it scored its scheduling-only correctness as `held`. The scheduling stamps keep `v1`, and stored outcomes keep their verdicts.
 
 ## Goal series
 
