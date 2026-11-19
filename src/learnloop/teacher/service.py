@@ -1713,7 +1713,10 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
     results: list[dict[str, Any]] = []
     skipped = False
     if "withdraw" not in done and help_reply and state.open_check is not None:
-        overlap = G.solution_overlap(turn_obj.message, str(state.open_check["check"]["committed_solution"]))
+        # K6-7: measured on every field the accepted turn shows (``_displayed``: its choices, a
+        # prediction, a recap...), not the message alone; a solution in a choice gives the check away too.
+        shown = "\n".join(text for _field, text in _displayed(turn_obj))
+        overlap = G.solution_overlap(shown, str(state.open_check["check"]["committed_solution"]))
         from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
 
         if overlap >= AUTO_PRIME_REVEAL_THRESHOLD:

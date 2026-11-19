@@ -205,6 +205,28 @@ def test_help_that_gives_the_solution_away_withdraws_the_check_with_no_attempt(t
     assert _rows(repository, "SELECT surface, shown FROM help_assists") == [("tutor", 1)]
 
 
+def test_help_that_gives_the_solution_away_in_a_choice_withdraws_the_check(tmp_path):
+    """K6-7: the withdrawal reads every field the accepted help turn shows, not its message alone."""
+
+    from learnloop.evsi_calibration.forecast_report import resolved_receipts
+
+    paths, repository, fake, view = _open(tmp_path, [plan_turn, check_turn(solution="the roots of det(A - tI) = 0")])
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+           clients=clients(fake))
+    fake.turns = [{"message": "Which of these is it, do you think?",
+                   "choices": ["the roots of det(A - tI) = 0", "the trace of A"]}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                  payload={"text": "I'm stuck, help?"}, clients=clients(fake))
+    assert any("the roots of det(A - tI) = 0" in str(entry) for entry in view["feed"])  # the choice was shown
+    assert view["open_check"] is None and view["notices"]
+    assert _rows(repository, "SELECT status, attempt_id FROM lesson_checks") == [("withdrawn", None)]
+    assert _rows(repository, "SELECT COUNT(*) FROM practice_attempts WHERE attempt_type = "
+                             "'reconstruction_after_walkthrough'") == [(0,)]
+    rows = [resolution for receipt, resolution in resolved_receipts(load_vault(paths.root))
+            if receipt["kind"] == "lesson_check_correct"]
+    assert rows and rows[0]["state"] == "censored" and rows[0]["reason"] == "check_withdrawn"
+
+
 def test_teaching_text_writes_lesson_reveal_rows_on_the_lessons_items(tmp_path):
     reveal = {"message": "Picture a capybara walking two steps."}
     paths, repository, fake, view = _open(tmp_path, [reveal])
