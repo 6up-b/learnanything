@@ -136,7 +136,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | G3 | Measure disagreement between the two diagnosis beliefs | landed | `8804080fcf` | [refactor-g3.md](refactor-g3.md) | Result on the live arxiv vault: four real pairs, none with different causes, all four one-sided, three with an exposed answer counted at full weight by the episode posterior (ledger G3-1). |
 | G4 | Unify beliefs when measured disagreements warrant it | waiting on | — | [refactor-g3.md](refactor-g3.md) | The narrow fix G3-1 first; the full step is decided after G1 with a rerun of G3. |
 | G5 | Give each duplicated fact one owner | deferred | — | — | Owner's Nov 17 queue |
-| G6 | Use one authority for each protection question | waiting on | — | — | G1 and G3. Runs with K6. |
+| G6 | Use one authority for each protection question | being built | — | [design](refactor-g6-design.md) | G6.1 (the protection surface matrix, tests only) is being built; then G6.2 (each surface names its set in one table), G6.3 (one final passage admission), G6.4 to G6.10 (the fixes for the design's seven defect cells), the display accounting extraction. K6-10 to K6-13 are independent fixes in the same area; K5-5 to K5-7 and K6-1 need a priming successor (a tag) |
 
 ## Arc H
 
@@ -251,7 +251,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K10.12 | Record each attempt by a rich figure job | waiting on | — | — | K10.11 |
 | K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
 | K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
-| K10.15 | Write the Figures note and correct stale lines | not started | — | [ledger K10-4](refactor-bug-ledger.md) | — |
+| K10.15 | Write the Figures note and correct stale lines | landed | this commit | [Figures](../learnloop-architecture-vault/Concepts/Figures.md) | — (K10-4 fixed) |
 | K10.16 | Retire the eight figure content switches | waiting on | — | — | Owner's count for removing legacy reuse reads |
 | K10.17 | Remove the dormant JavaScript animation tier | not started | — | — | — |
 
@@ -270,7 +270,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | L2c | Split attempt, grade and diagnostic store groups | landed | `f10dbf51ae` | [refactor-l2c.md](refactor-l2c.md) | — |
 | L2d | Split content, scheduling and other repository groups | landed | `f243c960e1` | [refactor-l2d.md](refactor-l2d.md) | — |
 | L3 | Mark serving reach and enforce the tooling boundary | waiting on | — | — | Owner's list of CLI-only code that stays |
-| L4 | Review which learned models need pure cores | not started | — | — | — |
+| L4 | Review which learned models need pure cores | landed (review) | this commit | [refactor-l4-review.md](refactor-l4-review.md) | Six extraction steps, in the order L4.1 claim priors, L4.2 cause slopes, L4.3 the episode posterior, L4.4 lesson-weight replay inputs, L4.5 the AD slot and commission decision, L4.6 the tail's fit-and-record assembly: not started, each under the stop rule. Five reproducibility gaps in the ledger (L4-1 to L4-5) |
 | L5 | Explain long functions that other steps missed | waiting on | — | — | Refactor close |
 | L6 | Make each extracted core return its record | waiting on | — | — | E2 and later core extraction briefs |
 | L6a | Return records from the already extracted cores | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's approval and the I2 core |
@@ -295,7 +295,7 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | Step | What | State | Landing commit | Record | Waits on |
 |---|---|---|---|---|---|
 | UX-1 | Question writing for a long web page fits its output budget | landed | `c67f1931ed` | [ledger UX-1](refactor-bug-ledger.md) | — |
-| Stage 1 | Broken controls: the Ask send control, Keep going, a past exam's open, empty states as notices, "add it" with no subject, the phone's delivery line (UX-3 to UX-7, UX-9) | landed | this commit | [ux-fix-stage-1.md](ux-fix-stage-1.md) | The walks again |
+| Stage 1 | Broken controls: the Ask send control, Keep going, a past exam's open, empty states as notices, "add it" with no subject, the phone's delivery line (UX-3 to UX-7, UX-9) | landed | `99d24e65f6` | [ux-fix-stage-1.md](ux-fix-stage-1.md) | The walks again |
 | Stage 2 | Math macros from the source and the empty goal's report (UX-2, UX-8); the consent question (UX-10) | not started | — | — | The Python test lane; the owner's ruling for UX-10 only |
 | Stage 3 | Today explains itself: the cause and one step, one clock's labels, the "Review" label, refusals said in place | built, not landed | — | — | Stage 1's landing, its gate |
 | Stage 4 | Phone small fixes: in after the scan, sent when, the Today tab, the phone's clock labels | being built | — | — | The owner's call for the router's line (F14), left out of the stage |
