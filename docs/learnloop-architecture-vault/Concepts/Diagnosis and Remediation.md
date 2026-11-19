@@ -101,8 +101,8 @@ The decision is spread across these sites today. Expected information gain (EIG)
 
 | Function or screen at this tip | What it decides | What it reads |
 |---|---|---|
-| `causal_probe_coherence.decide_probe`, called by `causal_orchestrator._status_for_factor` | The causal lane's offer, deferral or repair; the caller also withholds an unavailable or conflicting probe. | Repair classes, common repair, instrument separability, chance of changing repair, burden and avoided teaching minutes, machine checks, preference, recent burden, session budget, candidate state and episode conflict. |
-| `followup_run.router._observe` calls `causal_probe_coherence.decide_probe` | Observation only: its verdict is logged, never decides this lane. | Repair-class need; gain, action-change chance and both time inputs are zero. Preference, checks, burden and budget are not passed. |
+| `causal_probe_coherence.decide_probe`, called by `causal_orchestrator._status_for_factor` | The causal lane's offer, deferral or repair; the caller also withholds an unavailable or conflicting probe. | `probe_facts.probe_facts` (pure): repair classes, common repair, instrument separability, chance of changing repair, expected avoided teaching minutes and burden, recent burden, and the hard stops (machine checks, the learner's preference, the session budget). The verdict is `probe_facts.probe_verdict` over those facts and the resolved thresholds. The caller adds candidate state and episode conflict. |
+| `followup_run.router._observe` | Observation only, never decides this lane. | Repair-class need. It logs the verdict only where the repair classes settle it (`probe_facts.settled_by_repair_classes`: a common repair, or one class); otherwise `decide_probe_absent`, because no instrument exists before the lane authors its probe. |
 | `followup_run.router.hard_refusal` | Refuses a generated probe before generation. | Learner preference, blocking machine checks, then a foreign episode with observations, in that order; retains its own conflict check. |
 | `followup_run.lanes.select_lane` | Chooses probe or practice. | Factors for the source attempt; at least two existing concrete rival hypotheses select probe, even if they share a repair. |
 | `causal_attribution.open_rival_causes_factor` | Opens the generated lane's factor when needed. | No factor of any status already exists, grade not held, and at least two distinct episode keys among current concrete hypotheses. |
@@ -156,6 +156,7 @@ Paths in this table are relative to `src/learnloop/`.
 | `diagnosis/probe_controls.py` | Stop-and-teach, diagnostic client contract and read-only next-item peek. |
 | `diagnosis/causal_reads.py` | Factor/receipt reads, repair mappings, deterministic value inputs and shared constants. |
 | `diagnosis/probe_hard_stops.py` | Learner preferences and episode conflicts; documents the callers' different hard-stop orders. |
+| `diagnosis/probe_facts.py` | The pure facts and hard stops of one possible probe, and the repair lane's verdict over them; imports nothing of LearnLoop. |
 | `diagnosis/machine_checks.py` | Machine obligations, blocking mapping checks, missing-instrument work and sweeps. |
 | `diagnosis/causal_cold_verification.py` | Delayed independent repair checks, carried task context, outcomes and expiry receipts. |
 | `diagnosis/causal_discrimination.py` | Pinned-bundle classification, admission, factor resolution and automatic sensor declines. |
