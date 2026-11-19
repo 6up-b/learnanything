@@ -852,6 +852,23 @@ describe("the goal card (3.4)", () => {
     expect(screen.getByTestId("goal-banner")).toBeTruthy();
   });
 
+  // UX journey audit UX-6 (beginner-1 #80-120, student-1 #42): this line went
+  // through the error channel, red, and stayed over every screen.
+  it("UX-6: Practise for this goal with nothing ready says so on the card, as a notice, never an error", async () => {
+    const f = apis(dto(body()), {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal()] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1)]))
+    });
+    const props = show({ session: SESSION });
+    const card = await screen.findByTestId("goal-card");
+    fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
+    const line = await screen.findByTestId("goal-nothing-ready");
+    expect(line.textContent).toBe("Nothing for this goal is ready to practise yet.");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(f.planLearnerPick).not.toHaveBeenCalled();
+  });
+
   it("offers no exam while its pool is not ready", async () => {
     apis(dto(body()), {
       goalsList: vi.fn(async () => ({ version: 1, goals: [goal({ report: null })] })),

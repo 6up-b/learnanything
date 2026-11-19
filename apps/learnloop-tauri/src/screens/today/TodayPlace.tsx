@@ -58,6 +58,7 @@ import {
   fullListWhy,
   onYourOwnWhy,
   planSentence,
+  GOAL_NOTHING_READY,
   KEEP_GOING_NOTHING,
   planWasEmpty,
   reentrySentence,
@@ -452,6 +453,8 @@ export function TodayPlace({
   const [moreNew, setMoreNew] = useState<DailyPlanDto["preview"] | null>(null);
   // UX-4: Keep going came back with the day still done, so nothing was added.
   const [keptGoingToNothing, setKeptGoingToNothing] = useState(false);
+  // UX-6: "Practise for this goal" found nothing ready: said on the card, never as an error.
+  const [goalNothingReady, setGoalNothingReady] = useState(false);
   const now = new Date();
 
   // While the plan is off (its kill switch), the remembered minutes are the start summary's.
@@ -712,11 +715,14 @@ export function TodayPlace({
   // Practise for this goal: the first question on the goal's frontier in
   // today's list (as the goal banner's "practise at-risk" does).
   async function practiseGoal() {
+    setGoalNothingReady(false);
     const input = queueInput ?? todayQueueInput(session);
     const snapshot = await run(() => api.getTodayQueue(input));
-    const target = snapshot?.sections.flatMap((section) => section.items).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
+    if (!snapshot) return;
+    const target = snapshot.sections.flatMap((section) => section.items).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
     if (!target) {
-      onError("Nothing for this goal is ready to practise yet.");
+      // UX-6 (audit beginner-1 #80-120): an empty state, not a failure.
+      setGoalNothingReady(true);
       return;
     }
     await openFromList(target);
@@ -933,6 +939,11 @@ export function TodayPlace({
         {body}
         {!list && primaryGoal ? (
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />
+        ) : null}
+        {!list && primaryGoal && goalNothingReady ? (
+          <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
+            {GOAL_NOTHING_READY}
+          </div>
         ) : null}
         {!list ? <Threads wrapUp={wrapUp} onOpenPassage={onOpenPassage} onResumeProblem={onResumeProblem} onAsk={onAsk} /> : null}
         {!list ? <CapturesLine subjects={subjects} onAsk={onAsk} /> : null}
