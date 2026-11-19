@@ -39,7 +39,11 @@ function unnamedControls(): string[] {
 describe("plain words (§4.1)", () => {
   it.each([
     ["the pairing screen", () => render(<PairScreen waiting={2} />)],
-    ["capture", () => render(<CaptureScreen onSaved={() => undefined} />)],
+    ["capture", () => render(<CaptureScreen onSaved={() => undefined} last={null} onLast={() => undefined} />)],
+    // UX fix stage 4 (F13): with a capture sent two minutes ago, its line says so.
+    ["capture, after a capture was sent", () =>
+      render(<CaptureScreen onSaved={() => undefined} last={{ id: "c", capturedAt: new Date(Date.now() - 120_000).toISOString(), state: "sent" }}
+                            onLast={() => undefined} />)],
     ["read", () => render(<ReadScreen onOpen={() => undefined} onError={() => undefined} />)],
     ["progress", () => render(<ProgressScreen />)],
     ["the tab bar", () => render(<TabBar current="today" onSelect={() => undefined} />)],

@@ -14,6 +14,13 @@ import { PrintedAfterFeedback } from "../read/AsPrinted";
 const DIAGNOSIS_POLL_MS = 3000;
 
 /**
+ * A look into the answer that didn't finish (`diagnosisStatus: "failed"`). UX fix stage 4 (F13, phone-2 #11): it said
+ * what failed and not what to do. The reply carries only the status and offers the learner no retry, so the next step
+ * is that nothing is needed: the grade and the feedback above stand, and Next goes on.
+ */
+export const DIAGNOSIS_FAILED_LINE = "The look into this answer didn't finish. Your grade stands, and nothing is needed from you: Next goes on.";
+
+/**
  * The diagnosis's follow-up questions, one at a time and in the diagnosis's order: a later
  * question can name what an earlier one asks for. As on the desktop, the expected answer and
  * the corrected work are never shown, and an answer is recorded, not graded.
@@ -239,7 +246,7 @@ export function FeedbackScreen({
       {feedback.gradingSource !== "self" ? <Contest attemptId={attemptId} onBundle={setFeedback} /> : null}
       {pending ? <p className="dim" role="status">Looking into what happened here…</p> : null}
       {feedback.diagnosisStatus === "failed" ? (
-        <p className="dim" role="status">The look into this answer didn't finish. Your grade stands.</p>
+        <p className="dim" role="status">{DIAGNOSIS_FAILED_LINE}</p>
       ) : null}
       {card?.cardEnabled !== false && card?.summaryMd ? (
         <section>

@@ -9,7 +9,7 @@ import { TAG } from "@desktop/api/queryTags";
 import { committedAttempt, pollJob, refusedOutright } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
-import { CaptureScreen } from "./capture/CaptureScreen";
+import { CaptureScreen, settleLastCapture, type LastCapture } from "./capture/CaptureScreen";
 import { FeedbackScreen } from "./practice/FeedbackScreen";
 import { PairScreen } from "./pair/PairScreen";
 import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./practice/QuestionScreen";
@@ -159,6 +159,8 @@ function Phone({ credential }: { credential: Credential }) {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<SessionEndSummary | null>(null);
   const [outboxWaiting, setOutboxWaiting] = useState(0);
+  // UX fix stage 4 (F13): the last capture and what became of it, kept here so Capture says it again when reopened.
+  const [lastCapture, setLastCapture] = useState<LastCapture | null>(null);
   const [display, setDisplay] = useState(false);
   // A submit or a skip on its way: the question's own Back is disabled meanwhile, and so are the
   // frame's chevron and edge swipe, or its reply would land on whatever opened after (F1).
@@ -374,7 +376,11 @@ function Phone({ credential }: { credential: Credential }) {
           if (stop.reason === "forbidden") setNotice(stop.message);
           return listOutbox();
         })
-        .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
+        .then((records) => {
+          setOutboxWaiting(records.filter((one) => !one.problem).length);
+          // Sent while Capture was not on screen: the line says so, and when, once it is opened again.
+          setLastCapture((current) => settleLastCapture(current, records, false, Date.now()));
+        })
         .catch(() => undefined),
     []
   );
@@ -782,7 +788,7 @@ function Phone({ credential }: { credential: Credential }) {
           </div>
         ) : null}
         {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
-        {tab === "capture" ? <CaptureScreen onSaved={flushNow} outboxWaiting={outboxWaiting} /> : null}
+        {tab === "capture" ? <CaptureScreen onSaved={flushNow} outboxWaiting={outboxWaiting} last={lastCapture} onLast={setLastCapture} /> : null}
         {tab === "read" && readTarget ? (
           <ReaderScreen key={`${readTarget.extractionId}:${readTarget.plan ? "plan" : "book"}`} target={readTarget}
             onSection={setReadSection} onPlanBack={planReadingBack} onError={reportError} />
