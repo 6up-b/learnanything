@@ -407,7 +407,7 @@ it("leaves the diagnostic block's refusal unchanged: no request reaches the side
   render(<PracticeScreen {...callbacks} />);
   await screen.findByText("Diagnostic check");
   pressHint();
-  expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining("hints are disabled during a diagnostic check"));
+  expect(screen.getByTestId("practice-refusal").textContent).toContain("No hints during this short check");
   expect(api.requestHint).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "^h hint" })).toBeNull();
 });

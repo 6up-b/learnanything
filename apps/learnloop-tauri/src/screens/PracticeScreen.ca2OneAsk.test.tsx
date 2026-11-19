@@ -225,6 +225,7 @@ it("Q4: a cold follow-up served with the take step offers help instead of 'No hi
   expect(screen.queryByText(/no hints on this one/i)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^hint$/i }));
   expect(callbacks.onError).not.toHaveBeenCalledWith("No hints on this one: it's a check on your own.");
+  expect(screen.queryByTestId("practice-refusal")).toBeNull();
 });
 
 it("without the take step (the predecessor), a cold follow-up still withholds hints", async () => {

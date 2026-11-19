@@ -42,6 +42,7 @@ import { useFirstHintProgress } from "./practice/useFirstHintProgress";
 import type { DifficultyRating, FirstHintProgress, HelpRecordDto } from "../api/dto";
 import { screenLeavesKey } from "../app/keymap";
 import { type CheckHandoff, handoffOpensLesson, STOP_AND_TEACH_LABEL } from "../app/checkHandoff";
+import { NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK } from "../copy/refusals";
 import { useAttemptClock } from "./useAttemptClock";
 import { AS_PRINTED_COPY, AsPrinted, OriginalPageLink, printedPageLabel, useAsPrinted } from "../components/AsPrinted";
 import { OpenInSource } from "../components/OpenInSource";
@@ -375,6 +376,10 @@ export function PracticeScreen({
   // loading state.
   const reloadOnResume = useRef(false);
   const [vaultChanging, setVaultChanging] = useState(false);
+  // UX fix stage 3 (item 5): a refusal that explains (no hints here, Ask is
+  // paused), said on the card. It goes with the question and the check it was
+  // about.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const draftWrites = useRef<Promise<unknown>>(Promise.resolve());
   const isTeachBack = item?.practiceMode === "teach_back";
   // Teach-back conversations own the checkpoint (the sidecar stores the
@@ -767,6 +772,7 @@ export function PracticeScreen({
 
   const practiceReady = item !== null && probeLoadState === "ready";
   const probeActive = Boolean(probe?.active && probe.presentationId);
+  useEffect(() => setRefusal(null), [practiceItemId, probeActive]);
   const interactionReady = practiceReady && committedRecovery === null && !vaultChanging && !sessionMoved;
 
   // RW2a: "Work in steps" on an ordinary serve (never a diagnostic check, a
@@ -1024,12 +1030,12 @@ export function PracticeScreen({
         event.preventDefault();
         if (isTeachBack) {
           // No hints in teach-back: the tutor could leak what the naive
-          // student is probing for.
-          onError("ask-tutor is disabled during a teach-back conversation.");
+          // student is probing for. Stage 3: said on the card, not as an error.
+          setRefusal(NO_ASK_TEACH_BACK);
         } else if (probeActive) {
           // §5.5: Ask Tutor is disabled during a diagnostic block; the escape
           // hatch is the explicit stop-and-teach action, which ends measurement.
-          onError(`ask-tutor is disabled during a diagnostic check — use “${STOP_AND_TEACH_LABEL}” instead.`);
+          setRefusal(NO_ASK_SHORT_CHECK);
         } else {
           openAsk();
         }
@@ -1193,7 +1199,7 @@ export function PracticeScreen({
   function revealHint() {
     if (!practiceReady) return;
     if (simple && onYourOwnCheck && !coldTakeStep) {
-      onError("No hints on this one: it's a check on your own.");
+      setRefusal(NO_HINTS_ON_YOUR_OWN);
       return;
     }
     if (intentCheck?.helpHeader && !checkHelpOpen) {
@@ -1205,7 +1211,7 @@ export function PracticeScreen({
     }
     if (probeActive) {
       // §5.5: authored hints are disabled during a diagnostic block.
-      onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
+      setRefusal(NO_HINTS_SHORT_CHECK);
       return;
     }
     if (adaptive) {
@@ -2389,6 +2395,13 @@ export function PracticeScreen({
           entityId={item.id}
           onClose={() => setOriginalPage(null)}
         />
+      ) : null}
+      {refusal ? (
+        // UX fix stage 3 (item 5): a refusal that explains is said here, by
+        // the keys that asked, as a quiet status line; never the red error.
+        <div data-testid="practice-refusal" role="status" style={{ ...quietLine, padding: "4px 14px" }}>
+          {refusal}
+        </div>
       ) : null}
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },

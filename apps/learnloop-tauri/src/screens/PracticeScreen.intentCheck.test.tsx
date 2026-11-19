@@ -186,7 +186,9 @@ it("a check with a cold follow-up: the measured banner, and the cold guard refus
   await act(async () => {
     fireEvent.keyDown(window, { key: "h", ctrlKey: true });
   });
-  expect(onError).toHaveBeenCalledWith("No hints on this one: it's a check on your own.");
+  // UX fix stage 3: said on the card, never the shell's red error.
+  expect(screen.getByTestId("practice-refusal").textContent).toBe("No hints on this one: it's a check on your own.");
+  expect(onError).not.toHaveBeenCalled();
   expect(screen.queryByTestId("intent-check-help")).toBeNull();
   expect(screen.queryByText("Split the integral at the mixing point.")).toBeNull();
   expect(api.recordHintReveal).not.toHaveBeenCalled();
@@ -215,8 +217,9 @@ it("a check under an active diagnostic: the contract's measured banner, and the 
     fireEvent.keyDown(window, { key: "h", ctrlKey: true });
   });
   expect(screen.queryByTestId("intent-check-help")).toBeNull();
-  expect(onError).toHaveBeenCalledWith(
-    "hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing."
+  expect(screen.getByTestId("practice-refusal").textContent).toBe(
+    "No hints during this short check. Answer with what you know, or choose “Stop diagnosing and teach me”."
   );
+  expect(onError).not.toHaveBeenCalled();
   expect(api.recordHintReveal).not.toHaveBeenCalled();
 });

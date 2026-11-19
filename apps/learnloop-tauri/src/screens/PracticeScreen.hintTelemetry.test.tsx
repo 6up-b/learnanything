@@ -129,7 +129,8 @@ it("records nothing on a refused reveal: a diagnostic check", async () => {
   render(<PracticeScreen {...callbacks} />);
   await screen.findByText("Diagnostic check");
   pressHint();
-  expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining("hints are disabled during a diagnostic check"));
+  // UX fix stage 3: said on the card, in plain words (PracticeScreen.refusals.test.tsx).
+  expect(screen.getByTestId("practice-refusal").textContent).toContain("No hints during this short check");
   expect(recordHintReveal).not.toHaveBeenCalled();
 });
 
@@ -140,7 +141,7 @@ it("records nothing on a refused reveal: a check on your own in the plain card",
   render(<PracticeScreen {...callbacks} />);
   await screen.findByText(/On your own · no hints on this one/);
   pressHint();
-  expect(callbacks.onError).toHaveBeenCalledWith("No hints on this one: it's a check on your own.");
+  expect(screen.getByTestId("practice-refusal").textContent).toBe("No hints on this one: it's a check on your own.");
   expect(recordHintReveal).not.toHaveBeenCalled();
 });
 
