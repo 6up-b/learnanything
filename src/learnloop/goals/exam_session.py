@@ -483,7 +483,7 @@ def _dual_write_exam_grade(
     the canonical projection joins interpretations to attempts by that id."""
 
     try:
-        from learnloop.attempts.grade_resolution import record_grade_dual_write
+        from learnloop.attempts.grade_resolution import EXAM_GRADE_PURPOSE, record_grade_dual_write
 
         criterion_max = (
             {c.id: c.points for c in rubric.criteria} if rubric is not None else None
@@ -492,7 +492,7 @@ def _dual_write_exam_grade(
             vault,
             repository,
             item=item,
-            purpose="assessment",
+            purpose=EXAM_GRADE_PURPOSE,
             grading_source="codex",
             attempt_id=attempt_id,
             response_text=answer_md,

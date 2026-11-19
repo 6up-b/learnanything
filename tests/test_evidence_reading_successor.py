@@ -10,6 +10,7 @@ call.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing
 from datetime import timedelta
@@ -31,12 +32,16 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_ai_fallback,
     complete_self_graded_attempt,
 )
+from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
 
+from tests.exam_seeding_helpers import _exam_vault, _outcomes
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
@@ -159,3 +164,93 @@ def test_k5_12_a_missing_confidence_still_reads_as_full(tmp_path, tag):
 
     # A legacy NULL is the one value replay fills, at both tags.
     assert repository.fetch_practice_attempt(result.attempt_id)["grader_confidence"] == 1.0
+
+
+# -- K5-11: a replacement grade replays under its own source; a replaced exam answer reaches the exam channel ------
+
+
+def _self_graded(vault, repository, *, points=0, clock=CLOCK, item_id=ITEM_ID):
+    return complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=item_id, learner_answer_md="SVD is U Sigma V^T."),
+        SelfGradeInput(criterion_points={"correctness": points}, confidence=4),
+        clock=clock,
+    )
+
+
+def _ai_regrade_pending(vault, repository, *, points=4):
+    result = run_deferred_ai_regrades(
+        vault, repository, runtime=_ready_runtime(), ai_client=_Grader(points=points), clock=CLOCK,
+    )
+    assert result.regraded >= 1
+
+
+@BOTH_TAGS
+def test_k5_11_an_ai_regrade_of_a_self_grade_replays_as_the_ai(tmp_path, tag):
+    paths, vault, repository = _vault(tmp_path, tag)
+    attempt_id = _self_graded(vault, repository).attempt_id
+    assert [row["grader_provider"] for row in _raw_events(paths, attempt_id)] == ["self"]
+
+    _ai_regrade_pending(vault, repository)
+    live = [row["grader_provider"] for row in _raw_events(paths, attempt_id)]
+    _rebuild(paths)
+    _rebuild(paths)
+    rebuilt = [row["grader_provider"] for row in _raw_events(paths, attempt_id)]
+
+    # The regrade's own replay appends the new grade to the answer's observation (the grade channel fixes); which
+    # source it names is the fix. Two rebuilds append nothing more at either tag.
+    expected = ["self", "ai"] if tag == TAG else ["self", "self"]
+    assert live == rebuilt == expected
+
+
+def _exam_vault_at(tmp_path, tag):
+    vault_root, _vault_unused, _repository = _exam_vault(tmp_path)
+    paths = VaultPaths(vault_root, load_vault(vault_root).config)
+    set_algorithm_version(paths, tag)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=CLOCK)
+    return paths, vault, repository
+
+
+def _seed_exam_answer(vault, repository):
+    seeded = seed_exam_attempts(
+        vault, repository,
+        outcomes=_outcomes(outcomes={"3": {"score": 0.25, "answer_md": "SVD factors a matrix into U, Sigma, V^T."}}),
+        clock=CLOCK,
+    )
+    (entry,) = [entry for entry in seeded.entries if entry.status == "seeded"]
+    return entry.attempt_id
+
+
+def _exam_channel(paths, attempt_id):
+    """The attempt's grade channel: (administration purpose, grader provider, rubric score) per raw grade event."""
+
+    rows = _rows(
+        paths,
+        "SELECT a.purpose, r.grader_provider, r.raw_output_json FROM raw_grade_events r "
+        "JOIN activity_observations o ON o.id = r.observation_id "
+        "JOIN activity_administrations a ON a.id = o.administration_id "
+        "WHERE r.attempt_id = ? ORDER BY r.created_at, r.id",
+        attempt_id,
+    )
+    return [(row["purpose"], row["grader_provider"], json.loads(row["raw_output_json"]).get("rubric_score"))
+            for row in rows]
+
+
+@BOTH_TAGS
+def test_k5_11_a_regraded_exam_answer_reaches_the_exam_channel(tmp_path, tag):
+    paths, vault, repository = _exam_vault_at(tmp_path, tag)
+    attempt_id = _seed_exam_answer(vault, repository)
+    assert _exam_channel(paths, attempt_id) == []
+
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(attempt_id), runtime=_ready_runtime(),
+                    client=_Grader(points=4), grading_source="ai", clock=CLOCK)
+    live = _exam_channel(paths, attempt_id)
+    _rebuild(paths)
+    _rebuild(paths)
+
+    # mvp-0.60, today: an exam answer's channel is written by the exam path alone, so its replacement never reached
+    # one. From mvp-0.61 the replacement is written on the exam channel's (assessment-purpose) administration, once.
+    expected = [("assessment", "ai", 4)] if tag == TAG else []
+    assert live == _exam_channel(paths, attempt_id) == expected
