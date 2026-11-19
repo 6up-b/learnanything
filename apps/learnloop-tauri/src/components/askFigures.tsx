@@ -13,7 +13,7 @@
 // Ruling R1 (landing): figures here are grammar and sketch only. No rich
 // (Manim) build, fuller version or rich revision is asked, polled or opened
 // on an attempt host; animations stay in the Reader.
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "../api/client";
 import type { FigureHelpDto, FigureHostRef, FigureViewDto, LibraryJobDto, FigureBuildResultDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
@@ -30,7 +30,7 @@ export const PANEL_FIGURE_COPY = {
   free: "show me is free here",
   counts: "a figure on this counts as a hint",
   cold: "a figure on this makes this practice with help ◌",
-  pending: "◐ building an interactive version · keep working",
+  pending: "◐ building an interactive version · keep working · it stays here in Ask",
   landed: "▸ interactive version",
   countsLine: "counts as a hint",
   freeLine: "free",
@@ -45,6 +45,40 @@ export const PANEL_FIGURE_COPY = {
 } as const;
 
 const FIGURE_POLL_MS = 400;
+
+// UX-3 (audit seasoned-1 #74-81): the panel unmounts when it closes, and a
+// figure still building was lost with it. Its lines, its take-step token and
+// whether the check converted are kept per attempt here, outside the panel,
+// so the panel opened again on the same attempt shows the figure (or that it
+// is still building). Kept in memory for this run of the app only.
+interface PanelFigureHostState {
+  lines: PanelFigureLine[];
+  converted: boolean;
+  token: { key: string; token: string } | null;
+  /** The figure open in the thread (a figure that landed while closed is open on return). */
+  expandedKey: string | null;
+}
+
+const NO_FIGURES: PanelFigureHostState = { lines: [], converted: false, token: null, expandedKey: null };
+const panelFigureHosts = new Map<string, PanelFigureHostState>();
+const panelFigureListeners = new Set<() => void>();
+
+function updateHost(hostKey: string, change: (state: PanelFigureHostState) => PanelFigureHostState): void {
+  if (!hostKey) return;
+  panelFigureHosts.set(hostKey, change(panelFigureHosts.get(hostKey) ?? NO_FIGURES));
+  for (const listener of panelFigureListeners) listener();
+}
+
+function subscribeHosts(listener: () => void): () => void {
+  panelFigureListeners.add(listener);
+  return () => { panelFigureListeners.delete(listener); };
+}
+
+/** Forget every kept figure line (tests). */
+export function clearPanelFigures(): void {
+  panelFigureHosts.clear();
+  for (const listener of panelFigureListeners) listener();
+}
 
 /** Whether the panel offers *show me ▸* on this host (the sidecar's switch). */
 export function panelFiguresOn(target: AskTarget | null): boolean {
@@ -114,26 +148,30 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
   chooser?: boolean;
 }) {
   const enabled = chooser ? Boolean(target?.practiceItemId) : panelFiguresOn(target);
-  const [lines, setLines] = useState<PanelFigureLine[]>([]);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [converted, setConverted] = useState(false);
-  const token = useRef<{ key: string; token: string } | null>(null);
+  // UX-3: this host's lines live outside the panel (the chooser's apart from Ask's).
+  const hostRef = target ? figureHostRef(target) : null;
+  const hostKey = enabled && hostRef ? `${chooser ? "hint" : "ask"}|${JSON.stringify(hostRef)}` : "";
+  const hostState = useSyncExternalStore(subscribeHosts, () => panelFigureHosts.get(hostKey) ?? NO_FIGURES);
+  const { lines, converted, expandedKey } = hostState;
+  const setLines = useCallback((change: (list: PanelFigureLine[]) => PanelFigureLine[], host: string = hostKey) =>
+    updateHost(host, (state) => ({ ...state, lines: change(state.lines) })), [hostKey]);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const attemptKey = target ? `${target.submissionId ?? ""}|${target.workbenchSessionId ?? ""}` : "";
+  const keptToken = hostState.token;
 
-  const land = useCallback((key: string, result: FigureBuildResultDto | null) => {
+  const land = useCallback((key: string, result: FigureBuildResultDto | null, host: string) => {
     const figure = quickOnly(result?.figure ?? null);
     const help = result?.help ?? null;
     const shown = figure !== null && (figure.verification === "verified" || figure.verification === "illustrative");
-    setLines((list) => list.map((line) => line.key !== key ? line : {
+    updateHost(host, (state) => ({ ...state, lines: state.lines.map((line) => line.key !== key ? line : {
       ...line, figure, help,
       state: figure ? "landed" : "failed",
       message: help?.status === "not_recorded" ? PANEL_FIGURE_COPY.notRecorded
         : help?.status === "disabled" ? PANEL_FIGURE_COPY.disabled
         : figure ? null : PANEL_FIGURE_COPY.failed
-    }));
-    if (figure && shown) setExpandedKey(figurePlacementKey(figure));
+    }) }));
+    if (figure && shown) updateHost(host, (state) => ({ ...state, expandedKey: figurePlacementKey(figure) }));
     if (help?.status === "counted" && help.new) onEventRef.current?.({ counted: true, converted: false });
   }, []);
 
@@ -142,49 +180,52 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
     if (!enabled || !target || !words) return;
     const hostRef = figureHostRef(target);
     if (!hostRef) return;
+    // The line is written to the host it was asked on, even if the panel closes meanwhile.
+    const host = hostKey;
     const key = `fig:${Date.now()}:${words}`;
-    setLines((list) => [...list, { key, goal: words, state: "pending", figure: null, help: null, message: null }]);
+    setLines((list) => [...list, { key, goal: words, state: "pending", figure: null, help: null, message: null }], host);
     try {
       let takeStepToken: string | null = null;
       if (cold && target.context === "practice") {
         // §11.3: the take step converts the attempt first; its token goes with the request.
-        if (token.current?.key === attemptKey) {
-          takeStepToken = token.current.token;
+        if (keptToken?.key === attemptKey) {
+          takeStepToken = keptToken.token;
         } else {
           const step = await api.figureTakeStep({
             itemId: target.practiceItemId as string, submissionId: target.submissionId ?? null,
             sessionId: target.sessionId ?? null, workbenchSessionId: target.workbenchSessionId ?? null
           });
           if (step.needed && step.token) {
-            token.current = { key: attemptKey, token: step.token };
+            const kept = { key: attemptKey, token: step.token };
+            updateHost(host, (state) => ({ ...state, token: kept, converted: true }));
             takeStepToken = step.token;
-            setConverted(true);
             onEventRef.current?.({ counted: true, converted: true, banner: step.banner ?? PANEL_FIGURE_COPY.banner });
           }
         }
       }
       const result = await settle(() => api.figureRequest({ goalText: words, origin: "ask", hostRef, takeStepToken }));
-      land(key, result);
+      land(key, result, host);
     } catch (error) {
-      setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }));
+      setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }), host);
     }
-  }, [enabled, target, cold, attemptKey, land]);
+  }, [enabled, target, cold, attemptKey, land, hostKey, setLines, keptToken]);
 
   /** The chooser's explore_figure line opens its figure here (§11.4). */
   const open = useCallback(async (figureId: string, label: string) => {
     if (!enabled || !target) return;
     const hostRef = figureHostRef(target);
     if (!hostRef) return;
+    const host = hostKey;
     const key = `open:${figureId}`;
     setLines((list) => list.some((line) => line.key === key) ? list
-      : [...list, { key, goal: label, state: "pending", figure: null, help: null, message: null }]);
+      : [...list, { key, goal: label, state: "pending", figure: null, help: null, message: null }], host);
     try {
-      const opened = await api.figureOpen({ figureId, hostRef, takeStepToken: token.current?.key === attemptKey ? token.current.token : null });
-      land(key, { figure: opened.figure, reused: true, help: opened.help });
+      const opened = await api.figureOpen({ figureId, hostRef, takeStepToken: keptToken?.key === attemptKey ? keptToken.token : null });
+      land(key, { figure: opened.figure, reused: true, help: opened.help }, host);
     } catch (error) {
-      setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }));
+      setLines((list) => list.map((line) => line.key !== key ? line : { ...line, state: "failed", message: errorMessage(error) }), host);
     }
-  }, [enabled, target, attemptKey, land]);
+  }, [enabled, target, attemptKey, land, hostKey, setLines, keptToken]);
 
   const contract: FiguresContract = useMemo(() => ({ predictions: true, region: false, revisions: true, showMe: true }), []);
   const ctl: FiguresCtl = useMemo(() => {
@@ -199,19 +240,20 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       figures: lines.flatMap((line) => line.figure ? [line.figure] : []),
       pending: [],
       expandedKey,
-      setExpanded: (figure) => setExpandedKey(figure ? figurePlacementKey(figure) : null),
+      setExpanded: (figure) => updateHost(hostKey, (state) => ({ ...state, expandedKey: figure ? figurePlacementKey(figure) : null })),
       request: async () => "skipped",
       revise: (figure, note) => {
         const key = lines.find((line) => line.figure?.figureId === figure.figureId)?.key;
         if (!key) return;
-        setLines((list) => list.map((line) => line.key === key ? { ...line, state: "pending" } : line));
+        const host = hostKey;
+        setLines((list) => list.map((line) => line.key === key ? { ...line, state: "pending" } : line), host);
         // Codex review F4: the version is asked on the host it is open on now (a Reader figure
         // opened from the chooser's line too), so it is recorded and reveal-checked on this attempt.
         const hostRef = target ? figureHostRef(target) : null;
-        const takeStepToken = token.current?.key === attemptKey ? token.current.token : null;
+        const takeStepToken = keptToken?.key === attemptKey ? keptToken.token : null;
         void settle(() => api.readerFigureRevise({ figureId: figure.figureId, note, hostRef, takeStepToken }))
-          .then((result) => land(key, result))
-          .catch((error) => setLines((list) => list.map((line) => line.key === key ? { ...line, state: "failed", message: errorMessage(error) } : line)));
+          .then((result) => land(key, result, host))
+          .catch((error) => setLines((list) => list.map((line) => line.key === key ? { ...line, state: "failed", message: errorMessage(error) } : line), host));
       },
       predict: async (figure, index, answer) => {
         const found = await api.readerFigurePredict({ figureId: figure.figureId, predictionIndex: index, answer });
@@ -235,7 +277,7 @@ export function usePanelFigures(target: AskTarget | null, { cold, onEvent, choos
       optInSpanId: null,
       answerManimOptIn: () => undefined
     };
-  }, [enabled, contract, lines, expandedKey, land, target, attemptKey]);
+  }, [enabled, contract, lines, expandedKey, land, target, attemptKey, hostKey, setLines, keptToken]);
 
   const dismiss = (key: string) => setLines((list) => list.filter((line) => line.key !== key));
   return { enabled, lines, send, open, ctl, converted, dismiss };

@@ -853,6 +853,15 @@ export function AskOverlay({
   ) : null;
 
   const earlierEntry = earlier.find((entry) => entry.attemptId === earlierShown) ?? null;
+  // UX-3 (audit seasoned-1 #74-81): the panel's visible send control for a
+  // question, before "show me ▸" (which asks for a figure); ↵ does the same.
+  const askButton = (
+    <button type="button" aria-label={ASK_COPY.sendName} disabled={pending || limitReached || !question.trim()}
+      onClick={() => void send()}
+      style={{ border: 0, background: "transparent", color: COLOR.amberLink, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 11, padding: 0, fontWeight: 700 }}>
+      {ASK_COPY.send}
+    </button>
+  );
   const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? (
     <div data-testid="ask-earlier" style={{ padding: "6px 14px", borderTop: `1px solid ${COLOR.border}`, fontSize: 11, color: COLOR.textDim, flexShrink: 0 }}>
       <button type="button" aria-expanded={earlierOpen}
@@ -1291,6 +1300,7 @@ export function AskOverlay({
             // §7.1 item 4: the cost, said before sending; §7.4: "change" picks
             // another mode for this one question.
             <div data-testid="ask-cost-line" style={{ marginTop: 6, fontSize: 11, color: COLOR.textDim, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+              {askButton}
               <span>{target.context === "feedback" ? ASK_COPY.costFeedback : cold ? "" : ASK_COPY.cost}</span>
               {figures.enabled ? (
                 // RW5d P3 (§6.4): show me ▸ and what a figure costs here, said before sending.
@@ -1329,6 +1339,8 @@ export function AskOverlay({
                 </span>
               ) : null}
             </div>
+          ) : panel ? (
+            <div style={{ marginTop: 6, fontSize: 11 }}>{askButton}</div>
           ) : null}
         </div>
         {panelFoot}
