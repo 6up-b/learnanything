@@ -11,10 +11,15 @@ depth trajectory. Two halves, deliberately split:
    a scoped learner claim (cold-state prior) plus a deterministic self-graded
    ``self_report`` attempt on the SOURCE item (0.3 evidence mass; moves LO
    mastery, facet recall and the (facet, capability) ledger: easier = declared
-   soft failure, harder = success). Below mvp-0.61 it was also an FSRS review
-   of the source; from that tag the source's forgetting clock, memory state and
-   due date stay as they were, since the learner answered nothing (the request
-   row names its attempt: ``replay_reading.withholds_review_as_variant_request``).
+   soft failure, harder = success). What it does to the source item's schedule
+   depends on the vault's tag. Below mvp-0.61 the attempt is also an FSRS review
+   of the source item, as any unprimed self-report is: it sets the item's memory
+   state and due date and restarts its forgetting clock. From mvp-0.61 it is no
+   review: the item's forgetting clock, memory state and due date stay exactly
+   as they were, live and on replay, since the learner answered nothing. The
+   request row names its attempt before the attempt is applied, and that row is
+   how the attempt is recognized as a request at both moments
+   (``replay_reading.withholds_review_as_variant_request``).
    The evidence is NEVER rolled back if generation later fails: the
    request was real evidence regardless of what the authoring model does.
 
