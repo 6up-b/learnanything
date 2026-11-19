@@ -40,6 +40,10 @@ from tests.protection_matrix_helpers import (
     world_in_state,
 )
 
+# The world holds every fixture and the matrix asks about 1,500 cells through the production functions (the
+# library's searches and the pinned tutor alone take about 20 s): over the fast lane's 15 s, so not in it.
+pytestmark = pytest.mark.slow
+
 S, W, R, NA = "S", "W", "R", "-"
 
 # The rows are the fixtures (``tests/protection_matrix_helpers.py``); the columns are the surfaces, by the codes of
@@ -1066,6 +1070,124 @@ def _teacher_goal(probe: Probe, target: Target) -> str:
     except Exception:  # noqa: BLE001
         return R
     return S
+
+
+# --- the library: an ask, its kept job, its organizer notes and its pinned tutor --------------------------------
+
+
+def _key(target: Target) -> str:
+    extraction, span = _span(target)
+    return f"{extraction}:{span}"
+
+
+@surface("LA")
+def _library_ask(probe: Probe, target: Target) -> str:
+    """A library search (no reading anchor) for the target's own words: is the target among its passages?"""
+
+
+    world = probe.world(target, own="library-search")
+    # A search is a span's question, not an item's: an item row asks it of its source span, once.
+    return probe.once(world, f"LA:{_key(target)}", lambda: _library_ask_once(probe, world, target))
+
+
+def _library_ask_once(probe: Probe, world: World, target: Target) -> str:
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import call
+
+    ctx = _sidecar(probe, world)
+    try:
+        # The main search only: the expansions search again for neighbouring topics, not for the target.
+        asked = call(ctx, "reader.library_ask", {"query": sentence(target.mark), "entry": "library_search",
+                                                 "expand": []})
+    except SidecarError:
+        return R
+    return S if _key(target) in {hit["key"] for hit in asked.get("hits") or []} else W
+
+
+def _stored_ask(probe: Probe, target: Target) -> tuple[Any, str, str]:
+    """An ask whose kept result shows the target, as a search made before its mark would have kept it: the
+    search is answered with the target's passage. Returns the sidecar, the ask id and its job id."""
+
+    from types import SimpleNamespace
+    from unittest import mock
+
+    import learnloop.instructional.sources as service
+    from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
+    from tests.library_ask_fixtures import ask_rows, call_rpc
+
+    world = probe.world(target, own="library-kept")
+    ctx = _sidecar(probe, world)
+    ctx.post_attempt_worker = PostAttemptWorker(autostart=False)
+    extraction, span = _span(target)
+    hit = {"extraction_id": extraction, "span_id": span, "text": sentence(target.mark), "source_id": target.source_id,
+           "source_title": target.source_id, "role": "explanation", "block_type": "Text", "page": target.page,
+           "section": None}
+    before = {row["id"] for row in ask_rows(world.repository)}
+    # The search's manifest names what it returned: the stored ask's passages are read from it.
+    found = SimpleNamespace(hits=[hit], manifest={"returned": [[extraction, span]]}, status="ok", policy="reading")
+    with mock.patch.object(service, "propose_sources", lambda *a, **k: found):
+        job = call_rpc(ctx, "reader.library_ask", {"query": "what does this passage say", "entry": "library_search",
+                                                   "expand": []})
+        kept = ctx.library_ask_jobs.get(job["jobId"])
+        assert kept is not None and kept.done.wait(60), "the ask never finished"
+    (ask_id,) = {row["id"] for row in ask_rows(world.repository)} - before
+    return ctx, ask_id, job["jobId"]
+
+
+@surface("LJ")
+def _kept_job(probe: Probe, target: Target) -> str:
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import call_rpc
+
+    ctx, _ask_id, job_id = _stored_ask(probe, target)
+    try:
+        job = call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+    except SidecarError:
+        return R
+    return S if _key(target) in json.dumps(job.get("result")) else W
+
+
+@surface("OR")
+def _organizer(probe: Probe, target: Target) -> str:
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import OrganizerFake, call
+
+    ctx, ask_id, _job_id = _stored_ask(probe, target)
+    ctx.library_organizer_client = OrganizerFake()
+    # The current-key check is the organizer's protection; what it does with an admitted pool after it (here an
+    # empty pool: a planted kept hit is no library passage of its own) is not a protection answer.
+    try:
+        call(ctx, "reader.library_ask_notes", {"askId": ask_id})
+    except SidecarError as refused:
+        return R if refused.code == "exam_material" else f"refused:{refused.code}"
+    return S
+
+
+@surface("PT")
+def _pinned_tutor(probe: Probe, target: Target) -> str:
+
+
+    world = probe.world(target, own="library-kept")
+    return probe.once(world, f"PT:{_key(target)}", lambda: _pinned_tutor_once(probe, target))
+
+
+def _pinned_tutor_once(probe: Probe, target: Target) -> str:
+    from types import SimpleNamespace
+    from unittest import mock
+
+    import learnloop_sidecar.handlers.ai_providers as providers
+    from tests.library_ask_fixtures import call
+
+    ctx, ask_id, _job_id = _stored_ask(probe, target)
+    model = RecordingModel()
+    refused = False
+    with mock.patch.object(providers, "ready_tutor_qa_provider",
+                           lambda vault: ("g6", SimpleNamespace(ready=True), model)):
+        try:
+            call(ctx, "reader.library_ask_tutor", {"askId": ask_id, "pinnedSpanKeys": [_key(target)]})
+        except Exception:  # noqa: BLE001 - a refusal, or the recording model stopping the answer
+            refused = True
+    return _model_answer(model, target.mark, refused)
 
 
 # --- the cells --------------------------------------------------------------------------------------------------
