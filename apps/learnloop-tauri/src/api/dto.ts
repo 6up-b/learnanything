@@ -6639,6 +6639,8 @@ export interface SideBySideSectionDto {
   exposureEventIds: string[];
   /** The reading's revision (a highlight or note made in the pane goes to its own book). */
   revisionId?: string | null;
+  /** The other book's own TeX macros, for its formulas (absent from older sidecars). */
+  mathMacros?: Record<string, string>;
 }
 
 /** CA5a's "not about this" (or its undo), one durable operation. */
@@ -7106,6 +7108,9 @@ export interface ReaderRenderViewDto {
   /** What of this reading the model actions must not touch (exam_material
    *  decides; reader-pdf-selection). Absent from older sidecars. */
   protection?: ReaderProtectionDto | null;
+  /** The source's own TeX macros (`\vvec` -> `{\mathbf v}`), read from its stored original: the extraction keeps
+   *  the formulas but not the page's definitions. Empty for a source with none; absent from older sidecars. */
+  mathMacros?: Record<string, string>;
 }
 
 /** The held-out partition on a reading, for its selection surfaces

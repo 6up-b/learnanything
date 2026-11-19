@@ -16,6 +16,7 @@ import { MarkdownMath } from "../../render/MarkdownMath";
 import { answerModeLabel } from "./readerShared";
 import { TutorAnswer, type ExchangeOffers, type TutorRailProps } from "./TutorAnswer";
 import { LearnerVoice, MeaningLabel, SourceVoice } from "./voices";
+import { plainMathLine } from "../../render/mathSnippet";
 
 export interface ReaderExchange {
   id: string;
@@ -252,16 +253,16 @@ export function ReaderAskBranches({
               ) : null}
               {exchange.citations.map((citation, index) => citation.extractionId === exchange.extractionId && !exchange.about ? (
                 <button type="button" key={index} onClick={() => onShowPassage(citation.spanId)} style={buttonStyle}>
-                  <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
+                  <span aria-hidden="true">§ </span>source: {citation.label ? plainMathLine(citation.label) : citation.spanId}
                 </button>
               ) : citation.sourceId && tutor?.onOpenPassage ? (
                 // RW1c (Codex review F9): a passage from another book opens there.
                 <button type="button" key={index} data-open-citation="" style={buttonStyle} onClick={() => tutor.onOpenPassage?.({
                   extractionId: citation.extractionId, spanId: citation.spanId, sourceId: citation.sourceId,
                 })}>
-                  <span aria-hidden="true">§ </span>source: {citation.label || citation.spanId}
+                  <span aria-hidden="true">§ </span>source: {citation.label ? plainMathLine(citation.label) : citation.spanId}
                 </button>
-              ) : <span key={index}>{citation.label || citation.spanId}</span>)}
+              ) : <span key={index}>{citation.label ? plainMathLine(citation.label) : citation.spanId}</span>)}
             </div>
             {isRoot ? statusChips(exchange) : null}
           </> : null}
