@@ -26,6 +26,8 @@ Reader and tutor interactions help the learner understand source material withou
 
 Reader views are anchored to extracted source spans. Learner questions can request direct answers, guided reasoning, or an ask-first response. Answers are citation-validated and bounded to the manifest. Owner-placed reading checks are source-visible instructional administrations and always skippable.
 
+[[Concepts/Figures|Figures]] explains Show me from a passage, a question or both, including simulations and explanation videos, source protection and attempt-help accounting. Figures remain illustrations, never certification.
+
 Reader signals may warm familiarity, burn a reserved surface when content is revealed (the detector reads every field the answer shows: the explanation, citation labels, the verified excerpt and the bridge, and records which one matched), or provide a short-lived routing prior. They never update posterior ability, FSRS, or certification. The reader is opt-in/dark by default (`tutor_qa.reader_enabled = false`).
 
 ## Tutor Q&A
