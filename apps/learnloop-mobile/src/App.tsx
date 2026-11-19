@@ -782,7 +782,7 @@ function Phone({ credential }: { credential: Credential }) {
           </div>
         ) : null}
         {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
-        {tab === "capture" ? <CaptureScreen onSaved={flush} /> : null}
+        {tab === "capture" ? <CaptureScreen onSaved={flushNow} outboxWaiting={outboxWaiting} /> : null}
         {tab === "read" && readTarget ? (
           <ReaderScreen key={`${readTarget.extractionId}:${readTarget.plan ? "plan" : "book"}`} target={readTarget}
             onSection={setReadSection} onPlanBack={planReadingBack} onError={reportError} />
