@@ -1096,6 +1096,7 @@ def _every_case_vault(tmp_path, monkeypatch):
     cases = {}
     _expose(ctx, repository, result, row, "shown_anyway")
     cases["probe_shown_anyway"] = _answer_probe(ctx, repository, row)
+    cases["miss_probe_shown_anyway"] = result.attempt_id
     vault, _ = ctx.require_vault()
     second, outcome = miss_with_rivals(vault, repository, attempt_id="att_second_miss")
     author = AuthorFake()
@@ -1105,6 +1106,7 @@ def _every_case_vault(tmp_path, monkeypatch):
     assert second_row["presentation_id"] and second_row["presentation_id"] != row["presentation_id"]
     _expose(ctx, repository, second, second_row, "reveal")
     cases["probe_reveal"] = _answer_probe(ctx, repository, second_row)
+    cases["miss_probe_reveal"] = second.attempt_id
 
     vault, _ = ctx.require_vault()
     cases["unassessed_diagnosed"] = _unassessed_diagnosed_attempt(vault, repository, clock=_at(2)).attempt_id
@@ -1160,14 +1162,30 @@ def _reading(paths, cases):
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     reading = {}
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
+    from learnloop.router_objective import miss_cause as MC
+
+    reader = effective_posterior_reader(vault, repository)
+    now_iso = (NOW + timedelta(days=60)).isoformat().replace("+00:00", "Z")
     for name in ("probe_shown_anyway", "probe_reveal"):
         stored, effective, qualifying = _episode_reading(vault, repository, cases[name])
+        presentation = repository.probe_presentation(str(repository.fetch_practice_attempt(cases[name])
+                                                         ["probe_presentation_id"]))
+        episode = repository.probe_episode(presentation.probe_episode_id)
+        with repository.connection() as connection:
+            sensed = MC.probe_posterior(connection, cases[f"miss_{name}"], now_iso, reader)
         reading[name] = {
             "stored": (stored.contamination, stored.independent_evidence_discount, stored.updates_belief,
                        stored.eligible_for_completion),
             "effective": (effective.contamination, effective.independent_evidence_discount, effective.updates_belief,
                           effective.eligible_for_completion),
             "qualifying": qualifying,
+            # What the episode believes now, and what the router's miss-cause sensor reads of it.
+            "posterior": {key: round(value, 9) for key, value in episode_posterior(vault, repository, episode)
+                          .posterior.items()},
+            "sensor": (sensed["source"], {key: round(value, 9) for key, value in sensed["p"].items()})
+            if sensed is not None else None,
+            "posterior_before_answer": {key: round(value, 9) for key, value in stored.posterior_before.items()},
         }
     episode = causal_episode_for_attempt(repository, cases["unassessed_diagnosed"])
     receipt = episode["receipt"]
@@ -1212,6 +1230,7 @@ def _derived(paths):
 
 def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
+    _DiscriminatingInstrument(monkeypatch)  # so a probe answer's update can be seen in the posteriors
     paths, cases = _every_case_vault(tmp_path, monkeypatch)
     before = _reading(paths, cases)
     before_derived = _derived(paths)
@@ -1242,10 +1261,17 @@ def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tm
 
     exposed = {"probe_shown_anyway": "followup_feedback_shown_anyway", "probe_reveal": "post_reveal_not_independent"}
     for name, reason in exposed.items():
-        assert before[name] == {"stored": (None, 1.0, True, True), "effective": (None, 1.0, True, True),
-                                "qualifying": 1}
-        assert after[name] == {"stored": (None, 1.0, True, True),
-                               "effective": ({"answer_exposed": reason}, 0.0, False, False), "qualifying": 0}
+        assert {key: before[name][key] for key in ("stored", "effective", "qualifying")} == {
+            "stored": (None, 1.0, True, True), "effective": (None, 1.0, True, True), "qualifying": 1}
+        moved = {key: after[name][key] for key in ("stored", "effective", "qualifying")}
+        assert moved == {"stored": (None, 1.0, True, True),
+                         "effective": ({"answer_exposed": reason}, 0.0, False, False), "qualifying": 0}
+        # The episode's belief and the router's sensor no longer carry the exposed answer: the sensor reads the
+        # episode's effective posterior (the posterior before that answer), where before the upgrade it read the
+        # stored full-weight one.
+        assert after[name]["posterior"] != before[name]["posterior"]
+        assert before[name]["sensor"][0] in ("observation", "completion") and after[name]["sensor"][0] == "effective"
+        assert after[name]["sensor"][1] != before[name]["sensor"][1]
     assert before["unassessed_diagnosed"] == ("consistent_with_claims", True, False)
     assert after["unassessed_diagnosed"] == ("unknown", False, False)
     assert before["zero_confidence"] == after["zero_confidence"] == (0.0, [0.0])
