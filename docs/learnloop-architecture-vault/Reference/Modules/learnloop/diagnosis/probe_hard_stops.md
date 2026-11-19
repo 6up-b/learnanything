@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py) |
-| Source lines | 148 |
+| Source lines | 155 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `EPISODE_CONFLICT_MESSAGE`, `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `causal_origin`, `episode_conflict_reason`, `learner_preference`; statically calls `causal_origin`, `episode_conflict_reason`, `learner_preference`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `record_learner_preference`; statically calls `record_learner_preference`
 
 ## Dependencies
@@ -117,6 +117,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
 - [tests/test_followup_journey.py](../../../../../../tests/test_followup_journey.py) — direct import
   - `test_continue_without_it_retires_the_probe_and_next_goes_on`
+- [tests/test_probe_episode_conflict_one_check.py](../../../../../../tests/test_probe_episode_conflict_one_check.py) — direct import
+  - `test_an_open_foreign_episode_that_has_measured_refuses`
+  - `test_an_unknown_learning_object_asks_nothing`
+  - `test_the_factors_own_episode_is_no_conflict`
+  - `test_the_follow_up_router_asks_the_same_check`
 
 ## Modification guidance
 

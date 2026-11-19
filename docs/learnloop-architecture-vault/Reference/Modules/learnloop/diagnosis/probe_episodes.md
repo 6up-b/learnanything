@@ -251,6 +251,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_dialogue.py](../../../../../../tests/test_probe_dialogue.py) — direct import
   - `test_dialogue_observation_replays_to_its_persisted_weighted_posterior`
   - `test_dialogue_turns_persist_presentation_attempt_observation`
+- [tests/test_probe_episode_conflict_one_check.py](../../../../../../tests/test_probe_episode_conflict_one_check.py) — direct import
 - [tests/test_probe_episodes.py](../../../../../../tests/test_probe_episodes.py) — direct import
   - `test_consumed_presentation_cannot_qualify_second_attempt`
   - `test_declared_dont_know_keeps_probe_measurement_type`

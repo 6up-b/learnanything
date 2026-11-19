@@ -119,6 +119,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sweep_machine_checks_queues_the_instrument_debt`
 - [tests/test_followup_rival_factor.py](../../../../../../tests/test_followup_rival_factor.py) — direct import
   - `test_a_sweep_queues_no_mapping_this_factor_doesnt_need_and_a_retry_still_asks`
+- [tests/test_probe_episode_conflict_one_check.py](../../../../../../tests/test_probe_episode_conflict_one_check.py) — direct import
+  - `test_the_follow_up_router_asks_the_same_check`
 
 ## Modification guidance
 

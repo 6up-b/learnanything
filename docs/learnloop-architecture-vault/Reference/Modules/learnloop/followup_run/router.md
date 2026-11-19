@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py) |
-| Source lines | 432 |
+| Source lines | 425 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,14 +61,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `wait(self) -> bool` (line 87; public)
   - `for_author(self) -> dict[str, Any]` (line 90; public)
 - `hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 95) — §5: what still refuses, in the orchestrator's own terms, before anything is spent.
-- `observational(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 123) — §5 item 5: the checks that stopped deciding on this lane, still on the record.
-- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 210)
-- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 253) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
-- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 286) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
-- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 387) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
-- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 395)
-- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 401) — The appended binding: decision -> generated item and its probe presentation.
-- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 415) — The second presentation: the plan's own, once Next served it.
+- `observational(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 116) — §5 item 5: the checks that stopped deciding on this lane, still on the record.
+- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 203)
+- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 246) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
+- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 279) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
+- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 380) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
+- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 388)
+- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 394) — The appended binding: decision -> generated item and its probe presentation.
+- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 408) — The second presentation: the plan's own, once Next served it.
 
 ### Module constants
 
@@ -78,7 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `NO_INTERVENTION` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 41)
 - `DECLINE` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 42)
 - `ARM_LABELS` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 45)
-- `VERDICT_ABSENT_NO_INSTRUMENT` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 131)
+- `VERDICT_ABSENT_NO_INSTRUMENT` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 124)
 
 ### Explicit exports
 
@@ -102,10 +102,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 134) — The value checks' answer, or ``{}`` and the exception that stopped them (which never decides).
-- `_card_facts(vault: Any, repository: Repository, choice: Any, seen: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 165)
-- `_plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 177) — The session's standing plan and its router gate, or None (no plan, no timing decision).
-- `_gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: bool) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 281)
+- `_observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 127) — The value checks' answer, or ``{}`` and the exception that stopped them (which never decides).
+- `_card_facts(vault: Any, repository: Repository, choice: Any, seen: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 158)
+- `_plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 170) — The session's standing plan and its router gate, or None (no plan, no timing decision).
+- `_gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: bool) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 274)
 
 ## Who imports or calls it
 
@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `repair_class_need_for_factor`; calls `repair_class_need_for_factor`
 - [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `pending_machine_checks_for_factor`; calls `pending_machine_checks_for_factor`
 - [[Reference/Modules/learnloop/diagnosis/probe_facts|learnloop.diagnosis.probe_facts]] — imports `settled_by_repair_classes`; calls `settled_by_repair_classes`
-- [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `causal_origin`, `episode_conflict_reason`, `learner_preference`; calls `causal_origin`, `episode_conflict_reason`, `learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `learner_preference`, `probe_episode_conflict`; calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `lost_offer_decision`, `set_fields`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -199,6 +199,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih2_lessons_compete.py](../../../../../../tests/test_ih2_lessons_compete.py) — direct import
   - `test_not_now_after_a_miss_goes_back_to_a_new_decision_and_the_block_resumes`
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
+- [tests/test_probe_episode_conflict_one_check.py](../../../../../../tests/test_probe_episode_conflict_one_check.py) — direct import
+  - `test_the_follow_up_router_asks_the_same_check`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`
