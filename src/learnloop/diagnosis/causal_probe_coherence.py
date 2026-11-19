@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 import json
-import math
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc
@@ -39,7 +38,7 @@ from learnloop.diagnosis.causal_attribution import (
     OPEN_SET_CAUSE_ID,
     SUPPORT_BASIS_AUTHORITY,
 )
-from learnloop.params.fitted_params import CAUSAL_PROBE_POLICY_SCOPE
+from learnloop.params.fitted_params import CAUSAL_PROBE_POLICY_SCOPE, resolve_bounded_knobs
 from learnloop.diagnosis.probe_facts import probe_facts, probe_verdict
 from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.diagnosis.probes import Hypothesis, HypothesisSet
@@ -155,35 +154,17 @@ def resolve_causal_probe_parameters(
     """Active fitted probe-policy knobs, else the pinned heuristic defaults.
 
     A malformed fitted value falls back to its default and is reported in
-    ``invalid_keys`` rather than crashing the decision path.
+    ``invalid_keys`` rather than crashing the decision path. The resolution is
+    ``resolve_bounded_knobs``, shared with the cold-probe and orchestrator scopes.
     """
 
-    values = dict(CAUSAL_PROBE_POLICY_DEFAULTS)
-    if repository is None:
-        return CausalProbeParameters(values=values)
-    record = repository.active_fitted_parameters(CAUSAL_PROBE_POLICY_SCOPE)
-    if record is None:
-        return CausalProbeParameters(values=values)
-    params = record.get("params") or {}
-    invalid: list[str] = []
-    for key, default in CAUSAL_PROBE_POLICY_DEFAULTS.items():
-        if key not in params:
-            continue
-        low, high = _CAUSAL_PROBE_POLICY_BOUNDS[key]
-        raw = params[key]
-        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-            invalid.append(key)
-            continue
-        candidate = float(raw)
-        if not math.isfinite(candidate) or not (low <= candidate <= high):
-            invalid.append(key)
-            continue
-        values[key] = candidate
     return CausalProbeParameters(
-        values=values,
-        lifecycle="fitted",
-        fitted_set_id=str(record["id"]),
-        invalid_keys=tuple(sorted(invalid)),
+        **resolve_bounded_knobs(
+            repository,
+            CAUSAL_PROBE_POLICY_SCOPE,
+            CAUSAL_PROBE_POLICY_DEFAULTS,
+            _CAUSAL_PROBE_POLICY_BOUNDS,
+        )
     )
 
 

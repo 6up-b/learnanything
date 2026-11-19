@@ -107,7 +107,6 @@ substitute for the mint-time writer.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-import math
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
@@ -151,6 +150,7 @@ from learnloop.diagnosis.machine_checks import (
     close_satisfied_backfills,
     pending_machine_checks_for_factor,
 )
+from learnloop.params.fitted_params import resolve_bounded_knobs
 from learnloop.vault.models import LoadedVault
 
 
@@ -266,34 +266,13 @@ class OrchestratorParameters:
 def resolve_orchestrator_parameters(
     repository: Repository | None,
 ) -> OrchestratorParameters:
-    values = dict(CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS)
-    if repository is None:
-        return OrchestratorParameters(values=values)
-    record = repository.active_fitted_parameters(
-        CAUSAL_ORCHESTRATOR_POLICY_SCOPE
-    )
-    if record is None:
-        return OrchestratorParameters(values=values)
-    params = record.get("params") or {}
-    invalid: list[str] = []
-    for key in CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS:
-        if key not in params:
-            continue
-        low, high = _ORCHESTRATOR_POLICY_BOUNDS[key]
-        raw = params[key]
-        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-            invalid.append(key)
-            continue
-        candidate = float(raw)
-        if not math.isfinite(candidate) or not (low <= candidate <= high):
-            invalid.append(key)
-            continue
-        values[key] = candidate
     return OrchestratorParameters(
-        values=values,
-        lifecycle="fitted",
-        fitted_set_id=str(record["id"]),
-        invalid_keys=tuple(sorted(invalid)),
+        **resolve_bounded_knobs(
+            repository,
+            CAUSAL_ORCHESTRATOR_POLICY_SCOPE,
+            CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS,
+            _ORCHESTRATOR_POLICY_BOUNDS,
+        )
     )
 
 

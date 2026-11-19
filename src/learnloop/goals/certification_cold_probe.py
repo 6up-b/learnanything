@@ -92,7 +92,7 @@ from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import exposed_items
 from learnloop.db.repositories import Repository
 from learnloop.learner.contract_reachability import CONTRACT_MODALITIES
-from learnloop.params.fitted_params import CERTIFICATION_COLD_PROBE_SCOPE
+from learnloop.params.fitted_params import CERTIFICATION_COLD_PROBE_SCOPE, resolve_bounded_knobs
 from learnloop.vault.models import LearningObject, LoadedVault
 
 logger = logging.getLogger(__name__)
@@ -250,35 +250,14 @@ def resolve_cold_probe_parameters(repository: Repository | None) -> ColdProbePar
 
     A malformed fitted value falls back to its default and is reported in
     ``invalid_keys`` rather than crashing the scheduler or, worse, silently
-    scheduling a probe at a nonsense horizon.
+    scheduling a probe at a nonsense horizon. The resolution is
+    ``resolve_bounded_knobs``, shared with the causal probe-policy scope.
     """
 
-    values = dict(COLD_PROBE_POLICY_DEFAULTS)
-    if repository is None:
-        return ColdProbeParameters(values=values)
-    record = repository.active_fitted_parameters(CERTIFICATION_COLD_PROBE_SCOPE)
-    if record is None:
-        return ColdProbeParameters(values=values)
-    params = record.get("params") or {}
-    invalid: list[str] = []
-    for key, _default in COLD_PROBE_POLICY_DEFAULTS.items():
-        if key not in params:
-            continue
-        low, high = _COLD_PROBE_POLICY_BOUNDS[key]
-        raw = params[key]
-        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
-            invalid.append(key)
-            continue
-        candidate = float(raw)
-        if not math.isfinite(candidate) or not (low <= candidate <= high):
-            invalid.append(key)
-            continue
-        values[key] = candidate
     return ColdProbeParameters(
-        values=values,
-        lifecycle="fitted",
-        fitted_set_id=str(record["id"]),
-        invalid_keys=tuple(sorted(invalid)),
+        **resolve_bounded_knobs(
+            repository, CERTIFICATION_COLD_PROBE_SCOPE, COLD_PROBE_POLICY_DEFAULTS, _COLD_PROBE_POLICY_BOUNDS
+        )
     )
 
 

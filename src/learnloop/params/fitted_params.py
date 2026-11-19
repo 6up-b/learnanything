@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from learnloop.db.repositories import Repository
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
@@ -76,6 +76,46 @@ def resolve_grader_channel_prior(repository: Repository) -> GraderChannelPrior:
         ),
         lcb_quantile=quantile if quantile is not None else defaults.lcb_quantile,
     )
+
+
+def resolve_bounded_knobs(
+    repository: Repository | None,
+    scope: str,
+    defaults: Mapping[str, float],
+    bounds: Mapping[str, tuple[float, float]],
+) -> dict[str, Any]:
+    """One scope's active fitted knobs, else its pinned defaults, as the keyword arguments of that scope's parameters
+    dataclass: ``values``, ``lifecycle``, ``fitted_set_id``, ``invalid_keys``.
+
+    A fitted value that is a bool, not a number, not finite or outside its closed bounds keeps its default and is
+    named in ``invalid_keys`` rather than crashing the decision path. A fitted set is ``"fitted"`` even when every
+    value in it was invalid, so the receipt still names the set that was read.
+    """
+
+    values = dict(defaults)
+    unfitted = {"values": values, "lifecycle": "heuristic_default", "fitted_set_id": None, "invalid_keys": ()}
+    if repository is None:
+        return unfitted
+    record = repository.active_fitted_parameters(scope)
+    if record is None:
+        return unfitted
+    params = record.get("params") or {}
+    invalid: list[str] = []
+    for key in defaults:
+        if key not in params:
+            continue
+        low, high = bounds[key]
+        raw = params[key]
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            invalid.append(key)
+            continue
+        candidate = float(raw)
+        if not math.isfinite(candidate) or not (low <= candidate <= high):
+            invalid.append(key)
+            continue
+        values[key] = candidate
+    return {"values": values, "lifecycle": "fitted", "fitted_set_id": str(record["id"]),
+            "invalid_keys": tuple(sorted(invalid))}
 
 
 def _validated_float(raw: Any, *, low: float, high: float) -> float | None:
