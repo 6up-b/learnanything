@@ -1715,7 +1715,13 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
     if "withdraw" not in done and help_reply and state.open_check is not None:
         # K6-7: measured on every field the accepted turn shows (``_displayed``: its choices, a
         # prediction, a recap...), not the message alone; a solution in a choice gives the check away too.
-        shown = "\n".join(text for _field, text in _displayed(turn_obj))
+        # A multiple-choice check's own options, listed again in full, tell the learner nothing new, so they
+        # are left out; a turn that lists only some of them narrows the answer and is measured.
+        own = [str(option) for option in state.open_check["check"].get("choices") or []]
+        displayed = _displayed(turn_obj)
+        relisted = bool(own) and set(own) <= {text for field, text in displayed if field == "choice"}
+        shown = "\n".join(text for field, text in displayed
+                          if not (relisted and field == "choice" and text in own))
         overlap = G.solution_overlap(shown, str(state.open_check["check"]["committed_solution"]))
         from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
 

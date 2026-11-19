@@ -227,6 +227,28 @@ def test_help_that_gives_the_solution_away_in_a_choice_withdraws_the_check(tmp_p
     assert rows and rows[0]["state"] == "censored" and rows[0]["reason"] == "check_withdrawn"
 
 
+def test_help_that_lists_a_multiple_choice_checks_own_options_again_keeps_the_check(tmp_path):
+    """K6-7's other side: the open check's own options, all listed again, give nothing away."""
+
+    options = ["the roots of det(A - tI) = 0", "the trace of A", "the rank of A"]
+    turn = check_turn(solution=options[0])
+    turn["check"].update(form="choices", choices=options)
+    paths, repository, fake, view = _open(tmp_path, [plan_turn, turn])
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply", payload={"text": "go"},
+           clients=clients(fake))
+    fake.turns = [{"message": "Take your time: which one is it?", "choices": list(options)}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                  payload={"text": "I'm stuck, help?"}, clients=clients(fake))
+    assert view["open_check"] is not None
+    assert _rows(repository, "SELECT status FROM lesson_checks") != [("withdrawn",)]
+    # Listing only some of them, the solution among them, narrows the answer: withdrawn.
+    fake.turns = [{"message": "It is one of these two.", "choices": options[:2]}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                  payload={"text": "Still stuck."}, clients=clients(fake))
+    assert view["open_check"] is None
+    assert _rows(repository, "SELECT status, attempt_id FROM lesson_checks") == [("withdrawn", None)]
+
+
 def test_teaching_text_writes_lesson_reveal_rows_on_the_lessons_items(tmp_path):
     reveal = {"message": "Picture a capybara walking two steps."}
     paths, repository, fake, view = _open(tmp_path, [reveal])

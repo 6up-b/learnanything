@@ -189,3 +189,16 @@ Every run in a 5G scope at `-n 2` at most, one at a time.
   retrieved-passage and excerpt cases share the same `withheld` argument but have no test of their own.
 - K6-6 and K6-8's "once per presentation of one display id" parts, which need DJ1's display id.
 - The full landing and arc-close gates were not run.
+
+## Added at review (orchestrator)
+
+**K6-7, the other side.** Measuring every displayed field would also withdraw a multiple-choice check when a help
+reply simply lists that check's own options again, which tells the learner nothing new. The withdrawal now leaves
+out the open check's options when the turn lists all of them; a turn that lists only some of them (the solution
+among them) narrows the answer and is still measured. Test:
+`tests/test_teacher_te1_lesson.py::test_help_that_lists_a_multiple_choice_checks_own_options_again_keeps_the_check`.
+
+**Still open after this round** (recorded in the ledger rows): "once per presentation" for K6-6 and K6-8 needs the
+display ids of the Decider's first stage, so a retried comparison debits again; the pinned-tutor job has no
+delivery re-check under K6-5; the retrieved-passage and excerpt cases of K6-4 share the tested argument and have
+no test of their own.
