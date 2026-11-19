@@ -407,7 +407,8 @@ def _learner_state_withheld(vault: Any, repository: Repository, payload: Mapping
 
 #: ``learner_protection.withheld_items`` reasons naming an item under a live administration (an
 #: open cold check or a repair's cold retry, an assessment reservation, a diagnostic probe). Exam
-#: and held-out material is the span filter's (``withheld_message``), on every span.
+#: and held-out material is the span filter's (``withheld_message``), on every span; an item a
+#: goal's exam pool reserves is read apart (:func:`item_passages`), since its reason is the exam one.
 LIVE_ADMINISTRATION_REASONS: tuple[str, ...] = ("WITHHELD_COLD", "WITHHELD_RESERVED", "WITHHELD_PROBE")
 
 
@@ -435,8 +436,8 @@ def item_passages(vault: Any, repository: Repository, *,
                   clock: Clock | None = None) -> tuple[frozenset[tuple[str, str]], frozenset[str]] | None:
     """RW5d P5 (spec §10b.2, G-SM29): the passages no prebuild may send or show now: every passage
     (``corpus.item_exclusions``: its exercise, solution or worked answer, whatever the relation) of
-    an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`) or that the stored
-    day plan holds open. Returns ``(spans, whole extractions)``, read fresh on every call; None
+    an item under a live administration (:data:`LIVE_ADMINISTRATION_REASONS`), reserved for a goal's
+    exam (an unreleased exam-pool row), or that the stored day plan holds open. Returns ``(spans, whole extractions)``, read fresh on every call; None
     when any of it could not be read (the caller fails closed).
 
     The one core of ``prefetch.item_protection``, of :func:`prefetch_plan_waits` (the Reader's
@@ -452,6 +453,14 @@ def item_passages(vault: Any, repository: Repository, *,
         return None
     live = {getattr(LP, name) for name in LIVE_ADMINISTRATION_REASONS}
     ids = {item_id for item_id, reason in withheld.reasons.items() if reason in live}
+    try:
+        # The exam reason also names every item made from exam material, whose spans the span filter
+        # already catches; a reserved item from a clean book has no such span, so its exercise and
+        # solution would pass both guards. The reservations themselves, not every exam item.
+        ids |= {str(item_id) for item_id in repository.reserved_exam_pool_item_ids()}
+    except Exception:  # noqa: BLE001 - reservations that can't be read may hold anything: fail closed
+        _LOG.warning("figures: the exam pools' reservations could not be read", exc_info=True)
+        return None
     try:
         ids |= set(stored_plan_open_items(repository, clock=clock))
     except Exception:  # noqa: BLE001 - a plan that can't be read may hold anything: fail closed

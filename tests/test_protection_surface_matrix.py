@@ -78,7 +78,7 @@ fixture           | TE MR RA PS CK GU FI IP SC SQ MC | CI BS RI LF RF | RT OT PK
 6.5canonical      | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  W  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
 6.5block          | W  W  R  R  R  W  W  S  W  W  W | R  W  R  W  W | W  W  R  R  S  S  S  W  S  S | W  W  W  W | W  R  R  W  W  R  W  -  - | S  W  R  R  R  S  R  S  S  -  S  S  W  W | S  S  S
 6.whole-ref       | -  -  -  -  -  -  -  S  -  W  - | -  -  -  -  S | S  S  S  S  S  S  S  S  S  S | S  S  S  S | -  -  -  -  -  -  -  -  - | -  -  -  -  -  -  -  -  -  -  S  S  -  - | -  -  -
-6.exam-reserved   | S  S  S  S  S  S  S  S  S  S  W | S  S  S  S  W | W  W  R  R  S  S  S  S  W  S | W  W  W  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
+6.exam-reserved   | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  W | W  W  R  R  S  S  S  S  W  S | W  W  W  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.cold-task       | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | S  W  S  S  S  S  S  S  W  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.remediation     | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  S | S  W  S  S  S  S  S  S  W  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
 6.assess-reserved | S  S  S  S  S  S  S  W  S  S  W | S  S  S  S  W | S  S  S  S  S  S  S  S  S  S | W  W  S  W | S  S  S  S  S  S  S  S  - | S  S  S  S  S  S  S  S  S  -  S  S  S  S | S  -  -
@@ -1408,11 +1408,44 @@ def test_the_phones_media_lift_admits_no_measurement(probe: Probe) -> None:
 # strict xfail, so the fix turns exactly it green (and must flip the pinned cell in the same commit).
 
 
-@pytest.mark.xfail(strict=True, reason="G6-P1: a figure prebuild's live-item guard omits exam-pool reservations")
 def test_an_exam_reserved_items_own_passage_is_withheld_from_figure_prebuilds(probe: Probe) -> None:
     target = probe.base.targets["6.exam-reserved"]
     assert _figure_withheld(probe, target) == S  # its source is clean: the span filter can't catch it
     assert _figure_item_passages(probe, target) == W
+
+
+def test_releasing_an_exam_reservation_admits_its_items_passage_to_figure_prebuilds(probe: Probe) -> None:
+    """G6-P1: the reservation, not the item, is what withholds: released, the clean passage is admitted again."""
+
+    from learnloop.figures.protection import item_passages
+
+    target = probe.base.targets["6.exam-reserved"]
+    world = probe.world(target, own="ip-release")
+    with world.repository.connection() as connection:
+        connection.execute("UPDATE exam_pool_items SET released_at = ? WHERE practice_item_id = ?",
+                           (NOW.isoformat(), target.item_id))
+    spans, whole = item_passages(world.vault(), world.repository, clock=CLOCK)
+    own = _own_passage(world, target)
+    assert own not in spans and own[0] not in whole
+
+
+def test_figure_prebuilds_are_all_withheld_when_exam_reservations_cannot_be_read(probe: Probe) -> None:
+    """G6-P1, fail closed: a reservation read that fails withholds every prebuild (``None``)."""
+
+    from unittest import mock
+
+    from learnloop import learner_protection as LP
+    from learnloop.figures.protection import item_passages
+
+    world = probe.base
+
+    def failing() -> set[str]:
+        raise RuntimeError("database is locked")
+
+    # The item guard read first answers (nothing withheld), so the reservation read is the one that fails.
+    with mock.patch.object(LP, "withheld_items", lambda vault, repository: LP.Withheld()), \
+            mock.patch.object(world.repository, "reserved_exam_pool_item_ids", failing):
+        assert item_passages(world.vault(), world.repository, clock=CLOCK) is None
 
 
 def test_a_camel_case_selection_of_held_out_material_is_refused_before_the_author(probe: Probe) -> None:
