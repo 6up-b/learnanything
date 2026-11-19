@@ -1193,8 +1193,19 @@ def _pinned_tutor_once(probe: Probe, target: Target) -> str:
 
 # --- the cells --------------------------------------------------------------------------------------------------
 
+#: Columns the table keeps as the design's inferred answers, asserted by nothing here: the book-solution search
+#: (BS: no fixture has a solution region), the phone's dose offer (DO: the dose arm's draw is not composed into this
+#: world), the completed pinned-tutor job per row (TJ: a per-row answer needs a result made before the row's mark;
+#: its one scenario is G6-P2's pair below), the comparison (CM) and the held follow-up's feedback (FB: no held
+#: workflow is built). Each is a hole in the proof, named in the record.
+NOT_DRIVEN = frozenset({"BS", "DO", "TJ", "CM", "FB"})
+
 #: The surfaces the matrix drives, in the table's order.
 DRIVEN = [column for column in COLUMNS if column in ADAPTERS]
+
+
+def test_every_column_is_driven_or_named_as_not_driven() -> None:
+    assert set(ADAPTERS) == set(COLUMNS) - NOT_DRIVEN
 
 
 def _answers(probe: Probe, column: str) -> dict[str, str]:
@@ -1551,39 +1562,3 @@ def test_a_legacy_reader_thread_sends_an_answer_grounded_in_a_passage_held_out_s
 def test_a_legacy_reader_thread_leaves_out_an_answer_grounded_in_held_out_material(probe: Probe) -> None:
     model = _legacy_thread_ask(probe, "legacy-desired")
     assert model.prompts and not model.carried("GSIXCLEANRES")
-
-
-def test_zz_reach(probe):  # TEMPORARY
-    from learnloop.reader.reader_quick_check import SELECTION_STYLES
-    out = {"checks": {}, "refs": {}, "presented": {}}
-    for row in ("0.control", "1.paper", "2.exam", "3.held", "3.neighbor", "4.unmarked", "5.signal"):
-        t = probe.base.targets[row]
-        try:
-            out["checks"][row] = [_check(probe, t, {"scope_kind": "inquiry", "inquiry_root_event_id": "evt_g6_root", "anchor_span_ids": "@span"}),
-                                  _check(probe, t, {"scope_kind": "selection", "question_style": sorted(SELECTION_STYLES)[0], "anchor_span_ids": "@span"})]
-        except BaseException as exc:
-            out["checks"][row] = repr(exc)[:300]
-    w = probe.base
-    material = EM.exam_material(w.vault(), w.repository)
-    for form in ("locator", "explicit_spans", "namespaced_span", "whole_extraction", "revision_only", "source_only", "neighbour_block"):
-        out["refs"][form] = W if EM.source_ref_protected(material, _reference(form, w.targets["3.held"]), w.repository) else S
-    for col in ("LP", "AP", "AD", "IP", "MC", "RF", "RT", "OT", "SE", "CO", "LC", "EX"):
-        try:
-            out["presented"][col] = ADAPTERS[col](probe, probe.base.targets["6.presented"])
-        except BaseException as exc:
-            out["presented"][col] = repr(exc)[:200]
-    path = "/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/6b94db86-fdc3-456a-8767-851c8bf25992/scratchpad/g61/reach.json"
-    with open(path, "w") as handle:
-        json.dump(out, handle, indent=1)
-
-
-def test_zz_faults(probe):  # TEMPORARY
-    out = {}
-    for column in DRIVEN:
-        try:
-            out[column] = list(_fault_answers(probe, column))
-        except BaseException as exc:  # noqa: BLE001
-            out[column] = f"ERR {type(exc).__name__}: {str(exc)[:200]}"
-    path = "/tmp/claude-1000/-home-saturn-Documents-thinking-learnanything/6b94db86-fdc3-456a-8767-851c8bf25992/scratchpad/g61/faults.json"
-    with open(path, "w") as handle:
-        json.dump(out, handle, indent=1)
