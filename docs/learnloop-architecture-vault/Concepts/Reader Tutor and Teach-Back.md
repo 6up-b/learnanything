@@ -26,11 +26,11 @@ Reader and tutor interactions help the learner understand source material withou
 
 Reader views are anchored to extracted source spans. Learner questions can request direct answers, guided reasoning, or an ask-first response. Answers are citation-validated and bounded to the manifest. Owner-placed reading checks are source-visible instructional administrations and always skippable.
 
-Reader signals may warm familiarity, burn a reserved surface when content is revealed, or provide a short-lived routing prior. They never update posterior ability, FSRS, or certification. The reader is opt-in/dark by default (`tutor_qa.reader_enabled = false`).
+Reader signals may warm familiarity, burn a reserved surface when content is revealed (the detector reads every field the answer shows: the explanation, citation labels, the verified excerpt and the bridge, and records which one matched), or provide a short-lived routing prior. They never update posterior ability, FSRS, or certification. The reader is opt-in/dark by default (`tutor_qa.reader_enabled = false`).
 
 ## Tutor Q&A
 
-Tutor answers are source-grounded and preserve provenance/citations. A useful exchange can be promoted through an explicit reviewed workflow rather than silently becoming canonical practice content. Exposure propagation prevents later assessments from treating revealed material as cold.
+Tutor answers are source-grounded and preserve provenance/citations. A cited passage costs the item what its chip shows (its label and, in the Ask panel, its excerpt; a Reader excerpt its verified quote), whichever branch delivered it, retrieval or the linked-passage fallback; opening the whole passage is the source viewer's own exposure record. "Ask the tutor" from a library ask made in a bound workbench session counts its help on that item, as the workbench's own Ask does. A margin cue's stored link is shown only while its passage is not a solution by effective role, the check discovery applies. A useful exchange can be promoted through an explicit reviewed workflow rather than silently becoming canonical practice content. Exposure propagation prevents later assessments from treating revealed material as cold.
 
 ## Teach-back
 

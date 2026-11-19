@@ -101,6 +101,8 @@ Plain doctor is physically database-read-only and does not probe providers. A pr
 
 Reader/tutor output may reveal source content and therefore records familiarity/exposure; it cannot become ability evidence merely because a model supplied it. Assessment output is treated as a proposal and checked against the frozen contract. See [[Evidence and Measurement]] and [[Reader Tutor and Teach-Back]].
 
+A destination's protection covers everything a request assembles, not only the passage it names (K6 round A, `docs/reviews/refactor-k6-fixes-a.md`): a phone Reader Ask keeps exam material out of the selection's neighbours, the blocks they cite, retrieved passages and the excerpt, as it does from the selection (`phone_reader.destination_material`), and a branch's earlier answer goes back to a model only when none of the passages its stored exchange names is withheld now. A result read again is judged by today's marks: the library organizer's input and stored notes, a kept library job, and a completed phone Ask job (a poll or a retried request id) are refused whole, in the kept comparison's or the phone history's words, when a passage they show is protected since. The tutor's fallback to a learning object's linked passages passes the same item rules a retrieved passage does before any text is read.
+
 ## Modification guidance
 
 - Document every new egress path, required consent, payload scope, retry, and provenance.

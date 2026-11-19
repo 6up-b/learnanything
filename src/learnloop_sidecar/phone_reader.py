@@ -130,7 +130,7 @@ def destination_material(ctx: Any, vault: Any, repository: Any) -> Any:
         raise SidecarError(HELD_OUT_CODE, HELD_OUT_REFUSAL) from None
 
 
-#: What the phone is told of an Ask answer that named material held out from it (V4 landing, ruling R1).
+#: What the phone is told of an Ask answer that named material held out from it.
 ANSWER_WITHHELD_MESSAGE = "This answer drew on material held out from the phone. It's in your history on the desktop."
 
 
