@@ -10,6 +10,7 @@ Stage 2 of the UX journey audit's fix stages (`ux-journey-audit.md` §10, row 2)
 | UX-8 | `9eb8309b65` | The empty goal's comment names no audit id |
 | UX-2 | `da7a7683f5` | `mathMacros` is absent when a source defines none (keeps every other reply byte for byte) |
 | UX-2 | `e15d8bc5ee` | Six switch-off Reader snapshots take the whole-formula clip |
+| UX-2 | `09dae4d917` | No macro table while anything of the source is protected (the coordinator's review) |
 
 This record and the ledger rows are the last commit.
 
@@ -63,6 +64,12 @@ Why this design:
 ### Sources already in a library
 
 They get their macros the first time they are opened after this change, with nothing to run: the table is read from the stored original, lazily, model-free, and cached for the process. No re-read, no migration. A revision whose original is not in the store (a pre-store revision whose file was never backfilled) opens exactly as before: no `mathMacros` in the reply (tested). Nothing is backfilled from `original_uri` on this read path: it writes into the vault and a local file may have changed since.
+
+### Protected sources: no table at all
+
+The table is read from the whole original, and where each definition sits in the page is not mapped to spans. So a definition in a withheld part (a past paper's solutions, a held-out unit, an exam unit on a marked reading: `\newcommand{\ans}{x = 3}`) would reach a view of any other part, on the desktop and on the phone. `extraction_math_macros` (`learnloop/reader/source_macros.py`, `_anything_protected`) therefore asks the existing predicate, `exam_material(vault, repository)` from `content/sources/exam_material.py` (rules 1 to 4 with the held-out partition: the one `phone_withheld` in `reader/phone_media.py` reads for the phone's reader views and pages), and sends no `mathMacros` when its material covers any reading of the source, or of the same original under another source, wholly or in part (`Material.touched`), or when it raises (unreadable source sets included). Both `reader.render_view` (desktop and phone) and `reader.side_by_side_section` go through it. The predicate is asked only when the original has definitions.
+
+**What a protected source's Reader shows:** its formulas as before this stage, with a source macro as a red raw command (and `\real` as ℜ), in every part, including the parts that are not protected. That is the fail-closed state: nothing of the protected part can reach the screen through the table. Carrying macros for the unprotected parts of a protected source would need each definition's position in the page mapped to the spans it sits in (so a definition inside a protected part is dropped and the others kept); that is not built.
 
 ### Safety limits (the page is untrusted)
 
@@ -123,7 +130,11 @@ The new words avoid "facet" and "certified" (the deny-list's plain words are top
 | `apps/learnloop-tauri/src/components/GoalBanner.emptyGoal.test.tsx` (5 tests, UX-8) | 5 failed: "expected '…' not to match /hold the line/" (no answers, both date cases), "not to match /certified/i" (topics in scope; answers but nothing checked), "Unable to find an element by: [data-testid="goal-status"]" (the unchanged certified state: its only failure is the new test id) | 5 passed |
 | `tests/test_ux2_source_macros.py::test_ux2_the_sample_is_stored_as_before_and_its_reading_carries_the_pages_macros` | `KeyError: 'mathMacros'` after its pins of the stored blocks passed | passed |
 | `tests/test_ux2_source_macros.py::test_ux2_a_source_added_before_reads_its_macros_from_the_stored_original_without_a_new_reading` | `KeyError: 'mathMacros'` | passed |
-| `tests/test_ux2_source_macros.py::test_ux2_the_second_pane_gets_its_own_books_macros` | `KeyError: 'mathMacros'` (handler at its stage-start version) | passed |
+| `tests/test_ux2_source_macros.py::test_ux2_the_second_pane_gets_its_own_books_macros` | `KeyError: 'mathMacros'` (handler at its stage-start version) | passed (now on a book with no held-out unit) |
+| `tests/test_ux2_macros_protection.py::test_ux2_a_source_with_a_held_out_part_sends_no_macros_with_any_view` (desktop whole reading and section u1, phone section u1, original defines `\ans` = "x = 3") | before `09dae4d917`: "AssertionError: {'extractionId': 'ext1'} / assert 'mathMacros' not in {…}" | passed |
+| `tests/test_ux2_macros_protection.py::test_ux2_an_unreadable_protection_predicate_sends_no_macros` | "AttributeError: … source_macros … has no attribute 'exam_material'" (the predicate was not asked) | passed |
+| `tests/test_ux2_macros_protection.py::test_ux2_the_second_pane_of_a_book_with_a_held_out_unit_gets_no_macros` | "assert 'mathMacros' not in {'blocks': …, 'extractionId': 'ext_lay', …}" | passed |
+| `tests/test_ux2_macros_protection.py::test_ux2_an_unprotected_source_sends_its_macros_on_the_desktop_and_the_phone` | passed before and after (the control) | passed |
 | `tests/test_ux2_source_macros.py` parser tests (`only_plain_definitions_are_read`, 11 cases of `a_body_that_could_define_include_or_reach_out_is_dropped`, `a_recursive_macro_is_kept_as_text…`, `an_oversized_table_is_cut_at_the_bounds`, `scripts_and_binaries_give_no_macros`) | collection error: `ModuleNotFoundError: No module named 'learnloop.reader.source_macros'` (run with the module moved aside) | passed (17 + 1 in the file) |
 | `apps/learnloop-tauri/src/render/sourceMacros.test.tsx` (9 tests: the renderer with the book's macros, `\amp`, no macros unchanged, a recursive macro, a table past `maxExpand`, `\gdef` isolation, the clipped chip, the plain line, Today's thread) | first: "Cannot find module './mathSnippet'"; then, with the snippet module and before `MarkdownMath` and `todayPlan.ts` were changed, 7 failed: "expected '<p>Let <span class="katex">…' not to match /katex-error\|mathcolor="#cc0000"/", "Target cannot be null or undefined" (no error span for the recursive and the expanding table: the macros were not passed), the thread line "Received: Suppose that \(\uvec\) is an eigenvector of \(B\) with asso…" | 9 passed |
 | `apps/learnloop-tauri/src/screens/ReaderScreen.sourceMacros.test.tsx` (2 tests: the real Reader screen with the real renderer) | with `ReaderScreen.tsx` at its stage-start version: "expected '<div style=…' not to match /katex-error\|mathcolor="#cc0000"/"; the older-sidecar case passed (it pins the old behaviour) | 2 passed |
@@ -162,6 +173,18 @@ Every Python run: `systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMa
 | phone `npx vitest run --maxWorkers=4` | 33 files, 373 tests passed |
 | desktop `npm run frontend:build` | built (exit 0) |
 
+After `09dae4d917` (the protection gate; Python only, no frontend change):
+
+| Command | Result |
+|---|---|
+| `pytest tests/test_ux2_macros_protection.py tests/test_ux2_source_macros.py` before the gate | 3 failed, 19 passed |
+| the same after the gate | 22 passed |
+| `pytest tests/test_ux2_macros_protection.py tests/test_ux2_source_macros.py tests/test_mobile_v4_reader.py` | 42 passed |
+| `pytest` the render_view and side-by-side files (`test_reader_ca6_side_by_side`, `test_reader_pdf_selection`, `test_reader_source_identity_guard`, `test_rw5c_block_policy`, `test_sidecar_reader`, `test_sidecar_reader_p3`, `test_sidecar_reader_p3_slice2`, `test_sidecar_reader_pdf_view`) | 138 passed |
+| `tests/test_identity_pins.py` | 342 passed |
+| `ruff check` | All checks passed! |
+| `lint-imports --no-cache` | Contracts: 43 kept, 0 broken. |
+
 ## What a re-walk should check
 
 - **student-1 #18 to #132 (desktop, the sample as a web page).** Open the chapter in the Reader: `\vvec`, `\uvec`, `\xvec` bold, `\real^n` as ℝⁿ, `\twovec` and the `\amp` matrices drawn, no red commands. Select "Suppose that u is an eigenvector of B…" and press ask: the ASKING ABOUT chip shows rendered math and never "(\lambda = \…".
@@ -169,6 +192,7 @@ Every Python run: `systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMa
 - **student-1 #128 and beginner-1 #84 (goal details).** NOT STARTED, no BEHIND, no "certified", one plain sentence, no "practice at-risk facets"; student-1's says "It is due in N days."
 - **retainer-1 #19 and #61.** The Reader's math as above; the side-by-side pane, if opened on another book, uses that book's notation.
 - **phone-2 #37.** The phone Reader's section of the sample draws the same symbols with no red commands. The phone must be served by a desktop with this branch (an older sidecar sends no `mathMacros`; the phone then renders as before).
+- **A source with an exam or held-out part** (student-1's past paper, if it defines macros): its formulas still show raw source commands in every part, by design ("Protected sources" above).
 - **Any persona that practises from the sample.** Questions or feedback that copy `\vvec` still show it red outside the Reader (the follow-up).
 
 ## Not verified here
