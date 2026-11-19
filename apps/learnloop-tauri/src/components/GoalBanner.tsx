@@ -114,7 +114,7 @@ function dueSentence(dueAt: string | null): string | null {
  * The report of a goal nothing has checked yet, in plain words; null once anything has been checked (or for a
  * sidecar too old to say). Every count is zero there, so the pace sentence's "remaining work is zero" reads as
  * "all certified" and the standing's zero attainment as "BEHIND": both true of the numbers and false of the
- * learner, who has not started (UX-8). Chooses words only: what the report computed is read, never changed.
+ * learner, who has not started. Chooses words only: what the report computed is read, never changed.
  */
 export function emptyGoalSentence(goal: GoalDto): string | null {
   const report = goal.report;
