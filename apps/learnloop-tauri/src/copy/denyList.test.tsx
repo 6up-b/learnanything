@@ -10,6 +10,17 @@ import { BookShelf } from "../components/BookShelf";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PreparingView } from "../screens/reader/PreparingView";
 import { DENY_TERMS, findJargon } from "./denyList";
+import {
+  CONSENT_ACTION,
+  GOAL_NOT_UP_TODAY,
+  KEEP_GOING_NOTHING_LEAD,
+  PLAN_FINISHED,
+  causeActionLabel,
+  causeSentence,
+  goalCauseSentence,
+  type TodayCause
+} from "../app/todayCause";
+import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK, NO_HINTS_ON_YOUR_OWN, NO_HINTS_SHORT_CHECK } from "./refusals";
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -120,6 +131,30 @@ const LINES: SourceStatusLineDto[] = [
 
 
 
+const STAGE3_CAUSES: TodayCause[] = [
+  { kind: "list_has_more" },
+  { kind: "waiting_ok", title: "Probability", others: 2 },
+  { kind: "needs_ai", title: "Probability" },
+  { kind: "failed", title: "Probability", target: { sourceId: "src_1" } },
+  { kind: "needs_look", title: "Probability" },
+  { kind: "on_the_way", title: "Probability", card: null },
+  { kind: "no_reading" },
+  { kind: "all_read", card: null }
+];
+const STAGE3_SENTENCES = [
+  ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? ""]),
+  GOAL_NOT_UP_TODAY,
+  PLAN_FINISHED,
+  KEEP_GOING_NOTHING_LEAD,
+  CONSENT_ACTION,
+  NO_HINTS_ON_YOUR_OWN,
+  NO_HINTS_SHORT_CHECK,
+  NO_ASK_SHORT_CHECK,
+  NO_ASK_TEACH_BACK,
+  NO_ASK_NOT_YET,
+  NOTE_NO_SUBJECT
+].filter(Boolean);
+
 // The Decider's sentence (Tier 1): the sheet names what its small judgments
 // send to Perplexity, as Settings does, in the sheet's plain words.
 const DECIDER_NOTE =
@@ -176,6 +211,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(ROUND2_SENTENCES)("the sentence: %s", (sentence) => {
+    expectPlain(sentence);
+  });
+
+  // UX fix stage 3: Today's causes, the goal's, the clocks' and the refusals' fixed words.
+  it.each(STAGE3_SENTENCES)("the stage 3 sentence: %s", (sentence) => {
     expectPlain(sentence);
   });
 
