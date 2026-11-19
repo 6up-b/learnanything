@@ -1,6 +1,6 @@
 # mvp-0.61: the evidence reading fixes (G3-1, ER-2, K5-3, K5-8, K5-11, K5-12; with K5-17)
 
-Branch `algo/mvp-0.61`, from main `e6314fc0df`. Not landed: the owner sees what it changes on their own vaults first (the orchestrator runs that comparison on copies). Everything below was measured on synthetic vaults. No migration, no kill switch, no config key: the tag is the switch. A second round (2026-11-19) changed G3-1's rule to the held grade's shape (an exposed answer updates no belief at all), added ledger row K5-8's forgetting-clock cases (variant requests at the tag; probe approval fixed live; the quarantine case checked and left; three cases kept by design) and fixed K5-17 (intake, no tag).
+Branch `algo/mvp-0.61`, from main `e6314fc0df`. The owner sees what it changes on their own vaults before it lands (the last section: the orchestrator's comparison on copies). Everything below was measured on synthetic vaults. No migration, no kill switch, no config key: the tag is the switch. A second round (2026-11-19) changed G3-1's rule to the held grade's shape (an exposed answer updates no belief at all), added ledger row K5-8's forgetting-clock cases (variant requests at the tag; probe approval fixed live; the quarantine case checked and left; three cases kept by design) and fixed K5-17 (intake, no tag).
 
 ## The tag
 
@@ -237,22 +237,34 @@ The upgrade test (`d4ca53a93a`) now also reads each exposed probe's episode post
 
 ## Measured on the owner's vaults (orchestrator, 2026-11-19; aggregates only)
 
-Fresh backup-API copies of the three vaults (dated 2026-11-18) were upgraded to mvp-0.60 with main's code, then to
-mvp-0.61 with this branch's, then rebuilt once more. The copies stayed in a gitignored directory and were deleted.
+Backup-API copies of the three vaults (dated 2026-11-18) were upgraded to mvp-0.60 with main's code, then to
+mvp-0.61 with this branch's (after the second and third rounds, merged with main `53f330c743`), then rebuilt once
+more. The copies stayed in a gitignored directory and were deleted.
 
 | | arxiv_v2 | linear_algebra | probability |
 |---|---|---|---|
-| Due dates that move | 0 of 75 | 0 of 99 | 0 of 77 |
+| Variant requests stored (each names its attempt) | 3 | 8 | 0 |
+| Items whose memory state or due date moves | 3 of 75 | 8 of 99 | 0 of 77 |
+| of them: due date moves | 0 | 8 (7 earlier, 1 later; median 3 minutes, largest 6.5 hours) | 0 |
+| of them: due date cleared (the request was the item's only review, so it is unreviewed again) | 2 | 0 | 0 |
+| of them: only the forgetting clock moves back | 1 | 0 | 0 |
 | Mastery values that move | 0 of 37 | 0 of 21 | 0 of 18 |
-| Certifications, labels, Today headline, knowledge map that differ | none | none | none |
+| Certifications and diagnostic labels that differ | none | none | none |
+| Today headline | expected recall moves by 0.0004, over 2 more items | no visible change | none |
+| Knowledge map leaves that move | 4 of 3,520 (three readiness values, one queued mark) | 6 of 3,468 (readiness, by 0.0007 at most) | 0 |
 | Grade-channel rows added | 0 | 0 | 0 |
 | Rows of predicted surprise that move | 1 of 53 | 1 of 70 | 0 of 3 |
-| Derived rows whose only change is the tag they are stamped with | all | all | all |
+| Derived rows whose only change is the tag they are stamped with | the rest | the rest | all |
 | Second rebuild at mvp-0.61 | 29 of 29 dumped tables byte-equal | 29 of 29 | 29 of 29 |
 
 Probe episodes on arxiv_v2 (the only vault with answered probes): four answered probes, one in each of four
-episodes. At mvp-0.60 all four count toward completing their episode. At mvp-0.61 one does and three do not: the
-three are the answers G3 found given after feedback or a reveal, now read as exposed. They still update the
-episode's belief at the configured contaminated weight; whether an exposed answer should update it at all is the
-owner's choice (judgment call 1 of the build). No regraded self-grade or zero-confidence grade exists in these
-vaults in a state the tag changes, so K5-11 and K5-12 move nothing there today.
+episodes. At mvp-0.60 all four update their episode's belief and count toward completing it. At mvp-0.61 one does
+and three do not: the three are the answers G3 found given after feedback or a reveal. They read as exposed, update
+no belief and qualify nothing; their stored rows are unchanged, and an episode already complete stays complete with
+the repair it chose. No regraded self-grade or zero-confidence grade exists in these vaults in a state the tag
+changes, so K5-11 and K5-12 move nothing there today, and no answer is quarantined.
+
+Who decided what: the owner chose the forgetting-clock cases on 2026-11-19 (a variant request is no review; a blank
+submission stays a failed review; the exam cases stay). That an exposed answer updates no belief at all, rather
+than at the contaminated weight, is the orchestrator's recommendation, put to the owner on 2026-11-19; the tag
+lands on the owner's word for it.
