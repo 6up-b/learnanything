@@ -13,12 +13,12 @@ first_level_root_modules_not_upgrade = 36
 functions_over_200_lines = 71
 comment_lines_naming_a_stage_artifact = 2353
 test_files_named_for_a_stage = 184
-"src/learnloop/daily_plan/engine.py" = 6776
+"src/learnloop/daily_plan/engine.py" = 6777
 "src/learnloop/attempts/attempts.py" = 5820
 "src/learnloop/db/repositories.py" = 3025
-"src/learnloop/scheduling/scheduler.py" = 3750
+"src/learnloop/scheduling/scheduler.py" = 3752
 "src/learnloop_sidecar/handlers/reader.py" = 2979
-golden_json_lines = 230730
+golden_json_lines = 230733
 
 [members]
 import_component = [

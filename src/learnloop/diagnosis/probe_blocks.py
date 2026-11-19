@@ -33,6 +33,7 @@ from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.diagnosis.probe_episodes import (
     EpisodePosterior,
     effective_episode_observations,
+    session_qualifying_total,
     eligible_instruments,
     episode_posterior,
 )
@@ -145,6 +146,7 @@ def _next_observation_does_not_pay(
     decision = voi.probe_episode_decision(
         voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id,
         qualifying_observations=len(qualifying),
+        session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
     )
     return decision.decision == voi.STOP
 

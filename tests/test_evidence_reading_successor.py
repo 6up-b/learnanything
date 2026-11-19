@@ -736,6 +736,65 @@ def _by_class(repository, posterior):
     return {name: value / total for name, value in totals.items()}
 
 
+# -- R3 (the tag's review): the remaining readers of the stored flags read the effective view ----------------------
+
+
+def _exposed_below_then(tmp_path, monkeypatch, tag):
+    """A probe answer exposed ("Show anyway") and recorded below the tag, the vault then at ``tag``."""
+
+    paths, ctx, vault, repository, result, row = _probe_journey(tmp_path, monkeypatch, BELOW)
+    _expose(ctx, repository, result, row, "shown_anyway")
+    probe_attempt_id = _answer_probe(ctx, repository, row)
+    set_algorithm_version(paths, tag)
+    return paths, ctx, load_vault(paths.root), repository, row, probe_attempt_id
+
+
+@BOTH_TAGS
+def test_r3_the_serving_counts_leave_out_an_exposed_answer(tmp_path, monkeypatch, tag):
+    from learnloop.diagnosis.probe_episodes import effective_qualifying_total
+    from learnloop.diagnosis.probe_presentations import probe_serving_block_reason
+
+    paths, ctx, vault, repository, row, probe_attempt_id = _exposed_below_then(tmp_path, monkeypatch, tag)
+    session_id = repository.fetch_practice_attempt(probe_attempt_id)["session_id"]
+    expected = 0 if tag == TAG else 1
+    assert effective_qualifying_total(vault, repository) == expected
+    if session_id is not None:
+        assert effective_qualifying_total(vault, repository, session_id=session_id) == expected
+    # The onboarding ceiling at one observation, before any ordinary practice: an exposed answer no longer spends it.
+    monkeypatch.setattr(vault.config.probe.episode, "onboarding_practice_ceiling_observations", 1)
+    monkeypatch.setattr(repository, "ordinary_practice_attempt_count", lambda: 0)
+    reason = probe_serving_block_reason(vault, repository, session_id=None)
+    assert reason == (None if tag == TAG else "onboarding_practice_ceiling")
+
+
+@BOTH_TAGS
+def test_r3_the_inspector_shows_the_effective_flags(tmp_path, monkeypatch, tag):
+    paths, ctx, vault, repository, row, probe_attempt_id = _exposed_below_then(tmp_path, monkeypatch, tag)
+    ctx.load(paths.root)  # this process's vault reads the tag
+    episode_id = repository.probe_presentation(row["presentation_id"]).probe_episode_id
+    (shown,) = _call(ctx, "inspect_entity", {"id": episode_id})["detail"]["observations"]
+    flags = (shown["eligibleForCompletion"], shown["updatesBelief"], shown["exposureReason"])  # the wire's camelCase
+    assert flags == ((False, False, "followup_feedback_shown_anyway") if tag == TAG else (True, True, None))
+    stored = repository.probe_observation_for_attempt(probe_attempt_id)
+    assert shown["recordedEntropyAfter"] == stored.entropy_after  # what was recorded when it was written
+
+
+@BOTH_TAGS
+def test_r3_the_baseline_projection_reads_the_effective_view(tmp_path, monkeypatch, tag):
+    from learnloop.diagnosis import diagnostic_pack as DP
+
+    paths, ctx, vault, repository, row, probe_attempt_id = _exposed_below_then(tmp_path, monkeypatch, tag)
+    episode_id = repository.probe_presentation(row["presentation_id"]).probe_episode_id
+    (stored_row,) = repository.probe_observations_for_episode(episode_id)
+    facet = (stored_row.get("target_facets") or ["recall"])[0]
+    monkeypatch.setattr(repository, "diagnostic_pack_pin_for_run", lambda _run_id: {"probe_episode_id": episode_id})
+    spec = {"rubric": {"max_points": 4}, "solution_recipes": [{"all_of": [{"facet": facet, "capability": facet}]}]}
+    projection = DP._baseline_evidence_projection(repository, {"id": "run"}, spec, vault)
+    status = projection[(facet, facet)]["status"]
+    # At the tag the exposed answer is no clean evidence: the cell is contested (linked to its receipt).
+    assert (status == "contested") is (tag == TAG)
+
+
 # -- K5-8: a request for an easier or harder variant is no review of its source item --------------------------------
 
 

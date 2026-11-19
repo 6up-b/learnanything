@@ -1366,9 +1366,8 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
     for row in rows:
         observation = row["observation"]
         contamination = dict(observation.contamination or {})
-        judged = bool((observation.features or {}).get(EXPOSURE_JUDGED)) or ANSWER_EXPOSED in contamination
-        if (observation.updates_belief or observation.eligible_for_completion) and not judged:
-            exposure = answer_exposure(vault, repository, observation.attempt_id, recorded_at=observation.created_at)
+        if observation.updates_belief or observation.eligible_for_completion:
+            exposure = _reread_exposure(vault, repository, observation)
             if exposure is not None:
                 row = {
                     **row,
@@ -1385,6 +1384,43 @@ def effective_episode_observations(vault: LoadedVault, repository: Repository, e
                 }
         effective.append(row)
     return effective
+
+
+def _reread_exposure(vault: LoadedVault, repository: Repository, observation: Any) -> str | None:
+    """The exposure a reading at the tag finds in a stored observation that does not already record one: None for a
+    row judged when it was written (:data:`EXPOSURE_JUDGED`, its verdict stands), else the persisted-rows judgment as
+    of its own writing (:func:`answer_exposure` with ``recorded_at``)."""
+
+    contamination = observation.contamination or {}
+    if ANSWER_EXPOSED in contamination or (observation.features or {}).get(EXPOSURE_JUDGED):
+        return None
+    return answer_exposure(vault, repository, observation.attempt_id, recorded_at=observation.created_at)
+
+
+def effective_qualifying_total(vault: LoadedVault, repository: Repository, *, session_id: str | None = None) -> int:
+    """Qualifying observations vault-wide, or in one session (``session_id``), as the episodes read them: the serving
+    gates' counts (``probe_presentations.probe_serving_block_reason``: the onboarding ceiling and the session cap) and
+    the value decision's former-cap count. Below the evidence reading fixes the stored counts, exactly; at the tag an
+    exposed answer recorded below it qualifies nothing (:func:`effective_episode_observations`)."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        if session_id is None:
+            return repository.qualifying_probe_observation_count()
+        return repository.qualifying_probe_observation_count_for_session(session_id)
+    count = 0
+    for attempt_id in repository.qualifying_probe_observation_attempt_ids(session_id):
+        observation = repository.probe_observation_for_attempt(attempt_id)
+        if observation is None or _reread_exposure(vault, repository, observation) is None:
+            count += 1
+    return count
+
+
+def session_qualifying_total(vault: LoadedVault, repository: Repository, session_id: str | None) -> int:
+    """:func:`effective_qualifying_total` for one session; none without a session (the value decision's former cap)."""
+
+    return effective_qualifying_total(vault, repository, session_id=session_id) if session_id is not None else 0
 
 
 def effective_posterior_as_of(

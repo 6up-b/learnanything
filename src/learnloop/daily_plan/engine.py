@@ -3755,7 +3755,6 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
         logging.getLogger(__name__).warning("router objective: a decision's minutes were not read", exc_info=True)
         return None
     from learnloop.diagnosis.probe_episodes import effective_posterior_reader
-
     return decision_state.prepare(
         env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
         retrievability=retrievability,

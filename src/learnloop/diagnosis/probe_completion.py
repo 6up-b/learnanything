@@ -23,6 +23,7 @@ from learnloop.diagnosis.probe_episodes import (
     EpisodePosterior,
     _record_generation_need,
     effective_episode_observations,
+    session_qualifying_total,
     eligible_instruments,
 )
 from learnloop.diagnosis.probe_hypotheses import strong_prior_claim
@@ -644,6 +645,7 @@ def _value_of_information_stop(
     decision = voi.probe_episode_decision(
         voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id,
         qualifying_observations=len(qualifying),
+        session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
     )
     if decision.decision == voi.CONTINUE:
         return None

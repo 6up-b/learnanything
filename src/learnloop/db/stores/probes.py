@@ -822,6 +822,24 @@ class ProbeStoreMixin:
             held = held_for_review_attempts(connection) if attempt_ids else frozenset()
         return sum(1 for attempt_id in attempt_ids if attempt_id not in held)
 
+    def qualifying_probe_observation_attempt_ids(self, session_id: str | None = None) -> list[str]:
+        """The attempts of the observations :meth:`qualifying_probe_observation_count` (vault-wide) or
+        ``qualifying_probe_observation_count_for_session`` (``session_id``) count, as recorded (held ones
+        excluded): what a tag-aware reader (``probe_episodes.effective_qualifying_total``) reads again."""
+
+        from learnloop.held_grades import held_for_review_attempts
+
+        with self.connection() as connection:
+            if session_id is None:
+                query, parameters = "SELECT attempt_id FROM probe_observations WHERE eligible_for_completion = 1", ()
+            else:
+                query = ("SELECT o.attempt_id FROM probe_observations o JOIN practice_attempts a ON a.id = o.attempt_id "
+                         "WHERE a.session_id = ? AND o.eligible_for_completion = 1")
+                parameters = (session_id,)
+            attempt_ids = [str(row["attempt_id"]) for row in connection.execute(query, parameters).fetchall()]
+            held = held_for_review_attempts(connection, attempt_ids) if attempt_ids else frozenset()
+        return [attempt_id for attempt_id in attempt_ids if attempt_id not in held]
+
     def ordinary_practice_attempt_count(self) -> int:
         """Attempts recorded outside the diagnostic/exam channels (§5.9): the
         signal that ordinary practice has started in this vault."""

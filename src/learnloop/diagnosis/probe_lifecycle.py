@@ -74,7 +74,7 @@ class FamilyLifecycleAssessment:
 
 
 def family_lifecycle_metrics(
-    repository: Repository, family_id: str, version: int
+    repository: Repository, family_id: str, version: int, vault: LoadedVault | None = None,
 ) -> FamilyLifecycleMetrics:
     """Real-learner evidence for one family version (synthetic rows excluded)."""
 
@@ -87,7 +87,7 @@ def family_lifecycle_metrics(
         real_effective += float(row["effective_sample_size"] or 0.0)
 
     key = f"{family_id}@v{version}"
-    eig_bucket = eig_calibration_report(repository)["by_family"].get(key, {})
+    eig_bucket = eig_calibration_report(repository, vault)["by_family"].get(key, {})
     regrade_checks = 0
     regrade_agreements = 0
     for scope in grading_confusion_report(repository)["scopes"].values():
@@ -118,7 +118,7 @@ def evaluate_family_lifecycle(
     record = repository.probe_family_template(family_id, version)
     if record is None:
         raise LifecycleTransitionError(f"unknown family version {family_id} v{version}")
-    metrics = family_lifecycle_metrics(repository, family_id, version)
+    metrics = family_lifecycle_metrics(repository, family_id, version, vault)
     config = vault.config.probe.lifecycle
     reasons: list[str] = []
 

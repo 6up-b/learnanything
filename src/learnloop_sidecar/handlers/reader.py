@@ -1791,6 +1791,7 @@ def reader_restore(ctx: SidecarContext, params: ReaderRestoreInput) -> dict[str,
                 repository, source_id=params.source_id, extraction_id=params.extraction_id,
                 run_id=params.run_id, idempotency_key=params.idempotency_key,
                 exposure_fields=exposure.fields(vault.config, repository, context="reader_restoration"),
+                vault=vault,
             )
         )
     except REST.ReaderRestorationError as exc:

@@ -2172,7 +2172,8 @@ def probe_episode_decision(
     *,
     session_id: str | None,
     familiarity: Mapping[str, float] | None = None,
-    qualifying_observations: int | None = None,
+    qualifying_observations: int,
+    session_qualifying_observations: int,
 ) -> SiteDecision:
     """(a) Does this episode's next observation pay for its minutes?
 
@@ -2185,8 +2186,10 @@ def probe_episode_decision(
     caller's episode reader counts them (``probe_episodes.effective_episode_observations``,
     which from mvp-0.61 leaves out an exposed answer, refactor bug ledger G3-1;
     ``probe_episodes.qualifying_observation_count``);
-    every serving caller passes it, so this module does not import the episode
-    reader. Absent, the stored rows are counted.
+    ``session_qualifying_observations``: the session's, as the episodes read
+    them (``probe_episodes.effective_qualifying_total``). Both are required:
+    this module does not import the episode reader, and a count of the stored
+    flags would still count an exposed answer recorded below the tag.
     """
 
     from learnloop.diagnosis.probe_families import instrument_conditionals
@@ -2230,22 +2233,14 @@ def probe_episode_decision(
         )
     episode_config = ctx.vault.config.probe.episode
     cap = int(episode_config.session_qualifying_observation_cap)
-    count = (
-        int(ctx.repository.qualifying_probe_observation_count_for_session(session_id))
-        if session_id is not None
-        else 0
-    )
+    count = int(session_qualifying_observations) if session_id is not None else 0
     cap_body = former_cap(SITE_PROBE_EPISODE, value=cap, count=count)
     # The episode's own count (``probe.episode.maximum_observations``, stamped
     # on the episode at entry) is lifted with the session cap (reader spec §18,
     # §20.7); its counterfactual rides on the same receipt.
     maximum = getattr(episode, "maximum_observations", None)
     if maximum is not None:
-        qualifying = qualifying_observations if qualifying_observations is not None else sum(
-            1
-            for row in ctx.repository.probe_observations_for_episode(episode.id)
-            if row["observation"].eligible_for_completion
-        )
+        qualifying = int(qualifying_observations)
         episode_bind = qualifying >= int(maximum)
         cap_body["episode_maximum"] = {
             "name": EPISODE_MAXIMUM_CAP,

@@ -24,7 +24,9 @@ from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
+    effective_qualifying_total,
     qualifying_observation_count,
+    session_qualifying_total,
 )
 from learnloop.diagnosis.probe_families import (
     SELECTION_POLICY_VERSION,
@@ -411,13 +413,13 @@ def probe_serving_block_reason(
     # information; each episode's next observation is valued instead
     # (``probe_value_block_reason``). Off, the count cap serves exactly.
     if session_id is not None and cap > 0 and not voi_stopping_active(vault.config, SITE_PROBE_EPISODE):
-        if repository.qualifying_probe_observation_count_for_session(session_id) >= cap:
+        if effective_qualifying_total(vault, repository, session_id=session_id) >= cap:
             return "session_cap_reached"
     ceiling = vault.config.probe.episode.onboarding_practice_ceiling_observations
     if ceiling > 0:
         if (
             repository.ordinary_practice_attempt_count() == 0
-            and repository.qualifying_probe_observation_count() >= ceiling
+            and effective_qualifying_total(vault, repository) >= ceiling
         ):
             return "onboarding_practice_ceiling"
     return None
@@ -461,6 +463,7 @@ def probe_value_block_reason(
     decision = voi.probe_episode_decision(
         voi.VoiContext(vault, repository), episode, candidates, live.posterior, session_id=session_id,
         qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
+        session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
     )
     if decision.admits(practice_item_id):
         # The item the learner opened is the one this door commits: the
