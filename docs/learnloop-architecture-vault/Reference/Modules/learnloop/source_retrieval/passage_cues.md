@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py) |
-| Source lines | 1760 |
+| Source lines | 1768 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -91,10 +91,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `discover(vault: LoadedVault, repository: Repository, extraction_id: str, *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, dry_run: bool=False, cancelled: Callable[[], bool]=lambda: False, budget: SpendBudget | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1247) — Compute the open source's missing links, at most ``cues.max_calls_per_source_open`` judge requests in all (a failure and a retry count), highest ``p_open`` first.
 - `holdout_draw(link_id: str, rate: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1378) — The seeded draw for one link: reproducible from its seed (G14).
 - `discovered_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], targets: Sequence[CueTarget], failure: Callable[[str | None], float | None]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1436) — The current links of the current targets as cue candidates (reads only).
-- `seen_targets(vault: LoadedVault, repository: Repository, *, extraction_id: str, candidates: Sequence[Mapping[str, Any]], now: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1516) — The targets whose cue the learner actually had in view during this visit (Codex review F10): the shown impressions of the current reader session on this source (impressions less than ``SESSION_GAP`` apart, the newest less than that before ``now``; RW6a's session), read back to t…
-- `targets_pending(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1561) — Background work that can name a new target (Codex review F8): a learner-text gap job queued or running.
-- `merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1574) — RW3a's cue payload with RW3b's discovered cues merged in (reads only).
-- `find_discovered(vault: LoadedVault, repository: Repository, *, extraction_id: str, cue_id: str, plan: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1701) — A discovered cue of this source by id, whatever the learner's choices (a "not relevant" can be undone); held-out material is never one.
+- `seen_targets(vault: LoadedVault, repository: Repository, *, extraction_id: str, candidates: Sequence[Mapping[str, Any]], now: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1524) — The targets whose cue the learner actually had in view during this visit (Codex review F10): the shown impressions of the current reader session on this source (impressions less than ``SESSION_GAP`` apart, the newest less than that before ``now``; RW6a's session), read back to t…
+- `targets_pending(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1569) — Background work that can name a new target (Codex review F8): a learner-text gap job queued or running.
+- `merged_cues(vault: LoadedVault, repository: Repository, *, extraction_id: str, plan: Mapping[str, Any], now: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1582) — RW3a's cue payload with RW3b's discovered cues merged in (reads only).
+- `find_discovered(vault: LoadedVault, repository: Repository, *, extraction_id: str, cue_id: str, plan: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1709) — A discovered cue of this source by id, whatever the learner's choices (a "not relevant" can be undone); held-out material is never one.
 
 ### Module constants
 
@@ -133,7 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DAILY_CAP_REASON` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 941)
 - `DAILY_CAP_WINDOW` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 945)
 - `MAX_LEARNER_TEXT_CHARS` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1410)
-- `_PRIVATE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1694)
+- `_PRIVATE` ([src/learnloop/source_retrieval/passage_cues.py](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1702)
 
 ### Explicit exports
 
@@ -219,8 +219,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_because(target: CueTarget) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1393)
 - `_note(relation: str, target: CueTarget, passage_topic: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1399)
 - `_earlier(vault: LoadedVault, repository: Repository, target: CueTarget, cache: dict[str, dict[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1413) — "Open · what you worked on" for a discovered cue (spec §6.1, UX §4.4; Codex review F12): the cited answer the target was read from (the question as it was answered, the answer in the learner's words), the learner's own words a gap was named from, and the target's statement in Le…
-- `_guide_p_open(_cue: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1510) — A Guide cue's target is an active error on its LO: open by its lifecycle.
-- `_public(cue: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1697)
+- `_guide_p_open(_cue: Mapping[str, Any]) -> tuple[float, str]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1518) — A Guide cue's target is an active error on its LO: open by its lifecycle.
+- `_public(cue: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/passage_cues.py), line 1705)
 
 ## Who imports or calls it
 
@@ -324,6 +324,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw3b_fix_round6.py](../../../../../../tests/test_reader_rw3b_fix_round6.py) — direct import
   - `test_a_receipt_24_hours_and_a_second_old_drops_out_of_the_window`
 - [tests/test_reader_rw3b_protection.py](../../../../../../tests/test_reader_rw3b_protection.py) — direct import
+  - `test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown`
   - `test_a_reading_held_out_whole_is_never_searched`
   - `test_every_discovered_template_and_rendered_line_is_free_of_trait_and_verdict_words`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import

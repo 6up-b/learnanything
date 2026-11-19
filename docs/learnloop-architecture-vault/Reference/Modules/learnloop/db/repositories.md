@@ -1705,6 +1705,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_plan.py](../../../../../../tests/test_mobile_v4_plan.py) — direct import
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_the_page_endpoint_is_per_vault`
+  - `test_the_phones_ask_never_sends_exam_material_in_its_context_or_reply`
   - `test_the_reader_switch_off_is_v3s_phone`
 - [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
   - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`

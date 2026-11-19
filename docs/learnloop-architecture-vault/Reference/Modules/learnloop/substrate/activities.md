@@ -294,6 +294,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answer_quoting_reserved_surface_burns_it_without_caller_id`
   - `test_ask_warms_and_invalidates_a_revealed_reserve`
   - `test_restore_source_during_cold_burns_eligibility`
+- [tests/test_reader_tutor_retrieval.py](../../../../../../tests/test_reader_tutor_retrieval.py) — direct import
+  - `test_a_reserve_no_shown_field_reproduces_stays_unseen`
+  - `test_a_reserve_shown_only_in_the_excerpt_or_the_bridge_is_burned_once`
 - [tests/test_ro0_row5_event_times.py](../../../../../../tests/test_ro0_row5_event_times.py) — direct import
   - `test_the_writer_passes_them_where_the_caller_knows_them`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import

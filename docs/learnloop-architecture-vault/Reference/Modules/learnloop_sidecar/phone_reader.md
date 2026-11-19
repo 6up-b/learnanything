@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/phone_reader.py](../../../../../src/learnloop_sidecar/phone_reader.py) |
-| Source lines | 123 |
+| Source lines | 171 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `cold_check_open(ctx: Any, vault: Any, repository: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 49) — Mobile v2 J8: an Ask during a cold check is refused, and on the phone the server knows it, never the phone's word (§5.2, ``coldActive``).
 - `once_per_job(ctx: Any, repository: Any, run: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 86) — Mobile v2 V4 (Codex review F5): an outbox intent's writes, once, whatever restarts.
 - `is_phone(ctx: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 108)
-- `refuse_if_withheld(ctx: Any, vault: Any, repository: Any, extraction_id: str | None, span_ids: Iterable[str | None]=()) -> None` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 112) — At a phone origin, refuse a request that names protected material (or a reading that is protected whole).
+- `destination_material(ctx: Any, vault: Any, repository: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 112) — At a phone origin, the material the phone is never sent, as one ``Material`` for the Reader's context assembly (K6-4): the request's selection is refused by :func:`refuse_if_withheld`, and this keeps the same predicate's material out of its neighbours, the blocks they cite, retr…
+- `sendable_exchanges(vault: Any, repository: Any, extraction_id: str, exchanges: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 137) — The Reader exchanges (each with its ``event_id``) the phone may be sent now: none of the passages its stored event names (``reader_dialogue.ask_provenance``) is withheld from the phone.
+- `refuse_if_withheld(ctx: Any, vault: Any, repository: Any, extraction_id: str | None, span_ids: Iterable[str | None]=()) -> None` ([source](../../../../../src/learnloop_sidecar/phone_reader.py), line 160) — At a phone origin, refuse a request that names protected material (or a reading that is protected whole).
 
 ### Module constants
 
@@ -65,6 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `HELD_OUT_CODE` ([src/learnloop_sidecar/phone_reader.py](../../../../../src/learnloop_sidecar/phone_reader.py), line 28)
 - `COLD_CHECK_CODE` ([src/learnloop_sidecar/phone_reader.py](../../../../../src/learnloop_sidecar/phone_reader.py), line 45)
 - `COLD_CHECK_MESSAGE` ([src/learnloop_sidecar/phone_reader.py](../../../../../src/learnloop_sidecar/phone_reader.py), line 46)
+- `ANSWER_WITHHELD_MESSAGE` ([src/learnloop_sidecar/phone_reader.py](../../../../../src/learnloop_sidecar/phone_reader.py), line 134)
 
 ## Internal implementation anchors
 
@@ -79,15 +82,17 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `phone_withheld`; statically calls `phone_withheld`
 - [[Reference/Modules/learnloop_sidecar/handlers/daily_plan|learnloop_sidecar.handlers.daily_plan]] — imports `phone_withheld`; statically calls `phone_withheld`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `phone_withheld`; statically calls `phone_withheld`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `PHONE_READER_SURFACE`, `module`, `once_per_job`, `refuse_if_withheld`; statically calls `cold_check_open`, `once_per_job`, `phone_withheld`, `redact_blocks`, `refuse_if_withheld`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `PHONE_READER_SURFACE`, `module`, `once_per_job`, `refuse_if_withheld`; statically calls `cold_check_open`, `destination_material`, `once_per_job`, `phone_withheld`, `redact_blocks`, `refuse_if_withheld`, `sendable_exchanges`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `job_receipt`, `write_job_receipt`; calls `job_receipt`, `write_job_receipt`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_REFUSAL`, `exam_material`; calls `exam_material`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `open_randomized_check`; calls `PlanEnv`, `open_randomized_check`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `PhoneWithheld`, `phone_withheld`; calls `phone_withheld`
+- [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `ask_provenance`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `cold_now`; calls `cold_now`
 

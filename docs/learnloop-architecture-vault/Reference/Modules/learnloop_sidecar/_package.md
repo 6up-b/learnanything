@@ -91,13 +91,13 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 5 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 4 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 5 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 2 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 2 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges
@@ -137,7 +137,7 @@ flowchart LR
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_config["learnloop.config"]
-    n_learnloop_db["learnloop.db"]
+    n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar_handlers -->|323| center
     center -->|6| n_learnloop_sidecar_handlers
     center -->|15| n_learnloop
@@ -145,10 +145,10 @@ flowchart LR
     center -->|7| n_learnloop_vault
     center -->|5| n_learnloop_daily_plan
     center -->|5| n_learnloop_followup_serve
-    center -->|4| n_learnloop_reader
+    center -->|5| n_learnloop_reader
     center -->|3| n_learnloop_adaptive_difficulty
     center -->|3| n_learnloop_config
-    center -->|3| n_learnloop_db
+    center -->|3| n_learnloop_content_sources
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -167,6 +167,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_report_reads_a_vault_without_receipts_as_empty`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import
   - `test_a_regraded_observation_resolves_its_graded_contract_in_the_forecast_reader`
+- [tests/test_teacher_te1_lesson.py](../../../../../../tests/test_teacher_te1_lesson.py) — direct import
+  - `test_help_that_gives_the_solution_away_in_a_choice_withdraws_the_check`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f13_a_withdrawn_check_censors_its_forecast`
   - `test_f13_lesson_forecasts_have_resolvers`

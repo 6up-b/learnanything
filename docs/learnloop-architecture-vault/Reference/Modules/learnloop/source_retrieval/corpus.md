@@ -254,6 +254,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_passage_links.py](../../../../../../tests/test_passage_links.py) — direct import
   - `test_roles_are_kept_with_confidence_judge_and_ledger_and_never_exclude`
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
+- [tests/test_reader_rw3b_protection.py](../../../../../../tests/test_reader_rw3b_protection.py) — direct import
+  - `test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown`
 - [tests/test_rw2c_fix_round2.py](../../../../../../tests/test_rw2c_fix_round2.py) — direct import
   - `test_fr2_2_an_option_that_is_now_the_items_own_passage_or_reproduces_its_answer_is_withheld`
 - [tests/test_rw4d_rw3b_composition.py](../../../../../../tests/test_rw4d_rw3b_composition.py) — direct import

@@ -202,6 +202,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_synthesis_gather_folds_merged_group_once_with_member_fallback`
 - [tests/test_label_roles_cli.py](../../../../../../../tests/test_label_roles_cli.py) — direct import
   - `test_held_out_and_exam_material_never_reach_the_labeller`
+- [tests/test_library_ask_review.py](../../../../../../../tests/test_library_ask_review.py) — direct import
 - [tests/test_library_exercises.py](../../../../../../../tests/test_library_exercises.py) — direct import
   - `test_r4_a_problem_opened_before_its_region_was_held_out_is_not_shown_again`
   - `test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened`
@@ -238,6 +239,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_sets.py](../../../../../../../tests/test_source_sets.py) — direct import
   - `test_exam_use_modes_persist_at_selection`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
+  - `test_a_branchs_earlier_answer_from_a_now_held_out_passage_never_reaches_the_tutor`
   - `test_a_held_out_neighbour_is_skipped_and_the_other_side_still_arrives`
   - `test_references_never_cross_sources_or_reach_held_out_material`
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`

@@ -439,6 +439,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_recap_review.py](../../../../../../tests/test_reader_recap_review.py) — direct import
 - [tests/test_reader_recap_review_r3.py](../../../../../../tests/test_reader_recap_review_r3.py) — direct import
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import
+- [tests/test_reader_tutor_retrieval.py](../../../../../../tests/test_reader_tutor_retrieval.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_final_f2_carried_hints_still_count_after_the_items_authored_hints_were_removed`
 - [tests/test_reading_paths.py](../../../../../../tests/test_reading_paths.py) — direct import

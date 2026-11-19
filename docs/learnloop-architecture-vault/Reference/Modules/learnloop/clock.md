@@ -1704,6 +1704,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_review_f3_a_visuals_lesson_forecasts_under_its_own_family`
 - [tests/test_reader_source_identity_guard.py](../../../../../tests/test_reader_source_identity_guard.py) — direct import
+- [tests/test_reader_tutor_retrieval.py](../../../../../tests/test_reader_tutor_retrieval.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`
   - `test_an_open_session_past_open_session_days_is_unfinished_and_never_closed`

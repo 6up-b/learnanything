@@ -176,6 +176,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw3b_fix_round4.py](../../../../../../tests/test_reader_rw3b_fix_round4.py) — direct import
   - `test_a_logged_impression_stores_the_exact_propensity`
 - [tests/test_reader_rw3b_protection.py](../../../../../../tests/test_reader_rw3b_protection.py) — direct import
+  - `test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown`
   - `test_every_discovered_template_and_rendered_line_is_free_of_trait_and_verdict_words`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import
   - `test_a_tap_on_a_drawn_mark_does_not_rebuild_the_plan`

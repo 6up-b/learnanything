@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_library_ask_review.py`
 - `tests/test_p2_leakage_suite.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_reader_tutor_retrieval.py`
 - `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw3b_fix_round5.py](../../../../../../../tests/test_reader_rw3b_fix_round5.py) — direct import
 - [tests/test_reader_rw3b_protection.py](../../../../../../../tests/test_reader_rw3b_protection.py) — direct import
   - `test_a_held_out_passage_never_reaches_the_judge_a_quote_or_a_cue`
+  - `test_a_link_whose_passage_became_a_solution_after_discovery_is_never_shown`
   - `test_not_relevant_text_is_judge_feedback_never_learner_text`
 - [tests/test_reader_rw3b_review_fixes.py](../../../../../../../tests/test_reader_rw3b_review_fixes.py) — direct import
   - `test_a_cached_try_first_tap_is_refused_once_try_first_is_switched_off_and_reloaded`

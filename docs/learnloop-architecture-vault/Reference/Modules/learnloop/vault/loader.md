@@ -2571,6 +2571,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
 - [tests/test_reader_source_identity_guard.py](../../../../../../tests/test_reader_source_identity_guard.py) — direct import
+- [tests/test_reader_tutor_retrieval.py](../../../../../../tests/test_reader_tutor_retrieval.py) — direct import
 - [tests/test_reader_workbench_rw2a.py](../../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workbench_alone`
   - `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay`
@@ -3246,7 +3247,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_whole_lesson_opens_teaches_checks_and_closes_with_delayed_checks`
   - `test_exam_and_held_out_sentinels_never_reach_the_teacher_or_a_screen`
   - `test_forecasts_are_receipts_with_their_bindings`
+  - `test_help_that_gives_the_solution_away_in_a_choice_withdraws_the_check`
   - `test_help_that_gives_the_solution_away_withdraws_the_check_with_no_attempt`
+  - `test_help_that_lists_a_multiple_choice_checks_own_options_again_keeps_the_check`
   - `test_read_source_find_sources_find_practice_and_read_history_return_safe_results`
   - `test_switched_off_no_lesson_opens`
   - `test_the_minted_check_item_is_held_to_its_lesson`
@@ -3360,6 +3363,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tui_today.py](../../../../../../tests/test_tui_today.py) — direct import
   - `test_today_queue_matches_scheduler_and_opens_practice`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
+  - `test_a_branchs_earlier_answer_from_a_now_held_out_passage_never_reaches_the_tutor`
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
   - `test_the_reader_manifest_records_what_the_tutor_was_given`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import

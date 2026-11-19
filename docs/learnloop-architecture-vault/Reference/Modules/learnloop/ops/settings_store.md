@@ -158,6 +158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_animation.py](../../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_update_ingest_settings_transcription_provider_switch`
+- [tests/test_ux_walk_harness.py](../../../../../../tests/test_ux_walk_harness.py) — direct import
+  - `test_the_perplexity_decider_is_written_and_its_routes_classified`
 - [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance

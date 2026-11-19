@@ -215,6 +215,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_codex_review.py](../../../../../../tests/test_mobile_v3_codex_review.py) — direct import
   - `test_f2_the_desktops_next_keeps_a_phone_probe_whose_answer_is_being_graded`
 - [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
+- [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
+  - `test_a_completed_phone_ask_is_withheld_when_its_passage_is_marked_since`
 - [tests/test_reader_ca1_as_printed.py](../../../../../../tests/test_reader_ca1_as_printed.py) — direct import
   - `test_a_card_written_from_a_photo_shows_the_photo_outside_a_check`
   - `test_a_purged_photo_is_not_offered`

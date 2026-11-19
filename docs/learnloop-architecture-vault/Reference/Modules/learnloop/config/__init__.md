@@ -479,6 +479,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ux_phase1_connect_ai.py](../../../../../../tests/test_ux_phase1_connect_ai.py) — direct import
   - `test_continue_with_chatgpt_routes_every_use_case_to_the_plan`
 - [tests/test_ux_phase1_review_fixes.py](../../../../../../tests/test_ux_phase1_review_fixes.py) — direct import
+- [tests/test_ux_walk_harness.py](../../../../../../tests/test_ux_walk_harness.py) — direct import
+  - `test_the_perplexity_decider_is_written_and_its_routes_classified`
 
 ## Modification guidance
 

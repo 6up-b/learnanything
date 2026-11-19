@@ -369,6 +369,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
   - `test_a_compare_without_its_session_stays_the_items_practice`
   - `test_a_held_out_selection_is_refused_before_any_retrieval`
+  - `test_a_mark_after_the_ask_keeps_its_passages_from_the_organizer`
+  - `test_a_mark_after_the_ask_withholds_its_cached_notes_and_its_kept_result`
   - `test_every_model_backed_rpc_answers_with_a_job`
   - `test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open`
 - [tests/test_library_exercises.py](../../../../../tests/test_library_exercises.py) — direct import
