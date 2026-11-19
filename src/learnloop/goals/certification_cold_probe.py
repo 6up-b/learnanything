@@ -107,7 +107,28 @@ COLD_PROBE_STORE_VERSION = "certification_cold_probe_v1"
 #: Bumped when the *decision rule* changes (what counts as held-out, which
 #: verdict a given probe earns). Stamped on every row so a rate computed across
 #: a policy change is sliceable rather than silently mixed.
-COLD_PROBE_POLICY_VERSION = "certification_cold_probe_policy_v1"
+#:
+#: v2 (the evidence reading fixes, mvp-0.61; refactor bug ledger K5-3): an
+#: answer whose every criterion is unassessed abstains (``grade_unavailable``)
+#: instead of scoring its "for scheduling only" correctness as ``held``. Only
+#: the verdict changed, so v2 is stamped where a verdict is recorded (the
+#: outcome row, :func:`cold_probe_policy_version`); what counts as held out and
+#: when a probe is due did not, so the scheduling stamps (the task's context,
+#: the measurement opportunity and its trigger, the certificate receipt, the
+#: reports) keep :data:`COLD_PROBE_POLICY_VERSION_V1`, and an upgrade keys no
+#: new measurement opportunity for every learning object.
+COLD_PROBE_POLICY_VERSION = "certification_cold_probe_policy_v2"
+#: The rule below mvp-0.61, and the scheduling rule at every tag.
+COLD_PROBE_POLICY_VERSION_V1 = "certification_cold_probe_policy_v1"
+
+
+def cold_probe_policy_version(config: Any) -> str:
+    """The verdict rule a probe answered on a vault with ``config`` is scored under: v2 from the evidence reading
+    fixes (mvp-0.61), v1 below them."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    return COLD_PROBE_POLICY_VERSION if evidence_reading_fixes_on(config) else COLD_PROBE_POLICY_VERSION_V1
 
 #: The follow-up lane this module owns (migration 139's widened `kind` CHECK).
 COLD_PROBE_TASK_KIND = "certification_cold_probe"
@@ -367,7 +388,7 @@ class Certificate:
             "cells": [cell.as_dict() for cell in self.cells],
             "used_surface_groups": list(self.used_surface_groups()),
             "substitutions": [],
-            "policy_version": COLD_PROBE_POLICY_VERSION,
+            "policy_version": COLD_PROBE_POLICY_VERSION_V1,
         }
 
 
@@ -779,7 +800,7 @@ class ScheduleReport:
     def as_dict(self) -> dict[str, Any]:
         return {
             "store_version": COLD_PROBE_STORE_VERSION,
-            "policy_version": COLD_PROBE_POLICY_VERSION,
+            "policy_version": COLD_PROBE_POLICY_VERSION_V1,
             "parameters": dict(self.parameters),
             "counts": self.counts,
             "decisions": [decision.as_dict() for decision in self.decisions],
@@ -830,11 +851,11 @@ def schedule_certification_cold_probes(
                     lane=LANE_CERTIFICATION_COLD_PROBE,
                     trigger_kind="certification_recipe_resolution",
                     trigger_ref=(
-                        f"{learning_object.id}:{COLD_PROBE_POLICY_VERSION}"
+                        f"{learning_object.id}:{COLD_PROBE_POLICY_VERSION_V1}"
                     ),
                     learning_object_id=learning_object.id,
                     case_kind=COLD_PROBE_CASE_KIND,
-                    policy_version=COLD_PROBE_POLICY_VERSION,
+                    policy_version=COLD_PROBE_POLICY_VERSION_V1,
                     clock=clock,
                 )
                 repository.record_cold_measurement_opportunity_decision(
@@ -913,7 +934,7 @@ def schedule_certification_cold_probes(
                     case_kind=COLD_PROBE_CASE_KIND,
                     case_ref=certificate.certificate_id,
                     certificate_id=certificate.certificate_id,
-                    policy_version=COLD_PROBE_POLICY_VERSION,
+                    policy_version=COLD_PROBE_POLICY_VERSION_V1,
                     clock=clock,
                 )
             existing = (
@@ -960,7 +981,7 @@ def schedule_certification_cold_probes(
             case_kind=COLD_PROBE_CASE_KIND,
             case_ref=certificate.certificate_id,
             certificate_id=certificate.certificate_id,
-            policy_version=COLD_PROBE_POLICY_VERSION,
+            policy_version=COLD_PROBE_POLICY_VERSION_V1,
             clock=clock,
         )
         selection = select_held_out_probe_item(vault, repository, certificate)
@@ -1161,7 +1182,7 @@ def _probe_context(
     return {
         "kind": COLD_PROBE_CONTEXT_KIND,
         "store_version": COLD_PROBE_STORE_VERSION,
-        "policy_version": COLD_PROBE_POLICY_VERSION,
+        "policy_version": COLD_PROBE_POLICY_VERSION_V1,
         "certificate_id": certificate.certificate_id,
         "certificate_receipt": certificate.as_receipt(),
         "learning_object_id": certificate.learning_object_id,
@@ -1350,6 +1371,13 @@ def _record_probe_outcome(
         # the probe's correctness.
         verdict, reason = "indeterminate", "grade_unavailable"
         correctness = None
+    elif _nothing_assessed(vault, repository, attempt_id):
+        # K5-3 (policy v2): every criterion of the answer is unassessed (the
+        # own-route rule or PF-c), so its correctness is a stand-in for
+        # scheduling, not a measurement; repair verification refuses the same
+        # grade. No verdict either way, and no correctness recorded.
+        verdict, reason = "indeterminate", "grade_unavailable"
+        correctness = None
     elif correctness is None:
         verdict, reason = "indeterminate", "grade_unavailable"
     else:
@@ -1401,7 +1429,7 @@ def _record_probe_outcome(
         assisted=assisted,
         certificate_state_at_probe=certificate_state,
         store_version=COLD_PROBE_STORE_VERSION,
-        policy_version=COLD_PROBE_POLICY_VERSION,
+        policy_version=cold_probe_policy_version(vault.config),
         certification_algorithm_version=receipt.get("algorithm_version"),
         parameters=parameters.manifest(),
         clock=clock,
@@ -1436,6 +1464,22 @@ def _record_probe_outcome(
             exc_info=True,
         )
     return outcome_row
+
+
+def _nothing_assessed(vault: LoadedVault, repository: Repository, attempt_id: str) -> bool:
+    """At the evidence reading fixes (mvp-0.61), whether every current criterion row of the probe answer is marked
+    unassessed (``held_grades.pfc_assessments``: PF-c's nothing-assessed state); always False below them, where such an
+    answer is scored from its correctness (refactor bug ledger K5-3)."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return False
+    from learnloop.held_grades import pfc_assessments
+    from learnloop.outcome_contract import PFC_NOTHING_ASSESSED
+
+    with repository.connection() as connection:
+        return pfc_assessments(connection, [attempt_id]).get(attempt_id) == PFC_NOTHING_ASSESSED
 
 
 def _attempt_is_assisted(attempt: Mapping[str, Any]) -> bool:
@@ -1547,7 +1591,7 @@ class FalseCertificationRate:
     indeterminate_reasons: Mapping[str, int]
     by_horizon_days: Mapping[str, Mapping[str, Any]]
     store_version: str = COLD_PROBE_STORE_VERSION
-    policy_version: str = COLD_PROBE_POLICY_VERSION
+    policy_version: str = COLD_PROBE_POLICY_VERSION_V1
     unavailable_reason: str | None = None
 
     @property
@@ -1860,7 +1904,7 @@ def certification_cold_probe_report(
     )
     return {
         "store_version": COLD_PROBE_STORE_VERSION,
-        "policy_version": COLD_PROBE_POLICY_VERSION,
+        "policy_version": COLD_PROBE_POLICY_VERSION_V1,
         "parameters": parameters.manifest(),
         "false_certification_rate": metric.as_dict(),
         "coverage": {
@@ -1910,6 +1954,7 @@ __all__ = [
     "COLD_PROBE_CONTEXT_KIND",
     "COLD_PROBE_POLICY_DEFAULTS",
     "COLD_PROBE_POLICY_VERSION",
+    "COLD_PROBE_POLICY_VERSION_V1",
     "COLD_PROBE_STORE_VERSION",
     "COLD_PROBE_TASK_KIND",
     "Certificate",
@@ -1926,6 +1971,7 @@ __all__ = [
     "ScheduleReport",
     "certification_cold_probe_report",
     "cold_outcome_labels",
+    "cold_probe_policy_version",
     "current_certificate",
     "effective_cold_probe_outcomes",
     "false_certification_rate",

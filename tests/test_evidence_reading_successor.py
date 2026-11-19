@@ -27,20 +27,30 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.attempts.ai_contracts import CriterionEvidence, GradingContext, GradingProposal
 from learnloop.attempts.attempts import (
+    ApplyAttemptInput,
     AttemptDraft,
+    ResolvedGrade,
     SelfGradeInput,
+    apply_attempt,
     complete_attempt_with_ai_fallback,
     complete_self_graded_attempt,
 )
 from learnloop.attempts.regrade import regrade_attempt, run_deferred_ai_regrades
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.goals.certification_cold_probe import (
+    current_certificate,
+    false_certification_rate,
+    resolve_cold_probe_parameters,
+    schedule_certification_cold_probes,
+)
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
+from tests.certification_cold_probe_helpers import HELD_OUT_ITEM, LO_ID, _attempt, _certify
 from tests.exam_seeding_helpers import _exam_vault, _outcomes
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
@@ -254,3 +264,70 @@ def test_k5_11_a_regraded_exam_answer_reaches_the_exam_channel(tmp_path, tag):
     # one. From mvp-0.61 the replacement is written on the exam channel's (assessment-purpose) administration, once.
     expected = [("assessment", "ai", 4)] if tag == TAG else []
     assert live == _exam_channel(paths, attempt_id) == expected
+
+
+# -- K5-3: a certificate probe whose every criterion is unassessed abstains -------------------------------------------
+
+
+def _unassessed_answer(vault, repository, item_id, *, clock, attempt_id="att_unassessed_probe"):
+    """A full-marks answer whose one criterion the valid-alternative gate left unassessed (PF-c's verified answer:
+    correctness 1.0 for scheduling, no measurement)."""
+
+    return apply_attempt(
+        vault, repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(practice_item_id=item_id, learner_answer_md="U Sigma V transpose, another route."),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=4, criterion_points={"correctness": 4.0},
+                evidence_rows=[{
+                    "id": f"ge_{attempt_id}", "criterion_id": "correctness", "points_awarded": 4.0,
+                    "evidence": "A valid alternative route; not verified.", "notes": None,
+                    "local_grader_id": "test", "grader_tier": 1, "created_at": clock.now().isoformat(),
+                }],
+                error_attributions=[], grader_confidence=0.9, confidence=4, manual_review_reason=None,
+            ),
+            unverified_criterion_ids=("correctness",),
+        ),
+        clock=clock,
+    )
+
+
+def _certified_at(tmp_path, tag):
+    paths, vault, repository, certificate = _certify(tmp_path)
+    set_algorithm_version(paths, tag)
+    vault = load_vault(paths.root)
+    assert current_certificate(vault, repository, vault.learning_objects[LO_ID]) == certificate
+    schedule_certification_cold_probes(vault, repository, clock=CLOCK)
+    due = FrozenClock(NOW + timedelta(days=resolve_cold_probe_parameters(repository).horizon_days))
+    return paths, vault, repository, due
+
+
+@BOTH_TAGS
+def test_k5_3_a_probe_answer_with_every_criterion_unassessed_abstains(tmp_path, tag):
+    _paths, vault, repository, due = _certified_at(tmp_path, tag)
+    result = _unassessed_answer(vault, repository, HELD_OUT_ITEM, clock=due)
+    outcome = repository.certification_cold_probe_outcome_for_attempt(result.attempt_id)
+
+    recorded = (outcome["verdict"], outcome["indeterminate_reason"], outcome["success"], outcome["correctness"],
+                outcome["policy_version"])
+    if tag == TAG:
+        assert recorded == ("indeterminate", "grade_unavailable", None, None, "certification_cold_probe_policy_v2")
+        assert false_certification_rate(repository).denominator == 0
+    else:
+        # mvp-0.60, today: the scheduling stand-in scored as a held certificate (ledger K5-3).
+        assert recorded == ("held", None, True, 1.0, "certification_cold_probe_policy_v1")
+        assert false_certification_rate(repository).denominator == 1
+
+
+@BOTH_TAGS
+def test_k5_3_an_assessed_probe_answer_is_scored_at_both_tags(tmp_path, tag):
+    _paths, vault, repository, due = _certified_at(tmp_path, tag)
+    result = _attempt(vault, repository, HELD_OUT_ITEM, points=4, clock=due)
+    outcome = repository.certification_cold_probe_outcome_for_attempt(result.attempt_id)
+    policy = "certification_cold_probe_policy_v2" if tag == TAG else "certification_cold_probe_policy_v1"
+    assert (outcome["verdict"], outcome["correctness"], outcome["policy_version"]) == ("held", 1.0, policy)
+    # The scheduling stamps did not change: the task was scheduled under v1 at both tags.
+    assert repository.followup_task(outcome["followup_task_id"])["context"]["policy_version"] == (
+        "certification_cold_probe_policy_v1"
+    )
