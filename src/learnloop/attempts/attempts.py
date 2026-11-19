@@ -13,6 +13,7 @@ from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.attempts.replay_reading import replaced_exam_purpose, replayed_grader_confidence, replayed_grading_source
+from learnloop.attempts.replay_reading import withholds_review_as_variant_request
 from learnloop.config import LearnLoopConfig
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.ai.spend import SpendLimitExceeded
@@ -1049,12 +1050,13 @@ def complete_self_graded_attempt(
     *,
     fallback_reason: str | None = None,
     fallback_agent_run_id: str | None = None,
+    attempt_id: str | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
     """Record the learner's self-grade.
 
-    ``fallback_reason``/``fallback_agent_run_id`` mark a self-grade applied
-    because model grading failed or was unavailable.
+    ``fallback_reason``/``fallback_agent_run_id`` mark a self-grade applied because model grading failed or was
+    unavailable. ``attempt_id``: one the caller drew already, to name the attempt in its own row first.
     """
 
     if is_empty_stuck(draft):
@@ -1062,7 +1064,7 @@ def complete_self_graded_attempt(
         # door it arrives through, it is the same deterministic zero.
         return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
     now_iso = utc_now_iso(clock)
-    attempt_id = new_ulid()
+    attempt_id = attempt_id or new_ulid()
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
@@ -4080,6 +4082,8 @@ class GradeInputs:
     grade_held_for_review: bool = False
     grade_contract_unrecorded: bool = False
     unrecorded_correctness: float | None = None
+    #: A request for a variant that leaves its source item's review state as it was (``replay_reading``).
+    variant_request: bool = False
 
     def canonical_facet_id(self, facet_id: str) -> str:
         """``LoadedVault.canonical_facet_id`` over the same alias map."""
@@ -4178,6 +4182,7 @@ def _compute_resolved_grade_application(
         grade_held_for_review=grade_held_for_review,
         grade_contract_unrecorded=grade_contract_unrecorded,
         unrecorded_correctness=unrecorded_correctness,
+        variant_request=withholds_review_as_variant_request(vault, repository, attempt_id),
     )
     scope = grade_scope(inputs)
     if prior_state is None:
@@ -4512,6 +4517,10 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         last_attempt_at=now_iso,
         updated_at=now_iso,
     )
+    if inputs.variant_request:
+        # The learner answered nothing, so the forgetting clock is not restarted either (a skip's rule).
+        kept = prior_state.practice_item_state
+        practice_state = replace(kept, updated_at=now_iso) if kept else replace(practice_state, last_attempt_at=None)
     surprise_record = surprise.as_record(attempt_id, config.algorithms.algorithm_version, now_iso)
     mastery_display = display_mastery(belief.posterior_mastery)
     result = AttemptResult(
@@ -4948,10 +4957,8 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         primed=draft.primed,
         hints_used=draft.hints_used,
     )
-    if not held and causal_activity.eligible_for_fsrs and hot_path_applies_practice_review(
-        attempt_type=draft.attempt_type,
-        eligible=observation_eligible,
-    ):
+    reviewed = not held and not inputs.variant_request and causal_activity.eligible_for_fsrs
+    if reviewed and hot_path_applies_practice_review(attempt_type=draft.attempt_type, eligible=observation_eligible):
         next_memory = apply_review(previous_memory, fsrs_rating, elapsed_days, fsrs_weights)
         interval_days = (
             interval_for_retention(next_memory.stability, weights=fsrs_weights)
@@ -4960,13 +4967,13 @@ def _fsrs_review(inputs: GradeInputs, scope: GradeScope, reads: GradeReads, surp
         due_at = (observed_at + timedelta(days=interval_days)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         review_skipped = None
     else:
-        # Working the item restarts elapsed time via last_attempt_at, even
-        # when no review applies. Keep the last applied memory and due date.
+        # Working the item restarts elapsed time via last_attempt_at, even when no review applies (a variant request
+        # answers nothing and keeps it: ``grade_application``). Keep the last applied memory and due date.
         next_memory = previous_memory
         interval_days = None
         due_at = previous_state.due_at if previous_state is not None else None
-        review_skipped = ("held" if held else "causal_activity" if not causal_activity.eligible_for_fsrs
-                          else "ineligible_observation")
+        review_skipped = ("held" if held else "variant_request" if inputs.variant_request
+                          else "causal_activity" if not causal_activity.eligible_for_fsrs else "ineligible_observation")
     # The review as of now, for the grade's decision record only: the item's state row is overwritten
     # by the next review and the elapsed time is never stored, so "why is this due then?" had no stored answer.
     fsrs_review = _fsrs_review_summary(

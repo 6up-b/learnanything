@@ -2,7 +2,8 @@
 
 Replay (``attempts.replay_existing_attempt`` and the grade channel of ``apply_attempt``) re-applies each stored
 answer from what was recorded. Two of its readings were wrong for a grade that was replaced or that carried no
-reliability (refactor bug ledger K5-11, K5-12); from the tag they read as below, and below it exactly as before.
+reliability (refactor bug ledger K5-11, K5-12), and a request for a variant was read as a review of its source item
+live and on replay alike (K5-8); from the tag they read as below, and below it exactly as before.
 Each function takes the vault's config through ``vault`` and answers the predecessor's reading below the tag.
 """
 
@@ -93,6 +94,22 @@ def replaced_exam_purpose(vault: Any, repository: Any, attempt_id: str, replayed
     return EXAM_GRADE_PURPOSE
 
 
+def withholds_review_as_variant_request(vault: Any, repository: Any, attempt_id: str) -> bool:
+    """Whether this attempt is a request for an easier or harder variant whose source item it leaves unreviewed.
+
+    A request is recorded as a ``self_report`` attempt on the source item (``content.authoring.rung_variants``): its
+    belief write is the evidence the request is. Below the evidence reading fixes it was also an FSRS review of the
+    source item, as any unprimed self-report is, which moved the item's forgetting clock, memory state and due date
+    although the learner answered nothing (refactor bug ledger K5-8). From the tag it leaves all three as they were,
+    live and on replay alike. The request is recognized by its row in ``rung_variant_requests`` naming the attempt
+    (written before the attempt is applied), never by the answer text or the entry surface: the text is generated and
+    older rows carry the surface ``unknown``. An attempt no request row names keeps the self-report's review."""
+
+    if not evidence_reading_fixes_on(vault.config):
+        return False
+    return repository.rung_variant_request_for_attempt(attempt_id) is not None
+
+
 def _graded_more_than_once(repository: Any, attempt_id: str) -> bool:
     from learnloop.grading_epochs import group_epochs
 
@@ -106,4 +123,5 @@ __all__ = [
     "replaced_exam_purpose",
     "replayed_grader_confidence",
     "replayed_grading_source",
+    "withholds_review_as_variant_request",
 ]

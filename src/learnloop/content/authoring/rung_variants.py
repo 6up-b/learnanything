@@ -10,9 +10,12 @@ depth trajectory. Two halves, deliberately split:
    EVIDENCE PACKAGE: the request itself is information about the learner —
    a scoped learner claim (cold-state prior) plus a deterministic self-graded
    ``self_report`` attempt on the SOURCE item (0.3 evidence mass; moves LO
-   mastery, facet recall, the (facet, capability) ledger, and — owner-approved
-   — the source's FSRS state: easier = declared soft failure, harder =
-   success). The evidence is NEVER rolled back if generation later fails: the
+   mastery, facet recall and the (facet, capability) ledger: easier = declared
+   soft failure, harder = success). Below mvp-0.61 it was also an FSRS review
+   of the source; from that tag the source's forgetting clock, memory state and
+   due date stay as they were, since the learner answered nothing (the request
+   row names its attempt: ``replay_reading.withholds_review_as_variant_request``).
+   The evidence is NEVER rolled back if generation later fails: the
    request was real evidence regardless of what the authoring model does.
 
 2. ``generate_rung_variant`` — the async job body. Authors ONE grounded
@@ -30,6 +33,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.ids import new_ulid
 from learnloop.vault.repository import vault_repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.substrate.canonical_projection import surface_group_id
@@ -466,7 +470,12 @@ def request_rung_variant(
         confidence=config.self_grade_confidence,
         notes=f"Learner requested an {direction} variant of this item.",
     )
-    attempt = complete_self_graded_attempt(vault, repository, draft, grade, clock=clock)
+    # The request row names its attempt before the attempt is applied: that row is how the grade core recognizes a
+    # request (it applies no review of the source item from mvp-0.61, live and on replay alike), so naming it after
+    # would leave the live write reviewing what a rebuild then would not.
+    attempt_id = new_ulid()
+    repository.update_rung_variant_request(request_id, attempt_id=attempt_id, clock=clock)
+    attempt = complete_self_graded_attempt(vault, repository, draft, grade, attempt_id=attempt_id, clock=clock)
 
     try:
         repository.append_interaction_event(
@@ -489,9 +498,7 @@ def request_rung_variant(
     except Exception:
         pass  # telemetry is best-effort, never blocks the request
 
-    repository.update_rung_variant_request(
-        request_id, attempt_id=attempt.attempt_id, learner_claim_id=claim_id, clock=clock
-    )
+    repository.update_rung_variant_request(request_id, learner_claim_id=claim_id, clock=clock)
     return {
         "request_id": request_id,
         "direction": direction,

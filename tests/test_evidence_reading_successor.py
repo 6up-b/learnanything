@@ -577,6 +577,110 @@ def test_g3_1_an_exposed_answer_recorded_below_the_tag_updates_no_belief_after_t
     assert after == pytest.approx(before)
 
 
+# -- K5-8: a request for an easier or harder variant is no review of its source item --------------------------------
+
+
+def _day(days):
+    return FrozenClock(NOW + timedelta(days=days))
+
+
+class _ReviewLog:
+    """Every FSRS review the grade core applies, as (memory before, rating, elapsed days)."""
+
+    def __init__(self, monkeypatch):
+        from learnloop.attempts import attempts as attempts_module
+
+        self.reviews = []
+        self._original = attempts_module.apply_review
+        monkeypatch.setattr(attempts_module, "apply_review", self)
+
+    def __call__(self, memory, rating, elapsed_days, weights):
+        self.reviews.append((memory, rating, round(float(elapsed_days), 9)))
+        return self._original(memory, rating, elapsed_days, weights)
+
+
+def _item_clock(repository, item_id=ITEM_ID):
+    state = repository.practice_item_state(item_id)
+    return (state.stability, state.difficulty, state.retrievability, state.due_at, state.last_attempt_at)
+
+
+def _clock_history(tmp_path, monkeypatch, tag, *, between):
+    """Day 0 an answer on the item, day 4 ``between`` (a variant request, an ordinary self-report, or nothing), day 7
+    an answer: (the reviews and the item's state live, the same after a rebuild, the attempt ``between`` wrote)."""
+
+    from learnloop.content.authoring.rung_variants import request_rung_variant
+
+    log = _ReviewLog(monkeypatch)
+    paths, vault, repository = _vault(tmp_path, tag, name=f"vault_{between}")
+    _self_graded(vault, repository, points=4, clock=_day(0))
+    attempt_id = None
+    if between == "variant_request":
+        attempt_id = request_rung_variant(vault, repository, practice_item_id=ITEM_ID, direction="easier",
+                                          clock=_day(4))["attempt_id"]
+    elif between == "self_report":
+        attempt_id = complete_self_graded_attempt(
+            vault, repository,
+            AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="I think I know this.", attempt_type="self_report"),
+            SelfGradeInput(criterion_points={"correctness": 2}, confidence=3), clock=_day(4),
+        ).attempt_id
+    _self_graded(vault, repository, points=4, clock=_day(7))
+    live = (list(log.reviews), _item_clock(repository))
+    log.reviews.clear()
+    rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path), clock=_day(8))
+    return live, (list(log.reviews), _item_clock(repository)), attempt_id
+
+
+@BOTH_TAGS
+def test_k5_8_a_variant_request_is_no_review_of_its_source_item(tmp_path, monkeypatch, tag):
+    without_live, without_rebuilt, _ = _clock_history(tmp_path, monkeypatch, tag, between="nothing")
+    live, rebuilt, attempt_id = _clock_history(tmp_path, monkeypatch, tag, between="variant_request")
+
+    assert live == rebuilt  # live and replay agree at both tags
+    assert without_live == without_rebuilt
+    reviews, state = live
+    if tag == TAG:
+        # The request applies no review and leaves the clock, memory and due date as they were: the day-7 review
+        # reads 7 days from the day-0 answer and its memory, as if the request had not been made.
+        assert (reviews, state) == without_live
+        assert [elapsed for _memory, _rating, elapsed in reviews] == [0.0, 7.0]
+    else:
+        # mvp-0.60, today: the request is a review of the source item (a soft failure on day 4), so day 7 reads 3
+        # days from the request and the request's memory, and the due date follows (ledger K5-8).
+        assert [elapsed for _memory, _rating, elapsed in reviews] == [0.0, 4.0, 3.0]
+        assert state != without_live[1]
+        assert state[4] == without_live[1][4]  # day 7 is the last attempt either way
+    assert attempt_id is not None
+
+
+@BOTH_TAGS
+def test_k5_8_an_ordinary_self_report_is_still_a_review(tmp_path, monkeypatch, tag):
+    live, rebuilt, _ = _clock_history(tmp_path, monkeypatch, tag, between="self_report")
+    assert live == rebuilt
+    assert [elapsed for _memory, _rating, elapsed in live[0]] == [0.0, 4.0, 3.0]
+
+
+def test_k5_8_a_variant_request_writes_the_same_belief_at_both_tags(tmp_path):
+    from learnloop.content.authoring.rung_variants import request_rung_variant
+
+    written = {}
+    for tag in (BELOW, TAG):
+        paths, vault, repository = _vault(tmp_path, tag, name=f"vault_{tag}")
+        _self_graded(vault, repository, points=4, clock=_day(0))
+        attempt_id = request_rung_variant(vault, repository, practice_item_id=ITEM_ID, direction="harder",
+                                          clock=_day(4))["attempt_id"]
+        attempt = repository.fetch_practice_attempt(attempt_id)
+        assert repository.rung_variant_request_for_attempt(attempt_id) is not None
+        written[tag] = (
+            attempt["attempt_type"], attempt["rubric_score"], attempt["correctness"],
+            _rows(paths, "SELECT logit_mean, logit_variance, evidence_count FROM learning_object_mastery "
+                         "WHERE learning_object_id = ?", attempt["learning_object_id"]),
+            _rows(paths, "SELECT facet_id, capability_key, recall_mean, recall_variance FROM facet_recall_state "
+                         "ORDER BY facet_id, capability_key, practice_item_id"),
+        )
+    assert written[BELOW] == written[TAG]
+    assert written[TAG][0] == "self_report"
+
+
 # -- the upgrade: one vault holding every case at mvp-0.60, upgraded to mvp-0.61, then rebuilt again -----------------
 
 
@@ -635,6 +739,9 @@ def _unassessed_diagnosed_attempt(vault, repository, *, clock):
     )
 
 
+VARIANT_SOURCE = "pi_svd_clone_001"
+
+
 def _every_case_vault(tmp_path, monkeypatch):
     """The follow-up journey's vault at mvp-0.60, holding every case the tag reads differently; the attempt id of
     each."""
@@ -663,6 +770,12 @@ def _every_case_vault(tmp_path, monkeypatch):
         SelfGradeInput(criterion_points={}, confidence=3), runtime=_ready_runtime(),
         ai_client=_ProbeGrader({}, confidence=0.0, full=True), clock=_at(3),
     ).attempt_id
+    # A request for a harder variant of the item just answered: below the tag a review of it.
+    from learnloop.content.authoring.rung_variants import request_rung_variant
+
+    cases["clone_state_before_request"] = _item_clock(repository, VARIANT_SOURCE)
+    cases["variant_request"] = request_rung_variant(vault, repository, practice_item_id=VARIANT_SOURCE,
+                                                    direction="harder", clock=_at(3.5))["attempt_id"]
     cases["regraded_self_grade"] = _self_graded(vault, repository, clock=_at(4)).attempt_id
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(cases["regraded_self_grade"]),
                     runtime=_ready_runtime(), client=_Grader(points=4), grading_source="ai", clock=_at(5))
@@ -726,6 +839,7 @@ def _reading(paths, cases):
     reading["regraded_exam_answer"] = _exam_channel(paths, cases["regraded_exam_answer"])
     probe = repository.certification_cold_probe_outcome_for_attempt(cases["unassessed_certificate_probe"])
     reading["unassessed_certificate_probe"] = (probe["verdict"], probe["policy_version"])
+    reading["variant_request"] = _item_clock(repository, VARIANT_SOURCE)
     return reading
 
 
@@ -764,9 +878,12 @@ def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tm
     # What the upgrade moved in this vault's derived state: the regraded exam answer reaches its channel (one
     # observation, a raw grade event, an interpretation, measurement events) and with it the recall cell it
     # exercises, the regraded self-grade appends its "ai" raw grade event and interpretation, and the learning
-    # object both regrades replayed moves its mastery. The probe, receipt and certificate cases store nothing derived.
+    # object both regrades replayed moves its mastery; the variant request's source item loses that request's review
+    # (its state goes back to the answer before it). The probe, receipt and certificate cases store nothing derived.
     moved = {key for key in derived if derived[key] != before_derived[key]}
-    assert moved == {"mastery", "recall", "cells", "counts"}
+    assert moved == {"mastery", "recall", "cells", "counts", "items"}
+    assert [row for row in derived["items"] if row not in before_derived["items"]] == [
+        row for row in derived["items"] if row[0] == VARIANT_SOURCE]
     assert {name: derived["counts"][name] - before_derived["counts"][name] for name in _COUNTED} == {
         "activity_observations": 1, "raw_grade_events": 2, "grade_interpretations": 2, "measurement_events": 6,
         "probe_observations": 0, "causal_discriminating_observations": 0, "certification_cold_probe_outcomes": 0,
@@ -793,6 +910,11 @@ def test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing(tm
     # The outcome store is append-only and a rebuild records no probe again: the verdict keeps its rule.
     assert before["unassessed_certificate_probe"] == after["unassessed_certificate_probe"] == (
         "held", "certification_cold_probe_policy_v1")
+    # Below the tag the request was a review of its source (its clock at the request); at the tag the item's clock,
+    # memory and due date are those of the answer before the request, exactly.
+    assert before["variant_request"] != cases["clone_state_before_request"]
+    assert before["variant_request"][4] == _at(3.5).now().isoformat().replace("+00:00", "Z")
+    assert after["variant_request"] == cases["clone_state_before_request"]
 
 
 def test_k5_12_a_zero_an_earlier_rebuild_wrote_over_is_not_restored(tmp_path):
