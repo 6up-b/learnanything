@@ -105,6 +105,32 @@ def test_unmatched_phrases_never_create_an_lo_without_the_learners_yes(tmp_path)
     assert set(load_vault(paths.root).learning_objects) == before
 
 
+def test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject(tmp_path):
+    """UX journey audit UX-7 (beginner-1 #54): with no subject in the library yet (no book's
+    questions built), *add it* was refused ``no_subject`` and the panel had no subject to
+    offer, so the control did nothing. The first subject is now made, named after the topic."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import init_vault
+    from learnloop.vault.paths import VaultPaths
+
+    root = init_vault(tmp_path / "vault")
+    vault = load_vault(root)
+    assert vault.subjects == {}
+    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    created = DL.create_deliverable(vault, repository, "I want to understand how machine learning works")
+    goal_id = created["goal_id"]
+    DL.resolve(load_vault(root), repository, goal_id, client=DeliverableFake(needs=(), unmatched=("machine learning",)))
+    out = DL.decide_unmatched(load_vault(root), repository, goal_id, "machine learning", "create")
+    vault = load_vault(root)
+    assert list(vault.subjects) == ["machine-learning"]
+    assert vault.subjects["machine-learning"].metadata.title == "Machine Learning"
+    assert vault.learning_objects[out["created"]["learning_object_id"]].subjects == ["machine-learning"]
+    assert out["resolution"]["unmatched"][0]["status"] == "created"
+    # With subjects to choose from, none inferred, the learner still chooses
+    # (test_deliverable_codex_review.py::test_f16_...): nothing is made then.
+
+
 def test_add_it_creates_the_lo_through_create_goal_lo_and_joins_the_scope(tmp_path):
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     goal_id, vault = _deliverable(paths, repository, "eigenvalues and jordan form")
