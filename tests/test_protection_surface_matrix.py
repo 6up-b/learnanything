@@ -1462,28 +1462,57 @@ def _completed_pinned_answer(probe: Probe, own: str):
     return ctx, job["jobId"], probe.world(target, own=own)
 
 
-def test_a_completed_pinned_answer_is_returned_after_its_passage_is_held_out(probe: Probe) -> None:
-    """Today's answer of the completed tutor job (TJ): no current protection read when it is read again."""
+def test_a_completed_pinned_answer_still_returns_while_its_passages_stay_readable(probe: Probe) -> None:
+    """G6-P2's other side (TJ): a mark on a unit the answer never drew on leaves the kept answer deliverable."""
 
     from tests.library_ask_fixtures import call_rpc
 
-    ctx, job_id, world = _completed_pinned_answer(probe, "tj-today")
-    _mark_held(world, "c_ctrl")
+    ctx, job_id, world = _completed_pinned_answer(probe, "tj-unrelated")
+    _mark_held(world, "c_grade")
     for _poll in range(2):
         result = call_rpc(ctx, "reader.library_job", {"jobId": job_id})["result"]
         assert "GSIXCLEANCTRL" in json.dumps(result)
 
 
-@pytest.mark.xfail(strict=True, reason="G6-P2: a completed pinned-tutor job is delivered with no current check")
 def test_a_completed_pinned_answer_is_refused_once_its_passage_is_held_out(probe: Probe) -> None:
+    """G6-P2 (TJ): the finished job is refused whole at every later read; the kept result and the stored question
+    and Reader answer rows are unchanged."""
+
+    from learnloop.source_retrieval.library_ask import RESULT_WITHHELD
     from learnloop_sidecar.errors import SidecarError
     from tests.library_ask_fixtures import call_rpc
 
     ctx, job_id, world = _completed_pinned_answer(probe, "tj-desired")
+    kept = ctx.library_ask_jobs.get(job_id)
+    result = json.dumps(kept.result, sort_keys=True)
+    question = world.repository.question_event(kept.result["event_id"])
+    answers = world.repository.reader_interaction_events(kind="reader_answer_submitted")
     _mark_held(world, "c_ctrl")
     for _poll in range(2):
-        with pytest.raises(SidecarError):
+        with pytest.raises(SidecarError) as refused:
             call_rpc(ctx, "reader.library_job", {"jobId": job_id})
+        assert refused.value.code == "exam_material" and str(refused.value) == RESULT_WITHHELD
+    assert json.dumps(kept.result, sort_keys=True) == result
+    assert world.repository.question_event(kept.result["event_id"]) == question
+    assert world.repository.reader_interaction_events(kind="reader_answer_submitted") == answers
+
+
+def test_a_completed_pinned_answer_is_refused_when_protection_cannot_be_read(probe: Probe) -> None:
+    """G6-P2, fail closed: the exam predicate raising refuses the kept answer, as the other kept results."""
+
+    from unittest import mock
+
+    import learnloop.source_retrieval.library_ask as LA
+    from learnloop_sidecar.errors import SidecarError
+    from tests.library_ask_fixtures import call_rpc
+
+    ctx, job_id, _world = _completed_pinned_answer(probe, "tj-fault")
+
+    def raising(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("source sets unreadable")
+
+    with mock.patch.object(LA.EM, "exam_material", raising), pytest.raises(SidecarError):
+        call_rpc(ctx, "reader.library_job", {"jobId": job_id})
 
 
 MISSING_KEY = "g6missing_extraction:s1"
