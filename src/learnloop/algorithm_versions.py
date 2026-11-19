@@ -1063,8 +1063,8 @@ EVIDENCE_READING_FIX_VERSIONS: frozenset[str] = successors_from(EVIDENCE_READING
 
 def evidence_reading_fixes_on(config: object) -> bool:
     """The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of
-    the five readings is mvp-0.60's exactly. ``config`` is a vault's config (anything with
-    ``algorithms.algorithm_version``); the one predicate, so the five call sites cannot disagree on the tag."""
+    their readings is mvp-0.60's exactly. ``config`` is a vault's config (anything whose algorithms section names its
+    algorithm version); the one predicate, so the call sites cannot disagree on the tag."""
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in EVIDENCE_READING_FIX_VERSIONS
