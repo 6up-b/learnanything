@@ -53,7 +53,7 @@ fixture           | TE MR RA PS CK GU FI IP SC SQ MC | CI BS RI LF RF | RT OT PK
 2.exam            | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  S
 2.neighbor        | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  S  S  S  -  S | S  S  S  S  S  S  S  S  S  -  -  -  S  S | S  -  -
 2.split-exam      | W  W  S  S  S  S  W  -  W  W  W | R  W  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  S | S  W  R  R  W  S  R  S  S  -  -  -  W  W | S  S  S
-2.split-theory    | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  W  S  S  -  S | S  S  S  S  S  S  S  S  S  -  -  -  W  S | S  -  -
+2.split-theory    | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  W  S  S  -  S | S  S  S  S  S  S  R  S  S  -  -  -  W  S | S  -  -
 3.held            | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  W  W  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  W  W | S  S  S
 3.unresolved      | W  W  R  R  R  W  W  -  W  W  W | R  W  R  W  W | -  -  -  -  -  -  -  -  -  - | -  -  -  - | W  R  R  R  R  R  W  -  W | S  W  R  R  R  S  R  S  S  -  -  -  R  W | S  -  -
 3.neighbor        | S  S  S  S  S  S  S  -  S  S  S | S  S  S  S  S | -  -  -  -  -  -  -  -  -  - | -  -  -  - | S  S  R  S  S  S  S  -  W | S  S  S  S  S  S  S  S  S  -  -  -  S  S | S  -  -
@@ -117,11 +117,16 @@ class Probe:
         self._memo: dict[tuple[str, str], Any] = {}
         self.contexts: dict[str, Any] = {}
 
-    def world(self, target: Target) -> World:
-        if target.state not in self._states:
-            root = self._factory.mktemp(f"g6{target.state}") / "vault"
-            self._states[target.state] = world_in_state(self.base, target.state, root)
-        return self._states[target.state]
+    def world(self, target: Target, *, own: str | None = None) -> World:
+        """The world in the target's state. ``own`` names a surface that writes what other surfaces read (an
+        exposure, an Ask exchange, a queued request): it gets a copy of its own, so no cell depends on the order
+        the surfaces ran in."""
+
+        key = target.state if own is None else f"{target.state}-{own}"
+        if key not in self._states:
+            root = self._factory.mktemp(f"g6{key}") / "vault"
+            self._states[key] = world_in_state(self.base, target.state, root)
+        return self._states[key]
 
     def once(self, world: World, name: str, read: Callable[[], Any]) -> Any:
         """A vault-wide production read, made once per world state (an exception is kept and raised again)."""
@@ -421,7 +426,7 @@ def _phone_image(probe: Probe, target: Target) -> str:
 def _canonical_import(probe: Probe, target: Target) -> str:
     from learnloop.content.authoring.source_exercise_import import import_source_exercise
 
-    world = probe.world(target)
+    world = probe.world(target, own="import")
     extraction, span = _span(target)
     outcome = import_source_exercise(world.root, world.repository, extraction_id=extraction, span_ids=[span],
                                      caller="learner", clients={}, clock=CLOCK)
@@ -649,11 +654,11 @@ def _sidecar(probe: Probe, world: World):
 
     from learnloop_sidecar.context import SidecarContext
 
-    if world.state not in probe.contexts:
+    if world.root not in probe.contexts:
         ctx = SidecarContext()
         ctx.load(world.root, maintenance=False)
-        probe.contexts[world.state] = ctx
-    return probe.contexts[world.state]
+        probe.contexts[world.root] = ctx
+    return probe.contexts[world.root]
 
 
 @contextmanager
@@ -667,11 +672,12 @@ def _phone(ctx: Any, phone: bool):
         yield
 
 
-def _call(probe: Probe, target: Target, name: str, params: dict[str, Any], *, phone: bool) -> Any:
+def _call(probe: Probe, target: Target, name: str, params: dict[str, Any], *, phone: bool,
+          own: str | None = None) -> Any:
     import learnloop_sidecar.handlers  # noqa: F401 - registers every method
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
-    world = probe.world(target)
+    world = probe.world(target, own=own)
     ctx = _sidecar(probe, world)
     spec = METHOD_REGISTRY[name]
     with _phone(ctx, phone):
@@ -729,13 +735,14 @@ def _model_answer(model: RecordingModel, mark: str, refused: bool) -> str:
 
 
 def _ask(probe: Probe, target: Target, *, phone: bool) -> str:
+    own = "PA" if phone else "RA"
     extraction, span = _span(target)
     model = RecordingModel()
     refused = False
     with _tutor(model):
         try:
             _call(probe, target, "reader.ask", {"extraction_id": extraction, "span_id": span,
-                                                "question": "What does this passage say?"}, phone=phone)
+                                                "question": "What does this passage say?"}, phone=phone, own=own)
         except ModelReached:
             pass
         except Exception:  # noqa: BLE001
@@ -753,10 +760,10 @@ def _phone_ask(probe: Probe, target: Target) -> str:
     return _ask(probe, target, phone=True)
 
 
-def _stored_exchange(probe: Probe, target: Target) -> None:
+def _stored_exchange(probe: Probe, target: Target, own: str) -> None:
     """One completed Ask exchange anchored on the target, stored before anything is asked of it."""
 
-    world = probe.world(target)
+    world = probe.world(target, own=own)
     extraction, span = _span(target)
 
     def store():
@@ -773,10 +780,11 @@ def _stored_exchange(probe: Probe, target: Target) -> None:
 
 
 def _history(probe: Probe, target: Target, *, phone: bool) -> str:
-    _stored_exchange(probe, target)
+    own = "history"
+    _stored_exchange(probe, target, own)
     extraction, _span_id = _span(target)
     try:
-        history = _call(probe, target, "reader.ask_history", {"extraction_id": extraction}, phone=phone)
+        history = _call(probe, target, "reader.ask_history", {"extraction_id": extraction}, phone=phone, own=own)
     except Exception:  # noqa: BLE001
         return R
     return S if f"{target.mark} answered" in json.dumps(history) else W
@@ -813,7 +821,7 @@ def _check(probe: Probe, target: Target, payload: dict[str, Any]) -> str:
 
     from learnloop.content.pipeline import jobs
 
-    world = probe.world(target)
+    world = probe.world(target, own="check")
     extraction, span = _span(target)
     if "section_id" in payload:
         payload = {"extraction_id": extraction, "section_id": _section_of(world, target)}
@@ -842,7 +850,7 @@ def _check(probe: Probe, target: Target, payload: dict[str, Any]) -> str:
 @surface("PS")
 def _preset(probe: Probe, target: Target) -> str:
 
-    world = probe.world(target)
+    world = probe.world(target, own="PS")
     extraction, span = _span(target)
     return probe.once(world, f"PS:{extraction}:{span}", lambda: _preset_once(world, target))
 
@@ -873,7 +881,7 @@ def _reader_import(probe: Probe, target: Target) -> str:
     from tests.exercise_authoring_helpers import FakeClient
     from tests.protection_matrix_helpers import reader_import_context
 
-    world = probe.world(target)
+    world = probe.world(target, own="import")
     extraction, span = _span(target)
     node = {"spanId": span} if target.camel else {"span_id": span}
 
@@ -969,7 +977,7 @@ def _reader_neighbour(probe: Probe, target: Target) -> str:
     from learnloop.content.pipeline.runner import JobContext
     from tests.protection_matrix_helpers import reader_import_context
 
-    world = probe.world(target)
+    world = probe.world(target, own="import")
     extraction, _span_id = _span(target)
     author = _Author()
     node = {"spanId": target.neighbor_of} if target.camel else {"span_id": target.neighbor_of}
@@ -992,7 +1000,7 @@ def _canonical_neighbour(probe: Probe, target: Target) -> str:
 
     from learnloop.content.authoring.source_exercise_import import import_source_exercise
 
-    world = probe.world(target)
+    world = probe.world(target, own="import")
     extraction, _span_id = _span(target)
     author = _Author()
     try:
@@ -1004,6 +1012,60 @@ def _canonical_neighbour(probe: Probe, target: Target) -> str:
     if outcome is not None and not author.seen:
         return R
     return _author_saw(author, target.mark)
+
+
+# --- MCP and the Teacher ----------------------------------------------------------------------------------------
+
+
+@surface("MC")
+def _mcp_passages(probe: Probe, target: Target) -> str:
+    from learnloop.remote.sources import SourcesUnavailable, find_passages
+
+    world = probe.world(target, own="MC")
+    extraction, span = _span(target)
+    try:
+        result = find_passages(world.vault(), world.repository, sentence(target.mark), call_id=f"g6-{target.row}",
+                               clock=CLOCK)
+    except SourcesUnavailable:
+        return R
+    except Exception:  # noqa: BLE001
+        return R
+    shown = {(passage["citation"]["extraction_id"], passage["citation"]["span_id"])
+             for passage in result.payload.get("passages") or []}
+    return S if (extraction, span) in shown else W
+
+
+@surface("ML")
+def _mcp_library(probe: Probe, target: Target) -> str:
+    from learnloop.remote.runtime import RemoteRuntime
+    from learnloop.remote.views import library
+
+    world = probe.world(target)
+
+    def read():
+        return library(RemoteRuntime.attach(world.root, load_environment=False), limit=500)
+
+    try:
+        listed = probe.once(world, "ML", read)
+    except Exception:  # noqa: BLE001
+        return R
+    return S if any(card["source_id"] == target.source_id for card in listed["sources"]) else W
+
+
+@surface("TB")
+def _teacher_goal(probe: Probe, target: Target) -> str:
+    from learnloop.teacher.brief import LessonRefused, resolve_goal
+
+    world = probe.world(target)
+    extraction, span = _span(target)
+    try:
+        resolve_goal(world.vault(), world.repository, entry="reader_selection",
+                     selection={"extraction_id": extraction, "span_ids": [span]})
+    except LessonRefused as refused:
+        return R if refused.code == "protected" else S
+    except Exception:  # noqa: BLE001
+        return R
+    return S
 
 
 # --- the cells --------------------------------------------------------------------------------------------------
