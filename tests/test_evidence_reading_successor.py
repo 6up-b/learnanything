@@ -659,6 +659,33 @@ def test_k5_8_an_ordinary_self_report_is_still_a_review(tmp_path, monkeypatch, t
     assert [elapsed for _memory, _rating, elapsed in live[0]] == [0.0, 4.0, 3.0]
 
 
+@BOTH_TAGS
+def test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay(tmp_path, monkeypatch, tag):
+    """Case B of the inventory, checked rather than changed: no stored fact says such an answer got no review live.
+
+    The attempt path applies its review from fixed practice inputs, so every answer's observation is written
+    ``practice``-eligible (none carries a before-response condition), and a quarantine is appended later, to the
+    grade channel only: the answer was reviewed at submission, and replay reviews it again. Live and replay agree."""
+
+    from learnloop.attempts.grade_resolution import quarantine_observation
+
+    log = _ReviewLog(monkeypatch)
+    paths, vault, repository = _vault(tmp_path, tag)
+    _self_graded(vault, repository, points=4, clock=_day(0))
+    quarantined = _self_graded(vault, repository, points=2, clock=_day(4)).attempt_id
+    observation = repository.observation_by_attempt(quarantined)
+    assert observation["evidence_eligibility"] == "practice"
+    assert quarantine_observation(repository, observation_id=observation["id"], surface_id=None,
+                                  reason="learner_contested", clock=_day(5))
+    _self_graded(vault, repository, points=4, clock=_day(7))
+    live = (list(log.reviews), _item_clock(repository))
+    log.reviews.clear()
+    rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path), clock=_day(8))
+
+    assert (list(log.reviews), _item_clock(repository)) == live
+    assert [elapsed for _memory, _rating, elapsed in live[0]] == [0.0, 4.0, 3.0]
+
+
 def test_k5_8_a_variant_request_writes_the_same_belief_at_both_tags(tmp_path):
     from learnloop.content.authoring.rung_variants import request_rung_variant
 
