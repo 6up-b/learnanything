@@ -124,3 +124,43 @@ def test_generation_is_idempotent(tmp_path):
     second = generate_instances_for_episode(repository, refreshed_vault, episode.id, clock=CLOCK, seed=7)
     # The episode already unparked; regeneration produces nothing new.
     assert not second.generated
+
+
+def test_approving_an_answered_probe_keeps_its_scheduling_state(tmp_path):
+    """Approval activates a pending instance; it never rewrites the row. The generic upsert replaced the whole row on
+    conflict, so approving an instance that had already been answered cleared its forgetting clock, memory and due
+    date with no answer behind it, while a rebuild (which replays the attempt) restored them."""
+
+    from datetime import timedelta
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    vault_root, loaded, repository = _setup(tmp_path, trust_families=False, predecessor=True)
+    episode = enter_episode(loaded, repository, LO_ID, trigger="manual", clock=CLOCK)
+    summary = generate_instances_for_episode(repository, loaded, episode.id, clock=CLOCK, seed=7)
+    probe_item = summary.generated[0].practice_item_id
+    refreshed_vault = load_vault(vault_root)
+    rubric = refreshed_vault.rubric_for_item(refreshed_vault.practice_items[probe_item])
+    complete_self_graded_attempt(
+        refreshed_vault, repository, AttemptDraft(practice_item_id=probe_item, learner_answer_md="An answer.",
+                                                  attempt_type="diagnostic_probe"),
+        SelfGradeInput(criterion_points={criterion.id: criterion.points for criterion in rubric.criteria}, confidence=4),
+        clock=CLOCK,
+    )
+
+    def scheduling(state):
+        return (state.last_attempt_at, state.stability, state.difficulty, state.retrievability, state.due_at,
+                state.content_hash)
+
+    answered = repository.practice_item_states()[probe_item]
+    assert answered.last_attempt_at is not None
+
+    assert approve_probe_instance(repository, refreshed_vault, probe_item, clock=FrozenClock(NOW + timedelta(days=1)))
+    approved = repository.practice_item_states()[probe_item]
+    assert scheduling(approved) == scheduling(answered)
+    assert approved.active
+
+    rebuild_all_derived_state(refreshed_vault, repository, clock=FrozenClock(NOW + timedelta(days=2)))
+    rebuilt = repository.practice_item_states()[probe_item]
+    assert (scheduling(rebuilt)[:5], rebuilt.active) == (scheduling(approved)[:5], True)
