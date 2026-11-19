@@ -2,8 +2,8 @@
 // wireframe W4, §10 3.1-3.4). Start and Today merged into one place:
 //
 //   Tuesday evening                              10m  15m [25m] 40m  60m
-//   25 minutes today: finish §5.4 Mixtures, then 6 short questions from
-//   earlier days and a fix for a mix-up.                          why? ▸
+//   Up to 25 minutes today. Planned so far: finish §5.4 Mixtures, then 6
+//   short questions from earlier days and a fix for a mix-up.     why? ▸
 //   ▸ Continue §5.4 Mixtures                               about 12 min
 //     6 short questions · Conditional probability           about 8 min
 //                                                          [ Begin ↵ ]

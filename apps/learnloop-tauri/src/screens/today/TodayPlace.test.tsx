@@ -457,7 +457,7 @@ describe("the plan as one sentence and Enter (3.1)", () => {
     show();
     const sentence = await screen.findByTestId("today-sentence");
     expect(sentence.textContent).toContain(
-      "25 minutes today: finish §5.4 Mixtures, then 2 short questions from earlier days and a fix for a mix-up."
+      "Up to 25 minutes today. Planned so far: finish §5.4 Mixtures, then 2 short questions from earlier days and a fix for a mix-up."
     );
     expect(screen.getByText("Tuesday evening")).toBeTruthy();
     const rows = screen.getAllByTestId("today-block").map((row) => row.textContent ?? "");
@@ -614,7 +614,7 @@ describe("the states (§7.1)", () => {
   it("one book, no answers yet: day one is a plan to start reading", async () => {
     apis(dto(body({ blocks: [readingBlock({ startedAt: null, reading: { ...readingBlock().reading!, sectionTitle: "Chapter 1", spansSeen: 0 } })], currentBlockId: "blk_r", projected: [], minutesBudget: 15, rememberedMinutes: 15 })));
     show();
-    expect((await screen.findByTestId("today-sentence")).textContent).toContain("15 minutes today: read Chapter 1.");
+    expect((await screen.findByTestId("today-sentence")).textContent).toContain("Up to 15 minutes today. Planned so far: read Chapter 1.");
     expect(screen.getByTestId("today-begin").textContent).toContain("Begin ↵");
   });
 
@@ -623,7 +623,7 @@ describe("the states (§7.1)", () => {
     const f = apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 26.2, doneItems: 9 } }));
     const props = show({ session: SESSION });
     const sentence = await screen.findByTestId("today-sentence");
-    expect(sentence.textContent).toBe("Done for today · 26 minutes.");
+    expect(sentence.textContent).toBe("Done for today · 26 minutes spent answering and reading.");
     expect(surface()).not.toMatch(/\b9 items?\b|Today complete/);
     await press({ key: "Enter" });
     await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
@@ -1374,5 +1374,33 @@ describe("UX fix stage 3 (item 6): Keep going that comes back with nothing open 
     expect(screen.queryByTestId("today-keep-going-nothing")).toBeNull();
     expect(screen.queryByTestId("today-cause")).toBeNull();
     expect(props.onError).not.toHaveBeenCalled();
+  });
+});
+
+describe("UX fix stage 3 (item 3, F9): one clock on Today", () => {
+  it("a begun plan names its room, the rows their own estimates, and the minute chips the plan's length", async () => {
+    const begun = body({
+      minutesAreASuggestion: true,
+      minutesLeft: 22,
+      minutesPastPlan: 0,
+      blocks: [block({ id: "b0", status: "done" }), block({ id: "blk_2", ordinal: 2, status: "current", startedAt: "2026-10-26T18:05:00Z", estMinutes: 2 })],
+      currentBlockId: "blk_2",
+      projected: []
+    });
+    apis(dto(begun));
+    show({ session: SESSION });
+    const sentence = await screen.findByTestId("today-sentence");
+    expect(sentence.textContent).toContain("Room for about 22 more minutes of today's suggested time. Next: ");
+    expect(sentence.textContent).not.toMatch(/minutes left/);
+    expect(screen.getByTestId("today-block").textContent).toContain("about 2 min");
+    expect(screen.getByRole("radiogroup", { name: "minutes today" })).toBeTruthy();
+  });
+
+  it("after the plan is done the minute chips are not shown: today's length means nothing then", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, readingBlocks: 0, actualMinutes: 2.2 } }));
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Done for today · 2 minutes spent answering.");
+    expect(screen.queryByRole("radiogroup", { name: "minutes today" })).toBeNull();
   });
 });

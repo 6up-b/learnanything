@@ -47,7 +47,7 @@ afterEach(() => {
 
 it("is one calm summary: minutes, questions, and what moved in the well's words", () => {
   render(<SessionFinishHud summary={SUMMARY} onDismiss={vi.fn()} />);
-  expect(screen.getByText("26 minutes · 9 questions")).toBeTruthy();
+  expect(screen.getByText("26 minutes this session · 9 questions")).toBeTruthy();
   const moved = screen.getByTestId("session-moved").textContent ?? "";
   expect(moved).toContain("● Conditional probability (on your own)");
   expect(moved).toContain("◌ Mixtures (with help)");
@@ -75,7 +75,7 @@ it("dismisses on Done, Enter or Escape", async () => {
 
 it("says nothing about topics when none moved, and never counts what did not", () => {
   render(<SessionFinishHud summary={{ ...SUMMARY, topics: [] }} onDismiss={vi.fn()} />);
-  expect(screen.getByText("26 minutes · 9 questions")).toBeTruthy();
+  expect(screen.getByText("26 minutes this session · 9 questions")).toBeTruthy();
   expect(screen.queryByTestId("session-moved")).toBeNull();
 });
 

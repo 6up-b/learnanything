@@ -175,8 +175,22 @@ function minutesWord(minutes: number): string {
   return minutes === 1 ? "1 minute" : `${minutes} minutes`;
 }
 
-/** "25 minutes today: finish §5.4 Mixtures, then 6 short questions from
- *  earlier days and a fix for a mix-up." Null when nothing is planned. */
+/** "about 22 more minutes": the room left in the plan (never below 1). */
+function roomWords(minutesLeft: number): string {
+  const minutes = Math.max(1, Math.round(minutesLeft));
+  return `about ${minutes} more minute${minutes === 1 ? "" : "s"}`;
+}
+
+/** "Up to 25 minutes today. Planned so far: finish §5.4 Mixtures, then 6
+ *  short questions from earlier days and a fix for a mix-up." Null when
+ *  nothing is planned.
+ *
+ *  UX fix stage 3 (audit F9, one clock): the number is the plan's length, or,
+ *  once begun, the room left in it (its minutes not yet given to a block:
+ *  `minutesLeft` counts block estimates, not time, so it does not move while a
+ *  block is answered). The rows after it are the blocks planned so far, each
+ *  with its own estimate; more are chosen at each block's end, or the plan
+ *  ends early. The words keep the two from reading as one clock. */
 export function planSentence(plan: Plan): string | null {
   const phrases: string[] = [];
   for (const block of plan.blocks) {
@@ -200,20 +214,21 @@ export function planSentence(plan: Plan): string | null {
   }
   if (phrases.length === 0) return null;
   const begun = plan.blocks.some((block) => block.status === "done" || Boolean(block.startedAt));
+  const list = `${begun ? "Next" : "Planned so far"}: ${joinPhrases(phrases)}.`;
   if (plan.minutesAreASuggestion) {
     // Router objective RO4: the plan's minutes are a suggestion; past them, say so plainly.
     const past = Math.round(plan.minutesPastPlan ?? 0);
     const suggested = begun
       ? past > 0
-        ? `About ${minutesWord(past)} past today's suggested time`
-        : `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left of today's suggested time`
+        ? `About ${minutesWord(past)} planned past today's suggested time`
+        : `Room for ${roomWords(plan.minutesLeft)} of today's suggested time`
       : `About ${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} suggested today`;
-    return `${suggested}: ${joinPhrases(phrases)}.`;
+    return `${suggested}. ${list}`;
   }
   const head = begun
-    ? `About ${minutesWord(Math.max(1, Math.round(plan.minutesLeft)))} left today`
-    : `${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} today`;
-  return `${head}: ${joinPhrases(phrases)}.`;
+    ? `Room for ${roomWords(plan.minutesLeft)} today`
+    : `Up to ${minutesWord(Math.max(1, Math.round(plan.minutesBudget)))} today`;
+  return `${head}. ${list}`;
 }
 
 /** Re-entry after a break (DL P6): a short plan, and no debt screen. What
@@ -247,10 +262,16 @@ export function splitWhy(plan: Plan): string[] {
   return lines;
 }
 
-/** "Done for today · 26 minutes." The time spent, never a count of items. */
+/** "Done for today · 26 minutes spent answering." The time spent, never a
+ *  count of items. Stage 3 (F9): `actualMinutes` is the time on each answered
+ *  question plus each reading block's time (daily_plan/view.py
+ *  `_actual_minutes`), not the session's length, which the session summary
+ *  shows beside it; the words say which. */
 export function doneLine(data: DailyPlanDto): string {
   const minutes = wholeMinutes(data.day?.actualMinutes);
-  return minutes > 0 ? `Done for today · ${minutesWord(minutes)}.` : "Done for today.";
+  if (minutes <= 0) return "Done for today.";
+  const reading = (data.day?.readingBlocks ?? 0) > 0 ? " and reading" : "";
+  return `Done for today · ${minutesWord(minutes)} spent answering${reading}.`;
 }
 
 /** UX-6 (audit beginner-1 #80-120): "Practise for this goal" with nothing ready; a notice, never an error. */
