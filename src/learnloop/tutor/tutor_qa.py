@@ -1374,13 +1374,18 @@ def ask_question(
                 attempt_id=attempt_id,
                 clock=clock,
             )
-        if provided_spans is not None and citations and bound_item is None:
+        if citations and bound_item is None and source_span_provider is not None:
             # (A bound Reader answer's cited pins are its source review above,
             # counted once: K6-2.)
             # Slice 2 T6: a cited retrieved span opens in the Ask overlay, so
             # what it exposes of the expected answer is a reveal of its own
             # (the tutor's prose is scored above). Spans that reproduce the
             # answer never reach the tutor; partial overlap is debited here.
+            # K6-3: whichever branch delivered it -- the provider's picks or
+            # pins, or the linked spans it fell back to when it declined or
+            # failed -- a cited passage is shown alike, so it is measured
+            # alike. With no provider at all (source_retrieval.enabled off)
+            # the predecessor's accounting stands, as that switch promises.
             span_overlap = _cited_span_overlap(citations, ai_context.source_spans, item.expected_answer)
             record_reveal(
                 repository,
@@ -2393,12 +2398,23 @@ def _delivered_source_spans(
         candidates = chosen + cited
     else:
         linked = _source_spans(vault, repository, lo_ids)
+        allow = (linked_reference_filter(vault, repository, context=context, learning_object_ids=list(lo_ids),
+                                         item=item)
+                 if linked_reference_filter is not None else None)
+        if allow is not None and linked:
+            # K6-3: the linked spans are the fallback when retrieval declines
+            # or fails, so they pass the rules a retrieved span (and their own
+            # references) pass, before any text is read: an LO's link to a
+            # block that is also the practised item's solution must not hand
+            # it to the tutor, or to a citation chip, because verification
+            # was unavailable.
+            linked, withheld = _admitted_linked(source, linked, allow)
+            if withheld and delivery_receipt is not None:
+                delivery_receipt["linked_withheld"] = withheld
         chosen, completed = hydrate(source, linked) if expanded else (linked, 0)
         candidates = list(chosen)
-        if settings.resolve_references and chosen and linked_reference_filter is not None:
+        if settings.resolve_references and chosen and allow is not None:
             keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
-            allow = linked_reference_filter(vault, repository, context=context, learning_object_ids=list(lo_ids),
-                                            item=item)
             references = follow_references(source, chosen, allow=allow, delivered=keys)
             if not expanded:
                 references.spans = [predecessor_cut(span, SPAN_CHARS) for span in references.spans]
@@ -2409,6 +2425,26 @@ def _delivered_source_spans(
     if delivery_receipt is not None and notable(receipt):
         delivery_receipt.update(receipt, completed=completed)
     return spans
+
+
+def _admitted_linked(source: BlockSource, spans: list[dict[str, Any]],
+                     allow: BlockFilter) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The linked spans ``allow`` admits, and those it withheld with why (K6-3).
+
+    A span whose block cannot be read cannot be judged, so it is withheld
+    (fail closed), never delivered on the strength of its link alone."""
+
+    kept: list[dict[str, Any]] = []
+    withheld: list[dict[str, Any]] = []
+    for span in spans:
+        extraction_id, span_id = str(span.get("extraction_id")), str(span.get("span_id"))
+        block = source.block(extraction_id, span_id)
+        reason = "its passage could not be read" if block is None else allow(extraction_id, block)
+        if reason is None:
+            kept.append(span)
+        else:
+            withheld.append({"extraction_id": extraction_id, "span_id": span_id, "reason": reason})
+    return kept, withheld
 
 
 def _context_learning_objects(item: PracticeItem | None, note: Any) -> list[str]:

@@ -441,6 +441,11 @@ WORKED_EQUATION = "Example 3.3 (Characteristic equation). Find the eigenvalues o
 SOLUTION_LEAD = "Solution."
 SOLUTION_EQUATION = "$$ t^2 - 4t + 3 = 0 \\tag{3.4} $$"
 EQUATION_TEACHING = "The roots of the characteristic equation (3.4) are the eigenvalues of the matrix."
+# A section break before the linked teaching passage: a lead's region runs to
+# the next header, and since K6-3 the linked passage itself passes the item's
+# rules, so a passage inside the region of the item's own example or of a
+# solution is withheld before its references are ever read.
+BREAK = ("Further remarks", "SectionHeader")
 
 
 def _seed_hinted(repository, *, source_id: str, revision_id: str, extraction_id: str,
@@ -520,7 +525,7 @@ def _ask_linked(paths, repository, *, item: str = "pi_eigen_1", injected: bool =
 
 def test_a_linked_spans_reference_to_the_items_own_example_is_refused_by_its_database_link(tmp_path):
     paths, repository = _linked_vault(
-        tmp_path, [(WORKED, "Text"), (WORKED_BODY, "Text"), (TEACHING, "Text")], teaching_span="s4")
+        tmp_path, [(WORKED, "Text"), (WORKED_BODY, "Text"), BREAK, (TEACHING, "Text")], teaching_span="s5")
     # The item was made from Example 3.2: linked in the database only (no YAML provenance).
     repository.insert_entity_source_link(
         entity_type="practice_item", entity_id="pi_eigen_1", locator="span:ext_eigen/s2", relation="primary",
@@ -536,8 +541,8 @@ def test_a_linked_spans_reference_to_the_items_own_example_is_refused_by_its_dat
 
 
 def test_a_linked_spans_reference_to_a_re_extracted_copy_of_the_items_example_is_refused(tmp_path):
-    rows = [(WORKED, "Text"), (WORKED_BODY, "Text"), (TEACHING, "Text")]
-    paths, repository = _linked_vault(tmp_path, rows, teaching_span="s4")
+    rows = [(WORKED, "Text"), (WORKED_BODY, "Text"), BREAK, (TEACHING, "Text")]
+    paths, repository = _linked_vault(tmp_path, rows, teaching_span="s5")
     # The item links the same example in an older extraction of the same source.
     _seed_hinted(repository, source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen_old",
                  rows=[("Front matter.", "Text"), *rows], register=False)
@@ -552,8 +557,8 @@ def test_a_linked_spans_reference_to_a_re_extracted_copy_of_the_items_example_is
 def test_a_linked_spans_reference_into_a_solution_regions_body_is_refused_while_practising(tmp_path):
     paths, repository = _linked_vault(tmp_path, [
         (WORKED_EQUATION, "Text"), (SOLUTION_LEAD, "Text"), (SOLUTION_EQUATION, "Equation"),
-        ("Chapter three continues with the spectral theorem.", "Text"), (EQUATION_TEACHING, "Text"),
-    ], teaching_span="s6")
+        ("Chapter three continues with the spectral theorem.", "Text"), BREAK, (EQUATION_TEACHING, "Text"),
+    ], teaching_span="s7")
     spans, delivery = _ask_linked(paths, repository)
     assert SOLUTION_EQUATION not in {span["text"] for span in spans}
     assert [(entry["reference"], entry["span_id"]) for entry in delivery["references"]["unresolved"]] == [
@@ -593,6 +598,66 @@ def test_the_sidecar_injects_the_linked_reference_rules(tmp_path, monkeypatch):
         server.stop()
     assert "result" in response, response
     assert seen and seen[0]["linked_reference_filter"] is linked_reference_filter
+
+
+# -- K6-3: the linked fallback passes the item's rules and its citations are measured --
+#
+# When the provider declines or raises, the tutor falls back to the learning
+# object's linked spans. Those primary spans pass the same rules their
+# references do (the question's teaching scope with the item's exclusions)
+# before anything is delivered, and a cited fallback passage is debited as a
+# retrieved one is, whichever branch delivered it.
+
+OWN_SOLUTION = "The eigenvalues of diag(5, 7) are 5 and 7, its diagonal entries."
+
+
+def _failing_provider(*_args, **_kwargs):
+    raise RuntimeError("verification unavailable")
+
+
+def _ask_fallback(paths, repository):
+    from learnloop.source_retrieval.tutor import linked_reference_filter
+    from tests.source_retrieval_fakes import loaded
+    from tests.source_retrieval_tutor_helpers import CitingTutor
+
+    tutor = CitingTutor()
+    result = ask_question(loaded(paths), repository, tutor, context="practice",
+                          question_md="Why are these the eigenvalues?", practice_item_id="pi_eigen_1",
+                          session_id="s1", clock=CLOCK, source_span_provider=_failing_provider,
+                          linked_reference_filter=linked_reference_filter)
+    return tutor, result
+
+
+def test_a_linked_span_that_is_the_items_own_solution_never_reaches_the_fallback(tmp_path):
+    paths, repository = _linked_vault(tmp_path, [(OWN_SOLUTION, "Text"), (TEACHING, "Text")], teaching_span="s2")
+    repository.insert_entity_source_link(
+        entity_type="learning_object", entity_id="lo_matrices", locator="span:ext_eigen/s3",
+        relation="primary", source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen")
+    # The same block is the practised item's own solution (a support link).
+    repository.insert_entity_source_link(
+        entity_type="practice_item", entity_id="pi_eigen_1", locator="span:ext_eigen/s2", relation="support",
+        source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen")
+    tutor, result = _ask_fallback(paths, repository)
+    given = tutor.contexts[0].source_spans
+    assert OWN_SOLUTION not in {span["text"] for span in given}
+    assert ("ext_eigen", "s2") not in {(span["extraction_id"], span["span_id"]) for span in given}
+    citations = result.get("citations") or []
+    assert ("ext_eigen", "s2") not in {(c["extraction_id"], c["span_id"]) for c in citations}
+    assert all(OWN_SOLUTION not in str(c.get("excerpt") or "") for c in citations)
+
+
+def test_a_cited_fallback_passage_is_debited_as_a_source_review(tmp_path):
+    from tests.source_service_fakes import set_item_answer
+
+    paths, repository = _linked_vault(tmp_path, [(TEACHING, "Text")], teaching_span="s2")
+    # Partial overlap (diagonal, entries, eigenvalues: 3 of 5 content words), below the withholding floor.
+    set_item_answer(paths, "pi_eigen_1", "diagonal entries eigenvalues symmetric orthogonal")
+    tutor, result = _ask_fallback(paths, repository)
+    assert [span["text"] for span in tutor.contexts[0].source_spans] == [TEACHING]
+    assert ("ext_eigen", "s2") in {(c["extraction_id"], c["span_id"]) for c in result["citations"]}
+    reviews = repository.reveal_events(practice_item_id="pi_eigen_1", source_kind="source_review")
+    assert [row["question_event_id"] for row in reviews] == [result["event_id"]]
+    assert reviews[0]["amount"] == pytest.approx(0.6)
 
 
 # -- Codex review F6: a numbered statement ending in a number is not a TOC line ----
