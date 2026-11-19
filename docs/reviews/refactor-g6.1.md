@@ -108,7 +108,10 @@ The exam predicate's readers (`exam_material`, `held_out_material`, `held_out_pa
 All under the brief's wrapper (`env -i`, empty `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`), each pytest at `-n 1` in a 3 G scope, one command at a time.
 
 - `tests/test_protection_surface_matrix.py`: 134 passed, 7 xfailed in 46.09 s.
-- The proof dependencies, the layout, architecture and identity tests, ruff, lint-imports and the gate partition: results in the landing report.
+- The proof dependencies, together: `tests/test_mobile_v4_codex_review.py`, `test_exam_protection.py`, `test_exam_protection_identity.py`, `test_k1_source_sets_gate.py`, `test_k1_remediation_cold_reservation.py`, `test_k1_mcp_find_sources.py`, `test_k1_serve_door_reservation.py`, `test_learner_protection_predicates.py`, `test_library_ask_review.py`: 169 passed in 41.83 s.
+- `tests/test_test_layout.py`: 3 passed. `tests/test_architecture.py`: 18 passed. `tests/test_identity_pins.py`: 342 passed.
+- `ruff check`: all checks passed. `lint-imports --no-cache`: 43 kept, 0 broken. `scripts/check_gate_partition.py`: collected 31434, landing 31369 + arc_close 65.
+- Order: a subset of surfaces run alone (SE, EH, EX, OT, RA, LC, KY, PH and the legacy-thread pin): 9 passed, so those cells don't depend on the surfaces before them.
 
 ## 9. Not verified
 
