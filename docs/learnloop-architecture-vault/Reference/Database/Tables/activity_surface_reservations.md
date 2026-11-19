@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_contamination_report.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_intent_fix_round5.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/test_administration_adapters.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

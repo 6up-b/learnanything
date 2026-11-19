@@ -417,6 +417,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_i_a_too_easy_retirement_during_a_session`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_a_completed_pinned_answer_is_refused_once_its_passage_is_held_out`
+  - `test_a_kept_answer_naming_a_passage_that_does_not_exist_is_refused`
 - [tests/test_reader_active_reading.py](../../../../../tests/test_reader_active_reading.py) — direct import
   - `test_the_rpcs_refuse_while_active_reading_is_off`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import

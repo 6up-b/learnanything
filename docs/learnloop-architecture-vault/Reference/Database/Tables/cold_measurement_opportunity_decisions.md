@@ -113,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_reader_ca5a_find_section.py`
 - `tests/ad23_fakes.py`
 - `tests/due_queue_helpers.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/serve_eligibility_helpers.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_cold_outcomes.py`
@@ -127,7 +128,6 @@ None found by exact static reference scan.
 - `tests/test_intent_codex_review.py`
 - `tests/test_intent_fix_round4.py`
 - `tests/test_item_authoring.py`
-- `tests/test_k1_remediation_cold_reservation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

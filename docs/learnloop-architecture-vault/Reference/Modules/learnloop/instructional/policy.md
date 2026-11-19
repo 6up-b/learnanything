@@ -157,6 +157,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_refuses_a_bound_ask_while_its_cold_administration_is_open`
 - [tests/test_practice_availability.py](../../../../../../tests/test_practice_availability.py) — direct import
   - `test_availability_counts_without_calling_a_model`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_find_sources_callers.py](../../../../../../tests/test_reader_find_sources_callers.py) — direct import
   - `test_a_cold_administration_retrieves_nothing`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

@@ -131,6 +131,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_figures_and_phone_withhold_when_source_sets_did_not_load`
 - [tests/test_mobile_v4_codex_review.py](../../../../../../tests/test_mobile_v4_codex_review.py) — direct import
 - [tests/test_mobile_v4_eligibility.py](../../../../../../tests/test_mobile_v4_eligibility.py) — direct import
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_the_phones_media_lift_admits_no_measurement`
 
 ## Modification guidance
 

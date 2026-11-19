@@ -195,6 +195,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rich_figure_whose_learner_inputs_became_protected_is_not_delivered`
   - `test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reused`
   - `test_a_stored_rich_figure_without_learner_state_is_checked_as_before`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 
 ## Modification guidance
 

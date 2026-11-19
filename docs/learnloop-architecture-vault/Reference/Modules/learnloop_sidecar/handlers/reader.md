@@ -354,6 +354,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_phones_ask_never_sends_exam_material_in_its_context_or_reply`
 - [tests/test_plan_first_transport.py](../../../../../../tests/test_plan_first_transport.py) — direct import
   - `test_fix_l1_the_rpc_gates_of_priced_features_offer_and_honour_no_grant_their_job_would_refuse`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import
   - `test_section_quick_checks_are_byte_identical`
 - [tests/test_reader_branches.py](../../../../../../tests/test_reader_branches.py) — direct import

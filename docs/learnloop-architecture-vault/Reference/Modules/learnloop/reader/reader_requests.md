@@ -135,6 +135,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_background_reader_drain_records_model_call_receipts`
   - `test_kick_reader_drain_leaves_requests_queued_without_provider`
   - `test_kick_reader_drain_runs_model_synthesis_foreground`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_requests.py](../../../../../../tests/test_reader_requests.py) — direct import
   - `test_cancel_request_never_cancels_the_local_capture`
   - `test_different_selections_in_one_block_do_not_share_a_request`

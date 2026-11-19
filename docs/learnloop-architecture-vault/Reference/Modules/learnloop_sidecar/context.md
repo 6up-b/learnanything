@@ -523,6 +523,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_i_a_too_easy_retirement_during_a_session`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_each_sidecar_rpc_runs_under_a_trace_of_its_own`
 - [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import

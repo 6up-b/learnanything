@@ -175,6 +175,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_impressions_are_append_only`
   - `test_rendered_keys_are_recorded_from_the_receipt_and_unknown_keys_dropped`
   - `test_unknown_surface_and_proposal_are_refused`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_retrieval_interventions_write_points.py](../../../../../../tests/test_retrieval_interventions_write_points.py) — direct import
   - `test_a_pick_records_the_impressions_shown_before_it`
   - `test_a_value_intent_pick_keeps_both_verdicts`

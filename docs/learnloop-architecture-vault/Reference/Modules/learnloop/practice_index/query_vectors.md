@@ -146,6 +146,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_proposal_impressions.py](../../../../../../tests/test_proposal_impressions.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_retrieval_interventions_write_points.py](../../../../../../tests/test_retrieval_interventions_write_points.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_source_exercise_rpcs.py](../../../../../../tests/test_source_exercise_rpcs.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_source_service_spend_envelopes.py](../../../../../../tests/test_source_service_spend_envelopes.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
@@ -153,7 +154,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_valuation_calibration_fields.py](../../../../../../tests/test_valuation_calibration_fields.py) — imports consumer [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]]
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — imports consumer [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]]
 - [tests/test_practice_index_evaluation.py](../../../../../../tests/test_practice_index_evaluation.py) — imports consumer [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]]
-- [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — imports consumer [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]]
 
 ## Modification guidance
 

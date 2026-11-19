@@ -180,6 +180,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/probe_episodes_helpers.py](../../../../../../tests/probe_episodes_helpers.py) — direct import
 - [tests/probe_policy_helpers.py](../../../../../../tests/probe_policy_helpers.py) — direct import
 - [tests/probe_predictive_eig_helpers.py](../../../../../../tests/probe_predictive_eig_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
