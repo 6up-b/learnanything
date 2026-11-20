@@ -678,7 +678,7 @@ WEB_REREAD_ACTION = "read_again"
 WEB_REREAD_LABEL = "Read it again"
 WEB_REREAD_DETAILS = (
     "This page was read before LearnLoop kept a web page's equations and section titles. Reading it again "
-    "from the copy saved when you added it keeps them; your progress, notes and study map move to the new reading."
+    "from the copy saved when you added it keeps them; your progress and notes move to the new reading."
 )
 WEB_REREAD_COST_LINE = (
     "Reading it sends nothing to an AI. Questions already written stay. Afterwards, as for any page you add, the "

@@ -106,6 +106,11 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Questions for Ch. 1–2 need a look", tone: "quiet", action: { kind: "open_changes", label: "Review" }, details: null },
   { text: "2 changes need a look", tone: "quiet", action: { kind: "open_changes", label: "Review" }, details: null },
   { text: "Questions for this book were taken back out", tone: "quiet", action: { kind: "build_now", label: "Build them again" }, details: null },
+  // UX-11: a web page read before its equations were kept (learnloop/content/pipeline/reread.py).
+  {
+    text: "This page's text is missing 31 equations", tone: "quiet", action: { kind: "read_again", label: "Read it again" },
+    details: "This page was read before LearnLoop kept a web page's equations and section titles. Reading it again from the copy saved when you added it keeps them; your progress and notes move to the new reading."
+  },
   { text: "Couldn't reach the page", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null },
   { text: "This video has no captions", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null },
   { text: "Couldn't read this PDF", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null },
@@ -217,6 +222,15 @@ const ROUND_2B_SENTENCES = [
   ...["(intro)", "modeling-the-elevator-problem", "external-links", "the-real-world-case"].map(sectionWords)
 ];
 
+// UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
+const UX11_SENTENCES = [
+  "Read “Symmetric matrices and variance” again with its equations?",
+  "Read on this computer from the copy saved when you added it: free.",
+  "The new text keeps the 31 equations the old one left out, and each section's own title.",
+  "The new text keeps each section's own title.",
+  "Reading it sends nothing to an AI. Questions already written stay. Afterwards, as for any page you add, the new text may be indexed or checked against your topics, and a section whose text changed is read by the AI again before new questions are written from it."
+];
+
 // The Decider's sentence (Tier 1): the sheet names what its small judgments
 // send to Perplexity, as Settings does, in the sheet's plain words.
 const DECIDER_NOTE =
@@ -288,6 +302,10 @@ describe("Phase 1 learner surfaces use plain words", () => {
 
   it.each(ROUND_2B_SENTENCES)("the broken controls 2b sentence: %s", (sentence) => {
     expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(UX11_SENTENCES)("the read-again sentence: %s", (sentence) => {
     expectPlain(sentence);
   });
 

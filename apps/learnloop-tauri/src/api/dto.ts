@@ -3676,6 +3676,9 @@ export type SourceActionKind =
   /** Protection redesign: the owner marks exam material on a reading held
    *  back because exam material is marked on another reading of the book. */
   | "mark_exam_material"
+  /** A web page read before its equations and section titles were kept: its
+   *  saved copy is read again (it asks first when the page has study state). */
+  | "read_again"
   | "connect_ai"
   | "open_changes"
   | "open_settings";
