@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_question_not_yet_written_takes_the_probe_interface_only_with_the_lesson_in_the_support`
 - [tests/test_objective_trace.py](../../../../../../tests/test_objective_trace.py) — direct import
   - `test_the_names_it_repeats_are_the_plans`
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
   - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import

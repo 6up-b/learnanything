@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts](../../../../../../../apps/learnloop-tauri/src/screens/workbench/useWorkbenchHelp.ts) |
-| Source lines | 436 |
+| Source lines | 443 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
@@ -87,35 +87,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const job = await poll(await api.workbenchHelpJob(jobId))` — const, line 218
 - `const result = job.result` — const, line 219
 - `const runCheck = useCallback(async ()` — const, line 233
-- `const started = await api.workbenchCheck(` — const, line 242
-- `const job = await poll(started, true)` — const, line 247
-- `const result: WorkbenchHelpResultDto | null = job.result` — const, line 248
-- `const openHelp = useCallback((focusedStepId: string | null)` — const, line 262
-- `const mine = ++generation.current` — const, line 264
-- `const job = await poll(await api.workbenchSuggestHelp(` — const, line 275
-- `const result = job.result` — const, line 277
-- `const suggestion = result.suggestion` — const, line 283
-- `const closeHelp = useCallback(()` — const, line 295
-- `const choose = useCallback((level: number)` — const, line 300
-- `const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null, flushed = false)` — const, line 304
-- `const started = await api.workbenchRequestHelp(` — const, line 316
-- `const job = await poll(started, true)` — const, line 322
-- `const result = job.result` — const, line 325
-- `const view: WorkbenchHintViewDto =` — const, line 328
-- `const take = useCallback(async (level?: number)` — const, line 358
-- `const chosen = level ?? ladder.chosen` — const, line 360
-- `const reply = useCallback(async (hint: WorkbenchHintViewDto, value:` — const, line 374
-- `const bookWay = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 381
-- `const smallerStep = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 385
-- `const answerDiscriminating = useCallback(async (hint: WorkbenchHintViewDto, answer: string)` — const, line 389
-- `const recorded = await api.workbenchAnswerDiscriminating(` — const, line 391
-- `const cancelHint = useCallback(async ()` — const, line 401
-- `const jobId = hintJob.current` — const, line 402
-- `const ladderRef = useRef(ladder)` — const, line 411
-- `const setHelpStyle = useCallback(async (style: HelpStyle | null)` — const, line 413
-- `const previous = helpStyle` — const, line 414
-- `const saved = await api.workbenchSetHelpStyle(` — const, line 417
-- `const open = ladderRef.current` — const, line 423
+- `const started = await api.workbenchCheck(` — const, line 244
+- `const job = await poll(started, true)` — const, line 249
+- `const result: WorkbenchHelpResultDto | null = job.result` — const, line 250
+- `const openHelp = useCallback((focusedStepId: string | null)` — const, line 264
+- `const mine = ++generation.current` — const, line 267
+- `const job = await poll(await api.workbenchSuggestHelp(` — const, line 278
+- `const result = job.result` — const, line 280
+- `const suggestion = result.suggestion` — const, line 286
+- `const closeHelp = useCallback(()` — const, line 298
+- `const choose = useCallback((level: number)` — const, line 303
+- `const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null, flushed = false)` — const, line 307
+- `const started = await api.workbenchRequestHelp(` — const, line 319
+- `const job = await poll(started, true)` — const, line 325
+- `const result = job.result` — const, line 328
+- `const view: WorkbenchHintViewDto =` — const, line 331
+- `const noFit = result.reason === "contract_failed" || result.reason === "no_option"` — const, line 353
+- `const take = useCallback(async (level?: number)` — const, line 365
+- `const chosen = level ?? ladder.chosen` — const, line 367
+- `const reply = useCallback(async (hint: WorkbenchHintViewDto, value:` — const, line 381
+- `const bookWay = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 388
+- `const smallerStep = useCallback(async (hint: WorkbenchHintViewDto)` — const, line 392
+- `const answerDiscriminating = useCallback(async (hint: WorkbenchHintViewDto, answer: string)` — const, line 396
+- `const recorded = await api.workbenchAnswerDiscriminating(` — const, line 398
+- `const cancelHint = useCallback(async ()` — const, line 408
+- `const jobId = hintJob.current` — const, line 409
+- `const ladderRef = useRef(ladder)` — const, line 418
+- `const setHelpStyle = useCallback(async (style: HelpStyle | null)` — const, line 420
+- `const previous = helpStyle` — const, line 421
+- `const saved = await api.workbenchSetHelpStyle(` — const, line 424
+- `const open = ladderRef.current` — const, line 430
 
 ## Who imports or calls it
 
@@ -134,7 +135,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CheckViewDto`, `HelpStyle`, `HelpSuggestionDto`, `HintShortcut`, `LadderRungDto`, `WorkbenchHelpJobDto`, `WorkbenchHelpResultDto`, `WorkbenchHelpStateDto`, `WorkbenchHintViewDto`, `WorkbenchRecordDto`, `WorkbenchRequestHelpInput`, `WorkbenchStepLabelsDto`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
-- [[Reference/Desktop/TypeScript/screens/workbench/helpModel|src/screens/workbench/helpModel.ts]] — import-or-re-export; imports `DEFAULT_RUNGS`
+- [[Reference/Desktop/TypeScript/screens/workbench/helpModel|src/screens/workbench/helpModel.ts]] — import-or-re-export; imports `DEFAULT_RUNGS`, `HELP_COPY`
 
 ### Assets, platform, and third-party dependencies
 
@@ -150,6 +151,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/workbench/reviewFixes.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/reviewFixes.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/ownerCapture1025.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/workbench/brokenControls2.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/brokenControls2.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/HelpLadder.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

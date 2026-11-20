@@ -125,6 +125,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sweep_machine_checks_queues_the_instrument_debt`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f9_verify_a_check_on_another_object_or_of_a_non_blocking_kind_refuses_nothing`
+- [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_d_a_pending_machine_check_refuses_before_the_router`
 
 ## Modification guidance
 

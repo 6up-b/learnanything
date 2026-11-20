@@ -39,7 +39,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/render/MathLiveEditor|MathLiveEditor.tsx]] | `ACTIVE` | Adapts `MathLiveEditor` content editing or rendering into React presentation behavior. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/render/markdownPipeline|markdownPipeline.ts]] | `ACTIVE` | Adapts `markdownPipeline` content editing or rendering into React presentation behavior. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/render/mathMacros|mathMacros.tsx]] | `ACTIVE` | Adapts `mathMacros` content editing or rendering into React presentation behavior. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/render/mathSnippet|mathSnippet.ts]] | `ACTIVE` | Adapts `mathSnippet` content editing or rendering into React presentation behavior. | 0 | 5 |
+| [[Reference/Desktop/TypeScript/render/mathSnippet|mathSnippet.ts]] | `ACTIVE` | Adapts `mathSnippet` content editing or rendering into React presentation behavior. | 0 | 7 |
 | [[Reference/Desktop/TypeScript/render/pageMathSegments|pageMathSegments.ts]] | `ACTIVE` | Adapts `pageMathSegments` content editing or rendering into React presentation behavior. | 1 | 0 |
 | [[Reference/Desktop/TypeScript/render/readerBlockPolicy|readerBlockPolicy.ts]] | `ACTIVE` | Adapts `readerBlockPolicy` content editing or rendering into React presentation behavior. | 1 | 2 |
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/sideBySide.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/sideBySide.ts) |
-| Source lines | 108 |
+| Source lines | 110 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,27 +54,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const SIDE_BY_SIDE_MIN_WIDTH = 1040` — const, line 13
-- `export type Pane = "main" | "side"` — type, line 15
-- `export interface PaneTarget` — interface, line 18
-- `export function targetOf(hit: CorrespondentSectionDto): PaneTarget` — function, line 30
-- `export function judgedInOrder(view: CorrespondentsDto | null): CorrespondentSectionDto[]` — function, line 43
-- `export function firstJudgedIn(view: CorrespondentsDto | null, sourceId: string): CorrespondentSectionDto | null` — function, line 51
-- `export function firstCorrespondent(view: CorrespondentsDto | null): CorrespondentSectionDto | null` — function, line 58
-- `export function sectionShort(title: string): string` — function, line 70
-- `export function crumbLabel(target: Pick<PaneTarget, "sourceTitle" | "title">): string` — function, line 76
-- `export function isNarrowWindow(width: number): boolean` — function, line 80
-- `export function readSplit(): number` — function, line 87
-- `export function writeSplit(value: number): void` — function, line 97
-- `export function clampSplit(value: number): number` — function, line 106
+- `export const SIDE_BY_SIDE_MIN_WIDTH = 1040` — const, line 14
+- `export type Pane = "main" | "side"` — type, line 16
+- `export interface PaneTarget` — interface, line 19
+- `export function targetOf(hit: CorrespondentSectionDto): PaneTarget` — function, line 31
+- `export function judgedInOrder(view: CorrespondentsDto | null): CorrespondentSectionDto[]` — function, line 44
+- `export function firstJudgedIn(view: CorrespondentsDto | null, sourceId: string): CorrespondentSectionDto | null` — function, line 52
+- `export function firstCorrespondent(view: CorrespondentsDto | null): CorrespondentSectionDto | null` — function, line 59
+- `export function sectionShort(title: string): string` — function, line 71
+- `export function crumbLabel(target: Pick<PaneTarget, "sourceTitle" | "title">): string` — function, line 78
+- `export function isNarrowWindow(width: number): boolean` — function, line 82
+- `export function readSplit(): number` — function, line 89
+- `export function writeSplit(value: number): void` — function, line 99
+- `export function clampSplit(value: number): number` — function, line 108
 
 ## Internal implementation anchors
 
-- `const judged = judgedInOrder(view).find((section)` — const, line 59
-- `const hit = source.sections.find((section)` — const, line 63
-- `const numbered = title.match(/^§?\s*(\d[\dA-Za-z]*(?:\.[\dA-Za-z]+)*)\b/)` — const, line 71
-- `const SPLIT_KEY = "learnloop.reader.side-by-side-split"` — const, line 84
-- `const value = Number(window.localStorage.getItem(SPLIT_KEY))` — const, line 89
+- `const judged = judgedInOrder(view).find((section)` — const, line 60
+- `const hit = source.sections.find((section)` — const, line 64
+- `const numbered = title.match(/^§?\s*(\d[\dA-Za-z]*(?:\.[\dA-Za-z]+)*)\b/)` — const, line 73
+- `const SPLIT_KEY = "learnloop.reader.side-by-side-split"` — const, line 86
+- `const value = Number(window.localStorage.getItem(SPLIT_KEY))` — const, line 91
 
 ## Who imports or calls it
 
@@ -91,6 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CorrespondentSectionDto`, `CorrespondentsDto`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `sectionWords`
 
 ### Assets, platform, and third-party dependencies
 
@@ -107,6 +108,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/reader/useSideBySide.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/useSideBySide.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

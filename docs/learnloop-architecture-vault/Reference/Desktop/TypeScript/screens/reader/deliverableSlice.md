@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/deliverableSlice.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/deliverableSlice.ts) |
-| Source lines | 81 |
+| Source lines | 83 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const DELIVERABLE_COPY =` — const, line 8
-- `export const DELIVERABLE_POLL_MS = 1500` — const, line 45
-- `export function shouldPollSlice(slice: DeliverableSliceDto | null): boolean` — function, line 48
-- `export function sliceShown(slice: DeliverableSliceDto | null): boolean` — function, line 54
-- `export function sliceHeading(slice: DeliverableSliceDto): string` — function, line 59
-- `export function offeredChoices(line: DeliverableLineDto): Array<"read_anyway" | "skip" | "check_later">` — function, line 66
-- `export function sectionMarker(title: string): string` — function, line 74
-- `export function sectionRef(section:` — function, line 79
+- `export const DELIVERABLE_COPY =` — const, line 9
+- `export const DELIVERABLE_POLL_MS = 1500` — const, line 46
+- `export function shouldPollSlice(slice: DeliverableSliceDto | null): boolean` — function, line 49
+- `export function sliceShown(slice: DeliverableSliceDto | null): boolean` — function, line 55
+- `export function sliceHeading(slice: DeliverableSliceDto): string` — function, line 60
+- `export function offeredChoices(line: DeliverableLineDto): Array<"read_anyway" | "skip" | "check_later">` — function, line 67
+- `export function sectionMarker(title: string): string` — function, line 75
+- `export function sectionRef(section:` — function, line 81
 
 ## Internal implementation anchors
 
-- `const title = slice.goal ? DELIVERABLE_COPY.forGoal(slice.goal.title) : ""` — const, line 60
+- `const title = slice.goal ? DELIVERABLE_COPY.forGoal(slice.goal.title) : ""` — const, line 61
 
 ## Who imports or calls it
 
@@ -79,6 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeliverableLineDto`, `DeliverableSliceDto`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `sectionWords`
 
 ### Assets, platform, and third-party dependencies
 

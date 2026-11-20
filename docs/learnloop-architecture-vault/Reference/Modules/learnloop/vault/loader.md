@@ -2412,6 +2412,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_remint_surface_group_stays_probe_ineligible`
   - `test_remint_without_trace_contract_is_short_answer_with_answering_type`
   - `test_sidecar_remint_happy_path_and_error_codes`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`

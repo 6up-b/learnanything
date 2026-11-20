@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayCause.ts](../../../../../../apps/learnloop-tauri/src/app/todayCause.ts) |
-| Source lines | 181 |
+| Source lines | 193 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] → [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]]
 
 ## Public API
 
@@ -60,11 +60,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const GOAL_NOTHING_LEAD = "Nothing for this goal is ready to practise yet:"` — const, line 138
 - `export const GOAL_NOT_UP_TODAY = "Nothing for this goal is up today. Its questions come back on the days they're due."` — const, line 139
 - `export function goalCauseSentence(cause: TodayCause): string` — function, line 141
-- `export const PLAN_FINISHED = "Nothing else is needed today."` — const, line 149
-- `export const KEEP_GOING_NOTHING_LEAD = "Nothing more to plan today."` — const, line 152
-- `export function causeActionLabel(cause: TodayCause): string | null` — function, line 155
-- `export function causeSendsPassages(cause: TodayCause): boolean` — function, line 177
-- `export const WHATS_SENT = "what's sent"` — const, line 181
+- `export const PLAN_FINISHED = "Nothing else is needed today."` — const, line 150
+- `export const PLAN_STOPPED_WITH_MORE = "The plan stopped here, but there's more for today if you'd like it."` — const, line 153
+- `export const KEEP_GOING_NOTHING_LEAD = "Nothing more to plan today."` — const, line 156
+- `export function continueLessonLine(title: string): string` — function, line 159
+- `export const LESSON_KEPT = "Your lesson is kept. It's on Today when you want it."` — const, line 164
+- `export function causeActionLabel(cause: TodayCause): string | null` — function, line 167
+- `export function causeSendsPassages(cause: TodayCause): boolean` — function, line 189
+- `export const WHATS_SENT = "what's sent"` — const, line 193
 
 ## Internal implementation anchors
 
@@ -89,7 +92,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `goalCauseSentence`, `todayCause`; references `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `goalCauseSentence`, `todayCause`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `LESSON_KEPT`; references `LESSON_KEPT`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `continueLessonLine`, `goalCauseSentence`, `todayCause`; references `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `continueLessonLine`, `goalCauseSentence`, `todayCause`
 
 ## Dependencies
 

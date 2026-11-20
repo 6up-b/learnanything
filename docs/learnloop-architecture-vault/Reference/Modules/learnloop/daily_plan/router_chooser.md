@@ -212,6 +212,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_need_paths_decision_with_no_lesson_seeds_from_its_identity`
   - `test_the_workflows_arm_with_no_room_to_wait_seeds_from_its_identity`
   - `test_the_workflows_decision_with_no_lesson_keeps_the_predecessors_identity`
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
+  - `test_a_yes_no_answer_is_two_arms_and_keeps_its_words_whatever_it_answered`
+  - `test_an_answer_the_mix_cannot_use_fails_its_policy_and_moves_its_share`
+  - `test_the_choice_reads_only_its_inputs_and_draws_only_from_its_seed`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_f_a_retry_on_a_plan_reuses_the_logged_draw`
+  - `test_f_no_intervention_settles_and_releases_with_nothing_generated`
+  - `test_f_on_a_plan_the_router_draws_once_over_its_arms_and_a_lesson_at_the_same_boundary`
+  - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
+  - `test_f_with_no_room_to_wait_the_probe_is_forced_unless_a_lesson_contests_it`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

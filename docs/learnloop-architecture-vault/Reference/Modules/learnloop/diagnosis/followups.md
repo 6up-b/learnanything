@@ -251,6 +251,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_followup_and_normalization_defer_to_block_end`
   - `test_in_block_failure_gets_decision_receipt_at_block_end_not_before`
   - `test_ordinary_attempt_outside_block_still_normalizes`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_a_the_practice_lane_settles_the_workflow_and_hands_the_miss_to_the_general_followup`
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`

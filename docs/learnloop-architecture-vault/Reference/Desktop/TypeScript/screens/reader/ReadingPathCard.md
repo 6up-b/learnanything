@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.tsx) |
-| Source lines | 268 |
+| Source lines | 277 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,29 +54,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ReadingPathCardProps` — interface, line 27
-- `export function ReadingPathCard(` — function, line 45
+- `export interface ReadingPathCardProps` — interface, line 29
+- `export function ReadingPathCard(` — function, line 47
 
 ## Internal implementation anchors
 
-- `const LINK =` — const, line 22
-- `const jump = (spanId: string, sectionId: string)` — const, line 46
-- `const shown = useRef(extractionId)` — const, line 51
-- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 52
-- `const read = useCallback(async (params:` — const, line 54
-- `const asked = extractionId` — const, line 55
-- `const result = await api.readerReadingPath(` — const, line 57
-- `const timer = window.setTimeout(()` — const, line 75
-- `const refreshedFor = useRef(refreshKey)` — const, line 87
-- `const timer = window.setTimeout(()` — const, line 91
-- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 95
-- `const result = await api.readerReadingPathSetDepth(` — const, line 98
-- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 110
-- `const result = await api.readerReadingPathOverride(` — const, line 114
-- `const askDepth = path.status === "ask_depth" || choosing` — const, line 134
-- `const exercises = exercisesWorthTrying(path)` — const, line 135
-- `function SectionRow(` — function, line 220
-- `const offered = offeredChoice(section)` — const, line 230
+- `const LINK =` — const, line 24
+- `const jump = (spanId: string, sectionId: string)` — const, line 48
+- `const shown = useRef(extractionId)` — const, line 53
+- `const cardRef = useRef<HTMLDivElement | null>(null)` — const, line 54
+- `const read = useCallback(async (params:` — const, line 56
+- `const asked = extractionId` — const, line 57
+- `const result = await api.readerReadingPath(` — const, line 59
+- `const timer = window.setTimeout(()` — const, line 77
+- `const refreshedFor = useRef(refreshKey)` — const, line 89
+- `const timer = window.setTimeout(()` — const, line 93
+- `const chooseDepth = async (depth: ReadingPathDepth)` — const, line 97
+- `const result = await api.readerReadingPathSetDepth(` — const, line 100
+- `const choose = async (section: ReadingPathSectionDto, choice: ReadingPathChoice)` — const, line 112
+- `const result = await api.readerReadingPathOverride(` — const, line 116
+- `const askDepth = path.status === "ask_depth" || choosing` — const, line 136
+- `const exercises = exercisesWorthTrying(path)` — const, line 137
+- `function nextLine(text: string, title: string | undefined): string` — function, line 223
+- `const words = sectionWords(title)` — const, line 225
+- `function SectionRow(` — function, line 229
+- `const offered = offeredChoice(section)` — const, line 239
 
 ## Who imports or calls it
 
@@ -91,8 +93,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReadingPathChoice`, `ReadingPathDepth`, `ReadingPathDto`, `ReadingPathExerciseDto`, `ReadingPathSectionDto`
+- [[Reference/Desktop/TypeScript/components/scrollWithin|src/components/scrollWithin.ts]] — import-or-re-export; imports `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPath|src/screens/reader/readingPath.ts]] — import-or-re-export; imports `COPY`, `READING_PATH_POLL_MS`, `READING_PATH_REFRESH_MS`, `depthSourceLine`, `exercisesWorthTrying`, `offeredChoice`, `pathHeading`, `reasonIsModels`, `shouldPoll`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`
 
@@ -110,6 +114,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/readingPathsRefresh.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/readingPathsRefresh.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

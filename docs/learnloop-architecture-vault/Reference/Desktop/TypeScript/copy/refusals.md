@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/copy/refusals.ts](../../../../../../apps/learnloop-tauri/src/copy/refusals.ts) |
-| Source lines | 24 |
+| Source lines | 54 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/copy/_area|TypeScript/copy]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const NO_HINTS_ON_YOUR_OWN = "No hints on this one: it's a check on your own."` — const, line 9
-- `export const NO_HINTS_SHORT_CHECK = `No hints during this short check. Answer with what you know, or choose “$` — const, line 12
-- `export const NO_ASK_SHORT_CHECK = `Ask is paused during this short check. To be taught instead, choose “$` — const, line 15
-- `export const NO_ASK_TEACH_BACK = "Ask is paused while you teach this one back, so the tutor can't give the answer away."` — const, line 18
-- `export const NO_ASK_NOT_YET = "Ask opens once this question has loaded, and stays paused during a short check."` — const, line 21
-- `export const NOTE_NO_SUBJECT = "This note can't be saved here: the question isn't filed under a subject yet. Your words are still here."` — const, line 24
+- `export const NO_HINTS_ON_YOUR_OWN = "No hints on this one: it's a check on your own."` — const, line 10
+- `export const NO_HINTS_SHORT_CHECK = `No hints during this short check. Answer with what you know, or choose “$` — const, line 13
+- `export const NO_ASK_SHORT_CHECK = `Ask is paused during this short check. To be taught instead, choose “$` — const, line 16
+- `export const NO_ASK_TEACH_BACK = "Ask is paused while you teach this one back, so the tutor can't give the answer away."` — const, line 19
+- `export const NO_ASK_NOT_YET = "Ask opens once this question has loaded, and stays paused during a short check."` — const, line 22
+- `export const NOTE_NO_SUBJECT = "This note can't be saved here: the question isn't filed under a subject yet. Your words are still here."` — const, line 25
+- `export function quickCheckNothingToAsk(progress: CalibrationSessionProgressDto): string | null` — function, line 41
 
 ## Internal implementation anchors
 
-No non-exported declaration anchor was detected by the static extractor.
+- `function topicNames(titles: readonly string[]): string` — function, line 28
+- `const check = progress.quickCheck` — const, line 42
+- `const results = check.results ?? []` — const, line 44
+- `const unchecked = results.filter((result)` — const, line 45
+- `const known = results.filter((result)` — const, line 46
+- `const one = known.length === 1` — const, line 48
+- `const one = unchecked.length === 1` — const, line 52
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `NO_ASK_NOT_YET`, `NO_ASK_TEACH_BACK`; references `NO_ASK_NOT_YET`, `NO_ASK_TEACH_BACK`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `NO_ASK_NOT_YET`, `NO_ASK_TEACH_BACK`, `quickCheckNothingToAsk`; references `NO_ASK_NOT_YET`, `NO_ASK_TEACH_BACK`, `quickCheckNothingToAsk`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `NOTE_NO_SUBJECT`; references `NOTE_NO_SUBJECT`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `NO_ASK_SHORT_CHECK`, `NO_ASK_TEACH_BACK`, `NO_HINTS_ON_YOUR_OWN`, `NO_HINTS_SHORT_CHECK`; references `NO_ASK_SHORT_CHECK`, `NO_ASK_TEACH_BACK`, `NO_HINTS_ON_YOUR_OWN`, `NO_HINTS_SHORT_CHECK`
 
@@ -78,6 +85,7 @@ No non-exported declaration anchor was detected by the static extractor.
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CalibrationSessionProgressDto`
 - [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `STOP_AND_TEACH_LABEL`
 
 ### Assets, platform, and third-party dependencies
@@ -92,6 +100,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/copy/refusals.test.ts](../../../../../../apps/learnloop-tauri/src/copy/refusals.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

@@ -399,6 +399,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_pool_empty.py](../../../../../../tests/test_probe_pool_empty.py) — direct import
   - `test_scheduler_build_raises_the_notice_without_a_provider`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_h_the_scheduler_withholds_a_probe_whose_value_does_not_pay`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import

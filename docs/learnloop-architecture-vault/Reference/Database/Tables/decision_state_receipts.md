@@ -116,6 +116,7 @@ None found by exact static reference scan.
 - `tests/diagnosis_journey_helpers.py`
 - `tests/router_objective_migration_helpers.py`
 - `tests/test_ih3_phone_host.py`
+- `tests/test_probe_router_authority.py`
 - `tests/test_ro0_gate.py`
 - `tests/test_ro0_report.py`
 - `tests/test_ro0_rows9_13_decision_state.py`

@@ -486,6 +486,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_paid_roles.py](../../../../../../tests/test_plan_first_transport_paid_roles.py) — direct import
   - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
   - `test_find_dry_run_names_metered_rerank_prices_and_caps`
 - [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — direct import

@@ -125,6 +125,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_hard_refusal_needs_no_model_and_spends_nothing`
 - [tests/test_placement_opening_probes.py](../../../../../../tests/test_placement_opening_probes.py) — direct import
   - `test_the_causal_quick_check_stops_the_episode_being_ignored`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_b_an_existing_pin_is_reused_and_acceptance_asks_no_gate`
+  - `test_b_not_now_withdraws_the_offer_and_the_divergence_stays`
+  - `test_c_a_manual_teach_me_now_starts_the_repair_without_the_probe`
+  - `test_d_a_not_now_while_the_question_is_written_refuses_after_authoring`
+  - `test_d_a_retry_keeps_the_first_draw_and_asks_only_the_hard_refusals_again`
+  - `test_d_not_now_refuses_before_the_router_and_no_question_is_written`
+  - `test_d_the_refusals_ask_preference_then_machine_checks_then_the_shared_episode_check`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import

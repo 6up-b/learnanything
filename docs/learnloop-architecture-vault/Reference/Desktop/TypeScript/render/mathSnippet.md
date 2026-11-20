@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/mathSnippet.ts](../../../../../../apps/learnloop-tauri/src/render/mathSnippet.ts) |
-| Source lines | 102 |
+| Source lines | 156 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
@@ -56,6 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export function clipMath(text: string, max: number): string` — function, line 14
 - `export function plainMathLine(markdown: string): string` — function, line 89
+- `export function selectionQuote(range: Range, asSelected: string): string` — function, line 124
 
 ## Internal implementation anchors
 
@@ -77,6 +78,24 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const start = match.index ?? 0` — const, line 93
 - `const rest = markdown.slice(at)` — const, line 98
 - `const opener = rest.search(/\\\(|\\\[|\$/)` — const, line 99
+- `const FORMULA = ".katex, .katex-error"` — const, line 107
+- `const TEX_SOURCE = 'annotation[encoding="application/x-tex"]'` — const, line 108
+- `const BLOCK = "p, div, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th, tr"` — const, line 109
+- `function formulaTex(formula: Element): string` — function, line 111
+- `const source = formula.querySelector(TEX_SOURCE) ?? formula.querySelector(".katex-html") ?? formula` — const, line 114
+- `const common = range.commonAncestorContainer` — const, line 125
+- `const root = common.nodeType === Node.TEXT_NODE ? common.parentNode : common` — const, line 126
+- `const formulaOf = (node: Node)` — const, line 128
+- `const walker = (root.ownerDocument ?? document).createTreeWalker(root, NodeFilter.SHOW_TEXT)` — const, line 129
+- `const texts: Text[] = []` — const, line 130
+- `let out = ""` — let, line 136
+- `let block: Element | null = null` — let, line 137
+- `const taken = new Set<Element>()` — const, line 138
+- `const here = node.parentElement?.closest(BLOCK) ?? null` — const, line 140
+- `const formula = formulaOf(node)` — const, line 143
+- `const tex = formulaTex(formula)` — const, line 147
+- `const start = node === range.startContainer ? range.startOffset : 0` — const, line 151
+- `const end = node === range.endContainer ? range.endOffset : node.data.length` — const, line 152
 
 ## Who imports or calls it
 
@@ -85,9 +104,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/todayPlan|src/app/todayPlan.ts]] — import-or-re-export: `plainMathLine`; references `plainMathLine`
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `plainMathLine`; references `plainMathLine`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `selectionQuote`; references `selectionQuote`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `clipMath`; references `clipMath`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|src/screens/reader/LibraryAnswer.tsx]] — import-or-re-export: `plainMathLine`; references `plainMathLine`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export: `plainMathLine`; references `plainMathLine`
+- [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `selectionQuote`; references `selectionQuote`
 
 ## Dependencies
 
@@ -108,6 +129,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/render/sourceMacros.test.tsx](../../../../../../apps/learnloop-tauri/src/render/sourceMacros.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/render/selectionQuote.test.tsx](../../../../../../apps/learnloop-tauri/src/render/selectionQuote.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

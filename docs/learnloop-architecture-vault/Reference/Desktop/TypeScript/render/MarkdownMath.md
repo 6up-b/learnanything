@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/MarkdownMath.tsx](../../../../../../apps/learnloop-tauri/src/render/MarkdownMath.tsx) |
-| Source lines | 45 |
+| Source lines | 75 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
@@ -54,14 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 21
+- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 51
 
 ## Internal implementation anchors
 
-- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 15
-- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 16
-- `const macros = useMathMacros()` — const, line 34
-- `const rehypePlugins = useMemo<MarkdownProps["rehypePlugins"]>( ()` — const, line 35
+- `const DISPLAY_ENVIRONMENT = /^(equation|align|gather|alignat)\*?$/` — const, line 13
+- `const AROUND_ENVIRONMENTS = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`|\\\$|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[^$\n]+?\$)|\\begin\` — const, line 16
+- `function bareEnvironmentsAsDisplayMath(value: string): string` — function, line 22
+- `let out = ""` — let, line 24
+- `let last = 0` — let, line 25
+- `const name = match[2]` — const, line 28
+- `const close = `\\end` — const, line 30
+- `const end = value.indexOf(close, match.index + match[0].length)` — const, line 31
+- `const after = end + close.length` — const, line 33
+- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 45
+- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 46
+- `const macros = useMathMacros()` — const, line 64
+- `const rehypePlugins = useMemo<MarkdownProps["rehypePlugins"]>( ()` — const, line 65
 
 ## Who imports or calls it
 
@@ -127,6 +136,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts](../../../../../../apps/learnloop-tauri/src/screens/reader/figures/bookMathRender.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/render/sourceMacros.test.tsx](../../../../../../apps/learnloop-tauri/src/render/sourceMacros.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/render/selectionQuote.test.tsx](../../../../../../apps/learnloop-tauri/src/render/selectionQuote.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/render/displayEnvironments.test.tsx](../../../../../../apps/learnloop-tauri/src/render/displayEnvironments.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_rw5c_block_policy.py](../../../../../../tests/test_rw5c_block_policy.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_book_math.py](../../../../../../tests/test_rw5c_book_math.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.
 - [tests/test_rw5c_katex_tree.py](../../../../../../tests/test_rw5c_katex_tree.py) — cross-boundary name contract: references uniquely owned exported name `MarkdownMath`; it does **not** directly execute this source module.

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/SideBySidePane.tsx) |
-| Source lines | 382 |
+| Source lines | 387 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,49 +54,50 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PaneSelection` — interface, line 43
-- `export interface SideBySidePaneProps` — interface, line 50
-- `export const SIDE_PANE_COPY =` — const, line 78
-- `export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(` — const, line 138
+- `export interface PaneSelection` — interface, line 44
+- `export interface SideBySidePaneProps` — interface, line 51
+- `export const SIDE_PANE_COPY =` — const, line 79
+- `export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(function SideBySidePane(` — const, line 143
 
 ## Internal implementation anchors
 
-- `const LINK: CSSProperties =` — const, line 37
-- `function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean, version = 0): [Map<string, string>, ()` — function, line 87
-- `let live = true` — let, line 95
-- `const next = new Map<string, string>()` — const, line 100
-- `const version = (row.version as Record<string, unknown>) ??` — const, line 102
-- `const spanId = String(segment.spanId ?? "")` — const, line 104
-- `function selectionIn(root: HTMLElement | null): PaneSelection | null` — function, line 116
-- `const sel = window.getSelection()` — const, line 117
-- `const range = sel.getRangeAt(0)` — const, line 119
-- `const quote = sel.toString().replace(/\s+/g, " ").trim()` — const, line 121
-- `const spans: string[] = []` — const, line 123
-- `const nodes: PaneSelection["nodes"] = []` — const, line 124
-- `const part = document.createRange()` — const, line 128
-- `const words = part.toString().replace(/\s+/g, " ").trim()` — const, line 132
-- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 142
-- `const target = ctl.target` — const, line 145
-- `const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null` — const, line 146
-- `const draftKey = section ? `$` — const, line 150
-- `const selection = draft && draft.key === draftKey ? draft.selection : null` — const, line 152
-- `const noting = draft && draft.key === draftKey ? draft.noting : null` — const, line 153
-- `const setSelection = useCallback((picked: PaneSelection | null)` — const, line 154
-- `const setNoting = useCallback((text: string | null)` — const, line 158
-- `const canCapture = Boolean(onCaptured && section?.revisionId)` — const, line 162
-- `const sheet = ctl.sheet` — const, line 164
-- `const leads = ctl.panes && ctl.leader === "side"` — const, line 165
-- `const sectionKey = section ? `$` — const, line 170
-- `const node = scrollRef.current` — const, line 173
-- `const capture = async (kind: "highlight" | "annotate", picked: PaneSelection, learnerText: string)` — const, line 180
-- `const setRefs = useCallback((node: HTMLDivElement | null)` — const, line 202
-- `const touch = ()` — const, line 209
-- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 210
-- `const header: ReactNode = ( <div data-sbs-header="" style=` — const, line 221
-- `const picked = selectionIn(scrollRef.current)` — const, line 270
-- `const folded = Boolean(fold?.spans.has(block.spanId))` — const, line 289
-- `const firstFolded = folded && !(index > 0 && fold?.spans.has(section.blocks[index - 1].spanId))` — const, line 290
-- `const cue = folded ? null : marginFor?.(block.spanId) ?? null` — const, line 291
+- `const LINK: CSSProperties =` — const, line 38
+- `function useOwnMarks(sourceId: string | null, extractionId: string | null, enabled: boolean, version = 0): [Map<string, string>, ()` — function, line 88
+- `let live = true` — let, line 96
+- `const next = new Map<string, string>()` — const, line 101
+- `const version = (row.version as Record<string, unknown>) ??` — const, line 103
+- `const spanId = String(segment.spanId ?? "")` — const, line 105
+- `function selectionIn(root: HTMLElement | null): PaneSelection | null` — function, line 117
+- `const sel = window.getSelection()` — const, line 118
+- `const range = sel.getRangeAt(0)` — const, line 120
+- `const asSelected = sel.toString()` — const, line 123
+- `const quote = selectionQuote(range, asSelected).replace(/\s+/g, " ").trim()` — const, line 124
+- `const spans: string[] = []` — const, line 126
+- `const nodes: PaneSelection["nodes"] = []` — const, line 127
+- `const part = document.createRange()` — const, line 131
+- `const words = part.toString().replace(/\s+/g, " ").trim()` — const, line 135
+- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 147
+- `const target = ctl.target` — const, line 150
+- `const section = ctl.section && target && ctl.section.sectionId === target.sectionId ? ctl.section : null` — const, line 151
+- `const draftKey = section ? `$` — const, line 155
+- `const selection = draft && draft.key === draftKey ? draft.selection : null` — const, line 157
+- `const noting = draft && draft.key === draftKey ? draft.noting : null` — const, line 158
+- `const setSelection = useCallback((picked: PaneSelection | null)` — const, line 159
+- `const setNoting = useCallback((text: string | null)` — const, line 163
+- `const canCapture = Boolean(onCaptured && section?.revisionId)` — const, line 167
+- `const sheet = ctl.sheet` — const, line 169
+- `const leads = ctl.panes && ctl.leader === "side"` — const, line 170
+- `const sectionKey = section ? `$` — const, line 175
+- `const node = scrollRef.current` — const, line 178
+- `const capture = async (kind: "highlight" | "annotate", picked: PaneSelection, learnerText: string)` — const, line 185
+- `const setRefs = useCallback((node: HTMLDivElement | null)` — const, line 207
+- `const touch = ()` — const, line 214
+- `const onKeyDown = (event: KeyboardEvent<HTMLDivElement>)` — const, line 215
+- `const header: ReactNode = ( <div data-sbs-header="" style=` — const, line 226
+- `const picked = selectionIn(scrollRef.current)` — const, line 275
+- `const folded = Boolean(fold?.spans.has(block.spanId))` — const, line 294
+- `const firstFolded = folded && !(index > 0 && fold?.spans.has(section.blocks[index - 1].spanId))` — const, line 295
+- `const cue = folded ? null : marginFor?.(block.spanId) ?? null` — const, line 296
 
 ## Who imports or calls it
 
@@ -116,9 +117,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/render/mathMacros|src/render/mathMacros.tsx]] — import-or-re-export; imports `MathMacrosProvider`
+- [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `selectionQuote`
 - [[Reference/Desktop/TypeScript/screens/reader/IntentBox|src/screens/reader/IntentBox.tsx]] — import-or-re-export; imports `IntentBox`
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `newActivityId`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/useIntentBox|src/screens/reader/useIntentBox.ts]] — import-or-re-export; imports `IntentBoxController`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export; imports `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `SideBySide`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`

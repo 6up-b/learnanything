@@ -121,6 +121,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_opening_the_factor_moves_no_measurement`
 - [tests/test_followup_workflow.py](../../../../../../tests/test_followup_workflow.py) — direct import
   - `test_a_settled_workflow_takes_nothing_more`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_a_the_practice_lane_settles_the_workflow_and_hands_the_miss_to_the_general_followup`
+  - `test_a_two_concrete_rivals_make_the_probe_lane_and_anything_less_is_practice`
 
 ## Modification guidance
 

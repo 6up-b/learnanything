@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stopping_a_running_carry_ends_it_joins_it_and_no_later_trace_records_it`
   - `test_the_production_valuation_ends_once_told_to_stop`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import
+- [tests/test_post_miss_choice.py](../../../../../../tests/test_post_miss_choice.py) — direct import
 - [tests/test_ro6_codex_review.py](../../../../../../tests/test_ro6_codex_review.py) — direct import
   - `test_f4_a_diagnosis_queued_after_the_decisions_moment_never_enters_its_features`
 - [tests/test_rofu_carried.py](../../../../../../tests/test_rofu_carried.py) — direct import

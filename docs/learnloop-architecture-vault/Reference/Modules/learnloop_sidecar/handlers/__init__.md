@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/facet_reword_paths_helpers.py](../../../../../../tests/facet_reword_paths_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/probe_router_authority_helpers.py](../../../../../../tests/probe_router_authority_helpers.py) — direct import
 - [tests/reader_workbench_rw2a_helpers.py](../../../../../../tests/reader_workbench_rw2a_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../../tests/reading_path_fixtures.py) — direct import
 - [tests/recap_fixtures.py](../../../../../../tests/recap_fixtures.py) — direct import

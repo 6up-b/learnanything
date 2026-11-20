@@ -398,6 +398,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_without_phone_probes_the_phone_is_v2s`
 - [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
+- [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+  - `test_a_the_practice_lane_settles_the_workflow_and_hands_the_miss_to_the_general_followup`
+  - `test_d_a_not_now_while_the_question_is_written_refuses_after_authoring`
+  - `test_d_a_pending_machine_check_refuses_before_the_router`
+  - `test_d_not_now_refuses_before_the_router_and_no_question_is_written`
+  - `test_f_a_lesson_win_releases_the_hold_and_generates_nothing`
+  - `test_f_a_retry_on_a_plan_reuses_the_logged_draw`
+  - `test_f_no_intervention_settles_and_releases_with_nothing_generated`
+  - `test_f_on_a_plan_the_router_draws_once_over_its_arms_and_a_lesson_at_the_same_boundary`
+  - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
+  - `test_f_with_no_plan_the_probe_is_asked_now_with_no_draw_and_no_router_row`
+  - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

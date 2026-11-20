@@ -109,6 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_probe_router_authority.py`
 - `tests/test_voi_stopping.py`
 - `tests/test_voi_v2.py`
 

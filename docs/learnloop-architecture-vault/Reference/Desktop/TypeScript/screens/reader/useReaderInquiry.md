@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderInquiry.ts) |
-| Source lines | 1367 |
+| Source lines | 1368 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,15 +54,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const INQUIRY_CHECK_POLL_MS = 3000` — const, line 72
-- `export const INQUIRY_CHECK_MAX_POLLS = 200` — const, line 73
-- `export interface AskAnchor` — interface, line 93
-- `export interface AskOverride` — interface, line 102
-- `export interface ReconnectState` — interface, line 109
-- `export interface InquiryCheckState` — interface, line 117
-- `export interface ReaderInquiryInput` — interface, line 133
-- `export interface ReaderInquiry` — interface, line 182
-- `export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry` — function, line 257
+- `export const INQUIRY_CHECK_POLL_MS = 3000` — const, line 73
+- `export const INQUIRY_CHECK_MAX_POLLS = 200` — const, line 74
+- `export interface AskAnchor` — interface, line 94
+- `export interface AskOverride` — interface, line 103
+- `export interface ReconnectState` — interface, line 110
+- `export interface InquiryCheckState` — interface, line 118
+- `export interface ReaderInquiryInput` — interface, line 134
+- `export interface ReaderInquiry` — interface, line 183
+- `export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry` — function, line 258
 
 ## Internal implementation anchors
 
@@ -70,182 +70,182 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `type MutableRefObject, type RefObject, type SetStateAction, } from "react"` — type, line 18
 - `type RefObject, type SetStateAction, } from "react"` — type, line 19
 - `type SetStateAction, } from "react"` — type, line 20
-- `type RailTab, type ReturnEntry, type ReturnStack, } from "./returnStack"` — type, line 65
-- `type ReturnEntry, type ReturnStack, } from "./returnStack"` — type, line 66
-- `type ReturnStack, } from "./returnStack"` — type, line 67
-- `function spendRefusalLine(refusal: string | null | undefined): string` — function, line 77
-- `function newKey(): string` — function, line 83
-- `const askEpoch = useRef(0)` — const, line 269
-- `const askPending = useRef(false)` — const, line 270
-- `const historyRef = useRef(history)` — const, line 276
-- `const askFindInputRef = useRef<HTMLInputElement | null>(null)` — const, line 281
-- `const returnStackRef = useRef<ReturnStack>(EMPTY_STACK)` — const, line 287
-- `const lastSourceRef = useRef<ReturnEntry | null>(null)` — const, line 289
-- `const inquiryRef = useRef(false)` — const, line 291
-- `const settleScrollRef = useRef<number | null>(null)` — const, line 293
-- `const reconnectBaseRef = useRef(0)` — const, line 297
-- `const inquiryJobsRef = useRef<Record<string,` — const, line 302
-- `const failedAskRef = useRef<` — const, line 318
-- `const composerGenRef = useRef(0)` — const, line 325
-- `const composerOpenRef = useRef(0)` — const, line 332
-- `const resetInquiryState = useCallback(()` — const, line 333
-- `const noteSourceOpened = useCallback(( card: SourceLibraryCard, extractionId: string, jumpSpan: string | undefined, via: "search" | "restore" | undefined, )` — const, line 358
-- `const left = lastSourceRef.current` — const, line 369
-- `const entry: ReturnEntry =` — const, line 371
-- `const next = pushDetour(returnStackRef.current, left, entry)` — const, line 376
-- `const rememberLeftSource = useCallback((entry: ReturnEntry)` — const, line 391
-- `let cancelled = false` — let, line 400
-- `const restored: ReaderExchange[] = result.exchanges.map((exchange)` — const, line 406
-- `const live = new Map(current.map((exchange)` — const, line 425
-- `const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null` — const, line 444
-- `const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan` — const, line 445
-- `const passageLabel = useCallback((spanId: string | null): string` — const, line 456
-- `const section = spanId ? guideSectionBySpan.get(spanId) : undefined` — const, line 457
-- `const positionEntry = useCallback((): ReturnEntry | null` — const, line 463
-- `const spanId = readingSpan ?? activeSpan` — const, line 465
-- `const pushDetours = useCallback((entries: ReturnEntry[])` — const, line 474
-- `const origin = positionEntry()` — const, line 476
-- `let next = returnStackRef.current` — let, line 478
-- `const before = next` — const, line 480
-- `const pushSideBySide = useCallback((label: string, target: PaneTarget): string | null` — const, line 494
-- `const entry: ReturnEntry =` — const, line 496
-- `const before = returnStackRef.current` — const, line 501
-- `const replaceSideBySide = useCallback((entryId: string, label: string, target: PaneTarget): boolean` — const, line 506
-- `const next = replaceCurrent(returnStackRef.current, entryId,` — const, line 507
-- `const snapshotSideBySide = useCallback((label: string, target: PaneTarget): boolean` — const, line 519
-- `const stack = returnStackRef.current` — const, line 520
-- `const current = stack.entries[stack.cursor]` — const, line 521
-- `const next = replaceCurrent(stack, current.id,` — const, line 523
-- `const seedReturnStack = useCallback((stack: ReturnStack)` — const, line 532
-- `const dropDetour = useCallback((entryId: string)` — const, line 538
-- `const next = dropCurrent(returnStackRef.current, entryId)` — const, line 539
-- `const peekPassage = useCallback((spanId: string)` — const, line 545
-- `const here = readingSpan ?? activeSpan` — const, line 546
-- `const inquiryRoot = useCallback((exchangeId: string): ReaderExchange | null` — const, line 558
-- `const byId = new Map(history.map((exchange)` — const, line 559
-- `let current = byId.get(exchangeId) ?? null` — let, line 560
-- `const seen = new Set<string>()` — const, line 561
-- `const showReconnect = useCallback((exchangeId: string, inline: boolean)` — const, line 571
-- `const root = inquiryRoot(exchangeId)` — const, line 573
-- `const restoreEntry = useCallback(async (next: ReturnStack, target: ReturnEntry, via: string)` — const, line 580
-- `const previous = returnStackRef.current` — const, line 583
-- `const returning = next.cursor === 0 ? unreturnedDetours(previous) : []` — const, line 586
-- `const settled = markReturned(next, returning.map((detour)` — const, line 587
-- `const card = (library ?? []).find((candidate)` — const, line 591
-- `const openSource = openSourceRef.current` — const, line 592
-- `const nextIds = new Set(ids)` — const, line 605
-- `const now = Date.now()` — const, line 612
-- `const inquiryExchange = stackInquiryExchange(previous)` — const, line 624
-- `const onBodyScroll = useCallback(()` — const, line 634
-- `const body = bodyRef.current` — const, line 639
-- `const screen = Math.max(1, body.clientHeight)` — const, line 647
-- `const settleFrom = settleScrollRef.current` — const, line 649
-- `const onKey = (event: KeyboardEvent)` — const, line 664
-- `const stack = returnStackRef.current` — const, line 668
-- `const moved = event.key === "ArrowLeft" ? stackBack(stack) : stackForward(stack)` — const, line 669
-- `const askJobRef = useRef<` — const, line 681
-- `const submitAsk = useCallback(async ( asked: string, parent: ReaderExchange | null, // RW1b: a routed Ask runs in its routed answer mode, and its funnel event // names the intention and the entry (the intent box or its palette). override?: AskOverride, )` — const, line 682
-- `const anchor = parent ? null : override?.anchor ?? null` — const, line 694
-- `const about = parent ? parent.about ?? null : anchor?.about ?? null` — const, line 695
-- `const groundingSpan = parent?.spanId ?? anchor?.spanId ?? selection?.spanId ?? activeSpan` — const, line 696
-- `const epoch = askEpoch.current` — const, line 699
-- `const composer = composerGenRef.current` — const, line 700
-- `const composerOpen = composerOpenRef.current` — const, line 701
-- `const selectionSpanIds = parent ? parent.selectionSpanIds : anchor ? anchor.selectionSpanIds : selection ? [...new Set(selectionNodes(selection).map((n)` — const, line 707
-- `const selectionQuote = parent ? parent.selectionQuoteMd : anchor ? anchor.selectionQuote : selection ? (selection.editedText ?? selection.quote).trim() || null : null` — const, line 711
-- `const edited = !parent && !anchor && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim()` — const, line 717
-- `const selectionSourceQuote = parent ? parent.selectionSourceQuoteMd ?? null : edited && selection ? selection.quote.trim() || null : null` — const, line 718
-- `const jobKind = parent ? "follow_up" : "ask"` — const, line 721
-- `const job =` — const, line 722
-- `const askReading = about?.extractionId ?? render.extractionId` — const, line 729
-- `const answer = await api.readerAsk(` — const, line 730
-- `const waited = Date.now() - job.startedAt` — const, line 751
-- `const exchange: ReaderExchange =` — const, line 762
-- `const ownComposer = composerOpen === composerOpenRef.current` — const, line 789
-- `const branchEntry = (target: ReaderExchange, label: string): ReturnEntry` — const, line 797
-- `const pushes: ReturnEntry[] = []` — const, line 802
-- `const next = new Set(ids)` — const, line 812
-- `const composerHadFocus = document.activeElement === askComposerRef.current` — const, line 824
-- `const onAskTab = railTab === "ask"` — const, line 830
-- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 835
-- `const phase = phaseForError(error)` — const, line 843
-- `const ask = useCallback(()` — const, line 875
-- `const failed = failedAskRef.current` — const, line 879
-- `const anchor = composerAnchorRef?.current ?? null` — const, line 885
-- `const retryAsk = useCallback(()` — const, line 894
-- `const failed = failedAskRef.current` — const, line 895
-- `const forgetFailedAsk = useCallback(()` — const, line 903
-- `const askAnotherWay = useCallback((exchange: ReaderExchange)` — const, line 917
-- `const askDidntHelp = useCallback((exchange: ReaderExchange, text: string)` — const, line 925
-- `const cancelAsk = useCallback(()` — const, line 933
-- `const job = askJobRef.current` — const, line 934
-- `const extractionOf = useCallback((rootId: string): string` — const, line 955
-- `const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>)` — const, line 959
-- `const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip")` — const, line 963
-- `const result = await api.readerSetInquiryStatus(` — const, line 966
-- `const markBranchDone = useCallback(async (branch: ReaderExchange)` — const, line 975
-- `const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment>` — const, line 987
-- `const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? [])` — const, line 988
-- `const commitPendingRef = useRef<Set<string>>(new Set())` — const, line 1002
-- `const commitKeysRef = useRef<Record<string, string>>(` — const, line 1003
-- `const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment)` — const, line 1007
-- `const slot = `$` — const, line 1009
-- `const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey())` — const, line 1012
-- `const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId]` — const, line 1013
-- `const about = root.about ?? null` — const, line 1016
-- `const receipt = await api.readerInvokePreset(` — const, line 1022
-- `const openInquiry = useCallback((rootId: string, fallbackSpanId?: string | null)` — const, line 1054
-- `const root = history.find((exchange)` — const, line 1055
-- `const next = new Set(ids)` — const, line 1064
-- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 1077
-- `const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra:` — const, line 1090
-- `const job = inquiryJobsRef.current[rootId]` — const, line 1093
-- `const waited = Date.now() - job.startedAt` — const, line 1096
-- `const recordUnqueuedCheck = useCallback((failureReason: string)` — const, line 1109
-- `const jobId = newActivityId()` — const, line 1110
-- `const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail")` — const, line 1121
-- `const waitId = newKey()` — const, line 1126
-- `const visitIds = visitPayload()` — const, line 1127
-- `const startedAt = Date.now()` — const, line 1128
-- `const activity = learnerActivitySnapshot()` — const, line 1129
-- `const result = await api.readerReconnectAnswer(` — const, line 1131
-- `const batchId = result.batchId` — const, line 1136
-- `const tracked = inquiryJobsRef.current[rootId]` — const, line 1137
-- `const phase = phaseForError(error)` — const, line 1155
-- `const cancelQuickCheck = useCallback((rootId: string)` — const, line 1163
-- `const current = inquiryChecks[rootId]` — const, line 1164
-- `const wait = current?.batchId ?` — const, line 1165
-- `const batchId = wait?.batchId ?? null` — const, line 1168
-- `const dismissInquiryCheck = useCallback((rootId: string)` — const, line 1178
-- `const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "")` — const, line 1185
-- `const line = reconnect` — const, line 1186
-- `const via = line.inline ? "inline" : "rail"` — const, line 1188
-- `const result = await api.readerReconnectAnswer(` — const, line 1196
-- `const root = history.find((item)` — const, line 1205
-- `const watching = Object.entries(inquiryChecks).filter( ([, check])` — const, line 1220
-- `const timer = window.setInterval(()` — const, line 1224
-- `const batchId = check.batchId as string` — const, line 1226
-- `const waitId = check.waitId as string` — const, line 1227
-- `const attempts = (check.attempts ?? 0) + 1` — const, line 1228
-- `const same = (checks: typeof inquiryChecks)` — const, line 1231
-- `const timedOut = ()` — const, line 1232
-- `const job = result.job ?? null` — const, line 1238
-- `const landedQuestion = result.question` — const, line 1240
-- `const code = job.errorCode ?? "error"` — const, line 1251
-- `const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed"` — const, line 1253
-- `const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null` — const, line 1254
-- `const phase = phaseForError(error)` — const, line 1265
-- `const pollErrors = (check.pollErrors ?? 0) + 1` — const, line 1273
-- `const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string)` — const, line 1284
-- `const check = inquiryChecks[rootId]` — const, line 1285
-- `const result = await api.readerInquiryQuestionAction(` — const, line 1288
-- `const escalateInquiryCheck = useCallback(async (rootId: string)` — const, line 1300
-- `const check = inquiryChecks[rootId]` — const, line 1301
-- `const passageCheckOffered = useMemo(()` — const, line 1316
-- `const root = history.find((exchange)` — const, line 1318
-- `const normalizedAskFind = askFindQuery.trim().toLowerCase()` — const, line 1327
-- `const visibleAskHistory = useMemo( ()` — const, line 1328
-- `const onFind = (event: KeyboardEvent)` — const, line 1341
+- `type RailTab, type ReturnEntry, type ReturnStack, } from "./returnStack"` — type, line 66
+- `type ReturnEntry, type ReturnStack, } from "./returnStack"` — type, line 67
+- `type ReturnStack, } from "./returnStack"` — type, line 68
+- `function spendRefusalLine(refusal: string | null | undefined): string` — function, line 78
+- `function newKey(): string` — function, line 84
+- `const askEpoch = useRef(0)` — const, line 270
+- `const askPending = useRef(false)` — const, line 271
+- `const historyRef = useRef(history)` — const, line 277
+- `const askFindInputRef = useRef<HTMLInputElement | null>(null)` — const, line 282
+- `const returnStackRef = useRef<ReturnStack>(EMPTY_STACK)` — const, line 288
+- `const lastSourceRef = useRef<ReturnEntry | null>(null)` — const, line 290
+- `const inquiryRef = useRef(false)` — const, line 292
+- `const settleScrollRef = useRef<number | null>(null)` — const, line 294
+- `const reconnectBaseRef = useRef(0)` — const, line 298
+- `const inquiryJobsRef = useRef<Record<string,` — const, line 303
+- `const failedAskRef = useRef<` — const, line 319
+- `const composerGenRef = useRef(0)` — const, line 326
+- `const composerOpenRef = useRef(0)` — const, line 333
+- `const resetInquiryState = useCallback(()` — const, line 334
+- `const noteSourceOpened = useCallback(( card: SourceLibraryCard, extractionId: string, jumpSpan: string | undefined, via: "search" | "restore" | undefined, )` — const, line 359
+- `const left = lastSourceRef.current` — const, line 370
+- `const entry: ReturnEntry =` — const, line 372
+- `const next = pushDetour(returnStackRef.current, left, entry)` — const, line 377
+- `const rememberLeftSource = useCallback((entry: ReturnEntry)` — const, line 392
+- `let cancelled = false` — let, line 401
+- `const restored: ReaderExchange[] = result.exchanges.map((exchange)` — const, line 407
+- `const live = new Map(current.map((exchange)` — const, line 426
+- `const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null` — const, line 445
+- `const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan` — const, line 446
+- `const passageLabel = useCallback((spanId: string | null): string` — const, line 457
+- `const section = spanId ? guideSectionBySpan.get(spanId) : undefined` — const, line 458
+- `const positionEntry = useCallback((): ReturnEntry | null` — const, line 464
+- `const spanId = readingSpan ?? activeSpan` — const, line 466
+- `const pushDetours = useCallback((entries: ReturnEntry[])` — const, line 475
+- `const origin = positionEntry()` — const, line 477
+- `let next = returnStackRef.current` — let, line 479
+- `const before = next` — const, line 481
+- `const pushSideBySide = useCallback((label: string, target: PaneTarget): string | null` — const, line 495
+- `const entry: ReturnEntry =` — const, line 497
+- `const before = returnStackRef.current` — const, line 502
+- `const replaceSideBySide = useCallback((entryId: string, label: string, target: PaneTarget): boolean` — const, line 507
+- `const next = replaceCurrent(returnStackRef.current, entryId,` — const, line 508
+- `const snapshotSideBySide = useCallback((label: string, target: PaneTarget): boolean` — const, line 520
+- `const stack = returnStackRef.current` — const, line 521
+- `const current = stack.entries[stack.cursor]` — const, line 522
+- `const next = replaceCurrent(stack, current.id,` — const, line 524
+- `const seedReturnStack = useCallback((stack: ReturnStack)` — const, line 533
+- `const dropDetour = useCallback((entryId: string)` — const, line 539
+- `const next = dropCurrent(returnStackRef.current, entryId)` — const, line 540
+- `const peekPassage = useCallback((spanId: string)` — const, line 546
+- `const here = readingSpan ?? activeSpan` — const, line 547
+- `const inquiryRoot = useCallback((exchangeId: string): ReaderExchange | null` — const, line 559
+- `const byId = new Map(history.map((exchange)` — const, line 560
+- `let current = byId.get(exchangeId) ?? null` — let, line 561
+- `const seen = new Set<string>()` — const, line 562
+- `const showReconnect = useCallback((exchangeId: string, inline: boolean)` — const, line 572
+- `const root = inquiryRoot(exchangeId)` — const, line 574
+- `const restoreEntry = useCallback(async (next: ReturnStack, target: ReturnEntry, via: string)` — const, line 581
+- `const previous = returnStackRef.current` — const, line 584
+- `const returning = next.cursor === 0 ? unreturnedDetours(previous) : []` — const, line 587
+- `const settled = markReturned(next, returning.map((detour)` — const, line 588
+- `const card = (library ?? []).find((candidate)` — const, line 592
+- `const openSource = openSourceRef.current` — const, line 593
+- `const nextIds = new Set(ids)` — const, line 606
+- `const now = Date.now()` — const, line 613
+- `const inquiryExchange = stackInquiryExchange(previous)` — const, line 625
+- `const onBodyScroll = useCallback(()` — const, line 635
+- `const body = bodyRef.current` — const, line 640
+- `const screen = Math.max(1, body.clientHeight)` — const, line 648
+- `const settleFrom = settleScrollRef.current` — const, line 650
+- `const onKey = (event: KeyboardEvent)` — const, line 665
+- `const stack = returnStackRef.current` — const, line 669
+- `const moved = event.key === "ArrowLeft" ? stackBack(stack) : stackForward(stack)` — const, line 670
+- `const askJobRef = useRef<` — const, line 682
+- `const submitAsk = useCallback(async ( asked: string, parent: ReaderExchange | null, // RW1b: a routed Ask runs in its routed answer mode, and its funnel event // names the intention and the entry (the intent box or its palette). override?: AskOverride, )` — const, line 683
+- `const anchor = parent ? null : override?.anchor ?? null` — const, line 695
+- `const about = parent ? parent.about ?? null : anchor?.about ?? null` — const, line 696
+- `const groundingSpan = parent?.spanId ?? anchor?.spanId ?? selection?.spanId ?? activeSpan` — const, line 697
+- `const epoch = askEpoch.current` — const, line 700
+- `const composer = composerGenRef.current` — const, line 701
+- `const composerOpen = composerOpenRef.current` — const, line 702
+- `const selectionSpanIds = parent ? parent.selectionSpanIds : anchor ? anchor.selectionSpanIds : selection ? [...new Set(selectionNodes(selection).map((n)` — const, line 708
+- `const selectionQuote = parent ? parent.selectionQuoteMd : anchor ? anchor.selectionQuote : selection ? (selection.editedText ?? selection.quote).trim() || null : null` — const, line 712
+- `const edited = !parent && !anchor && selection?.editedText != null && selection.editedText.trim() !== selection.quote.trim()` — const, line 718
+- `const selectionSourceQuote = parent ? parent.selectionSourceQuoteMd ?? null : edited && selection ? selection.quote.trim() || null : null` — const, line 719
+- `const jobKind = parent ? "follow_up" : "ask"` — const, line 722
+- `const job =` — const, line 723
+- `const askReading = about?.extractionId ?? render.extractionId` — const, line 730
+- `const answer = await api.readerAsk(` — const, line 731
+- `const waited = Date.now() - job.startedAt` — const, line 752
+- `const exchange: ReaderExchange =` — const, line 763
+- `const ownComposer = composerOpen === composerOpenRef.current` — const, line 790
+- `const branchEntry = (target: ReaderExchange, label: string): ReturnEntry` — const, line 798
+- `const pushes: ReturnEntry[] = []` — const, line 803
+- `const next = new Set(ids)` — const, line 813
+- `const composerHadFocus = document.activeElement === askComposerRef.current` — const, line 825
+- `const onAskTab = railTab === "ask"` — const, line 831
+- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 836
+- `const phase = phaseForError(error)` — const, line 844
+- `const ask = useCallback(()` — const, line 876
+- `const failed = failedAskRef.current` — const, line 880
+- `const anchor = composerAnchorRef?.current ?? null` — const, line 886
+- `const retryAsk = useCallback(()` — const, line 895
+- `const failed = failedAskRef.current` — const, line 896
+- `const forgetFailedAsk = useCallback(()` — const, line 904
+- `const askAnotherWay = useCallback((exchange: ReaderExchange)` — const, line 918
+- `const askDidntHelp = useCallback((exchange: ReaderExchange, text: string)` — const, line 926
+- `const cancelAsk = useCallback(()` — const, line 934
+- `const job = askJobRef.current` — const, line 935
+- `const extractionOf = useCallback((rootId: string): string` — const, line 956
+- `const updateExchange = useCallback((id: string, patch: Partial<ReaderExchange>)` — const, line 960
+- `const setInquiryStatus = useCallback(async (root: ReaderExchange, resolution: InquiryResolution, trigger: "chip" | "key" = "chip")` — const, line 964
+- `const result = await api.readerSetInquiryStatus(` — const, line 967
+- `const markBranchDone = useCallback(async (branch: ReaderExchange)` — const, line 976
+- `const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment>` — const, line 988
+- `const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? [])` — const, line 989
+- `const commitPendingRef = useRef<Set<string>>(new Set())` — const, line 1003
+- `const commitKeysRef = useRef<Record<string, string>>(` — const, line 1004
+- `const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment)` — const, line 1008
+- `const slot = `$` — const, line 1010
+- `const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey())` — const, line 1013
+- `const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId]` — const, line 1014
+- `const about = root.about ?? null` — const, line 1017
+- `const receipt = await api.readerInvokePreset(` — const, line 1023
+- `const openInquiry = useCallback((rootId: string, fallbackSpanId?: string | null)` — const, line 1055
+- `const root = history.find((exchange)` — const, line 1056
+- `const next = new Set(ids)` — const, line 1065
+- `const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find( (element)` — const, line 1078
+- `const settleInquiryJob = useCallback((rootId: string, batchId: string | null, waitId: string | null, status: "completed" | "failed" | "cancelled", extra:` — const, line 1091
+- `const job = inquiryJobsRef.current[rootId]` — const, line 1094
+- `const waited = Date.now() - job.startedAt` — const, line 1097
+- `const recordUnqueuedCheck = useCallback((failureReason: string)` — const, line 1110
+- `const jobId = newActivityId()` — const, line 1111
+- `const startQuickCheck = useCallback(async (rootId: string, via: "inline" | "rail")` — const, line 1122
+- `const waitId = newKey()` — const, line 1127
+- `const visitIds = visitPayload()` — const, line 1128
+- `const startedAt = Date.now()` — const, line 1129
+- `const activity = learnerActivitySnapshot()` — const, line 1130
+- `const result = await api.readerReconnectAnswer(` — const, line 1132
+- `const batchId = result.batchId` — const, line 1137
+- `const tracked = inquiryJobsRef.current[rootId]` — const, line 1138
+- `const phase = phaseForError(error)` — const, line 1156
+- `const cancelQuickCheck = useCallback((rootId: string)` — const, line 1164
+- `const current = inquiryChecks[rootId]` — const, line 1165
+- `const wait = current?.batchId ?` — const, line 1166
+- `const batchId = wait?.batchId ?? null` — const, line 1169
+- `const dismissInquiryCheck = useCallback((rootId: string)` — const, line 1179
+- `const answerReconnect = useCallback(async (answer: "yes" | "still_unclear" | "quick_check", text = "")` — const, line 1186
+- `const line = reconnect` — const, line 1187
+- `const via = line.inline ? "inline" : "rail"` — const, line 1189
+- `const result = await api.readerReconnectAnswer(` — const, line 1197
+- `const root = history.find((item)` — const, line 1206
+- `const watching = Object.entries(inquiryChecks).filter( ([, check])` — const, line 1221
+- `const timer = window.setInterval(()` — const, line 1225
+- `const batchId = check.batchId as string` — const, line 1227
+- `const waitId = check.waitId as string` — const, line 1228
+- `const attempts = (check.attempts ?? 0) + 1` — const, line 1229
+- `const same = (checks: typeof inquiryChecks)` — const, line 1232
+- `const timedOut = ()` — const, line 1233
+- `const job = result.job ?? null` — const, line 1239
+- `const landedQuestion = result.question` — const, line 1241
+- `const code = job.errorCode ?? "error"` — const, line 1252
+- `const phase: ModelActionPhase = code === "capped" ? "capped" : code === "provider_unavailable" ? "unreachable" : "failed"` — const, line 1254
+- `const failure = code === "spend_refused" ? spendRefusalLine(job.refusal) : null` — const, line 1255
+- `const phase = phaseForError(error)` — const, line 1266
+- `const pollErrors = (check.pollErrors ?? 0) + 1` — const, line 1274
+- `const inquiryCheckAction = useCallback(async (rootId: string, action: "answered" | "self_checked" | "dismissed", value?: string)` — const, line 1285
+- `const check = inquiryChecks[rootId]` — const, line 1286
+- `const result = await api.readerInquiryQuestionAction(` — const, line 1289
+- `const escalateInquiryCheck = useCallback(async (rootId: string)` — const, line 1301
+- `const check = inquiryChecks[rootId]` — const, line 1302
+- `const passageCheckOffered = useMemo(()` — const, line 1317
+- `const root = history.find((exchange)` — const, line 1319
+- `const normalizedAskFind = askFindQuery.trim().toLowerCase()` — const, line 1328
+- `const visibleAskHistory = useMemo( ()` — const, line 1329
+- `const onFind = (event: KeyboardEvent)` — const, line 1342
 
 ## Who imports or calls it
 
@@ -262,6 +262,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InquiryResolution`, `InquirySelfCheck`, `ReaderAnswerMode`, `ReaderArcDto`, `ReaderGuideSectionDto`, `ReaderInquiryQuestionDto`, `ReaderRenderViewDto`, `ReaderRetrievalIntent`, `SourceLibraryCard`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PassageAlign`
+- [[Reference/Desktop/TypeScript/components/scrollWithin|src/components/scrollWithin.ts]] — import-or-re-export; imports `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `phaseForError`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export; imports `AskAbout`, `InquiryCommitment`, `ReaderExchange`
@@ -269,7 +270,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`, `noteLearnerActivity`
 - [[Reference/Desktop/TypeScript/screens/reader/checkOffer|src/screens/reader/checkOffer.ts]] — import-or-re-export; imports `checkOffer`
 - [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export; imports `cachedSourceRead`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `MarginAnnotation`, `ReaderSelection`, `clip`, `passageKeys`, `selectionNodes`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `MarginAnnotation`, `ReaderSelection`, `clip`, `passageKeys`, `sectionWords`, `selectionNodes`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export; imports `EMPTY_STACK`, `RailTab`, `ReturnEntry`, `ReturnStack`, `dropCurrent`, `hasDetour`, `markReturned`, `pushDetour`, `replaceCurrent`, `stackBack`, `stackForward`, `stackInquiryExchange`, `unreturnedDetours`
 - [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]] — import-or-re-export; imports `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderVisit|src/screens/reader/useReaderVisit.ts]] — import-or-re-export; imports `ReaderVisit`

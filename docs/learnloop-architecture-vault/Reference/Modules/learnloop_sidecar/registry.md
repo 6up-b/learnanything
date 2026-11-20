@@ -191,6 +191,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/owner_capture_1025_helpers.py](../../../../../tests/owner_capture_1025_helpers.py) — direct import
 - [tests/plan_determinism_helpers.py](../../../../../tests/plan_determinism_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/probe_router_authority_helpers.py](../../../../../tests/probe_router_authority_helpers.py) — direct import
 - [tests/reader_ca1_as_printed_helpers.py](../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../tests/reader_rw3a_landing_helpers.py) — direct import

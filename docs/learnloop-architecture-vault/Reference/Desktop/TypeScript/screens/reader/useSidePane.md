@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useSidePane.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useSidePane.ts) |
-| Source lines | 330 |
+| Source lines | 331 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,57 +54,57 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PaneCaptureTarget` — interface, line 46
-- `export interface SidePaneInput` — interface, line 57
-- `export function useSidePane(input: SidePaneInput)` — function, line 95
-- `export type SidePane = ReturnType<typeof useSidePane>` — type, line 197
-- `export function inSidePane(target: EventTarget | null): boolean` — function, line 328
+- `export interface PaneCaptureTarget` — interface, line 47
+- `export interface SidePaneInput` — interface, line 58
+- `export function useSidePane(input: SidePaneInput)` — function, line 96
+- `export type SidePane = ReturnType<typeof useSidePane>` — type, line 198
+- `export function inSidePane(target: EventTarget | null): boolean` — function, line 329
 
 ## Internal implementation anchors
 
-- `const noop = ()` — const, line 93
-- `const extractionId = shown && section ? section.extractionId : null` — const, line 99
-- `const sourceId = shown && section ? section.sourceId : null` — const, line 100
-- `const sectionKey = extractionId && section ? `$` — const, line 101
-- `const box = useIntentBox(` — const, line 104
-- `const noteSelection = useCallback((picked: PaneSelection | null)` — const, line 121
-- `const releaseKeys = useCallback(()` — const, line 129
-- `const showPath = useCallback(()` — const, line 149
-- `const closePath = useCallback(()` — const, line 154
-- `const pathShown = pathFor !== null && pathFor === extractionId` — const, line 155
-- `const active = useActiveReading(` — const, line 157
-- `const figures = useFigures(` — const, line 163
-- `const target: PaneCaptureTarget | null = section && extractionId && selection && section.revisionId ?` — const, line 165
-- `const fold = useCallback((spanIds: string[], foldBlocks: number): string[]` — const, line 172
-- `const blocks = section?.blocks ?? []` — const, line 173
-- `const positions = spanIds.map((spanId)` — const, line 174
-- `const last = Math.max(...positions)` — const, line 176
-- `const marksChanged = useCallback(()` — const, line 182
-- `const cues = useSidePaneCues(` — const, line 184
-- `function useSidePaneCues(` — function, line 210
-- `const generation = useRef(0)` — const, line 230
-- `const readFor = useRef<string | null>(null)` — const, line 235
-- `const reloadPending = useRef(false)` — const, line 241
-- `const read = useCallback(async (force: boolean)` — const, line 242
-- `const mine = generation.current` — const, line 244
-- `const next = await readGuidePlan(sourceId, extractionId, force ?` — const, line 250
-- `const again = readFor.current === extractionId && extractionId !== null` — const, line 258
-- `const pending = extractionId !== null && reloadPending.current` — const, line 261
-- `const reloadPlan = useCallback(()` — const, line 265
-- `const reloadBoth = useCallback(async ()` — const, line 268
-- `const body = hostRef.current` — const, line 278
-- `let last: string | null = null` — let, line 280
-- `const observer = new ResizeObserver(()` — const, line 281
-- `const size = `$` — const, line 282
-- `const render = useMemo(()` — const, line 292
-- `const spanOrder = useMemo( ()` — const, line 294
-- `const blocksKey = (blocks ?? []).map((block)` — const, line 296
-- `const jumpToSpan = useCallback((spanId: string)` — const, line 298
-- `const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? []) .find((element)` — const, line 299
-- `const ownsKey = useCallback((event: KeyboardEvent)` — const, line 304
-- `const sideVisitPayload = useCallback(()` — const, line 306
-- `const ownVisit = useCallback(()` — const, line 310
-- `const cueCtl = useReaderCues(` — const, line 312
+- `const noop = ()` — const, line 94
+- `const extractionId = shown && section ? section.extractionId : null` — const, line 100
+- `const sourceId = shown && section ? section.sourceId : null` — const, line 101
+- `const sectionKey = extractionId && section ? `$` — const, line 102
+- `const box = useIntentBox(` — const, line 105
+- `const noteSelection = useCallback((picked: PaneSelection | null)` — const, line 122
+- `const releaseKeys = useCallback(()` — const, line 130
+- `const showPath = useCallback(()` — const, line 150
+- `const closePath = useCallback(()` — const, line 155
+- `const pathShown = pathFor !== null && pathFor === extractionId` — const, line 156
+- `const active = useActiveReading(` — const, line 158
+- `const figures = useFigures(` — const, line 164
+- `const target: PaneCaptureTarget | null = section && extractionId && selection && section.revisionId ?` — const, line 166
+- `const fold = useCallback((spanIds: string[], foldBlocks: number): string[]` — const, line 173
+- `const blocks = section?.blocks ?? []` — const, line 174
+- `const positions = spanIds.map((spanId)` — const, line 175
+- `const last = Math.max(...positions)` — const, line 177
+- `const marksChanged = useCallback(()` — const, line 183
+- `const cues = useSidePaneCues(` — const, line 185
+- `function useSidePaneCues(` — function, line 211
+- `const generation = useRef(0)` — const, line 231
+- `const readFor = useRef<string | null>(null)` — const, line 236
+- `const reloadPending = useRef(false)` — const, line 242
+- `const read = useCallback(async (force: boolean)` — const, line 243
+- `const mine = generation.current` — const, line 245
+- `const next = await readGuidePlan(sourceId, extractionId, force ?` — const, line 251
+- `const again = readFor.current === extractionId && extractionId !== null` — const, line 259
+- `const pending = extractionId !== null && reloadPending.current` — const, line 262
+- `const reloadPlan = useCallback(()` — const, line 266
+- `const reloadBoth = useCallback(async ()` — const, line 269
+- `const body = hostRef.current` — const, line 279
+- `let last: string | null = null` — let, line 281
+- `const observer = new ResizeObserver(()` — const, line 282
+- `const size = `$` — const, line 283
+- `const render = useMemo(()` — const, line 293
+- `const spanOrder = useMemo( ()` — const, line 295
+- `const blocksKey = (blocks ?? []).map((block)` — const, line 297
+- `const jumpToSpan = useCallback((spanId: string)` — const, line 299
+- `const node = Array.from(hostRef.current?.querySelectorAll<HTMLElement>("[data-sbs-span]") ?? []) .find((element)` — const, line 300
+- `const ownsKey = useCallback((event: KeyboardEvent)` — const, line 305
+- `const sideVisitPayload = useCallback(()` — const, line 307
+- `const ownVisit = useCallback(()` — const, line 311
+- `const cueCtl = useReaderCues(` — const, line 313
 
 ## Who imports or calls it
 
@@ -118,6 +118,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderGuidePlanDto`, `ReaderIntentActionDto`, `ReaderIntentContractDto`, `SideBySideSectionDto`
+- [[Reference/Desktop/TypeScript/components/scrollWithin|src/components/scrollWithin.ts]] — import-or-re-export; imports `scrollIntoViewWithin`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export; imports `PaneSelection`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/useFigures|src/screens/reader/figures/useFigures.ts]] — import-or-re-export; imports `FiguresContract`, `useFigures`
 - [[Reference/Desktop/TypeScript/screens/reader/guidePlan|src/screens/reader/guidePlan.ts]] — import-or-re-export; imports `readGuidePlan`

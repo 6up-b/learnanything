@@ -26,9 +26,9 @@ source_paths:
   - "tests/identity_pins_helpers.py"
   - "tests/instruct_handoff_ih0_helpers.py"
   - "tests/local_embeddings_fakes.py"
+  - "tests/probe_router_authority_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round5.py"
-  - "tests/test_ad1_fix_round7.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/data-capture"
@@ -67,9 +67,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/identity_pins_helpers.py`
 - `tests/instruct_handoff_ih0_helpers.py`
 - `tests/local_embeddings_fakes.py`
+- `tests/probe_router_authority_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round5.py`
-- `tests/test_ad1_fix_round7.py`
 
 ## Extension and modification guidance
 

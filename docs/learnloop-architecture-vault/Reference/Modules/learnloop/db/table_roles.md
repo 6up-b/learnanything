@@ -211,6 +211,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_never_reads_the_switch`
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
+- [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_the_table_is_a_receipt_and_denied_to_ad`
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import

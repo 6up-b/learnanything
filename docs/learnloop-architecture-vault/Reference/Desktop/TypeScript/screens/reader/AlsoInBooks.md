@@ -174,7 +174,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/FindSection|src/screens/reader/FindSection.tsx]] — import-or-re-export; imports `FIND_COPY`, `FindSectionOrigin`, `PeekCrumb`, `bookShort`, `hitKey`, `newOperationId`, `peekCrumb`, `sectionShort`
 - [[Reference/Desktop/TypeScript/screens/reader/correspondenceEvents|src/screens/reader/correspondenceEvents.ts]] — import-or-re-export; imports `logCorrespondentAct`
 - [[Reference/Desktop/TypeScript/screens/reader/correspondentsRead|src/screens/reader/correspondentsRead.ts]] — import-or-re-export; imports `quietCorrespondents`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`, `SourceVoice`, `SpokenOnly`
 
 ### Assets, platform, and third-party dependencies

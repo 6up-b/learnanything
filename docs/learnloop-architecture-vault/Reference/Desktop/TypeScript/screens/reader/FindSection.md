@@ -69,7 +69,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `type Pressed = |` — type, line 96
 - `interface Peek` — interface, line 101
-- `const trimmed = title.trim().replace(/^(section|chapter|§)\s*/i, "")` — const, line 109
+- `const trimmed = sectionWords(title).trim().replace(/^(section|chapter|§)\s*/i, "")` — const, line 109
 - `const match = /^([0-9]+(?:[.\-–][0-9A-Za-z]+)*|[A-Z](?:\.[0-9]+)+)(?=[\s.:)]|$)/.exec(trimmed)` — const, line 110
 - `const head = title.split(/\s[:—–-]\s|:\s/)[0]?.trim() || title.trim()` — const, line 116
 - `const id = globalThis.crypto?.randomUUID?.() ?? `$` — const, line 135
@@ -140,7 +140,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/reader/correspondenceEvents|src/screens/reader/correspondenceEvents.ts]] — import-or-re-export; imports `logCorrespondentAct`
 - [[Reference/Desktop/TypeScript/screens/reader/correspondentsRead|src/screens/reader/correspondentsRead.ts]] — import-or-re-export; imports `quietCorrespondents`
-- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`
+- [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `clip`, `sectionWords`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `MeaningLabel`, `SourceVoice`
 
 ### Assets, platform, and third-party dependencies
