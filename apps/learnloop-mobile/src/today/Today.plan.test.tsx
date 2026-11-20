@@ -476,7 +476,7 @@ describe("first questions arrive (P11): an empty day says why, in the desktop's 
     answers.get_source_library = book(built());
     render(<App />);
     expect((await screen.findByTestId("today-cause")).textContent).toBe(
-      "Your first questions come when you finish a section of “Symmetric Matrices and Variance”: read to its end and finish its quick check."
+      "Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end."
     );
     expect(screen.getByTestId("today-sentence").textContent).toBe("Nothing planned for today.");
     expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();

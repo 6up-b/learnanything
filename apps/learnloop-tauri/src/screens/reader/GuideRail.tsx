@@ -16,6 +16,15 @@ import { errorMessage } from "../../errors";
 import type { PassageAlign } from "../../components/PdfReaderPane";
 import { clip, sectionWords } from "./readerShared";
 import { LearnerVoice, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
+import { WaitMark } from "../../components/Waiting";
+
+/** The phone's words for finishing a section (apps/learnloop-mobile/src/read/ReaderScreen.tsx), which the desktop had
+ *  no way to say: a section's questions are written when it is finished, and before this only the quick check's
+ *  "done for now" finished one (UX-29). */
+export const SECTION_DONE = "Done with this section";
+/** Said once the press queued the section's questions: Today offers them when they are written. */
+export const SECTION_DONE_WRITING = "Writing questions from this section. They'll be on Today.";
+export const SECTION_DONE_LINE = "✓ Done with this section.";
 
 export const QUESTION_CONTROLS: Array<{ value: string; label: string }> = [
   { value: "too_easy", label: "too easy" },
@@ -66,7 +75,8 @@ export interface GuideRailProps {
    *  passage): a detour with a way back while reader_inquiry is on. */
   peekPassage?: (spanId: string) => void;
   revealSection: (sectionId: string) => void;
-  completeSection: (sectionId: string) => void;
+  /** Finishes a section (its questions are then written); answers whether that queued them, where it can tell. */
+  completeSection: (sectionId: string) => void | Promise<{ enqueuedGeneration?: boolean } | null>;
   onError: (message: string) => void;
   // The offline demo's fixture question (never shown over a real source).
   boundaryBlock: ReaderRenderBlockDto | null;
@@ -144,6 +154,8 @@ export function GuideRail({
   alsoInBooks = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
+  // Sections finished here with "Done with this section", and whether that queued their questions.
+  const [finishedHere, setFinishedHere] = useState<Record<string, "writing" | "done">>({});
   // Without a read count (an older caller) the bar follows the reading marker.
   const sectionRead = currentSectionRead ?? currentSectionProgress;
   return (
@@ -206,6 +218,21 @@ export function GuideRail({
                   ? "You’re near the section break. Keep going, or revisit a useful passage."
                   : "Keep reading at your own pace."}
           </Faint>
+          <SectionDone
+            section={currentGuideSection}
+            // The Contents' own "read" rule: every passage of the section seen, never a jump past it.
+            readThrough={(sectionSeen[currentGuideSection.id] ?? 0) >= currentGuideSection.spanIds.length}
+            completed={completedSections.includes(currentGuideSection.id)}
+            finishedHere={finishedHere[currentGuideSection.id] ?? null}
+            offline={offline}
+            onDone={async (sectionId) => {
+              // The same completion the quick check's "done for now" sends. An open quick check is left as it is,
+              // still answerable (the phone dismisses nothing either); answering it later sends the same once-only
+              // completion, so nothing is written twice.
+              const result = await completeSection(sectionId);
+              setFinishedHere((done) => ({ ...done, [sectionId]: result && result.enqueuedGeneration ? "writing" : "done" }));
+            }}
+          />
         </Card>
       ) : guideLoading ? (
         <Faint style={{ fontSize: 12 }}>◐ connecting this source to your learning path…</Faint>
@@ -317,7 +344,7 @@ export function GuideRail({
         </>
       ) : null}
 
-      {currentGuideSection && completedSections.includes(currentGuideSection.id) ? (
+      {currentGuideSection && completedSections.includes(currentGuideSection.id) && answeredSections.includes(currentGuideSection.id) ? (
         <Card style={{ marginTop: 10, background: COLOR.washGreen }}>
           <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>✓ quick check complete — keep going.</span>
         </Card>
@@ -418,6 +445,54 @@ export function SectionBoundaryOffer({
         <SecondaryButton onClick={onDismiss}>keep reading</SecondaryButton>
       </div>
     </Card>
+  );
+}
+
+/** "Done with this section" at a section's end, in the section's card where its other actions live; then what it
+ *  started, in the Reader's posture (a still mark, never a moving one: G54). */
+function SectionDone({
+  section,
+  readThrough,
+  completed,
+  finishedHere,
+  offline,
+  onDone,
+}: {
+  section: ReaderGuideSectionDto;
+  readThrough: boolean;
+  completed: boolean;
+  finishedHere: "writing" | "done" | null;
+  offline: boolean;
+  onDone: (sectionId: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (finishedHere === "writing") {
+    return (
+      <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+        <WaitMark still /> {SECTION_DONE_WRITING}
+      </div>
+    );
+  }
+  if (completed || finishedHere === "done") {
+    return (
+      <div data-testid="section-done" role="status" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.green }}>
+        {SECTION_DONE_LINE}
+      </div>
+    );
+  }
+  if (!readThrough || offline) return null;
+  return (
+    <div>
+      <PrimaryButton
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void onDone(section.id).finally(() => setBusy(false));
+        }}
+      >
+        {SECTION_DONE}
+      </PrimaryButton>
+    </div>
   );
 }
 

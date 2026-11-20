@@ -24,6 +24,7 @@ import { api } from "../../api/client";
 import type {
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
+  ReaderMarkProgressResultDto,
   ReaderPdfViewDto,
   ReaderProgressListDto,
   ReaderRenderBlockDto,
@@ -256,7 +257,7 @@ export interface ReadingProgress {
   retryQuickCheck: (sectionId: string) => void;
   openQuickCheck: (sectionId: string) => void;
   revealSection: (sectionId: string) => void;
-  completeSection: (sectionId: string) => void;
+  completeSection: (sectionId: string) => Promise<ReaderMarkProgressResultDto | null>;
   jumpToSpan: (spanId: string, align?: PassageAlign) => void;
   /** The view is about to move without a jump (focus brings a transcript's
    *  margin mark into view): a placement, like a jump -- the learner's
@@ -934,14 +935,16 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
 
   // Completion persists durably and — first time only — triggers progressive
   // practice generation for the section's learning objects (items-off seeding).
+  // The answer says whether the completion queued the section's questions
+  // (`enqueuedGeneration`), so "Done with this section" can say they are being
+  // written only when they are; null offline or when the call failed.
   const completeSection = useCallback(
-    (sectionId: string) => {
+    (sectionId: string): Promise<ReaderMarkProgressResultDto | null> => {
       setCompletedSections((ids) => [...new Set([...ids, sectionId])]);
-      if (render && !offline) {
-        api
-          .readerMarkSectionProgress({ extractionId: render.extractionId, sectionId, completed: true })
-          .catch(() => undefined);
-      }
+      if (!render || offline) return Promise.resolve(null);
+      return api
+        .readerMarkSectionProgress({ extractionId: render.extractionId, sectionId, completed: true })
+        .catch(() => null);
     },
     [render, offline]
   );

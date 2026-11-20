@@ -13,7 +13,8 @@
 // The rule Today says (docs/reviews/ux-first-questions-today.md, step 0): a
 // book added through Add is built with no questions to practise; a section's
 // questions are written when the learner finishes it (on the desktop: its
-// quick check finished), and once written they are on today's list at once.
+// quick check finished, or "Done with this section" at its end), and once
+// written they are on today's list at once.
 //
 // Today's list comes first: when it still has questions, there is something
 // to practise, whatever the books say. The plan alone cannot tell a stop the
@@ -272,8 +273,8 @@ export function causeSentence(cause: TodayCause): string {
       return "LearnLoop writes questions from what you read. Add a book, paper or lecture to read.";
     case "finish_section":
       return cause.card
-        ? `Your first questions come when you finish a section of “${readableTitle(cause.card.title)}”: read to its end and finish its quick check.`
-        : "Your first questions come when you finish a section: read to its end and finish its quick check.";
+        ? `Your first questions come when you finish a section of “${readableTitle(cause.card.title)}”: finish its quick check, or press Done with this section at its end.`
+        : "Your first questions come when you finish a section: finish its quick check, or press Done with this section at its end.";
     case "none_up":
       return `Nothing from “${cause.title}” is up today. More questions come as you finish sections.`;
   }

@@ -1241,7 +1241,7 @@ describe("UX fix stage 3, P1: an empty or finished Today names its cause and car
     emptyToday([card]);
     const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: read to its end and finish its quick check.");
+    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
     expect(cause.textContent).not.toContain("Everything you've read");
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
@@ -1320,7 +1320,7 @@ describe("UX fix stage 3: Practise for this goal with nothing ready says why, an
     const card = await screen.findByTestId("goal-card");
     fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
     const line = await screen.findByTestId("goal-nothing-ready");
-    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: your first questions come when you finish a section of “Symmetric Matrices and Variance”: read to its end and finish its quick check.");
+    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
     fireEvent.click(within(line).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(book);
   });
@@ -1738,7 +1738,7 @@ describe("First questions arrive (P11, F20): Today offers a book's first questio
     emptyToday([card]);
     const props = show(causeProps({ aiConnection: ready() }));
     const cause = await screen.findByTestId("today-cause");
-    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: read to its end and finish its quick check.");
+    expect(cause.textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”: finish its quick check, or press Done with this section at its end.");
     expect(cause.textContent).not.toMatch(/Everything you've read|on their way/);
     fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
     expect(props.onOpenBook).toHaveBeenCalledWith(card);
