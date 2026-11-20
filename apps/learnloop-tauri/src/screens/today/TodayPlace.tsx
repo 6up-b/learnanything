@@ -1261,7 +1261,10 @@ function CauseLine({
   if (wait) {
     // A wait (a book being got ready, a finished section's questions being written): the shared waiting
     // indicator says what is happening and how far, the action beside it from the first moment; the line under it
-    // says what to know meanwhile. The indicator is the status region, so this frame is not one too.
+    // says what to know meanwhile. The indicator is the status region, so this frame is not one too. A topic that
+    // failed while the rest are written is said under the writing with no Try again: a resume of a running job
+    // requeues nothing, so the button would do nothing visible.
+    const failed = causeTopicsFailed(cause);
     return (
       <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
         <Waiting testId={`${testId}-wait`} line={wait.line} later={wait.later}>
@@ -1274,6 +1277,7 @@ function CauseLine({
             </>
           ) : null}
         </Waiting>
+        {failed ? <div data-testid={`${testId}-failed`}>{failed}</div> : null}
         <div>{wait.after}</div>
       </div>
     );
