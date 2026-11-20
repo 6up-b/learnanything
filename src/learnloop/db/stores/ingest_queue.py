@@ -307,6 +307,18 @@ class IngestQueueStoreMixin:
             ).fetchone()
         return _decode_ingest_job(row) if row is not None else None
 
+    def ingest_jobs_by_payload(self, job_type: str, key: str, value: str) -> list[dict[str, Any]]:
+        """Every job of ``job_type`` whose payload's top-level ``key`` is
+        ``value``, newest first (a reading's section checks, by extraction)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM ingest_jobs WHERE job_type = ? AND json_extract(payload_json, ?) = ? "
+                "ORDER BY created_at DESC, id DESC",
+                (job_type, f"$.{key}", value),
+            ).fetchall()
+        return [_decode_ingest_job(row) for row in rows]
+
     def ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]:
         return self.ingest_jobs_for_batches((batch_id,)).get(batch_id, [])
 

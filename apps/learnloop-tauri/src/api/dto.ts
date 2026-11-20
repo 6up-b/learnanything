@@ -7373,6 +7373,9 @@ export interface ReaderGuidePlanDto {
     targetContractVersionId: string | null;
   } | null;
   sections: ReaderGuideSectionDto[];
+  /** Sections with no question whose newest quick-check job failed: the Reader says so with Try again. Absent from an
+   *  older sidecar. */
+  checkFailedSectionIds?: string[];
   /** Reader workbench RW3a: the plan's own misunderstanding passages as
    *  margin cues, within the learner's choices. Absent when cues are
    *  switched off (cues.enabled = false) or from an older sidecar. */
