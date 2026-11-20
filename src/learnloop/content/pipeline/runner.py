@@ -368,9 +368,11 @@ def _batch_unit(runner: "IngestRunner", batch_id: str) -> Iterator[None]:
     round 5, Medium 2): a batch resumed after a sidecar restart asks again as
     its origin. Grants and tokens stay session-only."""
 
+    from learnloop.ai.execution import background_model_work
+
     origin = plan_fallback.batch_origin(batch_id) or runner.batch_origin_method(batch_id)
     stamp = plan_fallback.batch_stamp(batch_id, runner.vault_root)
-    with plan_fallback.unit(plan_fallback.batch_grant(batch_id), origin, stamp) as offers:
+    with background_model_work(), plan_fallback.unit(plan_fallback.batch_grant(batch_id), origin, stamp) as offers:
         try:
             yield
         finally:
@@ -1344,12 +1346,14 @@ def a_retry_may_cure(exc: BaseException) -> bool:
     its ceiling, invalid, late or not given. Not a cancellation, a spend
     pause, a gate's verdict or a refusal the learner must act on."""
 
-    from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+    from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable, AITurnTimeout
     from learnloop.content.synthesis.source_unit_inventory import InventoryValidationError
 
     if isinstance(exc, IngestRunnerError):
         return exc.code in _CURABLE_CODES
     if isinstance(exc, AIInterrupted):
+        return False
+    if isinstance(exc, AITurnTimeout) and exc.reason == "ceiling":
         return False
     return isinstance(exc, (AIProviderUnavailable, InventoryValidationError, TimeoutError))
 
@@ -1390,8 +1394,12 @@ def _curable_error_codes() -> frozenset[str]:
 
 
 def _error_code(exc: Exception) -> str:
+    from learnloop.ai.errors import AITurnTimeout
+
     if isinstance(exc, IngestRunnerError):
         return exc.code
+    if isinstance(exc, AITurnTimeout) and exc.reason == "ceiling":
+        return "timeout_ceiling"
     if isinstance(exc, TimeoutError):
         return "timeout"
     return exc.__class__.__name__

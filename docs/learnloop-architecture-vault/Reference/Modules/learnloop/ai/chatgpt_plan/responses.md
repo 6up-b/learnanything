@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py) |
-| Source lines | 427 |
+| Source lines | 489 |
 | Owning package | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -70,12 +70,12 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `iter_sse(readline: Callable[[], bytes]) -> Iterator[tuple[str | None, str]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 194) — ``(event name, data)`` per server-sent event (the WHATWG framing).
 - `output_text(response: Mapping[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 221) — ``(text, refusal)`` from a terminal response's ``output`` items.
 - `error_fields(payload: Any) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 239) — ``(code, message, param)`` from an error object, an error event or ``{"detail": ...}``.
-- `class ResponsesStream` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 267) — One request, one connection; ``cancel()`` shuts it down from any thread.
-  - `__init__(self, base_url: str) -> None` (line 270; internal)
-  - `cancel(self, reason: str) -> None` (line 282; public)
-  - `_raise_if_cancelled(self) -> None` (line 294; internal)
-  - `send(self, body: Mapping[str, Any], *, access_token: str, timeout: float, on_event: Callable[[str, Mapping[str, Any]], None] | None=None) -> StreamResult` (line 298; public)
-  - `_read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float, headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None) -> StreamResult` (line 356; internal)
+- `class ResponsesStream` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 308) — One request, one connection; ``cancel()`` shuts it down from any thread.
+  - `__init__(self, base_url: str) -> None` (line 311; internal)
+  - `cancel(self, reason: str) -> None` (line 324; public)
+  - `_raise_if_cancelled(self) -> None` (line 336; internal)
+  - `send(self, body: Mapping[str, Any], *, access_token: str, timeout: float, idle_timeout: float | None=None, on_event: Callable[[str, Mapping[str, Any]], None] | None=None) -> StreamResult` (line 340; public)
+  - `_read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float, headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None) -> StreamResult` (line 418; internal)
 
 ### Module constants
 
@@ -107,6 +107,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 - `_str(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 255)
 - `_request_id(headers: Mapping[str, str] | http.client.HTTPMessage) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 259)
+- `class _StreamDeadline` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 267) — One watchdog wakes at the next bound; output moves only the idle bound.
 
 ## Who imports or calls it
 
@@ -139,6 +140,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/plan_deadline_fakes.py](../../../../../../../tests/plan_deadline_fakes.py) — direct import
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_socket_timeout_at_ceiling_is_not_mistaken_for_retryable_idle`
+- [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
+  - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_request_shape_follows_the_plan_route_rules`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import

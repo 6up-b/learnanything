@@ -34,9 +34,14 @@ with bounded backoff inside the caller's deadline, and a 401 refreshes the
 token once. A usage-limit error pauses the plan (``plan usage exhausted``):
 later requests are refused locally until the pause ends, so routes that allow
 fallback fall back and a retrying caller never hammers the plan.
+
+Ingest-owned requests use the original profile timeout as an output-idle
+window and a twenty-minute absolute ceiling across the complete call.
+Foreground requests retain the caller's hard total deadline.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import logging
 from pathlib import Path
@@ -95,6 +100,9 @@ logger = logging.getLogger(__name__)
 
 PROVIDER_TYPE = "chatgpt_plan"
 DEFAULT_TIMEOUT_SECONDS = 180.0
+# The ingest lease renews indefinitely. Twenty minutes bounds a live stream
+# while allowing over twice the observed unfinished 410s call and 480s cuts.
+BACKGROUND_CEILING_SECONDS = 20 * 60
 #: A tools-mode workspace turn's input in all (every round resends the
 #: history), as a multiple of the profile's ``max_workspace_chars`` (review F7).
 TURN_INPUT_FACTOR = 4
@@ -116,6 +124,19 @@ _CONFIG_CODES = frozenset({
 _sleep = time.sleep
 _monotonic = time.monotonic
 _random = random.random
+
+
+@dataclass(frozen=True)
+class _Deadline:
+    at: float
+    idle_seconds: float | None = None
+
+    def remaining(self) -> float:
+        return self.at - _monotonic()
+
+    @property
+    def reason(self) -> str:
+        return "ceiling" if self.idle_seconds is not None else "deadline"
 
 
 class ChatGPTPlanRequestRejected(AIProviderUnavailable):
@@ -140,9 +161,13 @@ _PLAN_UNAVAILABLE = (ChatGPTSignInRequired, ChatGPTPlanNotEnabled, ChatGPTPlanUs
 class ChatGPTPlanProviderClient(TokenUsageAccounting):
     provider_type = PROVIDER_TYPE
 
-    def __init__(self, provider_name: str, profile: AIProviderConfig, *, session: PlanSession | None = None) -> None:
+    def __init__(self, provider_name: str, profile: AIProviderConfig, *, session: PlanSession | None = None,
+                 idle_timeout_seconds: float | None = None) -> None:
         self.provider_name = provider_name
         self.profile = profile
+        # Routing overwrites the profile's total timeout for ingest. Preserve
+        # its original value so that silent streams don't get that longer wait.
+        self.idle_timeout_seconds = float(idle_timeout_seconds or profile.timeout_seconds or DEFAULT_TIMEOUT_SECONDS)
         self.model = profile.model
         if not self.model:
             raise AIProviderUnavailable(
@@ -219,7 +244,10 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
     # -- structured completion --------------------------------------------
     def complete(self, request: StructuredRequest[Any]) -> Any:
         timeout = float(request.timeout_seconds or self.profile.timeout_seconds or DEFAULT_TIMEOUT_SECONDS)
-        deadline = _monotonic() + timeout
+        deadline = _Deadline(
+            _monotonic() + (BACKGROUND_CEILING_SECONDS if request.background else timeout),
+            self.idle_timeout_seconds if request.background else None,
+        )
         model_type = request.result_model
         budget = request.output_budget_tokens
         if budget is not None and budget <= 0:
@@ -275,7 +303,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                     "strict": True}
         return {"type": "json_object"}
 
-    def _respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: float,
+    def _respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: _Deadline,
                  effort: str | None = None, extra: dict[str, Any] | None = None, budget: int | None = None) -> str:
         body = request_body(
             model=str(self.model), instructions=instructions, prompt=prompt,
@@ -286,7 +314,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
 
     # -- the read-only workspace -------------------------------------------
     def _workspace_turn(self, root: Path, instructions: str, prompt: str, model_type: type[BaseModel], *,
-                        deadline: float, effort: str | None, budget: int | None = None) -> str:
+                        deadline: _Deadline, effort: str | None, budget: int | None = None) -> str:
         """Serve ``root`` to the model (function calls or inline); returns the final text."""
 
         if single_request_active():
@@ -327,7 +355,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
                                deadline=deadline, effort=effort, budget=budget)
 
     def _tool_loop(self, workspace: ServedWorkspace, instructions: str, prompt: str, model_type: type[BaseModel],
-                   *, deadline: float, effort: str | None, budget: int | None = None) -> str:
+                   *, deadline: _Deadline, effort: str | None, budget: int | None = None) -> str:
         """Rounds of function calls over ``workspace``, then the final answer.
 
         Up to ``max_tool_rounds`` responses that call workspace functions are
@@ -389,7 +417,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         raise AIInvalidOutput(f"{self.provider_name} did not answer within its workspace rounds.")  # pragma: no cover
 
     # -- one physical request, with retries --------------------------------
-    def _send(self, body: dict[str, Any], *, deadline: float, extra: dict[str, Any] | None = None,
+    def _send(self, body: dict[str, Any], *, deadline: _Deadline, extra: dict[str, Any] | None = None,
               budget: int | None = None) -> StreamResult:
         """One physical request, resent on a transient failure or after a token refresh.
 
@@ -412,20 +440,20 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             except ChatGPTPlanTransient as failure:
                 delay = None if single_request_active() or attempt >= _MAX_ATTEMPTS else (
                     _BACKOFF_SECONDS[attempt - 1] * (0.5 + 0.5 * _random()))
-                if delay is None or _monotonic() + delay + _MIN_ATTEMPT_SECONDS > deadline:
+                if delay is None or delay + _MIN_ATTEMPT_SECONDS > deadline.remaining():
                     raise
                 logger.warning("ChatGPT plan %s request failed transiently; retrying in %.1fs: %s",
                                self.provider_name, delay, failure)
                 _sleep(delay)
         raise ChatGPTPlanUnauthorized(f"{self.provider_name}: the refreshed access token was not accepted either.")
 
-    def _stop_if_due(self, deadline: float) -> None:
+    def _stop_if_due(self, deadline: _Deadline) -> None:
         if self._interrupted.is_set():
             raise AIInterrupted("ChatGPT plan request interrupted.")
-        if deadline - _monotonic() <= 0:
-            raise AITurnTimeout("The ChatGPT plan request ran out of time.")
+        if deadline.remaining() <= 0:
+            raise AITurnTimeout("The ChatGPT plan request ran out of time.", reason=deadline.reason)
 
-    def _send_once(self, body: dict[str, Any], *, deadline: float, observed_pause: dict[str, Any] | None,
+    def _send_once(self, body: dict[str, Any], *, deadline: _Deadline, observed_pause: dict[str, Any] | None,
                    extra: dict[str, Any] | None = None, budget: int | None = None) -> StreamResult:
         """One physical request under its own receipt (the token step sends no model request)."""
 
@@ -436,27 +464,38 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             self._active = stream
         try:
             self._stop_if_due(deadline)
+            token_deadline = min(deadline.at, _monotonic() + deadline.idle_seconds) \
+                if deadline.idle_seconds is not None else deadline.at
+
+            def check_token_wait() -> None:
+                self._stop_if_due(deadline)
+                if _monotonic() >= token_deadline:
+                    raise AITurnTimeout("The ChatGPT plan token wait exceeded its idle window.", reason="idle")
+
             try:
                 token = self.session.access_token(
-                    timeout=deadline - _monotonic(),
-                    cancelled=lambda: self._interrupted.is_set() or deadline - _monotonic() <= 0,
+                    timeout=token_deadline - _monotonic(),
+                    cancelled=lambda: self._interrupted.is_set() or token_deadline - _monotonic() <= 0,
                 )
             except AIProviderUnavailable:
-                self._stop_if_due(deadline)  # an interrupt or the deadline, not the credentials
+                check_token_wait()  # an interrupt or the deadline, not the credentials
                 raise
             # The credential step may have outlived the deadline or an interrupt.
-            self._stop_if_due(deadline)
-            remaining = deadline - _monotonic()
+            check_token_wait()
+            remaining = deadline.remaining()
             # The receipt records the output allowance this request is sent
             # with: the budget its prompt states, the route taking no cap.
             with model_call(self, purpose="responses_request", prompt=body.get("input"),
                             schema=body.get("text"), budget=budget) as receipt:
                 try:
-                    result = stream.send(body, access_token=token, timeout=remaining)
+                    stream_limits = {"idle_timeout": deadline.idle_seconds} if deadline.idle_seconds is not None else {}
+                    result = stream.send(body, access_token=token, timeout=remaining, **stream_limits)
                 except StreamCancelled as cancelled:
+                    receipt.update(finish_reason=cancelled.reason)
                     if cancelled.reason == "interrupt":
                         raise AIInterrupted("ChatGPT plan request interrupted.") from None
-                    raise AITurnTimeout("The ChatGPT plan request exceeded its deadline.") from None
+                    raise AITurnTimeout("The ChatGPT plan request exceeded its deadline.",
+                                        reason=cancelled.reason) from None
                 except StreamIncomplete as incomplete:
                     self._meter(incomplete.response, None, extra=extra)
                     if incomplete.reason in {"max_output_tokens", "max_tokens"}:

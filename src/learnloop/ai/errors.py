@@ -20,6 +20,10 @@ class AIOutputTruncated(AIInvalidOutput):
 class AITurnTimeout(AIProviderUnavailable, TimeoutError):
     """A provider turn exceeded its wall-clock deadline."""
 
+    def __init__(self, message: str, *, reason: str = "deadline") -> None:
+        super().__init__(message)
+        self.reason = reason
+
 
 class VideoGenerationFailed(AIProviderUnavailable):
     """A video-generation job ended in a terminal non-success state."""

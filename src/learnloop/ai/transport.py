@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.usage import TokenUsage
-from learnloop.ai.execution import generation_ceiling, model_call, output_limit, reasoning_effort_request
+from learnloop.ai.execution import background_model_work_active, generation_ceiling, model_call, output_limit, reasoning_effort_request
 
 WireResult = TypeVar("WireResult", bound=WireModel)
 
@@ -80,6 +80,8 @@ class StructuredRequest(Generic[WireResult]):
     #: ``(media type, bytes)`` images sent with the prompt; only to a transport
     #: that declares :data:`IMAGE_INPUT`.
     images: tuple[tuple[str, bytes], ...] = ()
+    #: Host ownership, never inferred from purpose; not part of the model body.
+    background: bool = False
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -226,6 +228,7 @@ def execute_structured_operation(
         isolated=isolated,
         reasoning_effort=reasoning_effort_request(),
         images=tuple(images),
+        background=background_model_work_active(),
     )
     # The operation, not a request: the provider's physical requests inside
     # it (retries and a JSON repair included) are admitted one by one.

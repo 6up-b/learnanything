@@ -30,17 +30,20 @@ def make_ai_provider_client(
             "model": config.embedding.model,
             "dimensions": config.embedding.dimensions,
         })
+    idle_timeout = profile.timeout_seconds or config.ai.timeout_seconds
     if timeout_seconds is not None:
         profile = profile.model_copy(update={"timeout_seconds": timeout_seconds})
     elif profile.timeout_seconds is None:
         profile = profile.model_copy(update={"timeout_seconds": config.ai.timeout_seconds})
-    return make_ai_provider_client_from_profile(selected, profile, vault_root)
+    return make_ai_provider_client_from_profile(selected, profile, vault_root, idle_timeout_seconds=idle_timeout)
 
 
 def make_ai_provider_client_from_profile(
     provider_name: str,
     profile: AIProviderConfig,
     vault_root: Path,
+    *,
+    idle_timeout_seconds: float | None = None,
 ) -> AIProviderClient:
     """Build one client for ``profile``: the single AI client factory.
 
@@ -75,7 +78,7 @@ def make_ai_provider_client_from_profile(
     if provider_type == "chatgpt_plan":
         from learnloop.ai.providers.chatgpt_plan import ChatGPTPlanProviderClient
 
-        return ChatGPTPlanProviderClient(provider_name, profile)
+        return ChatGPTPlanProviderClient(provider_name, profile, idle_timeout_seconds=idle_timeout_seconds)
     raise AIProviderUnavailable(f"Unsupported AI provider type {profile.type!r} for {provider_name!r}")
 
 

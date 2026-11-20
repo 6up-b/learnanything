@@ -353,6 +353,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_under_code_defaults_each_ad_route_is_the_plan_and_codex_is_refused`
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
   - `test_doctor_ignores_an_unrouted_plan_profile`
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_job_override_preserves_original_profile_as_idle_window`
+- [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
+  - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_landing.py](../../../../../../tests/test_chatgpt_plan_landing.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_and_forecasts`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import

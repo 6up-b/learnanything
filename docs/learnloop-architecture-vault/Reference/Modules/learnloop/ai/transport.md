@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/transport.py](../../../../../../src/learnloop/ai/transport.py) |
-| Source lines | 323 |
+| Source lines | 326 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,23 +56,23 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Public API
 
 - `class StructuredRequest(Generic[WireResult])` ([source](../../../../../../src/learnloop/ai/transport.py), line 52) — One validated completion request independent of provider mechanics.
-  - `model_type(self) -> type[WireResult]` (line 85; public) — Compatibility spelling for callers that describe a Pydantic type.
-  - `wire_model(self) -> type[WireResult]` (line 91; public) — Make the request's wire contract explicit at call sites.
-- `class OperationClient(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 98) — Common identity/capability surface for structured or legacy operations.
-  - `supports(self, capability: str) -> bool` (line 105; public) — Declare optional transport capabilities without method probing.
-- `class StructuredTransport(OperationClient, Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 112) — The complete provider protocol for shared structured operations.
-  - `complete(self, request: StructuredRequest[WireResult]) -> WireResult` (line 115; public) — Return a response validated as ``request.result_model``.
-- `class LegacyOperationTransport(OperationClient, Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 121) — Endpoint adapter that executes only explicitly supported operations.
-  - `complete_legacy(self, request: StructuredRequest[WireResult], *, context: object) -> WireResult` (line 124; public) — Execute a feature-owned request over a legacy named endpoint.
-  - `consume_usage(self) -> TokenUsage` (line 134; public) — Read and reset accumulated provider-reported usage.
-- `class InterruptibleTransport(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 140) — Narrow typed view activated only after the capability check.
-  - `interrupt(self) -> Any` (line 143; public)
-- `class CapabilityTransport(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 148) — The minimum runtime surface needed for optional capabilities.
-  - `supports(self, capability: str) -> bool` (line 151; public)
-- `interrupt_callback(transport: object) -> Callable[[], Any] | None` ([source](../../../../../../src/learnloop/ai/transport.py), line 155) — Return the typed interrupt hook when the transport declares support.
-- `execute_structured_operation(transport: OperationClient, *, purpose: str, prompt: str, result_model: type[WireResult], timeout_seconds: float | None=None, legacy_capability: str | None=None, legacy_context: object | None=None, workspace: Path | None=None, isolated: bool=False, images: tuple[tuple[str, bytes], ...]=()) -> WireResult` ([source](../../../../../../src/learnloop/ai/transport.py), line 163) — Execute one feature-owned structured operation.
-- `prompt_safe(value: Any) -> Any` ([source](../../../../../../src/learnloop/ai/transport.py), line 262) — Convert an operation context value into bounded JSON prompt data.
-- `render_structured_prompt(title: str, prompt_version: str, payload: Mapping[str, Any], *, context_tail_fields: tuple[str, ...]=()) -> str` ([source](../../../../../../src/learnloop/ai/transport.py), line 278) — Render the byte-stable envelope shared by feature-owned operations.
+  - `model_type(self) -> type[WireResult]` (line 87; public) — Compatibility spelling for callers that describe a Pydantic type.
+  - `wire_model(self) -> type[WireResult]` (line 93; public) — Make the request's wire contract explicit at call sites.
+- `class OperationClient(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 100) — Common identity/capability surface for structured or legacy operations.
+  - `supports(self, capability: str) -> bool` (line 107; public) — Declare optional transport capabilities without method probing.
+- `class StructuredTransport(OperationClient, Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 114) — The complete provider protocol for shared structured operations.
+  - `complete(self, request: StructuredRequest[WireResult]) -> WireResult` (line 117; public) — Return a response validated as ``request.result_model``.
+- `class LegacyOperationTransport(OperationClient, Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 123) — Endpoint adapter that executes only explicitly supported operations.
+  - `complete_legacy(self, request: StructuredRequest[WireResult], *, context: object) -> WireResult` (line 126; public) — Execute a feature-owned request over a legacy named endpoint.
+  - `consume_usage(self) -> TokenUsage` (line 136; public) — Read and reset accumulated provider-reported usage.
+- `class InterruptibleTransport(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 142) — Narrow typed view activated only after the capability check.
+  - `interrupt(self) -> Any` (line 145; public)
+- `class CapabilityTransport(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 150) — The minimum runtime surface needed for optional capabilities.
+  - `supports(self, capability: str) -> bool` (line 153; public)
+- `interrupt_callback(transport: object) -> Callable[[], Any] | None` ([source](../../../../../../src/learnloop/ai/transport.py), line 157) — Return the typed interrupt hook when the transport declares support.
+- `execute_structured_operation(transport: OperationClient, *, purpose: str, prompt: str, result_model: type[WireResult], timeout_seconds: float | None=None, legacy_capability: str | None=None, legacy_context: object | None=None, workspace: Path | None=None, isolated: bool=False, images: tuple[tuple[str, bytes], ...]=()) -> WireResult` ([source](../../../../../../src/learnloop/ai/transport.py), line 165) — Execute one feature-owned structured operation.
+- `prompt_safe(value: Any) -> Any` ([source](../../../../../../src/learnloop/ai/transport.py), line 265) — Convert an operation context value into bounded JSON prompt data.
+- `render_structured_prompt(title: str, prompt_version: str, payload: Mapping[str, Any], *, context_tail_fields: tuple[str, ...]=()) -> str` ([source](../../../../../../src/learnloop/ai/transport.py), line 281) — Render the byte-stable envelope shared by feature-owned operations.
 
 ### Module constants
 
@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_execute_request(transport, request, legacy_context, legacy_capability)` ([source](../../../../../../src/learnloop/ai/transport.py), line 239)
+- `_execute_request(transport, request, legacy_context, legacy_capability)` ([source](../../../../../../src/learnloop/ai/transport.py), line 242)
 
 ## Who imports or calls it
 
@@ -243,7 +243,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`; calls `AIProviderUnavailable`
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`; calls `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `background_model_work_active`, `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`; calls `background_model_work_active`, `generation_ceiling`, `model_call`, `output_limit`, `reasoning_effort_request`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsage`
 
@@ -294,6 +294,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_rereview_a_prompt_upload_in_partial_sends_completes_unchanged`
   - `test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline`
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_background_flag_is_explicit_scoped_and_inherited_by_inventory_workers`
+  - `test_endless_background_stream_hits_ceiling_without_job_retry`
+  - `test_idle_cut_retries_once_and_records_failed_state`
+  - `test_job_host_stops_long_background_stream`
+- [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
+  - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_capabilities_isolated_tool_free_and_bounded`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import

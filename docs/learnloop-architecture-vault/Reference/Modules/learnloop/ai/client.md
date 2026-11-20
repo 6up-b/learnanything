@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/client.py](../../../../../../src/learnloop/ai/client.py) |
-| Source lines | 107 |
+| Source lines | 110 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ## Public API
 
 - `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 17)
-- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 40) — Build one client for ``profile``: the single AI client factory.
-- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 82) — Build the text-to-video client for an OpenRouter profile.
+- `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path, *, idle_timeout_seconds: float | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 41) — Build one client for ``profile``: the single AI client factory.
+- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 85) — Build the text-to-video client for an OpenRouter profile.
 
 ## Internal implementation anchors
 
@@ -115,6 +115,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
   - `test_placement_receipts_survive_rebuild_with_zero_model_calls`
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_job_override_preserves_original_profile_as_idle_window`
 - [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
   - `test_an_old_config_naming_codex_loads_and_every_entry_refuses_it_clearly`
 - [tests/test_daily_plan_replay.py](../../../../../../tests/test_daily_plan_replay.py) — direct import
