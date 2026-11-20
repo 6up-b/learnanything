@@ -29,7 +29,7 @@ import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/
 import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
-import { sectionWords } from "../screens/reader/readerShared";
+import { citationWords, sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
 import { INTENT_COPY } from "../screens/reader/intentPalette";
 import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
@@ -264,7 +264,9 @@ const ROUND_3B_SENTENCES = [
   // UX-50: the Notes rail's note box once the passage is highlighted.
   "save note", "add a note to this highlight…", "add to your note on this highlight…", "your note: “the gaps between arrivals matter”",
   // UX-51: the selection box's words.
-  INTENT_COPY.whereThisGoes, INTENT_COPY.findsOnly("highlight"), INTENT_COPY.keptAsNote
+  INTENT_COPY.whereThisGoes, INTENT_COPY.findsOnly("highlight"), INTENT_COPY.keptAsNote,
+  // UX-56: Ask's source chips.
+  ...["Wikipedia Elevator Paradox · modeling-the-elevator-problem", "Some Notes · root", "Wikipedia Elevator Paradox · (intro)"].map(citationWords)
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).

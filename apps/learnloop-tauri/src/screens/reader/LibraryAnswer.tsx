@@ -43,6 +43,7 @@ import { ProposalExercises, type LibraryExercisesProps } from "./ProposalExercis
 import { hitRoleLabel } from "./roleLabel";
 import { LIBRARY_COPY, SCOPE_COPY, type LibraryAskController } from "./useLibraryAsk";
 import { EvidenceMarker, MeaningLabel, ModelVoice, SourceVoice } from "./voices";
+import { citationWords } from "./readerShared";
 import { plainMathLine } from "../../render/mathSnippet";
 
 const linkStyle = {
@@ -446,7 +447,7 @@ export function LibraryAnswer({
               <MarkdownMath value={state.tutor.value.answerMd ?? ""} />
               {state.tutor.value.citations.length ? (
                 <span style={{ display: "block", color: COLOR.textDim, fontSize: 11 }}>
-                  cites: {state.tutor.value.citations.map((citation) => (citation.label ? plainMathLine(citation.label) : citation.label)).join(" · ")}
+                  cites: {state.tutor.value.citations.map((citation) => (citation.label ? plainMathLine(citationWords(citation.label)) : citation.label)).join(" · ")}
                 </span>
               ) : null}
             </ModelVoice>
