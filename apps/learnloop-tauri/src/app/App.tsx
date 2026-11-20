@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK } from "../copy/refusals";
+import { LESSON_KEPT } from "./todayCause";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
@@ -2047,6 +2048,7 @@ export function App() {
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
         {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+        lessonOpen={lessonEntry !== null}
         aiConnection={aiConnection}
         onConnectAi={() => setConnectOpen(true)}
         onOpenBook={openBook}
@@ -2478,7 +2480,10 @@ export function App() {
         <Suspense fallback={<div role="status">Loading…</div>}>
           <LessonScreen
             entry={lessonEntry}
-            onClose={() => setLessonEntry(null)}
+            onClose={(kept) => {
+              setLessonEntry(null);
+              if (kept) notify(LESSON_KEPT);
+            }}
             onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
             onLookInLibrary={lookInLibrary}
             {...(lessonFromCheckFailed ? { onOpenFailed: lessonFromCheckFailed } : {})}

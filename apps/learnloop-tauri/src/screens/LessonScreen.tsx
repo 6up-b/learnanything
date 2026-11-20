@@ -93,7 +93,8 @@ export function LessonScreen({
   onError,
 }: {
   entry: LessonEntry;
-  onClose: () => void;
+  /** `kept`: the lesson is still open (Close never stops one), so the host can say where it is now. */
+  onClose: (kept: boolean) => void;
   /** "Check what I already know first" over the lesson's topics (the existing quick check). */
   onQuickCheck?: (learningObjectIds: string[]) => void;
   /** TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover offers "Look in my library"
@@ -333,7 +334,7 @@ export function LessonScreen({
         {view && !view.closed ? (
           <button type="button" onClick={() => void stop()} disabled={busy}>Stop the lesson</button>
         ) : null}
-        <button type="button" onClick={onClose}>Close</button>
+        <button type="button" onClick={() => onClose(Boolean(view && !view.closed))}>Close</button>
       </div>
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <article style={{ flex: 1, overflowY: "auto", padding: "18px 32px", maxWidth: 820, lineHeight: 1.6 }}>

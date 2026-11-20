@@ -1547,3 +1547,60 @@ describe("waiting you can see: Today to the question", () => {
     expect(screen.queryByTestId("waiting")).toBeNull();
   });
 });
+
+// ── Broken controls, second round (UX journey audit part 2) ────────────────
+
+describe("UX-14: a lesson left open waits on Today with its one action", () => {
+  const OPEN = { lessonId: "les_dot", title: "Dot product", goal: null, openedAt: "2026-10-27T18:00:00Z", learningObjectIds: ["lo_dot"] };
+
+  it("an open lesson shows as 'Continue your lesson on …', and Continue resumes that lesson", async () => {
+    const f = apis(dto(body()), { lessonOpenLessons: vi.fn(async () => ({ lessons: [OPEN] })) });
+    const onStartLesson = vi.fn();
+    show({ session: SESSION, onStartLesson });
+    const line = await screen.findByTestId("today-open-lesson");
+    expect(line.textContent).toContain("Continue your lesson on Dot product");
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    fireEvent.click(within(line).getByRole("button", { name: "Continue" }));
+    expect(onStartLesson).toHaveBeenCalledWith({ kind: "resume", lessonId: "les_dot" });
+    expect(f.lessonOpenLessons).toHaveBeenCalledTimes(1);
+  });
+
+  it("read again when a lesson on top of Today closes, so a lesson closed with Close shows at once", async () => {
+    const lessonOpenLessons = vi.fn(async () => ({ lessons: [] as typeof OPEN[] }));
+    apis(dto(body()), { lessonOpenLessons });
+    const props = { session: SESSION, onStartLesson: vi.fn(), lessonOpen: true };
+    const { rerender } = render(<TodayPlace {...defaultProps()} {...props} />);
+    await screen.findByTestId("today-sentence");
+    expect(lessonOpenLessons).not.toHaveBeenCalled();
+    lessonOpenLessons.mockResolvedValueOnce({ lessons: [OPEN] });
+    rerender(<TodayPlace {...defaultProps()} {...props} lessonOpen={false} />);
+    expect((await screen.findByTestId("today-open-lesson")).textContent).toContain("Dot product");
+  });
+
+  it("without lessons (no onStartLesson) nothing is asked", async () => {
+    const f = apis(dto(body()), { lessonOpenLessons: vi.fn(async () => ({ lessons: [OPEN] })) });
+    show({ session: SESSION });
+    await screen.findByTestId("today-sentence");
+    await flush();
+    expect(f.lessonOpenLessons).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("today-open-lesson")).toBeNull();
+  });
+});
+
+function defaultProps(): TodayPlaceProps {
+  return {
+    session: null,
+    streak: { current: 4, activeToday: false, longest: 9 },
+    onBeginSession: vi.fn(),
+    onStartSession: vi.fn(async (minutes: number) => (await fns.startSession({ availableMinutes: minutes })) as SessionSnapshot),
+    onOpenPractice: vi.fn(),
+    onOpenPlanReading: vi.fn(),
+    onEndSession: vi.fn(),
+    onAdd: vi.fn(),
+    onOpenPassage: vi.fn(),
+    onResumeProblem: vi.fn(),
+    onAsk: vi.fn(),
+    onTakeExam: vi.fn(),
+    onError: vi.fn()
+  };
+}

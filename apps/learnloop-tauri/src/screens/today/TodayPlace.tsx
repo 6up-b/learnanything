@@ -27,6 +27,7 @@ import type {
   AiConnectionDto,
   DailyPlanDto,
   GoalDto,
+  OpenLessonDto,
   PlanReadingDto,
   PlanStepDto,
   QueueSnapshot,
@@ -81,6 +82,7 @@ import {
   causeActionLabel,
   causeSendsPassages,
   causeSentence,
+  continueLessonLine,
   goalCauseSentence,
   todayCause,
   type TodayCause
@@ -114,6 +116,9 @@ export interface TodayPlaceProps {
   wrapUp?: ReactNode;
   /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
   onStartLesson?: (entry: LessonEntry) => void;
+  /** A lesson is on screen over Today. Its closing is when an open lesson may have been left, so Today reads them
+   *  again then. */
+  lessonOpen?: boolean;
   /** UX fix stage 3 (audit P1): what an empty Today's cause line acts with.
    *  The AI connection says which OK is missing and what is sent. */
   aiConnection?: AiConnectionDto | null;
@@ -467,6 +472,7 @@ export function TodayPlace({
   subjects = [],
   wrapUp,
   onStartLesson,
+  lessonOpen = false,
   aiConnection = null,
   onConnectAi,
   onOpenBook,
@@ -1091,6 +1097,7 @@ export function TodayPlace({
         {!list && onStartLesson && algoConfig().lessonSuggestions ? (
           <LessonSuggestionCard sessionId={session?.sessionId ?? null} onStartLesson={onStartLesson} onError={onError} />
         ) : null}
+        {!list && onStartLesson ? <OpenLessons lessonOpen={lessonOpen} onStartLesson={onStartLesson} /> : null}
         {body}
         {waitLine ? <Waiting line={waitLine} /> : null}
         {!list && primaryGoal ? (
@@ -1175,6 +1182,36 @@ function CauseLine({
       </div>
       {sent && whatLeaves ? <div style={{ fontSize: 12, color: COLOR.textDim }}>{whatLeaves}</div> : null}
     </div>
+  );
+}
+
+/** A lesson the learner left open waits here with its one action, Continue (its stop is inside the lesson). Read
+ *  when Today opens and again each time a lesson over Today closes: Close keeps a lesson open, and without this line
+ *  nothing in this shell led back to it. A failed read shows nothing and never blocks Today. */
+function OpenLessons({ lessonOpen, onStartLesson }: { lessonOpen: boolean; onStartLesson: (entry: LessonEntry) => void }) {
+  const [lessons, setLessons] = useState<OpenLessonDto[]>([]);
+  useEffect(() => {
+    if (lessonOpen) return;
+    let cancelled = false;
+    api.lessonOpenLessons()
+      .then((result) => { if (!cancelled) setLessons(result.lessons ?? []); })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [lessonOpen]);
+  if (lessons.length === 0) return null;
+  return (
+    <section aria-label="Your lessons" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {lessons.map((lesson) => (
+        <div key={lesson.lessonId} data-testid="today-open-lesson" style={{ fontSize: 13, color: COLOR.text }}>
+          {continueLessonLine(lesson.title)}{" "}
+          <button type="button" style={linkButton} onClick={() => onStartLesson({ kind: "resume", lessonId: lesson.lessonId })}>
+            Continue
+          </button>
+        </div>
+      ))}
+    </section>
   );
 }
 
