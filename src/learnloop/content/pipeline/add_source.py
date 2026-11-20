@@ -963,6 +963,11 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
     spent_build = build_spend_usd(repo, config, batch_id)
     authorized = auto.get("authorized_usd")
+    if authorized is None and getattr(ctx, "retrying_on_its_own", False) and auto.get("estimate_usd") is not None:
+        # Nobody asked for this try: it spends only what the estimate the
+        # build was planned under still leaves, so the build never costs more
+        # than the learner was shown (or than ran without asking).
+        authorized = auto.get("estimate_usd")
     limit = max(float(authorized) - spent_build, 0.0) if authorized is not None else None
     reason = "authorization"
     cap = config.ingest.cost_pause.daily_cap_usd

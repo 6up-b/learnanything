@@ -391,6 +391,9 @@ class JobContext:
     _enqueue_batch: Callable[..., str] | None = None
     # Scopes held until this attempt ends (see ``hold``); set by the runner.
     _held: ExitStack | None = None
+    #: This attempt's second try, which the runner started on its own after a
+    #: failure a retry may cure (:func:`retries_on_its_own`), not the learner.
+    retrying_on_its_own: bool = False
 
     @property
     def payload(self) -> dict[str, Any]:
@@ -1045,20 +1048,33 @@ class IngestRunner:
             )
             heartbeat_thread.start()
             try:
-                # Scopes a handler holds for the rest of its attempt (the
-                # per-request spend gate of an automatic build) close here,
-                # inside the classification below, so what they raise on the
-                # way out is classified like the handler's own outcome.
-                with ExitStack() as held:
-                    ctx._held = held
-                    with guard_ingest_writes(
-                        self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"],
-                        halted=self.halted.is_set,
-                    ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
-                            _batch_unit(self, batch_id):
-                        result = handler(ctx)
+                tries = 2 if retries_on_its_own(job) else 1
+                for try_number in range(1, tries + 1):
+                    ctx.retrying_on_its_own = try_number > 1
+                    try:
+                        # Scopes a handler holds for the rest of its attempt
+                        # (the per-request spend gate of an automatic build)
+                        # close here, inside the classification below, so what
+                        # they raise on the way out is classified like the
+                        # handler's own outcome, and a retry is admitted afresh.
+                        with ExitStack() as held:
+                            ctx._held = held
+                            with guard_ingest_writes(
+                                self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"],
+                                halted=self.halted.is_set,
+                            ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]), \
+                                    _batch_unit(self, batch_id):
+                                result = handler(ctx)
+                        break
+                    except Exception as exc:
+                        if try_number == tries or not a_retry_may_cure(exc) or self.halted.is_set():
+                            raise
+                        _LOG.info("Ingest job %s failed (%s); trying it once more on its own", job["id"], exc)
+                        # Raises JobCancelled when the build was stopped meanwhile.
+                        ctx.report(ctx._phase or str(job.get("phase") or "acquired"), message="Trying again")
+                    finally:
+                        ctx._held = None
             finally:
-                ctx._held = None
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
         except JobOwnershipLost:
@@ -1283,6 +1299,45 @@ def _as_number(value: Any) -> float | int:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return value
     return 0
+
+
+#: The model steps of an automatic build: each is tried once more on its own
+#: when it fails in a way a fresh try may cure, before the build stops with
+#: Retry on the book's card. The checkpoints of every answer kept (inventory
+#: windows and units, synthesis passes and shards) make the second try ask only
+#: for what was not kept.
+_RETRIED_ON_ITS_OWN = frozenset({"inventory", "bootstrap_synthesis", "append_synthesis"})
+#: Typed failures a fresh try may cure: an answer over its ceiling (or an input
+#: refusal, which a retry refuses again before anything is sent).
+_CURABLE_CODES = frozenset({"budget_exceeded"})
+
+
+def retries_on_its_own(job: Mapping[str, Any]) -> bool:
+    """Whether a failed try of ``job`` is followed by one more in the same
+    attempt: the model steps of an automatic build (not the zero-model repair
+    of a kept candidate, and not a build the learner started elsewhere)."""
+
+    payload = job.get("payload") or {}
+    return (
+        job.get("job_type") in _RETRIED_ON_ITS_OWN
+        and isinstance(payload.get("auto_build"), Mapping)
+        and not payload.get("reuse_candidate")
+    )
+
+
+def a_retry_may_cure(exc: BaseException) -> bool:
+    """A failure a fresh try may cure: a model answer that was cut off, over
+    its ceiling, invalid, late or not given. Not a cancellation, a spend
+    pause, a gate's verdict or a refusal the learner must act on."""
+
+    from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+    from learnloop.content.synthesis.source_unit_inventory import InventoryValidationError
+
+    if isinstance(exc, IngestRunnerError):
+        return exc.code in _CURABLE_CODES
+    if isinstance(exc, AIInterrupted):
+        return False
+    return isinstance(exc, (AIProviderUnavailable, InventoryValidationError, TimeoutError))
 
 
 def _error_code(exc: Exception) -> str:
