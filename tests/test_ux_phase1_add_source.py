@@ -94,7 +94,8 @@ def test_several_files_become_several_books_and_the_first_opens(tmp_path):
     root = fresh_library(tmp_path)
     ctx = _held_ctx(root)
     first = write_book(tmp_path, "one.md")
-    second = write_book(tmp_path, "two.md")
+    # Two different files: the same bytes under two names are one book (UX-57).
+    second = write_book(tmp_path, "two.md", text="# Two\n\nAnother book's own words.\n")
     result = call(ctx, "add_source", {"sources": [str(first), str(second)]})
     assert [item["status"] for item in result["items"]] == ["added", "added"]
     assert result["opened"]["title"] == "One"

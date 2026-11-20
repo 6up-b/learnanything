@@ -222,16 +222,7 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
 
     artifact = repo.source_artifact_by_uri(category, resolved.source)
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
-        revision_id = artifact.get("current_revision_id")
-        item.update(
-            status="existing",
-            source_id=artifact["id"],
-            revision_id=revision_id,
-            title=_display_title(artifact, repo.get_source_revision(revision_id) if revision_id else None),
-            preparing=_completed_extraction(repo, artifact["id"]) is None,
-            message=EXISTING_MESSAGE,
-        )
-        return item
+        return _existing(item, repo, artifact)
 
     local = _local_file(resolved.source)
     source_id = revision_id = None
@@ -239,6 +230,11 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
         from learnloop.content.sources.source_library import register_source_revision
 
         raw_bytes = local.read_bytes()
+        # The same file from another folder or under another name is the book
+        # already here: registered under its new path it became a second copy.
+        same = _same_content_source(repo, raw_bytes)
+        if same is not None:
+            return _existing(item, repo, same)
         title = local_display_title(local, raw_bytes, category)
         registered = register_source_revision(
             repo,
@@ -267,6 +263,35 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
         item["message"] = TEXT_RECOGNITION_UNAVAILABLE_MESSAGE
     item["batch_id"] = ingest_jobs.enqueue_add_source(resolved.source, source_id=source_id, options=options)
     return item
+
+
+def _existing(item: dict[str, Any], repo, artifact: Mapping[str, Any]) -> dict[str, Any]:
+    """Answer an Add with the source already in the library, as it is."""
+
+    revision_id = artifact.get("current_revision_id")
+    item.update(
+        status="existing",
+        source_id=artifact["id"],
+        revision_id=revision_id,
+        title=_display_title(artifact, repo.get_source_revision(revision_id) if revision_id else None),
+        preparing=_completed_extraction(repo, artifact["id"]) is None,
+        message=EXISTING_MESSAGE,
+    )
+    return item
+
+
+def _same_content_source(repo, raw_bytes: bytes) -> dict[str, Any] | None:
+    """The first-added source holding these exact bytes (any of its revisions)
+    that has a reading or an import on its way, else None. Where a library
+    already holds two such sources, both stay; the first is the one opened."""
+
+    from learnloop.ingest.hashing import asset_hash
+
+    for revision in repo.source_revisions_by_asset_hash(asset_hash(raw_bytes)):
+        artifact = repo.get_source_artifact(str(revision["source_id"]))
+        if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
+            return artifact
+    return None
 
 
 def _local_file(source: str) -> Path | None:
