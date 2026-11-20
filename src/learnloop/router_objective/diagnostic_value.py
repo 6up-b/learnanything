@@ -231,6 +231,7 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
     true_paths = _Paths(model, place, lo, commitments)
     belief_paths = _Paths(model._belief_model(), place, model._belief_model().index.get(payload.topic), commitments)
     now = true_paths.build(now_options, keys, with_probe=False)
+    now_tails, now_done = true_paths.tails, clock()
     rows: list[Valued] = []
     branch_terms: dict[str, Any] = {"act_now": {ref: {key: _terms(now[(ref, key)], model) for key in keys[ref]}
                                                 for ref, _option in now_options}}
@@ -253,6 +254,7 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
     else:
         probed = true_paths.build(options, keys, with_probe=True)
         believed = belief_paths.build(options, keys, with_probe=True)
+        probe_done = clock()
         q_belief = {key: float(ledger.q.mean()) for key, ledger in believed.items()}
         use, table = DP.posterior_table(payload)
         prior_choice, prior_expected = _choose(options, hypotheses, q_belief, prior)
@@ -298,7 +300,12 @@ def evaluate_probe(inputs: Inputs, action: Action, *, decisions: DP.OwnerDecisio
     choice, rule = (numeric_choice(Evaluation(valued=tuple(rows), draws=model.k, cutoff=model.cutoff, seed=seed,
                                               elapsed_ms=0, complete=True), support) if rows else (None, {}))
     record["choice"] = rule
-    record["cost"] = {"ms": (clock() - started) * 1000.0, "rollouts": true_paths.tails + belief_paths.tails,
+    finished = clock()
+    # The acting-now arms are what the router values as separate candidates anyway; the probe's own paths (true and
+    # believed) are what pricing the probe adds.
+    record["cost"] = {"ms": (finished - started) * 1000.0, "rollouts": true_paths.tails + belief_paths.tails,
+                      "ms_act_now": (now_done - started) * 1000.0, "rollouts_act_now": now_tails,
+                      "ms_probe": ((probe_done - now_done) * 1000.0) if not payload.hard_stops else 0.0,
                       "hypotheses": len(hypotheses), "results": len(record.get("results", ())),
                       "repairs": len(payload.repairs), "effect_paths": sum(len(v) for v in keys.values())}
     return ProbeValuation(valued=tuple(rows), choice=choice, record=record)
