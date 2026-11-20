@@ -292,6 +292,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_embedding_backfill.py](../../../../../../tests/test_embedding_backfill.py) — direct import
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import
   - `test_direct_provider_resolution_defaults_to_generation`
+- [tests/test_empty_first_build.py](../../../../../../tests/test_empty_first_build.py) — direct import
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
 - [tests/test_figure_region.py](../../../../../../tests/test_figure_region.py) — direct import
   - `test_an_image_request_is_refused_by_a_transport_that_cannot_read_images`

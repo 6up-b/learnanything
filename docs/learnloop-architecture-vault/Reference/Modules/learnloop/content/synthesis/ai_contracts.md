@@ -184,6 +184,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_append_schema_declares_properties_on_bare_restructure_payload`
+- [tests/test_empty_first_build.py](../../../../../../../tests/test_empty_first_build.py) — direct import
+  - `test_which_runs_owe_a_topic_and_which_answers_hold_one`
 - [tests/test_exam_protection_identity.py](../../../../../../../tests/test_exam_protection_identity.py) — direct import
   - `test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin`
 - [tests/test_facet_authority.py](../../../../../../../tests/test_facet_authority.py) — direct import
