@@ -19,7 +19,7 @@ import json
 import pytest
 
 from learnloop.ai.errors import AIInterrupted, AITurnTimeout
-from learnloop.clock import utc_now_iso
+from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop.content.pipeline.add_source import (
     build_progress,
     latest_auto_outcome,
@@ -482,3 +482,94 @@ def test_chapters_found_does_not_borrow_question_progress(tmp_path, monkeypatch)
     assert line["text"] == "Chapters found"
     assert line["questions"]["progress"] == {"done": 2, "total": 8}
     assert "progress" not in line
+
+
+# -- UX-44: which of a book's questions can be asked now ---------------------------------------------------------------
+
+
+def _answer(root, repo, item_id, *, clock=None):
+    """One right, self-graded answer (no model), as the learner's own; ``clock`` None is now."""
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    complete_self_graded_attempt(
+        load_vault(root), repo,
+        AttemptDraft(practice_item_id=item_id, learner_answer_md="An answer.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"c": 1}, confidence=4, fatal_errors=[]),
+        clock=clock,
+    )
+
+
+def _keep_for_a_later_check(repo, item_id, not_before, *, clock=None):
+    """The question a certified topic keeps for its check on your own, as the certification step reserves it."""
+
+    return repo.create_followup_task(kind="certification_cold_probe", case_kind="certification", case_ref="cert_first",
+                                     not_before=not_before, selected_item_id=item_id, clock=clock)
+
+
+def _the_walk(tmp_path, *, clock=None):
+    """The measured sequence: a section's first three questions applied, two answered, the third kept for a later
+    check (two weeks on), then six more applied from a second finished section."""
+
+    from datetime import timedelta
+
+    from learnloop.clock import SystemClock
+
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    first, second = _section_ids(repo, item)[:2]
+    one, two, three = _write_questions(root, repo, _finish_section(repo, item, first[0]), applied=3)
+    _answer(root, repo, one, clock=clock)
+    _answer(root, repo, two, clock=clock)
+    now = (clock or SystemClock()).now()
+    _keep_for_a_later_check(repo, three, utc_now_iso(FrozenClock(now + timedelta(days=14))), clock=clock)
+    newer = _write_questions(root, repo, _finish_section(repo, item, second[0]), applied=6)
+    return root, repo, item, (one, two, three), newer
+
+
+def test_answered_and_reserved_questions_are_named_as_not_askable_now(tmp_path):
+    from datetime import timedelta
+
+    from learnloop.content.pipeline.add_source import reading_questions
+
+    root, repo, item, (one, two, three), newer = _the_walk(tmp_path, clock=CLOCK)
+    soon = FrozenClock(CLOCK.now() + timedelta(minutes=5))
+
+    fact = reading_questions(repo, load_vault(root), item["source_id"], clock=soon)
+
+    # Written ever: all nine, as before.
+    assert fact["count"] == 9
+    assert fact["item_ids"] == [one, two, three, *newer]
+    # Not askable now: the two answered (not due again yet) and the one kept for the later check.
+    assert fact["later_item_ids"] == [one, two, three]
+
+
+def test_questions_come_back_into_the_askable_set_once_due(tmp_path):
+    from datetime import timedelta
+
+    from learnloop.content.pipeline.add_source import reading_questions
+
+    root, repo, item, _first_three, _newer = _the_walk(tmp_path, clock=CLOCK)
+    # A month on, both answers are due again and the check's day has come: nothing is held back.
+    month = FrozenClock(CLOCK.now() + timedelta(days=30))
+
+    fact = reading_questions(repo, load_vault(root), item["source_id"], clock=month)
+
+    assert "later_item_ids" not in fact
+    assert fact["count"] == 9
+
+
+def test_the_book_card_line_carries_them_now(tmp_path):
+    root, repo, item, (one, two, three), _newer = _the_walk(tmp_path)
+
+    questions = _line(root, repo, item)["questions"]
+
+    assert questions["later_item_ids"] == [one, two, three]
+    assert questions["count"] == 9
+
+
+def test_nothing_answered_or_kept_says_nothing_new(tmp_path):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, _label), *_ = _section_ids(repo, item)
+    _write_questions(root, repo, _finish_section(repo, item, section_id), applied=3)
+
+    assert "later_item_ids" not in _line(root, repo, item)["questions"]

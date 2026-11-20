@@ -2548,7 +2548,7 @@ def section_topics_settled(repo, extraction_id: str, section_id: str) -> tuple[b
     return ended is not None, ended
 
 
-def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
+def reading_questions(repo, vault, source_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
     """The questions written from what the learner finished reading of this
     book: the only questions an as-you-read book gets. Its build writes topics
     and question plans; a section's questions are written when the learner
@@ -2563,8 +2563,11 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
     so a screen never asks for them to be finished; ``failed``: finished
     sections whose writing stopped, with the batch to resume; ``to_look_at``:
     written questions waiting for a look; ``section_count``: how many sections
-    the reading has (one: the whole source). ``None`` when the book has no
-    reading."""
+    the reading has (one: the whole source); ``later_item_ids``, present only
+    when there are some: those of ``item_ids`` that cannot be asked now, an
+    answered one not due again yet or one kept for a later check on your own
+    (an open cold follow-up's chosen question before its day). ``None`` when
+    the book has no reading."""
 
     from learnloop.content.pipeline.runner import effective_ingest_job_status
     from learnloop.db.stores.reader import (
@@ -2647,7 +2650,35 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
         if written:
             fact["sections"].append(label)
     fact["count"] = len(fact["item_ids"])
+    later = _not_askable_now(repo, fact["item_ids"], utc_now_iso(clock))
+    if later:
+        fact["later_item_ids"] = later
     return fact
+
+
+def _not_askable_now(repo, item_ids: Sequence[str], now_iso: str) -> list[str]:
+    """Of ``item_ids``, in their order, those Today cannot offer now. Today's list keeps both kinds (an answered
+    question waits in its "later" part; the routine queue withholds only a cold retry's question, not a certification
+    check's), so the count of a book's questions on it is not how many can be asked."""
+
+    if not item_ids:
+        return []
+    from learnloop.serve_eligibility import COLD_FOLLOWUP_TASK_KINDS
+
+    marks = ", ".join("?" for _ in item_ids)
+    kinds = sorted(COLD_FOLLOWUP_TASK_KINDS)
+    with repo.connection() as connection:
+        waiting = {str(row[0]) for row in connection.execute(
+            f"SELECT practice_item_id FROM practice_item_state WHERE practice_item_id IN ({marks})"
+            " AND due_at IS NOT NULL AND due_at > ?",
+            (*item_ids, now_iso),
+        )}
+        kept = {str(row[0]) for row in connection.execute(
+            f"SELECT selected_item_id FROM followup_tasks WHERE selected_item_id IN ({marks})"
+            f" AND kind IN ({', '.join('?' for _ in kinds)}) AND status IN ('pending', 'served') AND not_before > ?",
+            (*item_ids, *kinds, now_iso),
+        )}
+    return [item_id for item_id in item_ids if item_id in waiting or item_id in kept]
 
 
 def _budget_used_line(details: str | None = None) -> dict[str, Any]:
