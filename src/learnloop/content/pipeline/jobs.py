@@ -3485,10 +3485,16 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
     have left them for a look, and the next read of the books, once the build
     has settled, either starts it or settles it as needing nothing. Each claim,
     its queueing and the batch it names are one transaction, so a section
-    either keeps waiting or has exactly one batch."""
+    either keeps waiting or has exactly one batch.
+
+    While every earlier build of the book found no topic, a section finished
+    meanwhile was settled as needing nothing with nothing to cite it: it is
+    decided again here, from the topics this build applied (its stamp moves
+    from :data:`~learnloop.reader.section_generation.NONE_NEEDED` to the
+    claim, as a waiting one's does)."""
 
     from learnloop.ai import plan_fallback
-    from learnloop.content.pipeline.add_source import _completed_extraction
+    from learnloop.content.pipeline.add_source import _completed_extraction, found_no_topics_before
     from learnloop.vault.loader import load_vault
 
     queued = 0
@@ -3497,11 +3503,15 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
         if resolved is None:
             return 0
         extraction_id = resolved[1]
-        rows = ctx.repo.deferred_section_generations(SG.WAITING_FOR_BUILD, extraction_id=extraction_id)
+        rows = [(SG.WAITING_FOR_BUILD, row)
+                for row in ctx.repo.deferred_section_generations(SG.WAITING_FOR_BUILD, extraction_id=extraction_id)]
+        settled = ctx.repo.deferred_section_generations(SG.NONE_NEEDED, extraction_id=extraction_id)
+        if settled and found_no_topics_before(ctx.repo, source_id, batch_id=ctx.job.get("batch_id")):
+            rows.extend((SG.NONE_NEEDED, row) for row in settled)
         if not rows:
             return 0
         vault = load_vault(ctx.vault_root)  # the topics this build just applied
-        for row in rows:
+        for stamp, row in rows:
             section_id = str(row["section_id"])
             lo_ids = SG.section_generation_candidates(vault, ctx.repo, extraction_id=extraction_id,
                                                       section_id=section_id)
@@ -3512,7 +3522,7 @@ def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
             # Reading progress is not a press: the writing asks nothing and carries no grant.
             with plan_fallback.quiet(), ctx.repo.atomic():
                 if not ctx.repo.swap_section_generation(extraction_id=extraction_id, section_id=section_id,
-                                                        from_batch_id=SG.WAITING_FOR_BUILD, batch_id=SG.ENQUEUING):
+                                                        from_batch_id=stamp, batch_id=SG.ENQUEUING):
                     continue  # started elsewhere meanwhile
                 batch_id = ctx.enqueue_batch(
                     "practice_expansion",

@@ -1211,6 +1211,39 @@ def current_generation(repo, source_id: str) -> int:
     return int(repo.source_auto_build_state(source_id)["generation"])
 
 
+def found_no_topics(job: Mapping[str, Any]) -> bool:
+    """Whether a finished build's synthesis wrote no topic to practise: a book's first map (a bootstrap; an
+    append may legitimately only link new text to the topics already there) with no learning object. Its answer
+    was already asked for twice (``source_set_synthesis``: ``asks_again_without_a_topic``)."""
+
+    result = job.get("result") or {}
+    return (
+        job.get("status") == "completed"
+        and result.get("mode") == "bootstrap"
+        and not int((result.get("item_counts") or {}).get("learning_object") or 0)
+    )
+
+
+def found_no_topics_before(repo, source_id: str, *, batch_id: str | None) -> bool:
+    """Whether every finished build of the book other than ``batch_id`` (the build now applying) found no topic,
+    and there was one: a section finished meanwhile was settled as needing nothing with no topic to cite it, so
+    that answer was about the empty build, not the section. Undone builds count for nothing."""
+
+    generation = current_generation(repo, source_id)
+    empty = False
+    for job in auto_jobs(repo, source_id):
+        outcome = planner_outcome(repo, job)
+        if not outcome or outcome.get("outcome") != "building" or outcome.get("build_batch_id") == batch_id:
+            continue
+        state = _build_state(repo, outcome, generation=generation)
+        if state["undone"] or state["status"] != "completed":
+            continue
+        if not state["no_topics"]:
+            return False
+        empty = True
+    return empty
+
+
 def _build_state(repo, outcome: Mapping[str, Any], *, generation: int | None = None) -> dict[str, Any]:
     """What became of a ``building`` outcome's batch: its status, proposal,
     whether it applied, was taken back out, or left changes to look at."""
@@ -1219,7 +1252,7 @@ def _build_state(repo, outcome: Mapping[str, Any], *, generation: int | None = N
     batch = repo.get_ingest_batch(batch_id) if batch_id else None
     state: dict[str, Any] = {"batch": batch, "status": (batch or {}).get("status"), "proposal_id": None,
                              "applied": False, "undone": False, "pending": 0, "error": None,
-                             "error_code": None, "error_details": {}}
+                             "error_code": None, "error_details": {}, "no_topics": False}
     source_id = outcome.get("source_id")
     if generation is None and source_id:
         generation = current_generation(repo, str(source_id))
@@ -1239,6 +1272,7 @@ def _build_state(repo, outcome: Mapping[str, Any], *, generation: int | None = N
         result = job.get("result") or {}
         state["proposal_id"] = result.get("proposal_id")
         state["applied"] = bool(result.get("applied") or result.get("auto_applied_item_ids"))
+        state["no_topics"] = found_no_topics(job)
     if state["proposal_id"]:
         items = repo.proposal_items(state["proposal_id"])
         revertable = [item for item in items if _revertable(item)]
@@ -1265,11 +1299,17 @@ class Coverage:
 
     ``built``: a build finished (applied, or waiting for a look); ``reserved``:
     planned or building now; ``failed``: the last build for it failed or was
-    stopped and nothing later covers it. Undone builds count for nothing."""
+    stopped, or found no topic to practise (``empty``, a subset), and nothing
+    later covers it. Undone builds count for nothing.
+
+    A chapter whose build found no topic is not built: a press plans it again
+    (the card's Try again, the whole book), while reading on never does, as
+    with a failed one, so an empty answer is never asked for again unasked."""
 
     built: set[str] = field(default_factory=set)
     reserved: set[str] = field(default_factory=set)
     failed: set[str] = field(default_factory=set)
+    empty: set[str] = field(default_factory=set)
 
     @property
     def covered(self) -> set[str]:
@@ -1300,9 +1340,12 @@ def coverage(repo, source_id: str, *, exclude_job_id: str | None = None) -> Cove
             result.failed.update(chapters)
         elif _active(state["batch"]):
             result.reserved.update(chapters)
+        elif state["no_topics"]:
+            result.empty.update(chapters)
         else:
             result.built.update(chapters)
-    result.failed -= result.covered
+    result.empty -= result.covered
+    result.failed = (result.failed | result.empty) - result.covered
     return result
 
 
@@ -2253,6 +2296,13 @@ BUILD_STOPPED_DETAILS = (
 )
 
 
+NO_TOPICS_DETAILS = (
+    "LearnLoop read it but came back without a topic to write questions from. "
+    "Try again asks once more; your reading and the sections you finished are kept, and they get their "
+    "questions once topics are found."
+)
+
+
 _RESTORE_READING_DETAILS = (
     "Reading it again read a file that has changed since (or is missing), so the book showed no reading. "
     "The reading you had is still here: this opens it again."
@@ -2508,7 +2558,9 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
     still in the vault, not retired; ``sections``: the finished sections they
     came from; ``writing``: finished sections whose questions are being
     written; ``waiting``: finished sections whose questions are written once
-    the book's build of their chapter has settled; ``failed``: finished
+    the book's build of their chapter has settled; ``none_needed``: finished
+    sections with nothing to write (no topic citing them needed questions),
+    so a screen never asks for them to be finished; ``failed``: finished
     sections whose writing stopped, with the batch to resume; ``to_look_at``:
     written questions waiting for a look; ``section_count``: how many sections
     the reading has (one: the whole source). ``None`` when the book has no
@@ -2536,12 +2588,16 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
     labels = {str(row["unit_id"]): str(row["label"] or "").strip() for row in units}
     live = getattr(vault, "practice_items", None) or {}
     fact: dict[str, Any] = {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [],
-                            "failed": [], "to_look_at": 0, "section_count": len(units)}
+                            "failed": [], "to_look_at": 0, "section_count": len(units), "none_needed": []}
     finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
     for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
         label = labels.get(str(row["section_id"])) or ""
         stamp = row.get("generation_batch_id")
-        if not stamp or stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
+        if stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
+            # Finished, with nothing to write: a finished section still, never one to finish.
+            fact["none_needed"].append(label)
+            continue
+        if not stamp:
             continue
         if stamp == WAITING_FOR_BUILD:
             fact["waiting"].append(label)
@@ -2795,6 +2851,17 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
                           vault_root=vault.root if vault else None)
     if health is not None:
         return health
+    if state["no_topics"]:
+        # Said, not hidden: "come up as you read" would promise questions nothing can write, and Today would send
+        # the learner to finish sections that cannot give any.
+        where = phrase if coverage(repo, source_id).built else f"this {noun}"
+        line = _line(f"LearnLoop found no topics to practise in {where}", "problem", ("retry", "Try again"),
+                     NO_TOPICS_DETAILS)
+        line["no_topics"] = True
+        questions = reading_questions(repo, vault, source_id)
+        if questions is not None:
+            line["questions"] = questions
+        return line
     # Questions come as the learner reads (a check at each section break, then
     # practice once a section is done), so the line says where they come from;
     # Undo lives in details (usability round 1, U8: "Questions ready · Undo"
@@ -2957,8 +3024,9 @@ def whole_book_state(vault, repo, source_id: str) -> str | None:
     rule (chapters not exam material, not front matter, not already built or
     building): ``"left"`` (some chapter is still to build), ``"building"``
     (every chapter is built or being built, some of it now), ``"built"`` (every
-    chapter is built), or None when it cannot be told here (no reading, or
-    the whole book is exam material: the planner says so itself)."""
+    chapter is built), ``"no_topics"`` (every build of the book found no topic
+    to practise), or None when it cannot be told here (no reading, or the whole
+    book is exam material: the planner says so itself)."""
 
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
@@ -2970,7 +3038,13 @@ def whole_book_state(vault, repo, source_id: str) -> str | None:
     chapters = [chapter for chapter in _without_units(outline_chapters(_unit_tree(repo, extraction_id)), withheld)
                 if not _is_front_matter(chapter)]
     covered = coverage(repo, source_id)
-    if any(chapter.unit_id not in covered.covered for chapter in chapters):
+    left = [chapter for chapter in chapters if chapter.unit_id not in covered.covered]
+    if left and not covered.built and not covered.reserved and all(chapter.unit_id in covered.empty for chapter in left):
+        # Every build of it found no topic, and nothing else is left: "written when you finish a section" would be
+        # untrue, and the card's Try again is the press that looks again. Beside chapters with topics, a chapter whose
+        # build found none is left to build, as a failed one is.
+        return "no_topics"
+    if left:
         return "left"
     return "building" if covered.reserved else "built"
 
@@ -2983,6 +3057,9 @@ def whole_book_notice(state: str, noun: str) -> str | None:
         return f"All of this {noun} is ready for questions. {rule}"
     if state == "building":
         return f"All of this {noun} is already being got ready for questions. {rule}"
+    if state == "no_topics":
+        return (f"LearnLoop found no topics to practise in this {noun}, so there are no questions to write from it "
+                "yet. Try again on its card to look once more.")
     return None
 
 
@@ -2998,7 +3075,8 @@ def retry_build(ingest_jobs, source_id: str) -> str:
     """The card's Retry for a failed automatic build (§6.7, review F11): the
     zero-model repair and revalidation of a preserved candidate first; a fresh
     model run only when there is none, or repairing it already failed, and
-    then under a new admission (a new attempt of each paid job)."""
+    then under a new admission (a new attempt of each paid job). Its Try again
+    for a build that found no topic plans those chapters again."""
 
     repo = ingest_jobs.repository
     batch_id = latest_build_batch(repo, source_id)
@@ -3006,6 +3084,11 @@ def retry_build(ingest_jobs, source_id: str) -> str:
         return request_auto_build(ingest_jobs, source_id)
     jobs = repo.ingest_jobs_for_batch(batch_id)
     synthesis = next((job for job in jobs if job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}), None)
+    empty = coverage(repo, source_id).empty
+    if synthesis is not None and found_no_topics(synthesis) and empty:
+        # A finished build that found no topic has nothing to resume: the chapters whose builds found none, which
+        # no longer count as built, are planned again, as the card's first build was (never as an approval).
+        return request_auto_build(ingest_jobs, source_id, chapter_ids=sorted(empty)) or batch_id
     inventories_done = all(job["status"] == "completed" for job in jobs if job["job_type"] == "inventory")
     if synthesis is not None and inventories_done and synthesis["status"] in {"failed", "blocked", "cancelled"}:
         details = (synthesis.get("error") or {}).get("details") or {}
