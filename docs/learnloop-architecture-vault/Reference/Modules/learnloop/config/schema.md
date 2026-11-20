@@ -351,6 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ads_routes_are_in_the_plan_first_table`
   - `test_inside_an_ad_operation_no_route_asks_and_no_grant_serves`
   - `test_under_code_defaults_each_ad_route_is_the_plan_and_codex_is_refused`
+- [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
   - `test_doctor_ignores_an_unrouted_plan_profile`
 - [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import

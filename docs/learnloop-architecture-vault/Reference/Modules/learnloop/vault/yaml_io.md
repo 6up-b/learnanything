@@ -206,6 +206,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_detect_contract_drift_and_doctor_surface`
 - [tests/test_authoring_context.py](../../../../../../tests/test_authoring_context.py) — direct import
   - `test_authoring_context_includes_blueprint_facets_before_items_exist`
+- [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_other_wire_entry_points_reserve_vault_ids`
+  - `test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it`
 - [tests/test_canonical_exercise_serialization.py](../../../../../../tests/test_canonical_exercise_serialization.py) — direct import
   - `test_long_mapping_keys_are_written_readably`
   - `test_the_practice_item_detail_names_the_book_and_the_key_label`

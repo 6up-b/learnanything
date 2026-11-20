@@ -147,6 +147,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/proposals/create_ids|learnloop.content.proposals.create_ids]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `load_vault`; statically calls `load_vault`
@@ -230,7 +231,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 93 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 94 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -680,6 +681,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_authoring_context_is_deterministic_and_hashable`
   - `test_authoring_context_stats_report_request_size`
 - [tests/test_authoring_contract.py](../../../../../../tests/test_authoring_contract.py) — direct import
+- [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_checkpoint_replay_keeps_minted_ids_and_applies_nothing_twice`
+  - `test_named_recorded_answer_produces_byte_identical_rows`
+  - `test_three_unnamed_questions_apply_and_finish_topic_without_any_repair`
+  - `test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it`
 - [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — direct import
   - `test_a_build_still_running_is_held_back_by_the_guard`
   - `test_the_report_shows_automatic_builds_daily_spend_under_their_guard`

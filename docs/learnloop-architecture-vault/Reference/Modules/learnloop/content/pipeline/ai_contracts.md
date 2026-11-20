@@ -115,6 +115,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/source_ingestion_helpers.py](../../../../../../../tests/source_ingestion_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
+- [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_other_wire_entry_points_reserve_vault_ids`
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../../../tests/test_exam_seeding.py) — direct import
 - [tests/test_ingest_instrument_gates.py](../../../../../../../tests/test_ingest_instrument_gates.py) — direct import

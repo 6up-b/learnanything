@@ -48,59 +48,60 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py) |
-| Source lines | 911 |
+| Source lines | 918 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FacetWeightPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 33) — One facet-weight pair (strict-schema-safe map entry).
-- `class CriterionFacetWeightsPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 40) — Facet weights for one rubric criterion (strict-schema-safe map entry).
-- `class CheckpointDependencyPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 47) — One checkpoint's prerequisites (strict-schema-safe map entry).
-- `class SourceRef(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 149)
-- `class TargetEntity(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 168)
-- `class ProposalItemAudit(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 173)
-- `class LearningObjectPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 195)
-- `class CriterionTargetPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 211) — One ``(facet, capability, role)`` observation a criterion makes.
-- `class RubricCriterionPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 245)
-- `class RubricFatalErrorPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 269)
-- `class RubricPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 277)
-  - `derive_max_points_from_criteria(self) -> 'RubricPatchPayload'` (line 284; public)
-- `class RequiredMethodPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 295) — The method an item's statement requires (owner rule 2026-10-13).
-- `class TaskFeaturesPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 312) — Point TaskFeature vector (p1_launch schema, spec_p1 §3.4).
-- `class TraceRecipePayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 328)
-- `class TraceContractPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 334)
-  - `validate_trace_contract(self) -> 'TraceContractPayload'` (line 339; public)
-- `class DiscriminationProfilePayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 366) — A5's authored candidate shape (``spec_measurement_efficiency_v1`` §3.A5).
-- `class DifferingComponentPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 403) — The one ``(facet, capability)`` requirement an A4 pair differs on (§3.A4).
-- `class PlantedErrorPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 424) — One registry-sourced error planted in an A3 worked solution (§3.A3).
-- `class ErrorHuntPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 453) — An A3 worked solution plus its plants, or the clean rotation (§3.A3).
-- `class LadderedStemPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 465) — One part of an A2 laddered stem (§3.A2).
-- `class VariantManipulationPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 480)
-- `class VariantAuthoringContractPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 486)
-- `class PracticeItemPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 520)
-- `class ConceptPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 684)
-- `class ConceptEdgePatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 693)
-- `class ErrorTypePatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 701)
-- `class AuthoringProposalItem(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 721)
-  - `coerce_payload_by_item_type(cls, data: Any) -> Any` (line 735; public)
-  - `validate_target_rules(self) -> 'AuthoringProposalItem'` (line 763; public)
-- `class AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 776)
-- `class AuthoringProposal(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 791)
-- `authoring_prompt(context: AuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 876)
+- `class FacetWeightPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 35) — One facet-weight pair (strict-schema-safe map entry).
+- `class CriterionFacetWeightsPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 42) — Facet weights for one rubric criterion (strict-schema-safe map entry).
+- `class CheckpointDependencyPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 49) — One checkpoint's prerequisites (strict-schema-safe map entry).
+- `class SourceRef(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 151)
+- `class TargetEntity(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 170)
+- `class ProposalItemAudit(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 175)
+- `class LearningObjectPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 197)
+- `class CriterionTargetPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 213) — One ``(facet, capability, role)`` observation a criterion makes.
+- `class RubricCriterionPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 247)
+- `class RubricFatalErrorPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 271)
+- `class RubricPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 279)
+  - `derive_max_points_from_criteria(self) -> 'RubricPatchPayload'` (line 286; public)
+- `class RequiredMethodPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 297) — The method an item's statement requires (owner rule 2026-10-13).
+- `class TaskFeaturesPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 314) — Point TaskFeature vector (p1_launch schema, spec_p1 §3.4).
+- `class TraceRecipePayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 330)
+- `class TraceContractPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 336)
+  - `validate_trace_contract(self) -> 'TraceContractPayload'` (line 341; public)
+- `class DiscriminationProfilePayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 368) — A5's authored candidate shape (``spec_measurement_efficiency_v1`` §3.A5).
+- `class DifferingComponentPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 405) — The one ``(facet, capability)`` requirement an A4 pair differs on (§3.A4).
+- `class PlantedErrorPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 426) — One registry-sourced error planted in an A3 worked solution (§3.A3).
+- `class ErrorHuntPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 455) — An A3 worked solution plus its plants, or the clean rotation (§3.A3).
+- `class LadderedStemPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 467) — One part of an A2 laddered stem (§3.A2).
+- `class VariantManipulationPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 482)
+- `class VariantAuthoringContractPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 488)
+- `class PracticeItemPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 522)
+- `class ConceptPatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 686)
+- `class ConceptEdgePatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 695)
+- `class ErrorTypePatchPayload(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 703)
+- `class AuthoringProposalItem(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 723)
+  - `coerce_payload_by_item_type(cls, data: Any) -> Any` (line 737; public)
+  - `validate_target_rules(self) -> 'AuthoringProposalItem'` (line 765; public)
+- `class AuthoringContext` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 778)
+- `class AuthoringProposal(WireModel)` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 793)
+  - `name_anonymous_creates(cls, data: Any, info: ValidationInfo) -> Any` (line 800; public)
+- `authoring_prompt(context: AuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 883)
 
 ### Module constants
 
-- `EXPECTED_MINUTES_MAX` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 497)
-- `AUTHORING_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 804)
-- `DIAGNOSTIC_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 805)
-- `PRACTICE_GENERATION_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 806)
-- `DIAGNOSTIC_AUTHORING_PROMPT` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 808)
-- `_DIFFICULTY_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 829)
-- `_PRACTICE_METADATA_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 837)
-- `_FACET_VOCABULARY_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 855)
-- `_AUDIT_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 866)
+- `EXPECTED_MINUTES_MAX` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 499)
+- `AUTHORING_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 811)
+- `DIAGNOSTIC_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 812)
+- `PRACTICE_GENERATION_PROMPT_VERSION` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 813)
+- `DIAGNOSTIC_AUTHORING_PROMPT` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 815)
+- `_DIFFICULTY_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 836)
+- `_PRACTICE_METADATA_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 844)
+- `_FACET_VOCABULARY_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 862)
+- `_AUDIT_GUIDANCE` ([src/learnloop/content/proposals/ai_contracts.py](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 873)
 
 ### Explicit exports
 
@@ -116,12 +117,12 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ## Internal implementation anchors
 
-- `_inlined_json_schema(model: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 54) — Return ``model``'s schema with every ``$ref`` resolved in place.
-- `_pair_list_schema(model: type[BaseModel]) -> WithJsonSchema` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 77)
-- `_facet_weight_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 81) — Accept ``[{facet_id, weight}, ...]`` as well as ``{facet_id: weight}``.
-- `_criterion_facet_weight_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 98) — Accept ``[{criterion_id, weights}, ...]`` as well as the nested map.
-- `_checkpoint_dependency_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 115) — Accept ``[{checkpoint_id, depends_on}, ...]`` as well as the map form.
-- `_lenient_expected_minutes(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 500) — A model's minutes estimate, kept inside the vault model's bounds (DL1 F8).
+- `_inlined_json_schema(model: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 56) — Return ``model``'s schema with every ``$ref`` resolved in place.
+- `_pair_list_schema(model: type[BaseModel]) -> WithJsonSchema` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 79)
+- `_facet_weight_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 83) — Accept ``[{facet_id, weight}, ...]`` as well as ``{facet_id: weight}``.
+- `_criterion_facet_weight_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 100) — Accept ``[{criterion_id, weights}, ...]`` as well as the nested map.
+- `_checkpoint_dependency_map(value: Any) -> Any` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 117) — Accept ``[{checkpoint_id, depends_on}, ...]`` as well as the map form.
+- `_lenient_expected_minutes(value: Any) -> float | None` ([source](../../../../../../../src/learnloop/content/proposals/ai_contracts.py), line 502) — A model's minutes estimate, kept inside the vault model's bounds (DL1 F8).
 
 ## Who imports or calls it
 
@@ -146,6 +147,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`, `describe_wire_validation_error`; calls `describe_wire_validation_error`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `render_structured_prompt`; calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] — imports `AttemptType`
+- [[Reference/Modules/learnloop/content/proposals/create_ids|learnloop.content.proposals.create_ids]] — imports `mint_create_ids`; calls `mint_create_ids`
 - [[Reference/Modules/learnloop/vault/required_method|learnloop.vault.required_method]] — imports `CRITERIA_BY_FACT_GUIDANCE`
 
 ### Platform and third-party dependencies
@@ -182,6 +184,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_runs.py](../../../../../../../tests/test_agent_runs.py) — direct import
   - `test_generate_authoring_proposal_with_fake_client_has_lineage`
   - `test_persist_authoring_proposal_records_agent_run`
+- [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_named_recorded_answer_produces_byte_identical_rows`
+  - `test_other_supported_create_types_keep_their_prefix`
+  - `test_other_wire_entry_points_reserve_vault_ids`
+  - `test_repeated_client_ids_and_blank_fields_mint_distinct_stable_safe_ids`
+  - `test_reserved_named_id_wins_even_when_it_occurs_after_the_unnamed_item`
+  - `test_three_unnamed_questions_apply_and_finish_topic_without_any_repair`
+  - `test_unnamed_error_type_still_requires_a_taxonomy_name`
+  - `test_vault_collision_uses_first_free_suffix_and_checkpoint_keeps_it`
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_authoring_payload_rejects_unknown_attempt_type`
   - `test_strict_schema_preserves_a_field_named_title`

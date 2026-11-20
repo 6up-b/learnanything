@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/chatgpt_plan.py](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py) |
-| Source lines | 713 |
+| Source lines | 714 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `_count(value: Any) -> int | None` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 679)
 - `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 685)
 - `_with_budget(prompt: str, budget: int | None) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 692) — ``prompt`` with the output budget stated once at its end (the route takes no ``max_output_tokens``).
-- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 700)
+- `_repair_prompt(text: str, model_type: type[BaseModel], failure: Exception) -> str` ([source](../../../../../../../src/learnloop/ai/providers/chatgpt_plan.py), line 700)
 
 ## Who imports or calls it
 
@@ -162,6 +162,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/plan_deadline_fakes.py](../../../../../../../tests/plan_deadline_fakes.py) — direct import
+- [tests/test_authoring_create_ids.py](../../../../../../../tests/test_authoring_create_ids.py) — direct import
 - [tests/test_chatgpt_plan_deadline.py](../../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
 - [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`

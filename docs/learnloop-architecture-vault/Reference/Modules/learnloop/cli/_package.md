@@ -104,7 +104,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] | [[Reference/Modules/learnloop/cli/ad#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]] | [[Reference/Modules/learnloop/cli/ai#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]] | [[Reference/Modules/learnloop/cli/ai_compare#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 164 |
+| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 165 |
 | [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]] | [[Reference/Modules/learnloop/cli/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]] | [[Reference/Modules/learnloop/cli/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]] | [[Reference/Modules/learnloop/cli/claims#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -184,10 +184,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
+- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 7 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 7 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 7 static module edges
-- [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 6 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 6 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 6 static module edges

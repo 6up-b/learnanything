@@ -290,6 +290,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
 - [tests/test_ai_compare.py](../../../../../../tests/test_ai_compare.py) — direct import
 - [tests/test_ai_single_request.py](../../../../../../tests/test_ai_single_request.py) — direct import
+- [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — direct import
+  - `test_plan_repair_tells_the_model_the_python_validation_error`
 - [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
   - `test_f2_rereview_a_prompt_upload_in_partial_sends_completes_unchanged`
   - `test_f2_rereview_partial_sends_inside_one_write_are_bounded_by_the_total_deadline`

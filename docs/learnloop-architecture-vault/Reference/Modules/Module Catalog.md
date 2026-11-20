@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1277 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **654 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **69 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1278 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **654 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **69 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1258 | Live ownership after the refactor. |
+| `ACTIVE` | 1259 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 16 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -52,7 +52,7 @@ tags:
 | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 19 | Practice-content authoring gates, generation contracts, and authored artifacts. |
 | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] | `domain` | `ACTIVE` | 9 | Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo. |
 | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] | `domain` | `ACTIVE` | 12 | Canonical content extraction and transformation stages. |
-| [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] | `domain` | `ACTIVE` | 10 | Reviewable content and graph change proposals and their lifecycle. |
+| [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] | `domain` | `ACTIVE` | 11 | Reviewable content and graph change proposals and their lifecycle. |
 | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] | `domain` | `ACTIVE` | 16 | Canonical source-library identity, manifests, and source-set behavior. |
 | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] | `domain` | `ACTIVE` | 22 | Synthesis of source material into learning structures and AI-owned contracts. |
 | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] | `domain` | `ACTIVE` | 21 | Commitments, blueprints, depth structures, concept relationships, and golden paths. |
@@ -163,6 +163,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 1926 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 1927 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

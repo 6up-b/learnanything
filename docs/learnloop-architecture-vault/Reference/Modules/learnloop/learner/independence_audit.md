@@ -120,8 +120,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
+- [tests/test_authoring_create_ids.py](../../../../../../tests/test_authoring_create_ids.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 - [tests/test_auto_build_spend_report.py](../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
-- [tests/test_capture_desktop.py](../../../../../../tests/test_capture_desktop.py) — imports consumer [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]]
 
 ## Modification guidance
 
