@@ -100,6 +100,7 @@ import { RECAP_COPY } from "./reader/recapCopy";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
+import { onlyNamesAnAction } from "./reader/intentPalette";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
 import { FiguresUnder } from "./reader/figures/FigureInline";
@@ -3278,6 +3279,11 @@ export function ReaderScreen({
   const runIntentIn = (pane: IntentPane, action: ReaderIntentActionDto, text: string, how: IntentRunHow): Promise<IntentRunHandle | null> | void => {
     const meta = { intention: action.intention, entry: how.entry, ...sideMeta(pane) };
     const effect = action.effect;
+    // A highlight or mark keeps the box's words as its note, except words that
+    // only named the action (typed to find it in the list). An action a model
+    // reads keeps the words as they were.
+    const noteText = !action.model && intentContract
+      && onlyNamesAnAction(text, [...intentContract.palette, ...intentContract.notesPalette]) ? "" : text;
     const sideSection = pane.side?.section ?? null;
     switch (effect.kind) {
       case "ask": {
@@ -3326,15 +3332,15 @@ export function ReaderScreen({
       case "preset":
         if (pane.side) {
           const target = pane.side.target;
-          return target ? invokePreset(effect.preset, text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+          return target ? invokePreset(effect.preset, noteText, meta, target).then((annotationId) => ({ annotationId })) : undefined;
         }
-        return invokePreset(effect.preset, text, meta).then((annotationId) => ({ annotationId }));
+        return invokePreset(effect.preset, noteText, meta).then((annotationId) => ({ annotationId }));
       case "highlight":
         if (pane.side) {
           const target = pane.side.target;
-          return target ? captureHighlight(text, meta, target).then((annotationId) => ({ annotationId })) : undefined;
+          return target ? captureHighlight(noteText, meta, target).then((annotationId) => ({ annotationId })) : undefined;
         }
-        return captureHighlight(text, meta).then((annotationId) => ({ annotationId }));
+        return captureHighlight(noteText, meta).then((annotationId) => ({ annotationId }));
       case "import_exercise":
         if (pane.side) {
           const target = pane.side.target;

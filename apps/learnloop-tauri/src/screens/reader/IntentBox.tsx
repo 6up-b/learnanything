@@ -6,7 +6,7 @@
 // focus moves only on the learner's key (W12).
 import { COLOR, FONT_MONO } from "../../components/term";
 import type { ReaderIntentActionDto } from "../../api/dto";
-import { INTENT_COPY, routedLine } from "./intentPalette";
+import { INTENT_COPY, onlyNamesAnAction, routedLine } from "./intentPalette";
 import { ModelActionState } from "./ModelActionState";
 import type { IntentBoxController } from "./useIntentBox";
 import { LearnerQuote, MeaningLabel } from "./voices";
@@ -88,6 +88,7 @@ export function IntentBox({ box }: { box: IntentBoxController }) {
 }
 
 function IntentPalette({ box }: { box: IntentBoxController }) {
+  const words = box.text.trim();
   return (
     <div role="group" aria-label={INTENT_COPY.paletteLabel} style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 4 }}>
       {box.groups.map((group) => (
@@ -104,6 +105,11 @@ function IntentPalette({ box }: { box: IntentBoxController }) {
           </div>
         </div>
       ))}
+      {words ? (
+        <MeaningLabel style={{ fontSize: 10 }}>
+          {onlyNamesAnAction(words, box.groups) ? INTENT_COPY.findsOnly(words) : INTENT_COPY.keptAsNote}
+        </MeaningLabel>
+      ) : null}
       <MeaningLabel style={{ fontSize: 10 }}>{INTENT_COPY.paletteKeys}</MeaningLabel>
     </div>
   );

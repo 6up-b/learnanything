@@ -31,6 +31,7 @@ import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { sectionWords } from "../screens/reader/readerShared";
 import { sessionTopicLine } from "../components/SessionFinishHud";
+import { INTENT_COPY } from "../screens/reader/intentPalette";
 import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
@@ -258,6 +259,14 @@ const ROUND_3A_SENTENCES = [
     sessionTopicLine({ learningObjectId: "lo_1", title: "Dot product", ...mark }))
 ];
 
+// Broken controls, third round, group B (docs/reviews/ux-fix-round-3b.md): every sentence this round adds.
+const ROUND_3B_SENTENCES = [
+  // UX-50: the Notes rail's note box once the passage is highlighted.
+  "save note", "add a note to this highlight…", "add to your note on this highlight…", "your note: “the gaps between arrivals matter”",
+  // UX-51: the selection box's words.
+  INTENT_COPY.whereThisGoes, INTENT_COPY.findsOnly("highlight"), INTENT_COPY.keptAsNote
+];
+
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).
 const UX11_SENTENCES = [
   "Read “Symmetric matrices and variance” again with its equations?",
@@ -342,6 +351,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(ROUND_3A_SENTENCES)("the broken controls 3a sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(ROUND_3B_SENTENCES)("the broken controls 3b sentence: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });
