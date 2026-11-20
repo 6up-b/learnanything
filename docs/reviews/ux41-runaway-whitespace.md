@@ -363,3 +363,15 @@ All functional failures that could execute were explained prompt snapshots and p
 Including both new files (plain `git diff --stat` omits untracked files): **660 insertions, 77 deletions, net +583 lines across 18 files**. Implementation alone (`src/`): 51 insertions, 14 deletions, net +37 lines. No files were staged.
 
 The final diff contains only the three implementation files, the stream fake, the new regression file, the first-document request pin, the identity golden, nine bootstrap goldens, this record and the UX ledger row. No temporary hook, conftest edit, algorithm tag, migration, generated reference or forbidden review-file change remains.
+
+## Checked on the real route (orchestrator, Nov 20)
+
+The same build request of a walk's vault (a backup-API copy of the walk's own synthetic library) was sent four
+times on the ChatGPT plan route with this branch's code and a counter on the stream. All four completed, in 213
+to 231 s with 39,176 to 41,596 characters. In the 31 recipes they hold, every `integration` key is present and
+null, no whitespace-only line follows `"any_of": []`, and the longest raw whitespace run is 18 characters. With
+the old prompt the same request, sent four times the same way, completed three times (one of those with two
+whitespace-only lines at that spot) and ran away once; in two walks it ran away five times out of six. Four
+completions do not prove the runaway is gone; the guard is what bounds it if it returns. The guard itself was
+not triggered on the real route.
+
