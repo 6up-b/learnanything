@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/todayCause.ts](../../../../../../apps/learnloop-tauri/src/app/todayCause.ts) |
-| Source lines | 485 |
+| Source lines | 505 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,90 +54,93 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const CONSENT_ACTION = "Give your OK"` — const, line 39
-- `export const SIDECAR_CONSENT_LABEL = "Review"` — const, line 42
-- `export function readableTitle(title: string): string` — function, line 46
-- `export type TodayCause = /** Today's list still has questions: the plan stopped with something left. */ |` — type, line 64
-- `export function partName(labels: readonly string[], sectionCount: number): string | null` — function, line 141
-- `export function todayCause(input:` — function, line 190
-- `export function causeWait(cause: TodayCause):` — function, line 327
-- `export const TOPICS_NOT_WRITTEN = "Not every topic's questions could be written."` — const, line 361
-- `export function readyWithWorkSentence(cause: Extract<TodayCause,` — function, line 364
-- `export function causeTopicsFailed(cause: TodayCause): string | null` — function, line 375
-- `export function causeSentence(cause: TodayCause): string` — function, line 380
-- `export const GOAL_NOTHING_LEAD = "Nothing for this goal is ready to practise yet:"` — const, line 424
-- `export const GOAL_NOT_UP_TODAY = "Nothing for this goal is up today. Its questions come back on the days they're due."` — const, line 425
-- `export function goalCauseSentence(cause: TodayCause): string` — function, line 427
-- `export const PLAN_FINISHED = "Nothing else is needed today."` — const, line 436
-- `export const PLAN_STOPPED_WITH_MORE = "The plan stopped here, but there's more for today if you'd like it."` — const, line 439
-- `export const KEEP_GOING_NOTHING_LEAD = "Nothing more to plan today."` — const, line 442
-- `export function continueLessonLine(title: string): string` — function, line 445
-- `export const LESSON_KEPT = "Your lesson is kept. It's on Today when you want it."` — const, line 450
-- `export function causeActionLabel(cause: TodayCause): string | null` — function, line 453
-- `export function causeSendsPassages(cause: TodayCause): boolean` — function, line 481
-- `export const WHATS_SENT = "what's sent"` — const, line 485
+- `export const CONSENT_ACTION = "Give your OK"` — const, line 41
+- `export const SIDECAR_CONSENT_LABEL = "Review"` — const, line 44
+- `export function readableTitle(title: string): string` — function, line 48
+- `export type TodayCause = /** Today's list still has questions: the plan stopped with something left. */ |` — type, line 66
+- `export function partName(labels: readonly string[], sectionCount: number): string | null` — function, line 148
+- `export function todayCause(input:` — function, line 197
+- `export function causeWait(cause: TodayCause):` — function, line 339
+- `export const TOPICS_NOT_WRITTEN = "Not every topic's questions could be written."` — const, line 373
+- `export function readyWithWorkSentence(cause: Extract<TodayCause,` — function, line 376
+- `export function causeTopicsFailed(cause: TodayCause): string | null` — function, line 387
+- `export function causeSentence(cause: TodayCause): string` — function, line 392
+- `export const GOAL_NOTHING_LEAD = "Nothing for this goal is ready to practise yet:"` — const, line 438
+- `export const GOAL_NOT_UP_TODAY = "Nothing for this goal is up today. Its questions come back on the days they're due."` — const, line 439
+- `export function goalCauseSentence(cause: TodayCause): string` — function, line 441
+- `export const PLAN_FINISHED = "Nothing else is needed today."` — const, line 450
+- `export const PLAN_STOPPED_WITH_MORE = "The plan stopped here, but there's more for today if you'd like it."` — const, line 453
+- `export const KEEP_GOING_NOTHING_LEAD = "Nothing more to plan today."` — const, line 456
+- `export function continueLessonLine(title: string): string` — function, line 459
+- `export const LESSON_KEPT = "Your lesson is kept. It's on Today when you want it."` — const, line 464
+- `export function causeActionLabel(cause: TodayCause): string | null` — function, line 467
+- `export function causeSecondActionLabel(cause: TodayCause): string | null` — function, line 496
+- `export function causeSendsPassages(cause: TodayCause): boolean` — function, line 501
+- `export const WHATS_SENT = "what's sent"` — const, line 505
 
 ## Internal implementation anchors
 
-- `const trimmed = (title || "").trim()` — const, line 47
-- `const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]` — const, line 49
-- `const words = name.split(/[_\-.\s]+/).filter(Boolean)` — const, line 50
-- `const lower = words.every((word)` — const, line 52
-- `const FAILURE_RETRY_LABELS: ReadonlySet<string> = new Set(["Retry", "Try again"])` — const, line 60
-- `type Progress =` — type, line 62
-- `function shownLine(card: SourceLibraryCard, ai: AiConnectionDto | null): SourceStatusLineDto | null` — function, line 111
-- `function questionsOf(card: SourceLibraryCard): ReadingQuestionsDto | null` — function, line 117
-- `type Rank = "waiting_ok" | "needs_ai" | "failed" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting"` — type, line 121
-- `const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"]` — const, line 122
-- `function rankOf(line: SourceStatusLineDto | null, ai: AiConnectionDto | null): Rank | null` — function, line 124
-- `const action = line.action` — const, line 126
-- `const consent = ai ? ai.needs === "consent" || (ai.needs === null && action.label === SIDECAR_CONSENT_LABEL) : action.label === SIDECAR_CONSENT_LABEL` — const, line 129
-- `const named = [...new Set(labels.map((label)` — const, line 142
-- `function stillWriting(entry:` — function, line 150
-- `function writingProgress(questions: ReadingQuestionsDto): Progress | null` — function, line 157
-- `const progress = questions.progress` — const, line 158
-- `const others = questions.sections.some((label)` — const, line 160
-- `function readyWithSectionWork(card: SourceLibraryCard, questions: ReadingQuestionsDto, count: number, itemId: string | null): TodayCause | null` — function, line 167
-- `const stopped = questions.failed.filter((entry)` — const, line 169
-- `const unknown = input.listUnknown === true` — const, line 198
-- `const readable = input.cards.filter((card)` — const, line 200
-- `const listed = input.listItemIds ?? []` — const, line 203
-- `const questions = questionsOf(card)` — const, line 205
-- `const own = new Set(questions?.itemIds ?? [])` — const, line 206
-- `const mine = listed.filter((id)` — const, line 207
-- `const found: Array<` — const, line 216
-- `const rank = rankOf(shownLine(card, input.ai), input.ai)` — const, line 218
-- `const questions = questionsOf(card)` — const, line 221
-- `const rank = rankOf(entry.statusLine, input.ai)` — const, line 227
-- `const hits = found.filter((entry)` — const, line 233
-- `const first = hits[0]` — const, line 234
-- `const line = first.card?.statusLine ?? null` — const, line 236
-- `const questions = first.card ? questionsOf(first.card) : null` — const, line 237
-- `const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null` — const, line 253
-- `const stopped = questions?.failed ?? []` — const, line 255
-- `const waiting = questions?.waiting?.length ?` — const, line 262
-- `const copied = questions?.progress && line?.progress && questions.progress.done === line.progress.done && questions.progress.total === line.progress.total` — const, line 266
-- `const firstBuild = Boolean(line?.progress) && !copied && (line?.minutes ?? null) === null` — const, line 268
-- `const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null` — const, line 273
-- `const questions = questionsOf(card)` — const, line 290
-- `const withQuestions = readable.find((card)` — const, line 293
-- `const questions = questionsOf(withQuestions) as ReadingQuestionsDto` — const, line 295
-- `const unfinished = readable.find((card)` — const, line 300
-- `function questionsWord(count: number): string` — function, line 306
-- `function waitingWords(title: string, part: string | null): string` — function, line 311
-- `function minutesWords(minutes: number): string` — function, line 317
-- `function topicsDone(progress: Progress): string` — function, line 321
-- `const amount = cause.progress && cause.progress.total > 0 ? ` · $` — const, line 330
-- `const usually = cause.minutes !== null ? ` · $` — const, line 331
-- `const amount = cause.progress && cause.progress.total > 0 ? ` · $` — const, line 341
-- `function readySentence(cause:` — function, line 353
-- `const progress = cause.writing.progress` — const, line 366
-- `const more = `More are being written$` — const, line 367
-- `const verb = cause.count === 1 ? "is" : "are"` — const, line 368
-- `const failed = causeTopicsFailed(cause)` — const, line 387
-- `const wait = causeWait(cause) as` — const, line 407
-- `const sentence = causeSentence(cause)` — const, line 428
-- `const joined = sentence.startsWith("LearnLoop") ? sentence : `$` — const, line 430
+- `const trimmed = (title || "").trim()` — const, line 49
+- `const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]` — const, line 51
+- `const words = name.split(/[_\-.\s]+/).filter(Boolean)` — const, line 52
+- `const lower = words.every((word)` — const, line 54
+- `const FAILURE_RETRY_LABELS: ReadonlySet<string> = new Set(["Retry", "Try again"])` — const, line 62
+- `type Progress =` — type, line 64
+- `function shownLine(card: SourceLibraryCard, ai: AiConnectionDto | null): SourceStatusLineDto | null` — function, line 116
+- `function questionsOf(card: SourceLibraryCard): ReadingQuestionsDto | null` — function, line 122
+- `type Rank = "waiting_ok" | "needs_ai" | "failed" | "no_topics" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting"` — type, line 126
+- `const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "no_topics", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"]` — const, line 127
+- `function rankOf(line: SourceStatusLineDto | null, ai: AiConnectionDto | null): Rank | null` — function, line 129
+- `const action = line.action` — const, line 131
+- `const consent = ai ? ai.needs === "consent" || (ai.needs === null && action.label === SIDECAR_CONSENT_LABEL) : action.label === SIDECAR_CONSENT_LABEL` — const, line 134
+- `const named = [...new Set(labels.map((label)` — const, line 149
+- `function stillWriting(entry:` — function, line 157
+- `function writingProgress(questions: ReadingQuestionsDto): Progress | null` — function, line 164
+- `const progress = questions.progress` — const, line 165
+- `const others = questions.sections.some((label)` — const, line 167
+- `function readyWithSectionWork(card: SourceLibraryCard, questions: ReadingQuestionsDto, count: number, itemId: string | null): TodayCause | null` — function, line 174
+- `const stopped = questions.failed.filter((entry)` — const, line 176
+- `const unknown = input.listUnknown === true` — const, line 205
+- `const readable = input.cards.filter((card)` — const, line 207
+- `const listed = input.listItemIds ?? []` — const, line 210
+- `const questions = questionsOf(card)` — const, line 212
+- `const own = new Set(questions?.itemIds ?? [])` — const, line 213
+- `const mine = listed.filter((id)` — const, line 214
+- `const found: Array<` — const, line 223
+- `const rank = rankOf(shownLine(card, input.ai), input.ai)` — const, line 225
+- `const questions = questionsOf(card)` — const, line 228
+- `const rank = rankOf(entry.statusLine, input.ai)` — const, line 234
+- `const hits = found.filter((entry)` — const, line 240
+- `const first = hits[0]` — const, line 241
+- `const line = first.card?.statusLine ?? null` — const, line 243
+- `const questions = first.card ? questionsOf(first.card) : null` — const, line 244
+- `const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null` — const, line 262
+- `const stopped = questions?.failed ?? []` — const, line 264
+- `const waiting = questions?.waiting?.length ?` — const, line 271
+- `const copied = questions?.progress && line?.progress && questions.progress.done === line.progress.done && questions.progress.total === line.progress.total` — const, line 275
+- `const firstBuild = Boolean(line?.progress) && !copied && (line?.minutes ?? null) === null` — const, line 277
+- `const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null` — const, line 282
+- `const questions = questionsOf(card)` — const, line 299
+- `const withQuestions = readable.find((card)` — const, line 302
+- `const questions = questionsOf(withQuestions) as ReadingQuestionsDto` — const, line 304
+- `const finishedNone = (card: SourceLibraryCard)` — const, line 310
+- `const unfinished = readable.find((card)` — const, line 311
+- `const finished = withQuestions ?? readable.find(finishedNone)` — const, line 313
+- `function questionsWord(count: number): string` — function, line 318
+- `function waitingWords(title: string, part: string | null): string` — function, line 323
+- `function minutesWords(minutes: number): string` — function, line 329
+- `function topicsDone(progress: Progress): string` — function, line 333
+- `const amount = cause.progress && cause.progress.total > 0 ? ` · $` — const, line 342
+- `const usually = cause.minutes !== null ? ` · $` — const, line 343
+- `const amount = cause.progress && cause.progress.total > 0 ? ` · $` — const, line 353
+- `function readySentence(cause:` — function, line 365
+- `const progress = cause.writing.progress` — const, line 378
+- `const more = `More are being written$` — const, line 379
+- `const verb = cause.count === 1 ? "is" : "are"` — const, line 380
+- `const failed = causeTopicsFailed(cause)` — const, line 399
+- `const wait = causeWait(cause) as` — const, line 421
+- `const sentence = causeSentence(cause)` — const, line 442
+- `const joined = sentence.startsWith("LearnLoop") ? sentence : `$` — const, line 444
 
 ## Who imports or calls it
 
@@ -147,7 +150,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `LESSON_KEPT`; references `LESSON_KEPT`
 - [[Reference/Desktop/TypeScript/components/BookCard|src/components/BookCard.tsx]] — import-or-re-export: `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`; references `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`
 - [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export: `readableTitle`; references `readableTitle`
-- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `causeTopicsFailed`, `causeWait`, `continueLessonLine`, `goalCauseSentence`, `readyWithWorkSentence`, `todayCause`; references `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSendsPassages`, `causeSentence`, `causeTopicsFailed`, `causeWait`, `continueLessonLine`, `goalCauseSentence`, `readyWithWorkSentence`, `todayCause`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSecondActionLabel`, `causeSendsPassages`, `causeSentence`, `causeTopicsFailed`, `causeWait`, `continueLessonLine`, `goalCauseSentence`, `readyWithWorkSentence`, `todayCause`; references `GOAL_NOT_UP_TODAY`, `KEEP_GOING_NOTHING_LEAD`, `PLAN_FINISHED`, `PLAN_STOPPED_WITH_MORE`, `TodayCause`, `WHATS_SENT`, `causeActionLabel`, `causeSecondActionLabel`, `causeSendsPassages`, `causeSentence`, `causeTopicsFailed`, `causeWait`, `continueLessonLine`, `goalCauseSentence`, `readyWithWorkSentence`, `todayCause`
 
 ## Dependencies
 

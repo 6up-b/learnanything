@@ -560,6 +560,39 @@ describe("a section finished before its book is ready (UX-31): the phone says th
   });
 });
 
+describe("a book whose build found no topics (UX-43): the phone says the desktop's sentence", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...extra
+  });
+  const book = (statusLine: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1", statusLine }]
+  });
+
+  it("no topics found: said under 'Nothing planned for today.', never 'finish a section'", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "LearnLoop found no topics to practise in this article", tone: "problem",
+      action: { kind: "retry", label: "Try again" }, details: null, noTopics: true, questions: facts({ noneNeeded: ["Document"] }) });
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe(
+      "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: the sections you finish get their questions once topics are found."
+    );
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("a finished section that had nothing to write: never 'finish a section'", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "Questions for this article come up as you read", tone: "quiet", action: null, details: null,
+      questions: facts({ noneNeeded: ["Document"] }) });
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections."
+    );
+  });
+});
+
 describe("question writing you can follow: the phone says the desktop's sentences on an empty day", () => {
   const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
     { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });

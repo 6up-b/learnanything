@@ -83,6 +83,7 @@ import {
   PLAN_STOPPED_WITH_MORE,
   WHATS_SENT,
   causeActionLabel,
+  causeSecondActionLabel,
   causeWait,
   causeSendsPassages,
   causeSentence,
@@ -895,6 +896,9 @@ export function TodayPlace({
       }
       case "failed":
         return () => void retryFromToday(shown.target);
+      case "no_topics":
+        // The card's own Try again: a build that found no topic plans its chapters again (add_source `retry_build`).
+        return () => void retryFromToday({ sourceId: shown.sourceId });
       case "section_failed":
         return () => void resumeSection(shown.resumeId);
       case "needs_look":
@@ -912,6 +916,11 @@ export function TodayPlace({
     }
   }
 
+  // Reading on, beside a Try again that need not be pressed first.
+  function causeSecond(shown: TodayCause): (() => void) | null {
+    return shown.kind === "no_topics" && onOpenBook ? () => onOpenBook(shown.card) : null;
+  }
+
   const causeLine = cause ? (
     <CauseLine
       cause={cause}
@@ -919,6 +928,7 @@ export function TodayPlace({
       busy={busy}
       onAction={causeAction(cause)}
       onTryAgain={cause.kind === "questions_ready_with_section_work" && cause.resumeId ? () => void resumeSection(cause.resumeId as string) : null}
+      onSecond={causeSecond(cause)}
     />
   ) : null;
 
@@ -1182,6 +1192,7 @@ export function TodayPlace({
               whatLeaves={aiConnection?.whatLeaves ?? null}
               busy={busy}
               onAction={causeAction(goalCause)}
+              onSecond={causeSecond(goalCause)}
               style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}
             />
           ) : (
@@ -1221,6 +1232,7 @@ function CauseLine({
   busy,
   onAction,
   onTryAgain = null,
+  onSecond = null,
   sentence,
   testId = "today-cause",
   style
@@ -1232,6 +1244,8 @@ function CauseLine({
   /** Questions offered while some topics' could not be written: Try again for the stopped part (null while its
    *  writing still goes on). */
   onTryAgain?: (() => void) | null;
+  /** The cause's second action (`causeSecondActionLabel`), or null where it has none. */
+  onSecond?: (() => void) | null;
   /** The line's own words where it is not Today's (the goal card's). */
   sentence?: string;
   testId?: string;
@@ -1239,6 +1253,7 @@ function CauseLine({
 }) {
   const [sent, setSent] = useState(false);
   const label = causeActionLabel(cause);
+  const second = causeSecondActionLabel(cause);
   const wait = sentence === undefined ? causeWait(cause) : null;
   if (wait) {
     // A wait (a book being got ready, a finished section's questions being written): the shared waiting
@@ -1309,6 +1324,14 @@ function CauseLine({
           <button type="button" style={dimLink} aria-expanded={sent} onClick={() => setSent((open) => !open)}>
             {WHATS_SENT} {sent ? "▾" : "▸"}
           </button>
+        ) : null}
+        {second && onSecond ? (
+          <>
+            {" "}
+            <button type="button" style={linkButton} disabled={busy} onClick={onSecond}>
+              {second}
+            </button>
+          </>
         ) : null}
       </div>
       {sent && whatLeaves ? <div style={{ fontSize: 12, color: COLOR.textDim }}>{whatLeaves}</div> : null}

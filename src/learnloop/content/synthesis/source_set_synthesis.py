@@ -916,6 +916,9 @@ class SynthesisMode:
     forgets_dropped_answers: bool
     #: Kept: the rows of a source set whose ``subject_id`` is empty carry the vault's first subject.
     resolves_an_empty_subject: bool
+    #: A run that owes a topic (:func:`bootstrap_owes_a_topic`) and got an answer holding none asks once more, fresh.
+    #: An append may legitimately add none: it links new sources to the topics already there.
+    asks_again_without_a_topic: bool = False
 
 
 def _gate_and_persist(
@@ -1272,6 +1275,42 @@ def open_synthesis_run(
     )
 
 
+def bootstrap_owes_a_topic(
+    vault: Any, subject_id: str, brief: Mapping[str, Any], unit_inventories: Sequence[Mapping[str, Any]],
+) -> bool:
+    """Whether a bootstrap's answer must hold a topic to be the build it was asked for: its subject has no topic
+    yet (a rerun over a subject's map may restate or narrow it), it is not the narrow adjunct (told to prefer links
+    to existing curriculum), and some unit it reads may teach (problem sets, notes and exam material may not mint a
+    claim, so nothing could ground a topic). Every first build through Add is such a run."""
+
+    if brief.get("authoring_preset") == "narrow_adjunct":
+        return False
+    if any(subject_id in (getattr(lo, "subjects", None) or []) for lo in vault.learning_objects.values()):
+        return False
+    return any(entry.get("semantic_authority") for entry in unit_inventories)
+
+
+def holds_a_topic(candidate: Any) -> bool:
+    """Whether a synthesis answer holds a topic to practise: a learning object of the answer with a blueprint that
+    names it (by the answer's client id or by its id) and has a recipe. Concepts and facets alone give a section
+    nothing to write questions from."""
+
+    keys = {
+        str(key)
+        for learning_object in getattr(candidate, "learning_objects", None) or []
+        for key in (getattr(learning_object, "client_item_id", ""), getattr(learning_object, "id", ""))
+        if key
+    }
+    return any(
+        (blueprint.learning_object_client_id in keys or blueprint.learning_object_id in keys) and blueprint.recipes
+        for blueprint in getattr(candidate, "blueprints", None) or []
+    )
+
+
+#: The review record a run keeps when its first answer held no topic and the model was asked again.
+ASKED_AGAIN_WITHOUT_A_TOPIC = "asked_again_without_a_topic"
+
+
 @dataclass
 class SynthesisOutcome:
     """What a run's tail persisted or matched, and what its apply step added."""
@@ -1306,7 +1345,8 @@ def finish_synthesis_run(
     run rows, apply, write epigraphs.
 
     The model is asked at most twice: the second time only after the rows equalled a proposal the learner wholly
-    rejected, whose answers were dropped (``proposal_match``). Any failure up to the persisted proposal fails both
+    rejected (``proposal_match``), or after a run that owes a topic got an answer holding none
+    (``asks_again_without_a_topic``); either way the first answers are dropped first. Any failure up to the persisted proposal fails both
     run rows. Apply and epigraphs run after, outside those arms, so a failed apply leaves the run completed and its
     proposal waiting, which answers the retry. ``apply`` is the mode's own behaviour: what it applies once the
     proposal stands and what follows (bootstrap: the whole map and the exam goal; append: §10.3's routine items, the
@@ -1329,11 +1369,29 @@ def finish_synthesis_run(
     token_usage = TokenUsage() if mode.meters_the_model_call else None
     usage: dict[str, Any] | None = None
     candidate_preserved = False
+    owes_a_topic = mode.asks_again_without_a_topic and bootstrap_owes_a_topic(
+        run.vault, resolve_subject_id(run.source_set, run.vault), run.brief, run.inputs.unit_inventories,
+    )
+    asked_again: list[dict[str, Any]] = []
     try:
         for fresh_answers in (False, True):
             answer = ask()
             if token_usage is not None:
                 token_usage += consume_client_usage(client)
+            if owes_a_topic and not fresh_answers and not holds_a_topic(answer.candidate):
+                # The model did not follow its instructions (the prompt asks for topics in every mode). Its answer
+                # was saved before anything judged its content, under the key the same request is sent with, so it
+                # is dropped first or the second request would be answered from it. The second answer is taken as
+                # it is: the run asks at most twice, as after a rejected match.
+                drop_answers()
+                asked_again.append({
+                    "gate": ASKED_AGAIN_WITHOUT_A_TOPIC,
+                    "severity": "review",
+                    "entity_refs": [],
+                    "message": "The first answer held no topic with a question plan; the same request was sent once more.",
+                    "suggested_action": "none: the second answer is the one kept",
+                })
+                continue
             facet_identity_plan = _facet_identity_plan(
                 answer.candidate, run.vault, repository, run.synthesis_run_id, nominator=run.nominator,
                 client=run.facet_identity_client, progress=run.progress,
@@ -1358,7 +1416,7 @@ def finish_synthesis_run(
                     clock=run.clock, progress=run.progress, items_off=items_off,
                     token_usage=token_usage, client=client, nominator=run.nominator,
                     facet_identity_plan=facet_identity_plan, fresh_answers=fresh_answers,
-                    answer_diagnostics=answer.diagnostics,
+                    answer_diagnostics=[*answer.diagnostics, *asked_again],
                 )
             except RejectedProposalMatch:
                 drop_answers()
@@ -2014,6 +2072,7 @@ BOOTSTRAP = SynthesisMode(
     declares_its_budgets=True,
     forgets_dropped_answers=True,
     resolves_an_empty_subject=True,
+    asks_again_without_a_topic=True,
 )
 
 

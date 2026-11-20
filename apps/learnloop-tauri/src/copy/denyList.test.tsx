@@ -17,6 +17,7 @@ import {
   KEEP_GOING_NOTHING_LEAD,
   PLAN_FINISHED,
   causeActionLabel,
+  causeSecondActionLabel,
   causeSentence,
   causeTopicsFailed,
   causeWait,
@@ -140,7 +141,14 @@ const LINES: SourceStatusLineDto[] = [
   { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
   // Finishing pass (#6): a PDF is a PDF until its text says book or paper.
   { text: "Getting this PDF ready", tone: "working", action: null, details: null },
-  { text: "Questions for this PDF come up as you read", tone: "quiet", action: null, details: null }
+  { text: "Questions for this PDF come up as you read", tone: "quiet", action: null, details: null },
+  // UX-43: a build that found no topic to practise (docs/reviews/ux43-empty-build.md).
+  {
+    text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
+    details: "LearnLoop read it but came back without a topic to write questions from. Try again asks once more; your reading and the sections you finished are kept, and they get their questions once topics are found.",
+    noTopics: true
+  },
+  { text: "LearnLoop found no topics to practise in Ch. 2", tone: "problem", action: { kind: "retry", label: "Try again" }, details: null, noTopics: true }
 ];
 
 
@@ -182,10 +190,12 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "questions_ready_with_section_work", title: "Probability", part: null, count: 1, itemId: null, card: BOOK,
     writing: { progress: null }, failedTopics: true, resumeId: null },
   { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 2, itemId: "pi_1", card: BOOK,
-    writing: null, failedTopics: true, resumeId: "batch_1" }
+    writing: null, failedTopics: true, resumeId: "batch_1" },
+  // A build that found no topic to practise (docs/reviews/ux43-empty-build.md).
+  { kind: "no_topics", title: "Probability", card: BOOK, sourceId: "src_1" }
 ];
 const STAGE3_SENTENCES = [
-  ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "",
+  ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "", causeSecondActionLabel(cause) ?? "",
     causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? "", causeWait(cause)?.later ?? "", causeTopicsFailed(cause) ?? ""]),
   GOAL_NOT_UP_TODAY,
   PLAN_FINISHED,
@@ -196,7 +206,9 @@ const STAGE3_SENTENCES = [
   NO_ASK_SHORT_CHECK,
   NO_ASK_TEACH_BACK,
   NO_ASK_NOT_YET,
-  NOTE_NO_SUBJECT
+  NOTE_NO_SUBJECT,
+  // UX-43: what "Build questions for the whole article at once" says on a book whose build found no topic (add_source.py).
+  "LearnLoop found no topics to practise in this article, so there are no questions to write from it yet. Try again on its card to look once more."
 ].filter(Boolean);
 
 // Broken controls, second round (docs/reviews/ux-fix-round-2a.md): every sentence this round adds.
