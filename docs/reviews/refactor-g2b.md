@@ -369,3 +369,20 @@ and every other golden pass unchanged. The structure ratchet passes with no numb
 - The real instrument channel and the real cause classes on a locked set (synthetic payloads only).
 
 Implementer: one Opus session, no subagents; token use not available to the implementer.
+
+## Measured on copies of the owner's vaults (orchestrator, 2026-11-20; aggregates only)
+
+Backup-API copies of the three vaults (dated 2026-11-18), upgraded to `mvp-0.61` with this branch's code, then read by `scripts/probe_router_report.py`. The copies stayed in a gitignored directory and were deleted. The owner's decisions were at the design's recommendations.
+
+| | arxiv_v2 | linear_algebra | probability |
+|---|---|---|---|
+| Automatic lane: recorded post-miss opportunities | 8 | 0 | 0 |
+| of them, today's code asked a probe | 7 (5 by the router's draw, 2 because there was no room to wait, and 1 of the 8 had no plan) | — | — |
+| of them, the successor finds information to buy | 0 (4: the probe was not written yet, so its channel is missing and earns no credit; 4: every cause leads to one repair) | — | — |
+| Learner lane: recorded opportunities | 18 | 0 | 5 |
+| of them, today's code asked | 0 (13 one common repair, 4 no instrument, 1 machine checks) | — | 0 (5 one common repair) |
+| of them, the successor would differ | 0 | — | 0 |
+| Practice lane: recorded opportunities | 6 | 0 | 1 (suppressed today by the general follow-up value) |
+| Decisions whose successor value can be computed from stored rows | 0 of 32 | — | 0 of 6 |
+
+What this says. Every probe today's code asked on the owner's data was on the automatic lane (seven on arxiv_v2). Under the recommended decisions the successor would have asked none of them: four because a probe that is not written yet has no known channel (decision 1), four because the rival causes share one repair, so no answer could change what is done next. On the learner lane the two agree everywhere. No stored decision carries the frozen inputs or the locked set the successor's value needs, so the numbers the evaluator would have produced cannot be recomputed for past decisions: the behaviour step must store them.
