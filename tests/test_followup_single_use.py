@@ -28,7 +28,7 @@ def _state(repository, item_id=ITEM):
 
 def _reasons(vault, repository, item_id=ITEM):
     return routine_withhold_reason(vault, vault.practice_items[item_id], _state(repository, item_id),
-                                   routine_serving_exclusions(vault, repository))
+                                   routine_serving_exclusions(vault, repository, now=CLOCK.now()))
 
 
 def test_the_gates_are_named():
@@ -71,7 +71,7 @@ def test_reserved_until_served_then_closed_for_every_selector(tmp_path):
 def test_a_request_never_gets_one_even_unserved(tmp_path):
     _vault, repository, paths = rival_causes_vault(tmp_path)
     vault = generated_item(paths.root, repository, ITEM, source="entry")
-    exclusions = routine_serving_exclusions(vault, repository)
+    exclusions = routine_serving_exclusions(vault, repository, now=CLOCK.now())
     item = vault.practice_items[ITEM]
     assert routine_withhold_reason(vault, item, _state(repository), exclusions) is None
     assert admission_reason(vault, item, _state(repository), exclusions, None, requested=True) == "generated_probe_reserved"

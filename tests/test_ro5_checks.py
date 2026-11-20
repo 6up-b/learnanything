@@ -137,7 +137,7 @@ def test_completion_is_scored_by_the_label_and_help_makes_it_a_non_success(tmp_p
 def test_no_protected_or_exam_reserved_item_is_ever_eligible(tmp_path, monkeypatch):
     env = _env(tmp_path)
     los = list(OI.population(env.vault, env.repository, env.now_iso()))
-    before = OI.check_eligible_items(env.vault, env.repository, los)
+    before = OI.check_eligible_items(env.vault, env.repository, los, now=env.now())
     flat = [item for items in before.values() for item in items]
     assert flat
     from learnloop.scheduling import serving_exclusions as SE
@@ -145,16 +145,16 @@ def test_no_protected_or_exam_reserved_item_is_ever_eligible(tmp_path, monkeypat
     real = SE.routine_serving_exclusions
     reserved = frozenset(flat[:1])
 
-    def with_reserved(vault, repository):
-        return SE.ServingExclusions(**{**real(vault, repository).__dict__, "reserved_exam_item_ids": reserved})
+    def with_reserved(vault, repository, *, now):
+        return SE.ServingExclusions(**{**real(vault, repository, now=now).__dict__, "reserved_exam_item_ids": reserved})
 
     monkeypatch.setattr(SE, "routine_serving_exclusions", with_reserved)
-    after = OI.check_eligible_items(env.vault, env.repository, los)
+    after = OI.check_eligible_items(env.vault, env.repository, los, now=env.now())
     assert not reserved & {item for items in after.values() for item in items}
     # An attempted, revealed or assisted item is not eligible either.
     record_attempt(env.repository, flat[-1], next(lo for lo, items in before.items() if flat[-1] in items),
                    env.clock.now())
-    again = OI.check_eligible_items(env.vault, env.repository, los)
+    again = OI.check_eligible_items(env.vault, env.repository, los, now=env.now())
     assert flat[-1] not in {item for items in again.values() for item in items}
 
 

@@ -116,7 +116,7 @@ def test_an_item_marked_held_out_after_its_import_leaves_routine_practice(tmp_pa
     _hold_out_problems(repository)  # the owner holds the problems out after the import
 
     assert "pi_pool_apply_mid" not in _queue(paths.root, repository)
-    exclusions = routine_serving_exclusions(load_vault(paths.root), repository)
+    exclusions = routine_serving_exclusions(load_vault(paths.root), repository, now=CLOCK.now())
     assert "pi_pool_apply_mid" in exclusions.item_ids and "pi_pool_recall_easy" not in exclusions.item_ids
 
 
@@ -448,7 +448,7 @@ def test_with_the_switch_off_routine_practice_serves_held_out_material_as_before
     _switch_off(paths.root)
 
     assert "pi_pool_apply_mid" in _queue(paths.root, repository)
-    assert routine_serving_exclusions(load_vault(paths.root), repository).held_out_item_ids == frozenset()
+    assert routine_serving_exclusions(load_vault(paths.root), repository, now=CLOCK.now()).held_out_item_ids == frozenset()
 
 
 def test_with_the_switch_off_picks_and_session_serves_are_not_refused(tmp_path, monkeypatch):

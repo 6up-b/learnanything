@@ -3578,7 +3578,7 @@ def _draw_randomized_checks(env: PlanEnv, record: PlanRecord, context: PoolConte
         checks.draw_day(env.vault, env.repository, local_date=str(record.row.get("local_date") or env.today()),
                         now_iso=now, topics=lambda: objective_inputs.population(env.vault, env.repository, now),
                         eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
-                            env.vault, env.repository, los, exclude),
+                            env.vault, env.repository, los, exclude, now=env.now()),
                         placeable=lambda item_id: str(item_id) in in_pool)
     except Exception as exc:  # noqa: BLE001 - the checks never block the plan
         import logging
@@ -3603,7 +3603,7 @@ def _checks_to_place(env: PlanEnv, record: PlanRecord, context: PoolContext) -> 
                         session_id=env.session_id, pool=context.pool, planned=record.planned_ids(),
                         chooser_items=(), lane=None,
                         eligible_items=lambda los, exclude: objective_inputs.check_eligible_items(
-                            env.vault, env.repository, los, exclude))
+                            env.vault, env.repository, los, exclude, now=env.now()))
 
 
 def _randomized_check_block(env: PlanEnv, record: PlanRecord, context: PoolContext, *, forced: Sequence[PoolItem],

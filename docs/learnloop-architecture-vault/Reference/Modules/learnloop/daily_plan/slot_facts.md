@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/slot_facts.py](../../../../../../src/learnloop/daily_plan/slot_facts.py) |
-| Source lines | 172 |
+| Source lines | 173 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ChoiceRejected(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 35) — AD's choice is not one the plan admits now (phase 4): roll back and serve the planned item.
-- `for_slot(env: Any, record: Any, block: Any, slot: Any, built: Any, day: Sequence[Any], inputs: SlotInputs) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 92) — Phase 2 for one new-material slot.
-- `for_deferrals(env: Any, record: Any, built: Any, inputs: SlotInputs, deferrals: Iterable[str]) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 132) — Phase 2 for the boundary's AD deferrals (each judged were it released).
-- `accept(facts: SlotFacts, action: str, chosen_item_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 150) — Phase 4: AD's slot decision re-checked by the plan.
-- `accept_cleared(facts: SlotFacts, cleared: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 162) — Phase 4 for deferrals: every cleared item must be a member with no refusal (else none is).
+- `class ChoiceRejected(RuntimeError)` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 36) — AD's choice is not one the plan admits now (phase 4): roll back and serve the planned item.
+- `for_slot(env: Any, record: Any, block: Any, slot: Any, built: Any, day: Sequence[Any], inputs: SlotInputs) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 93) — Phase 2 for one new-material slot.
+- `for_deferrals(env: Any, record: Any, built: Any, inputs: SlotInputs, deferrals: Iterable[str]) -> SlotFacts` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 133) — Phase 2 for the boundary's AD deferrals (each judged were it released).
+- `accept(facts: SlotFacts, action: str, chosen_item_id: str | None) -> None` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 151) — Phase 4: AD's slot decision re-checked by the plan.
+- `accept_cleared(facts: SlotFacts, cleared: Iterable[str]) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 163) — Phase 4 for deferrals: every cleared item must be a member with no refusal (else none is).
 
 ### Module constants
 
-- `FACTS_FAILED` ([src/learnloop/daily_plan/slot_facts.py](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 30)
-- `CHOICE_REJECTED` ([src/learnloop/daily_plan/slot_facts.py](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 32)
+- `FACTS_FAILED` ([src/learnloop/daily_plan/slot_facts.py](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 31)
+- `CHOICE_REJECTED` ([src/learnloop/daily_plan/slot_facts.py](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 33)
 
 ### Explicit exports
 
@@ -79,9 +79,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_pool_item(item_id: str, learning_object_id: str, est_minutes: float, existing: PoolItem | None) -> PoolItem` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 39)
-- `_verdicts(env: Any, record: Any, built: Any, inputs: SlotInputs, *, slot_item_id: str | None, released: Iterable[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 46)
-- `_admissible(facts: SlotFacts, item_id: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 143)
+- `_pool_item(item_id: str, learning_object_id: str, est_minutes: float, existing: PoolItem | None) -> PoolItem` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 40)
+- `_verdicts(env: Any, record: Any, built: Any, inputs: SlotInputs, *, slot_item_id: str | None, released: Iterable[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 47)
+- `_admissible(facts: SlotFacts, item_id: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/slot_facts.py), line 144)
 
 ## Who imports or calls it
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `COLD_FOLLOWUP_TASK_KINDS`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `FrozenClock`; calls `FrozenClock`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `admitted_new_material_ids`; calls `admitted_new_material_ids`
 - [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] — imports `PoolItem`; calls `PoolItem`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `router_active`; calls `router_active`

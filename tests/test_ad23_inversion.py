@@ -205,12 +205,14 @@ def test_a_failure_inside_a_scope_leaves_with_no_cause_context_or_text(tmp_path,
 
 def _incumbent_calls():
     from datetime import UTC, datetime, timedelta
+    from learnloop.clock import FrozenClock
 
     def exclusions(vault, repository):
         from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 
         return out_of_timing_serving_exclusions(vault, repository, cold_followup_kinds=("cold_retry",),
-                                                reveal_window=timedelta(hours=24))
+                                                reveal_window=timedelta(hours=24),
+                                                clock=FrozenClock(datetime(2026, 10, 12, 9, 0, tzinfo=UTC)))
 
     def pool(vault, repository):
         from learnloop.scheduling.scheduler import pool_admission

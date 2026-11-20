@@ -64,7 +64,7 @@ def test_a_probe_is_generated_once_served_cold_and_never_again(tmp_path):
     assert identity.claim_serve(lesson.repository, probe.item_id, surface="lesson", presentation_id=None).granted is False
     from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 
-    assert probe.item_id in routine_serving_exclusions(lesson.vault(), lesson.repository).item_ids
+    assert probe.item_id in routine_serving_exclusions(lesson.vault(), lesson.repository, now=lesson.clock().now()).item_ids
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from learnloop.substrate.state_sync import sync_vault_state
 

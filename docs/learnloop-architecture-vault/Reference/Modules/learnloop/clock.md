@@ -176,6 +176,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/schedule_effects|learnloop.daily_plan.schedule_effects]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/daily_plan/slot_facts|learnloop.daily_plan.slot_facts]] — imports `FrozenClock`; statically calls `FrozenClock`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/data_capture/reading_exposures|learnloop.data_capture.reading_exposures]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -249,7 +250,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `Clock`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
@@ -350,7 +351,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `Clock`
+- [[Reference/Modules/learnloop/practice_index/admission|learnloop.practice_index.admission]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/practice_index/coverage|learnloop.practice_index.coverage]] — imports `Clock`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -416,7 +417,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `Clock`
 - [[Reference/Modules/learnloop/scheduling/session_minutes|learnloop.scheduling.session_minutes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Clock`
@@ -519,7 +520,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 419 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 420 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -654,6 +655,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sidecar_queues_a_serve_commission_after_the_serve`
 - [tests/test_ad23_intent_compose.py](../../../../../tests/test_ad23_intent_compose.py) — direct import
   - `test_the_real_scheduler_lane_with_commitments`
+- [tests/test_ad23_inversion.py](../../../../../tests/test_ad23_inversion.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../tests/test_ad23_successor.py) — direct import
   - `test_every_switch_false_serves_the_predecessor_on_fixture_copies`
   - `test_new_vaults_start_at_the_successor_with_every_switch_on`
@@ -805,6 +807,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_selection_never_picks_an_administered_diagnostic_surface`
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
   - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_dead_by_date_matches_the_no_reservation_rows`
+  - `test_dead_by_date_reads_agree_across_lazy_housekeeping`
+  - `test_no_reservation_keeps_the_existing_certified_vault_queue_byte_identical`
+  - `test_plan_candidates_do_not_include_the_reserved_question`
+  - `test_reservation_uses_the_callers_pinned_date`
+  - `test_the_reserved_question_is_administered_by_its_check_on_its_day`
 - [tests/test_characterization_assessment_exam.py](../../../../../tests/test_characterization_assessment_exam.py) — direct import
   - `test_finish_releases_pool_and_reservation_is_blocked_only_by_attempt_history`
   - `test_predictions_are_not_refrozen_on_restart`
@@ -1389,8 +1398,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
 - [tests/test_joint_grading_builder.py](../../../../../tests/test_joint_grading_builder.py) — direct import
 - [tests/test_k1_remediation_cold_reservation.py](../../../../../tests/test_k1_remediation_cold_reservation.py) — direct import
+  - `test_a_cold_item_chosen_for_a_treatment_is_reserved_before_its_task_exists`
   - `test_a_cold_retry_that_expires_unanswered_releases_its_reservation`
   - `test_an_episode_whose_cold_retry_was_never_scheduled_reserves_nothing_after_its_primed_attempt`
+  - `test_the_learner_initiated_selectors_keep_the_wider_reservation`
 - [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
 - [tests/test_km2_sim_gates.py](../../../../../tests/test_km2_sim_gates.py) — direct import
   - `test_no_capability_inflation_sim`

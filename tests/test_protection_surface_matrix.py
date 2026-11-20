@@ -452,7 +452,7 @@ def _routine(probe: Probe, target: Target) -> str:
     world = probe.world(target)
     vault, item = _item(world, target)
     try:
-        exclusions = probe.once(world, "RT", lambda: routine_serving_exclusions(vault, world.repository))
+        exclusions = probe.once(world, "RT", lambda: routine_serving_exclusions(vault, world.repository, now=CLOCK.now()))
     except Exception:  # noqa: BLE001
         return R
     return W if routine_withhold_reason(vault, item, None, exclusions) else S
@@ -484,6 +484,19 @@ def _pick(probe: Probe, target: Target) -> str:
     except Exception:  # noqa: BLE001
         return R
     return S
+
+
+@pytest.mark.parametrize("surface", ["RT", "OT"])
+def test_certification_reservation_cell(probe: Probe, tmp_path, surface: str) -> None:
+    target = probe.base.targets["6.held-grade"]
+    world = world_in_state(probe.base, "base", tmp_path / "vault")
+    world.repository.create_followup_task(
+        kind="certification_cold_probe", case_kind="certification", case_ref="cert_reserved",
+        not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z",
+        selected_item_id=target.item_id, context={},
+    )
+    cell = _routine if surface == "RT" else _out_of_timing
+    assert cell(Probe(world, None), target) == W
 
 
 @surface("SS")

@@ -146,6 +146,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_certification_serving_reservation.py](../../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_dead_by_date_reads_agree_across_lazy_housekeeping`
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — direct import
   - `test_classical_mds_reuses_exact_cached_layout`
 - [tests/test_knowledge_map_text_neighbors.py](../../../../../../tests/test_knowledge_map_text_neighbors.py) — direct import

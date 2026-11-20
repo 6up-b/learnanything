@@ -68,8 +68,8 @@ def test_excluded_items_are_left_out_of_the_review_load(iv):
 def _hold_out(monkeypatch, item_ids):
     original = scheduler_module.routine_serving_exclusions
 
-    def patched(vault, repository):
-        base = original(vault, repository)
+    def patched(vault, repository, **read_at):
+        base = original(vault, repository, **read_at)
         return ServingExclusions(
             reserved_exam_item_ids=base.reserved_exam_item_ids,
             rung_variant_hold_ids=base.rung_variant_hold_ids,
