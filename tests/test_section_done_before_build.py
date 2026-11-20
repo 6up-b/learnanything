@@ -324,3 +324,60 @@ def test_the_status_lines_fact_tells_waiting_from_nothing_finished(tmp_path):
     assert waiting["tone"] == "working"
     assert waiting["questions"]["waiting"] == [_label(ctx, source_id, CITED)]
     assert waiting["questions"]["writing"] == [] and waiting["questions"]["count"] == 0
+
+
+# -- "Build questions for the whole book at once" ---------------------------------------------------
+
+
+def _planners(ctx):
+    return len(ctx.repository.ingest_jobs_by_types((core.AUTO_STUDY_MAP_JOB,)))
+
+
+def test_the_whole_book_press_on_a_book_already_built_says_so_and_queues_nothing(tmp_path):
+    ctx, source_id = _book(tmp_path, scope_cap=None)  # the first build is the whole book
+    _drain(ctx, max_jobs=None)
+    planners = _planners(ctx)
+
+    result = call(ctx, "source_action", {"sourceId": source_id, "action": "build_whole_book"})
+
+    assert result.get("batchId") is None
+    assert result["notice"] == ("All of this book is ready for questions. "
+                                "Each section's questions are written when you finish it.")
+    assert _planners(ctx) == planners
+    assert "come up as you read" in _card(ctx, source_id)["statusLine"]["text"]
+
+
+def test_the_whole_book_press_while_the_whole_book_is_being_built_says_so(tmp_path):
+    ctx, source_id = _book(tmp_path, scope_cap=None)
+    _until_synthesis_is_next(ctx)
+    planners = _planners(ctx)
+
+    result = call(ctx, "source_action", {"sourceId": source_id, "action": "build_whole_book"})
+
+    assert result.get("batchId") is None
+    assert result["notice"] == ("All of this book is already being got ready for questions. "
+                                "Each section's questions are written when you finish it.")
+    assert _planners(ctx) == planners
+
+
+def test_the_whole_book_press_with_chapters_left_starts_and_shows_it(tmp_path):
+    ctx, source_id = _book(tmp_path)  # the first build covers chapters 1-2 of 4
+    _drain(ctx, max_jobs=None)
+
+    result = call(ctx, "source_action", {"sourceId": source_id, "action": "build_whole_book"})
+
+    assert result["batchId"] and "notice" not in result
+    assert _card(ctx, source_id)["statusLine"]["tone"] == "working"
+
+
+def test_a_planner_that_found_nothing_to_build_never_hides_the_books_line(tmp_path):
+    ctx, source_id = _book(tmp_path, scope_cap=None)
+    _drain(ctx, max_jobs=None)
+    before = _card(ctx, source_id)["statusLine"]
+
+    core.request_auto_build(ctx.ingest_jobs, source_id, chapter_ids=["u2"])  # every chapter is built already
+    _drain(ctx, max_jobs=None)
+
+    skipped = ctx.repository.ingest_jobs_by_types((core.AUTO_STUDY_MAP_JOB,))[0]
+    assert (skipped["result"] or {}).get("reason") == "nothing_to_build"
+    assert _card(ctx, source_id)["statusLine"] == before

@@ -2969,14 +2969,52 @@ def latest_add_batch(repo, source_id: str) -> str | None:
 
 def latest_planner(repo, source_id: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """The planning job the card's line speaks for, and its outcome (a planner
-    an Undo or a cancel stopped before it ran is skipped)."""
+    an Undo or a cancel stopped before it ran is skipped, and so is one that
+    found every chapter already built or building: the build that covers them
+    is what the line is about, and a skip has no line of its own)."""
 
     for job in auto_jobs(repo, source_id):
         outcome = planner_outcome(repo, job)
         if outcome is None and job["status"] == "cancelled":
             continue
+        if outcome is not None and outcome.get("outcome") == "skipped" and outcome.get("reason") == "nothing_to_build":
+            continue
         return job, outcome
     return None, None
+
+
+def whole_book_state(vault, repo, source_id: str) -> str | None:
+    """What building the whole book at once would do, by the planner's own
+    rule (chapters not exam material, not front matter, not already built or
+    building): ``"left"`` (some chapter is still to build), ``"building"``
+    (every chapter is built or being built, some of it now), ``"built"`` (every
+    chapter is built), or None when it cannot be told here (no reading, or
+    the whole book is exam material: the planner says so itself)."""
+
+    resolved = _completed_extraction(repo, source_id)
+    if resolved is None:
+        return None
+    revision_id, extraction_id = resolved
+    withheld = exam_material_units(vault, repo, source_id, revision_id, extraction_id)
+    if withheld is None:
+        return None
+    chapters = [chapter for chapter in _without_units(outline_chapters(_unit_tree(repo, extraction_id)), withheld)
+                if not _is_front_matter(chapter)]
+    covered = coverage(repo, source_id)
+    if any(chapter.unit_id not in covered.covered for chapter in chapters):
+        return "left"
+    return "building" if covered.reserved else "built"
+
+
+def whole_book_notice(state: str, noun: str) -> str | None:
+    """What the whole-book press says when there is nothing left to build."""
+
+    rule = "Each section's questions are written when you finish it."
+    if state == "built":
+        return f"All of this {noun} is ready for questions. {rule}"
+    if state == "building":
+        return f"All of this {noun} is already being got ready for questions. {rule}"
+    return None
 
 
 def latest_build_batch(repo, source_id: str) -> str | None:

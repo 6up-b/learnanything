@@ -363,6 +363,13 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         extraction = core._completed_extraction(repository, params.source_id)
         if extraction is None:
             raise SidecarError("not_ready", "This book is still being prepared. Try again in a minute.", retryable=True)
+        # Every chapter already built or building: a planner would find nothing and leave the card no line of
+        # its own, so the press says what is true instead and queues nothing.
+        notice = core.whole_book_notice(core.whole_book_state(vault, repository, params.source_id) or "",
+                                        core.source_kind_noun(repository, params.source_id,
+                                                              artifact.get("acquisition_kind")))
+        if notice is not None:
+            return versioned({**result, "notice": notice})
         from learnloop.content.sources.source_outline import build_source_outline
 
         chapters = core.outline_chapters(build_source_outline(repository, extraction[1]))
