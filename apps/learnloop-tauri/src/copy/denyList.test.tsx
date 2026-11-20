@@ -30,6 +30,7 @@ import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
 import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
 import { sectionWords } from "../screens/reader/readerShared";
+import { sessionTopicLine } from "../components/SessionFinishHud";
 import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
@@ -251,7 +252,10 @@ const ROUND_3A_CAUSES: TodayCause[] = [
   { kind: "section_writing", title: "Probability", part: null, card: BOOK, progress: null, failedTopics: true }
 ];
 const ROUND_3A_SENTENCES = [
-  ...ROUND_3A_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeTopicsFailed(cause) ?? ""])
+  ...ROUND_3A_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeTopicsFailed(cause) ?? ""]),
+  // UX-49: the session end's marks.
+  ...([{ evidence: "on_your_own", finishedWithHelp: true }, { evidence: "on_your_own" }, { evidence: "with_help" }] as const).map((mark) =>
+    sessionTopicLine({ learningObjectId: "lo_1", title: "Dot product", ...mark }))
 ];
 
 // UX-11: the confirmation before a web page is read again (learnloop/content/pipeline/reread.py web_reread_plan).

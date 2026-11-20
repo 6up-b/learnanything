@@ -742,6 +742,9 @@ export interface SessionTopicDto {
   learningObjectId: string;
   title: string;
   evidence: "on_your_own" | "with_help";
+  /** True when no credited answer of the learner's own on this topic was fully right and an answer with help earned
+   *  points after it (display only; absent otherwise, and from an older sidecar). */
+  finishedWithHelp?: boolean;
 }
 
 export interface SessionCheckpoint {
