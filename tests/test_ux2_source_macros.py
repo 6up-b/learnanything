@@ -9,7 +9,6 @@ blocks. Nothing stored changes: the pins below were taken from this production p
 from __future__ import annotations
 
 import hashlib
-import shutil
 from pathlib import Path
 
 import pytest
@@ -45,7 +44,7 @@ def added_sample(tmp_path):
     root = fresh_library(tmp_path)
     grant_consent(root)
     page = tmp_path / SAMPLE.name
-    shutil.copyfile(SAMPLE, page)
+    page.write_bytes(SAMPLE.read_bytes())
     ctx = _draining_ctx(root)
     source_id = call(ctx, "add_source", {"sources": [str(page)]})["items"][0]["sourceId"]
     return root, ctx, source_id, resolve_extraction_id(ctx.repository, source_id)
