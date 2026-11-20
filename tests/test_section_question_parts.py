@@ -8,7 +8,7 @@ import pytest
 from learnloop.content.authoring.practice_generation import generate_post_probe_practice_proposal
 from learnloop.content.proposals import proposals
 from tests.section_question_parts_helpers import (
-    TOPICS, Writer, comparable_rows, enqueue, jobs_for, live_questions, request_digest, section,
+    TOPICS, Writer, comparable_rows, enqueue, held_writer, jobs_for, live_questions, request_digest, section,
 )
 
 
@@ -223,6 +223,57 @@ def test_topic_order_follows_first_cited_span(tmp_path):
                                                locator=f"span:ext1/{span}", source_id="src1", extraction_id="ext1")]
         vault.learning_objects[lo] = topic
     assert section_generation_candidates(vault, repo, extraction_id="ext1", section_id="u1") == ["lo_z", "lo_m", "lo_a"]
+
+
+def _rows(repo, job):
+    return [row for part in job["payload"]["question_parts"] for row in repo.proposal_items(part["patch_id"])]
+
+
+def test_grounded_questions_the_model_holds_for_review_wait_for_a_look_and_the_section_completes(tmp_path):
+    paths, repo = section(tmp_path, 3)
+    writer = held_writer()
+    progress = []
+    writer.before = lambda: progress.append(
+        (lambda job: (job["current_window"], job["total_windows"]))(repo.ingest_jobs_by_types(["practice_expansion"])[0]))
+    batch = enqueue(jobs_for(paths, repo, writer), 3)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    rows = _rows(repo, job)
+    assert [(row["validation_status"], row["decision"]) for row in rows] == [("valid", "pending")] * 9
+    assert live_questions(paths) == set()
+    # Written and valid, waiting for a look: the writing is done, nothing failed, nothing to ask again.
+    assert job["status"] == "completed", job["error"]
+    assert [part.get("error") for part in job["payload"]["question_parts"]] == [None] * 3
+    assert (job["current_window"], job["total_windows"]) == (3, 3)
+    assert progress[1:] == [(1, 3), (2, 3)]
+    assert writer.calls == [[lo] for lo in TOPICS[:3]]
+
+
+def test_one_question_of_three_held_for_review_leaves_two_applied_and_the_topic_finished(tmp_path):
+    paths, repo = section(tmp_path, 1)
+    writer = held_writer(held=(2,))
+    batch = enqueue(jobs_for(paths, repo, writer), 1)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    assert job["status"] == "completed", job["error"]
+    assert live_questions(paths) == {f"pi_{TOPICS[0]}", f"pi_{TOPICS[0]}_1"}
+    assert [row["decision"] for row in _rows(repo, job)] == ["accepted", "accepted", "pending"]
+    assert "error" not in job["payload"]["question_parts"][0]
+    assert (job["current_window"], job["total_windows"]) == (1, 1)
+
+
+def test_a_held_question_beside_a_refused_one_still_fails_its_topic(tmp_path):
+    paths, repo = section(tmp_path, 2)
+    writer = Writer(per_topic=2, held={1}, repeated={0})
+    batch = enqueue(jobs_for(paths, repo, writer), 2)
+    job = repo.ingest_jobs_for_batch(batch)[0]
+    first, second = job["payload"]["question_parts"]
+    # The first topic: one applied, one held for review, finished. The second repeats the
+    # first's applied prompt: that row is refused, so the topic keeps the failed treatment.
+    assert "error" not in first
+    assert "duplicate_prompt" in second["error"]
+    assert job["status"] == "failed"
+    assert TOPICS[1] in job["error"]["message"] and TOPICS[0] not in job["error"]["message"]
+    assert (job["current_window"], job["total_windows"]) == (1, 2)
+    assert live_questions(paths) == {f"pi_{TOPICS[0]}"}
 
 
 def test_queue_revision_reload_sees_each_part_before_the_job_finishes(tmp_path, monkeypatch):

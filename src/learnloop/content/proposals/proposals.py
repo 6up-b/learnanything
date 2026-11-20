@@ -680,7 +680,10 @@ def _apply_authoring_parts(root, client, repository, contexts, parts, scope, age
     def describe(index):
         rows = repository.proposal_items(states[index]["patch_id"])
         pending = [row for row in rows if not row.get("applied_change_batch_id")]
-        if pending or not rows:
+        # A written, valid question held for review is finished writing: it waits in the
+        # review queue, and asking the model again would write nothing new. Only a refused
+        # (invalid) row, or an empty answer, fails the topic.
+        if any(row.get("validation_status") == "invalid" for row in pending) or not rows:
             reasons = [error for row in pending for error in row.get("validation_errors", [])]
             states[index]["error"] = "; ".join(reasons) or "Questions need review before applying"
         else:
