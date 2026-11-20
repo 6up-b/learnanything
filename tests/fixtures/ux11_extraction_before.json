@@ -1,0 +1,1517 @@
+{
+ "about": "Captured from the unchanged code (main 4566d93ae9, before UX-11) through the production Add path (add_source, the import job, default_extract): what an already-read web page holds, and what the other source kinds extract to. The two 'html' IRs are extractions of samples/understanding-linear-algebra-symmetric-matrices-and-variance.html (CC BY 4.0, David Austin) and samples/wikipedia-elevator-paradox.html (CC BY-SA 4.0, Wikipedia contributors); see samples/NOTICE. Never regenerate: the point is that it was taken before the change.",
+ "captured_from": "main 4566d93ae9 (before UX-11)",
+ "html": {
+  "understanding-linear-algebra-symmetric-matrices-and-variance.html": {
+   "blocks": 59,
+   "blocks_digest": "84e0065f32b9e55b5a041aa5ced383d8ebe4bc1a04bd5e330fb7651501ecf72c",
+   "inventory_windows": {
+    "u1": "74edd3ac602c2c7b5fa459950d73d9ad973dd00266c68dd5125730178d582f99"
+   },
+   "ir": {
+    "assets": [],
+    "blocks": [
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:6849f1f083d2c4419f0b4af33a418e0f1ba9685aec93f576afbe59ccfff10561",
+      "extractor_block_id": null,
+      "ordinal": 1,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s1",
+      "text": "In this section, we will revisit the theory of eigenvalues and eigenvectors for the special class of matrices that are symmetric, meaning that the matrix equals its transpose. This understanding of symmetric matrices will enable us to form singular value decompositions later in the chapter. We’ll also begin studying variance in this section as it provides an important context that motivates some of our later work."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ee72819a862f57948f9b24bb9f612179e3b4fdfa994fe5773d772d41a1535aab",
+      "extractor_block_id": null,
+      "ordinal": 2,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s2",
+      "text": "To begin, remember that if \\(A\\) is a square matrix, we say that \\(\\vvec\\) is an eigenvector of \\(A\\) with associated eigenvalue \\(\\lambda\\) if \\(A\\vvec=\\lambda\\vvec\\text{.}\\) In other words, for these special vectors, the operation of matrix multiplication simplifies to scalar multiplication."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:d9267e978ea12ccf58a79a2bf364f446462638910ec61d82ed69c220b3b282a3",
+      "extractor_block_id": null,
+      "ordinal": 3,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s3",
+      "text": "The preview activity asks us to compare the matrix transformations defined by two matrices, a diagonal matrix \\(D\\) and a matrix \\(A\\) whose eigenvectors are given to us. The transformation defined by \\(D\\) stretches horizontally by a factor of 3 and reflects in the horizontal axis, as shown in Figure 7.1.2"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:b4986035cd9c9eafb73a6c84dd963205b5d97a7c75b2fdae9cea6c13ca14e911",
+      "extractor_block_id": null,
+      "ordinal": 4,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s4",
+      "text": "By contrast, the transformation defined by \\(A\\) stretches the plane by a factor of 3 in the direction of \\(\\vvec_1\\) and reflects in the line defined by \\(\\vvec_1\\text{,}\\) as seen in Figure 7.1.3."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:57f99b7f4b56d3b31564c59405180f10c59988a3bfd208ad95482cf68d46b09d",
+      "extractor_block_id": null,
+      "ordinal": 5,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s5",
+      "text": "In this way, we see that the matrix transformations defined by these two matrices are equivalent after a \\(45^\\circ\\) rotation. This notion of equivalence is what we called similarity in Section 4.3. There we considered a square \\(m\\times m\\) matrix \\(A\\) that provided enough eigenvectors to form a basis of \\(\\real^m\\text{.}\\) For example, suppose we can construct a basis for \\(\\real^m\\) using eigenvectors \\(\\vvec_1,\\vvec_2,\\ldots,\\vvec_m\\) having associated eigenvalues \\(\\lambda_1,\\lambda_2,\\ldots,\\lambda_m\\text{.}\\) Forming the matrices,"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:8537c2db3d56ff5c945be0a5bc83f6dbc727b6f8bcfb54f20896750ab4b8a442",
+      "extractor_block_id": null,
+      "ordinal": 6,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s6",
+      "text": "Notice that the matrix \\(A\\) has eigenvectors \\(\\vvec_1\\) and \\(\\vvec_2\\) that not only form a basis for \\(\\real^2\\) but, in fact, form an orthogonal basis for \\(\\real^2\\text{.}\\) Given the prominent role played by orthogonal bases in the last chapter, we would like to understand what conditions on a matrix enable us to form an orthogonal basis of eigenvectors."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ed2d66de502fd6bda5d6f9eb80d80fba2f34ef088e5acff39e92b02f538f42e1",
+      "extractor_block_id": null,
+      "ordinal": 7,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s7",
+      "text": "Remember that the Sage command A.right_eigenmatrix() attempts to find a basis for \\(\\real^m\\) consisting of eigenvectors of \\(A\\text{.}\\) In particular, the assignment D, P = A.right_eigenmatrix() provides a diagonal matrix \\(D\\) constructed from the eigenvalues of \\(A\\) with the columns of \\(P\\) containing the associated eigenvectors."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:779ca494661e1c8c250e0e55e324a2a155ae23d431e23191e0391a1b931e063d",
+      "extractor_block_id": null,
+      "ordinal": 8,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s8",
+      "text": "For each of the following matrices, determine whether there is a basis for \\(\\real^2\\) consisting of eigenvectors of that matrix. When there is such a basis, form the matrices \\(P\\) and \\(D\\) and verify that the matrix equals \\(PDP^{-1}\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ad9409c633efa03d0531010a35c2a67eab313c4f05357f22851e06c2e0283a81",
+      "extractor_block_id": null,
+      "ordinal": 9,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s9",
+      "text": "The examples in this activity illustrate a range of possibilities. First, a matrix may have complex eigenvalues, in which case it will not be diagonalizable. Second, even if all the eigenvalues are real, there may not be a basis of eigenvalues if the dimension of one of the eigenspaces is less than the algebraic multiplicity of the associated eigenvalue."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:7f3d1a78154bfdd70b406de12943357e2d6f36a2fd50efeef177d6f0ea8a9ae8",
+      "extractor_block_id": null,
+      "ordinal": 10,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s10",
+      "text": "We are interested in matrices for which there is an orthogonal basis of eigenvectors. When this happens, we can create an orthonormal basis of eigenvectors by scaling each eigenvector in the basis so that its length is 1. Putting these orthonormal vectors into a matrix \\(Q\\) produces an orthogonal matrix, which means that \\(Q^T=Q^{-1}\\text{.}\\) We then have"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:8fe1873511878335f8379075ea2389b76c924a2ee2a307de0171a5dc17872599",
+      "extractor_block_id": null,
+      "ordinal": 11,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s11",
+      "text": "\\begin{equation*}\nA = QDQ^{-1} = QDQ^T.\n\\end{equation*}"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ea3148c84cc7f02e34971655e046666a0968cf49d1e21e06d60d1fc108028719",
+      "extractor_block_id": null,
+      "ordinal": 12,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s12",
+      "text": "In this case, we say that \\(A\\) is orthogonally diagonalizable."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:4aad30009bfaf1a254280db0fd0dd87ded8bca1516874c9d7b16559be6349952",
+      "extractor_block_id": null,
+      "ordinal": 13,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s13",
+      "text": "If there is an orthonormal basis of \\(\\real^n\\) consisting of eigenvectors of the matrix \\(A\\text{,}\\) we say that \\(A\\) is orthogonally diagonalizable. In particular, we can write \\(A=QDQ^T\\) where \\(Q\\) is an orthogonal matrix."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:3e4457bc52c92b25ffbf1e4ee2831ade90c67f283302a8d2fcc933ccd9cdd983",
+      "extractor_block_id": null,
+      "ordinal": 14,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s14",
+      "text": "Consider the matrix \\(A =\n\\begin{bmatrix}\n-2 \\amp 36 \\\\\n36 \\amp -23\n\\end{bmatrix}\n\\text{,}\\) which has eigenvectors \\(\\vvec_1 = \\twovec43\\text{,}\\) with associated eigenvalue \\(\\lambda_1=25\\text{,}\\) and \\(\\vvec_2=\\twovec{3}{-4}\\text{,}\\) with associated eigenvalue \\(\\lambda_2=-50\\text{.}\\) Notice that \\(\\vvec_1\\) and \\(\\vvec_2\\) are orthogonal so we can form an orthonormal basis of eigenvectors:"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:a7493af06cf2b6dee4363358618c5539f84eba27f653f91a1b7eadd280cb3d4e",
+      "extractor_block_id": null,
+      "ordinal": 15,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s15",
+      "text": "If \\(A = \\begin{bmatrix}\n1 \\amp 2 \\\\\n2 \\amp 1 \\\\\n\\end{bmatrix}\n\\text{,}\\) then there is an orthogonal basis of eigenvectors \\(\\vvec_1 = \\twovec11\\) and \\(\\vvec_2 =\n\\twovec{-1}1\\) with eigenvalues \\(\\lambda_1=3\\) and \\(\\lambda_2=-1\\text{.}\\) Using these eigenvectors, we form the orthogonal matrix \\(Q\\) consisting of eigenvectors and the diagonal matrix \\(D\\text{,}\\) where"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:46fa841710a08d3e3e786b951f2207633a7f4fe3776948c49ad77060b71529f9",
+      "extractor_block_id": null,
+      "ordinal": 16,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s16",
+      "text": "Notice that the matrix transformation represented by \\(Q\\) is a \\(45^\\circ\\) rotation while that represented by \\(Q^T=Q^{-1}\\) is a \\(-45^\\circ\\) rotation. Therefore, if we multiply a vector \\(\\xvec\\) by \\(A\\text{,}\\) we can decompose the multiplication as"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:b497a8fa3d1b96856fdc2750d9bc7899e93be7654a7c6ee8691cc4021b9eb5f6",
+      "extractor_block_id": null,
+      "ordinal": 17,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s17",
+      "text": "That is, we first rotate \\(\\xvec\\) by \\(-45^\\circ\\text{,}\\) then apply the diagonal matrix \\(D\\text{,}\\) which stretches and reflects, and finally rotate by \\(45^\\circ\\text{.}\\) We may visualize this factorization as in Figure 7.1.8."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:2dd8ad532e64a33a8c00474c3646d9b27c0db23109a7fe4faca44c4c10fb862a",
+      "extractor_block_id": null,
+      "ordinal": 18,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s18",
+      "text": "We have seen that a matrix that is orthogonally diagonalizable must be symmetric. In fact, it turns out that any symmetric matrix is orthogonally diagonalizable. We record this fact in the next theorem."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:9e4cff835206cfc74511ffabd69780b2a23acb811e20fc872e09a7b1bc483903",
+      "extractor_block_id": null,
+      "ordinal": 19,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s19",
+      "text": "Each of the following matrices is symmetric so the Spectral Theorem tells us that each is orthogonally diagonalizable. The point of this activity is to find an orthogonal diagonalization for each matrix."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:f0e87018aae01de0a4d6a5a4c20c9cd60c002cfec7d3f0b4f42c9c626ff7b957",
+      "extractor_block_id": null,
+      "ordinal": 20,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s20",
+      "text": "To begin, find a basis for each eigenspace. Use this basis to find an orthogonal basis for each eigenspace and put these bases together to find an orthogonal basis for \\(\\real^m\\) consisting of eigenvectors. Use this basis to write an orthogonal diagonalization of the matrix."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:280c542912e0dcbf98c1c91030e54299d1592623959e05b8f08d03dff7cc9131",
+      "extractor_block_id": null,
+      "ordinal": 21,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s21",
+      "text": "Consider the matrix \\(A = B^TB\\) where \\(B = \\begin{bmatrix}\n0 \\amp 1 \\amp 2 \\\\\n2 \\amp 0 \\amp 1\n\\end{bmatrix}\n\\text{.}\\) Explain how we know that \\(A\\) is symmetric and then find an orthogonal diagonalization of \\(A\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:b051b0c5ad854cfae7f17636bad61581923ab50035437778aafd4a0373b7b499",
+      "extractor_block_id": null,
+      "ordinal": 22,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s22",
+      "text": "As the examples in Activity 7.1.3 illustrate, the Spectral Theorem implies a number of things. Namely, if \\(A\\) is a symmetric \\(m\\times m\\) matrix, then"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:870be8af24f466663c0fa865e748d3af4463dca9b07489a46d0eb59beb5326ac",
+      "extractor_block_id": null,
+      "ordinal": 23,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s23",
+      "text": "We won’t justify the first two facts here since that would take us rather far afield. However, it will be helpful to explain the third fact. To begin, notice the following:"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:6b99abcedee14f79af85715aedb3cd92177afb2b9d0e81e9f514624703cd6a81",
+      "extractor_block_id": null,
+      "ordinal": 24,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s24",
+      "text": "Suppose a symmetric matrix \\(A\\) has eigenvectors \\(\\vvec_1\\text{,}\\) with associated eigenvalue \\(\\lambda_1=3\\text{,}\\) and \\(\\vvec_2\\text{,}\\) with associated eigenvalue \\(\\lambda_2 = 10\\text{.}\\) Notice that"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:561f7f53d9041ed778821c2c5a89f34a5a960d6a777faafd226db2001d6b6140",
+      "extractor_block_id": null,
+      "ordinal": 25,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s25",
+      "text": "Many of the ideas we’ll encounter in this chapter, such as orthogonal diagonalizations, can be applied to the study of data. In fact, it can be useful to understand these applications because they provide an important context in which mathematical ideas have a more concrete meaning and their motivation appears more clearly. For that reason, we will now introduce the statistical concept of variance as a way to gain insight into the significance of orthogonal diagonalizations."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:d24bf1a5820f91a937e86bd4686a9edc2a9da16a96393a827489d55711db1280",
+      "extractor_block_id": null,
+      "ordinal": 26,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s26",
+      "text": "Notice that the centroid lies in the center of the data so the spread of the data will be measured by how far away the points are from the centroid. To simplify our calculations, find the demeaned data points"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ecfb19af2ab34a32c232b9dc6c208db233cd767e37bba3492c98aa5613a885cd",
+      "extractor_block_id": null,
+      "ordinal": 27,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s27",
+      "text": "Now that the data has been demeaned, we will define the total variance as the average of the squares of the distances from the origin; that is, the total variance is"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ced32a9db736f5860c0edbe0d44865027ee102eac7bec4255f39adbc66be4037",
+      "extractor_block_id": null,
+      "ordinal": 28,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s28",
+      "text": "\\begin{equation*}\nV = \\frac 1N\\sum_j~|\\dtil_j|^2.\n\\end{equation*}"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:542107c2672de51fe439a4f698e328fce765f8c1e76ce68ef15b00e4c0d39824",
+      "extractor_block_id": null,
+      "ordinal": 29,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s29",
+      "text": "Find the total variance \\(V\\) for our set of three points."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ae1fe63c90938fe05d05c38f8d50c00c7fe89fdea4076a9ff2257a5a3194e09b",
+      "extractor_block_id": null,
+      "ordinal": 30,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s30",
+      "text": "Now plot the projections of the demeaned data onto the \\(x\\) and \\(y\\) axes using Figure 7.1.14 and find the variances \\(V_x\\) and \\(V_y\\) of the projected points."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:001aaa394c697d9f03c9ff4aefa60bedb6362c31306c28884c16006869806d02",
+      "extractor_block_id": null,
+      "ordinal": 31,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s31",
+      "text": "What do you notice about the relationship between \\(V\\text{,}\\)\\(V_x\\text{,}\\) and \\(V_y\\text{?}\\) How does the Pythagorean theorem explain this relationship?"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:353ac72fc95d95ccb99692dba651ba25954bd8e69e1733f026a31a66d026f471",
+      "extractor_block_id": null,
+      "ordinal": 32,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s32",
+      "text": "Plot the projections of the demeaned data points onto the lines defined by vectors \\(\\vvec_1=\\twovec11\\) and \\(\\vvec_2=\\twovec{-1}1\\) using Figure 7.1.15 and find the variances \\(V_{\\vvec_1}\\) and \\(V_{\\vvec_2}\\) of these projected points."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:473198d83ae0673ae88aa54fb4cba13c20125bdb972d10571293413d5b518a17",
+      "extractor_block_id": null,
+      "ordinal": 33,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s33",
+      "text": "What is the relationship between the total variance \\(V\\) and \\(V_{\\vvec_1}\\) and \\(V_{\\vvec_2}\\text{?}\\) How does the Pythagorean theorem explain your response?"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:384b4c1aff28621806bde30faa1768f1500d6310abed1c8be0c9dbe79955b5c9",
+      "extractor_block_id": null,
+      "ordinal": 34,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s34",
+      "text": "Notice that variance enjoys an additivity property. Consider, for instance, the situation where our data points are two-dimensional and suppose that the demeaned points are \\(\\dtil_j=\\twovec{\\widetilde{x}_j}{\\widetilde{y}_j}\\text{.}\\) We have"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:71e35cbf336939a024400b9aca1c90b4d5b1e810ef4ad4a64e60e52285c4f129",
+      "extractor_block_id": null,
+      "ordinal": 35,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s35",
+      "text": "More generally, suppose that we have an orthonormal basis \\(\\uvec_1\\) and \\(\\uvec_2\\text{.}\\) If we project the demeaned points onto the line defined by \\(\\uvec_1\\text{,}\\) we obtain the points \\((\\dtil_j\\cdot\\uvec_1)\\uvec_1\\) so that"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:0e7bef2643b6bd971d0a2b08493407e9b55822bd52a927e3a2ea656b47c6e722",
+      "extractor_block_id": null,
+      "ordinal": 36,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s36",
+      "text": "since \\(\\uvec_1\\cdot\\uvec_2 = 0\\text{.}\\) When we average over all the data points, we find that the total variance \\(V\\) is the sum of the variances in the \\(\\uvec_1\\) and \\(\\uvec_2\\) directions. This leads to the following proposition, in which this observation is expressed more generally."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:9d35dd38503392c46b02bccfeec8396aed85f71c9330dc7776f8532965e4a397",
+      "extractor_block_id": null,
+      "ordinal": 37,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s37",
+      "text": "If \\(W\\) is a subspace with orthonormal basis \\(\\uvec_1\\text{,}\\)\\(\\uvec_2\\text{,}\\)\\(\\ldots\\text{,}\\)\\(\\uvec_n\\text{,}\\) then the variance of the points projected onto \\(W\\) is the sum of the variances in the \\(\\uvec_j\\) directions:"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:2d5d9866eefde70474501aa3067d65762560d9813f6ca902f7babe82d4625d19",
+      "extractor_block_id": null,
+      "ordinal": 38,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s38",
+      "text": "The next activity demonstrates a more efficient way to find the variance \\(V_{\\uvec}\\) in a particular direction and connects our discussion of variance with symmetric matrices."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:704794a785f841fd36e989ee77ddec7ced22d3e571fa829a43c1bfc2bb3dc079",
+      "extractor_block_id": null,
+      "ordinal": 39,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s39",
+      "text": "In general, the matrix \\(C=\\frac1N~AA^T\\) is called the covariance matrix of the dataset, and it is useful because the variance \\(V_{\\uvec} =\n\\uvec\\cdot(C\\uvec)\\text{,}\\) as we have just seen. Find the matrix \\(C\\) for our dataset with three points."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:1e146efd4ce948ba1d8b69a0ca5e274551276b7a02a7e4eaf40b493431c48734",
+      "extractor_block_id": null,
+      "ordinal": 40,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s40",
+      "text": "Use the covariance matrix to find the variance \\(V_{\\uvec_2}\\) when \\(\\uvec_2=\\twovec{-2/\\sqrt{5}}{1/\\sqrt{5}}\\text{.}\\) Since \\(\\uvec_1\\) and \\(\\uvec_2\\) are orthogonal, verify that the sum of \\(V_{\\uvec_1}\\) and \\(V_{\\uvec_2}\\) gives the total variance."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:aaed9fc964a9a10f12f035b7fe3edf1f4acb33e8933e6f7de315d75e31e677f4",
+      "extractor_block_id": null,
+      "ordinal": 41,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s41",
+      "text": "This activity introduced the covariance matrix of a dataset, which is defined to be \\(C=\\frac1N~AA^T\\) where \\(A\\) is the matrix of demeaned data points. Notice that"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:8531c044de3ebe58ec1f1cdb851cadc04eba3abd2a3eac73fb35af4fcb924211",
+      "extractor_block_id": null,
+      "ordinal": 42,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s42",
+      "text": "which tells us that \\(C\\) is symmetric. In particular, we know that it is orthogonally diagonalizable, an observation that will play an important role in the future."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:99e788dad0ffac141ad5a5a8bc5ec4f83187ef030fde16d0be167178c34c732f",
+      "extractor_block_id": null,
+      "ordinal": 43,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s43",
+      "text": "If \\(C\\) is the covariance matrix associated to a demeaned dataset and \\(\\uvec\\) is a unit vector, then the variance of the demeaned points projected onto the line defined by \\(\\uvec\\) is"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:60e77feac6d4c7c7d4a5d6d22b126de9ac6786a4dd3bc9eee607b3f21b7f334a",
+      "extractor_block_id": null,
+      "ordinal": 44,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s44",
+      "text": "Our goal in the future will be to find directions \\(\\uvec\\) where the variance is as large as possible and directions where it is as small as possible. The next activity demonstrates why this is useful."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:2a0da741e472bd4b7cb3d6866439f63d80514c223bca1a87df1270d148c8fac7",
+      "extractor_block_id": null,
+      "ordinal": 45,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s45",
+      "text": "Evaluating the following Sage cell loads a dataset consisting of 100 demeaned data points and provides a plot of them. It also provides the demeaned data matrix \\(A\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:1f679f25102e25a7d1b355293191e851386d553d116c8618fbae86c22d0f6217",
+      "extractor_block_id": null,
+      "ordinal": 46,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s46",
+      "text": "In approximately what direction is the variance greatest? Choose a reasonable vector \\(\\uvec\\) that points in approximately that direction and find \\(V_{\\uvec}\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:1310a7f1abf02c8fc8c717aa159c3c5e893514c3eb2ffe76cd384a3d4049f777",
+      "extractor_block_id": null,
+      "ordinal": 47,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s47",
+      "text": "In approximately what direction is the variance smallest? Choose a reasonable vector \\(\\wvec\\) that points in approximately that direction and find \\(V_{\\wvec}\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:599f55a5573af8648b0fb7381d81cf785a2c313b254b9bafd9cab3a5d9720071",
+      "extractor_block_id": null,
+      "ordinal": 48,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s48",
+      "text": "This activity illustrates how variance can identify a line along which the data are concentrated. When the data primarily lie along a line defined by a vector \\(\\uvec_1\\text{,}\\) then the variance in that direction will be large while the variance in an orthogonal direction \\(\\uvec_2\\) will be small."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:2187c0cdacb782d172fd97d42920ffcec43af2f42631a46825244d0034e33dd7",
+      "extractor_block_id": null,
+      "ordinal": 49,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s49",
+      "text": "Remember that variance is additive, according to Proposition 7.1.16, so that if \\(\\uvec_1\\) and \\(\\uvec_2\\) are orthogonal unit vectors, then the total variance is"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:e112352c8d3fc2a9bbd519845ea2c3e67f705daec08c020b596990158b6ac7e6",
+      "extractor_block_id": null,
+      "ordinal": 50,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s50",
+      "text": "\\begin{equation*}\nV = V_{\\uvec_1} + V_{\\uvec_2}.\n\\end{equation*}"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:c56ff271621a31535f2f5a652bd584a198436e57a947d43515d0caeb092c8638",
+      "extractor_block_id": null,
+      "ordinal": 51,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s51",
+      "text": "Therefore, if we choose \\(\\uvec_1\\) to be the direction where \\(V_{\\uvec_1}\\) is a maximum, then \\(V_{\\uvec_2}\\) will be a minimum."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:fb44d2d880330c89e05b6d2584348b01aff670aaca209426c623df6d9cff1152",
+      "extractor_block_id": null,
+      "ordinal": 52,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s52",
+      "text": "In the next section, we will use an orthogonal diagonalization of the covariance matrix \\(C\\) to find the directions having the greatest and smallest variances. In this way, we will be able to determine when data are concentrated along a line or subspace."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:12a860d1d55b3cdaba5f30cfc27fe8a86561493632792e2c45044c68ca6d5193",
+      "extractor_block_id": null,
+      "ordinal": 53,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s53",
+      "text": "This section explored both symmetric matrices and variance. In particular, we saw that"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:817e5c0af8166d382bcd0b593539cce68b3032ba0d9ce2332014f94e1fb18fb8",
+      "extractor_block_id": null,
+      "ordinal": 54,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s54",
+      "text": "A matrix \\(A\\) is orthogonally diagonalizable if there is an orthonormal basis of eigenvectors. In particular, we can write \\(A=QDQ^T\\text{,}\\) where \\(D\\) is a diagonal matrix of eigenvalues and \\(Q\\) is an orthogonal matrix of eigenvectors."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:37b8f62bf6291af11ba9eda0a7115e3dce68f6f417f7febc05bc47604f0ee338",
+      "extractor_block_id": null,
+      "ordinal": 55,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s55",
+      "text": "The variance of a dataset can be computed using the covariance matrix \\(C=\\frac1N~AA^T\\text{,}\\) where \\(A\\) is the matrix of demeaned data points. In particular, the variance of the demeaned data points projected onto the line defined by the unit vector \\(\\uvec\\) is \\(V_{\\uvec} = \\uvec\\cdot C\\uvec\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:c1c150efa66c7a4e1e2602fdc049cd1562e6ab17e62b19301732357b99ba00b5",
+      "extractor_block_id": null,
+      "ordinal": 56,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s56",
+      "text": "For each of the following matrices, find the eigenvalues and a basis for each eigenspace. Determine whether the matrix is diagonalizable and, if so, find a diagonalization. Determine whether the matrix is orthogonally diagonalizable and, if so, find an orthogonal diagonalization."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:b04b9b089939566f66dde5ab58d84bbcad9d5cfcf4df7e95f80065033fbdf24e",
+      "extractor_block_id": null,
+      "ordinal": 57,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s57",
+      "text": "Suppose that \\(\\uvec\\) is an eigenvector of \\(B\\) with associated eigenvalue \\(\\lambda\\) and that \\(\\uvec\\) has unit length. Explain why \\(\\lambda =\n\\len{A\\uvec}^2\\text{.}\\)"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:0cbe6e0ebd33460eac7e5fc21f82a0263fea2b4db0effeea564303930d5fd84a",
+      "extractor_block_id": null,
+      "ordinal": 58,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s58",
+      "text": "Suppose that \\(C\\) is the covariance matrix of a demeaned dataset."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:f7ba7071610a7b7b3a19d84b33777e305e512ccdaeaf4fef0c757e8db8ba8885",
+      "extractor_block_id": null,
+      "ordinal": 59,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "root"
+      ],
+      "span_id": "s59",
+      "text": "Suppose that \\(\\uvec\\) is an eigenvector of \\(C\\) with associated eigenvalue \\(\\lambda\\) and that \\(\\uvec\\) has unit length. Explain why \\(V_{\\uvec} = \\lambda\\text{.}\\)"
+     }
+    ],
+    "extractor": "html",
+    "extractor_version": "2",
+    "health": {
+     "flags": [],
+     "pages": []
+    },
+    "ir_schema_version": "ir-2",
+    "units": [
+     {
+      "label": "Document",
+      "locator": {
+       "path": "root",
+       "scheme": "heading_path"
+      },
+      "ordinal": 1,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:b18149240cd29fcf91a5a577979e6f61ab33d7a8b2fbb39327f174079bbedc6a",
+      "span_ids": [
+       "s1",
+       "s2",
+       "s3",
+       "s4",
+       "s5",
+       "s6",
+       "s7",
+       "s8",
+       "s9",
+       "s10",
+       "s11",
+       "s12",
+       "s13",
+       "s14",
+       "s15",
+       "s16",
+       "s17",
+       "s18",
+       "s19",
+       "s20",
+       "s21",
+       "s22",
+       "s23",
+       "s24",
+       "s25",
+       "s26",
+       "s27",
+       "s28",
+       "s29",
+       "s30",
+       "s31",
+       "s32",
+       "s33",
+       "s34",
+       "s35",
+       "s36",
+       "s37",
+       "s38",
+       "s39",
+       "s40",
+       "s41",
+       "s42",
+       "s43",
+       "s44",
+       "s45",
+       "s46",
+       "s47",
+       "s48",
+       "s49",
+       "s50",
+       "s51",
+       "s52",
+       "s53",
+       "s54",
+       "s55",
+       "s56",
+       "s57",
+       "s58",
+       "s59"
+      ],
+      "unit_id": "u1"
+     }
+    ]
+   },
+   "run": {
+    "config": {},
+    "extractor": "html",
+    "extractor_version": "2",
+    "model_versions": {}
+   },
+   "units_digest": "0dc9bf9fc6b8cc843e0b9f77cf8c6cc6f49e84657949fd066cd35e2d5df70514"
+  },
+  "wikipedia-elevator-paradox.html": {
+   "blocks": 15,
+   "blocks_digest": "49b0c7754be5ea3f85444af7fffacd627df034a22ad94e6cdb244994f73af372",
+   "inventory_windows": {
+    "u1": "8805fbaad16450a22e6812f93b6c6462fd9a4ab4bce1864b3921f3a17ac9697c",
+    "u2": "3783d91d878973b2be7c2d70e0cbdda970d70758a35dea549bf2cc89a4e39ed4",
+    "u3": "da2273d7e893c0a83c744a4b2008f959be9af9871e1b5192496a71ab7fc7d510",
+    "u4": "e69ebed8989432586557d861ff7b86ab3fdca77ba6baee32323697a8ba903efd",
+    "u5": "10a8e029ed9c240019f4832e8f74e0214dcb937de8d56201368cf2f8dba0dcb8",
+    "u6": "f2af452d8641db7fa56d990d1bcd7b2885479f961c02bc493b17223cd1d51c33"
+   },
+   "ir": {
+    "assets": [],
+    "blocks": [
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:5579d4e16df1e9b5e46d858ad0aa012e464946c7b6897b7708393f7b72f9dfde",
+      "extractor_block_id": null,
+      "ordinal": 1,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox"
+      ],
+      "span_id": "s1",
+      "text": "This article has multiple issues. Please help improve it or discuss these issues on the talk page. (Learn how and when to remove these messages)\n|"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:1397521fb3dfcbf66a913d9294799f04b980f5227cdf244586c04fd5c4b5e283",
+      "extractor_block_id": null,
+      "ordinal": 2,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox"
+      ],
+      "span_id": "s2",
+      "text": "The **elevator paradox** is a paradox first noted by Marvin Stern and George Gamow, physicists who had offices on different floors of a multi-story building. Gamow, who had an office near the bottom of the building noticed that the first elevator to stop at his floor was most often going down, while Stern, who had an office near the top, noticed that the first elevator to stop at his floor was most often going up.[1] This creates the false impression that elevator cars are more likely to be going in one direction than the other depending on which floor the observer is on."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:fe91620e154ff02a3cf377e1c0154648dddcaa49a7beef0af6a54be858b21771",
+      "extractor_block_id": null,
+      "ordinal": 3,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s3",
+      "text": "[edit]Several attempts (beginning with Gamow and Stern) were made to analyze the reason for this phenomenon: the basic analysis is simple, while detailed analysis is more difficult than it would at first appear."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:824c5db04c9a645d9004b412133673c7adae9e44fa57e5051014f5d0a833c1e5",
+      "extractor_block_id": null,
+      "ordinal": 4,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s4",
+      "text": "Simply, if one is on the top floor of a building, *all* elevators will come from below (none can come from above), and then depart going down, while if one is on the second from top floor, an elevator going to the top floor will pass first on the way up, and then shortly afterward on the way down – thus, while an equal number will pass going up as going down, downwards elevators will generally shortly follow upwards elevators (unless the elevator idles on the top floor), and thus the *first* elevator observed will usually be going up. The first elevator observed will be going down only if one begins observing in the short interval after an elevator has passed going up, while the rest of the time the first elevator observed will be going up."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:49813bc3b2f180529f1e08c782c5cdef3cf67ed56968b8cab4c3833a1b167fe4",
+      "extractor_block_id": null,
+      "ordinal": 5,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s5",
+      "text": "In more detail, the explanation is as follows: a single elevator spends most of its time in the larger section of the building, and thus is more likely to approach from that direction when the prospective elevator user arrives. An observer who remains by the elevator doors for hours or days, observing *every* elevator arrival, rather than only observing the first elevator to arrive, would note an equal number of elevators traveling in each direction. This then becomes a sampling problem — the observer is sampling stochastically a non uniform interval."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:cf879cc488bbd07d68f495bab5b56019a1e3e63eddddc703ca5af354549d0a9e",
+      "extractor_block_id": null,
+      "ordinal": 6,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s6",
+      "text": "To help visualize this, consider a thirty-story building, plus lobby, with only one slow elevator. The elevator is so slow because it stops at every floor on the way up, and then on every floor on the way down. It takes a minute to travel between floors and wait for passengers. Here is the arrival schedule; as depicted above, it forms a triangle wave:"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:c7259cf7e22c2ae0317090381480ac249e402c5e3b0f00454244db3d26d7c5e3",
+      "extractor_block_id": null,
+      "ordinal": 7,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s7",
+      "text": "| Floor | Time on way up | Time on way down |\n|---|---|---|\n| Lobby | 8:00, 9:00, ... | n/a |\n| 1st floor | 8:01, 9:01, ... | 8:59, 9:59, ... |\n| 2nd floor | 8:02, 9:02, ... | 8:58, 9:58, ... |\n| ... | ... | ... |\n| 29th floor | 8:29, 9:29, ... | 8:31, 9:31, ... |\n| 30th floor | n/a | 8:30, 9:30, ... |"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:87e5316814c36f93135569c409885084efc92d136146cfdb244b50e446574967",
+      "extractor_block_id": null,
+      "ordinal": 8,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s8",
+      "text": "If you were on the first floor and walked up randomly to the elevator, chances are the next elevator would be heading down. The next elevator would be heading up only during the first two minutes at each hour, e.g., at 9:00 and 9:01. The number of elevator stops going upwards and downwards are the same, but the probability that the next elevator is going up is only 2 in 60."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:c4d536b6e4fe9bc5db3c28450e80aae8cc79424d67613bbd349a569bf490d256",
+      "extractor_block_id": null,
+      "ordinal": 9,
+      "page": null,
+      "polygon": null,
+      "role_hint": "exercise",
+      "section_path": [
+       "elevator-paradox",
+       "modeling-the-elevator-problem"
+      ],
+      "span_id": "s9",
+      "text": "A similar effect can be observed in railway stations where a station near the end of the line will likely have the next train headed for the end of the line."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:66adfe600db4f33d797ed6e7867e017cdbe6409ebe36f0ea7709d8ea66aae3ae",
+      "extractor_block_id": null,
+      "ordinal": 10,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox",
+       "more-than-one-elevator"
+      ],
+      "span_id": "s10",
+      "text": "[edit]If there is more than one elevator in a building, the bias decreases — since there is a greater chance that the intending passenger will arrive at the elevator lobby during the time that at least one elevator is below them; with an infinite number of elevators, the probabilities would be equal.[2]"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:ba71b1035cfca1b8d518424bf7f44e4c779fef21b193645a40ba39229ae7f416",
+      "extractor_block_id": null,
+      "ordinal": 11,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox",
+       "more-than-one-elevator"
+      ],
+      "span_id": "s11",
+      "text": "In the example above, if there are 30 floors and 58 elevators, so at every minute there are 2 elevators on each floor, one going up and one going down (save at the top and bottom), the bias is eliminated – every minute, one elevator arrives going up and another going down. This also occurs with 30 elevators spaced 2 minutes apart – on odd floors they alternate up/down arrivals, while on even floors they arrive simultaneously every two minutes."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:172178a3ad99652f2916d98ec825eaa9f7bc40de1068bcdb3a8b0cac95fb3509",
+      "extractor_block_id": null,
+      "ordinal": 12,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox",
+       "the-real-world-case"
+      ],
+      "span_id": "s12",
+      "text": "[edit]In a real building, there are complicated factors such as: the tendency of elevators to be frequently required on the ground or first floor, and to return there when idle; lopsided demand where everyone wants to go down at the end of the day; people on the lower floors being more willing to take the stairs; or the way full elevators ignore external floor-level calls. These factors tend to shift the frequency of observed arrivals, but do not eliminate the paradox entirely. In particular, a user very near the top floor will perceive the paradox even more strongly, as elevators are infrequently present or required above their floor."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:da0894a26302242dde5047fef5952fd2d433e223a0417153723fbdf2ec8864f0",
+      "extractor_block_id": null,
+      "ordinal": 13,
+      "page": null,
+      "polygon": null,
+      "role_hint": "reference",
+      "section_path": [
+       "elevator-paradox",
+       "references"
+      ],
+      "span_id": "s13",
+      "text": "[edit]- ↑ Nahin, Paul J. (2008).\n*Digital Dice: Computational Solutions to Practical Probability Problems*. Princeton University Press. ISBN 978-0-691-12698-2. - ↑ Knuth, Donald E. (July 1969). \"The Gamow-Stern Elevator Problem\".\n*Journal of Recreational Mathematics*.**2**. Baywood Publishing Company, Inc.: 131–137. ISSN 0022-412X."
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:94603f82a39f0b3f2ccaa32d7a7668dcb6c13a1a34b30e52b9912333499ed41d",
+      "extractor_block_id": null,
+      "ordinal": 14,
+      "page": null,
+      "polygon": null,
+      "role_hint": "reference",
+      "section_path": [
+       "elevator-paradox",
+       "references"
+      ],
+      "span_id": "s14",
+      "text": "- Martin Gardner,\n*Knotted Doughnuts and Other Mathematical Entertainments*, chapter 10. W H Freeman & Co.; (October 1986). ISBN 0-7167-1799-9. - Martin Gardner,\n*Aha! Gotcha*, page 96. W H Freeman & Co.; 1982. ISBN 0-7167-1414-0 - Marvin Stern, George Gamow,\n*Puzzle Math,*Viking Press; 1958. ISBN 0-670-58335-9 - Donald E. Knuth,\n*Selected Papers on Fun & Games,*CSLI Publications; 2011. ISBN 1-575-86584-X"
+     },
+     {
+      "asset_ids": [],
+      "bbox": null,
+      "block_type": "Text",
+      "content_hash": "sha256:f3260de4f290122abd71ae342433dbadf0024b5ba81c393ceb2d92e856190a49",
+      "extractor_block_id": null,
+      "ordinal": 15,
+      "page": null,
+      "polygon": null,
+      "role_hint": "ordinary_prose",
+      "section_path": [
+       "elevator-paradox",
+       "external-links"
+      ],
+      "span_id": "s15",
+      "text": "[edit]- A detailed treatment, part 1 Archived October 28, 2003, at the Wayback Machine by Tokihiko Niwa\n- Part 2: the multi-elevator case Archived October 28, 2003, at the Wayback Machine\n- MathWorld article on the elevator paradox"
+     }
+    ],
+    "extractor": "html",
+    "extractor_version": "2",
+    "health": {
+     "flags": [],
+     "pages": []
+    },
+    "ir_schema_version": "ir-2",
+    "units": [
+     {
+      "label": "(intro)",
+      "locator": {
+       "path": "root/elevator-paradox",
+       "scheme": "heading_path"
+      },
+      "ordinal": 1,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:9feea682e875e3d3339af9bdba8f93bfbb4cec10b6b186764795fd2ba587538b",
+      "span_ids": [
+       "s1",
+       "s2"
+      ],
+      "unit_id": "u1"
+     },
+     {
+      "label": "modeling-the-elevator-problem",
+      "locator": {
+       "path": "root/elevator-paradox/modeling-the-elevator-problem",
+       "scheme": "heading_path"
+      },
+      "ordinal": 2,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:3b77742dd1dee0f2ebc593fdce17f210d9f3d1c3b647c7259dfe04f40a96173c",
+      "span_ids": [
+       "s3",
+       "s4",
+       "s5",
+       "s6",
+       "s7",
+       "s8",
+       "s9"
+      ],
+      "unit_id": "u2"
+     },
+     {
+      "label": "more-than-one-elevator",
+      "locator": {
+       "path": "root/elevator-paradox/more-than-one-elevator",
+       "scheme": "heading_path"
+      },
+      "ordinal": 3,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:4792829b1138b55be4256271c11bbd84b6be3fffb4347e7dcf682f6ec611c076",
+      "span_ids": [
+       "s10",
+       "s11"
+      ],
+      "unit_id": "u3"
+     },
+     {
+      "label": "the-real-world-case",
+      "locator": {
+       "path": "root/elevator-paradox/the-real-world-case",
+       "scheme": "heading_path"
+      },
+      "ordinal": 4,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:172178a3ad99652f2916d98ec825eaa9f7bc40de1068bcdb3a8b0cac95fb3509",
+      "span_ids": [
+       "s12"
+      ],
+      "unit_id": "u4"
+     },
+     {
+      "label": "references",
+      "locator": {
+       "path": "root/elevator-paradox/references",
+       "scheme": "heading_path"
+      },
+      "ordinal": 5,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:832d7f959f4b64fe6ecc67b2a3deb323900d3c6b6ca710deb0068af1ebec108e",
+      "span_ids": [
+       "s13",
+       "s14"
+      ],
+      "unit_id": "u5"
+     },
+     {
+      "label": "external-links",
+      "locator": {
+       "path": "root/elevator-paradox/external-links",
+       "scheme": "heading_path"
+      },
+      "ordinal": 6,
+      "page_end": null,
+      "page_start": null,
+      "parent_unit_id": null,
+      "semantic_hash": "sha256:372b4d327b6bd1723a0a5820c56457f2221e882de0325b801e2afcc5872bf2bd",
+      "span_ids": [
+       "s15"
+      ],
+      "unit_id": "u6"
+     }
+    ]
+   },
+   "run": {
+    "config": {},
+    "extractor": "html",
+    "extractor_version": "2",
+    "model_versions": {}
+   },
+   "units_digest": "5793c8051c4253059f100751d9899ee663432722fe87882001716aa1044e2429"
+  }
+ },
+ "inputs": {
+  "notes.md": "# Eigenvalues\n\nA square matrix $A$ has an eigenvector $v$ when $Av = \\lambda v$.\n\n## Diagonalization\n\n$$\nA = PDP^{-1}\n$$\n\n- one item with $x^2$\n- another item\n\n## Exercises\n\nFor each of the following matrices, find the eigenvalues:\n\n$$\n\\begin{bmatrix} 1 & 2 \\\\ 2 & 1 \\end{bmatrix}\n$$\n",
+  "notes.txt": "Notes on variance\n\nThe variance of a dataset is the mean of the squared distances to the centroid.\nIt adds over an orthonormal basis: V_W = V_u1 + V_u2.\n\nA second paragraph with an equation written plainly: V = (1/N) sum |d_j|^2.\n"
+ },
+ "other_kinds": {
+  "notes.md": {
+   "blocks": 5,
+   "blocks_digest": "9a58ce1a60c2250bc0cc66ba99e73d90a1c2835421e9bfbb110139bcfc0258e8",
+   "run": {
+    "config": {},
+    "extractor": "text",
+    "extractor_version": "2",
+    "model_versions": {}
+   },
+   "units_digest": "ca223587ef6a38b7e633e328a547a6caf3d38b74a56a94c329e983448a4f5af3"
+  },
+  "notes.txt": {
+   "blocks": 3,
+   "blocks_digest": "e777f4df8849736b260a9f0702c495c7a263c95186e36dcceaffc8cde29137af",
+   "run": {
+    "config": {},
+    "extractor": "text",
+    "extractor_version": "2",
+    "model_versions": {}
+   },
+   "units_digest": "803d0bc3e6b4f6c4015eea4555f9c450cdd6e7caca105eabeafb3c5f3f7163b7"
+  },
+  "quiz.pdf": {
+   "blocks": 5,
+   "blocks_digest": "33c91b3f1aa9a8a3969ac31da099f775df4193ba539f6b4eee82e8ebbdada6ce",
+   "run": {
+    "config": {},
+    "extractor": "pypdf",
+    "extractor_version": "6.14.2+map2",
+    "model_versions": {}
+   },
+   "units_digest": "88abde7f306787045fde0fe1c37d2a9fb5a0c782803e7d297d65462ea2a0653c"
+  },
+  "solutions.pdf": {
+   "blocks": 5,
+   "blocks_digest": "7bebb01f1c4f6e2faa9f935de5a36d56969858dc8c124fd849808e8e95ea6097",
+   "run": {
+    "config": {},
+    "extractor": "pypdf",
+    "extractor_version": "6.14.2+map2",
+    "model_versions": {}
+   },
+   "units_digest": "eb826bf911d05fede5ed3c7b95a3088ad0210c5a02536fd4362e9582c7bc2271"
+  }
+ },
+ "probe": {
+  "many_articles": {
+   "page": "<html><head><title>Book</title></head><body><main><section><h2>Section 1</h2><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p><article class=\"example\"><h4>Example 1</h4><p>Short example.</p></article><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. Exercise one asks for the eigenvalues of the matrix shown.</p><details class=\"solution\"><summary>Solution</summary><p>DETAILSSECRET the eigenvalues are three and minus one, as The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></details><details open><summary>Open note</summary><p>OPENDETAILS an open disclosure, The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></details><div hidden><p>HIDDENATTR hidden attribute answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div style=\"display:none\"><p>DISPLAYNONE answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div class=\"answer hidden\"><p>CLASSHIDDEN answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div aria-hidden=\"true\"><p>ARIAHIDDEN answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The next exercise follows.</p><article class=\"exercise\"><h4>Exercise 2</h4><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></article></section></main></body></html>",
+   "reaches_text": {
+    "ARIAHIDDEN": false,
+    "CLASSHIDDEN": false,
+    "DETAILSSECRET": true,
+    "DISPLAYNONE": false,
+    "HIDDENATTR": true,
+    "OPENDETAILS": true
+   }
+  },
+  "one_article": {
+   "page": "<html><head><title>Blog</title></head><body><nav>Home About</nav><article class=\"post\"><h1>Symmetric matrices</h1><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. Exercise one asks for the eigenvalues of the matrix shown.</p><details class=\"solution\"><summary>Solution</summary><p>DETAILSSECRET the eigenvalues are three and minus one, as The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></details><details open><summary>Open note</summary><p>OPENDETAILS an open disclosure, The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></details><div hidden><p>HIDDENATTR hidden attribute answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div style=\"display:none\"><p>DISPLAYNONE answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div class=\"answer hidden\"><p>CLASSHIDDEN answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><div aria-hidden=\"true\"><p>ARIAHIDDEN answer The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal.</p></div><p>The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The eigenvalues of a symmetric matrix are real and its eigenvectors can be chosen orthogonal. The next exercise follows.</p></article><footer>Copyright</footer></body></html>",
+   "reaches_text": {
+    "ARIAHIDDEN": false,
+    "CLASSHIDDEN": false,
+    "DETAILSSECRET": true,
+    "DISPLAYNONE": false,
+    "HIDDENATTR": true,
+    "OPENDETAILS": true
+   }
+  }
+ }
+}
