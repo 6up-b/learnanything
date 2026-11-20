@@ -86,8 +86,10 @@ import {
   causeWait,
   causeSendsPassages,
   causeSentence,
+  causeTopicsFailed,
   continueLessonLine,
   goalCauseSentence,
+  readyWithWorkSentence,
   todayCause,
   type TodayCause
 } from "../../app/todayCause";
@@ -575,7 +577,8 @@ export function TodayPlace({
   // shelf reads it, so the line never outlives its state.
   const refetchLibrary = library.refetch;
   const refetchQueue = queueQuery.refetch;
-  const onTheWay = cause?.kind === "on_the_way" || cause?.kind === "section_writing";
+  const onTheWay = cause?.kind === "on_the_way" || cause?.kind === "section_writing"
+    || (cause?.kind === "questions_ready_with_section_work" && cause.writing !== null);
   useEffect(() => {
     if (!onTheWay) return;
     const timer = window.setInterval(() => {
@@ -885,7 +888,8 @@ export function TodayPlace({
       case "waiting_ok":
       case "needs_ai":
         return onConnectAi ?? null;
-      case "questions_ready": {
+      case "questions_ready":
+      case "questions_ready_with_section_work": {
         const item = shown.itemId ? queue?.sections.flatMap((section) => section.items).find((row) => row.practiceItemId === shown.itemId) : null;
         return item ? () => void openFromList(item) : null;
       }
@@ -909,7 +913,13 @@ export function TodayPlace({
   }
 
   const causeLine = cause ? (
-    <CauseLine cause={cause} whatLeaves={aiConnection?.whatLeaves ?? null} busy={busy} onAction={causeAction(cause)} />
+    <CauseLine
+      cause={cause}
+      whatLeaves={aiConnection?.whatLeaves ?? null}
+      busy={busy}
+      onAction={causeAction(cause)}
+      onTryAgain={cause.kind === "questions_ready_with_section_work" && cause.resumeId ? () => void resumeSection(cause.resumeId as string) : null}
+    />
   ) : null;
 
   // Stage 3 (UX-6's line, now with its cause): "Practise for this goal" found
@@ -933,7 +943,7 @@ export function TodayPlace({
         if (enterOnControl(event)) return;
         event.preventDefault();
         // A book's first questions on Today: Enter is their Begin, as the line says.
-        const first = cause?.kind === "questions_ready" ? causeAction(cause) : null;
+        const first = cause?.kind === "questions_ready" || cause?.kind === "questions_ready_with_section_work" ? causeAction(cause) : null;
         if (first) first();
         else if (done) void keepGoing();
         else void begin();
@@ -1210,6 +1220,7 @@ function CauseLine({
   whatLeaves,
   busy,
   onAction,
+  onTryAgain = null,
   sentence,
   testId = "today-cause",
   style
@@ -1218,6 +1229,9 @@ function CauseLine({
   whatLeaves: string | null;
   busy: boolean;
   onAction: (() => void) | null;
+  /** Questions offered while some topics' could not be written: Try again for the stopped part (null while its
+   *  writing still goes on). */
+  onTryAgain?: (() => void) | null;
   /** The line's own words where it is not Today's (the goal card's). */
   sentence?: string;
   testId?: string;
@@ -1232,7 +1246,7 @@ function CauseLine({
     // says what to know meanwhile. The indicator is the status region, so this frame is not one too.
     return (
       <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
-        <Waiting testId={`${testId}-wait`} line={wait.line}>
+        <Waiting testId={`${testId}-wait`} line={wait.line} later={wait.later}>
           {label && onAction ? (
             <>
               {" "}
@@ -1243,6 +1257,42 @@ function CauseLine({
           ) : null}
         </Waiting>
         <div>{wait.after}</div>
+      </div>
+    );
+  }
+  if (sentence === undefined && cause.kind === "questions_ready_with_section_work") {
+    // The questions there are offered with Begin; the topics that could not be written are a line of their own, with
+    // the Try again that sends passages (and what's sent) beside it, not beside Begin.
+    const failed = causeTopicsFailed(cause);
+    return (
+      <div data-testid={testId} role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
+        <div>
+          {readyWithWorkSentence(cause)}{" "}
+          {label && onAction ? (
+            <button type="button" style={linkButton} disabled={busy} onClick={onAction}>
+              {label}
+            </button>
+          ) : null}
+        </div>
+        {failed ? (
+          <div data-testid={`${testId}-failed`}>
+            {failed}
+            {onTryAgain ? (
+              <>
+                {" "}
+                <button type="button" style={linkButton} disabled={busy} onClick={onTryAgain}>
+                  Try again
+                </button>
+                {whatLeaves ? (
+                  <button type="button" style={dimLink} aria-expanded={sent} onClick={() => setSent((open) => !open)}>
+                    {WHATS_SENT} {sent ? "▾" : "▸"}
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {sent && whatLeaves ? <div style={{ fontSize: 12, color: COLOR.textDim }}>{whatLeaves}</div> : null}
       </div>
     );
   }

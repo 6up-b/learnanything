@@ -1908,3 +1908,230 @@ describe("A section finished before its book is ready: Today says its questions 
     }
   });
 });
+
+describe("Question writing you can follow: how far it is, the questions already there, a topic that could not be written", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...overrides
+  });
+  const built = (questions = facts()): SourceStatusLineDto => ({ ...LINE.built, questions });
+  const FAILED_TOPIC = "Not every topic's questions could be written.";
+
+  it("the writing line says how many topics are done, where the fact gives it for the section named", async () => {
+    const card = libraryCard(built(facts({ writing: ["Conditional probability"], progress: { done: 2, total: 8 } })));
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Writing questions from “Conditional probability”, the part you read · 2 of 8 topics done")).toBeTruthy();
+    expect(cause.textContent).toContain("Keep reading meanwhile.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+    cleanup();
+    clear();
+    // A reading that is one section: named by its book, with its amount.
+    emptyToday([libraryCard(built(facts({ writing: ["Document"], sectionCount: 1, progress: { done: 0, total: 1 } })))]);
+    show(causeProps({ aiConnection: ready() }));
+    expect(await within(await screen.findByTestId("today-cause")).findByText("Writing questions from what you read in “Symmetric Matrices and Variance” · 0 of 1 topic done")).toBeTruthy();
+  });
+
+  it("no amount where the fact gives none, or where it adds up another finished section too", async () => {
+    emptyToday([libraryCard(built(facts({ writing: ["Conditional probability"] })))]);
+    show(causeProps({ aiConnection: ready() }));
+    expect(await within(await screen.findByTestId("today-cause")).findByText("Writing questions from “Conditional probability”, the part you read…")).toBeTruthy();
+    cleanup();
+    clear();
+    // "Bayes' rule" was finished earlier and gave its questions (no longer on today's list): the book's count adds
+    // up its topics too, so it is not how far “Conditional probability” is.
+    emptyToday([libraryCard(built(facts({ count: 3, itemIds: ["pi_x"], sections: ["Bayes' rule"], writing: ["Conditional probability"], progress: { done: 8, total: 14 } })))]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(await within(cause).findByText("Writing questions from “Conditional probability”, the part you read…")).toBeTruthy();
+    expect(cause.textContent).not.toMatch(/topics? done/);
+  });
+
+  it("questions ready while more are written: how many and how far, Begin opens the first, and the count follows the parts", async () => {
+    const lines = [built(facts({ count: 3, itemIds: ["pi_2", "pi_1", "pi_9"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 2, total: 8 } }))];
+    const f = emptyToday([], {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2), scheduled(3)]))
+    });
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("2 questions from “Conditional probability” are ready. More are being written (2 of 8 topics done)."));
+    expect(cause.textContent).not.toMatch(/Writing questions from|More come as you finish sections/);
+    expect(within(cause).queryByRole("button", { name: "Continue reading" })).toBeNull();
+    // The next topic's questions apply: the revision the shell reads moves, Today reads the books and the list again.
+    lines[0] = built(facts({ count: 6, itemIds: ["pi_2", "pi_1", "pi_9", "pi_3"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 3, total: 8 } }));
+    act(() => notifyQueueChanged());
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("3 questions from “Conditional probability” are ready. More are being written (3 of 8 topics done)."), { timeout: 2000 });
+    fireEvent.click(within(screen.getByTestId("today-cause")).getByRole("button", { name: "Begin ↵" }));
+    // The first of them in today's list's order, as a pick from the list.
+    await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_1", "s_new", "cand_1"));
+    await waitFor(() => expect(props.onBeginSession).toHaveBeenCalled());
+  });
+
+  it("one question ready while more are written, from a reading that is one section; Enter is its Begin", async () => {
+    const f = emptyToday([libraryCard(built(facts({ count: 1, itemIds: ["pi_2"], sections: ["Document"], writing: ["Document"], sectionCount: 1 })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)]))
+    });
+    show(causeProps({ aiConnection: ready(), session: SESSION }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain(
+      "1 question from what you read in “Symmetric Matrices and Variance” is ready. More are being written."
+    ));
+    await press({ key: "Enter" });
+    await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_2", "s1", "cand_2"));
+  });
+
+  it("ready, and a topic's questions could not be written: still offered with Begin; Try again resumes the stopped part", async () => {
+    const f = emptyToday([libraryCard(built(facts({
+      count: 2, itemIds: ["pi_1", "pi_4"], sections: ["Conditional probability"], progress: { done: 7, total: 8 },
+      failed: [{ label: "Conditional probability: Bayes' rule", resumeId: "batch_sec" }]
+    })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(4)])),
+      resumeIngestBatch: vi.fn(async () => ({ id: "batch_sec", status: "queued" }))
+    });
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("2 questions from “Conditional probability”, the part you read. More come as you finish sections."));
+    const failed = within(cause).getByTestId("today-cause-failed");
+    expect(failed.textContent).toContain(FAILED_TOPIC);
+    expect(cause.textContent).not.toContain("Couldn't write the questions");
+    // What's sent sits beside the Try again that sends passages, not beside Begin.
+    expect(within(failed).getByRole("button", { name: /what's sent/ })).toBeTruthy();
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.resumeIngestBatch).toHaveBeenCalledWith("batch_sec"));
+    fireEvent.click(within(cause).getByRole("button", { name: "Begin ↵" }));
+    await waitFor(() => expect(f.planLearnerPick).toHaveBeenCalledWith("pi_1", "s_new", "cand_1"));
+    await waitFor(() => expect(props.onBeginSession).toHaveBeenCalled());
+  });
+
+  it("a topic failed while the rest are still written: said, with no Try again until that writing stops (a resume would do nothing then)", async () => {
+    const lines = [built(facts({
+      count: 3, itemIds: ["pi_1"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 4, total: 8 },
+      failed: [{ label: "Conditional probability: Bayes' rule", resumeId: "batch_sec" }]
+    }))];
+    const f = emptyToday([], {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1)])),
+      resumeIngestBatch: vi.fn(async () => ({ id: "batch_sec", status: "queued" }))
+    });
+    show(causeProps({ aiConnection: ready() }));
+    await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("1 question from “Conditional probability” is ready. More are being written (4 of 8 topics done)."));
+    const failed = within(screen.getByTestId("today-cause")).getByTestId("today-cause-failed");
+    expect(failed.textContent).toBe(FAILED_TOPIC);
+    expect(within(failed).queryByRole("button", { name: "Try again" })).toBeNull();
+    // The writing stops with the topic still missing: Try again appears, and resumes that part.
+    lines[0] = built(facts({
+      count: 3, itemIds: ["pi_1"], sections: ["Conditional probability"], progress: { done: 7, total: 8 },
+      failed: [{ label: "Conditional probability: Bayes' rule", resumeId: "batch_sec" }]
+    }));
+    act(() => notifyQueueChanged());
+    const retry = await within(screen.getByTestId("today-cause")).findByRole("button", { name: "Try again" }, { timeout: 2000 });
+    fireEvent.click(retry);
+    await waitFor(() => expect(f.resumeIngestBatch).toHaveBeenCalledWith("batch_sec"));
+  });
+
+  it("several topics or sections could not be written: the same line, no count it cannot know; Try again resumes the first stopped one", async () => {
+    const f = emptyToday([libraryCard(built(facts({
+      count: 2, itemIds: ["pi_1", "pi_2"], sections: ["Conditional probability", "Independence"],
+      failed: [{ label: "Conditional probability: Bayes' rule, Total probability", resumeId: "batch_a" }, { label: "Independence: Pairwise", resumeId: "batch_b" }]
+    })))], {
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)])),
+      resumeIngestBatch: vi.fn(async () => ({ id: "batch_a", status: "queued" }))
+    });
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("2 questions from what you read in “Symmetric Matrices and Variance”. More come as you finish sections."));
+    const failed = within(cause).getByTestId("today-cause-failed");
+    expect(failed.textContent).toContain(FAILED_TOPIC);
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.resumeIngestBatch).toHaveBeenCalledWith("batch_a"));
+  });
+
+  it("every topic failed and nothing ready: the stopped section's own line, unchanged", async () => {
+    emptyToday([libraryCard(built(facts({ failed: [{ label: "Conditional probability", resumeId: "batch_sec" }], progress: { done: 0, total: 8 } })))]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Couldn't write the questions from “Conditional probability”. Try again, or keep reading: nothing is lost.");
+    expect(cause.textContent).not.toContain(FAILED_TOPIC);
+  });
+
+  describe("a new library's first build", () => {
+    // The screen is read with the harness's real timers; the build's line arrives, and its wait runs, on fake ones.
+    function freezeTimers() {
+      const now = Date.now();
+      vi.useRealTimers();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"], now });
+    }
+    async function advance(ms: number) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+    }
+    async function buildArrives(line: SourceStatusLineDto) {
+      // Before: the book's card asks for something else; then its build is under way.
+      const lines: SourceStatusLineDto[] = [LINE.costs];
+      emptyToday([], { getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(lines[0])], pending: [] })) });
+      show(causeProps({ aiConnection: ready() }));
+      await waitFor(() => expect(screen.getByTestId("today-cause").textContent).toContain("needs a look in your Library"));
+      freezeTimers();
+      lines[0] = line;
+      act(() => notifyQueueChanged());
+      // The reread lands a few ticks later; the wait's own clock starts when its line mounts.
+      for (let tick = 0; tick < 20 && !screen.queryByTestId("today-cause-wait"); tick += 1) await advance(10);
+      expect(screen.getByTestId("today-cause-wait")).toBeTruthy();
+      await advance(400);
+    }
+
+    it("with no measured time: after five seconds, a quiet second line that this can take several minutes the first time", async () => {
+      await buildArrives({ ...LINE.writing, progress: { done: 0, total: 2 } });
+      expect(screen.getByTestId("today-cause-wait").textContent).toContain("Getting “Symmetric Matrices and Variance” ready for questions · 0 of 2 steps done");
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+      await advance(4300);
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+      await advance(400);
+      expect(screen.getByTestId("today-cause-wait-later").textContent).toBe("The first time, this can take several minutes.");
+    });
+
+    it("with a measured time: the usual time on the line, and no second line", async () => {
+      await buildArrives({ ...LINE.writing, progress: { done: 1, total: 2 }, minutes: 3.6 });
+      expect(screen.getByTestId("today-cause-wait").textContent).toContain("ready for questions · 1 of 2 steps done · usually about 4 min");
+      await advance(6000);
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+    });
+
+    it("a line that is not the build's own (the book still being read in, chapters being chosen) claims nothing about a first time", async () => {
+      await buildArrives({ text: "Chapters found", tone: "working", action: null, details: null });
+      expect(screen.getByTestId("today-cause-wait").textContent).toContain("Getting “Symmetric Matrices and Variance” ready for questions");
+      await advance(6000);
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+    });
+
+    it("chapters being chosen for a book with finished sections: the line's amount is its sections' topics, not a build's, so no first time either", async () => {
+      // The sidecar copies `questions.progress` onto a line with no build progress of its own (add_source.py
+      // `source_status_line`): on "Chapters found" it is the sections' topics, and says nothing about the library's builds.
+      await buildArrives({
+        text: "Chapters found", tone: "working", action: null, details: null, progress: { done: 8, total: 8 },
+        questions: facts({ count: 6, itemIds: ["pi_x"], sections: ["Conditional probability"], progress: { done: 8, total: 8 } })
+      });
+      await advance(6000);
+      expect(screen.queryByTestId("today-cause-wait-later")).toBeNull();
+    });
+  });
+
+  it("every new line is in plain words", async () => {
+    const cases: Array<{ line: SourceStatusLineDto; list: ScheduledItemDto[] }> = [
+      { line: built(facts({ writing: ["Conditional probability"], progress: { done: 2, total: 8 } })), list: [] },
+      { line: built(facts({ count: 3, itemIds: ["pi_1"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 2, total: 8 } })), list: [scheduled(1)] },
+      { line: built(facts({ count: 3, itemIds: ["pi_1"], sections: ["Conditional probability"], failed: [{ label: "Conditional probability: Bayes' rule", resumeId: "b" }] })), list: [scheduled(1)] }
+    ];
+    for (const { line, list } of cases) {
+      emptyToday([libraryCard(line)], { getTodayQueue: vi.fn(async () => queue(list)) });
+      show(causeProps({ aiConnection: ready() }));
+      const cause = await screen.findByTestId("today-cause");
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(cause.textContent).not.toBe("");
+      expect(findJargon(cause.textContent ?? "")).toEqual([]);
+      cleanup();
+      clear();
+    }
+  });
+});

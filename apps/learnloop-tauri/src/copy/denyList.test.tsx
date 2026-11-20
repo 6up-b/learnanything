@@ -18,6 +18,7 @@ import {
   PLAN_FINISHED,
   causeActionLabel,
   causeSentence,
+  causeTopicsFailed,
   causeWait,
   goalCauseSentence,
   type TodayCause
@@ -171,11 +172,21 @@ const STAGE3_CAUSES: TodayCause[] = [
   { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, waiting: { part: "Conditional probability" } },
   { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: null, waiting: { part: null } },
   { kind: "section_waiting", title: "Probability", part: "Conditional probability", card: BOOK },
-  { kind: "section_waiting", title: "Probability", part: null, card: BOOK }
+  { kind: "section_waiting", title: "Probability", part: null, card: BOOK },
+  // Question writing you can follow (docs/reviews/ux-first-questions-progress.md).
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 0, total: 2 }, minutes: null, firstBuild: true },
+  { kind: "section_writing", title: "Probability", part: "Conditional probability", card: BOOK, progress: { done: 2, total: 8 } },
+  { kind: "section_writing", title: "Probability", part: null, card: BOOK, progress: { done: 0, total: 1 } },
+  { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 3, itemId: "pi_1", card: BOOK,
+    writing: { progress: { done: 2, total: 8 } }, failedTopics: false, resumeId: null },
+  { kind: "questions_ready_with_section_work", title: "Probability", part: null, count: 1, itemId: null, card: BOOK,
+    writing: { progress: null }, failedTopics: true, resumeId: null },
+  { kind: "questions_ready_with_section_work", title: "Probability", part: "Conditional probability", count: 2, itemId: "pi_1", card: BOOK,
+    writing: null, failedTopics: true, resumeId: "batch_1" }
 ];
 const STAGE3_SENTENCES = [
   ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "",
-    causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? ""]),
+    causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? "", causeWait(cause)?.later ?? "", causeTopicsFailed(cause) ?? ""]),
   GOAL_NOT_UP_TODAY,
   PLAN_FINISHED,
   KEEP_GOING_NOTHING_LEAD,

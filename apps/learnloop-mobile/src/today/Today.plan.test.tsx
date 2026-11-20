@@ -559,3 +559,60 @@ describe("a section finished before its book is ready (UX-31): the phone says th
     );
   });
 });
+
+describe("question writing you can follow: the phone says the desktop's sentences on an empty day", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (questions: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+      statusLine: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null, questions } }]
+  });
+  const FAILED = { label: "Conditional probability: Bayes' rule", resumeId: "batch_sec" };
+
+  async function causeFor(questions: Record<string, unknown>): Promise<string> {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(questions);
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    const text = cause.textContent ?? "";
+    expect(findJargon(text)).toEqual([]);
+    // The phone has no action of its own here: Keep going stays the one.
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Begin|Try again/ })).toBeNull();
+    cleanup();
+    return text;
+  }
+
+  it("the writing line with how many topics are done", async () => {
+    expect(await causeFor(facts({ writing: ["Conditional probability"], progress: { done: 2, total: 8 } }))).toBe(
+      "Writing questions from “Conditional probability”, the part you read · 2 of 8 topics done. Keep reading meanwhile."
+    );
+  });
+
+  it("questions written while more are: how many, and how far", async () => {
+    expect(await causeFor(facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"], writing: ["Conditional probability"], progress: { done: 2, total: 8 } }))).toBe(
+      "3 questions from “Conditional probability” are ready. More are being written (2 of 8 topics done)."
+    );
+  });
+
+  it("questions written, and a topic that could not be", async () => {
+    expect(await causeFor(facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"], failed: [FAILED], progress: { done: 7, total: 8 } }))).toBe(
+      "3 questions from “Conditional probability”, the part you read. More come as you finish sections. Not every topic's questions could be written."
+    );
+  });
+
+  it("questions written, more being written, and a topic that could not be", async () => {
+    expect(await causeFor(facts({ count: 3, itemIds: ["i1", "i2", "i3"], sections: ["Conditional probability"], writing: ["Conditional probability"], failed: [FAILED], progress: { done: 4, total: 8 } }))).toBe(
+      "3 questions from “Conditional probability” are ready. More are being written (4 of 8 topics done). Not every topic's questions could be written."
+    );
+  });
+
+  it("nothing written and the section stopped: the stopped section's own sentence, unchanged", async () => {
+    expect(await causeFor(facts({ failed: [{ label: "Conditional probability", resumeId: "batch_sec" }] }))).toBe(
+      "Couldn't write the questions from “Conditional probability”. Try again, or keep reading: nothing is lost."
+    );
+  });
+});
