@@ -120,6 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generation_order_is_local_analysis_then_traces_then_facets_last`
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_grading_schema_is_prose_first`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_built_synthesis_prompt_agrees_with_required_nullable_integration`
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_append_schema_declares_properties_on_bare_restructure_payload`
   - `test_discriminated_target_ref_is_a_flat_nullable_any_of`

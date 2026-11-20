@@ -303,6 +303,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_capabilities_isolated_tool_free_and_bounded`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_every_try_runs_away_then_job_stays_failed`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_the_plan_serves_a_workspace_and_takes_the_callers_deadline`
 - [tests/test_diagnose_review_spend.py](../../../../../../tests/test_diagnose_review_spend.py) — direct import

@@ -341,6 +341,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_output_budget_rides_in_the_prompt_never_as_max_output_tokens`
   - `test_receipts_name_the_provider_model_and_answering_model`
   - `test_single_request_never_repairs_or_retries`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_failed_receipt_records_delivery_without_partial_text`
+  - `test_runaway_is_cut_then_transient_retry_returns_good_answer`
+  - `test_single_request_preserves_transient_code_and_does_not_retry`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_a_workspace_turn_never_runs_under_a_single_request_budget`
   - `test_inline_mode_sends_every_file_and_records_every_file`

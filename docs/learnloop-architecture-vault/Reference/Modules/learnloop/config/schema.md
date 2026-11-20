@@ -362,6 +362,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_an_interrupt_during_the_token_refresh_keeps_the_new_tokens_and_sends_nothing`
   - `test_billing_class_is_subscription`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_inline_mode_serves_a_workspace_over_its_budget_in_tools_mode`
   - `test_the_profile_default_is_inline`

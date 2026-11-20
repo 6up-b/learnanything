@@ -48,34 +48,34 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py) |
-| Source lines | 489 |
+| Source lines | 515 |
 | Owning package | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ResponsesError(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 69) — The request failed; ``code`` and ``param`` are the API's when it sent them.
-  - `__init__(self, message: str, *, status: int | None, code: str | None=None, param: str | None=None, request_id: str | None=None, response: Mapping[str, Any] | None=None) -> None` (line 72; internal)
-- `class StreamCancelled(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 82) — The deadline passed or the caller interrupted; ``reason`` says which.
-  - `__init__(self, reason: str) -> None` (line 85; internal)
-- `class StreamIncomplete(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 90)
-  - `__init__(self, reason: str | None, response: Mapping[str, Any]) -> None` (line 91; internal)
-- `class StreamResult` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 98)
-  - `output(self) -> list[dict[str, Any]]` (line 114; public) — The response's output items (the terminal response's, else the streamed ones).
-- `request_body(*, model: str, instructions: str, prompt: str | None=None, text_format: Mapping[str, Any] | None, reasoning_effort: str | None=None, input_items: list[Mapping[str, Any]] | None=None, tools: list[Mapping[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 123) — One request body.
-- `validate_tools(tools: list[Mapping[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 151) — The plan route takes function tools grouped in namespaces, and nothing hosted.
-- `function_calls(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 165) — The ``function_call`` items of a response's output, in order.
-- `echo_items(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 171) — A tool round's output as the next request's input (see :data:`_ECHOED_FIELDS`).
-- `iter_sse(readline: Callable[[], bytes]) -> Iterator[tuple[str | None, str]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 194) — ``(event name, data)`` per server-sent event (the WHATWG framing).
-- `output_text(response: Mapping[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 221) — ``(text, refusal)`` from a terminal response's ``output`` items.
-- `error_fields(payload: Any) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 239) — ``(code, message, param)`` from an error object, an error event or ``{"detail": ...}``.
-- `class ResponsesStream` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 308) — One request, one connection; ``cancel()`` shuts it down from any thread.
-  - `__init__(self, base_url: str) -> None` (line 311; internal)
-  - `cancel(self, reason: str) -> None` (line 324; public)
-  - `_raise_if_cancelled(self) -> None` (line 336; internal)
-  - `send(self, body: Mapping[str, Any], *, access_token: str, timeout: float, idle_timeout: float | None=None, on_event: Callable[[str, Mapping[str, Any]], None] | None=None) -> StreamResult` (line 340; public)
-  - `_read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float, headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None) -> StreamResult` (line 418; internal)
+- `class ResponsesError(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 72) — The request failed; ``code`` and ``param`` are the API's when it sent them.
+  - `__init__(self, message: str, *, status: int | None, code: str | None=None, param: str | None=None, request_id: str | None=None, response: Mapping[str, Any] | None=None) -> None` (line 75; internal)
+- `class StreamCancelled(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 85) — The stream was cut for a deadline, interrupt or runaway; ``reason`` says which.
+  - `__init__(self, reason: str) -> None` (line 88; internal)
+- `class StreamIncomplete(Exception)` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 93)
+  - `__init__(self, reason: str | None, response: Mapping[str, Any]) -> None` (line 94; internal)
+- `class StreamResult` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 101)
+  - `output(self) -> list[dict[str, Any]]` (line 117; public) — The response's output items (the terminal response's, else the streamed ones).
+- `request_body(*, model: str, instructions: str, prompt: str | None=None, text_format: Mapping[str, Any] | None, reasoning_effort: str | None=None, input_items: list[Mapping[str, Any]] | None=None, tools: list[Mapping[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 126) — One request body.
+- `validate_tools(tools: list[Mapping[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 154) — The plan route takes function tools grouped in namespaces, and nothing hosted.
+- `function_calls(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 168) — The ``function_call`` items of a response's output, in order.
+- `echo_items(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 174) — A tool round's output as the next request's input (see :data:`_ECHOED_FIELDS`).
+- `iter_sse(readline: Callable[[], bytes]) -> Iterator[tuple[str | None, str]]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 197) — ``(event name, data)`` per server-sent event (the WHATWG framing).
+- `output_text(response: Mapping[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 224) — ``(text, refusal)`` from a terminal response's ``output`` items.
+- `error_fields(payload: Any) -> tuple[str | None, str | None, str | None]` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 242) — ``(code, message, param)`` from an error object, an error event or ``{"detail": ...}``.
+- `class ResponsesStream` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 311) — One request, one connection; ``cancel()`` shuts it down from any thread.
+  - `__init__(self, base_url: str) -> None` (line 314; internal)
+  - `cancel(self, reason: str) -> None` (line 331; public)
+  - `_raise_if_cancelled(self) -> None` (line 343; internal)
+  - `send(self, body: Mapping[str, Any], *, access_token: str, timeout: float, idle_timeout: float | None=None, on_event: Callable[[str, Mapping[str, Any]], None] | None=None) -> StreamResult` (line 347; public)
+  - `_read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float, headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None, structured: bool=False) -> StreamResult` (line 427; internal)
 
 ### Module constants
 
@@ -83,6 +83,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `REASONING_INCLUDE` ([src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 55)
 - `_ECHOED_FIELDS` ([src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 61)
 - `_ERROR_TEXT_LIMIT` ([src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 66)
+- `MAX_STRUCTURED_WHITESPACE` ([src/learnloop/ai/chatgpt_plan/responses.py](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 69)
 
 ### Explicit exports
 
@@ -105,16 +106,16 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_str(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 255)
-- `_request_id(headers: Mapping[str, str] | http.client.HTTPMessage) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 259)
-- `class _StreamDeadline` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 267) — One watchdog wakes at the next bound; output moves only the idle bound.
+- `_str(value: Any) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 258)
+- `_request_id(headers: Mapping[str, str] | http.client.HTTPMessage) -> str | None` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 262)
+- `class _StreamDeadline` ([source](../../../../../../../src/learnloop/ai/chatgpt_plan/responses.py), line 270) — One watchdog wakes at the next bound; output moves only the idle bound.
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `ResponsesError`, `ResponsesStream`, `StreamCancelled`, `StreamIncomplete`, `StreamResult`, `echo_items`, `error_fields`, `function_calls`, `request_body`; statically calls `ResponsesStream`, `echo_items`, `error_fields`, `function_calls`, `request_body`
+- [[Reference/Modules/learnloop/ai/providers/chatgpt_plan|learnloop.ai.providers.chatgpt_plan]] — imports `ResponsesError`, `ResponsesStream`, `StreamCancelled`, `StreamIncomplete`, `StreamResult`, `echo_items`, `error_fields`, `function_calls`, `request_body`; statically calls `ResponsesError`, `ResponsesStream`, `echo_items`, `error_fields`, `function_calls`, `request_body`
 
 ## Dependencies
 
@@ -147,6 +148,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_request_shape_follows_the_plan_route_rules`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_long_indented_structured_answer_is_not_cut`
+  - `test_non_schema_whitespace_is_not_watched`
 - [tests/test_chatgpt_plan_workspace.py](../../../../../../../tests/test_chatgpt_plan_workspace.py) — direct import
   - `test_echo_items_keep_only_what_store_false_can_resend`
   - `test_tool_rounds_serve_files_and_record_each_served_entry`

@@ -219,6 +219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_endless_background_stream_hits_ceiling_without_job_retry`
   - `test_idle_cut_retries_once_and_records_failed_state`
   - `test_job_host_stops_long_background_stream`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_every_try_runs_away_then_job_stays_failed`
 - [tests/test_concept_animation_service.py](../../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_runner_handler_drives_generation_through_the_queue`
 - [tests/test_coverage_on_extract.py](../../../../../../../tests/test_coverage_on_extract.py) — direct import

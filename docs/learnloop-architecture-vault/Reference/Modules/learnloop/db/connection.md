@@ -461,6 +461,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_attempt_on_an_item_with_no_row_inserts_the_whole_row`
 - [tests/test_chatgpt_plan_landing.py](../../../../../../tests/test_chatgpt_plan_landing.py) — direct import
   - `test_a_snapshot_diagnosis_on_the_plan_records_what_it_served_with_its_row_and_forecasts`
+- [tests/test_chatgpt_plan_runaway.py](../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import
+  - `test_every_try_runs_away_then_job_stays_failed`
 - [tests/test_codex_transport_retired.py](../../../../../../tests/test_codex_transport_retired.py) — direct import
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_export_gives_up_on_a_source_locked_after_its_probe_and_removes_the_export`
