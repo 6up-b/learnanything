@@ -228,9 +228,17 @@ button.link.quiet { font-size: 0.88rem; color: var(--dim); }
 .voice-you { margin: 0.5rem 0 0.25rem; }
 .voice-model { margin: 0 0 0.75rem; }
 
-/* Motion: only sheets and screens, and none at all when the phone asks for less (§4.6). */
+/* Motion: only sheets, screens and the waiting mark, and none at all when the phone asks for less (§4.6).
+   The waiting mark (components/Waiting.tsx) turns a quarter at a time, as the desktop's does: a wait
+   with nothing moving read as a stuck screen (docs/reviews/ux-waiting.md). */
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes screen-in { from { opacity: 0; transform: translateX(1.5rem); } }
+@keyframes wait-turn { to { transform: rotate(360deg); } }
+.wait-mark { display: inline-block; }
+.wait-mark[data-motion="moving"] { animation: wait-turn 1.6s steps(4, end) infinite; }
+.waiting p { margin: 0.25rem 0; }
+.wait-later { padding-left: 1.4em; font-size: 0.8rem; }
 @media (prefers-reduced-motion: reduce) {
   .sheet, .screen { animation: none; transition: none; }
+  .wait-mark[data-motion="moving"] { animation: none; }
 }

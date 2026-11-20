@@ -30,6 +30,8 @@ import { PHONE_QUEUE_LIMIT, queueKey, queueRows, TodayScreen } from "./today/Tod
 import { PlanToday, planKey, planOff } from "./today/PlanToday";
 import type { PhonePlanDto } from "./api/phone";
 import { newUlid } from "./util/ulid";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { CAN_LEAVE, Waiting } from "./components/Waiting";
 import { readCredential, subscribeCredential, type Credential } from "./store/credential";
 import { flushOutbox, listOutbox, type FlushStop } from "./store/outbox";
 import {
@@ -903,7 +905,8 @@ function Phone({ credential }: { credential: Credential }) {
               {planFront ? todayHome : null}
             </>
           ) : view.name === "waiting" ? (
-            <div className="screen"><p className="dim" role="status">Your answer is being graded. The result will be here in a moment.</p></div>
+            // A grade the host still holds (after a reload, a reopened app, or a resend it already had): the same wait as Submit's, said the same way.
+            <div className="screen"><Waiting testId="grading-wait" line={WAITING_COPY.checkingAnswer} later={`${WAITING_COPY.checkingAnswerLater} ${CAN_LEAVE}`} /></div>
           ) : view.name === "feedback" ? (
             <FeedbackScreen
               key={view.attemptId}

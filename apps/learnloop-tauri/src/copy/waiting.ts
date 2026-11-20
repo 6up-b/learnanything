@@ -1,7 +1,8 @@
 // "Waiting you can see" (docs/reviews/ux-waiting.md): every line the shared
 // waiting indicator (components/Waiting.tsx) says, in one place so the
-// deny-list test reads them all. The phone says the same things in the same
-// words (apps/learnloop-mobile/src/components/waitingWords.ts); change both.
+// deny-list test reads them all. The phone imports these same words through
+// `@desktop/copy/waiting` (apps/learnloop-mobile/src/components/Waiting.tsx), so
+// a wait both apps share is said the same way on both.
 //
 // A second line ("…Later") is said only where the wait is usually long, and
 // only what the walks and the code show: grading took 13 to 33 s in the walks,

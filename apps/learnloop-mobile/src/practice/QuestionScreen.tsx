@@ -20,6 +20,8 @@ import {
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
 import { PhoneMarkdown } from "../read/PageImage";
 import { Sheet } from "../shell/Sheet";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting, CAN_LEAVE } from "../components/Waiting";
 
 /** §3.4: plain LaTeX entry with a small bar of common commands; a real math keyboard is later. */
 const SYMBOLS = ["$", "^{}", "_{}", "\\frac{}{}", "\\sqrt{}", "\\sum", "\\int", "\\infty", "\\pi", "\\theta", "\\lambda", "\\le", "\\ge", "\\ne", "\\to"];
@@ -572,7 +574,7 @@ export function QuestionScreen({
       </div>
     );
   }
-  if (!item) return <div className="screen"><p className="dim">Opening…</p></div>;
+  if (!item) return <div className="screen"><Waiting testId="question-wait" line={WAITING_COPY.openingQuestion} /></div>;
   // A serve's honest label when its cold check could not be taken (`queue.eligibility_dto`).
   const eligibilityMessage = (item as unknown as { eligibility?: { message?: string | null } }).eligibility?.message;
   if (waitsForDesktop) {
@@ -651,7 +653,8 @@ export function QuestionScreen({
       {failure ? (
         <p className="bad" role="alert">{failure.code === "grading_fallback_required" ? GRADING_DOWN : failure.message}</p>
       ) : null}
-      {submitting ? <p className="dim" role="status">Grading. You can leave; the result will be here when you come back.</p> : null}
+      {/* The owner's case 2 in the desktop's words; that the learner can leave is the phone's own true line (A4). */}
+      {submitting ? <Waiting testId="grading-wait" line={WAITING_COPY.checkingAnswer} later={`${WAITING_COPY.checkingAnswerLater} ${CAN_LEAVE}`} /> : null}
       <div className="actions">
         <div className="symbols" aria-label="Math symbols">
           {SYMBOLS.map((symbol) => (
