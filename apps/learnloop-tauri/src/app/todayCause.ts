@@ -234,7 +234,7 @@ export function todayCause(input: {
     const rank = rankOf(entry.statusLine, input.ai);
     // A link still being fetched has no card to open or act on: its OK goes
     // through the Library (an upload's OK), its failure retries by its batch.
-    if (rank) found.push({ rank: rank === "waiting_ok" || rank === "needs_ai" ? "needs_look" : rank, title: entry.title, card: null, batchId: entry.batchId });
+    if (rank) found.push({ rank: rank === "waiting_ok" || rank === "needs_ai" || rank === "no_topics" ? "needs_look" : rank, title: entry.title, card: null, batchId: entry.batchId });
   }
   for (const rank of ORDER) {
     const hits = found.filter((entry) => entry.rank === rank);
