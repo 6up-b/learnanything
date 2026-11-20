@@ -36,7 +36,9 @@ import { MarkdownMath } from "../../render/MarkdownMath";
 import {
   expectedAnswerText,
   type FeedbackOrigin,
+  HELD_GRADE_LINE,
   ORIGIN_LABEL,
+  PROVISIONAL_GRADE_LINE,
   unestablishedRepairCopy,
   VERDICT_TEXT,
   type Verdict
@@ -299,13 +301,13 @@ export function FeedbackSurface({
       </div>
       {held ? (
         <div style={{ ...quietLine, marginTop: 6 }}>
-          The grader couldn't check the way you answered, so this answer doesn't count either way until it's reviewed.
+          {HELD_GRADE_LINE}
         </div>
       ) : null}
       {provisional ? (
         <div style={{ marginTop: 6 }}>
           <button type="button" style={quietLink} onClick={onShowProvisional}>
-            This grade may change after one question ▸
+            {`${PROVISIONAL_GRADE_LINE} ▸`}
           </button>
         </div>
       ) : null}

@@ -58,6 +58,7 @@ import {
   FIX_MIX_UP_LABEL,
   type FeedbackOrigin,
   simplePracticeFeedback,
+  UNASSESSED_ROUTE_LINE,
   unestablishedRepairCopy,
   VERDICT_TEXT,
   verdictOf
@@ -3069,8 +3070,7 @@ export function FeedbackScreen({
             data-testid="unassessed-route-note"
             style={{ marginBottom: 14, fontSize: 12, color: C.textDim, fontFamily: MONO }}
           >
-            your answer checks out by a different route · criteria that route did not
-            exercise are not assessed (no credit, no lost points)
+            {UNASSESSED_ROUTE_LINE}
           </div>
         ) : f.manualReviewReason ? (
           <div className="toast" style={{ marginBottom: 14 }}>
