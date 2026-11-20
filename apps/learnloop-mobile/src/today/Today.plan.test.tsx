@@ -459,3 +459,69 @@ describe("plain words (ux §4.1, the desktop's deny-list)", () => {
     expect(texts.flatMap((text) => findJargon(text))).toEqual([]);
   });
 });
+
+describe("first questions arrive (P11): an empty day says why, in the desktop's words", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], failed: [], toLookAt: 0, sectionCount: 4, ...extra
+  });
+  const book = (statusLine: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1", statusLine }]
+  });
+  const built = (questions = facts()) => ({ text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null, questions });
+
+  it("a built book with no section finished: the rule that brings the first questions, under Nothing planned, and Keep going stays", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built());
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Your first questions come when you finish a section of “Symmetric Matrices and Variance”: read to its end and finish its quick check."
+    );
+    expect(screen.getByTestId("today-sentence").textContent).toBe("Nothing planned for today.");
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+  });
+
+  it("questions written from the part read: how many, by name, with no Begin of their own", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built(facts({ count: 5, itemIds: ["i1"], sections: ["Conditional probability"] })));
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "5 questions from “Conditional probability”, the part you read. More come as you finish sections."
+    );
+    expect(screen.queryByRole("button", { name: /Begin/ })).toBeNull();
+  });
+
+  it("a build under way: how far it is, and keep reading", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book({ text: "Writing questions for Ch. 1", tone: "working", action: null, details: null, progress: { done: 1, total: 2 } });
+    render(<App />);
+    expect((await screen.findByTestId("today-cause")).textContent).toBe(
+      "Getting “Symmetric Matrices and Variance” ready for questions · 1 of 2 steps done. Questions come as you finish sections. Keep reading meanwhile."
+    );
+  });
+
+  it("a day with something in it reads no books and says nothing more; a failed read says nothing", async () => {
+    answers.get_daily_plan = reply();
+    render(<App />);
+    await screen.findByRole("button", { name: "Begin" });
+    expect(called("get_source_library")).toEqual([]);
+    cleanup();
+    answers.get_daily_plan = empty();
+    delete answers.get_source_library;
+    render(<App />);
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Done for today.");
+    await waitFor(() => expect(called("get_source_library").length).toBeGreaterThan(0));
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("every line is in plain words", async () => {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(built(facts({ writing: ["Conditional probability"] })));
+    render(<App />);
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toBe("Writing questions from “Conditional probability”, the part you read… Keep reading meanwhile.");
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+});
