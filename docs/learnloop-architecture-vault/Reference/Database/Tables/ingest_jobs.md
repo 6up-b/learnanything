@@ -107,6 +107,7 @@ Indexes and uniqueness:
 - `Repository.has_runnable_ingest_job()`
 - `Repository.heartbeat_ingest_job()`
 - `Repository.ingest_batch_spend_rows()`
+- `Repository.ingest_jobs_by_payload()`
 - `Repository.ingest_jobs_by_types()`
 - `Repository.ingest_jobs_for_batches()`
 - `Repository.ingest_jobs_for_source()`
@@ -143,6 +144,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop/source_retrieval/source_vectors.py`
 - `src/learnloop_sidecar/handlers/figures.py`
+- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

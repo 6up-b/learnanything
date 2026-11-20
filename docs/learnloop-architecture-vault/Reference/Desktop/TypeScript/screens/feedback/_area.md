@@ -35,7 +35,7 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/feedback/CompareMethods|CompareMethods.tsx]] | `ACTIVE` | Implements the `CompareMethods` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
-| [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|FeedbackSurface.tsx]] | `ACTIVE` | Implements the `FeedbackSurface` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 2 |
+| [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|FeedbackSurface.tsx]] | `ACTIVE` | Implements the `FeedbackSurface` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 3 |
 | [[Reference/Desktop/TypeScript/screens/feedback/FollowupPanel|FollowupPanel.tsx]] | `ACTIVE` | Implements the `FollowupPanel` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/screens/feedback/HypothesisMarks|HypothesisMarks.tsx]] | `ACTIVE` | Implements the `HypothesisMarks` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/feedback/answerExposure|answerExposure.ts]] | `ACTIVE` | Provides `useAnswerExposure` within the desktop's TypeScript/screens/feedback ownership area. | 1 | 2 |

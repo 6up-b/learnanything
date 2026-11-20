@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/SessionFinishHud.tsx](../../../../../../apps/learnloop-tauri/src/components/SessionFinishHud.tsx) |
-| Source lines | 532 |
+| Source lines | 538 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -56,6 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export function SessionFinishHud(` — function, line 71
 - `export function sessionLengthLine(summary: SessionEndSummary): string` — function, line 89
+- `export function sessionTopicLine(topic: SessionTopicDto): string` — function, line 98
 
 ## Internal implementation anchors
 
@@ -73,117 +74,117 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function plural(count: number, one: string, many: string): string` — function, line 82
 - `const ms = new Date(summary.endedAt).getTime() - new Date(summary.startedAt).getTime()` — const, line 90
 - `const minutes = Number.isFinite(ms) && ms > 0 ? Math.max(1, Math.round(ms / 60000)) : 1` — const, line 91
-- `function SessionFinishCard(` — function, line 95
-- `const onKey = (event: KeyboardEvent)` — const, line 99
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 102
-- `const topics = summary.topics ?? []` — const, line 111
-- `function ClassicSessionFinishHud(` — function, line 158
-- `const active = summary !== null` — const, line 165
-- `const closingRef = useRef(false)` — const, line 167
-- `const containerRef = useRef<HTMLDivElement>(null)` — const, line 168
-- `const preRef = useRef<HTMLPreElement>(null)` — const, line 169
-- `const requestClose = useCallback(()` — const, line 177
-- `const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches` — const, line 180
-- `const onKey = (event: KeyboardEvent)` — const, line 191
-- `const container = containerRef.current` — const, line 205
-- `const pre = preRef.current` — const, line 206
-- `const aspect = CHAR_W / CHAR_H` — const, line 209
-- `const code = summary.sessionId.slice(-6).toUpperCase()` — const, line 210
-- `const logNo = (parseInt(summary.sessionId.slice(-5), 36) % 9000) + 1000` — const, line 211
-- `const elapsed = formatElapsed(summary.startedAt, summary.endedAt)` — const, line 212
-- `const attempts = String(summary.attemptsRecorded)` — const, line 213
-- `const items = String(summary.itemsReviewed)` — const, line 214
-- `const followups = summary.followupsQueued != null ? String(summary.followupsQueued) : "—"` — const, line 215
-- `const streakDays = `$` — const, line 216
-- `const streakActive = summary.streak.activeToday` — const, line 217
-- `const bestStreak = `BEST STREAK $` — const, line 218
-- `const facetsDemonstrated = summary.facetsDemonstrated ?? 0` — const, line 223
-- `const movedUp = summary.predictionsMoved?.up ?? 0` — const, line 224
-- `const movedDown = summary.predictionsMoved?.down ?? 0` — const, line 225
-- `const corrections = summary.corrections ?? 0` — const, line 226
-- `const mscResolved = summary.misconceptionsTouched?.resolved ?? 0` — const, line 227
-- `const mscReturned = summary.misconceptionsTouched?.returned ?? 0` — const, line 228
-- `const coldDone = summary.coldChecksCompleted ?? 0` — const, line 232
-- `const coldPassed = summary.coldChecksPassed ?? 0` — const, line 233
-- `type DiffLine =` — type, line 237
-- `const candidates: DiffLine[] = []` — const, line 238
-- `const forced = candidates.filter((c)` — const, line 262
-- `const optional = candidates.filter((c)` — const, line 263
-- `const diffLines = [...forced, ...optional].slice(0, 3)` — const, line 264
-- `const hasMoreDiff = candidates.length > diffLines.length` — const, line 265
-- `let cols = 0` — let, line 267
-- `let rows = 0` — let, line 268
-- `let grid: string[] = []` — let, line 269
-- `let cgrid = new Uint8Array(0)` — let, line 270
-- `const resize = ()` — const, line 271
-- `const rect = container.getBoundingClientRect()` — const, line 272
-- `const nextCols = Math.max(40, Math.floor(rect.width / CHAR_W))` — const, line 273
-- `const nextRows = Math.max(24, Math.floor(rect.height / CHAR_H))` — const, line 274
-- `const ro = new ResizeObserver(resize)` — const, line 282
-- `const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches` — const, line 285
-- `let raf = 0` — let, line 286
-- `let startTs = 0` — let, line 287
-- `let lastDrawTs = 0` — let, line 288
-- `const draw = (ts: number)` — const, line 290
-- `const sinceStart = ts - startTs` — const, line 293
-- `const pt = Math.min(1, Math.max(0, (sinceStart - 300) / 2050))` — const, line 295
-- `const pct = reduce ? 100 : Math.round((1 - Math.pow(1 - pt, 3)) * 100)` — const, line 296
-- `const f = pct / 100` — const, line 297
-- `const done = pct >= 100` — const, line 298
-- `const phase = reduce ? 0 : ts / 1000` — const, line 299
-- `const frameMs = done ? COMPLETE_FRAME_MS : ACTIVE_FRAME_MS` — const, line 301
-- `const set = (r: number, c: number, ch: string, color: ColorId)` — const, line 310
-- `const i = r * cols + c` — const, line 312
-- `const put = (r: number, c: number, str: string, color: ColorId)` — const, line 316
-- `const putCenter = (r: number, str: string, color: ColorId)` — const, line 319
-- `const cx = (cols - 1) / 2` — const, line 323
-- `const cy = (rows - 1) / 2` — const, line 324
-- `const maxR = Math.min(cx - 2, (cy - 2) / aspect)` — const, line 325
-- `const rMeter = maxR * 0.82` — const, line 326
-- `const rOuter = maxR * 0.99` — const, line 327
-- `const rClaw = maxR * 0.9` — const, line 328
-- `const rInner = maxR * 0.6` — const, line 329
-- `const place = (rad: number, ang: number, ch: string, color: ColorId)` — const, line 331
-- `const ringSteps = (rad: number)` — const, line 334
-- `const steps = ringSteps(rad)` — const, line 338
-- `const prog = ((phase / 3.4) + off) % 1` — const, line 348
-- `const rad = maxR * (0.14 + prog * 0.72)` — const, line 349
-- `const shade = prog < 0.7 ? C.amberLow : C.faintDot` — const, line 350
-- `const steps = ringSteps(rad)` — const, line 351
-- `const base = phase * 0.18 + k * 0.25` — const, line 361
-- `const steps = ringSteps(rMeter)` — const, line 369
-- `const t = s / steps` — const, line 371
-- `const ang = -Math.PI / 2 + t * 2 * Math.PI` — const, line 372
-- `const lit = t <= f` — const, line 373
-- `const head = !done && lit && f - t < 2.5 / steps` — const, line 374
-- `const teleRows = Math.min(10, Math.floor(rows * 0.34))` — const, line 393
-- `const teleTop = Math.round(cy - teleRows / 2)` — const, line 394
-- `const onL = !reduce && Math.sin(phase * 3 - i * 0.6) > 0.2` — const, line 396
-- `const onR = !reduce && Math.sin(phase * 3 - i * 0.6 + 1.5) > 0.2` — const, line 397
-- `const xr = Math.round(cy - rInner * aspect)` — const, line 403
-- `const logStr = `LOG #$` — const, line 414
-- `const status = done ? "● STATUS OK" : "○ FINALIZING"` — const, line 417
-- `const digits = String(pct)` — const, line 424
-- `const blockW = digits.length * 5 - 1` — const, line 425
-- `const startCol = Math.round(cx - (blockW - 1) / 2)` — const, line 426
-- `const topRow = Math.round(cy) - 2` — const, line 427
-- `const glyph = GLYPHS[digits[di]]` — const, line 429
-- `const segs: Array<[string, ColorId]> = [ ["ATTEMPTS ", C.faint], [attempts, C.amber], [" ", C.faint], ["ITEMS ", C.faint], [items, C.amber], [" ", C.faint], ["FOLLOW-UPS ", C.faint], [followups, C.green], [" ", C.faint], ["STREAK ", C.faint], [streakDays, str…` — const, line 442
-- `const total = segs.reduce((n, [s])` — const, line 448
-- `let col = Math.round(cx - total / 2)` — let, line 449
-- `let diffRow = Math.round(cy) + 7` — let, line 456
-- `let html = ""` — let, line 470
-- `let run = ""` — let, line 472
-- `let cur = 0` — let, line 473
-- `const flush = ()` — const, line 474
-- `const i = r * cols + c` — const, line 480
-- `const color = cgrid[i]` — const, line 481
-- `function esc(s: string): string` — function, line 519
-- `function formatElapsed(startedAt: string, endedAt: string): string` — function, line 525
-- `const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()` — const, line 526
-- `const totalSeconds = Math.round(ms / 1000)` — const, line 528
-- `const minutes = Math.floor(totalSeconds / 60)` — const, line 529
-- `const seconds = totalSeconds % 60` — const, line 530
+- `function SessionFinishCard(` — function, line 103
+- `const onKey = (event: KeyboardEvent)` — const, line 107
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 110
+- `const topics = summary.topics ?? []` — const, line 119
+- `function ClassicSessionFinishHud(` — function, line 164
+- `const active = summary !== null` — const, line 171
+- `const closingRef = useRef(false)` — const, line 173
+- `const containerRef = useRef<HTMLDivElement>(null)` — const, line 174
+- `const preRef = useRef<HTMLPreElement>(null)` — const, line 175
+- `const requestClose = useCallback(()` — const, line 183
+- `const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches` — const, line 186
+- `const onKey = (event: KeyboardEvent)` — const, line 197
+- `const container = containerRef.current` — const, line 211
+- `const pre = preRef.current` — const, line 212
+- `const aspect = CHAR_W / CHAR_H` — const, line 215
+- `const code = summary.sessionId.slice(-6).toUpperCase()` — const, line 216
+- `const logNo = (parseInt(summary.sessionId.slice(-5), 36) % 9000) + 1000` — const, line 217
+- `const elapsed = formatElapsed(summary.startedAt, summary.endedAt)` — const, line 218
+- `const attempts = String(summary.attemptsRecorded)` — const, line 219
+- `const items = String(summary.itemsReviewed)` — const, line 220
+- `const followups = summary.followupsQueued != null ? String(summary.followupsQueued) : "—"` — const, line 221
+- `const streakDays = `$` — const, line 222
+- `const streakActive = summary.streak.activeToday` — const, line 223
+- `const bestStreak = `BEST STREAK $` — const, line 224
+- `const facetsDemonstrated = summary.facetsDemonstrated ?? 0` — const, line 229
+- `const movedUp = summary.predictionsMoved?.up ?? 0` — const, line 230
+- `const movedDown = summary.predictionsMoved?.down ?? 0` — const, line 231
+- `const corrections = summary.corrections ?? 0` — const, line 232
+- `const mscResolved = summary.misconceptionsTouched?.resolved ?? 0` — const, line 233
+- `const mscReturned = summary.misconceptionsTouched?.returned ?? 0` — const, line 234
+- `const coldDone = summary.coldChecksCompleted ?? 0` — const, line 238
+- `const coldPassed = summary.coldChecksPassed ?? 0` — const, line 239
+- `type DiffLine =` — type, line 243
+- `const candidates: DiffLine[] = []` — const, line 244
+- `const forced = candidates.filter((c)` — const, line 268
+- `const optional = candidates.filter((c)` — const, line 269
+- `const diffLines = [...forced, ...optional].slice(0, 3)` — const, line 270
+- `const hasMoreDiff = candidates.length > diffLines.length` — const, line 271
+- `let cols = 0` — let, line 273
+- `let rows = 0` — let, line 274
+- `let grid: string[] = []` — let, line 275
+- `let cgrid = new Uint8Array(0)` — let, line 276
+- `const resize = ()` — const, line 277
+- `const rect = container.getBoundingClientRect()` — const, line 278
+- `const nextCols = Math.max(40, Math.floor(rect.width / CHAR_W))` — const, line 279
+- `const nextRows = Math.max(24, Math.floor(rect.height / CHAR_H))` — const, line 280
+- `const ro = new ResizeObserver(resize)` — const, line 288
+- `const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches` — const, line 291
+- `let raf = 0` — let, line 292
+- `let startTs = 0` — let, line 293
+- `let lastDrawTs = 0` — let, line 294
+- `const draw = (ts: number)` — const, line 296
+- `const sinceStart = ts - startTs` — const, line 299
+- `const pt = Math.min(1, Math.max(0, (sinceStart - 300) / 2050))` — const, line 301
+- `const pct = reduce ? 100 : Math.round((1 - Math.pow(1 - pt, 3)) * 100)` — const, line 302
+- `const f = pct / 100` — const, line 303
+- `const done = pct >= 100` — const, line 304
+- `const phase = reduce ? 0 : ts / 1000` — const, line 305
+- `const frameMs = done ? COMPLETE_FRAME_MS : ACTIVE_FRAME_MS` — const, line 307
+- `const set = (r: number, c: number, ch: string, color: ColorId)` — const, line 316
+- `const i = r * cols + c` — const, line 318
+- `const put = (r: number, c: number, str: string, color: ColorId)` — const, line 322
+- `const putCenter = (r: number, str: string, color: ColorId)` — const, line 325
+- `const cx = (cols - 1) / 2` — const, line 329
+- `const cy = (rows - 1) / 2` — const, line 330
+- `const maxR = Math.min(cx - 2, (cy - 2) / aspect)` — const, line 331
+- `const rMeter = maxR * 0.82` — const, line 332
+- `const rOuter = maxR * 0.99` — const, line 333
+- `const rClaw = maxR * 0.9` — const, line 334
+- `const rInner = maxR * 0.6` — const, line 335
+- `const place = (rad: number, ang: number, ch: string, color: ColorId)` — const, line 337
+- `const ringSteps = (rad: number)` — const, line 340
+- `const steps = ringSteps(rad)` — const, line 344
+- `const prog = ((phase / 3.4) + off) % 1` — const, line 354
+- `const rad = maxR * (0.14 + prog * 0.72)` — const, line 355
+- `const shade = prog < 0.7 ? C.amberLow : C.faintDot` — const, line 356
+- `const steps = ringSteps(rad)` — const, line 357
+- `const base = phase * 0.18 + k * 0.25` — const, line 367
+- `const steps = ringSteps(rMeter)` — const, line 375
+- `const t = s / steps` — const, line 377
+- `const ang = -Math.PI / 2 + t * 2 * Math.PI` — const, line 378
+- `const lit = t <= f` — const, line 379
+- `const head = !done && lit && f - t < 2.5 / steps` — const, line 380
+- `const teleRows = Math.min(10, Math.floor(rows * 0.34))` — const, line 399
+- `const teleTop = Math.round(cy - teleRows / 2)` — const, line 400
+- `const onL = !reduce && Math.sin(phase * 3 - i * 0.6) > 0.2` — const, line 402
+- `const onR = !reduce && Math.sin(phase * 3 - i * 0.6 + 1.5) > 0.2` — const, line 403
+- `const xr = Math.round(cy - rInner * aspect)` — const, line 409
+- `const logStr = `LOG #$` — const, line 420
+- `const status = done ? "● STATUS OK" : "○ FINALIZING"` — const, line 423
+- `const digits = String(pct)` — const, line 430
+- `const blockW = digits.length * 5 - 1` — const, line 431
+- `const startCol = Math.round(cx - (blockW - 1) / 2)` — const, line 432
+- `const topRow = Math.round(cy) - 2` — const, line 433
+- `const glyph = GLYPHS[digits[di]]` — const, line 435
+- `const segs: Array<[string, ColorId]> = [ ["ATTEMPTS ", C.faint], [attempts, C.amber], [" ", C.faint], ["ITEMS ", C.faint], [items, C.amber], [" ", C.faint], ["FOLLOW-UPS ", C.faint], [followups, C.green], [" ", C.faint], ["STREAK ", C.faint], [streakDays, str…` — const, line 448
+- `const total = segs.reduce((n, [s])` — const, line 454
+- `let col = Math.round(cx - total / 2)` — let, line 455
+- `let diffRow = Math.round(cy) + 7` — let, line 462
+- `let html = ""` — let, line 476
+- `let run = ""` — let, line 478
+- `let cur = 0` — let, line 479
+- `const flush = ()` — const, line 480
+- `const i = r * cols + c` — const, line 486
+- `const color = cgrid[i]` — const, line 487
+- `function esc(s: string): string` — function, line 525
+- `function formatElapsed(startedAt: string, endedAt: string): string` — function, line 531
+- `const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()` — const, line 532
+- `const totalSeconds = Math.round(ms / 1000)` — const, line 534
+- `const minutes = Math.floor(totalSeconds / 60)` — const, line 535
+- `const seconds = totalSeconds % 60` — const, line 536
 
 ## Who imports or calls it
 
@@ -196,7 +197,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SessionEndSummary`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SessionEndSummary`, `SessionTopicDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `simplePracticeFeedback`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `PrimaryAction`, `quietLine`
@@ -214,6 +215,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/copy/denyList.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/SessionFinishHud.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/components/SessionFinishHud.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 

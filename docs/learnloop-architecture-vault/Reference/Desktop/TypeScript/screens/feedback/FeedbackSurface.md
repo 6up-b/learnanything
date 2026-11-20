@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx](../../../../../../../apps/learnloop-tauri/src/screens/feedback/FeedbackSurface.tsx) |
-| Source lines | 494 |
+| Source lines | 511 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/feedback/_area|TypeScript/screens/feedback]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]]
 
 ## Public API
 
@@ -64,10 +64,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 103
 - `export function currentAnswerForUnrecorded(f: FeedbackBundle, item: PracticeItemDetail | null): string` — function, line 111
 - `export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[]` — function, line 118
-- `export function answeredMaxPoints(f: FeedbackBundle): number | null` — function, line 133
-- `export function scoreOutOf(score: number, max: number | null, digits = 0): string` — function, line 139
-- `export function AnswerWaiting(` — function, line 146
-- `export function FeedbackSurface(` — function, line 190
+- `export type MissedRubricLine =` — type, line 131
+- `export type RedoContext = GuidedRedoDto &` — type, line 136
+- `export function missedRubricLines(f: FeedbackBundle): MissedRubricLine[]` — function, line 140
+- `export function answeredMaxPoints(f: FeedbackBundle): number | null` — function, line 150
+- `export function scoreOutOf(score: number, max: number | null, digits = 0): string` — function, line 156
+- `export function AnswerWaiting(` — function, line 163
+- `export function FeedbackSurface(` — function, line 207
 
 ## Internal implementation anchors
 
@@ -79,45 +82,46 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const frozen = f.answeredCriteria` — const, line 119
 - `const byId = new Map(frozen.map((criterion)` — const, line 121
 - `const criterion = byId.get(row.criterionId)` — const, line 123
-- `const points = digits > 0 ? score.toFixed(digits) : String(score)` — const, line 140
-- `function honestyLines(f: FeedbackBundle): string[]` — function, line 167
-- `const lines: string[] = []` — const, line 168
-- `const check = f.coldCheckResult` — const, line 174
-- `const when = fmtDay(check.instructedAt)` — const, line 176
-- `const held = verdict === "held"` — const, line 237
-- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 238
-- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 239
-- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 240
-- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 241
-- `const shownAnswer = fullAnswer || currentAnswer` — const, line 242
-- `const criteria = answeredCriterionRows(f)` — const, line 243
-- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 244
-- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 247
-- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 252
-- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 254
-- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 257
-- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 258
-- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 265
-- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 269
-- `const assessed = criterionAssessed(row)` — const, line 396
-- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 397
-- `const some = row.pointsAwarded > 0` — const, line 398
-- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 399
-- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 400
+- `const points = digits > 0 ? score.toFixed(digits) : String(score)` — const, line 157
+- `function honestyLines(f: FeedbackBundle): string[]` — function, line 184
+- `const lines: string[] = []` — const, line 185
+- `const check = f.coldCheckResult` — const, line 191
+- `const when = fmtDay(check.instructedAt)` — const, line 193
+- `const held = verdict === "held"` — const, line 254
+- `const unrecorded = gradedVersionUnrecorded(f)` — const, line 255
+- `const presentation = f.answeredPresentation ?? item?.presentation ?? null` — const, line 256
+- `const fullAnswer = answeredFullAnswer(f, item)` — const, line 257
+- `const currentAnswer = currentAnswerForUnrecorded(f, item)` — const, line 258
+- `const shownAnswer = fullAnswer || currentAnswer` — const, line 259
+- `const criteria = answeredCriterionRows(f)` — const, line 260
+- `const learnerAnswer = (f.learnerAnswerMd ?? "").trim()` — const, line 261
+- `const exposure = useAnswerExposure( f.attemptId, Boolean(shownAnswer) && !answerCovered, recordAnswerDisplay ? (displayId)` — const, line 264
+- `const diagnosisSummary = diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null` — const, line 269
+- `const sentence = diagnosisSummary ?? (matchedCorrection ? `You may be mixing two ideas up. $` — const, line 271
+- `const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null` — const, line 274
+- `const whyHasContent = why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null || why.notRightRecorded` — const, line 275
+- `const contestBox = useRef<HTMLInputElement>(null)` — const, line 282
+- `const tone = verdict === "right" ? COLOR.green : verdict === "partly" ? COLOR.amber : COLOR.text` — const, line 286
+- `const assessed = criterionAssessed(row)` — const, line 413
+- `const full = row.pointsAwarded >= row.pointsPossible` — const, line 414
+- `const some = row.pointsAwarded > 0` — const, line 415
+- `const mark = !assessed ? "·" : full ? "✓" : some ? "◐" : "✗"` — const, line 416
+- `const color = !assessed ? COLOR.textFaint : full ? COLOR.green : some ? COLOR.amber : COLOR.red` — const, line 417
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FeedbackNextStep`, `FeedbackSurface`, `answeredCriterionRows`, `answeredMaxPoints`, `gradedVersionUnrecorded`, `scoreOutOf`; references `FeedbackNextStep`, `FeedbackSurface`, `answeredCriterionRows`, `answeredMaxPoints`, `gradedVersionUnrecorded`, `scoreOutOf`
-- [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `AnswerWaiting`; references `AnswerWaiting`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `RedoContext`; references `RedoContext`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `FeedbackNextStep`, `FeedbackSurface`, `RedoContext`, `answeredCriterionRows`, `answeredMaxPoints`, `gradedVersionUnrecorded`, `missedRubricLines`, `scoreOutOf`; references `FeedbackNextStep`, `FeedbackSurface`, `RedoContext`, `answeredCriterionRows`, `answeredMaxPoints`, `gradedVersionUnrecorded`, `missedRubricLines`, `scoreOutOf`
+- [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `AnswerWaiting`, `RedoContext`; references `AnswerWaiting`, `RedoContext`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CriterionEvidenceRowDto`, `FeedbackBundle`, `PracticeItemDetail`, `criterionAssessed`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CriterionEvidenceRowDto`, `FeedbackBundle`, `GuidedRedoDto`, `PracticeItemDetail`, `criterionAssessed`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FeedbackOrigin`, `HELD_GRADE_LINE`, `ORIGIN_LABEL`, `PROVISIONAL_GRADE_LINE`, `VERDICT_TEXT`, `Verdict`, `expectedAnswerText`, `unestablishedRepairCopy`
 - [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export; imports `DiagnosisCardState`
 - [[Reference/Desktop/TypeScript/components/ItemPresentation|src/components/ItemPresentation.tsx]] — import-or-re-export; imports `ItemPresentation`
