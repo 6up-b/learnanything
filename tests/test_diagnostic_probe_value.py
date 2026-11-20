@@ -19,6 +19,7 @@ from learnloop.router_objective import diagnostic_payload as DP
 from learnloop.router_objective import diagnostic_value as DV
 from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective import types as OT
+from learnloop.router_objective.objective import _terms
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -225,6 +226,22 @@ def test_a_lesson_declined_at_the_same_boundary_prices_its_probe_as_exposed():
 
 
 # -- no information where none can be had ------------------------------------------------------------------------------
+
+
+def test_the_probe_answer_is_not_also_a_binary_ability_observation():
+    """The probe's one answer is its channel's result, so its segment is its minutes alone: asking it and then doing
+    nothing is, term for term, the rollouts' path of a probe that observes no topic (a second, binary-ability
+    observation of the same answer would move the belief and the tail's ranking)."""
+
+    base = _inputs()
+    # Two topics close in the tail's ranking, so an observation of lo_a's ability would reorder the tail's blocks.
+    inputs = replace(base, topics=(base.topics[0], replace(base.topics[1], eta_mean=-0.5, undated_density=1.0)))
+    record = _evaluate(_probe(_payload(FLAT)), inputs).record
+    model = ROL._Model(inputs, DRAWS, "g2b")
+    silent, _state, _minutes = model._do(OT.Action(ref="probe", kind=OT.PROBE, item_los=(), minutes=3.0))
+    observing, _state, _minutes = model._do(OT.Action(ref="probe", kind=OT.PROBE, item_los=("lo_a",), minutes=3.0))
+    assert not np.array_equal(silent.q, observing.q), "these inputs cannot tell an observing probe apart"
+    assert record["branch_terms"]["probe"]["none"]["none"] == pytest.approx(_terms(silent, model), rel=1e-12)
 
 
 def test_an_exposed_answer_gives_no_information():
