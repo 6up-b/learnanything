@@ -25,6 +25,8 @@ import { NOTE_NO_SUBJECT, NO_ASK_NOT_YET, NO_ASK_SHORT_CHECK, NO_ASK_TEACH_BACK,
 import { LESSON_KEPT, PLAN_STOPPED_WITH_MORE, continueLessonLine } from "../app/todayCause";
 import { emptyGoalSentence } from "../components/GoalBanner";
 import { HELP_COPY } from "../screens/workbench/helpModel";
+import { REVIEW_REASON_CODES, reviewReasonLine } from "../app/practiceFeedback";
+import { sectionWords } from "../screens/reader/readerShared";
 import type { CalibrationSessionProgressDto, GoalDto, QuickCheckResultDto } from "../api/dto";
 
 const { api } = vi.hoisted(() => ({
@@ -187,6 +189,13 @@ const ROUND_2A_SENTENCES = [
   "sent"
 ];
 
+// Group B of the same round: every review reason's words a feedback can show, and a web page's
+// section names as the Reader now says them.
+const ROUND_2B_SENTENCES = [
+  ...REVIEW_REASON_CODES.flatMap((code) => reviewReasonLine(code) ?? []),
+  ...["(intro)", "modeling-the-elevator-problem", "external-links", "the-real-world-case"].map(sectionWords)
+];
+
 // The Decider's sentence (Tier 1): the sheet names what its small judgments
 // send to Perplexity, as Settings does, in the sheet's plain words.
 const DECIDER_NOTE =
@@ -252,6 +261,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
   });
 
   it.each(ROUND_2A_SENTENCES)("the broken controls 2 sentence: %s", (sentence) => {
+    expect(sentence).not.toBe("");
+    expectPlain(sentence);
+  });
+
+  it.each(ROUND_2B_SENTENCES)("the broken controls 2b sentence: %s", (sentence) => {
     expect(sentence).not.toBe("");
     expectPlain(sentence);
   });
