@@ -39,7 +39,7 @@ import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { CompareMethods } from "./feedback/CompareMethods";
 import { screenLeavesKey } from "../app/keymap";
-import { useNextQueueItem } from "../app/autoAdvance";
+import { useNextQueueItem, useNextReadingQuestion } from "../app/autoAdvance";
 import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
 import type { FollowupDto, FollowupNextDto, HypothesisMarksDto, PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -1591,6 +1591,11 @@ export function FeedbackScreen({
   const autoAdvance = Boolean(nextQueue && onOpenNext) && !planMode;
   const nextItem = useNextQueueItem(autoAdvance ? nextQueue : null, feedback !== null);
   const nextPlanStep = useNextPlanStep(planMode && nextPlan ? nextPlan.sessionId : null, feedback !== null);
+  // The plan has nothing next (a plan closed before the book's questions existed answers "done" after every one of
+  // them): Next goes on to the question Today offers with Begin, while there is one, instead of back to Today.
+  const planDone = planMode && nextPlanStep.step?.kind === "done";
+  const nextReading = useNextReadingQuestion(planMode ? nextQueue : null, planDone, feedback?.practiceItemId ?? null);
+  const readingLabel = !planDone ? null : nextReading.known ? nextReading.item : "unknown";
   const [advancing, setAdvancing] = useState(false);
   const advanceGeneration = useRef(0);
   const advancingRef = useRef(false);
@@ -1608,6 +1613,7 @@ export function FeedbackScreen({
   }, []);
   const resolveNext = nextItem.resolve;
   const resolvePlanStep = nextPlanStep.resolve;
+  const openNextReading = nextReading.open;
   // FG1 §6: the workflow that owns this attempt, read from the bundle and polled while it
   // may still change. Next waits only while a question may come, and says so.
   const [followupRead, setFollowup] = useState<FollowupDto | null>(null);
@@ -1636,6 +1642,11 @@ export function FeedbackScreen({
         await Promise.all([...pendingQueueWrites.current]);
         if (generation !== advanceGeneration.current) return;
         step = await resolvePlanStep();
+        if (step?.kind === "done" && nextPlan) {
+          // Today would offer one of the book's questions with Begin: go on to it (a pick from the list, as Begin's).
+          const picked = await openNextReading(nextPlan.sessionId).catch(() => null);
+          if (picked) step = picked;
+        }
       } catch {
         step = null; // the plan view surfaces its own error
       }
@@ -1666,7 +1677,7 @@ export function FeedbackScreen({
     setAdvancing(false);
     if (head) onOpenNext(head.practiceItemId, head.schedulerCandidateId ?? null);
     else onNext();
-  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep]);
+  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep, nextPlan, openNextReading]);
   // R13: the one path for every reply to Next, the first press's and the poll's alike.
   const actOnNext = useCallback((next: FollowupNextDto | null) => {
     if (next?.action === "wait") {
@@ -2465,7 +2476,7 @@ export function FeedbackScreen({
         : origin === "reader"
         ? "back to the book"
         : planMode
-          ? nextPlanKeyLabel(advancing, nextPlanStep.step)
+          ? nextPlanKeyLabel(advancing, nextPlanStep.step, readingLabel)
           : autoAdvance
             ? nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty)
             : "";
@@ -3581,7 +3592,7 @@ export function FeedbackScreen({
           {
             key: "n / ↵",
             label: planMode
-              ? nextPlanKeyLabel(advancing, nextPlanStep.step)
+              ? nextPlanKeyLabel(advancing, nextPlanStep.step, readingLabel)
               : nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty)
           },
           { key: "r", label: regrading ? "regrading…" : "regrade" },

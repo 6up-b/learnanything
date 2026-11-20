@@ -182,11 +182,20 @@ export function rereadPlanAfterWorkbenchClosed(): void {
   if (algoConfig().workbenchOpenItem) invalidate({ tags: [TAG.queue] });
 }
 
-/** The key bar's promise for Next under the plan. */
-export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string {
+/** The key bar's promise for Next under the plan. With the plan done, Next goes on to the question Today offers with
+ *  Begin (`reading`: its title; null: none; "unknown": not read yet), so "today's plan is done" is said only when Today
+ *  offers no question either. */
+export function nextPlanKeyLabel(
+  advancing: boolean,
+  step: PlanStepDto | null,
+  reading: { learningObjectTitle: string } | null | "unknown" = null
+): string {
   if (advancing) return "opening next…";
   if (!step) return "next";
-  if (step.kind === "done") return "today's plan is done";
+  if (step.kind === "done") {
+    if (reading === "unknown") return "next";
+    return reading ? `next: ${reading.learningObjectTitle}` : "today's plan is done";
+  }
   if (step.kind === "waiting") return `back in ${waitingMinutes(step.until, step.minutes)} min`;
   if (step.kind === "reading") return `next: continue reading ${step.reading.sectionTitle ?? ""}`.trim();
   // Teacher TE3b: a lesson offer's block (its card is on Today).

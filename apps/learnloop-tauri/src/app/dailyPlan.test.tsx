@@ -55,6 +55,15 @@ it("names what Next will do under the plan", () => {
   expect(nextPlanKeyLabel(true, ITEM)).toBe("opening next…");
 });
 
+it("with the plan done, names the book's question Today offers instead, and says the plan is done only when there is none (UX-44)", () => {
+  const done = { kind: "done", planId: "p", status: "complete", stopReason: null } as const;
+  expect(nextPlanKeyLabel(false, done, { learningObjectTitle: "Construct a diagonalization" })).toBe("next: Construct a diagonalization");
+  expect(nextPlanKeyLabel(false, done, "unknown")).toBe("next");
+  expect(nextPlanKeyLabel(false, done, null)).toBe("today's plan is done");
+  // A step the plan has next is named as before, whatever the books offer.
+  expect(nextPlanKeyLabel(false, ITEM, { learningObjectTitle: "Construct a diagonalization" })).toBe("next: Eigenvalues");
+});
+
 it("returns to the plan from the reader and records that the learner left it", async () => {
   invoke.mockResolvedValue({ version: 1, enabled: true, plan: null });
   const onBack = vi.fn();

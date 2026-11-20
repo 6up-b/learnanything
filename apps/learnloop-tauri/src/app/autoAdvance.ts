@@ -8,10 +8,11 @@
 
 import { useCallback, useMemo } from "react";
 import { api } from "../api/client";
-import type { QueueInput, QueueSnapshot, ScheduledItemDto, SessionSnapshot } from "../api/dto";
+import type { PlanStepDto, QueueInput, QueueSnapshot, ScheduledItemDto, SessionSnapshot, SourceLibrarySnapshot } from "../api/dto";
 import { getOrFetch, hashKey, isStale, peek, type QueryKey } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
 import { useCachedQuery } from "../api/useCachedQuery";
+import { askableReadingQuestion } from "./todayCause";
 
 /** Reads `resolve` makes before giving up on a queue that keeps being invalidated. */
 const MAX_HEAD_READS = 4;
@@ -94,4 +95,55 @@ export function useNextQueueItem(input: QueueInput | null, prefetch: boolean): N
   }, [key]);
 
   return { head, empty, resolve };
+}
+
+/** The cache entry Today and the Library read the books through. */
+const LIBRARY_KEY: QueryKey = ["get_source_library"];
+
+export interface NextReadingQuestion {
+  /** The question Today's Begin would open now; null while unknown or when there is none. */
+  readonly item: ScheduledItemDto | null;
+  /** The books and today's list have been read, so `item` null means none. */
+  readonly known: boolean;
+  /**
+   * Read the books and today's list afresh (a question written since the list was read counts), and open the question
+   * Begin would: a pick from the list, as Today's Begin makes it. The step to hand the shell, or null when there is
+   * none or the pick opened nothing.
+   */
+  readonly open: (sessionId: string) => Promise<PlanStepDto | null>;
+}
+
+/**
+ * Feedback's Next when the day's plan has nothing next: the book's questions Today offers with Begin
+ * (`askableReadingQuestion`), read through Today's own cache entries while `enabled`. `answered` is the question on
+ * screen, never offered again.
+ */
+export function useNextReadingQuestion(input: QueueInput | null, enabled: boolean, answered: string | null): NextReadingQuestion {
+  const hash = input ? hashKey(todayQueueKey(input)) : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const key = useMemo(() => (input ? todayQueueKey(input) : null), [hash]);
+  const on = enabled && key !== null;
+  const queue = useCachedQuery<QueueSnapshot>(on ? key : null, () => api.getTodayQueue(input as QueueInput), { tags: [TAG.queue] });
+  const library = useCachedQuery<SourceLibrarySnapshot>(on ? LIBRARY_KEY : null, () => api.getSourceLibrary(), { tags: [TAG.sources] });
+  const known = on && queue.data !== undefined && !queue.refreshing && library.data !== undefined;
+  const item = known ? askableReadingQuestion(library.data?.sources, queue.data, answered) : null;
+
+  const open = useCallback(async (sessionId: string): Promise<PlanStepDto | null> => {
+    if (!key || !input) return null;
+    // Both read now: an answer just given, a check it reserved and a topic applied meanwhile all change them.
+    const [books, snapshot] = await Promise.all([
+      getOrFetch<SourceLibrarySnapshot>(LIBRARY_KEY, () => api.getSourceLibrary(), { tags: [TAG.sources], force: true }),
+      getOrFetch<QueueSnapshot>(key, () => api.getTodayQueue(input), { tags: [TAG.queue], force: true })
+    ]);
+    const next = askableReadingQuestion(books.sources, snapshot, answered);
+    if (!next) return null;
+    const picked = await api.planLearnerPick(next.practiceItemId, sessionId, next.schedulerCandidateId ?? null);
+    const step = picked.step ?? null;
+    if (!step || step.kind !== "item") return null;
+    // Opened at once, as Today's Begin opens it: a pick is never a block line to read first.
+    return { ...step, boundary: false, schedulerCandidateId: step.schedulerCandidateId ?? next.schedulerCandidateId ?? null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, answered]);
+
+  return { item, known, open };
 }
