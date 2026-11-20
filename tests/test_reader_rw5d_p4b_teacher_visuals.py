@@ -342,8 +342,7 @@ def test_a_lesson_figure_never_spawns_a_rich_job(tmp_path, monkeypatch):
     from tests.ux_phase1_support import set_config
 
     # Every rich tier ready on this machine: a Reader press with a spawner would put them on the menu.
-    monkeypatch.setattr(FB.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "js_animation",
-                                                                               "manim"))
+    monkeypatch.setattr(FB.RICH, "tiers_allowed", lambda vault, sketch=False: ("grammar", "sketch", "manim"))
     spawned = []
     paths, repository = build_teacher_vault(tmp_path / "vault")
     set_config(paths.root, {("figures", "rich_tiers_enabled"): True})
@@ -354,7 +353,7 @@ def test_a_lesson_figure_never_spawns_a_rich_job(tmp_path, monkeypatch):
                   clients=_clients(fake, build))
     assert author.calls == 1 and spawned == []
     (tiers,) = _rows(repository, "SELECT tiers_allowed_json FROM figure_requests")
-    assert "manim" not in json.loads(tiers[0]) and "js_animation" not in json.loads(tiers[0])
+    assert "manim" not in json.loads(tiers[0])
     from learnloop.figures import routes as R
 
     version_line = author.prompts[0].splitlines()[1]

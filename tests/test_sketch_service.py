@@ -21,6 +21,7 @@ import sqlite3
 
 import pytest
 
+from learnloop.figures import author_answer as AA
 from learnloop.figures import routes as R
 from learnloop.figures import build as FB
 from learnloop.figures import grounding as FGR
@@ -274,7 +275,7 @@ def test_not_right_on_a_sketch_sends_the_program_and_the_note(tmp_path):
 def test_a_sketch_built_with_nothing_from_the_books_quotes_nothing(tmp_path):
     program = F.walk(source_claims=[{"span_id": "p2", "quote": "made up"}],
                      assumptions=[{"text": "fair steps", "span_id": "p2", "quote": "made up"}])
-    raw = FB._ungrounded_sketch(json.dumps(program))
+    raw = AA._ungrounded_sketch(json.dumps(program))
     assert raw["source_claims"] == [] and raw["assumptions"][0]["quote"] is None
     compiled = K.parse_sketch(raw)
     assert compiled.program.source_claims == []

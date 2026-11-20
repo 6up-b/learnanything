@@ -42,7 +42,7 @@ from learnloop.figure_admission import (
     figures_enabled,
     rich_tiers_enabled,
 )
-from learnloop.figures import labels as L
+from learnloop.figures import author_answer as AA
 from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
 from learnloop.figures import routes as R
@@ -682,47 +682,6 @@ def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, reque
                                     home=home), reused=True)
 
 
-def _free_text(output: Any, status: str) -> list[tuple[str, Any]]:
-    """The author's model-written free text the label rule reads (spec
-    §9b.4): the tier reason, and what each figure it carries shows and
-    assumes (a rich status's quick figure and brief included)."""
-
-    if status == "unsupported":
-        return []
-    rich = status in RICH.RICH_TIERS
-    fields: list[tuple[str, Any]] = [(name, getattr(output, name, None)) for name in ("why_this_tier", "why_not_spec")]
-    if status != "sketch":
-        fields += L.json_fields("spec_json", getattr(output, "spec_json", None))
-    if status == "sketch" or rich:
-        fields += L.json_fields("sketch_json", getattr(output, "sketch_json", None))
-    if rich:
-        fields += L.json_fields("rich_json", getattr(output, "rich_json", None))
-    return fields
-
-
-def _without_label_text(output: Any) -> Any:
-    """The author's answer with its label-like free text left out (spec
-    §9b.4): a tier reason in code's words, a figure's or brief's label-like
-    ``demonstrates`` emptied and label-like assumptions dropped."""
-
-    update: dict[str, Any] = {}
-    for name in ("why_this_tier", "why_not_spec"):
-        if L.label_like(getattr(output, name, None)) is not None:
-            update[name] = L.REASON_WITHHELD
-    for name in ("spec_json", "sketch_json", "rich_json"):
-        raw = getattr(output, name, None)
-        stripped = L.strip_json(raw)
-        if stripped is not raw:
-            update[name] = stripped
-    if not update:
-        return output
-    if hasattr(output, "model_copy"):
-        return output.model_copy(update=update)
-    from types import SimpleNamespace
-
-    return SimpleNamespace(**{**vars(output), **update})
-
-
 def _step_three(vault: Any, repository: Repository, compiled: S.CompiledFigure, context: SourceContext,
                 request: FigureRequest, grounding: Grounding | None, gate: FiguresGate) -> SC.Check | None:
     """RW5c's check of a spec that passed steps 1-2, or None with the switch off.
@@ -773,7 +732,12 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
                                generation: int = 0) -> BuildOutcome:
     """At most two author calls, the second told the first's problems; then the figure is stored,
     shown or failed. Each attempt's verdict is noted in ``attempts`` (codes only) beside the
-    ``problems`` the next prompt carries: a note is a list append, so it never steers the loop."""
+    ``problems`` the next prompt carries: a note is a list append, so it never steers the loop.
+
+    :func:`.author_answer.read_answer` reads each answer from plain values; this loop makes the model
+    calls and runs the checks a parsed figure needs (numerics, the sealed sketch engine, the source
+    check), each behind the gate. What the attempts leave carries to the store: a figure whose only
+    fault was its source check stays until a later answer parses a figure of its own."""
 
     problem = author.problem()
     if problem is not None:
@@ -785,19 +749,17 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
     prompt_version = R.author_prompt_version(advanced=advanced, show_me=show_me, sketch=sketch, tiers=tiers,
                                              learner=learner)
     attempts.prompt_version = prompt_version
-    # RW5d P2b: with a rich tier on the menu the contract is V3 (the tier judgment, always receipted).
+    # With a rich tier on the menu the contract is V3, whose status is always a tier judgment.
     v3 = tiers is not None
     request.tiers_allowed = tuple(tiers) if v3 else (("grammar", "sketch") if sketch else ("grammar",))
     brief: RICH.RichBrief | None = None
     quick_dropped: str | None = None
-    # RW5c: a rebuild's first attempt is told the difference (empty otherwise).
+    # A rebuild's first attempt is told the difference its source check found (empty otherwise).
     problems: list[str] = list(request.initial_problems)
     compiled: S.CompiledFigure | None = None
     source_check: SC.Check | None = None
     report = V.Report()
-    output: Any = None
     unsupported: tuple[str, str] | None = None
-    # RW5d P2: a sketch answer, verified in the sealed engine.
     sketched: K.CompiledSketch | None = None
     sketch_report: Any = None
     verdict: tuple[str, str] | None = None
@@ -830,119 +792,74 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
             if attempt == 0:
                 continue
             break
-        status = str(output.status).strip().lower()
-        attempts.fact(author_status=status)
-        # The free-text label rule (spec §9b.4, P2b ruling R2): free text
-        # that reads like a code-owned check label is the repair call's
-        # problem, in code's words; still there after it, the figure is
-        # shown without that text (a Manim figure's own text: its job).
-        labelled = L.label_problems(_free_text(output, status))
-        if labelled:
-            if attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
-                problems = labelled
-                attempts.end(FR.LABEL_TEXT, problems=len(labelled))
-                continue
-            attempts.extra(FR.LABEL_TEXT_STRIPPED)
-            output = _without_label_text(output)
-        if v3:
-            # RW5d P2b: the status is the medium chosen; why_this_tier its reason.
-            menu_statuses = {"spec" if tier == "grammar" else tier for tier in tiers or ()} | {"unsupported"}
-            reason = (" ".join(str(output.unsupported_reason or "").split())[:400] if status == "unsupported"
-                      else " ".join(str(getattr(output, "why_this_tier", "") or "").split())[:400])
-            verdict = (status if status in menu_statuses else "invalid", reason)
-            if status not in menu_statuses:
-                problems = [f"status {status!r} is not one of the media offered ({sorted(menu_statuses)})"]
-                attempts.end(FR.STATUS_INVALID)
-                continue
-            if status != "unsupported" and not reason:
-                problems = ["why_this_tier is empty: say in one sentence why this medium explains the idea best"]
-                attempts.end(FR.TIER_REASON_MISSING)
-                continue
-            if status in RICH.RICH_TIERS:
-                brief, brief_problems = RICH.parse_brief(output.rich_json, tiers or (), status,
-                                                         grounded=grounding.mode != "none")
-                if brief is None:
-                    problems = brief_problems
-                    attempts.end(FR.BRIEF_INVALID, problems=len(brief_problems))
-                    continue
-                # The optional quick figure (Q20): verified and shown as any spec
-                # or sketch; one that fails is dropped (the rich half carries on).
-                compiled, sketched, sketch_report = None, None, None
-                if str(output.spec_json or "").strip():
-                    try:
-                        candidate, dropped_notes = S.parse_author_spec(
-                            _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json,
-                            advanced=advanced)
-                        attempts.fact(predictions_dropped=len(dropped_notes))
-                        report = V.verify_numerics(candidate)
-                        report.author_predictions_dropped = dropped_notes
-                        if report.outcome == V.FAILED:
-                            quick_dropped = report.reason
-                        else:
-                            # RW5c: a quick figure whose stated claim differs is
-                            # dropped like any that fails (the rich half carries on).
-                            source_check = _step_three(vault, repository, candidate, context, request, grounding, gate)
-                            if source_check is not None and source_check.outcome == SC.DIFFERS:
-                                quick_dropped = (source_check.problems or [SC.REJECTED_REASON])[0]
-                                source_check = None
-                            else:
-                                compiled = candidate
-                    except S.SpecError as exc:
-                        quick_dropped = exc.problems[0] if exc.problems else "the quick figure is invalid"
-                elif sketch and str(getattr(output, "sketch_json", "") or "").strip():
-                    try:
-                        raw = output.sketch_json
-                        candidate_sketch, dropped_notes = K.parse_author_sketch(
-                            _ungrounded_sketch(raw) if grounding.mode == "none" else raw)
-                        from learnloop.figures import sketch_verify as SV
-
-                        gate.check("sketch")
-                        attempts.fact(predictions_dropped=len(dropped_notes))
-                        checked = SV.verify_sketch(candidate_sketch, span_texts=context.span_texts)
-                        checked.author_predictions_dropped = dropped_notes
-                        if checked.outcome == V.FAILED:
-                            quick_dropped = checked.reason
-                        else:
-                            sketched, sketch_report = candidate_sketch, checked
-                    except K.SketchError as exc:
-                        quick_dropped = exc.problems[0] if exc.problems else "the quick sketch is invalid"
-                    except FiguresChanged:
-                        raise
-                    except Exception as exc:  # noqa: BLE001 - the quick sketch could not run: dropped
-                        quick_dropped = f"the quick sketch could not be run: {type(exc).__name__}"
-                if quick_dropped is not None:
-                    attempts.extra(FR.QUICK_DROPPED)
-                break
-        elif sketch:
-            # The author's status is the tier judgment (its receipt: figure_tier).
-            reason = (" ".join(str(getattr(output, "why_not_spec", "") or "").split())[:400] if status == "sketch"
-                      else " ".join(str(output.unsupported_reason or "").split())[:400] if status == "unsupported"
-                      else "")
-            verdict = (status if status in ("spec", "sketch", "unsupported") else "invalid", reason)
-            if verdict[0] == "invalid":
-                attempts.extra(FR.STATUS_INVALID)
-        if status == "unsupported":
-            unsupported = (" ".join(str(output.unsupported_kind or "").split())[:80] or "something else",
-                           " ".join(str(output.unsupported_reason or "").split())[:400])
+        last = attempt == R.MAX_AUTHOR_ATTEMPTS - 1
+        attempts.fact(author_status=AA.status_of(output))
+        reading = AA.read_answer(output, last=last, tiers=tiers, sketch=sketch, grounded=grounding.mode != "none",
+                                 advanced=advanced)
+        for note in reading.notes:
+            attempts.extra(note)
+        verdict = reading.verdict or verdict
+        found = reading.then
+        if isinstance(found, AA.Retry):
+            if found.parsed is not None:
+                compiled = None
+                sketch_report = None if found.parsed == "spec" else sketch_report
+            problems = found.problems
+            attempts.end(found.rule, problems=len(found.problems) if found.counted else None)
+            continue
+        if isinstance(found, AA.Unsupported):
+            unsupported = (found.kind, found.reason)
             attempts.end(FR.UNSUPPORTED)
             break
-        if sketch and status == "sketch":
-            compiled = None
-            try:
-                raw = output.sketch_json
-                sketched, dropped_notes = K.parse_author_sketch(
-                    _ungrounded_sketch(raw) if grounding.mode == "none" else raw)
-            except K.SketchError as exc:
-                problems, sketched = exc.problems, None
-                attempts.end(FR.sketch_problem(exc.problems), problems=len(exc.problems))
-                continue
-            attempts.fact(predictions_dropped=len(dropped_notes))
+        if isinstance(found, AA.Rich):
+            # The optional quick figure is verified and shown as any spec or sketch; one that fails is
+            # dropped and the brief carries on.
+            brief, quick_dropped = found.brief, found.dropped
+            compiled, sketched, sketch_report = None, None, None
+            if isinstance(found.quick, AA.Spec):
+                attempts.fact(predictions_dropped=len(found.quick.dropped))
+                report = V.verify_numerics(found.quick.figure)
+                report.author_predictions_dropped = found.quick.dropped
+                if report.outcome == V.FAILED:
+                    quick_dropped = report.reason
+                else:
+                    source_check = _step_three(vault, repository, found.quick.figure, context, request, grounding,
+                                               gate)
+                    if source_check is not None and source_check.outcome == SC.DIFFERS:
+                        quick_dropped = (source_check.problems or [SC.REJECTED_REASON])[0]
+                        source_check = None
+                    else:
+                        compiled = found.quick.figure
+            elif isinstance(found.quick, AA.Sketch):
+                try:
+                    from learnloop.figures import sketch_verify as SV
+
+                    gate.check("sketch")
+                    attempts.fact(predictions_dropped=len(found.quick.dropped))
+                    checked = SV.verify_sketch(found.quick.program, span_texts=context.span_texts)
+                    checked.author_predictions_dropped = found.quick.dropped
+                    if checked.outcome == V.FAILED:
+                        quick_dropped = checked.reason
+                    else:
+                        sketched, sketch_report = found.quick.program, checked
+                except K.SketchError as exc:
+                    quick_dropped = exc.problems[0] if exc.problems else "the quick sketch is invalid"
+                except FiguresChanged:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - the quick sketch could not be run: dropped
+                    quick_dropped = f"the quick sketch could not be run: {type(exc).__name__}"
+            if quick_dropped is not None:
+                attempts.extra(FR.QUICK_DROPPED)
+            break
+        if isinstance(found, AA.Sketch):
+            compiled, sketched = None, found.program
+            attempts.fact(predictions_dropped=len(found.dropped))
             from learnloop.figures import sketch_verify as SV
 
             gate.check("sketch")
             try:
                 sketch_report = SV.verify_sketch(sketched, span_texts=context.span_texts)
-                sketch_report.author_predictions_dropped = dropped_notes
+                sketch_report.author_predictions_dropped = found.dropped
             except Exception as exc:  # noqa: BLE001 - the engine itself failed: an honest failure, never shown
                 problems, sketched = [f"the sketch could not be run: {type(exc).__name__}"], None
                 sketch_report = None
@@ -954,28 +871,19 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
                 attempts.end(FR.VERIFICATION_FAILED, problems=len(problems))
                 continue
             break
-        sketched, sketch_report = None, None
-        try:
-            # Off, RW5b's panels are refused (the author was not told of them).
-            compiled, dropped_notes = S.parse_author_spec(
-                _ungrounded(output.spec_json) if grounding.mode == "none" else output.spec_json, advanced=advanced)
-        except S.SpecError as exc:
-            problems, compiled = exc.problems, None
-            attempts.end(FR.spec_problem(exc.problems), problems=len(exc.problems))
-            continue
-        attempts.fact(predictions_dropped=len(dropped_notes))
+        sketched, sketch_report, compiled = None, None, found.figure
+        attempts.fact(predictions_dropped=len(found.dropped))
         report = V.verify_numerics(compiled)
-        report.author_predictions_dropped = dropped_notes
+        report.author_predictions_dropped = found.dropped
         if report.outcome == V.FAILED:
             problems = [report.reason, *report.structural[1:], *report.invariant_problems[1:]]
             compiled = None
             attempts.end(FR.VERIFICATION_FAILED, problems=len(problems))
             continue
-        # RW5c: step 3, inside the loop (§6.6): a stated claim proved different is
-        # one more problem for the second attempt. Its only spend is that attempt,
-        # admitted by this gate, whose key holds the switch (§6.7, F5).
+        # A stated claim the source check proves different is one more problem for the next attempt, whose
+        # only spend this gate admits; on the last attempt the figure is kept, and withheld where it is shown.
         source_check = _step_three(vault, repository, compiled, context, request, grounding, gate)
-        if source_check is not None and source_check.outcome == SC.DIFFERS and attempt < R.MAX_AUTHOR_ATTEMPTS - 1:
+        if source_check is not None and source_check.outcome == SC.DIFFERS and not last:
             problems = source_check.problems or [SC.REJECTED_REASON]
             attempts.end(FR.SOURCE_DIFFERS, problems=len(problems))
             continue
@@ -995,6 +903,23 @@ def _author_attempts_and_store(vault: Any, repository: Repository, request: Figu
                              problems=problems, versions=versions, asset_id=asset_id, input_hash=input_hash,
                              prompt_version=prompt_version, figure_id=figure_id, asked=asked, clock=clock, gate=gate,
                              grounding=grounding, verdict=verdict, rich_spawn=rich_spawn)
+    return _store_quick(vault, repository, request, context, author, compiled=compiled, unsupported=unsupported,
+                        problems=problems, report=report, source_check=source_check, verdict=verdict, sketch=sketch,
+                        v3=v3, versions=versions, asset_id=asset_id, input_hash=input_hash,
+                        prompt_version=prompt_version, figure_id=figure_id, asked=asked, clock=clock, gate=gate,
+                        grounding=grounding, rich_spawn=rich_spawn)
+
+
+def _store_quick(vault: Any, repository: Repository, request: FigureRequest, context: SourceContext,
+                 author: R.FigureRoute, *, compiled: S.CompiledFigure | None, unsupported: tuple[str, str] | None,
+                 problems: list[str], report: V.Report, source_check: SC.Check | None,
+                 verdict: tuple[str, str] | None, sketch: bool, v3: bool, versions: int, asset_id: str | None,
+                 input_hash: str, prompt_version: str, figure_id: str, asked: dict[str, Any], clock: Clock | None,
+                 gate: FiguresGate, grounding: Grounding, rich_spawn: _RichSpawn | None) -> BuildOutcome:
+    """The grammar figure the attempts came to (shown, failed or unsupported), stored with its request, its
+    verification and tier judgments and its source check in one transaction; a rich answer's quick figure
+    carries the rich job's intent, and the job starts once it is stored."""
+
     row: dict[str, Any] = {
         "id": figure_id, "extraction_id": request.extraction_id, "span_ids": request.span_ids,
         "region": request.region, "asset_id": asset_id,
@@ -1380,50 +1305,6 @@ def _sketch_assumptions(compiled: K.CompiledSketch, span_texts: Mapping[str, str
                                      and V.quote_in(assumption.quote, span_texts[assumption.span_id])) else None
         shown.append({"text": assumption.text, "span_id": assumption.span_id if quote else None, "quote": quote})
     return shown
-
-
-def _ungrounded_sketch(raw: Any) -> Any:
-    """RW5d P2 + §8.3 step 3: a sketch built with nothing from the learner's
-    books quotes nothing, whatever the author wrote."""
-
-    try:
-        data = json.loads(raw) if isinstance(raw, str) else dict(raw)
-    except (TypeError, ValueError):
-        return raw
-    if not isinstance(data, dict):
-        return raw
-    data["source_claims"] = []
-    assumptions = data.get("assumptions")
-    if isinstance(assumptions, list):
-        data["assumptions"] = [{**item, "span_id": None, "quote": None} if isinstance(item, dict) else item
-                               for item in assumptions]
-    return data
-
-
-def _ungrounded(raw: Any) -> Any:
-    """RW5d (spec §8.3 step 3): with nothing from the learner's books, the
-    figure is an illustration that quotes nothing, whatever the author wrote:
-    code forces ``kind`` illustrative and drops every source claim and quote
-    (there is no passage to verify them against)."""
-
-    try:
-        data = json.loads(raw) if isinstance(raw, str) else dict(raw)
-    except (TypeError, ValueError):
-        return raw
-    if not isinstance(data, dict):
-        return raw
-    data["kind"] = "illustrative"
-    data["source_claims"] = []
-    assumptions = data.get("assumptions")
-    if isinstance(assumptions, list):
-        data["assumptions"] = [{**item, "span_id": None, "quote": None} if isinstance(item, dict) else item
-                               for item in assumptions]
-    invariants = data.get("invariants")
-    if isinstance(invariants, list):
-        # An equals_source invariant names a passage's equation; there is none.
-        data["invariants"] = [item for item in invariants
-                              if not (isinstance(item, dict) and item.get("kind") == "equals_source")]
-    return data
 
 
 def revision_request(repository: Repository, base: Mapping[str, Any], note: str) -> FigureRequest:

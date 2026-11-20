@@ -483,7 +483,7 @@ def build_reader_report(
             for row in connection.execute(
                 "SELECT f.tier, f.verification, f.fuller_of_id, f.created_at, r.created_at AS requested_at "
                 "FROM interactive_figures f LEFT JOIN figure_requests r ON r.id = f.request_id "
-                "WHERE f.tier IN ('js_animation', 'manim') ORDER BY f.created_at, f.id")
+                "WHERE f.tier = 'manim' ORDER BY f.created_at, f.id")
             if in_window(row["created_at"])
         ] if has_figures and figure_rich_enabled and connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'figure_requests'").fetchone() else []
@@ -955,7 +955,7 @@ def _rich_tier_rows(rich_rows: Sequence[Mapping[str, Any]], tier_verdicts: Seque
         "why_this_tier": {verdict: [{"reason": reason, "n": n} for reason, n in Counter(
             row["rationale"] for row in tier_verdicts if row["verdict"] == verdict and row["rationale"]
         ).most_common(20)] for verdict in sorted({row["verdict"] for row in tier_verdicts if row["verdict"] in
-                                                  ("spec", "sketch", "js_animation", "manim")})},
+                                                  ("spec", "sketch", "manim")})},
         "fuller_opened": len(actions("fuller_version_opened")),
         "quick_opened": len(actions("quick_version_opened")),
         "cancelled": len(actions("rich_build_cancelled")),

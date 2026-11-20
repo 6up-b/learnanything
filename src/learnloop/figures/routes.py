@@ -44,8 +44,8 @@ service: a program the sealed engine runs and code verifies. Off, the
 contract, the prompt and the reuse key are RW5b's (and P1's) byte for byte.
 
 RW5d P2b (the rich tiers): with a rich tier on the menu the output widens to
-:class:`FigureAuthorOutputV3` (``spec`` | ``sketch`` | ``js_animation`` |
-``manim`` | ``unsupported``, with ``why_this_tier``, the rich brief in
+:class:`FigureAuthorOutputV3` (``spec`` | ``sketch`` | ``manim`` |
+``unsupported``, with ``why_this_tier``, the rich brief in
 ``rich_json`` and an optional quick spec or sketch), under ``+rich-v1`` and
 the menu, and the status sentence is :func:`tier_menu_text`: one neutral
 sentence per offered medium (cost, latency, what can be checked), no
@@ -292,7 +292,7 @@ class FigureAuthorOutputV3(WireModel):
     """RW5d P2b: the author's answer with a rich tier on the menu (spec §8.4):
     the medium chosen by what best explains the idea, with ``why_this_tier``."""
 
-    #: "spec", "sketch", "js_animation", "manim" or "unsupported" (the tier
+    #: "spec", "sketch", "manim" or "unsupported" (the tier
     #: judgment; its receipt is a ``figure_tier`` judgment row).
     status: str
     #: One sentence: why this medium explains this idea best (every status but unsupported).
@@ -312,6 +312,8 @@ class FigureAuthorOutputV3(WireModel):
 #: suffix and the menu (after any show-me and sketch suffix), so every
 #: earlier prompt and reuse key is unchanged while no rich tier is offered.
 RICH_SUFFIX = "+rich-v1"
+#: The rich media, in menu order: ``rich.RICH_TIERS``, named again because ``rich`` imports this module.
+RICH_MEDIA = ("manim",)
 
 #: One neutral sentence per medium (spec §8.4: facts, no ranking word), in
 #: the spec's order; only the media on the menu are named.
@@ -320,9 +322,6 @@ TIER_SENTENCES = {
                 "predictions and a values table come with it; reusable and accessible."),
     "sketch": ("\"sketch\": a small sealed program drawing shapes. Ready in tens of seconds; stated claims checked; "
                "interactive; summaries rather than thousands of objects."),
-    "js_animation": ("\"js_animation\": a full web animation (canvas, WebGL, SVG, DOM, 3-D, its own controls). Takes a "
-                     "few minutes to write; only its declared model functions can be checked, not the drawing; "
-                     "desktop only."),
     "manim": ("\"manim\": a narrated video rendered on this computer. Takes a few minutes to write and render; not "
               "interactive; only its declared functions can be checked; desktop only."),
 }
@@ -340,7 +339,7 @@ def rich_status_text(tiers: Sequence[str]) -> str:
     named = ["\"spec\" with spec_json"]
     if "sketch" in tiers:
         named.append("\"sketch\" with sketch_json")
-    rich = [f"\"{tier}\"" for tier in ("js_animation", "manim") if tier in tiers]
+    rich = [f"\"{tier}\"" for tier in RICH_MEDIA if tier in tiers]
     named.append(" or ".join(rich) + f" with rich_json (and {quick} for the optional quick figure)")
     return (RICH_CHOICE_TEXT + " status is the medium you chose: " + ", ".join(named) + "; if no medium on the "
             "list can express it, status \"unsupported\" with its kind and why, and why_this_tier ''. Leave every "
@@ -360,7 +359,7 @@ RICH_TEXT = (
 def tier_menu_text(tiers: Sequence[str]) -> str:
     """The media the author may answer with (spec §8.4): one neutral sentence each, in order."""
 
-    named = [TIER_SENTENCES[tier] for tier in ("grammar", "sketch", "js_animation", "manim") if tier in tiers]
+    named = [TIER_SENTENCES[tier] for tier in ("grammar", "sketch", "manim") if tier in tiers]
     return "Media you may answer with: " + " ".join(named) + " " + rich_status_text(tiers)
 
 
@@ -393,7 +392,7 @@ LEARNER_STATE_TEXT = (
 def rich_menu(tiers: Sequence[str] | None) -> tuple[str, ...] | None:
     """The menu when it includes a rich tier (V3), else None (V1/V2 exactly)."""
 
-    if not tiers or not any(tier in ("js_animation", "manim") for tier in tiers):
+    if not tiers or not any(tier in RICH_MEDIA for tier in tiers):
         return None
     return tuple(tiers)
 
@@ -601,6 +600,7 @@ __all__ = [
     "MAX_AUTHOR_ATTEMPTS",
     "MODELS_ENV",
     "OWNER_KINDS",
+    "RICH_MEDIA",
     "RICH_SUFFIX",
     "SHOW_ME_SUFFIX",
     "SHOW_ME_TEXT",

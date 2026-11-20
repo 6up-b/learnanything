@@ -25,11 +25,14 @@ import json
 
 import pytest
 
+from learnloop.figures import author_answer as AA
 from learnloop.figures import labels as L
 from learnloop.figures import rich as RICH
 from learnloop.figures import build as FB
 from learnloop.figures import listing as FL
+from learnloop.figures import records as FR
 from learnloop.figures import request as FQ
+from learnloop.figures import routes as R
 from learnloop.figures import view as FV
 from learnloop.vault.loader import load_vault
 from tests import rich_fixtures as RF
@@ -256,11 +259,13 @@ def test_f1_a_manim_narration_saying_it_matches_the_book_is_a_problem():
     assert any(problem.startswith("narration_md reads like") for problem in raised.value.problems)
 
 
-def test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call(tmp_path):
-    _outcome, author, _repository = _build(tmp_path, [flagship(kind="illustrative", demonstrates="matches the book"),
-                                                      flagship(kind="illustrative")])
-    assert author.calls == 2
-    assert author.contexts[1]["problems_with_the_last_attempt"][0].startswith("spec_json.demonstrates reads like")
+def test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call():
+    spec = flagship(kind="illustrative", demonstrates="matches the book")
+    answer = R.FigureAuthorOutputV1(status="spec", spec_json=json.dumps(spec), unsupported_kind="",
+                                    unsupported_reason="")
+    reading = AA.read_answer(answer, last=False, tiers=None, sketch=False, grounded=True, advanced=True)
+    assert isinstance(reading.then, AA.Retry) and reading.then.rule == FR.LABEL_TEXT
+    assert reading.then.problems[0].startswith("spec_json.demonstrates reads like")
 
 
 @pytest.mark.parametrize("text", [

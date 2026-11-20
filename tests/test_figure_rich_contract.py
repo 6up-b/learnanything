@@ -5,8 +5,7 @@
   here): the author's contract, prompt and reuse key are V2's (or V1's) byte
   for byte.
 * ``tiers_allowed`` leaves out each unavailable tier: Manim missing, off
-  Linux, no ``bwrap``, no standing opt-in, and the JS build flag (G-SM14 not
-  passed: ``js_animation`` is never on a menu in this build).
+  Linux, no ``bwrap``, no standing opt-in.
 * The menu states facts, never a preference (a golden prompt test).
 
 Fakes only: no model, Manim or bubblewrap is reached.
@@ -60,7 +59,6 @@ def test_the_menu_is_neutral_facts_in_order_golden():
     # An unavailable medium is absent, never described as worse.
     without_sketch = R.tier_menu_text(("grammar", "manim"))
     assert '"sketch"' not in without_sketch and "sketch_json" not in without_sketch
-    assert "js_animation" not in text
 
 
 def test_v3_instructions_replace_the_preference_and_carry_the_rich_brief():
@@ -92,6 +90,12 @@ def test_with_no_rich_tier_on_the_menu_the_contract_is_v2s_byte_for_byte(tiers):
     assert FB.request_hash(request, context, None, tiers=tiers) == FB.request_hash(request, context, None)
 
 
+def test_the_prompt_names_the_rich_tiers_the_menu_offers():
+    """The prompt module names the rich media itself (``rich`` imports it), so the two lists must agree."""
+
+    assert R.RICH_MEDIA == RICH.RICH_TIERS == ("manim",)
+
+
 def test_the_reuse_key_names_the_menu_and_the_rich_versions():
     request = FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"])
     context = FGR.SourceContext()
@@ -110,9 +114,6 @@ def test_tiers_allowed_needs_the_switch_linux_bwrap_manim_and_the_standing_opt_i
     RF.ready_manim(monkeypatch)
     assert RICH.tiers_allowed(vault, sketch=False) == ("grammar", "manim")
     assert RICH.tiers_allowed(vault, sketch=True) == ("grammar", "sketch", "manim")
-    # js_animation is behind its build flag (G-SM14 not passed in this build).
-    assert RICH.JS_ANIMATION_BUILD_FLAG is False
-    assert "js_animation" not in RICH.tiers_allowed(vault, sketch=True)
     monkeypatch.undo()
 
     # Off Linux, no bwrap, no Manim: absent (the real probe, with each cause faked).
