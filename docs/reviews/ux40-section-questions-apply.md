@@ -156,3 +156,12 @@ Every Python run through the scratch wrapper (`env -i`, empty `HOME`, `CODEX_HOM
 - **Whether the real model follows the new line.** No live or paid call was made; the orchestrator checks it on the real route.
 - No app, browser, server or Today screen ran: the Today table is read from `todayCause.ts` against the facts the tests produce.
 - A section job started before this change resumes with its frozen request snapshot (the old line) on Try again; read from the code, not run.
+
+## Checked on the real route (orchestrator, Nov 20)
+
+A copy of a walk's vault (the backup API; the walk's own synthetic library) was rebuilt with this branch's code on
+the ChatGPT plan route, then the finished section's first topic was written. The model marked all three items
+`auto_apply` (each audit `passed`), the three rows were applied, `practice_item_state` held 3 rows, and the job
+read "Writing questions: 1 of 7 topics finished" while the second topic was being written. Before the change the
+same vault gave 9 of 9 `review_required` and no practice. One topic was checked, not seven; a full walk follows
+the landing.
