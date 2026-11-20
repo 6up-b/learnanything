@@ -918,7 +918,12 @@ export function TodayPlace({
     );
   } else if (!data) {
     // Loading: the frame, with nothing claimed yet (never "Loading today's queue").
-    body = <div data-testid="today-loading" aria-busy="true" style={{ minHeight: 64, opacity: 0.35, fontSize: 14, color: COLOR.textDim }}>…</div>;
+    // App start and every return to Today: after the indicator's delay, what is being read (get_daily_plan took up to 19 s once in the walks).
+    body = (
+      <div data-testid="today-loading" aria-busy="true" style={{ minHeight: 64, fontSize: 14, color: COLOR.textDim }}>
+        <Waiting testId="plan-wait" line={WAITING_COPY.readingPlan} />
+      </div>
+    );
   } else if (list) {
     body = (
       <PlainList

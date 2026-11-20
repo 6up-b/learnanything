@@ -84,7 +84,9 @@ export function PlanToday({
     return (
       <div className="screen">
         <h1>Today</h1>
-        <p className="dim" role="status">{query.error ? "Today's plan couldn't be read." : "Reading today's plan…"}</p>
+        {query.error
+          ? <p className="dim" role="status">Today's plan couldn't be read.</p>
+          : <Waiting testId="plan-wait" line={WAITING_COPY.readingPlan} />}
         {query.error || resumeEntry ? (
           <div className="actions">
             {resumeEntry}

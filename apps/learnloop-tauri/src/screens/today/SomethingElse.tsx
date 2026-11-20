@@ -11,6 +11,8 @@ import type { SomethingElseChosenDto, SomethingElseOptionDto, SomethingElseOptio
 import { useDailyPlan } from "../../app/dailyPlan";
 import { getCommandError } from "../../errors";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { Waiting } from "../../components/Waiting";
+import { WAITING_COPY } from "../../copy/waiting";
 import type { LessonEntry } from "../LessonScreen";
 
 export type SomethingElseSurface = "feedback" | "offer_page" | "today";
@@ -127,7 +129,7 @@ export function SomethingElse({
         <section aria-label="What would help" data-testid="something-else-panel"
                  style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, maxWidth: 560 }}>
           <div>What would help right now?</div>
-          {loading ? <div style={{ color: COLOR.textDim }}>Looking at what the plan could do…</div> : null}
+          {loading ? <Waiting testId="options-wait" line={WAITING_COPY.lookingAtOptions} /> : null}
           {!loading && shown.length === 0 ? (
             <div data-testid="something-else-none" style={{ color: COLOR.textDim }}>
               Nothing else is available right now.

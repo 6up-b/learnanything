@@ -1520,6 +1520,21 @@ describe("waiting you can see: Today to the question", () => {
     expect(screen.queryByTestId("waiting")).toBeNull();
   });
 
+  it("app start and every return to Today: 'Reading today's plan…' after the delay, gone when the plan is there", async () => {
+    const read = deferred<DailyPlanDto>();
+    apis(() => read.promise);
+    freezeTimers();
+    show({ session: SESSION });
+    await advance(300);
+    expect(screen.getByTestId("today-loading").textContent).toBe("");
+    await advance(100);
+    expect(screen.getByTestId("plan-wait").textContent).toBe("◐ Reading today's plan…");
+    read.resolve(dto(body()));
+    await advance(0);
+    expect(screen.getByTestId("today-sentence")).toBeTruthy();
+    expect(screen.queryByTestId("plan-wait")).toBeNull();
+  });
+
   it("a fast step never shows the line", async () => {
     apis(dto(body()));
     const props = show({ session: SESSION });

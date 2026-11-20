@@ -36,6 +36,18 @@ export const WAITING_COPY = {
   lookingIntoAnswer: "Looking into what happened here…",
   /** "This doesn't sound right" sent on the phone's feedback: the answer is graded again. */
   lookingAgain: "Looking again…",
+  /** Today's plan being read: app start and every return to Today (the phone's words). */
+  readingPlan: "Reading today's plan…",
+  /** The phone's Today with the plan off: today's list being read. */
+  readingList: "Reading today's list…",
+  /** The phone's Read tab: the books being listed. */
+  readingBooks: "Reading your books…",
+  /** The phone's Reader: a book's section being opened. */
+  openingSection: "Opening the section…",
+  /** "Something else would help": the plan's other options being read. */
+  lookingAtOptions: "Looking at what the plan could do…",
+  /** A goal's details: the projection of where the goal is heading (10 to 14 s in the walks, uncached). */
+  workingOutGoal: "Working out where this goal is heading…",
   /** Keep going on a finished day: the plan is extended. */
   addingMore: "Adding more to today…",
 } as const;

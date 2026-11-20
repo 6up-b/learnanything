@@ -10,6 +10,8 @@
 // phone was built not to make.
 import { useRef, useState } from "react";
 import type { SomethingElseOptionDto } from "@desktop/api/dto";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { phone, type PhoneSomethingElseDto } from "../api/phone";
 import { newUlid } from "../util/ulid";
 
@@ -97,7 +99,7 @@ export function SomethingElse({
       ) : (
         <section aria-label="What would help" data-testid="something-else-panel">
           <p>What would help right now?</p>
-          {options === null ? <p className="dim" role="status">Looking at what the plan could do…</p> : null}
+          {options === null ? <Waiting testId="options-wait" line={WAITING_COPY.lookingAtOptions} /> : null}
           {options !== null && options.length === 0 ? (
             <p className="dim" data-testid="something-else-none">Nothing else is available right now.</p>
           ) : null}
