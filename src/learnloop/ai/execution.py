@@ -37,6 +37,22 @@ _reasoning_effort: ContextVar[str | None] = ContextVar("model_reasoning_effort",
 _withhold_input: ContextVar[bool] = ContextVar("model_withhold_input", default=False)
 _truncation_retry: ContextVar[bool] = ContextVar("model_truncation_retry", default=False)
 _request_gate: ContextVar["RequestGate | None"] = ContextVar("model_request_gate", default=None)
+_background: ContextVar[bool] = ContextVar("model_background", default=False)
+
+
+@contextmanager
+def background_model_work():
+    """The ingest host owns these calls; no learner request is waiting for them."""
+
+    token = _background.set(True)
+    try:
+        yield
+    finally:
+        _background.reset(token)
+
+
+def background_model_work_active() -> bool:
+    return _background.get()
 
 #: Receipt labels a caller may attach to the calls in its context (router
 #: spec §6.2): which judge answered, the versioned question set, and the hash

@@ -456,3 +456,19 @@ def test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was():
     raised = LearnLoopConfig.model_validate({"ingest": {"budgets": {"inventory_output_ceiling_tokens": 8000}}})
     assert identity_dump(raised)["ingest"]["budgets"]["inventory_output_ceiling_tokens"] == 8000
     assert content_key(identity_dump(raised)) != content_key(identity_dump(default))
+
+
+@pytest.mark.parametrize("reason,calls", [("ceiling", 1), ("idle", 2)])
+def test_synthesis_timeout_reason_controls_retry_and_keeps_try_again(tmp_path, reason, calls):
+    failure = AITurnTimeout("The ChatGPT plan request exceeded its deadline.")
+    failure.reason = reason
+    script = Script(synthesis=lambda n: failure)
+    root, repo, item, build = _first_document(tmp_path, script)
+    synthesis = _job(repo, build["bootstrap_synthesis"])
+    assert synthesis["status"] == "failed"
+    assert script.synthesis_calls == calls
+    assert synthesis["error"]["code"] == ("timeout_ceiling" if reason == "ceiling" else "timeout")
+    assert _checkpoints(repo, "synthesis_pass") == 0
+    line = _line(root, repo, item)
+    _stopped_with_retry(line)
+    assert line["retried"] == (reason == "idle")

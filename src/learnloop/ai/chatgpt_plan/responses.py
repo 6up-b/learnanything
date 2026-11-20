@@ -264,6 +264,47 @@ def _request_id(headers: Mapping[str, str] | http.client.HTTPMessage) -> str | N
     return None
 
 
+class _StreamDeadline:
+    """One watchdog wakes at the next bound; output moves only the idle bound."""
+
+    def __init__(self, timeout: float, idle: float | None, cancel: Callable[[str], None]) -> None:
+        self.end = time.monotonic() + timeout
+        self.last_output = time.monotonic()
+        self.idle = idle
+        self.cancel = cancel
+        self.lock = threading.Lock()
+        self.closed = False
+        self.timer: threading.Timer | None = None
+        self._check()
+
+    def output(self, kind: str, event: Mapping[str, Any]) -> None:
+        # Lifecycle events and keepalives do not prove generation is advancing.
+        if kind.startswith("response.") and kind.endswith(".delta") and event.get("delta"):
+            with self.lock:
+                self.last_output = time.monotonic()
+
+    def _check(self) -> None:
+        with self.lock:
+            if self.closed:
+                return
+            now = time.monotonic()
+            due = self.end if self.idle is None else min(self.end, self.last_output + self.idle)
+            if now >= due:
+                self.closed = True
+                reason = "deadline" if self.idle is None else ("ceiling" if now >= self.end else "idle")
+                self.cancel(reason)
+            else:
+                self.timer = threading.Timer(due - now, self._check)
+                self.timer.daemon = True
+                self.timer.start()
+
+    def close(self) -> None:
+        with self.lock:
+            self.closed = True
+            if self.timer is not None:
+                self.timer.cancel()
+
+
 class ResponsesStream:
     """One request, one connection; ``cancel()`` shuts it down from any thread."""
 
@@ -276,6 +317,7 @@ class ResponsesStream:
         self._port = parts.port
         self._path = (parts.path or "") + "/responses"
         self._connection: http.client.HTTPConnection | None = None
+        self._socket: socket.socket | None = None
         self._lock = threading.Lock()
         self._cancel_reason: str | None = None
 
@@ -284,7 +326,7 @@ class ResponsesStream:
             if self._cancel_reason is None:
                 self._cancel_reason = reason
             connection = self._connection
-        sock = getattr(connection, "sock", None) if connection is not None else None
+            sock = self._socket or (getattr(connection, "sock", None) if connection is not None else None)
         if sock is not None:
             try:
                 sock.shutdown(socket.SHUT_RDWR)
@@ -296,6 +338,7 @@ class ResponsesStream:
             raise StreamCancelled(self._cancel_reason)
 
     def send(self, body: Mapping[str, Any], *, access_token: str, timeout: float,
+             idle_timeout: float | None = None,
              on_event: Callable[[str, Mapping[str, Any]], None] | None = None) -> StreamResult:
         started = time.monotonic()
         if timeout <= 0:
@@ -303,16 +346,23 @@ class ResponsesStream:
             raise StreamCancelled("deadline")
         encoded = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         connection_class = http.client.HTTPSConnection if self._scheme == "https" else http.client.HTTPConnection
-        kwargs: dict[str, Any] = {"timeout": max(0.5, timeout)}
+        # A connect in progress may not have published its socket for cancel().
+        socket_timeout = min(timeout, idle_timeout) if idle_timeout is not None else timeout
+        kwargs: dict[str, Any] = {"timeout": max(0.5, socket_timeout)}
         if self._scheme == "https":
             kwargs["context"] = ssl.create_default_context()
         connection = connection_class(self._host, self._port, **kwargs)
         with self._lock:
             self._connection = connection
         self._raise_if_cancelled()
-        timer = threading.Timer(max(0.0, timeout), self.cancel, args=("deadline",))
-        timer.daemon = True
-        timer.start()
+        timer = _StreamDeadline(timeout, idle_timeout, self.cancel)
+
+        def observe(kind: str, event: Mapping[str, Any]) -> None:
+            timer.output(kind, event)
+            if on_event is not None:
+                on_event(kind, event)
+
+        response = None
         try:
             try:
                 connection.request("POST", self._path, body=encoded, headers={
@@ -321,8 +371,15 @@ class ResponsesStream:
                     "Accept": "text/event-stream",
                     "User-Agent": "LearnLoop",
                 })
+                # getresponse() detaches a Connection: close socket. The
+                # response still owns a reader on it, which cancel must wake.
+                with self._lock:
+                    self._socket = connection.sock
+                self._raise_if_cancelled()
                 response = connection.getresponse()
             except (OSError, http.client.HTTPException) as exc:
+                if idle_timeout is not None and isinstance(exc, TimeoutError):
+                    self.cancel("ceiling" if time.monotonic() >= timer.end else "idle")
                 self._raise_if_cancelled()
                 raise ResponsesError(f"The Responses endpoint could not be reached ({type(exc).__name__}).",
                                      status=None) from None
@@ -343,14 +400,19 @@ class ResponsesStream:
                     request_id=request_id,
                 )
             return self._read_stream(response, request_id=request_id, started=started,
-                                     headers_at=headers_at, on_event=on_event)
+                                     headers_at=headers_at, on_event=observe)
         except (OSError, http.client.HTTPException) as exc:
+            if idle_timeout is not None and isinstance(exc, TimeoutError):
+                self.cancel("ceiling" if time.monotonic() >= timer.end else "idle")
             self._raise_if_cancelled()
             raise ResponsesError(f"The response stream broke ({type(exc).__name__}).", status=200) from None
         finally:
-            timer.cancel()
+            timer.close()
             with self._lock:
                 self._connection = None
+                self._socket = None
+            if response is not None:
+                response.close()
             connection.close()
 
     def _read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float,
