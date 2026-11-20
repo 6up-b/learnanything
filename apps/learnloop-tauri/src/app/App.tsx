@@ -836,6 +836,10 @@ export function App() {
     }
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
+      if (firstStep.kind === "lesson_offer") {
+        openPlanOffer(firstStep);
+        return;
+      }
       const action = planStepAction(firstStep, { viaBlockLine: false });
       if (action.type === "practice") {
         setPracticeOffer({
@@ -1265,6 +1269,14 @@ export function App() {
       return;
     }
     setTodayStage("queue");
+  }
+
+  // Begin whose first step is a lesson offer: the offer's page, as feedback's Next opens it. Begin is pressed on
+  // Today's place, which may be the Start tab, so the tab moves too.
+  function openPlanOffer(step: PlanLessonOfferStepDto) {
+    setPlanOffer(step);
+    setTab("today");
+    setTodayStage("offer");
   }
 
   // IH1: the offer page was answered. Start (or an alternative) has opened its lesson (the plan goes on at its next block when the
@@ -2056,6 +2068,7 @@ export function App() {
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
         {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+        onLessonOffer={openPlanOffer}
         lessonOpen={lessonEntry !== null}
         aiConnection={aiConnection}
         onConnectAi={() => setConnectOpen(true)}

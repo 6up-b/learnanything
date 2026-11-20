@@ -28,6 +28,7 @@ import type {
   DailyPlanDto,
   GoalDto,
   OpenLessonDto,
+  PlanLessonOfferStepDto,
   PlanReadingDto,
   PlanStepDto,
   QueueSnapshot,
@@ -117,6 +118,9 @@ export interface TodayPlaceProps {
   wrapUp?: ReactNode;
   /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
   onStartLesson?: (entry: LessonEntry) => void;
+  /** Begin served a lesson offer as the plan's first step: the shell opens the offer's own page (the one feedback's
+   *  Next opens), so the press shows something. Without it the press only turned Begin into Continue. */
+  onLessonOffer?: (step: PlanLessonOfferStepDto) => void;
   /** A lesson is on screen over Today. Its closing is when an open lesson may have been left, so Today reads them
    *  again then. */
   lessonOpen?: boolean;
@@ -473,6 +477,7 @@ export function TodayPlace({
   subjects = [],
   wrapUp,
   onStartLesson,
+  onLessonOffer,
   lessonOpen = false,
   aiConnection = null,
   onConnectAi,
@@ -693,6 +698,10 @@ export function TodayPlace({
       return;
     }
     const result = await runSaying(WAITING_COPY.choosingNext, () => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));
+    if (result?.step?.kind === "lesson_offer") {
+      onLessonOffer?.(result.step);
+      return;
+    }
     const action = planStepAction(result?.step, { viaBlockLine: false });
     if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
     else if (action.type === "reader") onOpenPlanReading(action.reading);

@@ -209,3 +209,18 @@ it("UX-18: a quick check with a question to ask opens as before (the lesson clos
   expect(screen.queryByTestId("lesson-stub")).toBeNull();
 });
 
+it("UX-21: Begin whose first step is a lesson offer opens the offer's page", async () => {
+  apis();
+  render(<App />);
+  await click("begin to offer");
+  expect(await screen.findByTestId("lesson-offer-page")).toBeTruthy();
+  expect(screen.getByTestId("lesson-offer-sentence").textContent).toBe("This looks like something to learn. Start a 15 minute lesson on Eigenvalues?");
+});
+
+it("UX-21: the same when Begin started the session", async () => {
+  apis();
+  render(<App />);
+  await click("begin new session to offer");
+  expect(await screen.findByTestId("lesson-offer-page")).toBeTruthy();
+});
+

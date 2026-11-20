@@ -1656,3 +1656,30 @@ describe("UX-16: a plan that stopped with work left never says nothing else is n
     expect(screen.queryByTestId("today-stopped-more")).toBeNull();
   });
 });
+
+describe("UX-21: Begin whose first step is a lesson offer leads to the offer", () => {
+  const OFFER_STEP = {
+    kind: "lesson_offer" as const, planId: "plan_1", blockId: "blk_offer", blockOrdinal: 1, estMinutes: 15, boundary: true,
+    offer: { decisionId: "dec1", blockId: "blk_offer", minutes: 15, whyLabel: "Suggested by LearnLoop's planner", answered: null,
+             suggestion: { ref: "lesson:lo_e", title: "Eigenvalues", learningObjectIds: ["lo_e"], reason: "cold_failing", why: "Two misses." },
+             alternatives: [] }
+  };
+
+  it("with a session: the served offer goes to the shell, which opens its page (returner-1 #21-23)", async () => {
+    apis(dto(body()), { nextPlanItem: vi.fn(async () => ({ ...dto(body()), step: OFFER_STEP })) });
+    const onLessonOffer = vi.fn();
+    const props = show({ session: SESSION, onLessonOffer });
+    await screen.findByTestId("today-sentence");
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await waitFor(() => expect(onLessonOffer).toHaveBeenCalledWith(OFFER_STEP));
+    expect(props.onOpenPractice).not.toHaveBeenCalled();
+  });
+
+  it("without a session: the started session and the offer go to the shell together", async () => {
+    apis(dto(body()), { nextPlanItem: vi.fn(async () => ({ ...dto(body()), step: OFFER_STEP })) });
+    const props = show({ onLessonOffer: vi.fn() });
+    await screen.findByTestId("today-sentence");
+    fireEvent.click(screen.getByTestId("today-begin"));
+    await waitFor(() => expect(props.onBeginSession).toHaveBeenCalledWith(STARTED, OFFER_STEP));
+  });
+});
