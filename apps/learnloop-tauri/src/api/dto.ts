@@ -3690,6 +3690,32 @@ export interface SourceStatusLineDto {
   /** What the card says instead while no AI can write questions (usability
    *  round 2: "come up as you read" under "Connect an AI"). */
   withoutAi?: SourceStatusLineDto | null;
+  /** While a build is written: its own windows and passes, done and total (a
+   *  step not started yet counts one, so the total can grow for a big book). */
+  progress?: { done: number; total: number } | null;
+  /** While a build is written: the minutes a build this size took in this library, only where one was measured. */
+  minutes?: number | null;
+  /** After a build stopped: whether it had already tried a failed step again on its own. Present only on a stopped build's line. */
+  retried?: boolean;
+  /** What the learner's finished sections gave (on a built book's line, and on any line once there is something). */
+  questions?: ReadingQuestionsDto | null;
+}
+
+/** The questions written from sections the learner finished (add_source.py `reading_questions`). */
+export interface ReadingQuestionsDto {
+  /** Questions written from finished sections and still in use. */
+  count: number;
+  itemIds: string[];
+  /** The finished sections they came from, by their labels. */
+  sections: string[];
+  /** Finished sections whose questions are being written. */
+  writing: string[];
+  /** Finished sections whose question writing stopped; `resumeId` is the batch to try again. */
+  failed: Array<{ label: string; resumeId: string }>;
+  /** Written questions waiting for a look. */
+  toLookAt: number;
+  /** How many sections the reading has (one: the whole source). */
+  sectionCount: number;
 }
 
 /** A link an Add is still fetching: it has no library card yet. */

@@ -6,14 +6,11 @@ import { useState, type CSSProperties } from "react";
 import type { PendingAddDto, SourceActionKind, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
 import { COLOR, FONT_MONO } from "./term";
 import { IntentControl } from "./IntentControl";
+import { CONSENT_ACTION, SIDECAR_CONSENT_LABEL, readableTitle } from "../app/todayCause";
 
-/** The card's action that asks for the one-time OK to write questions (UX
- *  fix stage 3, audit F7: it read "Review", which opened the OK while the
- *  learner expected questions). Today's empty-day line uses the same words. */
-export const CONSENT_ACTION = "Give your OK";
-
-/** The sidecar's label on that action (add_source.py, `needs_consent`). */
-export const SIDECAR_CONSENT_LABEL = "Review";
+// The card's OK words and its title net live with Today's cause line, which the
+// phone shares: this module imports the desktop's client, the phone may not.
+export { CONSENT_ACTION, SIDECAR_CONSENT_LABEL, readableTitle };
 
 /** What a card's action reads: the OK's says what pressing it does at that
  *  moment (it asks for the OK; the sheet, and when it is asked, are as they
@@ -49,17 +46,6 @@ const primaryButton: CSSProperties = {
   cursor: "pointer"
 };
 
-/** Never a file address on the surface: a stray ``file://…/linear_algebra.pdf``
- * reads as "Linear Algebra" (the sidecar already does this; this is the net). */
-export function readableTitle(title: string): string {
-  const trimmed = (title || "").trim();
-  if (!trimmed.startsWith("file://") && !trimmed.startsWith("/")) return trimmed;
-  const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]{1,5}$/, "");
-  const words = name.split(/[_\-.\s]+/).filter(Boolean);
-  if (words.length === 0) return trimmed;
-  const lower = words.every((word) => word === word.toLowerCase());
-  return words.map((word) => (lower ? word.charAt(0).toUpperCase() + word.slice(1) : word)).join(" ");
-}
 
 function toneColor(tone: SourceStatusLineDto["tone"]): string {
   if (tone === "working") return COLOR.cyan;

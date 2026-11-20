@@ -49,6 +49,7 @@ import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
 import type { AskTarget } from "../../components/AskOverlay";
 import { INTERACTIVE_SELECTOR, screenLeavesKey } from "../../app/keymap";
+import { subscribeQueueChanged } from "../../queueEvents";
 import { algoConfig } from "../../app/algoConfig";
 import { LessonOfferBlock } from "./LessonOfferBlock";
 import { lessonEntryFor, SomethingElse } from "./SomethingElse";
@@ -82,6 +83,7 @@ import {
   PLAN_STOPPED_WITH_MORE,
   WHATS_SENT,
   causeActionLabel,
+  causeWait,
   causeSendsPassages,
   causeSentence,
   continueLessonLine,
@@ -556,6 +558,7 @@ export function TodayPlace({
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
   const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
+  const listItemIds = useMemo(() => queue?.sections.flatMap((section) => section.items.map((item) => item.practiceItemId)) ?? [], [queue]);
   // A closed plan with work left: a block of it not done, or questions still on today's list. The plan closes the
   // same way whether the router stopped with work feasible or nothing was left (its stopReason is free text), so
   // what is left is read from its rows and the list; null until the list is read, so neither line flashes.
@@ -566,13 +569,13 @@ export function TodayPlace({
       : listItems === null ? null : false;
   // Item 6: Keep going that came back with nothing open says the day's cause too.
   const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
-    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems })
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems, listItemIds })
     : null;
   // While a book's questions are on their way, the cause is read again as the
   // shelf reads it, so the line never outlives its state.
   const refetchLibrary = library.refetch;
   const refetchQueue = queueQuery.refetch;
-  const onTheWay = cause?.kind === "on_the_way";
+  const onTheWay = cause?.kind === "on_the_way" || cause?.kind === "section_writing";
   useEffect(() => {
     if (!onTheWay) return;
     const timer = window.setInterval(() => {
@@ -581,6 +584,15 @@ export function TodayPlace({
     }, CAUSE_POLL_MS);
     return () => window.clearInterval(timer);
   }, [onTheWay, refetchLibrary, refetchQueue]);
+  // A build that ends, however it ends, bumps the revision the shell reads on
+  // every screen; the shell then says the queue changed, here at once or on the
+  // way back to Today. The books' lines are read with it, so a cause shown
+  // follows a build that ended while the learner read elsewhere, with no press.
+  const causeShown = cause !== null;
+  useEffect(() => {
+    if (!causeShown) return undefined;
+    return subscribeQueueChanged(() => void refetchLibrary().catch(() => undefined));
+  }, [causeShown, refetchLibrary]);
 
   const goals = useCachedQuery(["goals_list"], () => api.goalsList(), { tags: [TAG.goals] });
   const primaryGoal: GoalDto | null = useMemo(() => {
@@ -860,6 +872,12 @@ export function TodayPlace({
     if (result?.needsConfirmation) onOpenLibrary?.();
   }
 
+  // A finished section's questions that stopped: the same batch, asked again (what the Library's Activity does).
+  async function resumeSection(resumeId: string) {
+    const resumed = await run(() => api.resumeIngestBatch(resumeId));
+    if (resumed) void refetchLibrary().catch(() => undefined);
+  }
+
   function causeAction(shown: TodayCause): (() => void) | null {
     switch (shown.kind) {
       case "list_has_more":
@@ -867,12 +885,20 @@ export function TodayPlace({
       case "waiting_ok":
       case "needs_ai":
         return onConnectAi ?? null;
+      case "questions_ready": {
+        const item = shown.itemId ? queue?.sections.flatMap((section) => section.items).find((row) => row.practiceItemId === shown.itemId) : null;
+        return item ? () => void openFromList(item) : null;
+      }
       case "failed":
         return () => void retryFromToday(shown.target);
+      case "section_failed":
+        return () => void resumeSection(shown.resumeId);
       case "needs_look":
         return onOpenLibrary ?? null;
       case "on_the_way":
-      case "all_read": {
+      case "section_writing":
+      case "finish_section":
+      case "none_up": {
         const card = shown.card;
         return card && onOpenBook ? () => onOpenBook(card) : null;
       }
@@ -905,7 +931,10 @@ export function TodayPlace({
       if (event.key === "Enter") {
         if (enterOnControl(event)) return;
         event.preventDefault();
-        if (done) void keepGoing();
+        // A book's first questions on Today: Enter is their Begin, as the line says.
+        const first = cause?.kind === "questions_ready" ? causeAction(cause) : null;
+        if (first) first();
+        else if (done) void keepGoing();
         else void begin();
       } else if (event.key === "l") {
         event.preventDefault();
@@ -1195,6 +1224,27 @@ function CauseLine({
 }) {
   const [sent, setSent] = useState(false);
   const label = causeActionLabel(cause);
+  const wait = sentence === undefined ? causeWait(cause) : null;
+  if (wait) {
+    // A wait (a book being got ready, a finished section's questions being written): the shared waiting
+    // indicator says what is happening and how far, the action beside it from the first moment; the line under it
+    // says what to know meanwhile. The indicator is the status region, so this frame is not one too.
+    return (
+      <div data-testid={testId} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
+        <Waiting testId={`${testId}-wait`} line={wait.line}>
+          {label && onAction ? (
+            <>
+              {" "}
+              <button type="button" style={linkButton} disabled={busy} onClick={onAction}>
+                {label}
+              </button>
+            </>
+          ) : null}
+        </Waiting>
+        <div>{wait.after}</div>
+      </div>
+    );
+  }
   return (
     <div data-testid={testId} role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
       <div>

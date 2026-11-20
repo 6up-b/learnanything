@@ -18,6 +18,7 @@ import {
   PLAN_FINISHED,
   causeActionLabel,
   causeSentence,
+  causeWait,
   goalCauseSentence,
   type TodayCause
 } from "../app/todayCause";
@@ -138,18 +139,33 @@ const LINES: SourceStatusLineDto[] = [
 
 
 
+const BOOK = { sourceId: "src_1", title: "Probability", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
 const STAGE3_CAUSES: TodayCause[] = [
   { kind: "list_has_more" },
   { kind: "waiting_ok", title: "Probability", others: 2 },
   { kind: "needs_ai", title: "Probability" },
-  { kind: "failed", title: "Probability", target: { sourceId: "src_1" } },
+  { kind: "failed", title: "Probability", target: { sourceId: "src_1" }, build: false, retried: false },
   { kind: "needs_look", title: "Probability" },
-  { kind: "on_the_way", title: "Probability", card: null },
+  { kind: "on_the_way", title: "Probability", card: null, progress: null, minutes: null },
   { kind: "no_reading" },
-  { kind: "all_read", card: null }
+  // First questions arrive (docs/reviews/ux-first-questions-today.md): every state it adds or rewords.
+  { kind: "failed", title: "Probability", target: { sourceId: "src_1" }, build: true, retried: true },
+  { kind: "failed", title: "Probability", target: { sourceId: "src_1" }, build: true, retried: false },
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: { done: 1, total: 2 }, minutes: 3.6 },
+  { kind: "on_the_way", title: "Probability", card: BOOK, progress: null, minutes: 0.2 },
+  { kind: "questions_ready", title: "Probability", part: "Conditional probability", count: 5, itemId: "pi_1", card: BOOK },
+  { kind: "questions_ready", title: "Probability", part: null, count: 1, itemId: null, card: BOOK },
+  { kind: "section_writing", title: "Probability", part: "Conditional probability", card: BOOK },
+  { kind: "section_writing", title: "Probability", part: null, card: BOOK },
+  { kind: "section_failed", title: "Probability", part: "Conditional probability", resumeId: "batch_1" },
+  { kind: "section_failed", title: "Probability", part: null, resumeId: "batch_1" },
+  { kind: "finish_section", card: BOOK },
+  { kind: "finish_section", card: null },
+  { kind: "none_up", title: "Probability", card: BOOK }
 ];
 const STAGE3_SENTENCES = [
-  ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? ""]),
+  ...STAGE3_CAUSES.flatMap((cause) => [causeSentence(cause), goalCauseSentence(cause), causeActionLabel(cause) ?? "",
+    causeWait(cause)?.line ?? "", causeWait(cause)?.after ?? ""]),
   GOAL_NOT_UP_TODAY,
   PLAN_FINISHED,
   KEEP_GOING_NOTHING_LEAD,
