@@ -10,6 +10,7 @@ import { BookShelf } from "../components/BookShelf";
 import { ConnectAISheet } from "../components/ConnectAI";
 import { PreparingView } from "../screens/reader/PreparingView";
 import { DENY_TERMS, findJargon } from "./denyList";
+import { WAITING_COPY } from "./waiting";
 import {
   CONSENT_ACTION,
   GOAL_NOT_UP_TODAY,
@@ -216,6 +217,11 @@ describe("Phase 1 learner surfaces use plain words", () => {
 
   // UX fix stage 3: Today's causes, the goal's, the clocks' and the refusals' fixed words.
   it.each(STAGE3_SENTENCES)("the stage 3 sentence: %s", (sentence) => {
+    expectPlain(sentence);
+  });
+
+  // Waiting you can see (docs/reviews/ux-waiting.md): every line the shared waiting indicator says.
+  it.each(Object.values(WAITING_COPY))("the waiting line: %s", (sentence) => {
     expectPlain(sentence);
   });
 

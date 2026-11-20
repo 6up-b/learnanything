@@ -196,7 +196,9 @@ it("F2: a hint still being written is cancelled before the answer box is hidden,
   api.cancelHint.mockResolvedValue(cancelled);
   await open();
   fireEvent.keyDown(window, { key: "h", ctrlKey: true });
-  await screen.findByText("Writing a hint for your work…");
+  // The pending line's region, there at once: its words wait 350 ms (the shared waiting indicator), as long as
+  // the first poll, which here delivers the hint; the step under test is the press while it is still pending.
+  await screen.findByTestId("hint-writing");
   const polledBefore = api.hintJob.mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
   await screen.findByRole("region", { name: "workbench" });

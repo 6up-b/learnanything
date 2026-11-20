@@ -7,6 +7,8 @@
 // and a selection on it offers no Ask, by the desktop's own rule.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommandError, ReaderDoseOfferDto, ReaderGuidePlanDto, ReaderProgressListDto } from "@desktop/api/dto";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
@@ -323,7 +325,7 @@ export function ReaderScreen({
         {stale ? <span className="dim">· the copy on this phone</span> : null}
       </div>
       {problem ? <p className="dim" role="status">{problem}</p> : null}
-      {!section && !problem ? <p className="dim" role="status">Opening the section…</p> : null}
+      {!section && !problem ? <Waiting testId="section-wait" line={WAITING_COPY.openingSection} /> : null}
       {section ? (
         <div className="book" ref={body} onMouseUp={onSelectEnd} onTouchEnd={onSelectEnd} onScroll={touch}>
           {section.blocks.map((block) => (

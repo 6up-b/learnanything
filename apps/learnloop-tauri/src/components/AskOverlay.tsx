@@ -20,6 +20,8 @@ import type {
   TutorQuestionEventDto
 } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, type PillColor } from "./term";
+import { Waiting } from "./Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
@@ -962,9 +964,10 @@ export function AskOverlay({
                 </div>
               ) : null}
               {entry.answerMd === null ? (
-                <div style={{ marginTop: 6 }}>
-                  <Faint>thinking …</Faint>
-                </div>
+                // The owner's case 3: a reply being written (5 to 46 s in the walks). The answer arrives whole, so the
+                // line stays until it lands. Still in the Reader, which never animates (G54).
+                <Waiting testId="ask-writing" line={WAITING_COPY.writingReply} later={WAITING_COPY.writingReplyLater}
+                         still={target.context === "reader"} style={{ marginTop: 6 }} />
               ) : (
                 <div style={{ marginTop: entry.opening ? 0 : 6 }}>
                   {panel && !entry.opening ? (

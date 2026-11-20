@@ -12,6 +12,8 @@ import { PairScreen } from "../pair/PairScreen";
 import { ProgressScreen } from "../progress/ProgressScreen";
 import { ReadScreen } from "../read/ReadScreen";
 import { GRADING_DOWN } from "../practice/QuestionScreen";
+import { CAN_LEAVE } from "../components/Waiting";
+import { WAITING_COPY } from "@desktop/copy/waiting";
 import { ConnectionLine, BUSY_LINE, GRADING_LINE, UPDATED_LINE, offlineLine } from "./ConnectionLine";
 import { markGradingDown, markOffline, markReachable, markStale } from "./connection";
 import { DbBlockedScreen } from "./DbBlocked";
@@ -56,7 +58,8 @@ describe("plain words (§4.1)", () => {
   });
 
   it("every connection line and the grading message", () => {
-    for (const line of [offlineLine(0), offlineLine(3), BUSY_LINE, GRADING_LINE, UPDATED_LINE, GRADING_DOWN]) {
+    // Waiting you can see: the shared waiting words the phone shows, and its own "you can leave".
+    for (const line of [offlineLine(0), offlineLine(3), BUSY_LINE, GRADING_LINE, UPDATED_LINE, GRADING_DOWN, CAN_LEAVE, ...Object.values(WAITING_COPY)]) {
       expect(jargonOf(line), line).toEqual([]);
     }
     render(<ConnectionLine outboxWaiting={1} />);

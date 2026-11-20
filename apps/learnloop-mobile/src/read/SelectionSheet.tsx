@@ -7,6 +7,8 @@ import { useRef, useState } from "react";
 import type { CommandError, ReaderAnswerDto } from "@desktop/api/dto";
 import { phone, type PhoneSectionDto } from "../api/phone";
 import { Sheet } from "../shell/Sheet";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { newUlid } from "../util/ulid";
 import { PhoneMarkdown } from "./PageImage";
 
@@ -122,7 +124,8 @@ export function SelectionSheet({
           ) : null}
         </div>
       ))}
-      {thinking ? <p className="dim" role="status">Thinking…</p> : null}
+      {/* The owner's case 3: the reply arrives whole, so the line stays until it lands. */}
+      {thinking ? <Waiting testId="ask-writing" line={WAITING_COPY.writingReply} later={WAITING_COPY.writingReplyLater} /> : null}
       {line ? <p className="dim" role="status">{line}</p> : null}
       {askOff ? (
         <p className="dim">{protectionMessage ?? "This passage is held out of LearnLoop's models."}</p>
