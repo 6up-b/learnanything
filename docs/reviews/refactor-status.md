@@ -314,7 +314,8 @@ The stages are the audit's ([ux-journey-audit.md](ux-journey-audit.md) section 1
 | Load you can see and steer, for one or two courses (spec first) | P5, F29: the forecast, less or more, one budget split across courses | not started | — | — | — |
 | Help shows what it gave away | P6 (owner's decision 2) on desktop and phone feedback; F24 | waiting on | — | — | The Decider's first stage; arc G |
 | Progress in words and the jargon sweep | P10, F28 | not started | — | — | — |
-| The Reader redo | Search, margin cues, syntopic reading; UX-11 (display equations) brought forward | not started | — | — | Its cue model is a backend step |
+| Web pages keep their equations | UX-11: a web page read into LearnLoop keeps every display equation, its headings' own words as titles and none of the page's furniture | landed | this commit | [ux11-html-extraction.md](ux11-html-extraction.md) | New reads use extraction version 3; a page read before keeps its stored text and its card offers "Read it again" where equations are missing (a re-read re-pays the changed units' inventory later, so it is never automatic; marks are not carried: the new reading is held back until it is marked). Open: UX-34 (emphasis splits and glued paragraphs), UX-35 (figures and captions dropped), the chapter stays one section |
+| The Reader redo | Search, margin cues, syntopic reading; UX-34 and UX-35 | not started | — | — | Its cue model is a backend step |
 | Own notes as sources (spec first) | F27: a notes folder or a deck as one source, links between notes, the learner's wording kept | not started | — | — | — |
 | Settings cleared | F17 and the owner's Nov 8 item | not started | — | — | — |
 

@@ -191,7 +191,7 @@ Frontends (renderer unchanged): `apps/learnloop-tauri/src/render/webPageMath.tes
 
 ## Assertions changed, and why
 
-- `tests/test_ux2_source_macros.py`: no assertion changed. Its fixture `added_sample` now builds the library the way a library that read the sample before UX-11 holds it (the Add path with the old extraction from the fixture, `tests/web_page_reading_helpers.py`), because its pins (`EXTRACTOR = ("html", "2")`, 59 blocks, the blocks' digest, block `s5`, the render view's hash) describe that stored reading; a new read is now version 3. Before the change of fixture, two of its tests failed on the new code (`('html', '3') == ('html', '2')`; the render view hash). It also imports the handlers itself: run alone it failed with `KeyError: 'add_source'` on main (UX-33).
+- `tests/test_ux2_source_macros.py`: no assertion changed. Its fixture `added_sample` now builds the library the way a library that read the sample before UX-11 holds it (the Add path with the old extraction from the fixture, `tests/web_page_reading_helpers.py`), because its pins (`EXTRACTOR = ("html", "2")`, 59 blocks, the blocks' digest, block `s5`, the render view's hash) describe that stored reading; a new read is now version 3. Before the change of fixture, two of its tests failed on the new code (`('html', '3') == ('html', '2')`; the render view hash). It also imports the handlers itself: run alone it failed with `KeyError: 'add_source'` on main (UX-36).
 - In my own new test, the definition is checked in its words without emphasis marks, because the emphasis split (UX-34) is still there.
 
 ## Pins and goldens
