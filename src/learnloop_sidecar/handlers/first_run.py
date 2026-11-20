@@ -285,7 +285,7 @@ class SourceActionInput(ParamsModel):
     batch_id: str | None = None
     action: Literal[
         "undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
-        "allow_upload", "restore_reading", "mark_exam_material",
+        "allow_upload", "restore_reading", "mark_exam_material", "read_again",
     ]
     # Re-read safety: reading a book again that the learner already studies
     # (or that z.ai would read at a cost no OK line shows) first returns the
@@ -444,6 +444,16 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
             fresh = {**stale.plan, "lines": [exam_marking.CHANGED_LINE, *stale.plan["lines"]]} if named \
                 else stale.plan
             return versioned({**result, "needs_confirmation": True, "confirmation": fresh})
+    elif params.action == "read_again":
+        # A web page read before its equations and section titles were kept:
+        # its saved copy is imported again, as any re-read, and its questions
+        # stay; nothing is built on the new reading.
+        plan = _web_reread_plan(ctx, vault, repository, params.source_id, artifact)
+        if plan["needs_confirmation"] and not params.confirmed:
+            return versioned({**result, "needs_confirmation": True, "confirmation": plan})
+        result["batch_id"] = ctx.ingest_jobs.enqueue_add_source(
+            str(artifact.get("canonical_uri") or ""), source_id=params.source_id, auto_build=False,
+        )
     else:  # text_recognition: read again with OCR; questions already built stay.
         if not core.text_recognition_available(config=vault.config):
             # Plain words and how to get it (usability round 2); the shelf
@@ -478,6 +488,27 @@ def _latest_import_pages(repository, source_id: str) -> list[int] | None:
     imports = core.import_jobs(repository, source_id)
     pages = ((imports[0].get("payload") or {}).get("page_selection") if imports else None) or None
     return [int(page) for page in pages] if pages else None
+
+
+def _web_reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]:
+    """What reading a web page again reads and carries; refuses a book whose reading is not a web page's old
+    one, and one whose saved copy changed or went missing."""
+
+    from learnloop.content.pipeline import reread
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from learnloop.ingest.extractors.web_page import OLD_WEB_PAGE_EXTRACTOR_VERSION
+
+    reading = reread.reread_reading(repository, source_id)
+    run = repository.get_extraction_run(reading) if reading else None
+    if (run is None or run.get("extractor") != "html"
+            or str(run.get("extractor_version")) != OLD_WEB_PAGE_EXTRACTOR_VERSION):
+        raise SidecarError("nothing_to_read_again", "This book's reading already keeps what reading it again would.")
+    try:
+        reread.original_bytes(repository, vault.root, source_id)
+    except IngestRunnerError as exc:
+        raise SidecarError(exc.code, str(exc), details=dict(exc.details)) from exc
+    revision = repository.get_source_revision(str(artifact.get("current_revision_id") or "")) or None
+    return reread.web_reread_plan(vault, repository, source_id, title=f"“{core.learner_title(artifact, revision)}”")
 
 
 def _reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifact) -> dict[str, Any]:

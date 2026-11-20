@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -591,6 +592,25 @@ def _engine_line(backend: str | None, settings: Mapping[str, Any], usd: float | 
     return "local", "Read on this computer: free"
 
 
+def _carry_line(state: Mapping[str, int]) -> str | None:
+    """What of the learner's moves to a new reading, in one sentence; None when nothing does."""
+
+    kept: list[str] = []
+    if state["sections_read"]:
+        kept.append(f"your progress ({_plural(state['sections_read'], 'section')})")
+    if state["annotations"]:
+        kept.append(_plural(state["annotations"], "note"))
+    if state["links"] or state["citations"]:
+        kept.append("the passages your questions and notes cite")
+    if state["selected_units"]:
+        kept.append("your study-map chapters")
+    if not kept:
+        return None
+    joined = kept[0] if len(kept) == 1 else ", ".join(kept[:-1]) + " and " + kept[-1]
+    return (f"{joined[0].upper()}{joined[1:]} move to the new reading. "
+            "Anything that can't be matched is marked so you can place it again.")
+
+
 def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | None, upload_ok: bool,
                 title: str | None = None) -> dict[str, Any]:
     """What reading this book again will read, cost and carry, in plain words.
@@ -624,19 +644,9 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
              if page_selection else (f"all {_plural(pages, 'page')}" if pages else "the whole file"))
     engine, who = _engine_line(backend, settings, priced["estimated_usd"])
     lines = [f"{scope[0].upper()}{scope[1:]}.", f"{who}."]
-    kept: list[str] = []
-    if state["sections_read"]:
-        kept.append(f"your progress ({_plural(state['sections_read'], 'section')})")
-    if state["annotations"]:
-        kept.append(_plural(state["annotations"], "note"))
-    if state["links"] or state["citations"]:
-        kept.append("the passages your questions and notes cite")
-    if state["selected_units"]:
-        kept.append("your study-map chapters")
-    if kept:
-        joined = kept[0] if len(kept) == 1 else ", ".join(kept[:-1]) + " and " + kept[-1]
-        lines.append(f"{joined[0].upper()}{joined[1:]} move to the new reading. "
-                     "Anything that can't be matched is marked so you can place it again.")
+    carried = _carry_line(state)
+    if carried:
+        lines.append(carried)
     # Exam material never moves to another reading (protection redesign): the
     # new reading waits for the owner to mark it.
     protected = source_id in source_marks(vault, repository)
@@ -656,5 +666,105 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
         "title": f"Read {name} again with text recognition?",
         "lines": lines,
         "confirm_label": "Read it again",
+        "cancel_label": "Not now",
+    }
+
+
+# --- a web page read before its equations were kept ------------------------------------
+
+#: The card's line and action for a web page whose reading is the old web-page
+#: extraction and whose saved original has display equations that reading left out.
+WEB_REREAD_ACTION = "read_again"
+WEB_REREAD_LABEL = "Read it again"
+WEB_REREAD_DETAILS = (
+    "This page was read before LearnLoop kept a web page's equations and section titles. Reading it again "
+    "from the copy saved when you added it keeps them; your progress, notes and study map move to the new reading."
+)
+WEB_REREAD_COST_LINE = (
+    "Reading it sends nothing to an AI. Questions already written stay. Afterwards, as for any page you add, the "
+    "new text may be indexed or checked against your topics, and a section whose text changed is read by the AI "
+    "again before new questions are written from it."
+)
+
+_MISSING_CACHE_SIZE = 512
+_missing_cache: dict[tuple[str, str, str], int] = {}
+_missing_lock = threading.Lock()
+
+
+def web_reread_line(count: int) -> str:
+    return f"This page's text is missing {_plural(count, 'equation')}"
+
+
+def missing_equations(vault_root: Path, repository: Any, source_id: str) -> int:
+    """How many display equations a web page's saved original has that its reading left out: the page read
+    with the old web-page extraction, counted by reading the original with the current one (no model).
+    0 for any other book or reading. Cached per reading and original (neither changes)."""
+
+    from learnloop.ingest.extractors.web_page import OLD_WEB_PAGE_EXTRACTOR_VERSION
+
+    extraction_id = reread_reading(repository, source_id)
+    run = repository.get_extraction_run(extraction_id) if extraction_id else None
+    if (run is None or run.get("extractor") != "html"
+            or str(run.get("extractor_version")) != OLD_WEB_PAGE_EXTRACTOR_VERSION):
+        return 0
+    revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+    key = (str(vault_root), str(extraction_id), str(revision.get("asset_hash") or ""))
+    with _missing_lock:
+        known = _missing_cache.get(key)
+    if known is not None:
+        return known
+    count = _count_missing(vault_root, repository, str(extraction_id), key[2])
+    with _missing_lock:
+        if len(_missing_cache) >= _MISSING_CACHE_SIZE:
+            _missing_cache.pop(next(iter(_missing_cache)))
+        _missing_cache[key] = count
+    return count
+
+
+def _count_missing(vault_root: Path, repository: Any, extraction_id: str, digest: str) -> int:
+    from learnloop.ingest.extractors.web_page import display_formulas, page_markdown
+    from learnloop.ingest.originals import stored_original_path
+
+    path = stored_original_path(vault_root, digest) if digest else None
+    ir = repository.load_document_ir(extraction_id)
+    if path is None or ir is None:
+        return 0
+    try:
+        markdown = page_markdown(path.read_bytes().decode("utf-8", errors="replace")) or ""
+    except Exception:  # noqa: BLE001 - an offer the page cannot be read for is not made
+        logger.exception("counting the equations of %s failed", extraction_id)
+        return 0
+    old = re.sub(r"\s+", "", "\n".join(block.text for block in ir.blocks))
+    # Counted as many times as the page writes it: a formula a page repeats is
+    # missing as often as the old reading has fewer copies of it.
+    wanted = Counter(re.sub(r"\s+", "", formula) for formula in display_formulas(markdown))
+    return sum(max(0, count - old.count(formula)) for formula, count in wanted.items())
+
+
+def web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str | None = None) -> dict[str, Any]:
+    """What reading a web page again from its saved copy reads, costs and carries, in plain words."""
+
+    extraction_id = reread_reading(repository, source_id)
+    count = missing_equations(vault.root, repository, source_id)
+    state = study_state(repository, source_id, extraction_id)
+    lines = ["Read on this computer from the copy saved when you added it: free."]
+    lines.append(f"The new text keeps the {_plural(count, 'equation')} the old one left out, and each section's own "
+                 "title." if count else "The new text keeps each section's own title.")
+    carried = _carry_line(state)
+    if carried:
+        lines.append(carried)
+    lines.append(WEB_REREAD_COST_LINE)
+    protected = source_id in source_marks(vault, repository)
+    if protected:
+        lines.append(HELD_BACK_PLAN_LINE)
+    return {
+        "source_id": source_id,
+        "extraction_id": extraction_id,
+        "missing_equations": count,
+        "study_state": state,
+        "needs_confirmation": any(state.values()) or protected,
+        "title": f"Read {title or 'this page'} again with its equations?",
+        "lines": lines,
+        "confirm_label": WEB_REREAD_LABEL,
         "cancel_label": "Not now",
     }

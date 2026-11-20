@@ -2315,7 +2315,7 @@ _GLM_NEEDS_OK_DETAILS = (
 )
 
 
-def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
+def _health_line(repo, source_id: str, *, config=None, vault_root=None) -> dict[str, Any] | None:
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
         return None
@@ -2350,6 +2350,15 @@ def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
     if "marker_failed_pypdf_fallback" in flags:
         return _line("Maths may look rough in the text view", "quiet", ("open_settings", "Fix it"),
                      "marker_failed_pypdf_fallback")
+    if vault_root is not None and run.get("extractor") == "html":
+        # A web page read before its equations were kept, whose saved copy has
+        # some its reading left out: offered, never read again on its own.
+        from learnloop.content.pipeline import reread
+
+        missing = reread.missing_equations(vault_root, repo, source_id)
+        if missing:
+            return _line(reread.web_reread_line(missing), "quiet", (reread.WEB_REREAD_ACTION, reread.WEB_REREAD_LABEL),
+                         reread.WEB_REREAD_DETAILS)
     return None
 
 
@@ -2665,7 +2674,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
 
     latest, outcome = latest_planner(repo, source_id)
     if latest is None:
-        health = _health_line(repo, source_id, config=vault.config if vault else None)
+        health = _health_line(repo, source_id, config=vault.config if vault else None,
+                              vault_root=vault.root if vault else None)
         if health is not None or vault is None:
             return health
         # A book added another way (the Ingest screen) whose questions were
@@ -2696,7 +2706,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     kind = outcome.get("outcome")
     phrase = chapter_phrase(outcome.get("chapters") or [], whole=bool(outcome.get("whole_source")), noun=noun)
     if kind == "skipped":
-        return _health_line(repo, source_id, config=vault.config if vault else None)
+        return _health_line(repo, source_id, config=vault.config if vault else None,
+                            vault_root=vault.root if vault else None)
     if kind == "waiting":
         reason = outcome.get("reason")
         if reason == "no_ai":
@@ -2750,7 +2761,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
             return _line(f"Questions for {phrase} are too much to write at once", "problem", None, state["error"])
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.
-            return _health_line(repo, source_id, config=vault.config if vault else None)
+            return _health_line(repo, source_id, config=vault.config if vault else None,
+                                vault_root=vault.root if vault else None)
         line = _line(f"Questions for {phrase} need another try", "problem", ("retry", "Retry"), BUILD_STOPPED_DETAILS)
         # Whether the build already tried a failed step once more on its own
         # (UX-13), so the screen need not offer a retry as if none was made.
@@ -2764,7 +2776,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
     if state["pending"]:
         count = state["pending"]
         return _line(f"{count} change{'s' if count != 1 else ''} need a look", "quiet", ("open_changes", "Review"))
-    health = _health_line(repo, source_id, config=vault.config if vault else None)
+    health = _health_line(repo, source_id, config=vault.config if vault else None,
+                          vault_root=vault.root if vault else None)
     if health is not None:
         return health
     # Questions come as the learner reads (a check at each section break, then

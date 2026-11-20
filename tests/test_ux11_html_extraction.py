@@ -21,11 +21,12 @@ from lxml import html as lxml_html
 from learnloop.content.pipeline import add_source as core
 from learnloop.content.pipeline.runner import FetchedBytes
 from learnloop.content.sources.source_outline import resolve_extraction_id
-from learnloop.content.synthesis.source_unit_inventory import build_inventory_windows
+from learnloop.content.synthesis.source_unit_inventory import build_inventory_windows, run_unit_inventory
 from learnloop.db.connection import connect
 from learnloop.ingest.ir import DocumentIR
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop_sidecar.context import SidecarContext
+from tests.source_inventory_helpers import FakeInventoryClient
 from tests.ux_phase1_add_source_helpers import call
 from tests.ux_phase1_support import CLOCK, Calls, fake_services, fresh_library, grant_consent
 from tests.web_page_reading_helpers import BEFORE, old_web_reading_services
@@ -274,3 +275,127 @@ def test_ux11_a_page_read_before_keeps_its_stored_reading_under_the_new_code(rea
         windows = build_inventory_windows(stored, unit.unit_id, input_budget_tokens=20000)
         assert hashlib.sha256(json.dumps(windows, sort_keys=True).encode()).hexdigest() == \
             fixture["inventory_windows"][unit.unit_id]
+
+
+def test_ux11_the_card_offers_a_page_read_before_its_missing_equations_and_only_that_page(read_before, new_read):
+    ctx, source_id, _extraction_id = read_before(CHAPTER)
+    line = core.source_status_line(ctx.repository, ctx.vault, source_id)
+    assert line["text"] == "This page's text is missing 31 equations"
+    assert line["action"] == {"kind": "read_again", "label": "Read it again"}
+    assert line["tone"] == "quiet"
+
+    # A page read before with no equation to gain (the article) and a page read now: no offer.
+    article_ctx, article_id, _ = read_before(ARTICLE)
+    article_line = core.source_status_line(article_ctx.repository, article_ctx.vault, article_id)
+    assert article_line is None or (article_line.get("action") or {}).get("kind") != "read_again"
+    new_ctx, new_id, _ = new_read(CHAPTER)
+    new_line = core.source_status_line(new_ctx.repository, new_ctx.vault, new_id)
+    assert new_line is None or (new_line.get("action") or {}).get("kind") != "read_again"
+
+
+def test_ux11_reading_it_again_gives_the_new_text_and_carries_progress_the_study_map_and_a_highlight(read_before):
+    from learnloop.reader import annotations as ANN
+
+    calls = Calls()
+    ctx, source_id, old = read_before(CHAPTER, calls=calls)
+    repo = ctx.repository
+    revision_id = repo.get_extraction_run(old)["revision_id"]
+    old_ir = repo.load_document_ir(old)
+    (unit,) = old_ir.units
+    repo.upsert_reader_section_progress(extraction_id=old, section_id=unit.unit_id, spans_seen=20,
+                                        span_count=len(unit.span_ids))
+    repo.upsert_unit_selection(extraction_id=old, source_id=source_id, revision_id=revision_id,
+                               selected_unit_ids=[unit.unit_id])
+    # A highlight on the sentence right before the spectral form, which the old reading kept as a formula.
+    quote = "Putting these orthonormal vectors into a matrix"
+    (span,) = [block.span_id for block in old_ir.blocks if quote in block.text]
+    translation = ANN.translate_selection(repo, extraction_id=old,
+                                          raw_selection={"nodes": [{"span_id": span, "quote": quote}]})
+    annotation_id = ANN.append_annotation(repo, source_id=source_id, revision_id=revision_id, extraction_id=old,
+                                          annotation_type="highlight", translation=translation)["annotation_id"]
+    paid_before = (calls.inventory_calls, calls.synthesis_calls)
+
+    asked = call(ctx, "source_action", {"sourceId": source_id, "action": "read_again"})
+    assert asked["needsConfirmation"] is True and "batchId" not in asked
+    lines = asked["confirmation"]["lines"]
+    assert lines[0] == "Read on this computer from the copy saved when you added it: free."
+    assert lines[1] == "The new text keeps the 31 equations the old one left out, and each section's own title."
+    # The questions the first build wrote cite passages of the old reading: they move too.
+    assert lines[2] == ("Your progress (1 section), 1 note, the passages your questions and notes cite and your "
+                        "study-map chapters move to the new reading. Anything that can't be matched is marked so you "
+                        "can place it again.")
+    assert lines[3].startswith("Reading it sends nothing to an AI. Questions already written stay.")
+    assert asked["confirmation"]["confirmLabel"] == "Read it again"
+
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "read_again", "confirmed": True})
+    assert out["batchId"]
+    ctx.ingest_jobs.drain_foreground()
+    new = resolve_extraction_id(repo, source_id)
+    assert new != old
+    # Reading it again sent nothing to a model and wrote no questions.
+    assert (calls.inventory_calls, calls.synthesis_calls) == paid_before
+    run, rows = _stored(ctx, new)
+    assert run == ("html", "3")
+    squeezed = _squeeze("\n".join(row[2] for row in rows))
+    assert all(_squeeze(display) in squeezed for display in _page_displays(CHAPTER))
+    # The old reading is still there, untouched.
+    assert _stored(ctx, old)[1] == [(b.span_id, b.content_hash, b.text) for b in old_ir.blocks]
+
+    (new_unit,) = repo.load_document_ir(new).units
+    progress = repo.reader_section_progress_for(new)
+    assert [row["section_id"] for row in progress] == [new_unit.unit_id]
+    assert 0 < progress[0]["spans_seen"] <= progress[0]["span_count"]
+    assert repo.get_unit_selection(new)["selected_unit_ids"] == [new_unit.unit_id]
+    head = {head["annotation"]["id"]: head for head in repo.annotations_for_source(source_id)}[annotation_id]
+    assert head["anchor"]["extraction_id"] == new and head["anchor"]["status"] == "reanchored"
+    segment = head["segments"][0]
+    text = dict((row[0], row[2]) for row in rows)[segment["span_id"]]
+    assert text[segment["codepoint_start"]:segment["codepoint_end"]] == quote
+
+    # The card no longer offers it.
+    line = core.source_status_line(repo, ctx.vault, source_id)
+    assert line is None or (line.get("action") or {}).get("kind") != "read_again"
+
+    # What it costs later: the section's text changed, so the next inventory of it is paid again (the old one
+    # is not reused), once.
+    client = FakeInventoryClient()
+    run_unit_inventory(repo, new, new_unit.unit_id, role="textbook", client=client)
+    assert len(client.calls) >= 1
+    again = FakeInventoryClient()
+    run_unit_inventory(repo, new, new_unit.unit_id, role="textbook", client=again)
+    assert again.calls == []
+
+
+def test_ux11_reading_the_article_again_maps_its_sections_and_its_held_out_mark_waits_for_the_owner(read_before):
+    from learnloop.content.pipeline import exam_marking
+    from learnloop.content.sources.exam_material import MARKS_MADE_ON_KEY, exam_material, marks_made_on
+
+    ctx, source_id, old = read_before(ARTICLE)
+    repo = ctx.repository
+    revision_id = repo.get_extraction_run(old)["revision_id"]
+    labels = {unit.label: unit.unit_id for unit in repo.load_document_ir(old).units}
+    modeling, real_world = labels["modeling-the-elevator-problem"], labels["the-real-world-case"]
+    repo.upsert_reader_section_progress(extraction_id=old, section_id=modeling, spans_seen=4, span_count=4,
+                                        revealed=True, completed=True)
+    repo.upsert_unit_selection(extraction_id=old, source_id=source_id, revision_id=revision_id,
+                               selected_unit_ids=sorted(labels.values()),
+                               exam_use_modes={real_world: "held_out_evaluation"},
+                               exam_paper_metadata={MARKS_MADE_ON_KEY: marks_made_on(old, revision_id)})
+
+    # The card's action runs on any page read before, equations or not (the article has none to gain, so its
+    # card does not offer it; the action itself is the existing re-read).
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "read_again", "confirmed": True})
+    ctx.ingest_jobs.drain_foreground()
+    new = resolve_extraction_id(repo, source_id)
+    assert out["batchId"] and new != old
+    new_units = {unit.label: unit.unit_id for unit in repo.load_document_ir(new).units}
+    progress = {row["section_id"]: row for row in repo.reader_section_progress_for(new)}
+    assert progress[new_units["Modeling the elevator problem"]]["completed_at"]
+    assert sorted(repo.get_unit_selection(new)["selected_unit_ids"]) == sorted(new_units.values())
+
+    # Protection marks never move to another reading: the new one is held back whole until the owner marks it,
+    # and the marking proposes the same section by its new title.
+    exam = exam_material(ctx.vault, repo)
+    assert new in exam.held_out.extractions
+    plan = exam_marking.mark_plan(ctx.vault, repo, source_id)
+    assert plan["lines"][0] == "Held out as exam material: The real-world case."
