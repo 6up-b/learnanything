@@ -19,7 +19,6 @@ from learnloop.db.repositories import Repository
 from tests.source_inventory_helpers import FakeInventoryClient, _block, _ir, _persist, _register_revision, _CLOCK
 from tests.source_set_synthesis_helpers import (
     FakeSynthesisClient,
-    _default_payload,
     _distinct_title_builder,
     _setup,
     _setup_two_chapters,
@@ -165,22 +164,26 @@ def test_inventory_window_checkpoint_that_no_longer_validates_is_discarded(tmp_p
     assert all("s_gone" not in row[1] for row in _checkpoint_rows(repo, "inventory_window"))
 
 
-def test_synthesis_pass_checkpoint_that_no_longer_validates_is_discarded(tmp_path):
+def test_synthesis_pass_checkpoint_that_no_longer_validates_is_discarded(tmp_path, monkeypatch):
     root, repo = _setup(tmp_path, with_exam=False)
 
-    def builder(context, _n):
-        return _default_payload(context).model_copy(update={"summary": "long summary " * 400})
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
 
-    client = FakeSynthesisClient(builder=builder)
-    with pytest.raises(StudyMapError, match="exceeded its output budget"):
-        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK,
-                         budget_overrides={"synthesis_shard_output_tokens": 100})
+    client = FakeSynthesisClient()
+    # The pass is saved; the run fails after it.
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+    monkeypatch.undo()
     [(key, _result)] = _checkpoint_rows(repo, "synthesis_pass")
     with repo.connection() as connection:
         connection.execute(
             "UPDATE model_work_checkpoints SET result_json = ? WHERE cache_key = ?",
             ('{"span_requests": "not a list"}', key),
         )
+        # The completed-shard row would answer before the pass checkpoint does.
+        connection.execute("DELETE FROM synthesis_shard_results")
 
     result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
 

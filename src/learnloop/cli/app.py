@@ -571,6 +571,8 @@ def inventory_command(
             profile=profile,
             client=client,
             input_budget_tokens=loaded.config.ingest.budgets.inventory_input_tokens,
+            output_budget_tokens=loaded.config.ingest.budgets.inventory_output_tokens,
+            output_ceiling_tokens=loaded.config.ingest.budgets.inventory_output_ceiling_tokens,
         )
         results.append(
             {"unit_id": unit_id, "inventory_id": result.inventory_id, "profile": result.profile, "cache_hit": result.cache_hit}

@@ -997,12 +997,13 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
 
 def _request_output_ceiling(config, job_type: str) -> int:
     """The output a request is reserved for when it names no ceiling of its
-    own (epigraphs; append reconciliation names its own since K3.4): the
-    configured per-operation output budget the pipeline holds its results to."""
+    own (epigraphs; append reconciliation names its own since K3.4): the most
+    the pipeline keeps from one operation (an inventory window's ceiling; a
+    synthesis run's total)."""
 
     budgets = config.ingest.budgets
     if job_type == "inventory":
-        return int(budgets.inventory_output_tokens)
+        return max(int(budgets.inventory_output_tokens), int(budgets.inventory_output_ceiling_tokens))
     return max(int(budgets.synthesis_output_tokens), int(budgets.synthesis_shard_output_tokens),
                int(budgets.append_output_tokens))
 

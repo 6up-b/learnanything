@@ -104,9 +104,10 @@ def test_inventory_can_disable_the_output_ceiling(tmp_path):
     )
     assert result.cache_hit is False
     assert result.usage["output_tokens_estimate"] > 1
-    # The over-budget window validated and was paid for, so the retry reuses it.
-    assert len(client.calls) == 1
-    assert result.usage["reused_windows"] == 1
+    # The over-budget window was refused, so it was not kept: the run without
+    # a ceiling asks for it again.
+    assert len(client.calls) == 2
+    assert result.usage["reused_windows"] == 0
 
 
 def test_deterministic_inventory_ids_stable(tmp_path):

@@ -846,12 +846,27 @@ class IngestBudgetsConfig(BaseModel):
     inventory_input_tokens: int = 20000
     # One inventory window's output budget, not a unit's (UX-1): a unit split
     # into windows by inventory_input_tokens is allowed this amount for each.
-    # Every window's request is sent under it, and a window whose reply (as the
-    # model wrote it, before the service's ids) is over it fails its unit.
+    # It is the size each window's request asks the model to aim for (the plan
+    # route states it in the prompt); inventory_output_ceiling_tokens decides
+    # what is kept.
     inventory_output_tokens: int = 3000
+    # The most one window's complete answer may be, never below the working
+    # size above: an answer up to it is kept (charged what the model wrote,
+    # before the service's ids), one over it is a runaway, refused and not
+    # kept, and a route with a hard output cap is sent it as that cap. Rule:
+    # twice the working size, the room the AI output policy already gives any
+    # call that runs past its budget (one retry at double it); the live
+    # model's largest window in the walks was 3,169 against 3,000.
+    inventory_output_ceiling_tokens: int = 6000
     synthesis_shard_input_tokens: int = 40000
+    # The size a synthesis pass is asked to aim for (stated to the plan route).
     synthesis_shard_output_tokens: int = 10000
     synthesis_total_input_ceiling: int = 48000
+    # One synthesis run's total output, every pass and the structuring call
+    # together. Rule: a pass's complete answer is kept up to what this total
+    # still leaves (a route with a hard output cap is sent that as the cap),
+    # so a pass a little over its shard size is kept and the run never writes
+    # more than this; an answer over it is refused and not kept.
     synthesis_output_tokens: int = 16000
     append_neighborhood_input_tokens: int = 24000
     # Also the append call's request-level generation limit, as each bootstrap

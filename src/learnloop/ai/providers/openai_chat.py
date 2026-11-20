@@ -327,8 +327,10 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def complete(self, request: StructuredRequest[Any]) -> Any:
         """Execute one validated structured request with one bounded repair."""
 
-        token = _request_options.set(
-            (request.timeout_seconds, request.output_budget_tokens, request.reasoning_effort))
+        # The chat route takes a hard cap: it is sent the ceiling, so a complete
+        # answer a little over the working size is not cut off and refused.
+        cap = request.output_ceiling_tokens if request.output_ceiling_tokens is not None else request.output_budget_tokens
+        token = _request_options.set((request.timeout_seconds, cap, request.reasoning_effort))
         purpose_token = _purpose_label.set(request.purpose)
         try:
             user: Any = request.prompt

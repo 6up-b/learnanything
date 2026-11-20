@@ -1490,6 +1490,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         if unlimited_token_budget
         else _optional_int(payload.get("output_budget_tokens")) or budgets.inventory_output_tokens
     )
+    output_ceiling = None if unlimited_token_budget else budgets.inventory_output_ceiling_tokens
 
     specs: list[dict[str, Any]] = []
     for spec in units:
@@ -1534,6 +1535,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             model=provider_identity[1],
             input_budget_tokens=budget,
             output_budget_tokens=output_budget,
+            output_ceiling_tokens=output_ceiling,
             clock=ctx.clock,
         )
         if isinstance(resolved, InventoryResult):

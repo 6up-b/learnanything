@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.usage import TokenUsage
-from learnloop.ai.execution import model_call, output_limit, reasoning_effort_request
+from learnloop.ai.execution import generation_ceiling, model_call, output_limit, reasoning_effort_request
 
 WireResult = TypeVar("WireResult", bound=WireModel)
 
@@ -63,6 +63,11 @@ class StructuredRequest(Generic[WireResult]):
     result_model: type[WireResult]
     timeout_seconds: float | None = None
     output_budget_tokens: int | None = None
+    #: The most a complete answer may be (``generation_limit``'s ceiling, at
+    #: least ``output_budget_tokens``). A transport with a hard output cap
+    #: sends this as the cap; one that states the budget in the prompt states
+    #: ``output_budget_tokens``.
+    output_ceiling_tokens: int | None = None
     #: A directory the model may read (never write) during the turn. Only a
     #: transport that declares :data:`READ_ONLY_WORKSPACE` may receive one.
     workspace: Path | None = None
@@ -216,6 +221,7 @@ def execute_structured_operation(
         result_model=result_model,
         timeout_seconds=timeout_seconds,
         output_budget_tokens=output_limit(),
+        output_ceiling_tokens=generation_ceiling(),
         workspace=Path(workspace) if workspace is not None else None,
         isolated=isolated,
         reasoning_effort=reasoning_effort_request(),
