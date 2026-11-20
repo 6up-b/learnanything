@@ -131,6 +131,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`
   - `test_the_same_lo_has_a_different_prediction_per_item`
+- [tests/test_difficulty_kinds_apart.py](../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_switch_off_literal_caller_values`
 
 ## Modification guidance
 

@@ -115,7 +115,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `BLOCK_SPAN_V1`, `format_block_span`; calls `format_block_span`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `module`; calls `CheckSensitivity`, `confidence_term`, `pool_implied_mass`, `posterior_after`, `predicted_success`, `prediction_term`, `replay_state`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `item_irt_params`; calls `initial_mastery_state_for_learning_object`, `item_irt_params`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `SourceBook`, `lo_prediction`; calls `lo_prediction`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `CheckV1`
@@ -142,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
+- [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_switch_off_literal_caller_values`
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
 
 ## Modification guidance

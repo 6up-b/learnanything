@@ -44,7 +44,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/AsPrinted|AsPrinted.tsx]] | `ACTIVE` | Provides the reusable `AsPrinted` interaction surface used by one or more desktop workflows. | 5 | 6 |
 | [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|AsciiLoadingBar.tsx]] | `ACTIVE` | Provides the reusable `AsciiLoadingBar` interaction surface used by one or more desktop workflows. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/components/AskOverlay|AskOverlay.tsx]] | `ACTIVE` | Provides the reusable `AskOverlay` interaction surface used by one or more desktop workflows. | 17 | 9 |
-| [[Reference/Desktop/TypeScript/components/BookCard|BookCard.tsx]] | `ACTIVE` | Provides the reusable `BookCard` interaction surface used by one or more desktop workflows. | 3 | 3 |
+| [[Reference/Desktop/TypeScript/components/BookCard|BookCard.tsx]] | `ACTIVE` | Provides the reusable `BookCard` interaction surface used by one or more desktop workflows. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/components/BookShelf|BookShelf.tsx]] | `ACTIVE` | Provides the reusable `BookShelf` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/CapturePhoto|CapturePhoto.tsx]] | `ACTIVE` | Provides the reusable `CapturePhoto` interaction surface used by one or more desktop workflows. | 4 | 2 |
 | [[Reference/Desktop/TypeScript/components/CardControls|CardControls.tsx]] | `ACTIVE` | Provides the reusable `CardControls` interaction surface used by one or more desktop workflows. | 4 | 4 |
@@ -103,7 +103,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/SourceOffers|SourceOffers.tsx]] | `ACTIVE` | Provides the reusable `SourceOffers` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|StudyMapBriefWizard.tsx]] | `ACTIVE` | Provides the reusable `StudyMapBriefWizard` interaction surface used by one or more desktop workflows. | 3 | 4 |
 | [[Reference/Desktop/TypeScript/components/TrackRecordView|TrackRecordView.tsx]] | `ACTIVE` | Provides the reusable `TrackRecordView` interaction surface used by one or more desktop workflows. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/components/Waiting|Waiting.tsx]] | `ACTIVE` | Provides the reusable `Waiting` interaction surface used by one or more desktop workflows. | 1 | 10 |
+| [[Reference/Desktop/TypeScript/components/Waiting|Waiting.tsx]] | `ACTIVE` | Provides the reusable `Waiting` interaction surface used by one or more desktop workflows. | 1 | 11 |
 | [[Reference/Desktop/TypeScript/components/WriteCardDialog|WriteCardDialog.tsx]] | `ACTIVE` | Provides the reusable `WriteCardDialog` interaction surface used by one or more desktop workflows. | 5 | 2 |
 | [[Reference/Desktop/TypeScript/components/askFigures|askFigures.tsx]] | `ACTIVE` | Provides the reusable `askFigures` interaction surface used by one or more desktop workflows. | 9 | 3 |
 | [[Reference/Desktop/TypeScript/components/askPanel|askPanel.tsx]] | `ACTIVE` | Provides the reusable `askPanel` interaction surface used by one or more desktop workflows. | 5 | 3 |

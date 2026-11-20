@@ -24,10 +24,10 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/daily_plan/router_reader.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/source_retrieval/deliverable_path.py"
-  - "src/learnloop/source_retrieval/reading_paths.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`

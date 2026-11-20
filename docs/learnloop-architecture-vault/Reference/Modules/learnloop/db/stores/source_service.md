@@ -383,6 +383,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fr2_5_an_s5_record_read_before_its_censoring_horizon_is_pending_not_expired`
   - `test_fr2_5_the_s5_historical_read_leaves_current_behaviour_alone`
 - [tests/test_source_exercise_import.py](../../../../../../../tests/test_source_exercise_import.py) — direct import
+  - `test_a_fenced_resume_keeps_its_paid_answer_for_retry`
   - `test_a_model_failure_while_authoring_fails_the_import_and_is_receipted`
   - `test_a_resumed_check_never_verifies_content_edited_since`
   - `test_recovery_never_binds_a_verdict_to_content_edited_before_the_commit`

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/GuideRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/GuideRail.tsx) |
-| Source lines | 803 |
+| Source lines | 878 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,34 +54,39 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const QUESTION_CONTROLS: Array<` — const, line 20
-- `export interface GuideRailProps` — interface, line 28
-- `export function GuideRail(` — function, line 97
-- `export function SectionBoundaryOffer(` — function, line 387
-- `export function AuthoredQuestionCard(` — function, line 424
+- `export const SECTION_DONE = "Done with this section"` — const, line 24
+- `export const SECTION_DONE_WRITING = "Writing questions from this section. They'll be on Today."` — const, line 26
+- `export const SECTION_DONE_LINE = "✓ Done with this section."` — const, line 27
+- `export const QUESTION_CONTROLS: Array<` — const, line 29
+- `export interface GuideRailProps` — interface, line 37
+- `export function GuideRail(` — function, line 107
+- `export function SectionBoundaryOffer(` — function, line 414
+- `export function AuthoredQuestionCard(` — function, line 499
 
 ## Internal implementation anchors
 
-- `const peek = peekPassage ?? jumpToSpan` — const, line 146
-- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 148
-- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 257
-- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 259
-- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 260
-- `const question = section.question` — const, line 443
-- `const questionId = question?.authoredQuestionId ?? null` — const, line 450
-- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 451
-- `const submit = useCallback(async ()` — const, line 456
-- `const dismissForever = useCallback(async ()` — const, line 470
-- `const escalate = useCallback(async ()` — const, line 483
-- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 487
-- `function SectionQuestionCard(` — function, line 581
-- `const question = section.question` — const, line 604
-- `const begin = useCallback(async ()` — const, line 612
-- `const opened = await api.readerPresentQuestion(` — const, line 616
-- `const submit = useCallback(async ()` — const, line 636
-- `const skip = useCallback(async ()` — const, line 655
-- `const control = useCallback(async (value: string)` — const, line 673
-- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 706
+- `const peek = peekPassage ?? jumpToSpan` — const, line 156
+- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 160
+- `const result = await completeSection(sectionId)` — const, line 232
+- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 284
+- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 286
+- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 287
+- `function SectionDone(` — function, line 453
+- `const question = section.question` — const, line 518
+- `const questionId = question?.authoredQuestionId ?? null` — const, line 525
+- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 526
+- `const submit = useCallback(async ()` — const, line 531
+- `const dismissForever = useCallback(async ()` — const, line 545
+- `const escalate = useCallback(async ()` — const, line 558
+- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 562
+- `function SectionQuestionCard(` — function, line 656
+- `const question = section.question` — const, line 679
+- `const begin = useCallback(async ()` — const, line 687
+- `const opened = await api.readerPresentQuestion(` — const, line 691
+- `const submit = useCallback(async ()` — const, line 711
+- `const skip = useCallback(async ()` — const, line 730
+- `const control = useCallback(async (value: string)` — const, line 748
+- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 781
 
 ## Who imports or calls it
 
@@ -98,6 +103,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderDisposition`, `ReaderGuidePlanDto`, `ReaderGuideSectionDto`, `ReaderRenderBlockDto`
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export; imports `PassageAlign`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `WaitMark`
 - [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `DispositionPicker`, `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
@@ -121,6 +127,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - [apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/splitRails.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionWords.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/sectionDone.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/findSection.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/findSection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

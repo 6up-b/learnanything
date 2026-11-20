@@ -246,6 +246,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_session_budget_is_hard`
 - [tests/test_diagnose_review_spend.py](../../../../../../tests/test_diagnose_review_spend.py) — direct import
   - `test_transport_retries_are_admitted_too`
+- [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
 - [tests/test_e0_review_round3.py](../../../../../../tests/test_e0_review_round3.py) — direct import
   - `test_f21_omitted_embedding_usage_keeps_the_reservation_through_the_real_wrapper`
 - [tests/test_embedding_route_isolation.py](../../../../../../tests/test_embedding_route_isolation.py) — direct import

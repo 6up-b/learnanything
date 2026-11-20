@@ -149,7 +149,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `checks`, `lessons_on`, `receipt`, `turns`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `predicted_success`, `read_hedges`; calls `predicted_success`, `read_hedges`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `item_irt_params`; calls `initial_mastery_state_for_learning_object`, `item_irt_params`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `WITHHELD_EXAM`, `WITHHELD_RESERVED`, `attempt_protection`, `withheld_items`; calls `attempt_protection`, `withheld_items`
 - [[Reference/Modules/learnloop/router_objective_switches|learnloop.router_objective_switches]] — imports `lesson_sources_follow_diagnosis_on`; calls `lesson_sources_follow_diagnosis_on`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; calls `nearest_deliverables`, `path_view`
@@ -181,6 +181,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_the_same_lo_has_a_different_prediction_per_item`
+- [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_switch_off_literal_caller_values`
 - [tests/test_followups_batch5_recap_dependencies.py](../../../../../../tests/test_followups_batch5_recap_dependencies.py) — direct import
   - `test_f1_a_recap_inherited_through_last_lessons_is_left_out_with_its_source`
   - `test_f1_a_recap_inherited_through_read_history_is_left_out_with_its_source`

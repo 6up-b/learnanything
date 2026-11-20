@@ -192,7 +192,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/goals|learnloop.db.stores.goals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/grading|learnloop.db.stores.grading]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/maintenance|learnloop.db.stores.maintenance]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -436,7 +436,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/source_retrieval/role_labeller|learnloop.source_retrieval.role_labeller]] — imports `Clock`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/source_retrieval/service_spend|learnloop.source_retrieval.service_spend]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/source_retrieval/tutor|learnloop.source_retrieval.tutor]] — imports `Clock`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `Clock`
@@ -1139,6 +1139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_ask_is_the_same_request_before_the_horizon`
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
+- [tests/test_first_questions_today.py](../../../../../tests/test_first_questions_today.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
@@ -1719,6 +1720,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reading_hardening_landing.py](../../../../../tests/test_reading_hardening_landing.py) — direct import
   - `test_the_section_check_job_still_refuses_held_out_material`
 - [tests/test_reading_paths.py](../../../../../tests/test_reading_paths.py) — direct import
+  - `test_a_lapsed_unclaimed_path_keeps_the_paid_answer_for_retry`
   - `test_dl2_intent_preselects_the_depth_and_the_newer_setting_wins_without_writing_dl2`
   - `test_each_dl2_choice_maps_onto_a_depth_or_asks`
 - [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
@@ -1990,6 +1992,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_save_tutor_answer_note_and_facet_question_counts`
 - [tests/test_slate_record.py](../../../../../tests/test_slate_record.py) — direct import
 - [tests/test_source_deletion.py](../../../../../tests/test_source_deletion.py) — direct import
+- [tests/test_source_exercise_import.py](../../../../../tests/test_source_exercise_import.py) — direct import
+  - `test_a_fenced_resume_keeps_its_paid_answer_for_retry`
+  - `test_a_lapsed_unclaimed_check_cannot_complete_or_clear_pending`
 - [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
   - `test_composite_note_id_locator_source_ref_resolves`
   - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
@@ -2021,6 +2026,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_guards.py](../../../../../tests/test_source_retrieval_guards.py) — direct import
 - [tests/test_source_retrieval_rereview.py](../../../../../tests/test_source_retrieval_rereview.py) — direct import
 - [tests/test_source_retrieval_rereview_cost.py](../../../../../tests/test_source_retrieval_rereview_cost.py) — direct import
+- [tests/test_source_service_spend_accounting.py](../../../../../tests/test_source_service_spend_accounting.py) — direct import
+  - `test_spend_renewal_uses_each_reservations_injected_clock`
 - [tests/test_source_service_spend_envelopes.py](../../../../../tests/test_source_service_spend_envelopes.py) — direct import
   - `test_the_sources_report_shows_actual_spend_reserved_vs_settled_and_the_largest_operations`
 - [tests/test_source_sets.py](../../../../../tests/test_source_sets.py) — direct import

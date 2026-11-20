@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] — imports `ActiveErrorEvent`
 - [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] — imports `PracticeItemQualityState`
 - [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] — imports `predict_item_success`; calls `predict_item_success`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `item_irt_params`; calls `item_irt_params`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `resolve_item_irt_params`; calls `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `clamp`; calls `clamp`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`
 
@@ -138,6 +138,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_selection_decision_features_reference_the_item_and_stay_compact`
+- [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_switch_off_literal_caller_values`
 - [tests/test_goal_frontier.py](../../../../../../tests/test_goal_frontier.py) — direct import
   - `test_repair_reward_includes_goal_frontier_term`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import

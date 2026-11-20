@@ -71,6 +71,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `notifyQueueChanged`; references `notifyQueueChanged`
 - [[Reference/Desktop/TypeScript/components/QuestionQueue|src/components/QuestionQueue.tsx]] — import-or-re-export: `notifyQueueChanged`, `subscribeQueueChanged`; references `notifyQueueChanged`, `subscribeQueueChanged`
 - [[Reference/Desktop/TypeScript/screens/ProposalsScreen|src/screens/ProposalsScreen.tsx]] — import-or-re-export: `notifyQueueChanged`; references `notifyQueueChanged`
+- [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `subscribeQueueChanged`; references `subscribeQueueChanged`
 
 ## Dependencies
 
@@ -93,6 +94,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx](../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/useQueueRevisionPoll.test.tsx](../../../../../apps/learnloop-tauri/src/app/useQueueRevisionPoll.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_desktop_rpc_contract.py](../../../../../tests/test_desktop_rpc_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

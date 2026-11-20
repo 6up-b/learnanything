@@ -160,7 +160,7 @@ Indexes and uniqueness:
 - `tests/test_debug_advance.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnostic_probe_single_use.py`
-- `tests/test_e2e_codex_mock.py`
+- `tests/test_difficulty_kinds_apart.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

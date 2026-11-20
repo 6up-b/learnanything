@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `tests/test_secondary_attach.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_daily_plan_build.py`
+- `tests/test_first_questions_today.py`
 - `tests/test_host_queue_revision.py`
 - `tests/test_learner_text_gaps_review.py`
 - `tests/test_mobile_handoff.py`

@@ -92,7 +92,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/daily_plan/lanes|learnloop.daily_plan.lanes]] | [[Reference/Modules/learnloop/daily_plan/lanes#^module-purpose|purpose]] | `ACTIVE` | 3 | 13 |
 | [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] | [[Reference/Modules/learnloop/daily_plan/learner_action#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] | [[Reference/Modules/learnloop/daily_plan/lesson_offer#^module-purpose|purpose]] | `ACTIVE` | 7 | 10 |
-| [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] | [[Reference/Modules/learnloop/daily_plan/lesson_suggestion#^module-purpose|purpose]] | `ACTIVE` | 7 | 22 |
+| [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] | [[Reference/Modules/learnloop/daily_plan/lesson_suggestion#^module-purpose|purpose]] | `ACTIVE` | 7 | 23 |
 | [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] | [[Reference/Modules/learnloop/daily_plan/measurement#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
 | [[Reference/Modules/learnloop/daily_plan/objective_card|learnloop.daily_plan.objective_card]] | [[Reference/Modules/learnloop/daily_plan/objective_card#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] | [[Reference/Modules/learnloop/daily_plan/objective_chooser#^module-purpose|purpose]] | `ACTIVE` | 3 | 34 |

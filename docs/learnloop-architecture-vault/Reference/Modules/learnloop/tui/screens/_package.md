@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/tui/screens/__init__|learnloop.tui.screens]] | [[Reference/Modules/learnloop/tui/screens/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] | [[Reference/Modules/learnloop/tui/screens/feedback#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
-| [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] | [[Reference/Modules/learnloop/tui/screens/practice#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
+| [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] | [[Reference/Modules/learnloop/tui/screens/practice#^module-purpose|purpose]] | `ACTIVE` | 1 | 8 |
 | [[Reference/Modules/learnloop/tui/screens/start|learnloop.tui.screens.start]] | [[Reference/Modules/learnloop/tui/screens/start#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/tui/screens/today|learnloop.tui.screens.today]] | [[Reference/Modules/learnloop/tui/screens/today#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 

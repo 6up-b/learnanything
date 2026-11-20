@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/BookCard.tsx](../../../../../../apps/learnloop-tauri/src/components/BookCard.tsx) |
-| Source lines | 213 |
+| Source lines | 199 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -50,40 +50,32 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] → [[Reference/Desktop/TypeScript/components/BookCard|src/components/BookCard.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/LibraryPlace|src/screens/LibraryPlace.tsx]] → [[Reference/Desktop/TypeScript/components/BookShelf|src/components/BookShelf.tsx]] → [[Reference/Desktop/TypeScript/components/BookCard|src/components/BookCard.tsx]]
 
 ## Public API
 
-- `export const CONSENT_ACTION = "Give your OK"` — const, line 13
-- `export const SIDECAR_CONSENT_LABEL = "Review"` — const, line 16
-- `export function cardActionLabel(action:` — function, line 22
-- `export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it."` — const, line 27
-- `export function readableTitle(title: string): string` — function, line 54
-- `export function StatusLine(` — function, line 70
-- `export function BookCard(` — function, line 92
-- `export function PendingCard(` — function, line 188
+- `export function cardActionLabel(action:` — function, line 19
+- `export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it."` — const, line 24
+- `export function StatusLine(` — function, line 56
+- `export function BookCard(` — function, line 78
+- `export function PendingCard(` — function, line 174
 
 ## Internal implementation anchors
 
-- `const linkButton: CSSProperties =` — const, line 29
-- `const primaryButton: CSSProperties =` — const, line 41
-- `const trimmed = (title || "").trim()` — const, line 55
-- `const name = decodeURIComponent(trimmed.split("/").pop() ?? trimmed).replace(/\.[A-Za-z0-9]` — const, line 57
-- `const words = name.split(/[_\-.\s]+/).filter(Boolean)` — const, line 58
-- `const lower = words.every((word)` — const, line 60
-- `function toneColor(tone: SourceStatusLineDto["tone"]): string` — function, line 64
-- `const ready = card.readiness === "ready"` — const, line 110
-- `const readable = card.readerEnabled !== false` — const, line 111
-- `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 112
-- `const noun = card.kindNoun ?? "book"` — const, line 113
-- `const failed = entry.statusLine?.tone === "problem"` — const, line 198
+- `const linkButton: CSSProperties =` — const, line 26
+- `const primaryButton: CSSProperties =` — const, line 38
+- `function toneColor(tone: SourceStatusLineDto["tone"]): string` — function, line 50
+- `const ready = card.readiness === "ready"` — const, line 96
+- `const readable = card.readerEnabled !== false` — const, line 97
+- `const line = (aiReady === false ? card.statusLine?.withoutAi : null) ?? card.statusLine ?? null` — const, line 98
+- `const noun = card.kindNoun ?? "book"` — const, line 99
+- `const failed = entry.statusLine?.tone === "problem"` — const, line 184
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export: `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`; references `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`
 - [[Reference/Desktop/TypeScript/components/BookShelf|src/components/BookShelf.tsx]] — import-or-re-export: `BookCard`, `PendingCard`; references `BookCard`, `PendingCard`
 - [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]] — import-or-re-export: `StatusLine`, `readableTitle`; references `StatusLine`, `readableTitle`
 
@@ -92,6 +84,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PendingAddDto`, `SourceActionKind`, `SourceLibraryCard`, `SourceStatusLineDto`
+- [[Reference/Desktop/TypeScript/app/todayCause|src/app/todayCause.ts]] — import-or-re-export; imports `CONSENT_ACTION`, `SIDECAR_CONSENT_LABEL`, `readableTitle`
 - [[Reference/Desktop/TypeScript/components/IntentControl|src/components/IntentControl.tsx]] — import-or-re-export; imports `IntentControl`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 

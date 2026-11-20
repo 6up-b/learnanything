@@ -297,6 +297,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_synthesis_that_fails_twice_stops_with_retry_and_the_card_says_so`
   - `test_an_inventory_that_fails_once_is_retried_once_without_asking_again_for_what_was_kept`
   - `test_an_inventory_that_fails_twice_stops_with_retry_and_the_card_says_so`
+- [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
 - [tests/test_followups_batch6_prefetch_plan_wait.py](../../../../../../tests/test_followups_batch6_prefetch_plan_wait.py) — direct import

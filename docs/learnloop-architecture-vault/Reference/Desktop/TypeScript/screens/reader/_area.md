@@ -48,7 +48,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/DoseOffer|DoseOffer.tsx]] | `ACTIVE` | Implements the `DoseOffer` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/ExerciseCandidates (tsx)|ExerciseCandidates.tsx]] | `ACTIVE` | Implements the `ExerciseCandidates` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/FindSection|FindSection.tsx]] | `ACTIVE` | Implements the `FindSection` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/GuideRail|GuideRail.tsx]] | `ACTIVE` | Implements the `GuideRail` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 2 |
+| [[Reference/Desktop/TypeScript/screens/reader/GuideRail|GuideRail.tsx]] | `ACTIVE` | Implements the `GuideRail` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 2 |
 | [[Reference/Desktop/TypeScript/screens/reader/HiddenNotesSettings|HiddenNotesSettings.tsx]] | `ACTIVE` | Implements the `HiddenNotesSettings` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/InquiryQuickCheck|InquiryQuickCheck.tsx]] | `ACTIVE` | Implements the `InquiryQuickCheck` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/IntentBox|IntentBox.tsx]] | `ACTIVE` | Implements the `IntentBox` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 2 |

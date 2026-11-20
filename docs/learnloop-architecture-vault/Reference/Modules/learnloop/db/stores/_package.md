@@ -148,7 +148,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] | [[Reference/Modules/learnloop/db/stores/hypothesis_marks#^module-purpose|purpose]] | `ACTIVE` | 8 | 5 |
 | [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] | [[Reference/Modules/learnloop/db/stores/ingest_queue#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] | [[Reference/Modules/learnloop/db/stores/intent_reads#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] | [[Reference/Modules/learnloop/db/stores/judgment_claims#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
+| [[Reference/Modules/learnloop/db/stores/judgment_claims|learnloop.db.stores.judgment_claims]] | [[Reference/Modules/learnloop/db/stores/judgment_claims#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
 | [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] | [[Reference/Modules/learnloop/db/stores/judgments#^module-purpose|purpose]] | `ACTIVE` | 69 | 21 |
 | [[Reference/Modules/learnloop/db/stores/learner_gaps|learnloop.db.stores.learner_gaps]] | [[Reference/Modules/learnloop/db/stores/learner_gaps#^module-purpose|purpose]] | `ACTIVE` | 13 | 10 |
 | [[Reference/Modules/learnloop/db/stores/learner_model|learnloop.db.stores.learner_model]] | [[Reference/Modules/learnloop/db/stores/learner_model#^module-purpose|purpose]] | `ACTIVE` | 10 | 5 |

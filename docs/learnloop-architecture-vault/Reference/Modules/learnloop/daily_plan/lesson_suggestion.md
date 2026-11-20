@@ -143,7 +143,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `effective_posterior_reader`; calls `effective_posterior_reader`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `COLD_ATTEMPT_TYPES`, `predicted_success`; calls `predicted_success`
-- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `item_irt_params`; calls `initial_mastery_state_for_learning_object`, `item_irt_params`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`; calls `initial_mastery_state_for_learning_object`, `resolve_item_irt_params`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/router/lesson_suggestions|learnloop.router.lesson_suggestions]] — imports `module`; calls `Candidate`, `Context`, `canonical_hash`, `days_between`, `declines_by_learning_object`, `draw`, `lesson_ref`, `mixture_target`, `observations`, `replay`, `score`, `seed_for`, `tiebreak_target`
 - [[Reference/Modules/learnloop/router_objective/decision_state|learnloop.router_objective.decision_state]] — imports `module`; calls `prepare`, `record`
@@ -176,6 +176,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/te3b_offers_helpers.py](../../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/teacher_te1b_landing_r2_helpers.py](../../../../../../tests/teacher_te1b_landing_r2_helpers.py) — direct import
 - [tests/teacher_te1b_suggestions_helpers.py](../../../../../../tests/teacher_te1b_suggestions_helpers.py) — direct import
+- [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_switch_off_literal_caller_values`
 - [tests/test_followups_batch6_review_fixes.py](../../../../../../tests/test_followups_batch6_review_fixes.py) — direct import
   - `test_f4_a_card_with_a_released_line_moves_its_version_and_te1bs_card_keeps_its_own`
 - [tests/test_followups_batch6_router_report.py](../../../../../../tests/test_followups_batch6_router_report.py) — direct import

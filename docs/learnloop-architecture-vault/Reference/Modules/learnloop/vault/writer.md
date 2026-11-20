@@ -274,6 +274,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_family_proposals.py](../../../../../../tests/test_family_proposals.py) — direct import
   - `test_inputs_or_model_changes_do_not_reuse_paid_verdict`
   - `test_reject_identity_excludes_unrelated_pairs`
+- [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f3_a_failed_file_write_serves_nothing_and_the_retry_goes_on`
 - [tests/test_followup_diagnostic_selection.py](../../../../../../tests/test_followup_diagnostic_selection.py) — direct import

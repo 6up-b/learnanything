@@ -153,6 +153,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_daily_loop_start_minutes.py](../../../../../../../tests/test_daily_loop_start_minutes.py) — direct import
   - `test_tui_next_opens_the_head_of_the_live_queue`
+- [tests/test_difficulty_kinds_apart.py](../../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+  - `test_scalar_display_uses_lo_prior_when_item_scalar_is_absent`
 - [tests/test_e2e_tui.py](../../../../../../../tests/test_e2e_tui.py) — direct import
   - `test_tui_end_to_end_self_graded_practice`
 - [tests/test_serve_eligibility.py](../../../../../../../tests/test_serve_eligibility.py) — direct import

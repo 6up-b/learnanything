@@ -144,6 +144,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
 - [tests/test_source_exercise_import.py](../../../../../../tests/test_source_exercise_import.py) — direct import
+  - `test_a_lapsed_unclaimed_check_cannot_complete_or_clear_pending`
   - `test_a_retried_written_import_restores_a_missing_check`
   - `test_items_without_a_canonical_exercise_serialize_byte_identically`
   - `test_recovery_never_binds_a_verdict_to_content_edited_before_the_commit`

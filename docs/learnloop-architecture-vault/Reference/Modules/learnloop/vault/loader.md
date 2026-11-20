@@ -1538,6 +1538,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_figures_off_queues_and_reads_no_figure_text`
 - [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_build_estimate_charts_what_a_build_may_now_write`
+- [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`
   - `test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary`
@@ -2594,6 +2595,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_wrap_up.py](../../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_the_card_off_leaves_wrap_up_on_its_own_switch`
 - [tests/test_reading_paths.py](../../../../../../tests/test_reading_paths.py) — direct import
+  - `test_a_lapsed_unclaimed_path_keeps_the_paid_answer_for_retry`
   - `test_an_override_writes_one_learner_card_and_one_row_and_skip_marks_nothing_known`
   - `test_dl2_intent_preselects_the_depth_and_the_newer_setting_wins_without_writing_dl2`
   - `test_each_dl2_choice_maps_onto_a_depth_or_asks`

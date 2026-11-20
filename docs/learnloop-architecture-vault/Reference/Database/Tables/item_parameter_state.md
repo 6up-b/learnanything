@@ -110,6 +110,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_difficulty_kinds_apart.py`
 - `tests/test_field_cli.py`
 - `tests/test_item_parameters.py`
 - `tests/test_rebuild_orchestrator.py`
