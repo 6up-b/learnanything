@@ -1264,10 +1264,10 @@ class ReaderStoreMixin:
         return cursor.rowcount > 0
 
     def deferred_section_generations(self, stamp: str, *, extraction_id: str | None = None) -> list[dict[str, Any]]:
-        """Mobile v2 D6: the completed sections whose generation stamp is ``stamp`` (left for
-        the primary by the phone host), oldest first."""
+        """The completed sections whose generation stamp is ``stamp`` (one left for the primary by the
+        phone host, one waiting for its book's build, ...), oldest first, with when each was finished."""
 
-        sql = ("SELECT extraction_id, section_id FROM reader_section_progress "
+        sql = ("SELECT extraction_id, section_id, completed_at FROM reader_section_progress "
                "WHERE generation_batch_id = ? AND completed_at IS NOT NULL")
         args: list[Any] = [stamp]
         if extraction_id is not None:

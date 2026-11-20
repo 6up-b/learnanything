@@ -3509,6 +3509,17 @@ def _handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str
     }
 
 
+def practice_expansion_payload(learning_object_ids: Sequence[str], reason: str,
+                               source_refs: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """A practice_expansion job's payload, whoever queues it (the sidecar, or a build that just applied)."""
+
+    return {
+        "learning_object_ids": list(learning_object_ids),
+        "reason": reason,
+        "source_refs": [dict(ref) for ref in source_refs or []],
+    }
+
+
 def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     """practice_expansion: per-LO item generation (reader-first seeding).
 
@@ -5015,11 +5026,10 @@ class DurableIngestJobs:
                 ):
                     self._ensure_worker()
                 return existing
-        payload: dict[str, Any] = {
-            "learning_object_ids": list(learning_object_ids),
-            "reason": reason or ("ad_commission" if ad_commission_id else "reader_section_completed"),
-            "source_refs": list(source_refs or []),
-        }
+        payload = practice_expansion_payload(
+            learning_object_ids, reason or ("ad_commission" if ad_commission_id else "reader_section_completed"),
+            source_refs,
+        )
         if ad_commission_id:
             payload["ad_commission_id"] = str(ad_commission_id)
         batch_id = runner.enqueue_batch(

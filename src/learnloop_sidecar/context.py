@@ -308,11 +308,12 @@ class SidecarContext:
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not act on pending reading progress", exc_info=True)
             # Mobile v2 D6: sections finished on the phone while this app was closed build
-            # their questions here, as this app's own completion would have.
+            # their questions here, as this app's own completion would have; so do sections
+            # finished before their book's topics were in, whose build settled meanwhile.
             try:
-                from learnloop_sidecar.handlers.reader import drain_deferred_section_generations
+                from learnloop_sidecar.section_questions import drain_owed_section_questions
 
-                drain_deferred_section_generations(self, self.vault, self.repository)
+                drain_owed_section_questions(self, self.vault, self.repository)
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not build a phone-finished section's questions", exc_info=True)
             # A book's preparation the previous process queued and never ran:

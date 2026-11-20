@@ -244,7 +244,7 @@ def test_a_built_book_with_no_section_finished_says_none_came_yet(tmp_path):
 
     assert line["text"] == "Questions for Ch. 1–2 come up as you read"
     questions = line["questions"]
-    assert questions == {"count": 0, "item_ids": [], "sections": [], "writing": [], "failed": [],
+    assert questions == {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [], "failed": [],
                          "to_look_at": 0, "section_count": len(_section_ids(repo, item))}
 
 

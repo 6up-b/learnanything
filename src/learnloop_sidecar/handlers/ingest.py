@@ -537,6 +537,13 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
         # Never on the phone host's secondary attach: its ingest is the desktop's (D6).
         _reload_applied_batches(ctx, ctx.ingest_jobs.list_batches(limit=10))
     vault, repository = ctx.require_vault()
+    if not getattr(ctx, "secondary", False):
+        # Before the cards are read, so the line says what this read started: a finished section
+        # whose book's topics are in now gets its questions started here, where the learner looks
+        # for them (Today, the shelf), once.
+        from learnloop_sidecar.section_questions import drain_owed_section_questions
+
+        drain_owed_section_questions(ctx, vault, repository)
     subject_by_source = {
         member.source_id: source_set.subject_id
         for source_set in vault.source_sets

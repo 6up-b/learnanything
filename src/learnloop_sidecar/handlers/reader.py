@@ -2041,106 +2041,16 @@ def reader_get_progress(ctx: SidecarContext, params: ReaderGetProgressInput) -> 
     """Durable per-section reading progress for one extraction (migration 106)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
+    from learnloop_sidecar.section_questions import drain_owed_section_questions
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
-    if not getattr(ctx, "secondary", False):
-        # Mobile v2 D6: a section the phone finished builds its questions when the desktop's
-        # Reader opens the book (and at the desktop's start). Nothing runs for a vault the
-        # phone never finished a section of.
-        drain_deferred_section_generations(ctx, vault, repository, extraction_id=resolved)
+    # A section the phone finished, or one finished before the book's topics were in, gets its
+    # questions started when the desktop's Reader opens the book (and on its start, and on a read
+    # of the books). Nothing runs for a book with no such section, nor on the phone host.
+    drain_owed_section_questions(ctx, vault, repository, extraction_id=resolved)
     rows = repository.reader_section_progress_for(resolved)
     return versioned({"extraction_id": resolved, "sections": [_progress_payload(r) for r in rows]})
-
-
-#: Mobile v2 D6: the generation stamp of a section finished on the phone host, whose
-#: questions are built by the primary (the desktop app), never by the host.
-DEFERRED_TO_PRIMARY = "deferred_to_primary"
-
-
-def _trigger_section_generation(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str,
-                                section_id: str, *, from_stamp: str | None = None) -> str | None:
-    """The first completion's practice generation for one section; the batch id, or None
-    when nothing was enqueued. ``from_stamp``: the stamp this claims from (None: an
-    untriggered section, the desktop's own completion; :data:`DEFERRED_TO_PRIMARY`: one the
-    phone finished). Either way the stamp is taken once, before anything is enqueued."""
-
-    from learnloop.reader.reader_progression import source_refs_for_section
-    from learnloop.reader.section_generation import section_generation_candidates
-
-    def stamp(batch_id: str) -> bool:
-        if from_stamp is None:
-            return repository.mark_section_generation(
-                extraction_id=extraction_id, section_id=section_id, batch_id=batch_id
-            )
-        return repository.swap_section_generation(
-            extraction_id=extraction_id, section_id=section_id, from_batch_id=from_stamp, batch_id=batch_id
-        )
-
-    lo_ids = section_generation_candidates(
-        vault, repository, extraction_id=extraction_id, section_id=section_id
-    )
-    if not lo_ids:
-        stamp("none_needed")
-        return None
-    # Stamp FIRST so a concurrent completion cannot double-enqueue; the
-    # loser of the race sees the stamp and does nothing.
-    if not stamp("enqueuing"):
-        return None
-    source_refs = source_refs_for_section(
-        vault,
-        repository,
-        extraction_id=extraction_id,
-        section_id=section_id,
-        learning_object_ids=lo_ids,
-    )
-    from learnloop.ai import plan_fallback
-
-    # Reading progress is not a press (T1 landing review round 2):
-    # the expansion asks nothing and carries no grant.
-    with plan_fallback.quiet():
-        batch_id = ctx.ingest_jobs.enqueue_practice_expansion(
-            learning_object_ids=lo_ids,
-            reason=f"reader_section_completed:{section_id}",
-            source_refs=source_refs,
-        )
-    repository.set_section_generation_batch(
-        extraction_id=extraction_id, section_id=section_id, batch_id=batch_id
-    )
-    return batch_id
-
-
-def drain_deferred_section_generations(ctx: SidecarContext, vault: Any, repository: Any, *,
-                                       extraction_id: str | None = None) -> int:
-    """Mobile v2 D6: build the questions of the sections the phone finished, on the primary,
-    as the desktop's own completion would have (the same candidates, refs and batch). Returns
-    how many were enqueued. Best effort: it never fails the Reader or the start, and a
-    section it could not enqueue keeps its stamp for the next try."""
-
-    if getattr(ctx, "secondary", False):
-        return 0
-    enqueued = 0
-    try:
-        rows = repository.deferred_section_generations(DEFERRED_TO_PRIMARY, extraction_id=extraction_id)
-    except Exception:  # pragma: no cover - a read failure leaves them for the next try
-        return 0
-    for row in rows:
-        try:
-            if _trigger_section_generation(ctx, vault, repository, str(row["extraction_id"]), str(row["section_id"]),
-                                           from_stamp=DEFERRED_TO_PRIMARY) is not None:
-                enqueued += 1
-        except Exception:  # noqa: BLE001 - one section's failure is kept for its next try
-            import logging
-
-            logging.getLogger(__name__).warning("a phone-finished section's questions were not queued", exc_info=True)
-            try:
-                # The claim may have moved to 'enqueuing' before the failure: hand it back.
-                repository.swap_section_generation(extraction_id=str(row["extraction_id"]),
-                                                   section_id=str(row["section_id"]),
-                                                   from_batch_id="enqueuing", batch_id=DEFERRED_TO_PRIMARY)
-            except Exception:  # pragma: no cover
-                pass
-    return enqueued
 
 
 class ReaderMarkSectionProgressInput(ParamsModel):
@@ -2160,10 +2070,13 @@ def reader_mark_section_progress(
     practice generation for the section's provenance-linked Learning Objects.
 
     Idempotent per section via ``generation_batch_id`` (NULL = untriggered,
-    'none_needed' = mapped to zero targets, else the enqueued batch id) — a
-    re-completed section never enqueues twice."""
+    else the stamps of ``learnloop.reader.section_generation`` or the enqueued
+    batch id) — a re-completed section never enqueues twice. A section finished
+    before its chapter's topics are in waits for them (``waiting_for_build``)."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
+    from learnloop.reader.section_generation import DEFERRED_TO_PRIMARY, WAITING_FOR_BUILD
+    from learnloop_sidecar.section_questions import start_section_questions
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
@@ -2203,13 +2116,13 @@ def reader_mark_section_progress(
         if getattr(ctx, "secondary", False):
             # Mobile v2 D6: the phone host runs only the phone's own work, so a section
             # finished there leaves its generation to the primary (the desktop app, or later
-            # the hub), which takes it from this stamp (:func:`drain_deferred_section_generations`).
+            # the hub), which takes it from this stamp (``drain_owed_section_questions``).
             # The stamp is the same once-only claim, so it is never enqueued twice.
             repository.mark_section_generation(
                 extraction_id=resolved, section_id=params.section_id, batch_id=DEFERRED_TO_PRIMARY
             )
         else:
-            batch_id = _trigger_section_generation(ctx, vault, repository, resolved, params.section_id)
+            batch_id = start_section_questions(ctx, vault, repository, resolved, params.section_id)
             enqueued = batch_id is not None
         row = repository.upsert_reader_section_progress(
             extraction_id=resolved, section_id=params.section_id
@@ -2271,6 +2184,8 @@ def reader_mark_section_progress(
         {
             "progress": _progress_payload(row),
             "enqueued_generation": enqueued,
+            # Finished before the book's topics for it were in: its questions are written once they are.
+            "waiting_for_build": bool(params.completed) and row.get("generation_batch_id") == WAITING_FOR_BUILD,
             "batch_id": batch_id,
         }
     )

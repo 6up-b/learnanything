@@ -1695,6 +1695,7 @@ def after_auto_build(ctx) -> None:
         return
     from learnloop.content.pipeline.runner import JobCancelled, JobSpec
 
+    start_waiting_sections(ctx, str(auto["source_id"]))
     try:
         source_id = str(auto["source_id"])
         request = ctx.repo.pending_reading_request(source_id)
@@ -1718,6 +1719,67 @@ def after_auto_build(ctx) -> None:
         import logging
 
         logging.getLogger(__name__).warning("could not act on reading progress after a build", exc_info=True)
+
+
+def start_waiting_sections(ctx, source_id: str) -> int:
+    """A build's synthesis finished: start the question writing of every
+    section the learner finished while this book's topics were not in yet,
+    now that they may be. Returns how many were queued. Best effort.
+
+    A section none of whose topics is in yet stays waiting: the build may
+    have left them for a look, and the next read of the books, once the build
+    has settled, either starts it or settles it as needing nothing. Each claim,
+    its queueing and the batch it names are one transaction, so a section
+    either keeps waiting or has exactly one batch."""
+
+    import logging
+
+    from learnloop.ai import plan_fallback
+    from learnloop.content.pipeline.jobs import practice_expansion_payload
+    from learnloop.content.pipeline.runner import JobCancelled, JobSpec
+    from learnloop.reader.reader_progression import source_refs_for_section
+    from learnloop.reader.section_generation import (
+        ENQUEUING,
+        WAITING_FOR_BUILD,
+        section_generation_candidates,
+        section_reason,
+    )
+    from learnloop.vault.loader import load_vault
+
+    queued = 0
+    try:
+        resolved = _completed_extraction(ctx.repo, source_id)
+        if resolved is None:
+            return 0
+        extraction_id = resolved[1]
+        rows = ctx.repo.deferred_section_generations(WAITING_FOR_BUILD, extraction_id=extraction_id)
+        if not rows:
+            return 0
+        vault = load_vault(ctx.vault_root)  # the topics this build just applied
+        for row in rows:
+            section_id = str(row["section_id"])
+            lo_ids = section_generation_candidates(vault, ctx.repo, extraction_id=extraction_id, section_id=section_id)
+            if not lo_ids:
+                continue
+            refs = source_refs_for_section(vault, ctx.repo, extraction_id=extraction_id, section_id=section_id,
+                                           learning_object_ids=lo_ids)
+            # Reading progress is not a press: the writing asks nothing and carries no grant.
+            with plan_fallback.quiet(), ctx.repo.atomic():
+                if not ctx.repo.swap_section_generation(extraction_id=extraction_id, section_id=section_id,
+                                                        from_batch_id=WAITING_FOR_BUILD, batch_id=ENQUEUING):
+                    continue  # started elsewhere meanwhile
+                batch_id = ctx.enqueue_batch(
+                    "practice_expansion",
+                    [JobSpec("practice_expansion", practice_expansion_payload(lo_ids, section_reason(section_id), refs))],
+                )
+                ctx.repo.set_section_generation_batch(extraction_id=extraction_id, section_id=section_id,
+                                                      batch_id=batch_id)
+            queued += 1
+    except JobCancelled:
+        pass  # this build was cancelled meanwhile: the sections keep waiting, nothing was queued
+    except Exception:  # noqa: BLE001 - starting a section's writing must never fail the build that applied
+        logging.getLogger(__name__).warning("could not start a waiting section's questions", exc_info=True)
+    return queued
 
 
 # ---------------------------------------------------------------------------
@@ -2443,10 +2505,47 @@ def build_progress(jobs: Iterable[Mapping[str, Any]]) -> dict[str, int] | None:
     return {"done": done, "total": total} if total > 0 else None
 
 
-#: Stamps a finished section's generation holds before its job exists, or
-#: instead of one (``learnloop_sidecar.handlers.reader``).
-_SECTION_STAMP_PENDING = frozenset({"enqueuing", "deferred_to_primary"})
-_SECTION_STAMP_NOTHING = "none_needed"
+def _settled_chapter_builds(repo, source_id: str) -> dict[str, str]:
+    """Each chapter whose automatic build has settled, with that build's end:
+    finished, nothing of it waiting for a look, not taken back out. The
+    newest such build's end where several covered a chapter."""
+
+    generation = current_generation(repo, source_id)
+    settled: dict[str, str] = {}
+    for job in auto_jobs(repo, source_id):
+        outcome = planner_outcome(repo, job)
+        if not outcome or outcome.get("outcome") != "building":
+            continue
+        state = _build_state(repo, outcome, generation=generation)
+        if state["undone"] or state["status"] != "completed" or state["pending"]:
+            continue
+        ended = str((state["batch"] or {}).get("finished_at") or "")
+        for chapter_id in outcome.get("chapter_ids") or []:
+            settled[str(chapter_id)] = max(settled.get(str(chapter_id), ""), ended)
+    return settled
+
+
+def section_topics_settled(repo, extraction_id: str, section_id: str) -> tuple[bool, str | None]:
+    """Whether the topics a finished section's questions are written from are
+    in: the build of the section's chapter has settled (finished, nothing
+    waiting for a look, not taken back out). With that build's end, or None
+    for a book built another way (the Ingest screen), which keeps no build time.
+
+    A front-matter section is in no build's scope of its own: its topics are
+    whatever the book's builds wrote, so it is settled once any build is."""
+
+    source_id = _extraction_source(repo, extraction_id)
+    if source_id is None:
+        return False, None
+    if not auto_jobs(repo, source_id):
+        return _study_map_questions(repo, source_id) == "applied", None
+    settled = _settled_chapter_builds(repo, source_id)
+    chapter = next((chapter for chapter in outline_chapters(_unit_tree(repo, extraction_id))
+                    if section_id in chapter.unit_ids), None)
+    if chapter is None or _is_front_matter(chapter):
+        return bool(settled), max(settled.values()) if settled else None
+    ended = settled.get(chapter.unit_id)
+    return ended is not None, ended
 
 
 def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
@@ -2458,12 +2557,21 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
     ``count`` and ``item_ids``: the questions applied from those sections and
     still in the vault, not retired; ``sections``: the finished sections they
     came from; ``writing``: finished sections whose questions are being
-    written; ``failed``: finished sections whose writing stopped, with the
-    batch to resume; ``to_look_at``: written questions waiting for a look;
-    ``section_count``: how many sections the reading has (one: the whole
-    source). ``None`` when the book has no reading."""
+    written; ``waiting``: finished sections whose questions are written once
+    the book's build of their chapter has settled; ``failed``: finished
+    sections whose writing stopped, with the batch to resume; ``to_look_at``:
+    written questions waiting for a look; ``section_count``: how many sections
+    the reading has (one: the whole source). ``None`` when the book has no
+    reading."""
 
     from learnloop.content.pipeline.runner import effective_ingest_job_status
+    from learnloop.reader.section_generation import (
+        DEFERRED_TO_PRIMARY,
+        ENQUEUING,
+        NONE_NEEDED,
+        NONE_NEEDED_BEFORE,
+        WAITING_FOR_BUILD,
+    )
 
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
@@ -2477,15 +2585,18 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
     order = {str(row["unit_id"]): index for index, row in enumerate(units)}
     labels = {str(row["unit_id"]): str(row["label"] or "").strip() for row in units}
     live = getattr(vault, "practice_items", None) or {}
-    fact: dict[str, Any] = {"count": 0, "item_ids": [], "sections": [], "writing": [], "failed": [],
-                            "to_look_at": 0, "section_count": len(units)}
+    fact: dict[str, Any] = {"count": 0, "item_ids": [], "sections": [], "writing": [], "waiting": [],
+                            "failed": [], "to_look_at": 0, "section_count": len(units)}
     finished = [row for row in repo.reader_section_progress_for(extraction_id) if row.get("completed_at")]
     for row in sorted(finished, key=lambda row: order.get(str(row["section_id"]), len(order))):
         label = labels.get(str(row["section_id"])) or ""
         stamp = row.get("generation_batch_id")
-        if not stamp or stamp == _SECTION_STAMP_NOTHING:
+        if not stamp or stamp in {NONE_NEEDED, NONE_NEEDED_BEFORE}:
             continue
-        if stamp in _SECTION_STAMP_PENDING:
+        if stamp == WAITING_FOR_BUILD:
+            fact["waiting"].append(label)
+            continue
+        if stamp in {ENQUEUING, DEFERRED_TO_PRIMARY}:
             fact["writing"].append(label)
             continue
         job = next((job for job in repo.ingest_jobs_for_batch(str(stamp))
@@ -2535,14 +2646,14 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
     what the learner's finished sections gave, so Today can offer them by name
     or say what must happen first; any other line carries it once a finished
     section gave something (questions, or questions being written, stopped or
-    waiting for a look). Additive: the line's words and action never depend on
-    it."""
+    waiting for a look), or waits for the book's build. Additive: the line's
+    words and action never depend on it."""
 
     line = _source_status_line(repo, vault, source_id, batch_id=batch_id)
     if line is not None and source_id is not None and "questions" not in line:
         questions = reading_questions(repo, vault, source_id)
-        if questions is not None and (questions["count"] or questions["writing"] or questions["failed"]
-                                      or questions["to_look_at"]):
+        if questions is not None and (questions["count"] or questions["writing"] or questions["waiting"]
+                                      or questions["failed"] or questions["to_look_at"]):
             line["questions"] = questions
     return line
 
