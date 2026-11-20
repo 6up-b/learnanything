@@ -53,3 +53,24 @@ it("F7: other actions keep their own words (changes to look at are still Review;
   render(<BookCard card={connect} onContinue={vi.fn()} onAction={vi.fn()} />);
   expect(screen.getByRole("button", { name: "Connect" })).toBeTruthy();
 });
+
+// UX-43: a book whose build found no topic to practise. The card's line is the sidecar's (add_source.py); it agrees
+// with Today's sentence ("LearnLoop found no topics to practise in “…”") and its Try again is the card's retry.
+it("UX-43: a book whose build found no topics: the card says so, and Try again is the card's retry", () => {
+  const onAction = vi.fn();
+  const card = {
+    ...EXAM, readerEnabled: true, kindNoun: "article",
+    statusLine: {
+      text: "LearnLoop found no topics to practise in this article", tone: "problem" as const,
+      action: { kind: "retry" as const, label: "Try again" },
+      details: "LearnLoop read it but came back without a topic to write questions from. Try again asks once more; your reading and the sections you finished are kept, and they get their questions once topics are found.",
+      noTopics: true
+    }
+  };
+  render(<BookCard card={card} onContinue={vi.fn()} onAction={onAction} aiReady={false} />);
+  expect(screen.getByText("LearnLoop found no topics to practise in this article")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(onAction).toHaveBeenCalledWith("retry", card);
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(findJargon(document.body.textContent ?? "")).toEqual([]);
+});

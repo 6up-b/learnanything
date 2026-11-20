@@ -3700,6 +3700,9 @@ export interface SourceStatusLineDto {
   minutes?: number | null;
   /** After a build stopped: whether it had already tried a failed step again on its own. Present only on a stopped build's line. */
   retried?: boolean;
+  /** The book's build finished but found no topic to practise (its answer was asked for twice): the line says so, with
+   *  Try again (the card's retry). Present only on that line. */
+  noTopics?: boolean;
   /** What the learner's finished sections gave (on a built book's line, and on any line once there is something). */
   questions?: ReadingQuestionsDto | null;
 }
@@ -3716,6 +3719,9 @@ export interface ReadingQuestionsDto {
   /** Finished sections whose questions are written once the book's build of their chapter is done (they were
    *  finished before its topics were in). Absent from an older sidecar. */
   waiting?: string[];
+  /** Finished sections with nothing to write (no topic citing them needed questions): finished all the same, so a
+   *  screen never asks for them to be finished. Absent from an older sidecar. */
+  noneNeeded?: string[];
   /** Finished sections whose question writing stopped; `resumeId` is the batch to try again. */
   failed: Array<{ label: string; resumeId: string }>;
   /** Written questions waiting for a look. */

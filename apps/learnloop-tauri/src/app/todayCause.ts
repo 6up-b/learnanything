@@ -16,8 +16,10 @@
 // quick check finished, or "Done with this section" at its end), and once
 // written they are on today's list at once. A section finished before the
 // book's topics for it were in waits for them, and is written once they are
-// (docs/reviews/ux31-section-done-before-build.md). A section's questions are
-// written topic by topic and each topic's questions apply at once, so they can be
+// (docs/reviews/ux31-section-done-before-build.md). A book whose build found
+// no topic to practise says so, with Try again; its finished sections get their
+// questions once a later build finds topics (docs/reviews/ux43-empty-build.md).
+// A section's questions are written topic by topic and each topic's questions apply at once, so they can be
 // offered while more are written, or beside a topic that could not be written
 // (docs/reviews/ux-first-questions-progress.md).
 //
@@ -89,6 +91,9 @@ export type TodayCause =
   | { kind: "needs_ai"; title: string }
   /** Getting a book ready failed (`build: false`), or its build stopped (`build: true`; `retried`: after its own retry). */
   | { kind: "failed"; title: string; target: { sourceId: string } | { batchId: string }; build: boolean; retried: boolean }
+  /** A book's build finished with no topic to practise: Try again (the card's retry, `sourceId`) asks once more;
+   *  Continue reading opens the book. */
+  | { kind: "no_topics"; title: string; card: SourceLibraryCard; sourceId: string }
   /** Writing the questions of a finished section stopped; `resumeId` tries it again. */
   | { kind: "section_failed"; title: string; part: string | null; resumeId: string }
   /** A book's card asks for something else (a cost, a setting, changes to look at). */
@@ -118,8 +123,8 @@ function questionsOf(card: SourceLibraryCard): ReadingQuestionsDto | null {
   return card.statusLine?.questions ?? null;
 }
 
-type Rank = "waiting_ok" | "needs_ai" | "failed" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting";
-const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"];
+type Rank = "waiting_ok" | "needs_ai" | "failed" | "no_topics" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting";
+const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "no_topics", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"];
 
 function rankOf(line: SourceStatusLineDto | null, ai: AiConnectionDto | null): Rank | null {
   if (!line) return null;
@@ -130,6 +135,8 @@ function rankOf(line: SourceStatusLineDto | null, ai: AiConnectionDto | null): R
     return consent ? "waiting_ok" : "needs_ai";
   }
   if (line.tone === "working") return "on_the_way";
+  // Told by its fact, before the label: its action is a retry labelled as an import failure's is.
+  if (line.noTopics === true) return "no_topics";
   // A stopped build says so by its fact; an import that failed only by its label.
   if (line.tone === "problem" && action?.kind === "retry" && (line.retried !== undefined || FAILURE_RETRY_LABELS.has(action.label))) return "failed";
   if (action || line.tone === "problem") return "needs_look";
@@ -248,6 +255,8 @@ export function todayCause(input: {
           build: line?.retried !== undefined,
           retried: line?.retried === true
         };
+      case "no_topics":
+        return { kind: "no_topics", title: first.title, card: first.card as SourceLibraryCard, sourceId: (first.card as SourceLibraryCard).sourceId };
       case "section_failed": {
         // Where the list is not read (the phone), questions already written are said with the stopped topics.
         const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null;
@@ -296,10 +305,13 @@ export function todayCause(input: {
     return { kind: "questions_ready", title: readableTitle(withQuestions.title), part: partName(questions.sections, questions.sectionCount), count: questions.count, itemId: null, card: withQuestions };
   }
   // A built book with no section finished: the step that brings its first questions comes before a book whose
-  // questions are not up today.
-  const unfinished = readable.find((card) => questionsOf(card)?.count === 0);
+  // questions are not up today. A section finished with nothing to write is finished all the same: asking for it to
+  // be finished contradicts the Reader, which shows it done.
+  const finishedNone = (card: SourceLibraryCard) => (questionsOf(card)?.noneNeeded?.length ?? 0) > 0;
+  const unfinished = readable.find((card) => questionsOf(card)?.count === 0 && !finishedNone(card));
   if (unfinished) return { kind: "finish_section", card: unfinished };
-  if (withQuestions) return { kind: "none_up", title: readableTitle(withQuestions.title), card: withQuestions };
+  const finished = withQuestions ?? readable.find(finishedNone);
+  if (finished) return { kind: "none_up", title: readableTitle(finished.title), card: finished };
   return { kind: "finish_section", card: readable.find((card) => card.readiness === "ready") ?? readable[0] ?? null };
 }
 
@@ -394,6 +406,8 @@ export function causeSentence(cause: TodayCause): string {
     case "failed":
       if (!cause.build) return `Couldn't get questions ready for “${cause.title}”.`;
       return `Couldn't get “${cause.title}” ready for questions${cause.retried ? ", after trying twice" : ""}. Try again, or keep reading: nothing is lost.`;
+    case "no_topics":
+      return `LearnLoop found no topics to practise in “${cause.title}”. Try again, or keep reading: the sections you finish get their questions once topics are found.`;
     case "section_waiting":
       return waitingWords(cause.title, cause.part);
     case "section_failed":
@@ -462,6 +476,7 @@ export function causeActionLabel(cause: TodayCause): string | null {
     case "needs_ai":
       return "Connect";
     case "failed":
+    case "no_topics":
     case "section_failed":
       return "Try again";
     case "needs_look":
@@ -477,9 +492,14 @@ export function causeActionLabel(cause: TodayCause): string | null {
   }
 }
 
+/** The second action beside a cause, or null: reading on, beside a Try again that need not be pressed first. */
+export function causeSecondActionLabel(cause: TodayCause): string | null {
+  return cause.kind === "no_topics" ? "Continue reading" : null;
+}
+
 /** Whether the action sends passages to a model, so "what's sent" is beside it. */
 export function causeSendsPassages(cause: TodayCause): boolean {
-  return cause.kind === "waiting_ok" || cause.kind === "failed" || cause.kind === "section_failed";
+  return cause.kind === "waiting_ok" || cause.kind === "failed" || cause.kind === "no_topics" || cause.kind === "section_failed";
 }
 
 export const WHATS_SENT = "what's sent";

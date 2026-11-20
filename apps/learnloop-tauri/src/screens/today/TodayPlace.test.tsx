@@ -2135,3 +2135,64 @@ describe("Question writing you can follow: how far it is, the questions already 
     }
   });
 });
+
+describe("A book whose build found no topics: Today says so, with Try again, and never asks to finish a finished section (UX-43)", () => {
+  const ready = () => connection({ needs: null, consented: true, canAuthor: true });
+  const facts = (overrides: Partial<NonNullable<SourceStatusLineDto["questions"]>> = {}) => ({
+    count: 0, itemIds: [], sections: [], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...overrides
+  });
+  // What the sidecar says once a book's build came back with no topic to practise (add_source.py).
+  const NO_TOPICS: SourceStatusLineDto = {
+    text: "LearnLoop found no topics to practise in this article", tone: "problem", action: { kind: "retry", label: "Try again" },
+    details: "LearnLoop read it but came back without a topic to write questions from.", noTopics: true
+  };
+  const SENTENCE = "LearnLoop found no topics to practise in “Symmetric Matrices and Variance”. Try again, or keep reading: the sections you finish get their questions once topics are found.";
+
+  it("the book's build found no topics: Today says so, Try again plans it again on the card, Continue reading opens the book", async () => {
+    const card = libraryCard({ ...NO_TOPICS, questions: facts({ noneNeeded: ["Document"] }) });
+    const f = emptyToday([card], { sourceAction: vi.fn(async () => ({ sourceId: "src_sym", action: "retry" })) });
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain(SENTENCE);
+    expect(cause.textContent).not.toMatch(/finish a section|Couldn't get/);
+    expect(within(cause).getByRole("button", { name: "what's sent ▸" })).toBeTruthy();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+    fireEvent.click(within(cause).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.sourceAction).toHaveBeenCalledWith({ sourceId: "src_sym", action: "retry" }));
+  });
+
+  it("it comes before another book's 'finish a section'", async () => {
+    emptyToday([
+      libraryCard({ ...LINE.built, questions: facts({ sectionCount: 4 }) }, { sourceId: "src_2", title: "Elevator Paradox" }),
+      libraryCard({ ...NO_TOPICS, questions: facts() })
+    ]);
+    show(causeProps({ aiConnection: ready() }));
+    expect((await screen.findByTestId("today-cause")).textContent).toContain(SENTENCE);
+  });
+
+  it("a book whose finished section had nothing to write: never 'finish a section' (what the Reader shows as finished)", async () => {
+    const card = libraryCard({ ...LINE.built, questions: facts({ noneNeeded: ["Conditional probability"], sectionCount: 4 }) });
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections.");
+    expect(cause.textContent).not.toContain("Your first questions come when you finish a section");
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+    cleanup();
+    clear();
+    // Still said for a book with no section finished.
+    emptyToday([libraryCard({ ...LINE.built, questions: facts({ sectionCount: 4 }) })]);
+    show(causeProps({ aiConnection: ready() }));
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("Your first questions come when you finish a section of “Symmetric Matrices and Variance”");
+  });
+
+  it("the new line is in plain words", async () => {
+    emptyToday([libraryCard({ ...NO_TOPICS, questions: facts() })]);
+    show(causeProps({ aiConnection: ready() }));
+    const cause = await screen.findByTestId("today-cause");
+    await waitFor(() => expect(cause.textContent).toContain("no topics"));
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+});
