@@ -23,7 +23,7 @@ from typing import Any, Iterable
 
 # Module level, so the reader's cross-domain edges stay the architecture's frozen inventory: exam material decides
 # protection, and the eligibility's sniff decides what is an image.
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, exam_material, held_out_refusal
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_refusal, surface_exam_material
 from learnloop.scheduling.device_eligibility import image_kind
 
 LOG = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def phone_withheld(vault_or_sets: Any, repository: Any, extraction_id: str,
 
     extraction = str(extraction_id)
     try:
-        material = exam_material(vault_or_sets, repository)
+        material = surface_exam_material(vault_or_sets, repository, "phone")
     except Exception:  # noqa: BLE001 - fail closed: an unreadable predicate sends nothing
         LOG.exception("exam material unreadable for %s", extraction)
         return PhoneWithheld(whole=True, spans=frozenset(), message=HELD_OUT_REFUSAL)

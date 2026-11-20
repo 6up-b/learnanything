@@ -17,7 +17,12 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.probes import ProbeCalibrationSessionRecord
 from learnloop.goals.goal_projection import resolve_goal_scope
-from learnloop.diagnosis.probe_episodes import eligible_instruments, enter_episode, episode_posterior
+from learnloop.diagnosis.probe_episodes import (
+    effective_episode_observations,
+    eligible_instruments,
+    enter_episode,
+    episode_posterior,
+)
 from learnloop.diagnosis.probe_instance_generation import generate_instances_for_episode
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
@@ -296,7 +301,7 @@ def calibration_session_progress(
             continue
         qualifying = sum(
             1
-            for row in repository.probe_observations_for_episode(episode_id)
+            for row in effective_episode_observations(vault, repository, episode_id)
             if row["observation"].eligible_for_completion
         )
         done = episode.status in ("complete", "converted_to_tutoring", "abandoned")

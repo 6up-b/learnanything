@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_instance_generation.py](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py) |
-| Source lines | 1526 |
+| Source lines | 1529 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -70,8 +70,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `generate_instances_for_episode(repository: Repository, vault: LoadedVault, episode_id: str, *, clock: Clock | None=None, instances_per_family: int | None=None, seed: int=0, ai_client: object | None=None) -> GenerationSummary` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1006) — Resolve a `pending_items` episode's generation needs through admitted family/card bindings (§10 steps 3–6).
 - `mint_single_use_probe_surface(repository: Repository, vault: LoadedVault, episode_id: str, *, ai_client: object, clock: Clock | None=None, seed: int=0) -> GeneratedInstance | None` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1194) — Mint ONE fresh single-use ``diagnostic_probe`` surface for an open episode.
 - `approve_probe_instance(repository: Repository, vault: LoadedVault, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1391) — Reviewer approval for a pending instance: activate it and unpark its LO's episode when it now yields an eligible instrument.
-- `run_llm_family_gate(vault: LoadedVault, repository: Repository, learning_object_id: str, template: ProbeFamilyTemplate, ai_client: object, *, trials_per_hypothesis: int=3, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1428) — Run the §9.6 family admission gate with LLM planted-trial traces.
-- `pending_review_instance_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1522) — Item ids parked behind instance review (consumed by state sync so a vault sync cannot force-reactivate them).
+- `run_llm_family_gate(vault: LoadedVault, repository: Repository, learning_object_id: str, template: ProbeFamilyTemplate, ai_client: object, *, trials_per_hypothesis: int=3, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1431) — Run the §9.6 family admission gate with LLM planted-trial traces.
+- `pending_review_instance_ids(repository: Repository) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_instance_generation.py), line 1525) — Item ids parked behind instance review (consumed by state sync so a vault sync cannot force-reactivate them).
 
 ### Module constants
 
@@ -163,6 +163,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_coverage.py](../../../../../../tests/test_probe_coverage.py) — direct import
   - `test_direct_plus_shifted_bindings_cover_a_contrast`
 - [tests/test_probe_instance_generation.py](../../../../../../tests/test_probe_instance_generation.py) — direct import
+  - `test_approving_an_answered_probe_keeps_its_scheduling_state`
   - `test_generation_is_idempotent`
   - `test_provisional_family_instances_park_behind_review`
   - `test_trusted_family_generation_unparks_episode_with_provenance`

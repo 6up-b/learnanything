@@ -35,8 +35,8 @@ from learnloop.content.sources.exam_material import (
     HELD_OUT_ITEM_REFUSAL,
     exam_reserved,
     held_out_item_ids,
-    held_out_material,
     held_out_selection_active,
+    surface_material,
 )
 from learnloop.instructional.practice import EXAM_RESERVED_PICK
 from learnloop.scheduling.device_eligibility import (
@@ -270,7 +270,7 @@ def refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem
         )
     if not held_out_selection_active(vault):
         return
-    if held_out_item_ids([item], held_out_material(vault, repository)):
+    if held_out_item_ids([item], surface_material(vault, repository, "session_serve")):
         raise SidecarError(
             HELD_OUT_MATERIAL_ERROR_CODE,
             f"{item.id}: {HELD_OUT_ITEM_REFUSAL}.",

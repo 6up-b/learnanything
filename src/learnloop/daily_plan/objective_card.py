@@ -166,10 +166,12 @@ def _card_topics(candidates: Sequence[Any]) -> list[str]:
     return out
 
 
-def miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *, served_at: str) -> list[dict[str, Any]]:
+def miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *, served_at: str,
+                       repository: Any = None) -> list[dict[str, Any]]:
     """SG1 (spec_slip_vs_gap_v1 §3 item 3): for the offer's topic and each repair candidate's, the latest miss's cause
     class probabilities, its surprise in words and its status (:func:`learnloop.router_objective.miss_cause.card_entry`),
-    probe attempts included. Never a hypothesis's statement or the answer. Empty off, below the tag, or with none."""
+    probe attempts included. Never a hypothesis's statement or the answer. Empty off, below the tag, or with none.
+    ``repository``: read an episode's posterior as the evidence reading fixes do (``miss_cause.probe_posterior``)."""
 
     from learnloop.adaptive_difficulty import history_card as HC
     from learnloop.router_objective import miss_cause as MC
@@ -180,7 +182,10 @@ def miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *
     topics = _card_topics(candidates)
     if not topics:
         return []
-    records = MC.sensor(connection, vault.config, topics, served_at)
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
+
+    effective = effective_posterior_reader(vault, repository) if repository is not None else None
+    records = MC.sensor(connection, vault.config, topics, served_at, effective)
     if not records:
         return []
     reference = MC.surprise_reference(connection, vault.config, served_at)
@@ -196,7 +201,7 @@ def miss_cause_lines(vault: Any, repository: Any, candidates: Sequence[Any], *, 
     from learnloop.db.connection import connect
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        entries = miss_cause_entries(vault, connection, candidates, served_at=served_at)
+        entries = miss_cause_entries(vault, connection, candidates, served_at=served_at, repository=repository)
     entries.sort(key=lambda entry: -(entry.get("days_before") or 0.0))
     from learnloop.router_objective.miss_cause import CARD_NOTE
 
@@ -242,7 +247,7 @@ def decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, ser
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         built = HC.decision_sections_entry(vault, repository, connection, asked, served_at=served_at)
         statements, statements_limited = learner_statements(vault, repository, connection, served_at=served_at)
-        causes = miss_cause_entries(vault, connection, candidates, served_at=served_at)
+        causes = miss_cause_entries(vault, connection, candidates, served_at=served_at, repository=repository)
     picked = {one["lo"]: one["item"] for one in built}
     history, limits, scope = _merged(built)
     if statements:

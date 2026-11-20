@@ -107,7 +107,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/split/live|learnloop.diagnosis.split.live]] — imports `grade_held_for_review`; statically calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `GRADE_HELD_FOR_REVIEW`, `unassessed_evidence_row`; statically calls `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/evsi_calibration/live_report|learnloop.evsi_calibration.live_report]] — imports `GRADE_HELD_FOR_REVIEW`
-- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `GRADE_HELD_FOR_REVIEW`
+- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `GRADE_HELD_FOR_REVIEW`, `PFC_NOTHING_ASSESSED`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `GRADE_CONTRACT_UNRECORDED`, `HELD_ROW_KEY`, `PFC_NOTHING_ASSESSED`, `PFC_PARTIALLY_ASSESSED`, `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`; statically calls `grade_held_for_review`, `grade_is_held`, `unassessed_evidence_row`
 - [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `HELD_ROW_KEY`
 - [[Reference/Modules/learnloop/recognition/report|learnloop.recognition.report]] — imports `RETENTION_MIN_DELAY_SECONDS`

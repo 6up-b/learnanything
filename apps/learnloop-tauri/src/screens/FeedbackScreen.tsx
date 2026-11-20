@@ -30,6 +30,8 @@ import { NOT_ASSESSED_LABEL, UNVERIFIED_ROUTE_REVIEW_REASON, criterionAssessed }
 import { EntityLink, KeyBar, Pill } from "../components/ui";
 import { CardControls, ProbeRemintAction } from "../components/CardControls";
 import { modePillColor } from "../components/term";
+import { Waiting } from "../components/Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { AttemptTraceView, UnresolvedCauseCard } from "../components/KnowledgeModel";
 import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { RepairTraceBlocks } from "../components/RepairTrace";
@@ -2794,6 +2796,8 @@ export function FeedbackScreen({
           ) : (
             <div style={{ color: C.textDim }} aria-busy="true">
               <div style={{ height: 30, width: 160, border: `1px dashed ${C.border}` }} />
+              {/* The rest of the owner's case 2: the graded answer's feedback is read (up to 11 s in the walks). */}
+              <Waiting testId="feedback-wait" line={WAITING_COPY.openingFeedback} style={{ marginTop: 10 }} />
             </div>
           )}
         </div>

@@ -337,3 +337,24 @@ def test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_serve
                                       practice_item_id=item, answer_md="Answer.", serving=lambda: False)
     assert len(client.calls) == 1
     assert (repository.exam_answer(session["session_id"], item) or {}).get("grade") is None
+
+
+def test_a_staged_grade_with_no_reliability_keeps_it_at_the_finish(tmp_path):
+    """A grader may answer a confidence of exactly 0.0: the staged grade carries no reliability, and the attempt the
+    finish applies keeps that 0.0 (only a missing value reads as full)."""
+
+    from dataclasses import replace
+
+    vault, repository, session = _reserved_and_started(tmp_path)
+    session_id = session["session_id"]
+    record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A",
+                       resolved_grade=replace(_grade(4), grader_confidence=0.0))
+    record_exam_answer(vault, repository, session_id, "pi_exam_b", answer_md="B", resolved_grade=_grade(2))
+
+    finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+
+    confidences = {
+        answer["practice_item_id"]: repository.fetch_practice_attempt(answer["attempt_id"])["grader_confidence"]
+        for answer in repository.exam_answers(session_id)
+    }
+    assert confidences == {"pi_exam_a": 0.0, "pi_exam_b": 1.0}

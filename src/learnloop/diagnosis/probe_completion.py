@@ -22,6 +22,8 @@ from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,
     _record_generation_need,
+    effective_episode_observations,
+    session_qualifying_total,
     eligible_instruments,
 )
 from learnloop.diagnosis.probe_hypotheses import strong_prior_claim
@@ -81,7 +83,7 @@ def evaluate_completion(
                          detail={"rules_passed": passed}, clock=clock)
 
     episode_config = vault.config.probe.episode
-    rows = repository.probe_observations_for_episode(episode.id)
+    rows = effective_episode_observations(vault, repository, episode.id)
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
 
     # mvp-0.21 (voi_stopping): the episode's own count is lifted with the
@@ -373,7 +375,7 @@ def robust_gate_counterfactual(
     gate either ran (and did not stop the episode) or never applies, and the
     receipt carries no counterfactual."""
 
-    rows = repository.probe_observations_for_episode(episode.id)
+    rows = effective_episode_observations(vault, repository, episode.id)
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
     if not qualifying or robust_gate_applies(vault, repository, qualifying):
         return False, None
@@ -430,7 +432,7 @@ def _robust_gate_verdict(
     if episode.calibration_model_hash is None:
         return None
     qualifying = sum(
-        1 for row in repository.probe_observations_for_episode(episode.id)
+        1 for row in effective_episode_observations(vault, repository, episode.id)
         if row["observation"].eligible_for_completion
     )
     if qualifying < episode.minimum_independent_observations:
@@ -641,7 +643,9 @@ def _value_of_information_stop(
         return None
     session_id = _latest_observation_session(repository, qualifying)
     decision = voi.probe_episode_decision(
-        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
+        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id,
+        qualifying_observations=len(qualifying),
+        session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
     )
     if decision.decision == voi.CONTINUE:
         return None

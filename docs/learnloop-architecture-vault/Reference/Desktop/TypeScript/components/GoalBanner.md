@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/GoalBanner.tsx](../../../../../../apps/learnloop-tauri/src/components/GoalBanner.tsx) |
-| Source lines | 889 |
+| Source lines | 892 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,91 +54,91 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function statusOf(attainment: number | null):` — function, line 44
-- `export function emptyGoalSentence(goal: GoalDto): string | null` — function, line 119
-- `export function GoalBanner(` — function, line 168
+- `export function statusOf(attainment: number | null):` — function, line 46
+- `export function emptyGoalSentence(goal: GoalDto): string | null` — function, line 121
+- `export function GoalBanner(` — function, line 170
 
 ## Internal implementation anchors
 
-- `function daysUntil(dueAt: string | null): number | null` — function, line 19
-- `const due = Date.parse(dueAt)` — const, line 21
-- `function dueLabel(dueAt: string | null): string` — function, line 26
-- `const d = daysUntil(dueAt)` — const, line 27
-- `function dueTone(dueAt: string | null): string` — function, line 35
-- `const d = daysUntil(dueAt)` — const, line 36
-- `const f = attainment ?? 0` — const, line 45
-- `function actionOf(label: GoalAtRiskFacetDto["label"]): string` — function, line 51
-- `const pct = (value: number | null | undefined): string` — const, line 57
-- `const capitalize = (s: string): string` — const, line 60
-- `function buildPaceSentence(report: GoalReportSummaryDto, pace: GoalPaceDto, dueAt: string | null): string` — function, line 65
-- `const remaining = report.attemptsRemaining ?? pace.attemptsRemaining` — const, line 66
-- `const partial = report.attemptsRemainingIsPartial === true` — const, line 67
-- `const dLeft = pace.daysLeft` — const, line 68
-- `const overdue = (daysUntil(dueAt) ?? 0) < 0` — const, line 69
-- `const head = `≈ $` — const, line 78
-- `const paceNoun = pace.paceKind === "qualifying" ? "goal pace" : "recent activity"` — const, line 80
-- `const allow = dLeft == null ? "the due date is open-ended" : overdue ? `the due date passed $` — const, line 82
-- `const days = Math.max(1, Math.ceil(remaining / pace.attemptsPerDay))` — const, line 94
-- `const verdict = overdue ? "Behind — past due." : pace.onPace ? "On pace." : `Behind pace — $` — const, line 95
-- `function dueSentence(dueAt: string | null): string | null` — function, line 104
-- `const d = daysUntil(dueAt)` — const, line 105
-- `const report = goal.report` — const, line 120
-- `const answered = report.pace?.attemptsLogged ?? 0` — const, line 123
-- `const head = answered > 0 ? `You have answered $` — const, line 124
-- `const next = report.total <= 0 ? "None of the topics in your books is part of it so far: add or read a book that covers it, and its questions will count here." : answered > 0 ? "This goal's questions, answered on your own, are what count here." : "Answer its…` — const, line 128
-- `function emptyGoalCanPractise(goal: GoalDto): boolean` — function, line 138
-- `function SegmentBar(` — function, line 143
-- `const cells = Math.min(width, Math.max(total, 1))` — const, line 155
-- `const certCells = Math.round((certified / total) * cells)` — const, line 156
-- `const examCells = Math.max(Math.round((examined / total) * cells) - certCells, 0)` — const, line 157
-- `const restCells = Math.max(cells - certCells - examCells, 0)` — const, line 158
-- `const goal = useMemo(()` — const, line 184
-- `const goalId = goal?.id` — const, line 210
-- `const report = goal?.report ?? null` — const, line 211
-- `let cancelled = false` — let, line 221
-- `let cancelled = false` — let, line 248
-- `let cancelled = false` — let, line 269
-- `const certifiedCount = report?.certifiedCount` — const, line 299
-- `const key = `learnloop.goalCertified.$` — const, line 302
-- `const previous = Number(window.localStorage.getItem(key) ?? "0")` — const, line 303
-- `const hasDualAxis = report?.attainmentFraction !== undefined` — const, line 312
-- `const attainment = report?.attainmentFraction ?? report?.onTrackFraction ?? null` — const, line 313
-- `const emptySentence = emptyGoalSentence(goal)` — const, line 315
-- `const status = emptySentence ?` — const, line 316
-- `const targetPct = Math.round(goal.targetRecall * 100)` — const, line 317
-- `const tone = goal.dueAt ? dueTone(goal.dueAt) : status.color` — const, line 318
-- `const lastTwo = series && series.length >= 2 ? series.slice(-2) : null` — const, line 321
-- `const certDelta = lastTwo && lastTwo[0].certifiedCount != null && lastTwo[1].certifiedCount != null ? (lastTwo[1].certifiedCount ?? 0) - (lastTwo[0].certifiedCount ?? 0) : null` — const, line 322
-- `const attainDelta = lastTwo && lastTwo[0].attainmentFraction != null && lastTwo[1].attainmentFraction != null ? (lastTwo[1].attainmentFraction ?? 0) - (lastTwo[0].attainmentFraction ?? 0) : lastTwo ? (lastTwo[1].onTrackFraction ?? 0) - (lastTwo[0].onTrackFrac…` — const, line 326
-- `const pace = report?.pace ?? null` — const, line 333
-- `const atRiskCount = report?.atRiskCount ?? 0` — const, line 334
-- `const examWanted = Boolean(onTakeExam && goal.exam.enabled && exam && !examStatusFailed)` — const, line 337
-- `const showExamButton = Boolean(examWanted && exam && exam.poolItemCount > 0)` — const, line 338
-- `const examDeferred = Boolean(examWanted && !showExamButton && exam?.reservationDeferred)` — const, line 339
-- `const examUncovered = exam?.uncoveredFacets ?? []` — const, line 340
-- `const examUncoveredShown = examUncovered.slice(0, 3)` — const, line 341
-- `const paceOverdue = (daysUntil(goal.dueAt) ?? 0) < 0` — const, line 342
-- `const paceZero = pace != null && (pace.attemptsLast14d <= 0 || pace.attemptsPerDay <= 0)` — const, line 343
-- `const paceRemaining = report?.attemptsRemaining ?? pace?.attemptsRemaining ?? null` — const, line 344
-- `const paceTone = paceOverdue ? COLOR.pink : paceZero || paceRemaining == null ? COLOR.textDim : pace?.onPace === false ? COLOR.amber : COLOR.green` — const, line 345
-- `const paceForecast = report?.activeForecasts?.pace ?? null` — const, line 357
-- `const paceSentence = report && pace ? buildPaceSentence(report, pace, goal.dueAt) : null` — const, line 358
-- `async function saveIntent()` — function, line 360
-- `const canProject = pace != null && pace.attemptsPerDay > 0 && paceRemaining != null && paceRemaining > 0` — const, line 376
-- `async function applyPlanningOverride(daysPerWeek: number)` — function, line 377
-- `let pid = presentationId` — let, line 381
-- `const candidate: ClaimCandidateDto =` — const, line 383
-- `const result = await api.presentClaims([` — const, line 395
-- `const rate = pace?.attemptsPerDay ?? 0` — const, line 400
-- `const projected = canProject && rate > 0 ? Math.max(1, Math.ceil((paceRemaining as number) / (rate * (daysPerWeek / 7)))) : null` — const, line 401
-- `const detail = report.attemptsRemainingDetail` — const, line 612
-- `const unreachable = detail?.unreachable ?? (atRisk ? atRisk.filter((f)` — const, line 613
-- `const noSupply = detail?.noSupply ?? (atRisk ? atRisk.filter( (f)` — const, line 618
-- `const lowerBound = detail?.lowerBound ?? (atRisk ? atRisk.filter((f)` — const, line 627
-- `const causes: string[] = []` — const, line 632
-- `const message = causes.length > 0 ? `$` — const, line 648
-- `const projected = Math.max(1, Math.ceil((paceRemaining as number) / (pace.attemptsPerDay * (scenarioDays / 7))))` — const, line 712
-- `function btnStyle(color: string)` — function, line 877
+- `function daysUntil(dueAt: string | null): number | null` — function, line 21
+- `const due = Date.parse(dueAt)` — const, line 23
+- `function dueLabel(dueAt: string | null): string` — function, line 28
+- `const d = daysUntil(dueAt)` — const, line 29
+- `function dueTone(dueAt: string | null): string` — function, line 37
+- `const d = daysUntil(dueAt)` — const, line 38
+- `const f = attainment ?? 0` — const, line 47
+- `function actionOf(label: GoalAtRiskFacetDto["label"]): string` — function, line 53
+- `const pct = (value: number | null | undefined): string` — const, line 59
+- `const capitalize = (s: string): string` — const, line 62
+- `function buildPaceSentence(report: GoalReportSummaryDto, pace: GoalPaceDto, dueAt: string | null): string` — function, line 67
+- `const remaining = report.attemptsRemaining ?? pace.attemptsRemaining` — const, line 68
+- `const partial = report.attemptsRemainingIsPartial === true` — const, line 69
+- `const dLeft = pace.daysLeft` — const, line 70
+- `const overdue = (daysUntil(dueAt) ?? 0) < 0` — const, line 71
+- `const head = `≈ $` — const, line 80
+- `const paceNoun = pace.paceKind === "qualifying" ? "goal pace" : "recent activity"` — const, line 82
+- `const allow = dLeft == null ? "the due date is open-ended" : overdue ? `the due date passed $` — const, line 84
+- `const days = Math.max(1, Math.ceil(remaining / pace.attemptsPerDay))` — const, line 96
+- `const verdict = overdue ? "Behind — past due." : pace.onPace ? "On pace." : `Behind pace — $` — const, line 97
+- `function dueSentence(dueAt: string | null): string | null` — function, line 106
+- `const d = daysUntil(dueAt)` — const, line 107
+- `const report = goal.report` — const, line 122
+- `const answered = report.pace?.attemptsLogged ?? 0` — const, line 125
+- `const head = answered > 0 ? `You have answered $` — const, line 126
+- `const next = report.total <= 0 ? "None of the topics in your books is part of it so far: add or read a book that covers it, and its questions will count here." : answered > 0 ? "This goal's questions, answered on your own, are what count here." : "Answer its…` — const, line 130
+- `function emptyGoalCanPractise(goal: GoalDto): boolean` — function, line 140
+- `function SegmentBar(` — function, line 145
+- `const cells = Math.min(width, Math.max(total, 1))` — const, line 157
+- `const certCells = Math.round((certified / total) * cells)` — const, line 158
+- `const examCells = Math.max(Math.round((examined / total) * cells) - certCells, 0)` — const, line 159
+- `const restCells = Math.max(cells - certCells - examCells, 0)` — const, line 160
+- `const goal = useMemo(()` — const, line 186
+- `const goalId = goal?.id` — const, line 212
+- `const report = goal?.report ?? null` — const, line 213
+- `let cancelled = false` — let, line 223
+- `let cancelled = false` — let, line 250
+- `let cancelled = false` — let, line 271
+- `const certifiedCount = report?.certifiedCount` — const, line 301
+- `const key = `learnloop.goalCertified.$` — const, line 304
+- `const previous = Number(window.localStorage.getItem(key) ?? "0")` — const, line 305
+- `const hasDualAxis = report?.attainmentFraction !== undefined` — const, line 314
+- `const attainment = report?.attainmentFraction ?? report?.onTrackFraction ?? null` — const, line 315
+- `const emptySentence = emptyGoalSentence(goal)` — const, line 317
+- `const status = emptySentence ?` — const, line 318
+- `const targetPct = Math.round(goal.targetRecall * 100)` — const, line 319
+- `const tone = goal.dueAt ? dueTone(goal.dueAt) : status.color` — const, line 320
+- `const lastTwo = series && series.length >= 2 ? series.slice(-2) : null` — const, line 323
+- `const certDelta = lastTwo && lastTwo[0].certifiedCount != null && lastTwo[1].certifiedCount != null ? (lastTwo[1].certifiedCount ?? 0) - (lastTwo[0].certifiedCount ?? 0) : null` — const, line 324
+- `const attainDelta = lastTwo && lastTwo[0].attainmentFraction != null && lastTwo[1].attainmentFraction != null ? (lastTwo[1].attainmentFraction ?? 0) - (lastTwo[0].attainmentFraction ?? 0) : lastTwo ? (lastTwo[1].onTrackFraction ?? 0) - (lastTwo[0].onTrackFrac…` — const, line 328
+- `const pace = report?.pace ?? null` — const, line 335
+- `const atRiskCount = report?.atRiskCount ?? 0` — const, line 336
+- `const examWanted = Boolean(onTakeExam && goal.exam.enabled && exam && !examStatusFailed)` — const, line 339
+- `const showExamButton = Boolean(examWanted && exam && exam.poolItemCount > 0)` — const, line 340
+- `const examDeferred = Boolean(examWanted && !showExamButton && exam?.reservationDeferred)` — const, line 341
+- `const examUncovered = exam?.uncoveredFacets ?? []` — const, line 342
+- `const examUncoveredShown = examUncovered.slice(0, 3)` — const, line 343
+- `const paceOverdue = (daysUntil(goal.dueAt) ?? 0) < 0` — const, line 344
+- `const paceZero = pace != null && (pace.attemptsLast14d <= 0 || pace.attemptsPerDay <= 0)` — const, line 345
+- `const paceRemaining = report?.attemptsRemaining ?? pace?.attemptsRemaining ?? null` — const, line 346
+- `const paceTone = paceOverdue ? COLOR.pink : paceZero || paceRemaining == null ? COLOR.textDim : pace?.onPace === false ? COLOR.amber : COLOR.green` — const, line 347
+- `const paceForecast = report?.activeForecasts?.pace ?? null` — const, line 359
+- `const paceSentence = report && pace ? buildPaceSentence(report, pace, goal.dueAt) : null` — const, line 360
+- `async function saveIntent()` — function, line 362
+- `const canProject = pace != null && pace.attemptsPerDay > 0 && paceRemaining != null && paceRemaining > 0` — const, line 378
+- `async function applyPlanningOverride(daysPerWeek: number)` — function, line 379
+- `let pid = presentationId` — let, line 383
+- `const candidate: ClaimCandidateDto =` — const, line 385
+- `const result = await api.presentClaims([` — const, line 397
+- `const rate = pace?.attemptsPerDay ?? 0` — const, line 402
+- `const projected = canProject && rate > 0 ? Math.max(1, Math.ceil((paceRemaining as number) / (rate * (daysPerWeek / 7)))) : null` — const, line 403
+- `const detail = report.attemptsRemainingDetail` — const, line 614
+- `const unreachable = detail?.unreachable ?? (atRisk ? atRisk.filter((f)` — const, line 615
+- `const noSupply = detail?.noSupply ?? (atRisk ? atRisk.filter( (f)` — const, line 620
+- `const lowerBound = detail?.lowerBound ?? (atRisk ? atRisk.filter((f)` — const, line 629
+- `const causes: string[] = []` — const, line 634
+- `const message = causes.length > 0 ? `$` — const, line 650
+- `const projected = Math.max(1, Math.ceil((paceRemaining as number) / (pace.attemptsPerDay * (scenarioDays / 7))))` — const, line 714
+- `function btnStyle(color: string)` — function, line 880
 
 ## Who imports or calls it
 
@@ -157,7 +157,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/ClaimSurface|src/components/ClaimSurface.tsx]] — import-or-re-export; imports `mintVisitId`
 - [[Reference/Desktop/TypeScript/components/GoalTrajectoryChart|src/components/GoalTrajectoryChart.tsx]] — import-or-re-export; imports `GoalTrajectoryChart`
 - [[Reference/Desktop/TypeScript/components/TrackRecordView|src/components/TrackRecordView.tsx]] — import-or-re-export; imports `TrackRecordView`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `Waiting`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `BlockBar`, `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `measurementStateLabel`
+- [[Reference/Desktop/TypeScript/copy/waiting|src/copy/waiting.ts]] — import-or-re-export; imports `WAITING_COPY`
 
 ### Assets, platform, and third-party dependencies
 
@@ -173,6 +175,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/components/GoalBanner.waiting.test.tsx](../../../../../../apps/learnloop-tauri/src/components/GoalBanner.waiting.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/components/GoalBanner.emptyGoal.test.tsx](../../../../../../apps/learnloop-tauri/src/components/GoalBanner.emptyGoal.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_goals.py](../../../../../../tests/test_sidecar_goals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -241,46 +241,6 @@ def _observation_support_scores(
     }
 
 
-def _probe_production_admissibility(
-    repository: Repository, *, probe_attempt_id: str | None
-) -> "ProductionAdmissibility | None":  # noqa: F821  imported in the body; postponed annotations never evaluate it
-    """Was the probe answer produced before anything was revealed to it?
-
-    ``None`` when there is no probe attempt to assess (an out-of-band
-    classification: a replayed transcript, an adjudicated review). That is
-    stored as a NULL ``admissible_as_independent``, which says "not assessed" —
-    a different claim from "assessed and clean".
-    """
-
-    from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
-
-    if not probe_attempt_id:
-        return None
-    attempt = repository.fetch_practice_attempt(probe_attempt_id)
-    if attempt is None:
-        return None
-    from learnloop.followup_serve.workflow import probe_answer_exposed
-
-    exposed = probe_answer_exposed(
-        repository, str(attempt.get("probe_presentation_id") or ""),
-        answered_at=str(attempt.get("created_at") or "") or None,
-    )
-    if exposed is not None:
-        # FG1 §6.0, §7: the learner took "Show anyway", the feedback was released before a
-        # wait, or the causes were displayed before this answer (a recorded exposure, FG1c):
-        # an answer it can't resolve the cause with, whatever the ledger.
-        return ProductionAdmissibility(False, exposed)
-    return production_admissibility(
-        repository,
-        practice_item_id=str(attempt.get("practice_item_id") or "") or None,
-        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
-        produced_at=str(attempt.get("created_at") or "") or None,
-        # The production judged, by id (UX Phase 4 round 4): only its own
-        # frozen self-grade disclosure is exempt, never one matched by time.
-        production_id=probe_attempt_id,
-    )
-
-
 #: The learner-question channel writes an observation that classifies nothing:
 #: no bundle was pinned, so no declared feature was read. `unparsed_features` is
 #: the outcome vocabulary's word for "could not be read", and paired with
@@ -458,7 +418,9 @@ def record_probe_classification(
     # admission, not after, because an inadmissible-as-independent observation
     # must never resolve a factor — that is precisely the loop by which a
     # revealed solution would close the factor its reveal contaminated.
-    independence = _probe_production_admissibility(
+    from learnloop.diagnosis.probe_episodes import probe_answer_admissibility
+
+    independence = probe_answer_admissibility(
         repository, probe_attempt_id=probe_attempt_id
     )
 

@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import Literal
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
@@ -1238,6 +1238,27 @@ def _operation_labels(
     ]
 
 
+def _unassessed_criteria(vault: LoadedVault, evidence_rows: Iterable[Any]) -> frozenset[str]:
+    """The criteria whose current evidence row the own-route rule or PF-c marked unassessed
+    (``canonical_projection.unassessed_evidence_row``), at the evidence reading fixes (mvp-0.61); none below them.
+
+    Below the tag both diagnosis readers (the criterion receipt and trace consistency) took such a row for an
+    assessed zero: a claim that its criterion fell short read as checked and held, and the criterion as an
+    assessable failure (refactor bug ledger ER-2). Its kept points were never a measurement, so from the tag a claim
+    about it is unverifiable and it is no assessable outcome, as the projection and the discriminating sensor read
+    it."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return frozenset()
+    from learnloop.substrate.canonical_projection import unassessed_evidence_row
+
+    return frozenset(
+        str(row.criterion_id) for row in evidence_rows if unassessed_evidence_row(row.attribution_json)
+    )
+
+
 def _criterion_receipt(
     vault: LoadedVault,
     repository: Repository,
@@ -1251,6 +1272,7 @@ def _criterion_receipt(
     evidence = {
         row.criterion_id: row for row in repository.fetch_grading_evidence(attempt_id)
     }
+    unassessed = _unassessed_criteria(vault, evidence.values())
     raw: list[CriterionOutcome] = []
     rows: list[dict[str, Any]] = []
     for criterion in rubric.criteria:
@@ -1264,13 +1286,17 @@ def _criterion_receipt(
             if criterion.points > 0
             else 0.0
         )
-        raw.append(
-            CriterionOutcome(
-                criterion_id=criterion.id,
-                passed=fraction >= 0.40,
-                depends_on=tuple(criterion.depends_on),
+        if criterion.id not in unassessed:
+            # An unassessed criterion is no outcome (ER-2), as in the canonical projection: localization reads a
+            # dependency missing from the list as passed, so it neither fails nor blocks its descendants.
+            raw.append(
+                CriterionOutcome(
+                    criterion_id=criterion.id,
+                    passed=fraction >= 0.40,
+                    depends_on=tuple(criterion.depends_on),
+                )
             )
-        )
+        measured = criterion.id not in unassessed
         rows.append(
             {
                 "criterion_id": criterion.id,
@@ -1278,8 +1304,9 @@ def _criterion_receipt(
                 "points_awarded": awarded,
                 "points_possible": float(criterion.points),
                 "raw_fraction": fraction,
-                "passed": fraction >= 0.40,
-                "full_credit": fraction >= 1.0 - 1e-9,
+                # The kept points of an unassessed criterion pass nothing and earn no credit.
+                "passed": measured and fraction >= 0.40,
+                "full_credit": measured and fraction >= 1.0 - 1e-9,
                 "assessable": True,
             }
         )
@@ -1287,7 +1314,8 @@ def _criterion_receipt(
         value.criterion_id: value for value in localize_criterion_outcomes(raw)
     }
     for row in rows:
-        row["assessable"] = localized[row["criterion_id"]].assessable
+        located = localized.get(row["criterion_id"])
+        row["assessable"] = located is not None and located.assessable
 
     protected: list[dict[str, Any]] = [
         {"kind": "criterion", "criterion_id": row["criterion_id"]}
@@ -3458,9 +3486,13 @@ def _trace_consistency_states(
     maxima = {
         criterion.id: float(criterion.points) for criterion in rubric.criteria
     }
+    evidence_rows = repository.fetch_grading_evidence(attempt_id)
+    unassessed = _unassessed_criteria(vault, evidence_rows)
+    # A row marked unassessed (ER-2) is no score: a claim about its criterion is unverifiable, never held.
     awarded = {
         row.criterion_id: float(row.points_awarded)
-        for row in repository.fetch_grading_evidence(attempt_id)
+        for row in evidence_rows
+        if row.criterion_id not in unassessed
     }
     states: dict[str, str] = {}
     for hypothesis_id in hypothesis_ids:

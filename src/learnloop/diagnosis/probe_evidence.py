@@ -27,11 +27,14 @@ from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
 from learnloop.vault.models import LoadedVault
 from learnloop.diagnosis.probe_episodes import (
+    ANSWER_EXPOSED,
+    EXPOSURE_JUDGED,
     _bayes_update,
     _entropy,
     _fired_error_types,
     _item_max_points,
     _resolved_slot_map_from_snapshot,
+    answer_exposure,
     episode_hypothesis_set,
     episode_posterior,
 )
@@ -179,7 +182,7 @@ def record_presentation_activity_classification(
 
 
 def _presentation_contamination(
-    *, attempt_type: str, hints_used: int, tutor_contaminated: bool
+    *, attempt_type: str, hints_used: int, tutor_contaminated: bool, exposure: str | None = None
 ) -> dict[str, Any]:
     contamination: dict[str, Any] = {}
     if hints_used > 0:
@@ -190,6 +193,11 @@ def _presentation_contamination(
     # ``diagnostic_probe`` type; any other type contaminates the measurement.
     if attempt_type != "diagnostic_probe":
         contamination["attempt_type"] = attempt_type
+    # G3-1 (mvp-0.61): an answer the shared exposure test refuses as not
+    # independent (``probe_episodes.answer_exposure``) carries the reason, and
+    # its observation updates no belief (``_record_presentation_observation``).
+    if exposure is not None:
+        contamination[ANSWER_EXPOSED] = exposure
     return contamination
 
 
@@ -614,8 +622,21 @@ def _record_presentation_observation(
         attempt_type=attempt_type,
         hints_used=hints_used,
         tutor_contaminated=tutor_contaminated,
+        exposure=answer_exposure(vault, repository, attempt_id),
     )
     contaminated = bool(contamination)
+    # What the attempt itself carried (hints, tutor help, its type) decides its
+    # activity class and closes the segment, as before; an exposure only takes
+    # this observation out of the belief and the completion count, which is what
+    # a stored observation reads at the tag too (``effective_episode_observations``).
+    instructional = any(key != ANSWER_EXPOSED for key in contamination)
+    # G3-1 (mvp-0.61): the instrument's likelihoods are for an answer produced
+    # cold. After the feedback, the causes or a reveal were shown, the outcome
+    # no longer separates the causes, so an exposed answer updates no belief at
+    # any weight (the held grade's shape below), also when it was hinted or
+    # tutored too; damping it instead would still let it move the choice of
+    # repair, while the discriminating observation refuses it outright.
+    exposed = ANSWER_EXPOSED in contamination
 
     episode_config = vault.config.probe.episode
     weight = episode_config.contaminated_evidence_weight if contaminated else 1.0
@@ -628,9 +649,13 @@ def _record_presentation_observation(
         # §8.2: a multi-obligation response is one instrument — its update is
         # bounded by the assessable share of the task's fixed evidence mass.
         weight = min(weight, max(min(trace_mass, 1.0), 0.0))
-    posterior_after = _bayes_update(
-        dict(posterior_before), likelihoods, weight=weight, prior_for_marginal=posterior_before
-    )
+    if exposed:
+        weight = 0.0
+        posterior_after = dict(posterior_before)
+    else:
+        posterior_after = _bayes_update(
+            dict(posterior_before), likelihoods, weight=weight, prior_for_marginal=posterior_before
+        )
     entropy_before = _entropy(posterior_before)
     entropy_after = _entropy(posterior_after)
     eligible = (
@@ -656,6 +681,12 @@ def _record_presentation_observation(
     )
     if robust_snapshot is not None:
         features = dict(features or {}, robust=robust_snapshot)
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if evidence_reading_fixes_on(vault.config):
+        # The verdict is the one judged now: a later reading trusts it, since judging again could count a reveal
+        # written after the answer (``probe_episodes.effective_episode_observations``).
+        features = dict(features or {}, **{EXPOSURE_JUDGED: True})
     repository.insert_probe_observation(
         attempt_id=attempt_id,
         posterior_before=posterior_before,
@@ -672,14 +703,14 @@ def _record_presentation_observation(
             "grading_source": grading_source,
             "observed_outcome": outcome,
         },
-        updates_belief=True,
+        updates_belief=not exposed,
         eligible_for_completion=eligible,
         features=features,
         clock=clock,
     )
     contamination_class = (
         "instructional_diagnostic"
-        if contaminated
+        if instructional
         else "pure_diagnostic"
     )
     # Restates the pre-projection fact idempotently. Keeping this call beside

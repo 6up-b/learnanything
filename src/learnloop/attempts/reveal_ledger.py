@@ -265,6 +265,8 @@ def production_admissibility(
     strict: bool = False,
     production_id: str | None = None,
     clock: Clock | None = None,
+    read_at: str | None = None,
+    excluding_attempt_id: str | None = None,
 ) -> ProductionAdmissibility:
     """Admit a learner production unless a reveal preceded it in its window.
 
@@ -286,6 +288,11 @@ def production_admissibility(
     and trace hash, compared field by field: :func:`is_own_disclosure`),
     never by timestamp or prefix (rounds 4 and 5, F1-2).
 
+    ``read_at`` stands in for this reader's clock in that rule: a stored production judged later passes a
+    persisted instant (when its own record was written), so the same database gives the same verdict whenever it is
+    read. ``excluding_attempt_id``: reveals linked to that attempt (its own feedback, shown after it in the same
+    second at the ledger's precision) never count against it. Both default to the live reading.
+
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
     while looking like a finding. Offline research passes ``strict=True`` to
@@ -295,7 +302,7 @@ def production_admissibility(
     if not produced_at or not (practice_item_id or learning_object_id):
         return ProductionAdmissibility(True, None)
     cutoff = routine_display_lapsed_before(produced_at)
-    now_iso = utc_now_iso(clock)
+    now_iso = read_at if read_at is not None else utc_now_iso(clock)
     try:
         reveals = repository.reveal_events_for_target(
             practice_item_id=practice_item_id,
@@ -328,6 +335,7 @@ def production_admissibility(
             row
             for row in reveals
             if not _lapsed_routine_display(row, cutoff) and not is_own_disclosure(row, own_key, own_trace)
+            and not (excluding_attempt_id and str(row.get("attempt_id") or "") == excluding_attempt_id)
         ]
     except Exception:  # pragma: no cover - defensive
         if strict:

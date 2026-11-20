@@ -60,3 +60,13 @@ it("maps rejected calls to their state", () => {
   expect(phaseForError({ code: "question_limit_reached", message: "limit" })).toBe("capped");
   expect(phaseForError(new Error("boom"))).toBe("failed");
 });
+
+// Waiting you can see (docs/reviews/ux-waiting.md): the Reader's pending line keeps its words, its cancel and
+// its timing, and draws the app's one waiting mark, still (the Reader never animates, G54).
+it("pending draws the shared waiting mark, still, hidden from assistive technology", () => {
+  render(<ModelActionState phase="pending" verb="looking in your books, then writing an answer" />);
+  const mark = screen.getByText("◐");
+  expect(mark.className).toBe("ll-wait-mark");
+  expect(mark.getAttribute("data-motion")).toBe("still");
+  expect(mark.getAttribute("aria-hidden")).toBe("true");
+});

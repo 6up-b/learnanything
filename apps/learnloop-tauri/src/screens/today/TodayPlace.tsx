@@ -41,6 +41,8 @@ import type {
 import { COLOR, FONT_MONO } from "../../components/term";
 import { GoalCard } from "../../components/GoalCard";
 import { GoalWizard } from "../../components/GoalWizard";
+import { Waiting } from "../../components/Waiting";
+import { WAITING_COPY } from "../../copy/waiting";
 import { InboxStrip } from "../../components/InboxStrip";
 import { targetForDialogue } from "../../components/QuestionQueue";
 import type { AskTarget } from "../../components/AskOverlay";
@@ -477,6 +479,12 @@ export function TodayPlace({
   const plan = planOn ? data!.plan : null;
   const planOff = data !== null && !planOn;
   const [busy, setBusy] = useState(false);
+  // What the press that set `busy` is waiting for, when it leads to a question (or more of the day): the
+  // shared waiting line says it. Without it the only sign of a wait of up to 15 s was Begin's "opening…".
+  const [waitLine, setWaitLine] = useState<string | null>(null);
+  // Practise for this goal is two runs (read the list, then serve the pick): held, the line stays up between
+  // them instead of vanishing and coming back after its delay.
+  const lineHeld = useRef(false);
   const [why, setWhy] = useState(false);
   const [list, setList] = useState(false);
   const [wizard, setWizard] = useState(false);
@@ -630,6 +638,20 @@ export function TodayPlace({
     },
     [busy, onError, stay]
   );
+  // `run` that also says what it waits for. Only the press that wins `busy` sets the line, so a second
+  // press during the wait (which `run` drops) cannot clear the first one's.
+  const runSaying = useCallback(
+    async <T,>(line: string, work: () => Promise<T>): Promise<T | null> => {
+      if (busy) return null;
+      setWaitLine(line);
+      try {
+        return await run(work);
+      } finally {
+        if (alive.current && !lineHeld.current) setWaitLine(null);
+      }
+    },
+    [busy, run]
+  );
 
   const done = plan ? plan.status !== "open" : false;
   const current = plan?.blocks.find((block) => block.id === plan.currentBlockId) ?? null;
@@ -647,7 +669,7 @@ export function TodayPlace({
     if (planOff) return beginWithoutPlan();
     if (!plan || done || waiting) return;
     if (!session) {
-      const begun = await run(async () => {
+      const begun = await runSaying(WAITING_COPY.choosingNext, async () => {
         const started = await startSession(Math.round(plan.minutesBudget));
         const first = await api.nextPlanItem({ sessionId: started.sessionId, serve: true });
         return { started, step: first.step ?? null };
@@ -655,7 +677,7 @@ export function TodayPlace({
       if (begun) onBeginSession(begun.started, begun.step);
       return;
     }
-    const result = await run(() => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));
+    const result = await runSaying(WAITING_COPY.choosingNext, () => api.nextPlanItem({ sessionId: session.sessionId, serve: true }));
     const action = planStepAction(result?.step, { viaBlockLine: false });
     if (action.type === "practice") onOpenPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
     else if (action.type === "reader") onOpenPlanReading(action.reading);
@@ -683,7 +705,7 @@ export function TodayPlace({
   // and its queue's first question, as classic Start then Today's Enter do.
   async function beginWithoutPlan() {
     if (minutes === null) return;
-    const opened = await run(async () => {
+    const opened = await runSaying(WAITING_COPY.choosingNext, async () => {
       const started = session ?? (await startSession(minutes));
       const head = await api.getTodayQueue(todayQueueInput(started));
       return { started, item: head.sections.flatMap((section) => section.items)[0] ?? null };
@@ -705,7 +727,7 @@ export function TodayPlace({
   async function keepGoing() {
     setMoreNew(null);
     setKeptGoingToNothing(false);
-    const result = await run(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
+    const result = await runSaying(WAITING_COPY.addingMore, () => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
     // UX-4 (audit student-1 #44): an extension with nothing in it comes back
     // closed, the same Today; say so rather than redraw it silently. Stage 3
     // (item 6): what follows the line is the day's cause, read from today's
@@ -750,10 +772,10 @@ export function TodayPlace({
   // Fix round 1 (F4): with the plan off and no session, the session starts
   // with the minutes shown and chosen here (as Begin's), not the shell's
   // remembered ones.
-  async function openFromList(item: ScheduledItemDto) {
+  async function openFromList(item: ScheduledItemDto, line: string = WAITING_COPY.openingQuestion) {
     if (!plan) {
       if (!session && planOff && minutes !== null) {
-        const started = await run(() => startSession(minutes));
+        const started = await runSaying(line, () => startSession(minutes));
         if (!started) return;
         onBeginSession(started);
       }
@@ -761,7 +783,7 @@ export function TodayPlace({
       return;
     }
     if (!session) {
-      const begun = await run(async () => {
+      const begun = await runSaying(line, async () => {
         const started = await startSession(Math.round(plan.minutesBudget));
         const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null);
         return { started, step: result.step ?? null };
@@ -769,7 +791,7 @@ export function TodayPlace({
       if (begun) onBeginSession(begun.started, begun.step);
       return;
     }
-    const result = await run(() => api.planLearnerPick(item.practiceItemId, session.sessionId, item.schedulerCandidateId ?? null));
+    const result = await runSaying(line, () => api.planLearnerPick(item.practiceItemId, session.sessionId, item.schedulerCandidateId ?? null));
     if (!result) return;
     const step = result.step;
     onOpenPractice(
@@ -783,9 +805,20 @@ export function TodayPlace({
   // Practise for this goal: the first question on the goal's frontier in
   // today's list (as the goal banner's "practise at-risk" does).
   async function practiseGoal() {
+    if (busy) return;
+    lineHeld.current = true;
+    try {
+      await practiseGoalHeld();
+    } finally {
+      lineHeld.current = false;
+      if (alive.current) setWaitLine(null);
+    }
+  }
+
+  async function practiseGoalHeld() {
     setGoalNothingReady(false);
     const input = queueInput ?? todayQueueInput(session);
-    const snapshot = await run(() => api.getTodayQueue(input));
+    const snapshot = await runSaying(WAITING_COPY.findingGoalQuestion, () => api.getTodayQueue(input));
     if (!snapshot) return;
     const target = snapshot.sections.flatMap((section) => section.items).find((item) => (item.components.goalFrontier ?? 0) > 0) ?? null;
     if (!target) {
@@ -793,7 +826,7 @@ export function TodayPlace({
       setGoalNothingReady(true);
       return;
     }
-    await openFromList(target);
+    await openFromList(target, WAITING_COPY.findingGoalQuestion);
   }
 
   // P1: the one step beside an empty day's cause. A retry the sidecar wants
@@ -885,7 +918,12 @@ export function TodayPlace({
     );
   } else if (!data) {
     // Loading: the frame, with nothing claimed yet (never "Loading today's queue").
-    body = <div data-testid="today-loading" aria-busy="true" style={{ minHeight: 64, opacity: 0.35, fontSize: 14, color: COLOR.textDim }}>…</div>;
+    // App start and every return to Today: after the indicator's delay, what is being read (get_daily_plan took up to 19 s once in the walks).
+    body = (
+      <div data-testid="today-loading" aria-busy="true" style={{ minHeight: 64, fontSize: 14, color: COLOR.textDim }}>
+        <Waiting testId="plan-wait" line={WAITING_COPY.readingPlan} />
+      </div>
+    );
   } else if (list) {
     body = (
       <PlainList
@@ -1054,6 +1092,7 @@ export function TodayPlace({
           <LessonSuggestionCard sessionId={session?.sessionId ?? null} onStartLesson={onStartLesson} onError={onError} />
         ) : null}
         {body}
+        {waitLine ? <Waiting line={waitLine} /> : null}
         {!list && primaryGoal ? (
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />
         ) : null}

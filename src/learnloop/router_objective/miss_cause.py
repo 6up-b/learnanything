@@ -277,11 +277,17 @@ def _factors(connection: Any, attempt_id: str) -> list[str]:
         "SELECT id FROM unresolved_cause_factors WHERE attempt_id = ? ORDER BY created_at, id", (attempt_id,))]
 
 
-def probe_posterior(connection: Any, attempt_id: str, now_iso: str) -> dict[str, Any] | None:
+def probe_posterior(connection: Any, attempt_id: str, now_iso: str, effective: Any = None) -> dict[str, Any] | None:
     """A probe episode's posterior on the miss's factor, by causal class, as known at ``now_iso``: the latest of the
     episode's completion posterior and its observations' posteriors. Each hypothesis's mass goes to its class; the
     open-set mass (and any key that names no causal hypothesis) to ``unknown``. None: no episode on the miss's factor
-    has a posterior on record."""
+    has a posterior on record.
+
+    ``effective``: the caller's reading of an episode whose stored posteriors the evidence reading fixes read
+    differently (``diagnosis.probe_episodes.effective_posterior_reader``: ``(episode id, now_iso) -> (at, posterior)``
+    or None). The stored posteriors are receipts that still hold an exposed answer recorded below mvp-0.61; for such
+    an episode its effective posterior replaces them (source ``effective``). Passed in, because diagnosis imports this
+    package. None (and below the tag): the stored posteriors, as before."""
 
     if not (_table(connection, "probe_episodes") and _table(connection, "causal_hypotheses")):
         return None
@@ -293,6 +299,11 @@ def probe_posterior(connection: Any, attempt_id: str, now_iso: str) -> dict[str,
     for episode_id, completed_at, completion in connection.execute(
             f"SELECT id, completed_at, completion_posterior_json FROM probe_episodes WHERE origin IN ({marks}) "
             "AND created_at <= ? ORDER BY created_at, id", (*origins, now_iso)):
+        reread = effective(str(episode_id), now_iso) if effective is not None else None
+        if reread is not None:
+            if found is None or str(reread[0]) > found[0]:
+                found = (str(reread[0]), str(episode_id), "effective", reread[1])
+            continue
         posterior = _loads(completion, None)
         if isinstance(posterior, Mapping) and posterior and completed_at and str(completed_at) <= now_iso:
             if found is None or str(completed_at) > found[0]:
@@ -376,8 +387,8 @@ def stored_surprise(connection: Any, attempt_id: str, now_iso: str | None = None
             "direction": None if row[2] is None else str(row[2])}
 
 
-def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str) -> dict[str, Any]:
-    """One topic's sensor, from its latest miss."""
+def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str, effective: Any = None) -> dict[str, Any]:
+    """One topic's sensor, from its latest miss (``effective``: :func:`probe_posterior`'s)."""
 
     attempt_id = str(miss["attempt_id"])
     status, diagnosis = diagnosis_state(connection, attempt_id, now_iso)
@@ -398,7 +409,7 @@ def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str) -> dict[s
     p, events = weighted
     record["events"] = events
     record["prior"] = {CLASS_WORDS[name]: p[name] for name in CLASSES}
-    posterior = probe_posterior(connection, attempt_id, now_iso)
+    posterior = probe_posterior(connection, attempt_id, now_iso, effective)
     if posterior is not None:
         p = posterior["p"]
         record.update(episode_id=posterior["episode_id"], basis=BASIS_POSTERIOR,
@@ -411,10 +422,12 @@ def record_for(connection: Any, miss: Mapping[str, Any], now_iso: str) -> dict[s
     return record
 
 
-def sensor(connection: Any, config: Any, learning_object_ids: Iterable[str], now_iso: str) -> dict[str, dict[str, Any]]:
-    """SG1: per candidate topic with a missed cold check since its last lesson, its record (module docstring)."""
+def sensor(connection: Any, config: Any, learning_object_ids: Iterable[str], now_iso: str,
+           effective: Any = None) -> dict[str, dict[str, Any]]:
+    """SG1: per candidate topic with a missed cold check since its last lesson, its record (module docstring;
+    ``effective``: :func:`probe_posterior`'s)."""
 
-    return {lo: record_for(connection, miss, now_iso)
+    return {lo: record_for(connection, miss, now_iso, effective)
             for lo, miss in sorted(latest_misses(connection, config, learning_object_ids, now_iso).items())}
 
 

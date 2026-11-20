@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/attempts/post_attempt.py"
+  - "src/learnloop/attempts/replay_reading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/post_attempt.py`
+- `src/learnloop/attempts/replay_reading.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/live.py`

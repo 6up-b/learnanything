@@ -130,7 +130,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       getAnswers[`/api/v1/submissions/${key}`] = { state: "running" };
       typeInto("Something else");
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-      await screen.findByText(/being graded/);
+      await screen.findByText(/Checking your answer…/);
       expect(called("submit_attempt")).toHaveLength(1);
       getAnswers[`/api/v1/submissions/${key}`] = { state: "completed", result: { attemptId: "a1", practiceItemId: "i1" } };
       await screen.findByText("3 / 4", undefined, { timeout: 4000 });
@@ -198,7 +198,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       getAnswers[`/api/v1/submissions/${key}`] = { state: "running" };
       const sent = called("submit_attempt").length;
       fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-      await screen.findByText(/being graded/);
+      await screen.findByText(/Checking your answer…/);
       expect(called("submit_attempt")).toHaveLength(sent);
     }, 10000);
 
@@ -241,7 +241,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       getAnswers[statusOf(key)] = { state: "running" };
       typeInto("Something else");
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-      await screen.findByText(/being graded/);
+      await screen.findByText(/Checking your answer…/);
       expect(asked(key)).toBeGreaterThan(0);
       expect(called("submit_attempt")).toHaveLength(sent);
     }, 10000);
@@ -267,7 +267,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       getAnswers[statusOf(key)] = { state: "running" };
       typeInto("Something else");
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-      await screen.findByText(/being graded/);
+      await screen.findByText(/Checking your answer…/);
       expect(asked(key)).toBeGreaterThan(0);
       expect(called("submit_attempt")).toHaveLength(1);
     });
@@ -299,7 +299,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
         getAnswers[statusOf(key)] = { state: "running" };
         typeInto("Something else");
         fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-        await screen.findByText(/being graded/);
+        await screen.findByText(/Checking your answer…/);
         expect(called("submit_attempt")).toHaveLength(1);
       });
 
@@ -348,7 +348,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
 
       it("a job still running is waited for, and nothing is skipped", async () => {
         await refusedThenSkip({ state: "running" });
-        await screen.findByText(/being graded/);
+        await screen.findByText(/Checking your answer…/);
         expect(called("skip_practice_item")).toEqual([]);
       });
 
@@ -477,7 +477,7 @@ describe("a question through what can go wrong (Codex review of M2a)", () => {
       getAnswers[statusOf(key)] = { state: "running" };
       typeInto("Something else");
       fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-      await screen.findByText(/being graded/);
+      await screen.findByText(/Checking your answer…/);
       getAnswers[statusOf(key)] = RECORDED();
       await screen.findByText("3 / 4", undefined, { timeout: 4000 });
       expect(called("submit_attempt")).toHaveLength(1);

@@ -3754,6 +3754,7 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
     except Exception:  # noqa: BLE001 - a receipt never blocks the plan
         logging.getLogger(__name__).warning("router objective: a decision's minutes were not read", exc_info=True)
         return None
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
     return decision_state.prepare(
         env.vault, env.repository, candidates=candidates, session_id=env.session_id, stop=stop, pick=pick,
         retrievability=retrievability,
@@ -3763,7 +3764,7 @@ def _decision_state(env: PlanEnv, estimator: Any, *, candidates: Sequence[Mappin
         voi=[*voi, *(dict(row) for row in getattr(getattr(env, "last_trace", None), "voi_decisions", ()) or ())],
         ad_fields=(lambda los: ad(env, los)) if callable(ad) else ad,
         versions={"estimator": getattr(estimator, "version", None)},
-        clock=env.clock,
+        clock=env.clock, effective_posterior=effective_posterior_reader(env.vault, env.repository),
     )
 
 

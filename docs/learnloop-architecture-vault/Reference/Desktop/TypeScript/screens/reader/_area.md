@@ -56,7 +56,7 @@ Reader request-state coordination extracted from the main reader screen.
 | [[Reference/Desktop/TypeScript/screens/reader/LibraryAnswer|LibraryAnswer.tsx]] | `ACTIVE` | Implements the `LibraryAnswer` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 4 |
 | [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|LibraryPane.tsx]] | `ACTIVE` | Implements the `LibraryPane` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/MarginMark|MarginMark.tsx]] | `ACTIVE` | Implements the `MarginMark` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 2 |
-| [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|ModelActionState.tsx]] | `ACTIVE` | Implements the `ModelActionState` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 15 |
+| [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|ModelActionState.tsx]] | `ACTIVE` | Implements the `ModelActionState` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 15 |
 | [[Reference/Desktop/TypeScript/screens/reader/NotesGapsSettings|NotesGapsSettings.tsx]] | `ACTIVE` | Implements the `NotesGapsSettings` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/NotesRail|NotesRail.tsx]] | `ACTIVE` | Implements the `NotesRail` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/reader/PreparingView|PreparingView.tsx]] | `ACTIVE` | Implements the `PreparingView` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |

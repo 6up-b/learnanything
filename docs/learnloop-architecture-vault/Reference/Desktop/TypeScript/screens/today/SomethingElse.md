@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/SomethingElse.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/SomethingElse.tsx) |
-| Source lines | 161 |
+| Source lines | 163 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
@@ -54,25 +54,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type SomethingElseSurface = "feedback" | "offer_page" | "today"` — type, line 16
-- `export const SOMETHING_ELSE_LINK = "Something else would help"` — const, line 19
-- `export function useSomethingElseOn(sessionId: string | null, enabled?: boolean): boolean` — function, line 22
-- `export function lessonEntryFor(result: SomethingElseChosenDto): LessonEntry | null` — function, line 28
-- `export function SomethingElse(` — function, line 48
+- `export type SomethingElseSurface = "feedback" | "offer_page" | "today"` — type, line 18
+- `export const SOMETHING_ELSE_LINK = "Something else would help"` — const, line 21
+- `export function useSomethingElseOn(sessionId: string | null, enabled?: boolean): boolean` — function, line 24
+- `export function lessonEntryFor(result: SomethingElseChosenDto): LessonEntry | null` — function, line 30
+- `export function SomethingElse(` — function, line 50
 
 ## Internal implementation anchors
 
-- `const plan = useDailyPlan(sessionId, enabled === undefined && Boolean(sessionId))` — const, line 23
-- `const lesson = result.preference?.outcome === "lesson" ? result.preference.lesson : null` — const, line 29
-- `function newKey(): string` — function, line 38
-- `const c = (globalThis as` — const, line 39
-- `const linkStyle =` — const, line 43
-- `const on = useSomethingElseOn(sessionId, enabled)` — const, line 72
-- `const key = useRef<` — const, line 80
-- `async function show()` — function, line 83
-- `async function choose(option: SomethingElseOptionDto)` — function, line 97
-- `const result = await api.planSomethingElse(` — const, line 102
-- `const shown = (options?.options ?? []).filter( (option)` — const, line 117
+- `const plan = useDailyPlan(sessionId, enabled === undefined && Boolean(sessionId))` — const, line 25
+- `const lesson = result.preference?.outcome === "lesson" ? result.preference.lesson : null` — const, line 31
+- `function newKey(): string` — function, line 40
+- `const c = (globalThis as` — const, line 41
+- `const linkStyle =` — const, line 45
+- `const on = useSomethingElseOn(sessionId, enabled)` — const, line 74
+- `const key = useRef<` — const, line 82
+- `async function show()` — function, line 85
+- `async function choose(option: SomethingElseOptionDto)` — function, line 99
+- `const result = await api.planSomethingElse(` — const, line 104
+- `const shown = (options?.options ?? []).filter( (option)` — const, line 119
 
 ## Who imports or calls it
 
@@ -93,7 +93,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `SomethingElseChosenDto`, `SomethingElseOptionDto`, `SomethingElseOptionsDto`
 - [[Reference/Desktop/TypeScript/app/dailyPlan|src/app/dailyPlan.ts]] — import-or-re-export; imports `useDailyPlan`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `Waiting`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/copy/waiting|src/copy/waiting.ts]] — import-or-re-export; imports `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `getCommandError`
 - [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export; imports `LessonEntry`
 

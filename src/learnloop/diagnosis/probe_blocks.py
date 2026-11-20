@@ -30,7 +30,13 @@ from typing import Any
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.probes import ProbeEpisodeRecord
-from learnloop.diagnosis.probe_episodes import EpisodePosterior, eligible_instruments, episode_posterior
+from learnloop.diagnosis.probe_episodes import (
+    EpisodePosterior,
+    effective_episode_observations,
+    session_qualifying_total,
+    eligible_instruments,
+    episode_posterior,
+)
 from learnloop.diagnosis.probe_completion import (
     episode_maximum_binds,
     evaluate_completion,
@@ -84,7 +90,7 @@ def block_complete(
         # block, so the held feedback and the repair follow at once.
         return True
 
-    rows = repository.probe_observations_for_episode(episode.id)
+    rows = effective_episode_observations(vault, repository, episode.id)
     qualifying_rows = [row for row in rows if row["observation"].eligible_for_completion]
     qualifying = len(qualifying_rows)
     # mvp-0.21 (voi_stopping): while value decides, the episode's own count
@@ -138,7 +144,9 @@ def _next_observation_does_not_pay(
         # An empty pool keeps its own rule (the completion policy parks it).
         return False
     decision = voi.probe_episode_decision(
-        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id
+        voi.VoiContext(vault, repository), episode, candidates, posterior.posterior, session_id=session_id,
+        qualifying_observations=len(qualifying),
+        session_qualifying_observations=session_qualifying_total(vault, repository, session_id),
     )
     return decision.decision == voi.STOP
 

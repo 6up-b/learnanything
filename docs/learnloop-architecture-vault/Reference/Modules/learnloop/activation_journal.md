@@ -129,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ad_denial_log.py](../../../../../tests/test_ad_denial_log.py) — direct import
+- [tests/test_evidence_reading_successor.py](../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_sidecar_stops_serving.py](../../../../../tests/test_sidecar_stops_serving.py) — direct import
   - `test_a_journal_that_appears_while_bound_stops_serving_until_a_load_succeeds`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import

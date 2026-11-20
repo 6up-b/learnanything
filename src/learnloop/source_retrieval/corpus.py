@@ -242,7 +242,7 @@ def teaching_exclusions(vault: LoadedVault, repository: Repository, *,
     material, which is the predicate's whatever the role.
     """
 
-    exam = EM.exam_material(vault, repository).material
+    exam = EM.surface_material(vault, repository, "teaching")
     lifted = frozenset(str(role).strip() for role in readable_roles)
     others = EM.role_material(vault, repository, (lambda role: _withheld_besides_exams(role)
                                                   and str(role or "").strip() not in lifted)

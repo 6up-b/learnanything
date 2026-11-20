@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { ClaimCandidateDto, ExamStatusSnapshot, GoalAtRiskFacetDto, GoalDto, GoalPaceDto, GoalReportSummaryDto, GoalSeriesPointDto } from "../api/dto";
 import { GoalTrajectoryChart } from "./GoalTrajectoryChart";
+import { Waiting } from "./Waiting";
+import { WAITING_COPY } from "../copy/waiting";
 import { mintVisitId } from "./ClaimSurface";
 import { TrackRecordView } from "./TrackRecordView";
 import { BlockBar, COLOR, Faint, FONT_MONO, measurementStateLabel, Pill } from "./term";
@@ -864,7 +866,8 @@ export function GoalBanner({
           {seriesError ? (
             <Faint style={{ color: COLOR.red, fontSize: 11 }}>{seriesError}</Faint>
           ) : seriesLoading || series == null ? (
-            <div style={{ fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO, padding: "8px 0" }}>loading trajectory…</div>
+            // Goal details' longest wait (10 to 14 s uncached in the walks, exam-1 #3, seasoned-2 #14).
+            <Waiting testId="trajectory-wait" line={WAITING_COPY.workingOutGoal} style={{ padding: "8px 0" }} />
           ) : (
             <GoalTrajectoryChart series={series} dueAt={goal.dueAt} targetRecall={goal.targetRecall} />
           )}

@@ -3,6 +3,8 @@
 // book and its administration are the desktop's (J15; V7 adds *Add a link* through capture).
 import { useEffect, useState } from "react";
 import type { CommandError } from "@desktop/api/dto";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { phone, type PhoneBookDto } from "../api/phone";
 import { getLatest, putLatest } from "../store/displayCache";
 import { readPlaces, type LocalPlace } from "./readerCache";
@@ -64,7 +66,7 @@ export function ReadScreen({ onOpen, onError }: { onOpen: (target: ReaderTarget)
         </div>
       ) : null}
       {problem ? <p className="dim" role="status">{problem}</p> : null}
-      {books === null && !problem ? <p className="dim" role="status">Reading your books…</p> : null}
+      {books === null && !problem ? <Waiting testId="books-wait" line={WAITING_COPY.readingBooks} /> : null}
       {books && books.length === 0 ? <p className="dim">No book is ready to read yet. Add one on the desktop.</p> : null}
       {books && books.length ? (
         <ul className="list" aria-label="Your books">

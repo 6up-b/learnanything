@@ -419,3 +419,18 @@ def test_a_rich_only_build_names_its_job_and_an_interrupted_build_its_error():
     (only,) = stopped.records(request=request, request_id="req_2", model="m", error=error)
     assert (only.status, only.rule, only.error_type) == ("failed", "interrupted", type(error).__name__)
     assert only.facts["outcome"] == FR.BUILD_ERROR and "storage said" not in json.dumps(only.as_dict())
+
+
+@pytest.mark.parametrize("status, recorded", [("manim", "manim"), ("sketch", "sketch"), ("js_animation", "other")])
+def test_an_author_status_no_menu_offers_is_recorded_as_other(status, recorded):
+    """No menu offers a JavaScript animation tier, so an answer naming one is an off-menu status like any other."""
+
+    from types import SimpleNamespace
+
+    attempts = FR.AuthorAttempts()
+    attempts.start(1)
+    attempts.fact(author_status=status)
+    attempts.end(FR.STATUS_INVALID)
+    (only,) = attempts.records(request=SimpleNamespace(origin="selection", prefetch_decision_id=None),
+                               request_id="req_1", model="m")
+    assert only.facts["author_status"] == recorded

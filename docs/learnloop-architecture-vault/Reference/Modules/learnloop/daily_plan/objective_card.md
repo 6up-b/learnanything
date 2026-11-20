@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_card.py](../../../../../../src/learnloop/daily_plan/objective_card.py) |
-| Source lines | 283 |
+| Source lines | 288 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,10 +55,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `learner_statements(vault: Any, repository: Any, connection: Any, *, served_at: str) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 112) — The learner's statements known at ``served_at``, oldest first, and whether the read reached its limit.
-- `miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *, served_at: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 169) — SG1 (spec_slip_vs_gap_v1 §3 item 3): for the offer's topic and each repair candidate's, the latest miss's cause class probabilities, its surprise in words and its status (:func:`learnloop.router_objective.miss_cause.card_entry`), probe attempts included.
-- `miss_cause_lines(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, budget: int) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 192) — The same entries for the mid-block ``plan_interrupt`` request, whose state is text (the LLM's request only, never the Decider's), oldest dropped first to fit ``budget``.
-- `statement_lines(vault: Any, repository: Any, *, served_at: str, budget: int) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 215) — The same statements for the mid-block ``plan_interrupt`` request, whose state is text: lines for the LLM's request only (never the Decider's), oldest dropped first to fit ``budget``.
-- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 233) — The frozen card (the state), its evidence ids and what the budget left out.
+- `miss_cause_entries(vault: Any, connection: Any, candidates: Sequence[Any], *, served_at: str, repository: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 169) — SG1 (spec_slip_vs_gap_v1 §3 item 3): for the offer's topic and each repair candidate's, the latest miss's cause class probabilities, its surprise in words and its status (:func:`learnloop.router_objective.miss_cause.card_entry`), probe attempts included.
+- `miss_cause_lines(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, budget: int) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 197) — The same entries for the mid-block ``plan_interrupt`` request, whose state is text (the LLM's request only, never the Decider's), oldest dropped first to fit ``budget``.
+- `statement_lines(vault: Any, repository: Any, *, served_at: str, budget: int) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 220) — The same statements for the mid-block ``plan_interrupt`` request, whose state is text: lines for the LLM's request only (never the Decider's), oldest dropped first to fit ``budget``.
+- `decision_card(vault: Any, repository: Any, candidates: Sequence[Any], *, served_at: str, goals: Mapping[str, Any], session: Mapping[str, Any], budget: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/objective_card.py), line 238) — The frozen card (the state), its evidence ids and what the budget left out.
 
 ### Module constants
 
@@ -108,6 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_card|learnloop.adaptive_difficulty.history_card]] — imports `module`; calls `_Days`, `_excerpt`, `_topic`, `decision_sections_entry`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `module`; calls `recent_learner_preferences`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `effective_posterior_reader`; calls `effective_posterior_reader`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `PastWork`, `WITHHELD_UNREADABLE`; calls `PastWork`
 - [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `is_offer_subtype`; calls `is_offer_subtype`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `CARD_NOTE`, `module`; calls `card_entry`, `sensor`, `surprise_reference`

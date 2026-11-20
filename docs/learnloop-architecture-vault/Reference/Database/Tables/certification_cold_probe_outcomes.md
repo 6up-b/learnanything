@@ -133,6 +133,7 @@ None found by exact static reference scan.
 
 - `tests/assumed_known_helpers.py`
 - `tests/test_certification_cold_probe.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_rival_factor.py`
 - `tests/test_held_grade_evidence.py`
 

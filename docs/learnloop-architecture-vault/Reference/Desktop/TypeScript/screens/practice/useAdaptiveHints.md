@@ -166,6 +166,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/practice/useAdaptiveHints.hold.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/practice/useAdaptiveHints.hold.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/practice/HintPanel.waiting.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/practice/HintPanel.waiting.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_large_practice_flow.py](../../../../../../../tests/test_large_practice_flow.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_contract.py](../../../../../../../tests/test_sidecar_contract.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_practice_information.py](../../../../../../../tests/test_practice_information.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

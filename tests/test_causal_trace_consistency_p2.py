@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import EVIDENCE_READING_FIX_ALGORITHM_VERSION, GRADE_CHANNEL_FIX_ALGORITHM_VERSION
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -32,7 +33,7 @@ from learnloop.diagnosis.causal_attribution import (
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_split_helpers import build_diagnosis_vault
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
 
 _STATEMENT = "The learner may be treating Q and Q transpose as identical."
 
@@ -376,13 +377,15 @@ def test_overlay_carries_per_hypothesis_state(tmp_path):
 # -- a criterion the own-route rule left unassessed (adversarial review of arc E, finding 2)
 
 
-def _route_rule_receipt(tmp_path, *, marked: bool):
+def _route_rule_receipt(tmp_path, *, marked: bool, tag: str | None = None):
     """``result`` at 0/2 beside ``setup`` at 2/2, with a hypothesis whose only
     claim is that ``result`` fell short. ``marked``: the rule left ``result``
     unassessed (its row carries the marker, as since mvp-0.17); otherwise it
-    is a genuinely assessed zero."""
+    is a genuinely assessed zero. ``tag``: the vault's tag (the head when None)."""
 
     paths = build_diagnosis_vault(tmp_path / "vault")
+    if tag is not None:
+        set_algorithm_version(paths, tag)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     rows = [
@@ -455,15 +458,28 @@ def test_an_assessed_zero_holds_a_shortfall_claim(tmp_path):
     assert result["assessable"] is True and result["passed"] is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ER-2: both diagnosis readers take a row the route rule left unassessed for an assessed zero; replay "
-    "rematerializes the receipt from the stored rows, so the fix moves rebuilt receipts and waits for a tag",
-)
-def test_a_criterion_left_unassessed_neither_holds_nor_fails_a_claim(tmp_path):
-    receipt, hypothesis, result = _route_rule_receipt(tmp_path, marked=True)
+@pytest.mark.parametrize("tag", [GRADE_CHANNEL_FIX_ALGORITHM_VERSION, EVIDENCE_READING_FIX_ALGORITHM_VERSION])
+def test_a_criterion_left_unassessed_neither_holds_nor_fails_a_claim(tmp_path, tag):
+    """ER-2 (the evidence reading fixes, mvp-0.61): a row the route rule left unassessed is no assessed zero to
+    either diagnosis reader. It was a strict xfail until the tag: replay rematerializes the receipt from the stored
+    rows, so the fix moves rebuilt receipts. Below the tag (mvp-0.60) the receipt is today's."""
+
+    receipt, hypothesis, result = _route_rule_receipt(tmp_path, marked=True, tag=tag)
     detail = receipt["trace_consistency_detail"]["by_hypothesis"][hypothesis]
-    assert (receipt["trace_consistency"][hypothesis], detail["reason"]) == (
-        "unknown", "claim_criteria_were_not_assessed",
-    )
-    assert result["assessable"] is False
+    if tag == EVIDENCE_READING_FIX_ALGORITHM_VERSION:
+        assert (receipt["trace_consistency"][hypothesis], detail["reason"]) == (
+            "unknown", "claim_criteria_were_not_assessed",
+        )
+        assert (result["assessable"], result["passed"], result["full_credit"]) == (False, False, False)
+    else:
+        assert (receipt["trace_consistency"][hypothesis], detail["reason"]) == (
+            "consistent_with_claims", "every_attributed_claim_held",
+        )
+        assert result["assessable"] is True and result["passed"] is False
+
+
+@pytest.mark.parametrize("tag", [GRADE_CHANNEL_FIX_ALGORITHM_VERSION, EVIDENCE_READING_FIX_ALGORITHM_VERSION])
+def test_an_assessed_zero_reads_the_same_at_both_tags(tmp_path, tag):
+    receipt, hypothesis, result = _route_rule_receipt(tmp_path, marked=False, tag=tag)
+    assert receipt["trace_consistency"][hypothesis] == "consistent_with_claims"
+    assert result["assessable"] is True and result["passed"] is False

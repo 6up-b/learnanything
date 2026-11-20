@@ -121,6 +121,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_evidence_reading_successor.py](../../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_r1_causes_shown_in_the_answers_own_second_expose_it`
 - [tests/test_followup_fg1c_r1_exposure_independence.py](../../../../../../../tests/test_followup_fg1c_r1_exposure_independence.py) — direct import
 - [tests/test_hypothesis_marks.py](../../../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_a_refused_row_rolls_back_alone_and_the_rest_of_the_transaction_stands`

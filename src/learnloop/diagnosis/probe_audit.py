@@ -40,12 +40,17 @@ def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def _observation_rows(repository: Repository) -> list[dict[str, Any]]:
-    """Every presentation-backed observation with its episode context."""
+def _observation_rows(repository: Repository, vault: LoadedVault | None = None) -> list[dict[str, Any]]:
+    """Every presentation-backed observation with its episode context: as recorded, or with the ``vault`` as the
+    episode reads it at its tag (``probe_episodes.effective_episode_observations``)."""
+
+    from learnloop.diagnosis.probe_episodes import effective_episode_observations
 
     rows: list[dict[str, Any]] = []
     for episode in repository.list_probe_episodes():
-        for row in repository.probe_observations_for_episode(episode.id):
+        episode_rows = (effective_episode_observations(vault, repository, episode.id) if vault is not None
+                        else repository.probe_observations_for_episode(episode.id))
+        for row in episode_rows:
             row["episode"] = episode
             rows.append(row)
     return rows
@@ -60,7 +65,7 @@ def _family_key(row: Mapping[str, Any]) -> str:
 # --- Predicted vs realized EIG (§13.2, Checkpoint 4.3) ------------------------------
 
 
-def eig_calibration_report(repository: Repository) -> dict[str, Any]:
+def eig_calibration_report(repository: Repository, vault: LoadedVault | None = None) -> dict[str, Any]:
     """Expected vs realized information per family version.
 
     ``realized_information_gain`` is signed; the negative-information rate is
@@ -68,10 +73,14 @@ def eig_calibration_report(repository: Repository) -> dict[str, Any]:
     a §9.7 retirement telemetry signal that an observation model is
     misspecified. Expected-vs-realized gaps here are audit telemetry, not a
     claim of population calibration.
+
+    With the ``vault`` the sample is the qualifying observations as the episodes read them at its tag: it feeds the
+    family lifecycle's evidence (``probe_lifecycle.family_lifecycle_metrics``), and an exposed answer recorded below
+    mvp-0.61 is no longer a qualifying, independent sample.
     """
 
     per_family: dict[str, dict[str, Any]] = {}
-    for row in _observation_rows(repository):
+    for row in _observation_rows(repository, vault):
         observation = row["observation"]
         if not observation.eligible_for_completion:
             continue
@@ -175,10 +184,14 @@ def cross_surface_replication_report(vault: LoadedVault, repository: Repository)
     episodes_with_pairs = 0
     replicated = 0
     details: list[dict[str, Any]] = []
+    from learnloop.diagnosis.probe_episodes import effective_episode_observations
+
     for episode in repository.list_probe_episodes():
+        # Qualifying as the episode reads them at the vault's tag: an exposed answer is no replication sample. The
+        # posteriors compared are the rows' recorded ones.
         rows = [
             row
-            for row in repository.probe_observations_for_episode(episode.id)
+            for row in effective_episode_observations(vault, repository, episode.id)
             if row["observation"].eligible_for_completion
         ]
         if len(rows) < 2:
@@ -329,6 +342,9 @@ def replay_determinism_report(vault: LoadedVault, repository: Repository) -> dic
                             "kind": "selection_entropy_mismatch",
                         }
                     )
+        # Verifies each RECORDED transition against itself, so it reads the receipts (the stored flags and
+        # discount) on purpose: an exposed answer recorded below mvp-0.61 recorded a full-weight update, and that
+        # receipt is consistent; what the episode reads today is effective_episode_observations' question.
         for row in repository.probe_observations_for_episode(episode.id):
             observation = row["observation"]
             for kind, stored, recomputed in (
@@ -599,6 +615,8 @@ def shadow_policy_report(repository: Repository) -> dict[str, Any]:
 
     policies: dict[str, dict[str, Any]] = {}
     observations = 0
+    # The realized information here is each observation's recorded telemetry (as written), not what the episode
+    # reads today: a historical report, never a current decision's input.
     for row in _observation_rows(repository):
         components = row.get("selection_components") or {}
         shadow = components.get("shadow_rankings")
@@ -648,6 +666,7 @@ def planner_shadow_report(repository: Repository) -> dict[str, Any]:
     boosted_top = 0
     realized_when_boosted_agreed: list[float] = []
     realized_when_boosted_differed: list[float] = []
+    # Recorded telemetry, as in the shadow-policy report above.
     for row in _observation_rows(repository):
         components = row.get("selection_components") or {}
         planner = components.get("shadow_planner")
@@ -714,7 +733,7 @@ def pilot_report(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
 
     return {
         "version": 1,
-        "eig_calibration": eig_calibration_report(repository),
+        "eig_calibration": eig_calibration_report(repository, vault),
         "time_calibration": time_calibration_report(repository),
         "cross_surface_replication": cross_surface_replication_report(vault, repository),
         "downstream_outcomes": downstream_outcome_report(repository),

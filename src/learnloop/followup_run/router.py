@@ -302,10 +302,12 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
     redraw_of = wf.lost_offer_decision(repository, str(row["id"]))
     offer_block_id = new_ulid() if decision.lesson_offer else None
     # RO0 rows 9 and 13: the follow-up's LO, read before the transaction opens.
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
+
     state = decision_state.prepare(
         vault, repository, candidates=[{"learning_object_ids": [row["learning_object_id"]]}], session_id=row.get("session_id"),
         ad_fields=lambda los: decision_state_fields(vault, repository, list(los)), retrievability=retrievability,
-        clock=clock)
+        clock=clock, effective_posterior=effective_posterior_reader(vault, repository))
     try:
         with repository.atomic(), repository.connection() as connection:
             logged = existing_followup_decision(connection, block_id=decision.block_id, workflow_id=str(row["id"]),

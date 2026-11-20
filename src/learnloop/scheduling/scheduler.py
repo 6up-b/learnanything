@@ -25,6 +25,8 @@ from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
+    qualifying_observation_count,
+    session_qualifying_total,
 )
 from learnloop.diagnosis.probe_presentations import (
     RoutineDisplayCovered,
@@ -3312,6 +3314,8 @@ class _BuildAdmission:
                         ),
                         context[1],
                         session_id=self.session.session_id,
+                        qualifying_observations=qualifying_observation_count(vault, repository, episode.id),
+                        session_qualifying_observations=session_qualifying_total(vault, repository, self.session.session_id),
                     )
                     self.voi_probe_decisions[episode.id] = voi_decision
                 voi_value = voi_decision.value_for(item.id)

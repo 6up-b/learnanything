@@ -1412,7 +1412,10 @@ def approve_probe_instance(
         instrument_card_version=link.instrument_card_version,
         instance_metadata=metadata,
     )
-    repository.upsert_practice_item_state(practice_item_id, active=True, clock=clock)
+    # Activation only: the generic upsert replaces the whole row on conflict, so on an instance already answered it
+    # would clear the forgetting clock, memory and due date with no answer behind them (a rebuild, which replays the
+    # attempt, then disagreed with the live row).
+    repository.set_practice_item_active(practice_item_id, active=True, clock=clock)
     item = vault.practice_items.get(practice_item_id)
     if item is not None:
         episode = repository.open_probe_episode(item.learning_object_id)

@@ -6,6 +6,8 @@ import { MarkdownMath } from "@desktop/render/MarkdownMath";
 import { staleRefusal } from "../api/http";
 import { phone } from "../api/phone";
 import { RemoteImageAsLink } from "../components/RemoteImageAsLink";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { newUlid } from "../util/ulid";
 import { useVisibleInterval } from "../util/useVisibleInterval";
 import { RouterLine } from "./RouterLine";
@@ -254,7 +256,7 @@ export function Contest({ attemptId, onBundle }: { attemptId: string; onBundle: 
       <label htmlFor="contest">Why do you think you were right? (optional, one line)</label>
       <input id="contest" value={reason} disabled={busy} onChange={(event) => setReason(event.target.value)} />
       {error ? <p className="bad" role="alert">{error}</p> : null}
-      {busy ? <p className="dim" role="status">Looking again…</p> : null}
+      {busy ? <Waiting testId="contest-wait" line={WAITING_COPY.lookingAgain} /> : null}
       <div className="row">
         <button className="plain" type="button" disabled={busy} onClick={() => void send()}>Send</button>
         <button className="plain" type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>

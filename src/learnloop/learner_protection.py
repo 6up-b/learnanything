@@ -183,7 +183,7 @@ def withheld_items(vault: Any, repository: Any) -> Withheld:
             reasons.setdefault(item_id, WITHHELD_EXAM)
         for item_id in EM.held_out_items(vault, repository):
             reasons.setdefault(str(item_id), WITHHELD_EXAM)
-        exam = EM.exam_material(vault, repository)
+        exam = EM.surface_exam_material(vault, repository, "learner_protection")
         for item in vault.practice_items.values():
             if EM.item_exam_status(item, material=exam, reserved=reserved) is not None:
                 reasons.setdefault(item.id, WITHHELD_EXAM)

@@ -663,9 +663,10 @@ MISS_CAUSE_SOURCE = "miss_cause"
 
 
 def _miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str],
-                now_iso: str) -> dict[str, dict[str, Any]] | None:
+                now_iso: str, vault: Any = None, repository: Any = None) -> dict[str, dict[str, Any]] | None:
     """SG1: the candidate topics' miss-cause sensor (:func:`learnloop.router_objective.miss_cause.sensor`), or None off
-    or below the tag (nothing is read)."""
+    or below the tag (nothing is read). With the vault, an episode's posterior as the evidence reading fixes read it
+    (``probe_episodes.effective_posterior_reader``)."""
 
     from learnloop.router_objective_switches import miss_cause_sensor_on
 
@@ -673,7 +674,10 @@ def _miss_cause(connection: Any, config: Any, learning_object_ids: Sequence[str]
         return None
     from learnloop.router_objective import miss_cause as MC
 
-    return MC.sensor(connection, config, learning_object_ids, now_iso)
+    from learnloop.diagnosis.probe_episodes import effective_posterior_reader
+
+    effective = effective_posterior_reader(vault, repository) if vault is not None else None
+    return MC.sensor(connection, config, learning_object_ids, now_iso, effective)
 
 
 def _step(action: OT.Action) -> OT.Action:
@@ -729,7 +733,7 @@ def build(vault: Any, repository: Any, *, state: PlanState, support: Sequence[st
         mastery = _mastery(connection, kept)
         # Slip or gap SG1 (spec_slip_vs_gap_v1 §3): each candidate topic's miss-cause sensor, read on this connection at
         # the decision (nothing at all off, or below the tag).
-        miss_records = _miss_cause(connection, config, candidate_los, now_iso)
+        miss_records = _miss_cause(connection, config, candidate_los, now_iso, vault, repository)
     from learnloop.router_objective_switches import fitted_models_on
 
     fitted = fitted_models_on(config)

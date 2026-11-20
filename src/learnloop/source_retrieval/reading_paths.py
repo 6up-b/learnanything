@@ -306,7 +306,7 @@ def path_inputs(vault: Any, repository: Repository, extraction_id: str) -> PathI
         raise ReadingPathError("validation_error", f"extraction has no IR: {extraction_id!r}")
     rows, block_by_span, _span_to_section = extraction_sections(ir)
     try:
-        material = EM.exam_material(vault, repository)
+        material = EM.surface_exam_material(vault, repository, "book_guide")
         if material.covers(extraction_id):
             raise ReadingPathError("withheld", "This reading is held out for an exam: it has no reading path.")
         held = material.withheld([(extraction_id, span) for row in rows for span in row["span_ids"]])

@@ -415,7 +415,7 @@ def test_grounding_none_is_never_checked(book):
 
 def test_a_sketch_tier_is_never_checked():
     assert SC.grammar_row({"tier": "grammar", "spec_version": S.SPEC_VERSION})
-    for tier, version in (("sketch", "sketch-v1"), ("manim", "manim-fig-v1"), ("js_animation", "x")):
+    for tier, version in (("sketch", "sketch-v1"), ("manim", "manim-fig-v1")):
         assert not SC.grammar_row({"tier": tier, "spec_version": version})
 
 

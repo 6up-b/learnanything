@@ -100,7 +100,9 @@ def _blueprint_spec(repository: Repository, run: Mapping[str, Any]) -> dict[str,
 # Boundary diff (§8.4) -- baseline boundary_view vs post-assessment, reliability-aware
 # ---------------------------------------------------------------------------
 
-def boundary_diff(repository: Repository, *, run_id: str, result: Mapping[str, Any]) -> dict[str, Any]:
+def boundary_diff(
+    repository: Repository, *, run_id: str, result: Mapping[str, Any], vault: Any = None,
+) -> dict[str, Any]:
     """Diff the demonstrated boundary before/after the cold assessment (§8.4).
 
     ``before`` is the baseline boundary snapshot frozen at diagnostic-segment close
@@ -117,7 +119,7 @@ def boundary_diff(repository: Repository, *, run_id: str, result: Mapping[str, A
     if snapshot is not None:
         before = json.loads(snapshot["payload_json"])
     else:
-        before = DP.boundary_view(repository, run_id=run_id)
+        before = DP.boundary_view(repository, run_id=run_id, vault=vault)
     before_by_cell = {(c["facet"], c["capability"]): c["status"] for c in before["cells"]}
 
     covered = {(c["facet"], c["capability"]) for c in result.get("coverage") or []}
@@ -243,6 +245,7 @@ def restore(
     run_id: str,
     idempotency_key: str,
     clock: Clock | None = None,
+    vault: Any = None,
 ) -> RestorationReceipt:
     """Restore source context + boundary diff after the grade is committed (§8.4).
 
@@ -269,7 +272,7 @@ def restore(
             idempotency_key=idempotency_key + ":enter", clock=clock,
         )
 
-    diff = boundary_diff(repository, run_id=run_id, result=result)
+    diff = boundary_diff(repository, run_id=run_id, result=result, vault=vault)
     if repository.latest_golden_path_artifact(run_id, kind="boundary_diff") is None:
         repository.append_golden_path_artifact(
             run_id=run_id, kind="boundary_diff",

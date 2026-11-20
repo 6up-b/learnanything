@@ -12,6 +12,8 @@ import type { HelpStyle, HintShortcut } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { algoConfig } from "../../app/algoConfig";
 import { quietLine, quietLink } from "../../components/PlainParts";
+import { Waiting } from "../../components/Waiting";
+import { WAITING_COPY } from "../../copy/waiting";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { HELP_STYLE_COPY, HINT_COPY, SHORTCUT_COPY } from "./hintCopy";
 import type { AdaptiveHints, HintEntry } from "./useAdaptiveHints";
@@ -313,8 +315,8 @@ export function HintPanel({
           onFigureEvent={onFigureEvent} />
       ))}
       {hints.pending ? (
-        <div role="status" style={quietLine} data-testid="hint-writing">
-          {HINT_COPY.writing}
+        // The shared waiting line; the item's own hint stays offered from the first moment (Waiting's children).
+        <Waiting testId="hint-writing" line={HINT_COPY.writing} later={WAITING_COPY.hintLater}>
           {hints.offer ? (
             <>
               {" · "}
@@ -324,7 +326,7 @@ export function HintPanel({
               </button>
             </>
           ) : null}
-        </div>
+        </Waiting>
       ) : null}
       {hints.notice ? <div role="status" style={quietLine} data-testid="hint-notice">{hints.notice.message}</div> : null}
       {hints.picks.length ? (

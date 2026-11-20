@@ -2742,16 +2742,14 @@ class FiguresConfig(BaseModel):
     what best explains the idea, with ``why_this_tier``, and an optional fast
     spec or sketch shown at once), and a second route ``figure_rich_author``
     writes the program in a durable job; the fuller version arrives under the
-    quick one with one quiet line. Only the ``manim`` tier is built: a
+    quick one with one quiet line. The one rich tier is ``manim``: a
     narrated video rendered by the concept animation pipeline (its validator,
     pacing lint, renderer and store, called as a library) under bubblewrap
     with the hardened profile and a memory- and CPU-capped scope, Linux with
     ``bwrap`` and Manim installed only, and only after the standing opt-in
     ``manim_opt_in = "standing"`` (asked once, inline, on a press; "not now"
-    writes ``"declined"``; ``manim_opt_in_at`` records the date). The
-    ``js_animation`` tier stays absent from every menu behind its build flag
-    until its IPC probe passes in the real webview. Off: the author's contract is
-    V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
+    writes ``"declined"``; ``manim_opt_in_at`` records the date). Off: the
+    author's contract is V2's (or V1's) byte for byte, no rich menu entry, and stored rich figures
     list as "can't show this kind here". Nothing in scoring, scheduling,
     projection or serving reads these keys.
 

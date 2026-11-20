@@ -9,6 +9,8 @@ import { TAG } from "@desktop/api/queryTags";
 import { useCachedQuery } from "@desktop/api/useCachedQuery";
 import { phone, type PhonePlanDto, type PhoneSomethingElseDto } from "../api/phone";
 import { SomethingElse } from "../practice/SomethingElse";
+import { WAITING_COPY } from "@desktop/copy/waiting";
+import { Waiting } from "../components/Waiting";
 import { RouterLine, WhyLink } from "../practice/RouterLine";
 import { currentWhy, doneLine, planSentence, stepOf, waitingForDesktop } from "./planWords";
 
@@ -82,7 +84,9 @@ export function PlanToday({
     return (
       <div className="screen">
         <h1>Today</h1>
-        <p className="dim" role="status">{query.error ? "Today's plan couldn't be read." : "Reading today's plan…"}</p>
+        {query.error
+          ? <p className="dim" role="status">Today's plan couldn't be read.</p>
+          : <Waiting testId="plan-wait" line={WAITING_COPY.readingPlan} />}
         {query.error || resumeEntry ? (
           <div className="actions">
             {resumeEntry}
@@ -152,7 +156,7 @@ export function PlanToday({
       {plan.questionInProgress && !choosing ? (
         <p className="dim" role="status" data-testid="today-in-progress">A question is in progress on the desktop. Next here goes on without it.</p>
       ) : null}
-      {choosing ? <p className="dim" role="status">Choosing what's next…</p> : null}
+      {choosing ? <Waiting testId="choosing-wait" line={WAITING_COPY.choosingNext} /> : null}
       {!session && plan.minuteChoices.length ? (
         <div className="chips" aria-label="Minutes today">
           {plan.minuteChoices.map((minutes) => (

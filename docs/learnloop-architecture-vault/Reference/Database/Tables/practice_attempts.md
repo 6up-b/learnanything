@@ -168,6 +168,7 @@ Indexes and uniqueness:
 - `Repository.prediction_interval_rows()`
 - `Repository.primed_attempt_exists_for_learning_object()`
 - `Repository.probe_observations_for_episode()`
+- `Repository.qualifying_probe_observation_attempt_ids()`
 - `Repository.qualifying_probe_observation_count_for_session()`
 - `Repository.real_attempt_trace_rows()`
 - `Repository.record_deferred_regrade()`

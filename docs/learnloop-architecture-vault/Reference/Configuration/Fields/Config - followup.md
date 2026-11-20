@@ -21,6 +21,7 @@ source_paths:
   - "tests/sim_probe_validation_helpers.py"
   - "tests/successor_switches.py"
   - "tests/test_architecture.py"
+  - "tests/test_evidence_reading_successor.py"
   - "tests/test_followup_fg1c_r1_exposure_independence.py"
   - "tests/test_followup_successor.py"
   - "tests/test_hypothesis_marks.py"
@@ -28,7 +29,6 @@ source_paths:
   - "tests/test_hypothesis_marks_migration.py"
   - "tests/test_ih7_lesson_sources_follow_diagnosis.py"
   - "tests/test_kill_switches.py"
-  - "tests/test_mobile_v2_feedback.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/followup"
@@ -49,8 +49,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4236`; `src/learnloop/ai/plan_fallback.py:138` |
-| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4237`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.generate_and_serve` | `true` | boolean | modeled default or validator seed | Turns generate and serve behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4234`; `src/learnloop/ai/plan_fallback.py:138` |
+| `followup.hypothesis_marks` | `true` | boolean | modeled default or validator seed | Turns hypothesis marks behavior on or off within follow-up generate and serve (FG1, docs/specs/spec_followup_generate_serve_v1.md): the kill switch of the successor mvp-0.45: off, or below the tag, a miss follows mvp-0.44's path, the stored probe.generation.auto_generate_on_entry applies, burns persist and open workflows settle as skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:4235`; `src/learnloop/ai/plan_fallback.py:138` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Every effective default is one line of `tests/goldens/effective_defaults.toml`, so a changed default shows up in review, where the `algorithms.algorithm_version` decision is made, instead of every default being dumped into each vault.
@@ -63,6 +63,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/sim_probe_validation_helpers.py`
 - `tests/successor_switches.py`
 - `tests/test_architecture.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_successor.py`
 - `tests/test_hypothesis_marks.py`
@@ -70,7 +71,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_hypothesis_marks_migration.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_kill_switches.py`
-- `tests/test_mobile_v2_feedback.py`
 
 ## Extension and modification guidance
 

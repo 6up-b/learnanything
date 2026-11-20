@@ -483,7 +483,7 @@ def _dual_write_exam_grade(
     the canonical projection joins interpretations to attempts by that id."""
 
     try:
-        from learnloop.attempts.grade_resolution import record_grade_dual_write
+        from learnloop.attempts.grade_resolution import EXAM_GRADE_PURPOSE, record_grade_dual_write
 
         criterion_max = (
             {c.id: c.points for c in rubric.criteria} if rubric is not None else None
@@ -492,7 +492,7 @@ def _dual_write_exam_grade(
             vault,
             repository,
             item=item,
-            purpose="assessment",
+            purpose=EXAM_GRADE_PURPOSE,
             grading_source="codex",
             attempt_id=attempt_id,
             response_text=answer_md,
@@ -563,7 +563,10 @@ def finish_exam(
     ]
 
     # Apply answered items as exam_attempts, spaced seconds apart at finish time
-    # (same deterministic backdating shape exam_seeding uses).
+    # (same deterministic backdating shape exam_seeding uses). This is when the
+    # answers restart their items' forgetting clocks and get their reviews: a
+    # staged answer writes no item state, so a sitting left unfinished moves no
+    # clock, and anchoring at submission instead would change review timing.
     base_instant = clock.now().astimezone(UTC).replace(microsecond=0)
     applied_results = []
     for index, answer in enumerate(answers):
@@ -900,7 +903,8 @@ def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:
             _attribution_from_dict(attribution)
             for attribution in (payload.get("error_attributions") or [])
         ],
-        grader_confidence=float(payload.get("grader_confidence") or 1.0),
+        # A grader may answer exactly 0.0 (no reliability): only a missing value reads as full.
+        grader_confidence=1.0 if payload.get("grader_confidence") is None else float(payload["grader_confidence"]),
         confidence=payload.get("confidence"),
         manual_review_reason=payload.get("manual_review_reason"),
         feedback_md=payload.get("feedback_md"),

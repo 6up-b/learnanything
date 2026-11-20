@@ -59,6 +59,7 @@ def restore(
     idempotency_key: str | None = None,
     clock: Clock | None = None,
     exposure_fields: Mapping[str, Any] | None = None,
+    vault: Any = None,
 ) -> dict[str, Any]:
     """Restore source + annotations after a closed cold observation (§11).
 
@@ -73,7 +74,7 @@ def restore(
     if run_id is not None:
         receipt = GPR.restore(
             repository, run_id=run_id, idempotency_key=idempotency_key or f"reader_restore:{run_id}",
-            clock=clock,
+            clock=clock, vault=vault,
         )
         boundary_diff = receipt.boundary_diff
         source_neighborhoods = receipt.source_neighborhoods

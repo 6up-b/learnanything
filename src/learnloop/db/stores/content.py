@@ -186,6 +186,16 @@ class ContentStoreMixin:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def rung_variant_request_for_attempt(self, attempt_id: str) -> dict[str, Any] | None:
+        """The request whose evidence package is this attempt (the row's ``attempt_id``), if any."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM rung_variant_requests WHERE attempt_id = ? ORDER BY created_at, id LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
     def rung_variant_requests(
         self, request_ids: Iterable[str]
     ) -> dict[str, dict[str, Any]]:

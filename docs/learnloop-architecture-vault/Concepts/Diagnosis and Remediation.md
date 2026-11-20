@@ -5,7 +5,7 @@ aliases:
   - Causal Learning Loop
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.59
+implementation_version: mvp-0.61
 last_reviewed: 2026-11-17
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
@@ -66,7 +66,7 @@ A pending episode does not block ordinary practice. Once observations exist, cau
 ### Completion rules
 
 `probe_completion.evaluate_completion` runs only for `in_progress`. These are its stopping branches, in evaluation order.
-A qualifying observation is one whose stored `eligible_for_completion` flag is true.
+A qualifying observation is one whose `eligible_for_completion` flag is true as the episode reads it (`probe_episodes.effective_episode_observations`, which every completion reader uses). From `mvp-0.61` an answer the discriminating observation's exposure test refuses (feedback shown or released before it, its causes displayed before it, or a reveal in its window; `probe_episodes.probe_answer_admissibility`) updates no belief and qualifies nothing, as a held grade does (`updates_belief` false, discount 0.0, `answer_exposed` in its contamination with the reason the test gave), also when it was hinted or tutored too: the instrument's likelihoods are for an answer produced cold, and after the feedback, the causes or a reveal the outcome no longer separates the causes. An observation recorded at the tag is written so (its posterior after equals its posterior before); one recorded before it reads so, its stored row untouched. The exposure neither closes the state segment nor changes the attempt's activity class. An observation written at the tag records its verdict (`answer_exposure_judged` in its features) and every later reading trusts it; one written below the tag is judged from persisted rows only, as of its own writing, so any reading of the same database agrees; an answer's own reveals never expose it, and a display of its causes stamped in its own second counts as before it. Every current reader of the flags uses this view (the serving gates' counts through `effective_qualifying_total`, the value decision, the baseline projection, the inspector, the audit's calibration samples), and the router's miss-cause sensor and decision-state snapshot read the episode's effective posterior (`effective_posterior_as_of`, passed in) instead of the stored one, which stays on its row as a receipt; completed episodes are not reopened. `tests/test_probe_observation_admission_readers.py` lists every reader. Below the tag the stored flags stand.
 
 | Branch | Condition | `completion_reason` |
 |---|---|---|
@@ -132,14 +132,16 @@ They are not reconciled today.
 | Locked set and prior | Entry locks the episode set. Causal entry locks it without receipt support scores; ordinary entry builds topic hypotheses. | Commissioning locks the candidate set with receipt support scores; acceptance pins that set and its blind prediction bundle ids on the presentation. The sets have separate ids. |
 | Update rule | Weighted Bayes: mix each outcome likelihood toward the current mixture likelihood by weight, multiply by current probability, then normalize. | Exact match against the pinned predictions; admitted support gives the matching measured hypothesis 1 and other measured hypotheses 0. Unmeasured hypotheses get no entry. |
 | Evidence | Presented outcomes through frozen instrument snapshots plus incidental attempts; hints, contamination, exam type, dialogue share and trace mass can reduce weight. | The probe attempt's observed criterion features; automatic classification uses the deterministic rubric sensor. |
-| Independence | Discounts evidence weight. | Refuses admission if the production was assessed as non-independent; unassessed independence is stored as null. |
+| Independence | Hints, tutor help and a non-diagnostic type discount weight. From `mvp-0.61` the discriminating observation's exposure test applies too (one function, `probe_answer_admissibility`): an exposed answer updates no belief and never qualifies. | Refuses admission if the production was assessed as non-independent; unassessed independence is stored as null. |
 | Held grades | Checks the held-grade predicate in both presented and incidental channels; held presentations write inert observations. | The automatic sensor has no held-grade predicate; a route-rule hold has no assessed criterion features, so the sensor declines. |
 | Timing and writers | `probe_evidence.record_episode_evidence` records the presented observation inside the attempt transaction, replays the posterior and persists misconception marginals with `probe_completion.persist_episode_beliefs`. | Live grade-keyed hooks call the classifier after the attempt commits, or during deferred block settlement. The observation writer resolves an open factor on an admitted `matched_single`; admitted open-set evidence does not resolve it. |
 | Storage | `probe_observations` stores before/after values; reads replay the posterior. `learner_state_beliefs` holds registry-misconception marginals. | `causal_discriminating_observations` stores support, admission and `resolved_factor`; `unresolved_cause_factors` stores status and resolution observation ids. |
 | Readers | Scheduler, episode completion, instructional valuation and passage cues. Valuation renormalizes over concrete labels; passage cues use the label's raw mass. | Scoreboard, causal health, calibration reports, factor deferral, router outcome joins, capture reports and hypothesis marks read the observations. Repair decisions also read factor state. |
 | Later grade changes | A presented answer's outcome stays the submission's; regrades update grade interpretation, not that observation. Releasing a held observation does not change its false `updates_belief` flag. | An existing observation prevents automatic reclassification. |
 
-Different priors, evidence and independence rules can leave a factor resolved while the episode posterior still spreads its probability.
+Different priors and evidence rules can leave a factor resolved while the episode posterior still spreads its probability (from `mvp-0.61` the two lanes share the independence rule).
+
+Both diagnosis readers of a stored grade, trace consistency (`causal_attribution._trace_consistency_states`) and the criterion receipt (`_criterion_receipt`), skip a criterion row marked unassessed (`canonical_projection.unassessed_evidence_row`) from `mvp-0.61`: a claim about that criterion is unverifiable (`unknown`, `claim_criteria_were_not_assessed`), and it is no assessable outcome (not passed, no full credit, no localization input), as in the canonical projection. Below the tag they read it as an assessed zero. Replay rematerializes the receipt from the stored rows, so the upgrade's rebuild moves these receipts.
 Learner cause reports can also resolve a factor through `causal_attribution.record_unresolved_cause_self_report`, independently of episode replay.
 
 ## Module layout

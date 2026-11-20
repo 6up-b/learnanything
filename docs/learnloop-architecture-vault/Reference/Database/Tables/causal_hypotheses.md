@@ -191,6 +191,7 @@ Database triggers:
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_evidence_reading_successor.py`
 - `tests/test_followup_fg1c_codex_review.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_hint_discriminating.py`
@@ -199,7 +200,6 @@ Database triggers:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp017_route_check_replay.py`
-- `tests/test_recurrence_benchmarks.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
