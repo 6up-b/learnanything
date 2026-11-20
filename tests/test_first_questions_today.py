@@ -319,3 +319,18 @@ def test_a_build_that_finishes_bumps_it_too(tmp_path):
     batch = repo.get_ingest_batch(latest_auto_outcome(repo, item["source_id"])["build_batch_id"])
     assert batch["status"] == "completed"
     assert repo.queue_revision()["revision"] > before
+
+
+@pytest.mark.parametrize(("status", "done"), [
+    ("queued", 0), ("running", 0), ("running", 2), ("failed", 2), ("queued", 2), ("completed", 6),
+])
+def test_section_writing_progress_counts_saved_parts(tmp_path, status, done):
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    (section_id, _label), *_ = _section_ids(repo, item)
+    batch_id = _finish_section(repo, item, section_id)
+    job = repo.ingest_jobs_for_batch(batch_id)[0]
+    import json
+
+    _set(repo, "ingest_jobs", job["id"], status=status, current_window=done,
+         total_windows=6, payload_json=json.dumps({"learning_object_ids": [f"lo_{i}" for i in range(6)]}))
+    assert _line(root, repo, item)["progress"] == {"done": done, "total": 6}

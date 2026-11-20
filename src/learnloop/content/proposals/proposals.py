@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from learnloop.attempt_types import unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
+from learnloop.ai.execution import ModelCheckpoint, checkpointed, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.errors import CodexInterrupted, CodexTurnTimeout, CodexUnavailable
 from learnloop.ai.strict_schema import strict_output_schema
@@ -113,12 +114,23 @@ def _check_request(request_guard: Callable[..., None], context: AuthoringContext
         raise AuthoringRequestRefused(REFUSED_MESSAGE) from exc
 
 
+def _authoring_checkpoint(
+    repository: Repository, client: AIProviderClient, context: AuthoringContext,
+) -> ModelCheckpoint[AuthoringProposal]:
+    return checkpointed(
+        repository, purpose="authoring", prompt=authoring_prompt(context),
+        schema=strict_output_schema(AuthoringProposal), settings=model_settings(client),
+        result_model=AuthoringProposal,
+    )
+
+
 def dispatch_authoring_request(
     client: AIProviderClient,
     context: AuthoringContext,
     *,
     request_guard: Callable[..., None] | None = None,
     commissioned: bool = False,
+    checkpoints: Repository | None = None,
 ) -> AuthoringProposal:
     """The one place an authoring request is sent (fix round 10, R5): the first request and every
     repair. A commissioned request (adaptive difficulty's) is revalidated by ``request_guard`` on
@@ -131,6 +143,9 @@ def dispatch_authoring_request(
         raise AuthoringRequestRefused("a commissioned authoring request has no protection guard")
     if request_guard is not None:
         _check_request(request_guard, context)
+    if checkpoints is not None:
+        saved = _authoring_checkpoint(checkpoints, client, context)
+        return saved.answer(lambda: request_authoring_proposal(client, context))[0]
     return request_authoring_proposal(client, context)
 
 
@@ -510,6 +525,9 @@ def generate_authoring_proposal(
     clock: Clock | None = None,
     vault_view: Callable[[LoadedVault, Any], LoadedVault] | None = None,
     request_guard: Callable[..., None] | None = None,
+    part_requests: list[dict[str, Any]] | None = None,
+    checkpoint_scope: str | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> str:
     """Run authoring generation through a AIProviderClient and persist the result.
 
@@ -525,6 +543,11 @@ def generate_authoring_proposal(
     ``vault_view`` and ``request_guard`` (default off): adaptive difficulty's commissioned path
     builds the context from the vault its material view sees, and revalidates the serialized
     request before anything is recorded or sent; a guard that raises refuses the request.
+
+    ``part_requests`` overrides subjects/instructions per authoring call. A
+    ``checkpoint_scope`` keeps their original contexts across retries and saves
+    each answer, including repair, before use. Validation, repair, gates and
+    apply still see one proposal. ``progress`` counts saved authoring answers.
     """
 
     vault = load_vault(root)
@@ -539,6 +562,20 @@ def generate_authoring_proposal(
         focus_concepts=focus_concepts,
         focus_facets=focus_facets,
     )
+    contexts = [build_authoring_context(
+        context_vault, note_ids=note_ids, source_refs=source_refs,
+        focus_concepts=focus_concepts, focus_facets=focus_facets, **part,
+    ) for part in part_requests] if part_requests is not None else [context]
+    checkpoints = repository if checkpoint_scope is not None else None
+    if checkpoint_scope is not None:
+        # Freeze the requests before paying: unrelated vault edits during a
+        # retry must not turn already-saved topic answers into new requests.
+        snapshot = ModelCheckpoint(repository, checkpoint_scope + ":requests", "authoring_requests", dict)
+        prepared, _ = snapshot.answer(lambda: {
+            "context": asdict(context), "parts": [asdict(part) for part in contexts],
+        })
+        context = AuthoringContext(**prepared["context"])
+        contexts = [AuthoringContext(**part) for part in prepared["parts"]]
     if request_guard is not None:
         # Checked before the agent run is recorded, and again at dispatch with fresh protection.
         _check_request(request_guard, context)
@@ -558,8 +595,27 @@ def generate_authoring_proposal(
         }
     )
     try:
-        proposal = dispatch_authoring_request(codex_client, context, request_guard=request_guard,
-                                              commissioned=request_guard is not None)
+        answers = []
+        kept = [checkpoints is not None and _authoring_checkpoint(checkpoints, codex_client, part).load() is not None
+                for part in contexts]
+        done = sum(kept)
+        if progress is not None:
+            progress(done, len(contexts))
+        for index, part in enumerate(contexts):
+            answers.append(dispatch_authoring_request(
+                codex_client, part, request_guard=request_guard,
+                commissioned=request_guard is not None, checkpoints=checkpoints,
+            ))
+            done += not kept[index]
+            if progress is not None:
+                progress(done, len(contexts))
+        proposal = answers[0]
+        if len(answers) > 1:
+            proposal = AuthoringProposal(
+                summary="\n".join(dict.fromkeys(answer.summary for answer in answers)),
+                source_refs=list({ref.ref_id: ref for answer in answers for ref in answer.source_refs}.values()),
+                items=[item for answer in answers for item in answer.items],
+            )
     except (CodexUnavailable, TimeoutError, ValueError) as exc:
         finish_agent_run(
             repository, agent_run_id, codex_client,
@@ -583,6 +639,7 @@ def generate_authoring_proposal(
         provider=provider,
         now=now,
         request_guard=request_guard,
+        checkpoints=checkpoints,
     )
     # A7: the repair pass is a second billed call against an already-completed
     # run (closing it earlier is deliberate — see `_repair_invalid_proposal_items`
@@ -1489,6 +1546,7 @@ def _repair_invalid_proposal_items(
     provider: str,
     now: str,
     request_guard: Callable[..., None] | None = None,
+    checkpoints: Repository | None = None,
 ) -> tuple[AuthoringProposal, list[dict[str, Any]]]:
     """One-shot self-repair for items that failed deterministic validation.
 
@@ -1531,6 +1589,7 @@ def _repair_invalid_proposal_items(
             replace(context, instructions=instructions),
             request_guard=request_guard,
             commissioned=request_guard is not None,
+            checkpoints=checkpoints,
         )
     except AuthoringRequestRefused:
         # A protection refusal is never a repair failure: the whole commissioned run stops.

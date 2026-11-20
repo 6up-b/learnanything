@@ -57,7 +57,7 @@ def section_generation_candidates(
     )
 
     lo_ids = learning_objects_for_section(
-        vault, repository, extraction_id=extraction_id, section_id=section_id
+        vault, repository, extraction_id=extraction_id, section_id=section_id, reading_order=True
     )
     if not lo_ids:
         return []
@@ -74,11 +74,12 @@ def section_generation_candidates(
         return []
     # Only LOs with a real deficit: named LOs past their target still get a
     # courtesy item from the planner, which is wrong for an automatic trigger.
-    return sorted(
+    needed = {
         target.learning_object_id
         for target in plan.targets
         if target.existing_practice_items < target_items_per_lo
-    )
+    }
+    return [lo_id for lo_id in lo_ids if lo_id in needed]
 
 
 def section_reason(section_id: str) -> str:

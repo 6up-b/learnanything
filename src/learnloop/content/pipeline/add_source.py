@@ -2544,6 +2544,13 @@ def reading_questions(repo, vault, source_id: str) -> dict[str, Any] | None:
                     if job.get("job_type") == "practice_expansion"), None)
         if job is None:
             continue
+        total = job.get("total_windows")
+        if total is None:
+            total = len((job.get("payload") or {}).get("learning_object_ids") or [])
+        if total:
+            progress = fact.setdefault("progress", {"done": 0, "total": 0})
+            progress["total"] += total
+            progress["done"] += min(total, max(0, job.get("current_window") or 0))
         if _active(job):
             fact["writing"].append(label)
             continue
@@ -2596,6 +2603,8 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if questions is not None and (questions["count"] or questions["writing"] or questions["waiting"]
                                       or questions["failed"] or questions["to_look_at"]):
             line["questions"] = questions
+    if line is not None and (line.get("questions") or {}).get("progress") is not None:
+        line.setdefault("progress", line["questions"]["progress"])
     return line
 
 
