@@ -1,7 +1,7 @@
 """Items routine serving never offers, shared by Today's queue, the quick check
 and ``find_practice``.
 
-Four exclusions keep an item out of every routine selection, whatever ranks it:
+These exclusions keep an item out of every routine selection, whatever ranks it:
 
 - **exam reservations**: an item reserved for a goal's held-out exam stays
   unseen so the exam remains an honest, uncontaminated test;
@@ -12,6 +12,8 @@ Four exclusions keep an item out of every routine selection, whatever ranks it:
   Codex review F1; kill switch ``goals.held_out_selection``);
 - **pending-variant holds**: the learner asked for an easier or harder sibling
   of this exact card and it is still being authored;
+- **pending cold checks**: ordinary practice would spend the question kept
+  for an open remediation retry or certification check;
 - **staged-controller ownership**: during the dual-controller cutover the
   staged policy owns these commitments' items (design §A.2 rule 3).
 
@@ -80,8 +82,8 @@ class ServingExclusions:
     reserved_exam_item_ids: frozenset[str]
     rung_variant_hold_ids: frozenset[str]
     staged_owned_item_ids: frozenset[str]
-    #: The routine sets carry only the cold items whose check is actually pending (an open cold retry:
-    #: ``pending_remediation_cold_item_ids``); :func:`out_of_timing_serving_exclusions` widens it to the open
+    #: Routine serving holds pending remediation retries and open certification checks;
+    #: :func:`out_of_timing_serving_exclusions` widens it to the open
     #: cold tasks' items and every live episode's chosen item (``open_remediation_cold_item_ids``).
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
     revealed_recently_item_ids: frozenset[str] = frozenset()
@@ -102,7 +104,8 @@ class ServingExclusions:
         """What routine serving never offers."""
 
         return (self.reserved_exam_item_ids | self.rung_variant_hold_ids | self.staged_owned_item_ids
-                | self.held_out_item_ids | self.generated_probe_closed_ids | self.generated_probe_reserved_ids)
+                | self.held_out_item_ids | self.generated_probe_closed_ids | self.generated_probe_reserved_ids
+                | self.cold_check_reserved_item_ids)
 
     @property
     def out_of_timing_item_ids(self) -> frozenset[str]:
@@ -119,6 +122,11 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
     closed, reserved = door_sets(repository)
     from learnloop.followup_serve.identity import generated_probe_ids as all_generated_probe_ids
 
+    cold_reserved = repository.pending_remediation_cold_item_ids() | {
+        str(task["selected_item_id"])
+        for task in repository.open_followup_tasks_of_kind("certification_cold_probe")
+        if task.get("selected_item_id")
+    }
     return ServingExclusions(
         reserved_exam_item_ids=frozenset(reserved_item_ids(repository)),
         rung_variant_hold_ids=frozenset(repository.rung_variant_pending_source_ids()),
@@ -127,7 +135,7 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
         generated_probe_ids=all_generated_probe_ids(repository),
         staged_owned_item_ids=frozenset(controller_ownership.staged_owned_practice_item_ids(vault, repository)),
         held_out_item_ids=held_out_items(vault, repository) if held_out_selection_active(vault) else frozenset(),
-        cold_check_reserved_item_ids=frozenset(repository.pending_remediation_cold_item_ids()),
+        cold_check_reserved_item_ids=frozenset(cold_reserved),
     )
 
 
@@ -151,7 +159,7 @@ def routine_withhold_reason(vault: Any, item: Any, state: Any, exclusions: Servi
         return "reserved_exam"
     if item_id in exclusions.held_out_item_ids:
         return "held_out_material"
-    # A remediation episode's cold item: ordinary practice before its check would spoil it. The check itself
+    # A reserved cold item: ordinary practice before its check would spoil it. The check itself
     # reaches the queue as a follow-up task, which does not ask this gate.
     if item_id in exclusions.cold_check_reserved_item_ids:
         return "cold_check_reserved"
@@ -347,7 +355,7 @@ def out_of_timing_serving_exclusions(
         reserved_exam_item_ids=routine.reserved_exam_item_ids,
         rung_variant_hold_ids=routine.rung_variant_hold_ids,
         staged_owned_item_ids=routine.staged_owned_item_ids,
-        cold_check_reserved_item_ids=frozenset(cold_reserved),
+        cold_check_reserved_item_ids=frozenset(cold_reserved) | routine.cold_check_reserved_item_ids,
         revealed_recently_item_ids=frozenset(revealed),
         held_out_item_ids=routine.held_out_item_ids,
         generated_probe_closed_ids=routine.generated_probe_closed_ids,

@@ -486,6 +486,19 @@ def _pick(probe: Probe, target: Target) -> str:
     return S
 
 
+@pytest.mark.parametrize("surface", ["RT", "OT"])
+def test_certification_reservation_cell(probe: Probe, tmp_path, surface: str) -> None:
+    target = probe.base.targets["6.held-grade"]
+    world = world_in_state(probe.base, "base", tmp_path / "vault")
+    world.repository.create_followup_task(
+        kind="certification_cold_probe", case_kind="certification", case_ref="cert_reserved",
+        not_before="2099-01-02T00:00:00Z", expires_at="2099-01-09T00:00:00Z",
+        selected_item_id=target.item_id, context={},
+    )
+    cell = _routine if surface == "RT" else _out_of_timing
+    assert cell(Probe(world, None), target) == W
+
+
 @surface("SS")
 def _session_serve(probe: Probe, target: Target) -> str:
     from learnloop_sidecar.serving import refuse_held_out_item
