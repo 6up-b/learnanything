@@ -83,7 +83,7 @@ MODEL_VERSION_V1 = "prefetch_decision_v1"
 #: (:func:`wait_estimate`), the blocked minutes from foreground calls only.
 MODEL_VERSION = "prefetch_decision_v2"
 TRIGGER_KINDS: tuple[str, ...] = ("plan", "section", "offer", "lesson", "gap")
-RICH_TIERS: tuple[str, ...] = ("js_animation", "manim")
+RICH_TIERS: tuple[str, ...] = ("manim",)
 QUICK_TIERS: tuple[str, ...] = ("grammar", "sketch")
 
 # -- the seeded priors (spec §15's learn rows; each registered in params/parameter_registry.py) ----------

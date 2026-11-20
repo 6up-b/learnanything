@@ -106,7 +106,7 @@ INTERRUPTED = "interrupted"
 
 _KEPT = frozenset({ACCEPTED, UNSUPPORTED, PREDICTION_DROPPED})
 #: The author statuses a record names; any other status the model wrote is recorded as ``other``.
-_AUTHOR_STATUSES = frozenset({"spec", "sketch", "unsupported", "js_animation", "manim"})
+_AUTHOR_STATUSES = frozenset({"spec", "sketch", "unsupported", "manim"})
 _PREDICTION_PROBLEM = re.compile(r"^prediction \d+:")
 
 

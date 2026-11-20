@@ -3,11 +3,9 @@
 **The menu** (spec_reader_show_me_figures_v1 §7.2, §8.4): :func:`tiers_allowed`
 is every tier whose switch is on and whose runtime is ready on this machine:
 ``grammar`` (the spec) always; ``sketch`` with the sketch tier on and its
-engine ready; ``js_animation`` only once G-SM14 has passed for this build
-(:data:`JS_ANIMATION_BUILD_FLAG`, off: the JS half is not built); ``manim``
-with ``figures.rich_tiers_enabled``, Linux with ``bwrap``, Manim installed and
-the learner's standing opt-in. An unavailable tier is left out of the menu,
-never described as worse. While no rich tier is on the menu the author's
+engine ready; ``manim`` with ``figures.rich_tiers_enabled``, Linux with
+``bwrap``, Manim installed and the learner's standing opt-in. An unavailable
+tier is left out of the menu, never described as worse. While no rich tier is on the menu the author's
 contract and prompt are P2's (or RW5b's) byte for byte.
 
 **The rich author** (``figure_rich_author``, §8.6, §12.1): an isolated,
@@ -91,11 +89,7 @@ from learnloop.ids import new_ulid
 RICH_TASK = "figure_rich_author"
 RICH_PROMPT_VERSION = "figure_rich_author.v1-manim"
 #: The rich tiers, in menu order.
-RICH_TIERS = ("js_animation", "manim")
-#: keep (security): the JS half is built only once G-SM14 (the IPC probe from
-#: inside an ``llfig://`` frame in the real Linux webview) has passed for this
-#: build; until then ``js_animation`` is never on a menu (spec §7.2, §9b.5).
-JS_ANIMATION_BUILD_FLAG = False
+RICH_TIERS = ("manim",)
 #: keep: prompt size for the rich call (spec §15: 1,500 characters).
 RICH_BRIEF_MAX = 1_500
 #: keep: rev 1's author cap carried to the rich call (spec §15).
@@ -196,8 +190,6 @@ def tiers_allowed(vault: Any, *, sketch: bool) -> tuple[str, ...]:
     tiers = ["grammar"]
     if sketch:
         tiers.append("sketch")
-    if JS_ANIMATION_BUILD_FLAG and rich_tiers_switch(vault):
-        tiers.append("js_animation")
     if manim_tier_ready(vault):
         tiers.append("manim")
     return tuple(tiers)
@@ -1039,7 +1031,6 @@ def plan_retry_order(job_id: str) -> float:
 
 __all__ = [
     "FigureManimOutputV1",
-    "JS_ANIMATION_BUILD_FLAG",
     "MAX_RICH_ATTEMPTS",
     "PLAN_WAIT_RETRY_SECONDS",
     "RICH_BRIEF_MAX",
