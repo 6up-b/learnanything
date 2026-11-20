@@ -98,7 +98,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/logs|learnloop.adaptive_difficulty.logs]] — imports `warn_failure`; calls `warn_failure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]] — imports `Scope`, `scoped`; calls `scoped`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_item_ids`, `held_out_material`; calls `held_out_item_ids`, `held_out_material`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_item_ids`, `surface_material`; calls `held_out_item_ids`, `surface_material`
 
 ### Platform and third-party dependencies
 

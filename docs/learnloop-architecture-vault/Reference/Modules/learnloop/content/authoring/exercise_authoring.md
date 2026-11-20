@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/exercise_authoring.py](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py) |
-| Source lines | 991 |
+| Source lines | 992 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,9 +61,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class AuthoredDraft` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 472) — One authored exercise, validated and ready to write (nothing written yet).
 - `class AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 486) — ``author_exercises``' result: drafts plus today's skipped/warnings report.
 - `author_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, book_solution: Mapping[str, Any] | None=None, admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None=None, method_judge: Any=None, method_judge_owner: tuple[str, str] | None=None, context_withheld: Material | None=None) -> AuthoredBatch` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 498) — Author the selected exercise(s) into validated drafts.
-- `write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, extraction_id: str, clock: Clock | None=None, mechanism: str='reader_exercise_import', extra_payload: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 902) — Write one draft as a vault item and mark it with ``learner_item_authored``.
-- `write_exercises(root: Path, repository: Repository, batch: AuthoredBatch, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 939) — Write every draft of ``batch`` (the Reader import's write step).
-- `import_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, method_judge: Any=None, context_withheld: Material | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 959) — Author the learner's selected exercise(s) into schedulable PracticeItems.
+- `write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, extraction_id: str, clock: Clock | None=None, mechanism: str='reader_exercise_import', extra_payload: Mapping[str, Any] | None=None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 903) — Write one draft as a vault item and mark it with ``learner_item_authored``.
+- `write_exercises(root: Path, repository: Repository, batch: AuthoredBatch, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 940) — Write every draft of ``batch`` (the Reader import's write step).
+- `import_exercises(root: Path, repository: Repository, client: Any, *, extraction_id: str, raw_selection: Mapping[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None, clock: Clock | None=None, method_judge: Any=None, context_withheld: Material | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/exercise_authoring.py), line 960) — Author the learner's selected exercise(s) into schedulable PracticeItems.
 
 ### Module constants
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/ai_contracts|learnloop.content.authoring.ai_contracts]] — imports `ExerciseAuthoredItem`, `ExerciseAuthoring`, `ExerciseAuthoringContext`, `FIGURE_ROLE_INSTRUCTIONS`, `exercise_authoring_prompt`; calls `ExerciseAuthoringContext`, `exercise_authoring_prompt`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `LazyStatementJudge`, `resolve_statement_judge`, `source_judge`; calls `LazyStatementJudge`, `resolve_statement_judge`, `source_judge`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `Material`, `SCOPE_ONLY_REFUSAL`, `held_out_material`, `reference_keys`, `scope_only_among`; calls `held_out_material`, `reference_keys`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `Material`, `SCOPE_ONLY_REFUSAL`, `reference_keys`, `scope_only_among`, `surface_material`; calls `reference_keys`, `scope_only_among`, `surface_material`
 - [[Reference/Modules/learnloop/content/sources/math_text|learnloop.content.sources.math_text]] — imports `contains_unicode_math`, `unicode_math_to_latex`; calls `contains_unicode_math`, `unicode_math_to_latex`
 - [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] — imports `TASK_FEATURE_SCHEMA_SLUG`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

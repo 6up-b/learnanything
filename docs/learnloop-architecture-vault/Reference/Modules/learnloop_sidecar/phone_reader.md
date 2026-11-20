@@ -89,7 +89,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/capture/jobs|learnloop.capture.jobs]] — imports `job_receipt`, `write_job_receipt`; calls `job_receipt`, `write_job_receipt`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_REFUSAL`, `exam_material`; calls `exam_material`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_REFUSAL`, `surface_material`; calls `surface_material`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `open_randomized_check`; calls `PlanEnv`, `open_randomized_check`
 - [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] — imports `PhoneWithheld`, `phone_withheld`; calls `phone_withheld`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `ask_provenance`

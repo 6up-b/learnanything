@@ -103,7 +103,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_REFUSAL`, `exam_material`, `held_out_refusal`; calls `exam_material`, `held_out_refusal`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_REFUSAL`, `held_out_refusal`, `surface_exam_material`; calls `held_out_refusal`, `surface_exam_material`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] — imports `is_pdf_file`, `stored_original_path`; calls `is_pdf_file`, `stored_original_path`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; calls `reader_enabled`

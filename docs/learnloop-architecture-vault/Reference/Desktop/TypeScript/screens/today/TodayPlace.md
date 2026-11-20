@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/TodayPlace.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.tsx) |
-| Source lines | 1149 |
+| Source lines | 1188 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
@@ -54,154 +54,157 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface TodayPlaceProps` — interface, line 87
-- `export function TodayPlace(` — function, line 452
+- `export interface TodayPlaceProps` — interface, line 89
+- `export function TodayPlace(` — function, line 454
 
 ## Internal implementation anchors
 
-- `type TodayThread } from "../../app/todayPlan"` — type, line 71
-- `type TodayCause } from "../../app/todayCause"` — type, line 84
-- `const LEFT = Symbol("today-left")` — const, line 129
-- `const linkButton: CSSProperties =` — const, line 131
-- `const dimLink: CSSProperties =` — const, line 141
-- `const CAUSE_POLL_MS = 5000` — const, line 145
-- `function actionButton(primary = false): CSSProperties` — function, line 147
-- `function MinuteChips(` — function, line 159
-- `const selected = minutes === value` — const, line 163
-- `function enterOnControl(event: KeyboardEvent): boolean` — function, line 192
-- `function stepChoice(choices: number[], current: number | null, delta: number): number | undefined` — function, line 196
-- `const index = choices.indexOf(current)` — const, line 198
-- `function PlanWhy(` — function, line 203
-- `const plan = data.plan` — const, line 204
-- `const headline = useCachedQuery(data.headlineEnabled === false ? null : ["get_today_headline"], ()` — const, line 205
-- `const rows = todayRows(plan)` — const, line 209
-- `const reentry = plan.kind === "reentry" ? reentryWhy(plan) : null` — const, line 210
-- `const split = splitWhy(plan)` — const, line 211
-- `const line = headline.data?.enabled ? headline.data.line ?? null : null` — const, line 212
-- `function Threads(` — function, line 254
-- `const questions = useCachedQuery(["list_question_queue", "today-threads"], ()` — const, line 265
-- `const problems = useCachedQuery(["workbench_open_problems"], ()` — const, line 266
-- `const threads = useMemo( ()` — const, line 269
-- `function threadAction(thread: TodayThread):` — function, line 277
-- `const citation = thread.question.sourceCitation` — const, line 279
-- `const target = targetForDialogue(thread.question)` — const, line 281
-- `const shown = more ? threads : threads.slice(0, THREADS_SHOWN)` — const, line 286
-- `const act = threadAction(thread)` — const, line 291
-- `function CapturesLine(` — function, line 319
-- `const summary = useCachedQuery(["get_inbox_summary", "today"], ()` — const, line 320
-- `const data = summary.data` — const, line 322
-- `const something = Boolean(data && ((data.newCount ?? 0) > 0 || (data.deletePending?.length ?? 0) > 0 || data.vaultMismatch))` — const, line 323
-- `function PlainList(` — function, line 337
-- `const items = useMemo(()` — const, line 356
-- `const minutesOf = useMemo(()` — const, line 357
-- `const map = new Map<string, number>()` — const, line 358
-- `const onKey = (event: KeyboardEvent)` — const, line 368
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 370
-- `const item = items[focus]` — const, line 381
-- `const minutes = minutesOf.get(item.practiceItemId)` — const, line 418
-- `const cold = onYourOwnWhy(item)` — const, line 419
-- `const planQuery = useDailyPlan(session?.sessionId ?? null)` — const, line 474
-- `const data: DailyPlanDto | null = planQuery.data ?? null` — const, line 475
-- `const planOn = data?.enabled === true && data.plan !== null` — const, line 476
-- `const plan = planOn ? data!.plan : null` — const, line 477
-- `const planOff = data !== null && !planOn` — const, line 478
-- `const now = new Date()` — const, line 488
-- `const summary = useCachedQuery(planOff ? ["get_start_summary"] : null, ()` — const, line 491
-- `const offMinutes = session?.availableMinutes ?? chosenMinutes ?? summary.data?.rememberedMinutes ?? null` — const, line 493
-- `const minutes = plan ? plan.rememberedMinutes : offMinutes` — const, line 494
-- `const choices = plan ? plan.minuteChoices : summary.data?.minuteChoices ?? summary.data?.minutesPresets ?? []` — const, line 495
-- `const planDone = plan ? plan.status !== "open" : false` — const, line 500
-- `const emptyDay = data !== null && plan !== null && (planDone ? planWasEmpty(data) : todayRows(plan).length === 0 && plan.deciding !== true && !plan.waiting && !plan.questionInProgress)` — const, line 501
-- `const queueInput = useMemo( ()` — const, line 512
-- `const queueQuery = useCachedQuery( queueInput && (list || planOff || emptyDay || keptGoingToNothing) ? ["get_today_queue", queueInput] : null, ()` — const, line 522
-- `const queue = queueQuery.data ?? null` — const, line 527
-- `const retryQueue = useCallback(()` — const, line 531
-- `const report = queueQuery.retryReport()` — const, line 532
-- `const library = useCachedQuery(["get_source_library"], ()` — const, line 536
-- `const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0` — const, line 537
-- `const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section)` — const, line 538
-- `const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn) ? todayCause(` — const, line 540
-- `const refetchLibrary = library.refetch` — const, line 545
-- `const refetchQueue = queueQuery.refetch` — const, line 546
-- `const onTheWay = cause?.kind === "on_the_way"` — const, line 547
-- `const timer = window.setInterval(()` — const, line 550
-- `const goals = useCachedQuery(["goals_list"], ()` — const, line 557
-- `const primaryGoal: GoalDto | null = useMemo(()` — const, line 558
-- `const active = (goals.data?.goals ?? []).filter((goal)` — const, line 559
-- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 561
-- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 562
-- `const deciding = plan?.deciding === true && !list` — const, line 570
-- `const refetchPlan = planQuery.refetch` — const, line 571
-- `let reads = 0` — let, line 574
-- `const timer = window.setInterval(()` — const, line 575
-- `const waitingUntil = plan?.waiting?.until ?? null` — const, line 585
-- `const at = Date.parse(waitingUntil)` — const, line 588
-- `const timer = window.setTimeout(()` — const, line 590
-- `const alive = useRef(true)` — const, line 598
-- `const stay = useCallback(<T,>(value: T): T` — const, line 605
-- `const startSession = useCallback( async (minutes: number): Promise<SessionSnapshot>` — const, line 610
-- `const started = await onStartSession(minutes)` — const, line 612
-- `const run = useCallback( async <T,>(work: ()` — const, line 618
-- `const done = plan ? plan.status !== "open" : false` — const, line 634
-- `const current = plan?.blocks.find((block)` — const, line 635
-- `const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null` — const, line 636
-- `const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null` — const, line 639
-- `const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, ()` — const, line 640
-- `const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem)` — const, line 641
-- `const inProgressItem = inProgress?.practiceItemId ?? null` — const, line 642
-- `const rows = plan && !done ? todayRows(plan) : []` — const, line 643
-- `async function begin()` — function, line 646
-- `const begun = await run(async ()` — const, line 650
-- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 651
-- `const first = await api.nextPlanItem(` — const, line 652
-- `const result = await run(()` — const, line 658
-- `const action = planStepAction(result?.step,` — const, line 659
-- `function afterSomethingElse(result: SomethingElseChosenDto)` — function, line 666
-- `const entry = lessonEntryFor(result)` — const, line 667
-- `const action = planStepAction(result.step,` — const, line 676
-- `async function beginWithoutPlan()` — function, line 684
-- `const opened = await run(async ()` — const, line 686
-- `const started = session ?? (await startSession(minutes))` — const, line 687
-- `const head = await api.getTodayQueue(todayQueueInput(started))` — const, line 688
-- `function chooseMinutes(next: number)` — function, line 696
-- `async function keepGoing()` — function, line 705
-- `const result = await run(()` — const, line 708
-- `async function somethingNew(confirm: boolean)` — function, line 723
-- `const result = await run(()` — const, line 725
-- `async function finish()` — function, line 729
-- `const summaryResult = await run(()` — const, line 732
-- `async function skipCurrent()` — function, line 736
-- `const next = current.items.find((item)` — const, line 742
-- `async function openFromList(item: ScheduledItemDto)` — function, line 753
-- `const started = await run(()` — const, line 756
-- `const begun = await run(async ()` — const, line 764
-- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 765
-- `const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null)` — const, line 766
-- `const result = await run(()` — const, line 772
-- `const step = result.step` — const, line 774
-- `async function practiseGoal()` — function, line 785
-- `const input = queueInput ?? todayQueueInput(session)` — const, line 787
-- `const snapshot = await run(()` — const, line 788
-- `const target = snapshot.sections.flatMap((section)` — const, line 790
-- `async function retryFromToday(target:` — function, line 801
-- `const result = await run(()` — const, line 802
-- `function causeAction(shown: TodayCause): (()` — function, line 806
-- `const card = shown.card` — const, line 819
-- `const causeLine = cause ? ( <CauseLine cause=` — const, line 827
-- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 836
-- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 837
-- `const onKey = (event: KeyboardEvent)` — const, line 842
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 844
-- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 864
-- `const streak = data?.streak ?? snapshotStreak` — const, line 872
-- `const streakText = streakLine(streak)` — const, line 873
-- `let body: ReactNode` — let, line 876
-- `const head = queue?.sections.flatMap((section)` — const, line 913
-- `const empty = planWasEmpty(data)` — const, line 927
-- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 972
-- `function CauseLine(` — function, line 1102
-- `const label = causeActionLabel(cause)` — const, line 1121
-- `function KeepGoingNothing()` — function, line 1143
+- `type TodayThread } from "../../app/todayPlan"` — type, line 73
+- `type TodayCause } from "../../app/todayCause"` — type, line 86
+- `const LEFT = Symbol("today-left")` — const, line 131
+- `const linkButton: CSSProperties =` — const, line 133
+- `const dimLink: CSSProperties =` — const, line 143
+- `const CAUSE_POLL_MS = 5000` — const, line 147
+- `function actionButton(primary = false): CSSProperties` — function, line 149
+- `function MinuteChips(` — function, line 161
+- `const selected = minutes === value` — const, line 165
+- `function enterOnControl(event: KeyboardEvent): boolean` — function, line 194
+- `function stepChoice(choices: number[], current: number | null, delta: number): number | undefined` — function, line 198
+- `const index = choices.indexOf(current)` — const, line 200
+- `function PlanWhy(` — function, line 205
+- `const plan = data.plan` — const, line 206
+- `const headline = useCachedQuery(data.headlineEnabled === false ? null : ["get_today_headline"], ()` — const, line 207
+- `const rows = todayRows(plan)` — const, line 211
+- `const reentry = plan.kind === "reentry" ? reentryWhy(plan) : null` — const, line 212
+- `const split = splitWhy(plan)` — const, line 213
+- `const line = headline.data?.enabled ? headline.data.line ?? null : null` — const, line 214
+- `function Threads(` — function, line 256
+- `const questions = useCachedQuery(["list_question_queue", "today-threads"], ()` — const, line 267
+- `const problems = useCachedQuery(["workbench_open_problems"], ()` — const, line 268
+- `const threads = useMemo( ()` — const, line 271
+- `function threadAction(thread: TodayThread):` — function, line 279
+- `const citation = thread.question.sourceCitation` — const, line 281
+- `const target = targetForDialogue(thread.question)` — const, line 283
+- `const shown = more ? threads : threads.slice(0, THREADS_SHOWN)` — const, line 288
+- `const act = threadAction(thread)` — const, line 293
+- `function CapturesLine(` — function, line 321
+- `const summary = useCachedQuery(["get_inbox_summary", "today"], ()` — const, line 322
+- `const data = summary.data` — const, line 324
+- `const something = Boolean(data && ((data.newCount ?? 0) > 0 || (data.deletePending?.length ?? 0) > 0 || data.vaultMismatch))` — const, line 325
+- `function PlainList(` — function, line 339
+- `const items = useMemo(()` — const, line 358
+- `const minutesOf = useMemo(()` — const, line 359
+- `const map = new Map<string, number>()` — const, line 360
+- `const onKey = (event: KeyboardEvent)` — const, line 370
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 372
+- `const item = items[focus]` — const, line 383
+- `const minutes = minutesOf.get(item.practiceItemId)` — const, line 420
+- `const cold = onYourOwnWhy(item)` — const, line 421
+- `const planQuery = useDailyPlan(session?.sessionId ?? null)` — const, line 476
+- `const data: DailyPlanDto | null = planQuery.data ?? null` — const, line 477
+- `const planOn = data?.enabled === true && data.plan !== null` — const, line 478
+- `const plan = planOn ? data!.plan : null` — const, line 479
+- `const planOff = data !== null && !planOn` — const, line 480
+- `const lineHeld = useRef(false)` — const, line 487
+- `const now = new Date()` — const, line 496
+- `const summary = useCachedQuery(planOff ? ["get_start_summary"] : null, ()` — const, line 499
+- `const offMinutes = session?.availableMinutes ?? chosenMinutes ?? summary.data?.rememberedMinutes ?? null` — const, line 501
+- `const minutes = plan ? plan.rememberedMinutes : offMinutes` — const, line 502
+- `const choices = plan ? plan.minuteChoices : summary.data?.minuteChoices ?? summary.data?.minutesPresets ?? []` — const, line 503
+- `const planDone = plan ? plan.status !== "open" : false` — const, line 508
+- `const emptyDay = data !== null && plan !== null && (planDone ? planWasEmpty(data) : todayRows(plan).length === 0 && plan.deciding !== true && !plan.waiting && !plan.questionInProgress)` — const, line 509
+- `const queueInput = useMemo( ()` — const, line 520
+- `const queueQuery = useCachedQuery( queueInput && (list || planOff || emptyDay || keptGoingToNothing) ? ["get_today_queue", queueInput] : null, ()` — const, line 530
+- `const queue = queueQuery.data ?? null` — const, line 535
+- `const retryQueue = useCallback(()` — const, line 539
+- `const report = queueQuery.retryReport()` — const, line 540
+- `const library = useCachedQuery(["get_source_library"], ()` — const, line 544
+- `const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0` — const, line 545
+- `const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section)` — const, line 546
+- `const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn) ? todayCause(` — const, line 548
+- `const refetchLibrary = library.refetch` — const, line 553
+- `const refetchQueue = queueQuery.refetch` — const, line 554
+- `const onTheWay = cause?.kind === "on_the_way"` — const, line 555
+- `const timer = window.setInterval(()` — const, line 558
+- `const goals = useCachedQuery(["goals_list"], ()` — const, line 565
+- `const primaryGoal: GoalDto | null = useMemo(()` — const, line 566
+- `const active = (goals.data?.goals ?? []).filter((goal)` — const, line 567
+- `const da = a.dueAt ? Date.parse(a.dueAt) : Infinity` — const, line 569
+- `const db = b.dueAt ? Date.parse(b.dueAt) : Infinity` — const, line 570
+- `const deciding = plan?.deciding === true && !list` — const, line 578
+- `const refetchPlan = planQuery.refetch` — const, line 579
+- `let reads = 0` — let, line 582
+- `const timer = window.setInterval(()` — const, line 583
+- `const waitingUntil = plan?.waiting?.until ?? null` — const, line 593
+- `const at = Date.parse(waitingUntil)` — const, line 596
+- `const timer = window.setTimeout(()` — const, line 598
+- `const alive = useRef(true)` — const, line 606
+- `const stay = useCallback(<T,>(value: T): T` — const, line 613
+- `const startSession = useCallback( async (minutes: number): Promise<SessionSnapshot>` — const, line 618
+- `const started = await onStartSession(minutes)` — const, line 620
+- `const run = useCallback( async <T,>(work: ()` — const, line 626
+- `const runSaying = useCallback( async <T,>(line: string, work: ()` — const, line 643
+- `const done = plan ? plan.status !== "open" : false` — const, line 656
+- `const current = plan?.blocks.find((block)` — const, line 657
+- `const waiting = plan && !done && !current && plan.waiting ? plan.waiting : null` — const, line 658
+- `const inProgress = plan && !done && !current ? plan.questionInProgress ?? null : null` — const, line 661
+- `const openProblems = useCachedQuery(inProgress ? ["workbench_open_problems"] : null, ()` — const, line 662
+- `const inProgressProblem = inProgress ? openProblems.data?.problems.find((problem)` — const, line 663
+- `const inProgressItem = inProgress?.practiceItemId ?? null` — const, line 664
+- `const rows = plan && !done ? todayRows(plan) : []` — const, line 665
+- `async function begin()` — function, line 668
+- `const begun = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 672
+- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 673
+- `const first = await api.nextPlanItem(` — const, line 674
+- `const result = await runSaying(WAITING_COPY.choosingNext, ()` — const, line 680
+- `const action = planStepAction(result?.step,` — const, line 681
+- `function afterSomethingElse(result: SomethingElseChosenDto)` — function, line 688
+- `const entry = lessonEntryFor(result)` — const, line 689
+- `const action = planStepAction(result.step,` — const, line 698
+- `async function beginWithoutPlan()` — function, line 706
+- `const opened = await runSaying(WAITING_COPY.choosingNext, async ()` — const, line 708
+- `const started = session ?? (await startSession(minutes))` — const, line 709
+- `const head = await api.getTodayQueue(todayQueueInput(started))` — const, line 710
+- `function chooseMinutes(next: number)` — function, line 718
+- `async function keepGoing()` — function, line 727
+- `const result = await runSaying(WAITING_COPY.addingMore, ()` — const, line 730
+- `async function somethingNew(confirm: boolean)` — function, line 745
+- `const result = await run(()` — const, line 747
+- `async function finish()` — function, line 751
+- `const summaryResult = await run(()` — const, line 754
+- `async function skipCurrent()` — function, line 758
+- `const next = current.items.find((item)` — const, line 764
+- `async function openFromList(item: ScheduledItemDto, line: string = WAITING_COPY.openingQuestion)` — function, line 775
+- `const started = await runSaying(line, ()` — const, line 778
+- `const begun = await runSaying(line, async ()` — const, line 786
+- `const started = await startSession(Math.round(plan.minutesBudget))` — const, line 787
+- `const result = await api.planLearnerPick(item.practiceItemId, started.sessionId, item.schedulerCandidateId ?? null)` — const, line 788
+- `const result = await runSaying(line, ()` — const, line 794
+- `const step = result.step` — const, line 796
+- `async function practiseGoal()` — function, line 807
+- `async function practiseGoalHeld()` — function, line 818
+- `const input = queueInput ?? todayQueueInput(session)` — const, line 820
+- `const snapshot = await runSaying(WAITING_COPY.findingGoalQuestion, ()` — const, line 821
+- `const target = snapshot.sections.flatMap((section)` — const, line 823
+- `async function retryFromToday(target:` — function, line 834
+- `const result = await run(()` — const, line 835
+- `function causeAction(shown: TodayCause): (()` — function, line 839
+- `const card = shown.card` — const, line 852
+- `const causeLine = cause ? ( <CauseLine cause=` — const, line 860
+- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 869
+- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 870
+- `const onKey = (event: KeyboardEvent)` — const, line 875
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 877
+- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 897
+- `const streak = data?.streak ?? snapshotStreak` — const, line 905
+- `const streakText = streakLine(streak)` — const, line 906
+- `let body: ReactNode` — let, line 909
+- `const head = queue?.sections.flatMap((section)` — const, line 951
+- `const empty = planWasEmpty(data)` — const, line 965
+- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 1010
+- `function CauseLine(` — function, line 1141
+- `const label = causeActionLabel(cause)` — const, line 1160
+- `function KeepGoingNothing()` — function, line 1182
 
 ## Who imports or calls it
 
@@ -229,7 +232,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/GoalWizard|src/components/GoalWizard.tsx]] — import-or-re-export; imports `GoalWizard`
 - [[Reference/Desktop/TypeScript/components/InboxStrip|src/components/InboxStrip.tsx]] — import-or-re-export; imports `InboxStrip`
 - [[Reference/Desktop/TypeScript/components/QuestionQueue|src/components/QuestionQueue.tsx]] — import-or-re-export; imports `targetForDialogue`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `Waiting`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/copy/waiting|src/copy/waiting.ts]] — import-or-re-export; imports `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `ErrorReport`, `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export; imports `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/today/LessonOfferBlock|src/screens/today/LessonOfferBlock.tsx]] — import-or-re-export; imports `LessonOfferBlock`

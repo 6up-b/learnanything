@@ -164,7 +164,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `AuthorAttempts`, `code`, `sketch_problem`, `spec_problem`
+- [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]] — imports `module`; statically calls `sketch_problem`, `spec_problem`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `module`; statically calls `AuthorAttempts`, `code`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `module`; statically calls `FilterLog`, `build_stop_record`, `in_one_trace`, `prebuild_record`, `write_records`
 
 ## Dependencies
@@ -187,12 +188,25 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]].
+Static participation evidence comes from [[Reference/Modules/learnloop/figures/author_answer|learnloop.figures.author_answer]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_figure_author_answer.py](../../../../../../tests/test_figure_author_answer.py) — direct import
+  - `test_a_brief_that_does_not_parse_is_retried_with_its_problems`
+  - `test_a_rich_answer_still_label_like_on_the_last_attempt_keeps_its_brief_without_that_text`
+  - `test_a_sketch_that_does_not_parse_is_retried_and_ends_an_earlier_figure`
+  - `test_a_spec_that_does_not_parse_is_retried_with_the_parsers_problems`
+  - `test_a_status_no_menu_offers_has_its_rich_text_left_unread`
+  - `test_a_status_off_the_menu_is_retried_uncounted_with_the_media_offered`
+  - `test_a_v2_spec_is_judged_spec_and_a_status_outside_the_three_is_noted_and_read_as_a_spec`
+  - `test_an_empty_tier_reason_is_retried_uncounted`
+  - `test_label_like_text_is_retried_in_codes_words_then_stripped_on_the_last_attempt`
+  - `test_with_the_panels_off_an_advanced_panel_is_a_parse_problem`
+- [tests/test_figure_author_predictions.py](../../../../../../tests/test_figure_author_predictions.py) — direct import
+  - `test_a_real_problem_still_gets_the_second_attempt_without_the_predictions_noise`
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_bad_prediction_drops_itself_and_says_so`
   - `test_a_failed_model_call_is_model_failed_with_its_exception_class`
@@ -202,6 +216,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_build_leaves_a_refused_record`
   - `test_a_refused_or_failed_prebuild_is_a_stop_record`
   - `test_a_rich_only_build_names_its_job_and_an_interrupted_build_its_error`
+  - `test_an_author_status_no_menu_offers_is_recorded_as_other`
   - `test_attempt_one_problem_survives_an_accepted_second_attempt`
   - `test_deferred_and_capped_decisions_are_deferred_records`
   - `test_label_text_is_its_own_code`
@@ -210,6 +225,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_records_that_cannot_be_built_or_written_change_no_decision_build_or_prompt`
   - `test_the_recorded_seed_redraws_the_pass_exactly`
   - `test_unreadable_protection_cuts_the_whole_pass_and_says_so`
+- [tests/test_figure_label_wording.py](../../../../../../tests/test_figure_label_wording.py) — direct import
+  - `test_f1_a_spec_saying_it_matches_the_book_gets_the_repair_call`
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
   - `test_a_goal_candidate_is_kept_only_with_figures_and_show_me_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import

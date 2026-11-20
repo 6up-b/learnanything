@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LessonScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.tsx) |
-| Source lines | 660 |
+| Source lines | 671 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,65 +54,65 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type LessonEntry = |` — type, line 52
-- `export const PROBE_POLL_MS = DIAGNOSIS_POLL_MS` — const, line 66
-- `export function LessonScreen(` — function, line 85
-- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 530
-- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 537
+- `export type LessonEntry = |` — type, line 54
+- `export const PROBE_POLL_MS = DIAGNOSIS_POLL_MS` — const, line 68
+- `export function LessonScreen(` — function, line 87
+- `export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze(` — const, line 541
+- `export const LESSON_FIGURE_CONTRACT: FiguresContract = Object.freeze(` — const, line 548
 
 ## Internal implementation anchors
 
-- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 68
-- `const CLOSE_WORDS: Record<string, string> =` — const, line 69
-- `function dueWords(due: string): string` — function, line 78
-- `const day = new Date(`$` — const, line 79
-- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 81
-- `const activity = useRef<LessonActivityTracker | null>(null)` — const, line 117
-- `const run = useCallback(async (input: LessonTurnInput)` — const, line 126
-- `const next = await api.lessonTurn(input)` — const, line 133
-- `const err = getCommandError(error)` — const, line 137
-- `const code = err?.code ?? ""` — const, line 138
-- `const message = err?.message ?? String(error)` — const, line 139
-- `const existing = ((err?.details ??` — const, line 140
-- `const details = (err?.details ??` — const, line 152
-- `const saved = details.lesson_id ?? details.lessonId` — const, line 153
-- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 157
-- `let cancelled = false` — let, line 176
-- `const lessonId = view?.lessonId` — const, line 195
-- `const openCheck = view?.openCheck ?? null` — const, line 196
-- `const activityLog = Boolean(view?.activityLog)` — const, line 197
-- `const inForeground = ()` — const, line 200
-- `const tracker = createLessonActivity(` — const, line 201
-- `const onInput = ()` — const, line 206
-- `const onForeground = ()` — const, line 207
-- `const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const` — const, line 208
-- `const probe = view?.probe ?? null` — const, line 228
-- `const probeOpen = Boolean(probe && probe.status === "open")` — const, line 229
-- `const timer = window.setTimeout(()` — const, line 237
-- `const findGoal = useCallback(async ()` — const, line 243
-- `const text = goalText.trim()` — const, line 244
-- `const found = await api.lessonGoal(` — const, line 248
-- `const startTyped = useCallback(async ()` — const, line 259
-- `const text = goalText.trim()` — const, line 260
-- `const accepted = Object.entries(addTopics).filter(([, yes])` — const, line 262
-- `const submitProbe = useCallback(async ()` — const, line 267
-- `const teachAnyway = useCallback(async ()` — const, line 273
-- `const send = useCallback(async ()` — const, line 278
-- `const text = reply.trim()` — const, line 280
-- `const submitCheck = useCallback(async ()` — const, line 285
-- `const submitPrediction = useCallback(async ()` — const, line 291
-- `const value = predictionAnswer.trim()` — const, line 293
-- `const stop = useCallback(async ()` — const, line 298
-- `const startFresh = useCallback(async ()` — const, line 304
-- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 305
-- `const feed = useMemo(()` — const, line 310
-- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 311
-- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 540
-- `function LessonFigure(` — function, line 565
-- `const shown = useMemo(()` — const, line 567
-- `const ctl = useLessonFigureCtl(shown)` — const, line 568
-- `function FeedEntry(` — function, line 572
-- `const open = item.checkRef === openCheckRef` — const, line 591
+- `const TAP_LABELS = ["1", "2", "3", "4", "5"]` — const, line 70
+- `const CLOSE_WORDS: Record<string, string> =` — const, line 71
+- `function dueWords(due: string): string` — function, line 80
+- `const day = new Date(`$` — const, line 81
+- `const days = Math.max(0, Math.round((day.getTime() - Date.now()) / 86_400_000))` — const, line 83
+- `const activity = useRef<LessonActivityTracker | null>(null)` — const, line 121
+- `const run = useCallback(async (input: LessonTurnInput)` — const, line 130
+- `const next = await api.lessonTurn(input)` — const, line 138
+- `const err = getCommandError(error)` — const, line 142
+- `const code = err?.code ?? ""` — const, line 143
+- `const message = err?.message ?? String(error)` — const, line 144
+- `const existing = ((err?.details ??` — const, line 145
+- `const details = (err?.details ??` — const, line 157
+- `const saved = details.lesson_id ?? details.lessonId` — const, line 158
+- `const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId` — const, line 162
+- `let cancelled = false` — let, line 181
+- `const lessonId = view?.lessonId` — const, line 200
+- `const openCheck = view?.openCheck ?? null` — const, line 201
+- `const activityLog = Boolean(view?.activityLog)` — const, line 202
+- `const inForeground = ()` — const, line 205
+- `const tracker = createLessonActivity(` — const, line 206
+- `const onInput = ()` — const, line 211
+- `const onForeground = ()` — const, line 212
+- `const inputs = ["keydown", "pointerdown", "wheel", "scroll"] as const` — const, line 213
+- `const probe = view?.probe ?? null` — const, line 233
+- `const probeOpen = Boolean(probe && probe.status === "open")` — const, line 234
+- `const timer = window.setTimeout(()` — const, line 242
+- `const findGoal = useCallback(async ()` — const, line 248
+- `const text = goalText.trim()` — const, line 249
+- `const found = await api.lessonGoal(` — const, line 254
+- `const startTyped = useCallback(async ()` — const, line 265
+- `const text = goalText.trim()` — const, line 266
+- `const accepted = Object.entries(addTopics).filter(([, yes])` — const, line 268
+- `const submitProbe = useCallback(async ()` — const, line 273
+- `const teachAnyway = useCallback(async ()` — const, line 279
+- `const send = useCallback(async ()` — const, line 284
+- `const text = reply.trim()` — const, line 286
+- `const submitCheck = useCallback(async ()` — const, line 291
+- `const submitPrediction = useCallback(async ()` — const, line 297
+- `const value = predictionAnswer.trim()` — const, line 299
+- `const stop = useCallback(async ()` — const, line 304
+- `const startFresh = useCallback(async ()` — const, line 310
+- `const learningObjectIds = view?.learningObjectIds ?? []` — const, line 311
+- `const feed = useMemo(()` — const, line 316
+- `const title = entry.kind === "open" ? entry.title : undefined` — const, line 317
+- `function useLessonFigureCtl(figure: FigureViewDto): FiguresCtl` — function, line 551
+- `function LessonFigure(` — function, line 576
+- `const shown = useMemo(()` — const, line 578
+- `const ctl = useLessonFigureCtl(shown)` — const, line 579
+- `function FeedEntry(` — function, line 583
+- `const open = item.checkRef === openCheckRef` — const, line 602
 
 ## Who imports or calls it
 
@@ -138,7 +138,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FigureViewDto`, `LessonFeedEntryDto`, `LessonFigureStatus`, `LessonGoalDto`, `LessonTurnInput`, `LessonViewDto`
 - [[Reference/Desktop/TypeScript/components/DiagnosisCard|src/components/DiagnosisCard.tsx]] — import-or-re-export; imports `DIAGNOSIS_POLL_MS`
+- [[Reference/Desktop/TypeScript/components/Waiting|src/components/Waiting.tsx]] — import-or-re-export; imports `Waiting`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
+- [[Reference/Desktop/TypeScript/copy/waiting|src/copy/waiting.ts]] — import-or-re-export; imports `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `getCommandError`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 - [[Reference/Desktop/TypeScript/screens/lessonActivity|src/screens/lessonActivity.ts]] — import-or-re-export; imports `LessonActivityTracker`, `createLessonActivity`
@@ -158,6 +160,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/today/LessonSuggestionCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/LessonScreen.waiting.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.waiting.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/LessonScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/LessonScreen.te2.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LessonScreen.te2.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/checkHandoff.test.tsx](../../../../../../apps/learnloop-tauri/src/app/checkHandoff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

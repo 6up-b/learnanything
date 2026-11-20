@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py) |
-| Source lines | 786 |
+| Source lines | 787 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,7 +66,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `retry_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 383)
 - `rebind_completed(repository: Repository, *, request_id: str, annotation_id: str, commitment_id: str | None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 515) — Rebind a COMPLETED request to the capture that still holds it after the capture it served was reverted, and move its commitment mapping with it (Codex verify of RW1b fix round 3, F16).
 - `model_synthesis(client: Any, *, source_sets: Any) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 559) — Build the real ``synthesize`` seam for :func:`drain_requests`.
-- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 719) — Drain queued requests under a fenced lease.
+- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 720) — Drain queued requests under a fenced lease.
 
 ### Module constants
 
@@ -85,8 +85,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_land_proposals(repository: Repository, request: Mapping[str, Any], clock: Clock | None, *, object_type: str, exact_text: str, content: Mapping[str, Any], span_ids: list[str], model_provenance: Mapping[str, Any], usage: Mapping[str, int] | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 387) — Land one synthesis result as the reviewable §6.4 artifact pair: a PROPOSED source object + canonical mapping proposal (+ commitment mapping for commit-class presets).
 - `_revert_cancelled(repository: Repository, row: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 492) — A running request a revert flagged for cancellation: its bound capture was reverted and no other capture holds it (a holder would have been rebound to, and a revival clears the flag).
 - `_stopped(repository: Repository, commitment_id: str) -> bool` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 505) — A stopped commitment (a reverted capture's, retired) never receives a mapping (Codex final verify of RW1b, F16).
-- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 679) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
-- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 783)
+- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 680) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
+- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 784)
 
 ## Who imports or calls it
 
@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; calls `held_out_among`, `held_out_material`, `held_out_refusal`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `held_out_among`, `held_out_refusal`, `surface_material`; calls `held_out_among`, `held_out_refusal`, `surface_material`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `resolve_disposition`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] — imports `ReaderPresetSynthesis`, `ReaderPresetSynthesisContext`, `reader_preset_synthesis_prompt`; calls `ReaderPresetSynthesisContext`, `reader_preset_synthesis_prompt`

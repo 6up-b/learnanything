@@ -100,7 +100,7 @@ No live LearnLoop module directly imports this module in the static graph.
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`; calls `SystemClock`, `parse_utc`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `learner_title`, `source_kind_noun`, `source_status_line`; calls `learner_title`, `source_kind_noun`, `source_status_line`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_material`; calls `exam_material`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `surface_exam_material`; calls `surface_exam_material`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `PlanEnv`, `load_records`, `plan_active`; calls `PlanEnv`, `load_records`, `plan_active`
 - [[Reference/Modules/learnloop/daily_plan/headline|learnloop.daily_plan.headline]] — imports `HEADLINE_CLASSES`, `classify_learning_objects`, `today_headline`; calls `classify_learning_objects`, `today_headline`
 - [[Reference/Modules/learnloop/daily_plan/view|learnloop.daily_plan.view]] — imports `plan_view`; calls `plan_view`

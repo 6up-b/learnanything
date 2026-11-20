@@ -194,7 +194,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/pf_sandbox|learnloop.content.authoring.pf_sandbox]] — imports `SandboxLimits`
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `build_held_out_inventory`, `screen_practice_payload`; calls `build_held_out_inventory`, `screen_practice_payload`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `LazyStatementJudge`, `resolve_statement_judge`; calls `LazyStatementJudge`, `resolve_statement_judge`
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SCOPE_ONLY_REFUSAL`, `SourceSetsUnreadable`, `exam_material`, `reference_keys`, `scope_only_among`; calls `exam_material`, `reference_keys`, `scope_only_among`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SCOPE_ONLY_REFUSAL`, `SourceSetsUnreadable`, `reference_keys`, `scope_only_among`, `surface_exam_material`; calls `reference_keys`, `scope_only_among`, `surface_exam_material`
 - [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] — imports `read_exercise_statement`, `selection_nodes`; calls `read_exercise_statement`, `selection_nodes`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
