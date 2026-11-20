@@ -262,8 +262,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_attempt_links_to_scheduler_slate_and_later_retention_label`
 - [tests/test_certification_serving_reservation.py](../../../../../../tests/test_certification_serving_reservation.py) — direct import
   - `test_an_open_reservation_releases_when_the_task_expires`
+  - `test_dead_by_date_matches_the_no_reservation_rows`
+  - `test_dead_by_date_reads_agree_across_lazy_housekeeping`
   - `test_no_reservation_keeps_the_existing_certified_vault_queue_byte_identical`
   - `test_read_queue_withholds_the_reserved_question_and_names_why`
+  - `test_reservation_uses_the_callers_pinned_date`
   - `test_the_reserved_question_is_administered_by_its_check_on_its_day`
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — direct import
   - `test_accepting_diagnostic_proposal_queues_today_followup`

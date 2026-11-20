@@ -578,6 +578,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_new_plan_stops_and_joins_the_carries_its_predecessors_left`
   - `test_the_production_valuation_ends_once_told_to_stop`
 - [tests/test_certification_serving_reservation.py](../../../../../../tests/test_certification_serving_reservation.py) — direct import
+  - `test_dead_by_date_matches_the_no_reservation_rows`
   - `test_plan_candidates_do_not_include_the_reserved_question`
 - [tests/test_curriculum_c1_codex_review_fixes.py](../../../../../../tests/test_curriculum_c1_codex_review_fixes.py) — direct import
   - `test_f1_after_a_refresh_withdrew_the_staged_reading_the_switch_still_restores_rw7bs`

@@ -353,6 +353,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_closing_the_sidecar_stops_and_joins_its_vaults_carries`
 - [tests/test_certification_serving_reservation.py](../../../../../tests/test_certification_serving_reservation.py) — direct import
   - `test_a_full_list_pick_cannot_choose_the_reserved_question_because_it_is_not_listed`
+  - `test_dead_by_date_matches_the_no_reservation_rows`
+  - `test_dead_by_date_reads_agree_across_lazy_housekeeping`
   - `test_the_phone_list_withholds_the_reserved_question`
 - [tests/test_chatgpt_plan_sidecar.py](../../../../../tests/test_chatgpt_plan_sidecar.py) — direct import
   - `test_cancel_and_failure_are_reported`

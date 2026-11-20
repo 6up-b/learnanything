@@ -124,7 +124,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 64 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 65 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 40 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
@@ -179,7 +179,7 @@ flowchart LR
     n_learnloop_db["learnloop.db"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop -->|1| center
-    center -->|64| n_learnloop
+    center -->|65| n_learnloop
     center -->|40| n_learnloop_router_objective
     center -->|23| n_learnloop_db_stores
     center -->|21| n_learnloop_adaptive_difficulty
