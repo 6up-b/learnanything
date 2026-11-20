@@ -1536,6 +1536,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_an_anchored_figures_text_is_unchanged`
 - [tests/test_figures_switch_off.py](../../../../../../tests/test_figures_switch_off.py) — direct import
   - `test_figures_off_queues_and_reads_no_figure_text`
+- [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
+  - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`
   - `test_f10_recovery_redoes_a_withdrawal_a_crash_cut_at_the_job_boundary`

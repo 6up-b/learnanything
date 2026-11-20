@@ -1721,6 +1721,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_retry_after_a_structuring_pass_reads_its_checkpoint`
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
+  - `test_synthesis_pass_checkpoint_that_no_longer_validates_is_discarded`
 - [tests/test_notes_linked.py](../../../../../../tests/test_notes_linked.py) — direct import
   - `test_r6_two_concurrent_refreshes_resolve_to_the_newest_read`
 - [tests/test_observation_ledger_bulk.py](../../../../../../tests/test_observation_ledger_bulk.py) — direct import

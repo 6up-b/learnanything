@@ -259,6 +259,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_empty_log_does_not_backdate_current_claims`
 - [tests/test_figure_region.py](../../../../../../tests/test_figure_region.py) — direct import
   - `test_the_openai_chat_transport_sends_image_parts_only_for_an_image_profile`
+- [tests/test_first_questions_arrive.py](../../../../../../tests/test_first_questions_arrive.py) — direct import
 - [tests/test_fsrs_fitting.py](../../../../../../tests/test_fsrs_fitting.py) — direct import
   - `test_bounds_and_ordering_projection`
   - `test_deterministic`

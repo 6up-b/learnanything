@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py) |
-| Source lines | 732 |
+| Source lines | 734 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,23 +60,23 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class OpenAIChatProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 259)
   - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 266; internal)
   - `complete(self, request: StructuredRequest[Any]) -> Any` (line 327; public) — Execute one validated structured request with one bounded repair.
-  - `supports(self, capability: str) -> bool` (line 356; public)
-  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 379; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
-  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 398; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
-  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 422; internal)
-  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 435; internal)
-  - `_system_prompt(self, model_type: type[BaseModel]) -> str` (line 444; internal) — The system turn for a first structured attempt.
-  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 467; internal)
-  - `_truncation_retry_tokens(self, sent: Any) -> int | None` (line 514; internal) — The doubled ``max_tokens`` for this transport's own truncation retry, or None.
-  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 536; internal)
-  - `_send_once(self, kwargs: dict[str, Any]) -> Any` (line 562; internal) — One physical request under its own receipt.
-  - `_create_within_deadline(self, kwargs: dict[str, Any]) -> Any` (line 587; internal) — The SDK request under its total deadline (``kwargs["timeout"]``), in this thread: every network operation is bounded by the deadline's remaining time (the deadline backend, above), so when this returns or raises the request's transport work is over.
-  - `_meter_response(self, response: Any) -> None` (line 610; internal) — Record usage on the receipt and the run, and spend the request budget.
-  - `_retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None` (line 622; internal) — Seconds to wait before the next attempt, or None to give up.
-  - `_is_retryable(self, error: Exception) -> bool` (line 643; internal)
-  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 651; internal)
-  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 671; internal)
-  - `_default_headers(self) -> dict[str, str] | None` (line 684; internal)
+  - `supports(self, capability: str) -> bool` (line 358; public)
+  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 381; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
+  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 400; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
+  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 424; internal)
+  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 437; internal)
+  - `_system_prompt(self, model_type: type[BaseModel]) -> str` (line 446; internal) — The system turn for a first structured attempt.
+  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 469; internal)
+  - `_truncation_retry_tokens(self, sent: Any) -> int | None` (line 516; internal) — The doubled ``max_tokens`` for this transport's own truncation retry, or None.
+  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 538; internal)
+  - `_send_once(self, kwargs: dict[str, Any]) -> Any` (line 564; internal) — One physical request under its own receipt.
+  - `_create_within_deadline(self, kwargs: dict[str, Any]) -> Any` (line 589; internal) — The SDK request under its total deadline (``kwargs["timeout"]``), in this thread: every network operation is bounded by the deadline's remaining time (the deadline backend, above), so when this returns or raises the request's transport work is over.
+  - `_meter_response(self, response: Any) -> None` (line 612; internal) — Record usage on the receipt and the run, and spend the request budget.
+  - `_retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None` (line 624; internal) — Seconds to wait before the next attempt, or None to give up.
+  - `_is_retryable(self, error: Exception) -> bool` (line 645; internal)
+  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 653; internal)
+  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 673; internal)
+  - `_default_headers(self) -> dict[str, str] | None` (line 686; internal)
 
 ### Module constants
 
@@ -96,10 +96,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class _DeadlineNetworkStream(httpcore.NetworkStream)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 148) — A connection whose every operation is bounded by the deadline of the request using it (read at the operation: a pooled connection serves requests with different deadlines).
 - `class _DeadlineNetworkBackend(httpcore.NetworkBackend)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 203) — httpcore's network backend with every connection under the deadline.
 - `_arm_http_client(http_client: Any) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 233) — Put every connection pool of an httpx client (its transport and any proxy mounts) behind the deadline backend.
-- `class _RequestFailed(Exception)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 688) — The provider request itself failed; ``error`` is what it raised.
-- `_retry_after_seconds(error: Exception) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 696) — The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
-- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 717)
-- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 727)
+- `class _RequestFailed(Exception)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 690) — The provider request itself failed; ``error`` is what it raised.
+- `_retry_after_seconds(error: Exception) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 698) — The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
+- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 719)
+- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 729)
 
 ## Who imports or calls it
 
