@@ -649,3 +649,45 @@ describe("question writing you can follow: the phone says the desktop's sentence
     );
   });
 });
+
+describe("after the first answers (UX-44): the phone counts only what can be asked now", () => {
+  const empty = () => reply({ status: "complete", blocks: [], currentBlockId: null },
+    { day: { plans: 1, kinds: ["normal"], complete: true, actualMinutes: 0, plannedItems: 0, readingBlocks: 0 } });
+  const facts = (extra: Record<string, unknown> = {}) => ({
+    count: 0, itemIds: [], sections: ["Document"], writing: [], waiting: [], failed: [], toLookAt: 0, sectionCount: 1, ...extra
+  });
+  const book = (questions: Record<string, unknown>) => ({
+    sources: [{ sourceId: "src_sym", title: "Symmetric Matrices and Variance", readiness: "ready", readerEnabled: true, extractionId: "ext_1",
+      statusLine: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null, questions } }]
+  });
+  const FIRST_TOPIC = ["i1", "i2", "i3"];
+
+  async function causeFor(questions: Record<string, unknown>): Promise<string> {
+    answers.get_daily_plan = empty();
+    answers.get_source_library = book(questions);
+    render(<App />);
+    const text = (await screen.findByTestId("today-cause")).textContent ?? "";
+    expect(findJargon(text)).toEqual([]);
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+    cleanup();
+    return text;
+  }
+
+  it("two answered and one kept for a later check, six written since: six ready", async () => {
+    expect(await causeFor(facts({
+      count: 9, itemIds: [...FIRST_TOPIC, "i4", "i5", "i6", "i7", "i8", "i9"], writing: ["Document"], progress: { done: 3, total: 8 }, laterItemIds: FIRST_TOPIC
+    }))).toBe("6 questions from what you read in “Symmetric Matrices and Variance” are ready. More are being written (3 of 8 topics done).");
+  });
+
+  it("none left while more are written: the writing line, never 'ready'", async () => {
+    expect(await causeFor(facts({ count: 3, itemIds: FIRST_TOPIC, writing: ["Document"], progress: { done: 1, total: 8 }, laterItemIds: FIRST_TOPIC }))).toBe(
+      "Writing questions from what you read in “Symmetric Matrices and Variance” · 1 of 8 topics done. Keep reading meanwhile."
+    );
+  });
+
+  it("none left and nothing being written: none up today, and more come as you finish sections", async () => {
+    expect(await causeFor(facts({ count: 3, itemIds: FIRST_TOPIC, laterItemIds: FIRST_TOPIC }))).toBe(
+      "Nothing from “Symmetric Matrices and Variance” is up today. More questions come as you finish sections."
+    );
+  });
+});

@@ -92,6 +92,7 @@ import {
   goalCauseSentence,
   readyWithWorkSentence,
   todayCause,
+  waitingOnList,
   type TodayCause
 } from "../../app/todayCause";
 
@@ -562,6 +563,8 @@ export function TodayPlace({
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
   const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
   const listItemIds = useMemo(() => queue?.sections.flatMap((section) => section.items.map((item) => item.practiceItemId)) ?? [], [queue]);
+  // Answered and not due again yet: still on the list, but never what Today offers now.
+  const listWaiting = useMemo(() => waitingOnList(queue?.sections.flatMap((section) => section.items) ?? []), [queue]);
   // A closed plan with work left: a block of it not done, or questions still on today's list. The plan closes the
   // same way whether the router stopped with work feasible or nothing was left (its stopReason is free text), so
   // what is left is read from its rows and the list; null until the list is read, so neither line flashes.
@@ -572,7 +575,7 @@ export function TodayPlace({
       : listItems === null ? null : false;
   // Item 6: Keep going that came back with nothing open says the day's cause too.
   const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
-    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems, listItemIds })
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems, listItemIds, listWaiting })
     : null;
   // While a book's questions are on their way, the cause is read again as the
   // shelf reads it, so the line never outlives its state.

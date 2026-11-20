@@ -3731,6 +3731,9 @@ export interface ReadingQuestionsDto {
   /** Topics whose questions are applied, of the topics of every finished section with a writing job (all of them added
    *  up, earlier finished sections included). Absent from an older sidecar, and before any section's writing is queued. */
   progress?: { done: number; total: number } | null;
+  /** Of `itemIds`, those that cannot be asked now: answered and not due again yet, or kept for a later check on your
+   *  own. Present only when there are some (absent from an older sidecar too). */
+  laterItemIds?: string[];
 }
 
 /** A link an Add is still fetching: it has no library card yet. */

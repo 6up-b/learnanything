@@ -32,7 +32,7 @@
 // Pure: the phone imports it (`@desktop/app/todayCause`), so it reaches no
 // Tauri binding (apps/learnloop-mobile/src/desktopImports.test.ts).
 
-import type { AiConnectionDto, PendingAddDto, ReadingQuestionsDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
+import type { AiConnectionDto, PendingAddDto, QueueSnapshot, ReadingQuestionsDto, ScheduledItemDto, SourceLibraryCard, SourceStatusLineDto } from "../api/dto";
 import { WAITING_COPY } from "../copy/waiting";
 
 /** The card's action that asks for the one-time OK to write questions (UX
@@ -123,6 +123,26 @@ function questionsOf(card: SourceLibraryCard): ReadingQuestionsDto | null {
   return card.statusLine?.questions ?? null;
 }
 
+/** A book's written questions that cannot be asked now (answered and not due again yet, or kept for a later check on
+ *  your own): today's list keeps both, so being on it is not being askable. */
+function laterOf(questions: ReadingQuestionsDto): ReadonlySet<string> {
+  return new Set(questions.laterItemIds ?? []);
+}
+
+/** How many of a book's written questions can be asked now, where today's list is not read (the phone). */
+function askableWritten(questions: ReadingQuestionsDto): number {
+  // The later ones are some of the written ones (`itemIds`, which `count` counts).
+  return Math.max(0, questions.count - laterOf(questions).size);
+}
+
+/** The questions on today's list that wait to come back: answered, and not due again yet (the list keeps them in its
+ *  "later" part with their next due time; a question never answered has none). */
+export function waitingOnList(rows: readonly Pick<ScheduledItemDto, "practiceItemId" | "dueAt" | "dueStatus">[], now: number = Date.now()): string[] {
+  return rows
+    .filter((row) => row.dueStatus === "later" && row.dueAt !== null && Date.parse(row.dueAt) > now)
+    .map((row) => row.practiceItemId);
+}
+
 type Rank = "waiting_ok" | "needs_ai" | "failed" | "no_topics" | "section_failed" | "needs_look" | "on_the_way" | "section_writing" | "section_waiting";
 const ORDER: readonly Rank[] = ["waiting_ok", "needs_ai", "failed", "no_topics", "section_failed", "needs_look", "on_the_way", "section_writing", "section_waiting"];
 
@@ -190,9 +210,14 @@ function readyWithSectionWork(card: SourceLibraryCard, questions: ReadingQuestio
 /**
  * Why Today has nothing to practise, or what it can offer, or null while it cannot be told yet (the library or the
  * list not read). `listItems` is the number of questions on today's list (null: not read); pass 0 where the list does
- * not apply. `listItemIds` are their question ids, to tell which are a book's questions from reading. `listUnknown`:
- * the list is not read here at all (the phone's Today): a book's questions are then named by how many were written,
- * with no Begin, and nothing is said about today's list.
+ * not apply. `listItemIds` are their question ids, to tell which are a book's questions from reading; `listWaiting`,
+ * those of them answered and not due again yet (`waitingOnList`). `listUnknown`: the list is not read here at all (the
+ * phone's Today): a book's questions are then named by how many were written and can be asked now, with no Begin,
+ * and nothing is said about today's list.
+ *
+ * A book's question is offered only when it can be asked now: on today's list, not waiting to come back, and not kept
+ * for a later check (the book's `laterItemIds`). The list keeps the others, so counting the list would offer, and
+ * Begin would open, a question answered minutes ago.
  */
 export function todayCause(input: {
   cards: readonly SourceLibraryCard[] | null | undefined;
@@ -200,6 +225,7 @@ export function todayCause(input: {
   ai: AiConnectionDto | null;
   listItems: number | null;
   listItemIds?: readonly string[] | null;
+  listWaiting?: readonly string[] | null;
   listUnknown?: boolean;
 }): TodayCause | null {
   const unknown = input.listUnknown === true;
@@ -208,17 +234,25 @@ export function todayCause(input: {
   if (!unknown && (input.listItems ?? 0) > 0) {
     // A book's questions from reading on today's list: offered by name, with Begin.
     const listed = input.listItemIds ?? [];
+    const waiting = new Set(input.listWaiting ?? []);
+    // A book's questions on the list that cannot be asked now: they neither make an offer nor "more on the list".
+    const notNow = new Set<string>();
     for (const card of readable) {
       const questions = questionsOf(card);
-      const own = new Set(questions?.itemIds ?? []);
-      const mine = listed.filter((id) => own.has(id));
-      if (questions && mine.length > 0) {
+      if (!questions) continue;
+      const own = new Set(questions.itemIds);
+      const later = laterOf(questions);
+      for (const id of listed) if (own.has(id) && (waiting.has(id) || later.has(id))) notNow.add(id);
+      const mine = listed.filter((id) => own.has(id) && !notNow.has(id));
+      if (mine.length > 0) {
         // While more of them are written, or some topics could not be, Begin still offers these.
         return readyWithSectionWork(card, questions, mine.length, mine[0])
           ?? { kind: "questions_ready", title: readableTitle(card.title), part: partName(questions.sections, questions.sectionCount), count: mine.length, itemId: mine[0], card };
       }
     }
-    return { kind: "list_has_more" };
+    // Only a book's questions that wait (answered and not due again, or kept for a later check) left on the list: the books say
+    // what comes next (more being written, or none up today), below.
+    if (listed.length === 0 || listed.some((id) => !notNow.has(id))) return { kind: "list_has_more" };
   }
   const found: Array<{ rank: Rank; title: string; card: SourceLibraryCard | null; batchId: string | null }> = [];
   for (const card of readable) {
@@ -259,7 +293,9 @@ export function todayCause(input: {
         return { kind: "no_topics", title: first.title, card: first.card as SourceLibraryCard, sourceId: (first.card as SourceLibraryCard).sourceId };
       case "section_failed": {
         // Where the list is not read (the phone), questions already written are said with the stopped topics.
-        const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null;
+        const written = unknown && questions && askableWritten(questions) > 0 && first.card
+          ? readyWithSectionWork(first.card, questions, askableWritten(questions), null)
+          : null;
         if (written) return written;
         const stopped = questions?.failed ?? [];
         return { kind: "section_failed", title: first.title, part: partName(stopped.map((entry) => entry.label), questions?.sectionCount ?? 0), resumeId: stopped[0].resumeId };
@@ -279,7 +315,9 @@ export function todayCause(input: {
       }
       case "section_writing": {
         // Where the list is not read (the phone), questions already written are said with the writing.
-        const written = unknown && questions && questions.count > 0 && first.card ? readyWithSectionWork(first.card, questions, questions.count, null) : null;
+        const written = unknown && questions && askableWritten(questions) > 0 && first.card
+          ? readyWithSectionWork(first.card, questions, askableWritten(questions), null)
+          : null;
         if (written) return written;
         return {
           kind: "section_writing",
@@ -300,9 +338,15 @@ export function todayCause(input: {
     if (questions && questions.toLookAt > 0 && questions.count === 0) return { kind: "needs_look", title: readableTitle(card.title) };
   }
   const withQuestions = readable.find((card) => (questionsOf(card)?.count ?? 0) > 0);
-  if (unknown && withQuestions) {
-    const questions = questionsOf(withQuestions) as ReadingQuestionsDto;
-    return { kind: "questions_ready", title: readableTitle(withQuestions.title), part: partName(questions.sections, questions.sectionCount), count: questions.count, itemId: null, card: withQuestions };
+  const askable = unknown
+    ? readable.find((card) => {
+        const questions = questionsOf(card);
+        return questions !== null && askableWritten(questions) > 0;
+      })
+    : undefined;
+  if (askable) {
+    const questions = questionsOf(askable) as ReadingQuestionsDto;
+    return { kind: "questions_ready", title: readableTitle(askable.title), part: partName(questions.sections, questions.sectionCount), count: askableWritten(questions), itemId: null, card: askable };
   }
   // A built book with no section finished: the step that brings its first questions comes before a book whose
   // questions are not up today. A section finished with nothing to write is finished all the same: asking for it to
@@ -313,6 +357,27 @@ export function todayCause(input: {
   const finished = withQuestions ?? readable.find(finishedNone);
   if (finished) return { kind: "none_up", title: readableTitle(finished.title), card: finished };
   return { kind: "finish_section", card: readable.find((card) => card.readiness === "ready") ?? readable[0] ?? null };
+}
+
+/**
+ * The question Today's Begin would open now: the first of a book's questions from reading that can be asked now, in
+ * today's list order, as its row on the list; null when Today offers none. Feedback's Next goes on to it when the day's
+ * plan has nothing next, so Next and Begin never disagree. `answered`: the question just answered, never offered again
+ * even if the list read predates its answer.
+ */
+export function askableReadingQuestion(
+  cards: readonly SourceLibraryCard[] | null | undefined,
+  queue: QueueSnapshot | null | undefined,
+  answered: string | null = null,
+  now: number = Date.now()
+): ScheduledItemDto | null {
+  if (!cards || !queue) return null;
+  const rows = queue.sections.flatMap((section) => section.items).filter((row) => row.practiceItemId !== answered);
+  const cause = todayCause({
+    cards, ai: null, listItems: rows.length, listItemIds: rows.map((row) => row.practiceItemId), listWaiting: waitingOnList(rows, now)
+  });
+  if (!cause || (cause.kind !== "questions_ready" && cause.kind !== "questions_ready_with_section_work") || !cause.itemId) return null;
+  return rows.find((row) => row.practiceItemId === cause.itemId) ?? null;
 }
 
 function questionsWord(count: number): string {
