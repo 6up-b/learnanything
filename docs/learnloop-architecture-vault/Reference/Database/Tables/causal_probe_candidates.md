@@ -126,6 +126,7 @@ Indexes and uniqueness:
 
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_probe_commissioning.py`
+- `tests/test_followup_authoring_retry.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_followup_codex_review.py`

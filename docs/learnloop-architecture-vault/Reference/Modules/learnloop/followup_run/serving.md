@@ -149,6 +149,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — direct import
+  - `test_skip_between_requests_cancels_the_queued_correction`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f2_details_leave_out_the_held_causes_until_they_are_released`
   - `test_f4_a_skip_of_an_ordinary_item_changes_nothing`

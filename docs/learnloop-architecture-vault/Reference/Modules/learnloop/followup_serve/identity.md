@@ -165,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/followup_router_helpers.py](../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
+- [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — direct import
+  - `test_measured_empty_answer_then_good_is_served_with_both_receipts_and_reason`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_a_failed_workflow_withdraws_what_its_last_run_left`
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`
