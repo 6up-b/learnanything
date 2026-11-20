@@ -387,3 +387,12 @@ Found by G6.1's matrix (`tests/test_protection_surface_matrix.py`, record `docs/
 Fix record for G6-P1, P2, P3, P5, P6 and P7: `docs/reviews/refactor-g6-fixes-1.md`. Two cells of P7's row read differently once fixed: RN and CN stay S for 5.signal (and 6.5canonical, 6.5block), because the block beside the selection that carries the fixture's marker is the exam unit's heading, which a held-out signal (one span) does not cover; and P7's final check inside the author already refused P6's camel-case selection (RI 3.camel moved to R in P7's commit), P6 making the job's own refusal identical.
 
 G6-P4 (the phone's dose offer, fix step G6.10) is not on this ledger: G6.1 did not drive the dose arm, so the matrix neither confirms nor refutes it (record §6).
+
+## From G2's characterization of the probe doors (2026-11-19)
+
+Found by `tests/test_probe_router_authority.py`, which pins today's behaviour at every site that answers "should a probe be asked after this miss?" ([refactor-g2a.md](refactor-g2a.md)). Both are settled by G2's behaviour step (the router alone decides, at `mvp-0.62`); they are listed so that step answers them on purpose.
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| G2-1 | G2 step 1 (medium) | Accepting a probe offer asks nothing: `accept_probe_offer` reads neither the receipt it is handed nor the learner's preference, so a stale "quick check" request made after "Not now" still pins the probe. | `tests/test_probe_router_authority.py` pins today's answer; new at the tag: after "Not now" a stale request pins nothing | "Not now" is a hard stop the diagnostic layer asserts before the router sees a candidate (G2 design, section 2a); acceptance re-reads it | open; with G2's behaviour step |
+| G2-2 | G2 step 1 (low) | The automatic lane and the causal gate disagree on one shape: when both causes need the same repair, FG1 logs `skip_action_equivalent` while the causal gate decides `skip_common_repair` (the gate treats a cause set that is not probe-worthy as covered; FG1's check does not). FG1's verdict is logged only. | pinned as today's answers in the same file | One decision and one record of it: the router's (G2's behaviour step removes both verdicts) | open; with G2's behaviour step |

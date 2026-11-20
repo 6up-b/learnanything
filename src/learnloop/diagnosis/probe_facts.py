@@ -13,7 +13,7 @@ caller with no instrument yet can still say whether the classes settle the quest
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 #: A learner preference under which no probe is offered now (``probe_hard_stops.LEARNER_PREFERENCES`` minus allow).
 REFUSING_PREFERENCES = frozenset({"decline", "teach_now", "no_more_diagnostics"})
@@ -117,6 +117,75 @@ def probe_facts(
     )
 
 
+#: What is known of the chosen instrument's power to tell the causes apart. Today that is only the pairwise
+#: separability of its blind bundles, never a likelihood: no instrument, a candidate whose record gives no pair to
+#: read, or a computed share (which may be a computed zero).
+CHANNEL_NO_INSTRUMENT = "no_instrument"
+CHANNEL_NO_SEPARABILITY_RECORD = "no_separability_record"
+CHANNEL_SEPARABILITY_COMPUTED = "separability_computed"
+
+
+def channel_status(*, instrument: bool, separability_computed: bool) -> str:
+    """Which of the three states the chosen instrument's channel is in (the ``CHANNEL_*`` names)."""
+
+    if not instrument:
+        return CHANNEL_NO_INSTRUMENT
+    return CHANNEL_SEPARABILITY_COMPUTED if separability_computed else CHANNEL_NO_SEPARABILITY_RECORD
+
+
+@dataclass(frozen=True)
+class ProbeProposalReads:
+    """What the repair lane reads about one factor's possible probe before anyone judges it, as plain values.
+
+    ``causal_orchestrator.gather_probe_reads`` fills it, in the order the repair status always read these; the
+    repair lane's verdict then reads its values unchanged. ``channel_status`` keeps a missing instrument or an
+    unreadable separability record apart from the numeric zeros the verdict is given for them (the gain and change
+    probability are 0.0 there, ``heuristic_default`` in their provenance). Units as on :class:`ProbeFacts`.
+    """
+
+    repair_class_ids: tuple[str, ...]
+    common_repair_covers: bool
+    common_repair_class_id: str | None
+    pending_machine_check_ids: tuple[str, ...]
+    episode_conflict: str | None
+    #: Every candidate with a current blind-input contract, in the shared serving order; the chosen one is the first
+    #: active candidate, else the first of any status.
+    candidates: tuple[Mapping[str, Any], ...]
+    chosen: Mapping[str, Any] | None
+    instrument_available: bool
+    channel_status: str
+    expected_information_gain: float
+    probability_information_changes_repair: float
+    gain_provenance: str
+    action_change_provenance: str
+    separable_pairs: int
+    inseparable_pairs: int
+    prior_basis: str | None
+    likelihood_completeness: Mapping[str, Any]
+    probe_burden_minutes: float
+    burden_provenance: str
+    avoided_overteaching_minutes: float
+    avoided_provenance: str
+    learner_preference: str
+    recent_diagnostic_burden: int
+
+    def facts(self, *, session_budget_minutes: float | None = None) -> ProbeFacts:
+        """The facts these reads give, as the repair lane's verdict computes them."""
+
+        return probe_facts(
+            repair_class_ids=self.repair_class_ids,
+            common_repair_covers=self.common_repair_covers,
+            expected_information_gain=self.expected_information_gain,
+            probability_information_changes_repair=self.probability_information_changes_repair,
+            probe_burden_minutes=self.probe_burden_minutes,
+            avoided_overteaching_minutes=self.avoided_overteaching_minutes,
+            pending_machine_checks=self.pending_machine_check_ids,
+            session_budget_minutes=session_budget_minutes,
+            learner_preference=self.learner_preference,
+            recent_diagnostic_burden=self.recent_diagnostic_burden,
+        )
+
+
 class Thresholds(Protocol):
     """The rule's thresholds, read only when the rule reaches them (``CausalProbeParameters`` is one)."""
 
@@ -174,12 +243,17 @@ def probe_verdict(facts: ProbeFacts, thresholds: Thresholds) -> tuple[str, str]:
 
 
 __all__ = [
+    "CHANNEL_NO_INSTRUMENT",
+    "CHANNEL_NO_SEPARABILITY_RECORD",
+    "CHANNEL_SEPARABILITY_COMPUTED",
     "HARD_STOP_LEARNER_PREFERENCE",
     "HARD_STOP_MACHINE_CHECKS",
     "HARD_STOP_SESSION_BUDGET",
     "REFUSING_PREFERENCES",
     "ProbeFacts",
+    "ProbeProposalReads",
     "Thresholds",
+    "channel_status",
     "probe_facts",
     "probe_verdict",
     "settled_by_repair_classes",

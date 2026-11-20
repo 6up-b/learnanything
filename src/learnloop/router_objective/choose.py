@@ -12,6 +12,10 @@ it names is read there), where a failure to build it cannot change what is serve
 The order of the draws is the served one: the mix's two uniforms (``mix.draw``), then the coin's own (``stop_coin``),
 never the mix's, so the mix's draw and ``μ`` are the same whether or not a coin is flipped.
 
+``post_miss_choice(inputs)`` is the same mix for a decision inside a block after a miss (a follow-up asked now, after
+the block, or not at all, and any lesson beside it): no stop and no coin, the follow-up asked now as the staged pick,
+and the LLM policy's answer read from whichever of its two requests was sent.
+
 A leaf: the mix, the stop coin, the why's sentences and the decision record. It cannot import ``daily_plan``, so the
 two component statuses it compares are repeated here (``tests/test_choose.py`` holds them equal to the runtime's).
 """
@@ -205,6 +209,87 @@ def choose(inputs: ChoiceInputs) -> Choice:
     )
 
 
+@dataclass(frozen=True)
+class PostMissInputs:
+    """What one post-miss decision's mix depends on, as read before it (``objective_chooser``'s restraint gate: a
+    follow-up asked now, later, or not at all, and any lesson offered beside it)."""
+
+    #: The options in support order; ``staged_ref`` is the staged rule's pick (the follow-up asked now), and
+    #: ``wait_ref`` the arm a yes/no answer's "not now" is (the current block first).
+    support: tuple[str, ...]
+    staged_ref: str
+    wait_ref: str
+    #: Which request the LLM policy answered: a probability per option, or the restraint's yes/no on asking now.
+    per_option: bool
+    llm_status: str
+    #: A per-option answer that parsed as the policy's own: its distribution and rationale (None: it did not).
+    llm_options: Mapping[str, float] | None
+    llm_option_rationale: str | None
+    #: A yes/no answer: the probability of asking now, and the rationale as the model gave it.
+    llm_p_yes: float | None
+    llm_rationale: str | None
+    #: The numeric policy's status and choice.
+    numeric_status: str
+    numeric_choice: str | None
+    #: ``w_i``, where a failed policy's share goes (IH5), the exploration floor, and the seed the draw reads.
+    w: float
+    to_other_policy: bool
+    epsilon: float
+    seed: str
+
+
+@dataclass(frozen=True)
+class PostMissChoice:
+    """What :func:`post_miss_choice` decided: each policy's usable answer, the mix they leave and its draw."""
+
+    #: The LLM policy's distribution over the support (None: it failed) and the rationale the record carries.
+    llm_distribution: Mapping[str, float] | None
+    rationale: str | None
+    failed: tuple[str, ...]
+    effective: Mapping[str, float]
+    components: Mapping[str, Mapping[str, float]]
+    #: The numeric policy's choice when it entered the mix (it answered, inside the support), else None.
+    numeric_choice: str | None
+    drawn: mx.Draw
+    #: The served arm's logged probability: 1.0 for a draw the floor cannot move, else its exact ``μ``.
+    propensity: float
+
+
+def post_miss_choice(inputs: PostMissInputs) -> PostMissChoice:
+    """The post-miss decision's mix: which policies answered usably, the weights a failure leaves, each live
+    component's distribution, and one draw from the seed.
+
+    A per-option answer counts only when it parsed as the policy's own, names exactly the support and gives every
+    option some mass; a yes/no answer only strictly between 0 and 1. The rationale a record carries differs by request:
+    a yes/no answer's is the model's words whatever it answered, a per-option one's only comes with its parsed answer.
+    It reads no clock, database or id stream, and draws only from the seed it is given: the restraint gate gathers
+    the inputs (the weight read, then the decision's id and seed) and writes the trace and record from the result.
+    """
+
+    support = list(inputs.support)
+    answered = inputs.llm_status == ANSWERED
+    if inputs.per_option:
+        options = inputs.llm_options if answered else None
+        llm_dist = ({ref: float(options[ref]) for ref in support}
+                    if options is not None and set(options) == set(support)
+                    and all(float(value) > 0.0 for value in options.values()) else None)
+        rationale = inputs.llm_option_rationale if options is not None else None
+    else:
+        p_yes = inputs.llm_p_yes
+        llm_dist = ({inputs.staged_ref: float(p_yes), inputs.wait_ref: 1.0 - float(p_yes)}
+                    if answered and p_yes is not None and 0.0 < float(p_yes) < 1.0 else None)
+        rationale = inputs.llm_rationale
+    numeric_ok = inputs.numeric_status == ANSWERED and inputs.numeric_choice in support
+    failed = [name for name, ok in ((mix.LLM, llm_dist is not None), (mix.NUMERIC, numeric_ok)) if not ok]
+    effective = mix.effective_weights(inputs.w, failed, to_other_policy=inputs.to_other_policy)
+    numeric_choice = inputs.numeric_choice if numeric_ok else None
+    parts = mix.components(support, inputs.staged_ref, llm=llm_dist, numeric_ref=numeric_choice)
+    drawn = mix.draw(support, parts, effective, inputs.epsilon, inputs.seed)
+    return PostMissChoice(llm_distribution=llm_dist, rationale=rationale, failed=tuple(failed), effective=effective,
+                          components=parts, numeric_choice=numeric_choice, drawn=drawn,
+                          propensity=1.0 if drawn.deterministic else drawn.propensity)
+
+
 def _code(value: Any) -> str | None:
     return value if provenance.is_code(value) else None
 
@@ -258,5 +343,6 @@ def decision_record(choice: Choice, inputs: ChoiceInputs, *, question_set_versio
     )
 
 
-__all__ = ["ANSWERED", "Choice", "ChoiceInputs", "MODE", "NOT_READY", "NO_MODELS", "OptionFacts", "STOP_OFFER",
-           "WHY_VERSION", "choose", "coin_applies", "coin_reads_minutes", "decision_record"]
+__all__ = ["ANSWERED", "Choice", "ChoiceInputs", "MODE", "NOT_READY", "NO_MODELS", "OptionFacts", "PostMissChoice",
+           "PostMissInputs", "STOP_OFFER", "WHY_VERSION", "choose", "coin_applies", "coin_reads_minutes",
+           "decision_record", "post_miss_choice"]

@@ -139,6 +139,7 @@ from learnloop.diagnosis.causal_reads import (
     diagnosis_receipt,
     open_factors_for_hypothesis,
 )
+from learnloop.diagnosis.probe_facts import ProbeProposalReads, channel_status
 from learnloop.diagnosis.probe_hard_stops import (
     EPISODE_CONFLICT_MESSAGE,
     learner_preference,
@@ -622,6 +623,167 @@ def causal_repair_status(
     )
 
 
+def gather_probe_reads(
+    repository: Repository,
+    *,
+    factor_id: str,
+    attempt_id: str | None,
+    learning_object_id: str | None,
+    session_id: str | None,
+    targeting: Any,
+    repair_class_by_hypothesis: Mapping[str, str],
+    parameters: OrchestratorParameters,
+) -> ProbeProposalReads:
+    """What the repair status reads about the factor's possible probe, after its mapping checks are settled.
+
+    The reads run in the order ``_status_for_factor`` always made them, so each query sees what it saw before; it
+    writes nothing. ``targeting`` is the factor's classified cause set, ``parameters`` the orchestrator's resolved knobs.
+    """
+
+    need = repair_class_need_for_factor(repository, factor_id)
+    common_repair_covers = bool(need["common_repair_covers"]) or not targeting.probe_worthy
+    receipt = diagnosis_receipt(repository, attempt_id)
+    common_repair_class_id = None
+    if isinstance(receipt, Mapping):
+        cover = receipt.get("common_repair_cover")
+        if isinstance(cover, Mapping) and cover.get("covers_plausible_set"):
+            common_repair_class_id = (
+                str(cover["repair_class_id"])
+                if cover.get("repair_class_id")
+                else None
+            )
+    if common_repair_class_id is None and len(targeting.repair_class_ids) == 1:
+        common_repair_class_id = targeting.repair_class_ids[0]
+
+    pending_checks = (
+        pending_machine_checks_for_factor(
+            repository,
+            factor_id=factor_id,
+            learning_object_id=learning_object_id,
+        )
+        if targeting.probe_worthy
+        else []
+    )
+    pending_check_ids = [str(check["id"]) for check in pending_checks]
+
+    # §6: never offer an action that would fail. `accept_probe_offer` refuses
+    # while another diagnostic episode owns the learning object and has already
+    # measured something under its own locked set; the learner must see that
+    # state, not a "Take the quick check" button that answers with a refusal.
+    episode_conflict = probe_episode_conflict(
+        repository, factor_id=factor_id, learning_object_id=learning_object_id
+    )
+
+    candidates = order_probe_candidates(
+        [
+            value
+            for value in repository.causal_probe_candidates_for_factor(factor_id)
+            if candidate_has_current_blind_input_contract(value)
+        ]
+    )
+    active = [value for value in candidates if value.get("status") == "active"]
+    # Only a reviewed-ACTIVE candidate is servable; an unreviewed one still
+    # tells us how much information the instrument WOULD carry, which is what
+    # the decision receipt should record. The head is THE shared deterministic
+    # order (`order_probe_candidates`), the same one `accept_probe_offer`
+    # serves from, so the receipt's chosen candidate and the served instrument
+    # cannot diverge.
+    chosen = active[0] if active else (candidates[0] if candidates else None)
+    instrument_available = bool(active)
+
+    discrimination = _discrimination_inputs(chosen, repair_class_by_hypothesis)
+
+    # Decision-value spec §4.1/§10.1: the receipt states how the prior was
+    # formed, whether the likelihood coverage is complete (H_OTHER and any
+    # bundle-less hypothesis included), and which loss regime priced the
+    # decision — P4 consumes these receipts as training records and must be
+    # able to refuse fabricated inputs without re-deriving them.
+    prior_basis: str | None = None
+    if chosen is not None and chosen.get("hypothesis_set_id"):
+        locked_set = repository.fetch_hypothesis_set(str(chosen["hypothesis_set_id"]))
+        if locked_set is not None:
+            prior_basis = (
+                str(locked_set.get("prior_basis")) if locked_set.get("prior_basis") else None
+            )
+    likelihood_completeness: dict[str, Any]
+    if chosen is None:
+        likelihood_completeness = {"complete": False, "reason": "no_instrument"}
+    else:
+        chosen_discrimination = (
+            chosen.get("discrimination")
+            if isinstance(chosen.get("discrimination"), Mapping)
+            else {}
+        )
+        missing_ids = [
+            str(value)
+            for value in (chosen_discrimination.get("missing_hypothesis_ids") or [])
+        ]
+        unusable_ids = [
+            str(value)
+            for value in (chosen_discrimination.get("unusable_hypothesis_ids") or [])
+        ]
+        likelihood_completeness = {
+            "complete": not missing_ids and not unusable_ids,
+            "missing_hypothesis_ids": missing_ids,
+            "unusable_hypothesis_ids": unusable_ids,
+        }
+    probe_burden, burden_provenance = _probe_burden_minutes(
+        repository,
+        str(chosen["practice_item_id"]) if chosen is not None else None,
+        parameters["probe_burden_minutes_default"],
+    )
+    avoided, avoided_provenance = _avoided_overteaching_minutes(
+        repository,
+        attempt_id=attempt_id,
+        repair_class_ids=targeting.repair_class_ids,
+        default_minutes=parameters["repair_class_expected_minutes_default"],
+    )
+    preference = learner_preference(
+        repository,
+        factor_id=factor_id,
+        learning_object_id=learning_object_id,
+        session_id=session_id,
+    )
+    recent_burden = (
+        _recent_diagnostic_burden(
+            repository,
+            learning_object_id,
+            int(parameters["recent_diagnostic_window_attempts"]),
+        )
+        if learning_object_id
+        else 0
+    )
+
+    # A heuristic-default gain is the pinned 0.0 of a record with no pair to read, not a measured zero.
+    channel = channel_status(instrument=chosen is not None,
+                             separability_computed=discrimination.gain_provenance != "heuristic_default")
+    return ProbeProposalReads(
+        repair_class_ids=tuple(targeting.repair_class_ids),
+        common_repair_covers=common_repair_covers,
+        common_repair_class_id=common_repair_class_id,
+        pending_machine_check_ids=tuple(pending_check_ids),
+        episode_conflict=episode_conflict,
+        candidates=tuple(candidates),
+        chosen=chosen,
+        instrument_available=instrument_available,
+        channel_status=channel,
+        expected_information_gain=discrimination.expected_information_gain,
+        probability_information_changes_repair=discrimination.probability_information_changes_repair,
+        gain_provenance=discrimination.gain_provenance,
+        action_change_provenance=discrimination.action_change_provenance,
+        separable_pairs=discrimination.separable_pairs,
+        inseparable_pairs=discrimination.inseparable_pairs,
+        prior_basis=prior_basis,
+        likelihood_completeness=likelihood_completeness,
+        probe_burden_minutes=probe_burden,
+        burden_provenance=burden_provenance,
+        avoided_overteaching_minutes=avoided,
+        avoided_provenance=avoided_provenance,
+        learner_preference=preference,
+        recent_diagnostic_burden=recent_burden,
+    )
+
+
 def _status_for_factor(
     repository: Repository,
     *,
@@ -804,133 +966,35 @@ def _status_for_factor(
     # `repair_class_id`). Close it here rather than waiting for a sweep.
     close_satisfied_backfills(repository, factor_id, clock=clock)
 
-    need = repair_class_need_for_factor(repository, factor_id)
-    common_repair_covers = bool(need["common_repair_covers"]) or not targeting.probe_worthy
-    receipt = diagnosis_receipt(repository, attempt_id)
-    common_repair_class_id = None
-    if isinstance(receipt, Mapping):
-        cover = receipt.get("common_repair_cover")
-        if isinstance(cover, Mapping) and cover.get("covers_plausible_set"):
-            common_repair_class_id = (
-                str(cover["repair_class_id"])
-                if cover.get("repair_class_id")
-                else None
-            )
-    if common_repair_class_id is None and len(targeting.repair_class_ids) == 1:
-        common_repair_class_id = targeting.repair_class_ids[0]
-
-    pending_checks = (
-        pending_machine_checks_for_factor(
-            repository,
-            factor_id=factor_id,
-            learning_object_id=learning_object_id,
-        )
-        if targeting.probe_worthy
-        else []
-    )
-    pending_check_ids = [str(check["id"]) for check in pending_checks]
-
-    # §6: never offer an action that would fail. `accept_probe_offer` refuses
-    # while another diagnostic episode owns the learning object and has already
-    # measured something under its own locked set; the learner must see that
-    # state, not a "Take the quick check" button that answers with a refusal.
-    episode_conflict = probe_episode_conflict(
-        repository, factor_id=factor_id, learning_object_id=learning_object_id
-    )
-
-    candidates = order_probe_candidates(
-        [
-            value
-            for value in repository.causal_probe_candidates_for_factor(factor_id)
-            if candidate_has_current_blind_input_contract(value)
-        ]
-    )
-    active = [value for value in candidates if value.get("status") == "active"]
-    # Only a reviewed-ACTIVE candidate is servable; an unreviewed one still
-    # tells us how much information the instrument WOULD carry, which is what
-    # the decision receipt should record. The head is THE shared deterministic
-    # order (`order_probe_candidates`), the same one `accept_probe_offer`
-    # serves from, so the receipt's chosen candidate and the served instrument
-    # cannot diverge.
-    chosen = active[0] if active else (candidates[0] if candidates else None)
-    instrument_available = bool(active)
-
-    discrimination = _discrimination_inputs(chosen, repair_class_by_hypothesis)
-    expected_information_gain = discrimination.expected_information_gain
-    action_change = discrimination.probability_information_changes_repair
-
-    # Decision-value spec §4.1/§10.1: the receipt states how the prior was
-    # formed, whether the likelihood coverage is complete (H_OTHER and any
-    # bundle-less hypothesis included), and which loss regime priced the
-    # decision — P4 consumes these receipts as training records and must be
-    # able to refuse fabricated inputs without re-deriving them.
-    prior_basis: str | None = None
-    if chosen is not None and chosen.get("hypothesis_set_id"):
-        locked_set = repository.fetch_hypothesis_set(str(chosen["hypothesis_set_id"]))
-        if locked_set is not None:
-            prior_basis = (
-                str(locked_set.get("prior_basis")) if locked_set.get("prior_basis") else None
-            )
-    likelihood_completeness: dict[str, Any]
-    if chosen is None:
-        likelihood_completeness = {"complete": False, "reason": "no_instrument"}
-    else:
-        chosen_discrimination = (
-            chosen.get("discrimination")
-            if isinstance(chosen.get("discrimination"), Mapping)
-            else {}
-        )
-        missing_ids = [
-            str(value)
-            for value in (chosen_discrimination.get("missing_hypothesis_ids") or [])
-        ]
-        unusable_ids = [
-            str(value)
-            for value in (chosen_discrimination.get("unusable_hypothesis_ids") or [])
-        ]
-        likelihood_completeness = {
-            "complete": not missing_ids and not unusable_ids,
-            "missing_hypothesis_ids": missing_ids,
-            "unusable_hypothesis_ids": unusable_ids,
-        }
-    probe_burden, burden_provenance = _probe_burden_minutes(
-        repository,
-        str(chosen["practice_item_id"]) if chosen is not None else None,
-        parameters["probe_burden_minutes_default"],
-    )
-    avoided, avoided_provenance = _avoided_overteaching_minutes(
-        repository,
-        attempt_id=attempt_id,
-        repair_class_ids=targeting.repair_class_ids,
-        default_minutes=parameters["repair_class_expected_minutes_default"],
-    )
-    preference = learner_preference(
+    reads = gather_probe_reads(
         repository,
         factor_id=factor_id,
+        attempt_id=attempt_id,
         learning_object_id=learning_object_id,
         session_id=session_id,
+        targeting=targeting,
+        repair_class_by_hypothesis=repair_class_by_hypothesis,
+        parameters=parameters,
     )
-    recent_burden = (
-        _recent_diagnostic_burden(
-            repository,
-            learning_object_id,
-            int(parameters["recent_diagnostic_window_attempts"]),
-        )
-        if learning_object_id
-        else 0
-    )
+    common_repair_class_id = reads.common_repair_class_id
+    pending_check_ids = list(reads.pending_machine_check_ids)
+    episode_conflict = reads.episode_conflict
+    candidates = list(reads.candidates)
+    chosen = reads.chosen
+    instrument_available = reads.instrument_available
+    preference = reads.learner_preference
 
     decision: ProbeDecision = decide_probe(
         repair_class_ids=list(targeting.repair_class_ids),
-        common_repair_covers=common_repair_covers,
-        expected_information_gain=expected_information_gain,
-        probability_information_changes_repair=action_change,
-        probe_burden_minutes=probe_burden,
-        avoided_overteaching_minutes=avoided,
+        common_repair_covers=reads.common_repair_covers,
+        expected_information_gain=reads.expected_information_gain,
+        probability_information_changes_repair=reads.probability_information_changes_repair,
+        probe_burden_minutes=reads.probe_burden_minutes,
+        avoided_overteaching_minutes=reads.avoided_overteaching_minutes,
         pending_machine_checks=pending_check_ids,
         session_budget_minutes=session_budget_minutes,
         learner_preference=preference,
-        recent_diagnostic_burden=recent_burden,
+        recent_diagnostic_burden=reads.recent_diagnostic_burden,
         repository=repository,
         parameters=probe_parameters,
     )
@@ -939,12 +1003,10 @@ def _status_for_factor(
     # these receipts as training records and must be able to tell a computed
     # separability from an authored minute estimate from a pinned fallback.
     evsi_provenance = {
-        "expected_information_gain": discrimination.gain_provenance,
-        "probability_information_changes_repair": (
-            discrimination.action_change_provenance
-        ),
-        "probe_burden_minutes": burden_provenance,
-        "avoided_overteaching_minutes": avoided_provenance,
+        "expected_information_gain": reads.gain_provenance,
+        "probability_information_changes_repair": reads.action_change_provenance,
+        "probe_burden_minutes": reads.burden_provenance,
+        "avoided_overteaching_minutes": reads.avoided_provenance,
         "common_repair_covers": "deterministic",
         "learner_preference": "deterministic",
         "recent_diagnostic_burden": "deterministic",
@@ -955,28 +1017,28 @@ def _status_for_factor(
     assert all(value in EVSI_PROVENANCE for value in evsi_provenance.values())
     inputs = {
         **base_inputs,
-        "common_repair_covers": common_repair_covers,
-        "expected_information_gain": expected_information_gain,
-        "probability_information_changes_repair": action_change,
-        "separable_pairs": discrimination.separable_pairs,
-        "inseparable_pairs": discrimination.inseparable_pairs,
-        "probe_burden_minutes": probe_burden,
-        "avoided_overteaching_minutes": avoided,
+        "common_repair_covers": reads.common_repair_covers,
+        "expected_information_gain": reads.expected_information_gain,
+        "probability_information_changes_repair": reads.probability_information_changes_repair,
+        "separable_pairs": reads.separable_pairs,
+        "inseparable_pairs": reads.inseparable_pairs,
+        "probe_burden_minutes": reads.probe_burden_minutes,
+        "avoided_overteaching_minutes": reads.avoided_overteaching_minutes,
         "expected_avoided_overteaching_minutes": (
             decision.expected_avoided_overteaching_minutes
         ),
         "pending_machine_checks": pending_check_ids,
         "session_budget_minutes": session_budget_minutes,
         "learner_preference": preference,
-        "recent_diagnostic_burden": recent_burden,
+        "recent_diagnostic_burden": reads.recent_diagnostic_burden,
         "candidate_statuses": sorted(
             str(value.get("status")) for value in candidates
         ),
         "instrument_available": instrument_available,
         "probe_episode_conflict": episode_conflict,
         "evsi_provenance": evsi_provenance,
-        "prior_basis": prior_basis,
-        "likelihood_completeness": likelihood_completeness,
+        "prior_basis": reads.prior_basis,
+        "likelihood_completeness": reads.likelihood_completeness,
         "loss_table_regime": LOSS_TABLE_REGIME_P2_PROXY,
     }
 
@@ -1124,5 +1186,6 @@ __all__ = [
     "RepairAction",
     "RepairStatus",
     "causal_repair_status",
+    "gather_probe_reads",
     "resolve_orchestrator_parameters",
 ]

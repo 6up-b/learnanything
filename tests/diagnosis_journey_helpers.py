@@ -422,6 +422,71 @@ def fg1_case(kind, root, patch):
     return journey
 
 
+def fg1_refused_case(kind, root, patch):
+    """The automatic lane's hard refusal: the learner's "Not now" before the job runs (no question written), or while
+    the question is being written (written, then withdrawn); with no plan, each logs a planless router row."""
+
+    from learnloop_sidecar import handlers  # noqa: F401 - register direct handler entry points
+    from tests.followup_journey_helpers import _journey, _generate
+    from tests.followup_serve_helpers import AuthorFake
+    from learnloop.followup_serve import workflow as wf
+
+    ctx, _, repo, result, outcome = _journey(root, patch)
+    journey = Journey(repo)
+    factor = str(repo.unresolved_cause_factors_for_attempt(result.attempt_id)[0]["id"])
+    if kind == "before_authoring":
+        probe_offer.defer_probe_offer(repo, factor_id=factor, clock=CLOCK)
+        journey.capture("not_now")
+        fake = AuthorFake()
+    else:
+        class _SaysNotNow(AuthorFake):
+            def run_followup_probe_authoring(self, context):
+                probe_offer.defer_probe_offer(repo, factor_id=factor, clock=CLOCK)
+                return super().run_followup_probe_authoring(context)
+
+        fake = _SaysNotNow()
+    _generate(ctx, repo, fake=fake)
+    assert fake.calls == (0 if kind == "before_authoring" else 1)
+    row = wf.get(repo, outcome.workflow_id)
+    assert row["state"] == wf.REFUSED and row["release_reason"] == wf.RELEASE_REFUSED
+    journey.capture("refused")
+    return journey
+
+
+def reread_and_request_case(root):
+    """The learner lane's doors on one divergent factor: two status reads (a remounted panel), a repair request the
+    gate holds, and the quick check accepted twice."""
+
+    from tests.causal_orchestrator_helpers import _vault, _seed_factor, _activate_probe_candidate, PROBE_ITEM
+    from learnloop.diagnosis.remediation import RemediationBlocked, start_remediation_episode
+
+    vault, repo, _ = _vault(root, with_probe_item=True)
+    journey = Journey(repo)
+    factor, a, b = _seed_factor(repo)
+    admit_probe_instrument_card(repo, items=(PROBE_ITEM,))
+    _activate_probe_candidate(repo, factor, a, b)
+    journey.capture("factor_and_instrument")
+    for stage in ("status_read", "status_reread"):
+        status = causal.causal_repair_status(vault, repo, misconception_id=a, start_repair=False, clock=CLOCK)
+        assert status.status == "needs_disambiguation" and status.probe_offered
+        journey.capture(stage)
+    try:
+        start_remediation_episode(repo, a, vault=vault, clock=CLOCK)
+    except RemediationBlocked as held:
+        assert held.repair_status.status == "needs_disambiguation"
+    else:
+        raise AssertionError("the repair request was not held")
+    journey.capture("repair_request_held")
+    first = probe_offer.accept_probe_offer(vault, repo, factor_id=factor, decision_receipt_id=status.decision_receipt_id,
+                                           clock=CLOCK)
+    again = probe_offer.accept_probe_offer(vault, repo, factor_id=factor, decision_receipt_id=status.decision_receipt_id,
+                                           clock=CLOCK)
+    assert first.reason == "probe_pinned" and again.reason == "probe_already_pinned"
+    assert again.presentation_id == first.presentation_id
+    journey.capture("accepted_twice")
+    return journey
+
+
 def gap_case(root):
     from tests.learner_text_gaps_helpers import _vault, _ask, _run
     from tests.text_gap_fakes import GapTutor, GapLLMFake, always, seed_proposal
@@ -469,10 +534,16 @@ CASES = (
     "causal_needs_disambiguation", "causal_started", "causal_decline", "cold_pass", "cold_fail",
     "fg1_ask_now", "fg1_wait", "value_stop", "budget_stop", "mid_check", "held_release", "regrade",
     "text_prerequisite", "recurrence_judge", "deterministic_classification",
+    # The probe router's doors (G2's characterization): FG1's hard refusals and the learner lane's rereads and requests.
+    "fg1_refused_before_authoring", "fg1_refused_while_authoring", "causal_reread_and_request",
 )
 
 
 def run_case(case, root, patch):
+    if case == "causal_reread_and_request":
+        return reread_and_request_case(root)
+    if case.startswith("fg1_refused_"):
+        return fg1_refused_case(case.removeprefix("fg1_refused_"), root, patch)
     if case == "deterministic_classification":
         return deterministic_case(root)
     if case.startswith("causal_"):
