@@ -5,8 +5,8 @@
 ``daily_plan/objective_inputs.py`` builds them from the vault; :mod:`rollouts` simulates on them. They live here,
 not beside their builder, because ``router_objective`` may not import ``daily_plan`` (the package-level cycle
 contract), and the builder sits in the chooser's import cycle. This module imports :mod:`memory` (the combiner a
-default :class:`Inputs` holds), :mod:`ad_link` (two field types) and :mod:`learnloop.plan_refs` (the offer and stop
-names it re-exports); nothing it imports reads it back.
+default :class:`Inputs` holds), :mod:`ad_link` (two field types), :mod:`diagnostic_payload` (a probe's payload type)
+and :mod:`learnloop.plan_refs` (the offer and stop names it re-exports); nothing it imports reads it back.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from typing import Any
 
 from learnloop.plan_refs import LESSON_OFFER_PREFIX, LESSON_OFFER_SUBTYPE, STOP_FOR_TODAY, is_offer_subtype
 from learnloop.router_objective.ad_link import AdLink, LessonCurve
+from learnloop.router_objective.diagnostic_payload import DiagnosticProbe
 from learnloop.router_objective.memory import Combiner
 
 #: Action kinds (§8.1's table).
@@ -157,10 +158,15 @@ class Action:
     #: IH2 (spec_instruct_handoff_v1 §5): an offer's declined branch when the decision says what follows a "Not now": the
     #: follow-up it competes with, which stays available. None: the tail's next non-offer block, as RO4's interface.
     declined: "Action | None" = None
+    #: G2: a probe's diagnostic payload (locked hypotheses, channel, repair per hypothesis), priced only by
+    #: ``diagnostic_value.evaluate_probe``; the rollouts refuse it. None: the probe as before.
+    diagnostic: DiagnosticProbe | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
             raise ValueError(f"unknown action kind {self.kind!r}")
+        if self.diagnostic is not None and self.kind != PROBE:
+            raise ValueError("only a probe carries a diagnostic payload")
         if (self.kind == SEQUENCE) != bool(self.steps):
             raise ValueError("a sequence (and only a sequence) has steps")
         if any(step.kind in (SEQUENCE, STOP) or step.accept is not None for step in self.steps):

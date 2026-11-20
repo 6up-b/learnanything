@@ -111,6 +111,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_migrations.py`
+- `tests/test_probe_router_report.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_causal_attribution_p2.py`

@@ -129,10 +129,10 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_notes_as_learner_text.py`
 - `tests/test_probe_router_authority.py`
+- `tests/test_probe_router_report.py`
 - `tests/test_provenance.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_refusal_records.py`
-- `tests/test_remaining_decision_records.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
