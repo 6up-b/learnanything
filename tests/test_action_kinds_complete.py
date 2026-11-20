@@ -10,7 +10,7 @@ import pytest
 from learnloop.daily_plan import objective_inputs
 from learnloop.daily_plan.router_chooser import support_order
 from learnloop.daily_plan.types import BlockCandidate, PlanState, ReadingTarget
-from learnloop.router_objective import learned_tail, rollouts, trace_assembly, types
+from learnloop.router_objective import diagnostic_payload, diagnostic_value, learned_tail, rollouts, trace_assembly, types
 from learnloop.router_objective.objective import _Ledger
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
@@ -43,6 +43,24 @@ def test_action_kind_has_a_rollout_effect(kind):
     ordinary, _, _ = model._do(action)
     valued, _ = model.value(action)
     assert _changed(ordinary, valued), f"{kind!r} has no state or ledger effect in the rollout"
+
+
+def test_a_probe_with_a_diagnostic_payload_has_its_effect_through_the_successor_evaluator():
+    """The same kind with a payload (G2): the rollouts refuse it, and the successor evaluator values it with a state
+    or ledger effect (its policy's path differs from acting now with no repair)."""
+
+    model = _model(undated_density=1.0)
+    payload = diagnostic_payload.DiagnosticProbe(
+        topic="lo", hypotheses=(diagnostic_payload.Hypothesis("h", 1.0),), prior_basis="test",
+        channel=diagnostic_payload.MissingChannel("unauthored"),
+        repairs=(diagnostic_payload.RepairOption("r", types.Action("r", types.REPAIR, ("lo",), 5.0),
+                                                 frozenset({"h"})),))
+    probe = types.Action(ref="probe", kind=types.PROBE, item_los=("lo",), minutes=5.0, diagnostic=payload)
+    with pytest.raises(ValueError, match="diagnostic payload"):
+        model.value(probe)
+    out = diagnostic_value.evaluate_probe(model.inputs, probe, decisions=diagnostic_payload.DESIGN_RECOMMENDATIONS,
+                                          draws=2, seed="kind coverage").by_ref()
+    assert out["probe"].q_draws != out[f"{diagnostic_value.ACT_NOW}none"].q_draws
 
 
 def test_stop_ends_the_session_in_its_accepted_branch():
