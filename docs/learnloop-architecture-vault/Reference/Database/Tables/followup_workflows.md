@@ -121,6 +121,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/followup_migration_helpers.py`
+- `tests/test_followup_authoring_retry.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_fg1c_r1_exposure_independence.py`
 - `tests/test_followup_fg1d_probe_shadow.py`

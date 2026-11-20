@@ -142,6 +142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/test_codex_output_schema.py](../../../../../../tests/test_codex_output_schema.py) — direct import
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
+- [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — direct import
+  - `test_good_first_answer_keeps_existing_expected_rows`
+  - `test_measured_empty_answer_then_good_is_served_with_both_receipts_and_reason`
+  - `test_other_missing_contract_parts_are_reasked`
 - [tests/test_followup_generate_e2e.py](../../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_protected_and_reserved_items_never_reach_the_prompt`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import

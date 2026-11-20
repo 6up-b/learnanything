@@ -224,6 +224,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
 - [tests/mobile_v3_probes_helpers.py](../../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+- [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — direct import
+  - `test_expired_queued_correction_fails_without_a_new_request`
+  - `test_first_answer_that_used_the_whole_budget_keeps_todays_failure`
+  - `test_good_first_answer_keeps_existing_expected_rows`
+  - `test_measured_empty_answer_then_good_is_served_with_both_receipts_and_reason`
+  - `test_other_missing_contract_parts_are_reasked`
+  - `test_retry_uses_only_the_original_provider_time_left`
+  - `test_skip_between_requests_cancels_the_queued_correction`
+  - `test_transport_retry_already_spent_the_only_second_attempt`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f10_a_failed_workflow_withdraws_what_its_last_run_left`
   - `test_f10_an_interrupted_withdrawal_is_redone_whole`

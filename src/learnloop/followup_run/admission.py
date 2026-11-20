@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 import json
 from typing import Any
 
@@ -179,6 +180,9 @@ def author_probe(
     decision: Mapping[str, Any],
     client: Any,
     avoid_phrases: Sequence[str] = (),
+    rejection_reason: str | None = None,
+    retry_deadline: datetime | None = None,
+    clock: Clock | None = None,
 ) -> tuple[AuthoredProbe, Any, Any]:
     """The one authoring call for this workflow, and its output checks."""
 
@@ -208,7 +212,8 @@ def author_probe(
             source_item_id=str(attempt.get("practice_item_id") or "") or None,
             measurement_pattern=family_measurement_intent(template.id), avoid_phrases=avoid_phrases,
         )
-        authored = request_authored_probe(client, context)
+        authored = request_authored_probe(client, context, rejection_reason=rejection_reason,
+                                          retry_deadline=retry_deadline, clock=clock)
         probe = check_output(vault, repository, authored, refs=refs, learning_object_id=learning_object_id)
     except AuthoringRejected as rejected:
         raise AdmissionFailed(str(rejected)) from rejected

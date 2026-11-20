@@ -14,10 +14,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 import re
 from typing import Any
 
 from learnloop.ai.transport import execute_structured_operation
+from learnloop.clock import Clock, SystemClock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.ai_contracts import (
     FollowupProbeAuthored,
@@ -35,6 +37,19 @@ AUTHOR_AXES: frozenset[str] = frozenset({"surface_wording", "answer_contract", "
 CAUSE_MATCHES_RESERVED = "cause_matches_reserved_question"
 QUESTION_MATCHES_RESERVED = "question_matches_reserved_question"
 RESERVED_MATCHES: frozenset[str] = frozenset({CAUSE_MATCHES_RESERVED, QUESTION_MATCHES_RESERVED})
+
+# Only broken output contracts get a correction; unusable content still fails its existing checks.
+CONTRACT_REASK_REQUIREMENTS: Mapping[str, str] = {
+    "empty_question_or_key": "Supply a nonblank prompt_md question and a nonblank expected_answer_md full answer.",
+    "criteria_contract_invalid": "Supply at least two criteria with distinct nonblank IDs and positive points.",
+    "prediction_names_unknown_hypothesis": "Use only hypothesis_ref values from the supplied hypotheses.",
+    "prediction_not_over_the_criteria": "Each prediction must fail a nonempty set of IDs from your criteria.",
+    "a_hypothesis_has_no_prediction": "Supply a prediction for every supplied hypothesis_ref.",
+    "manipulation_contract_invalid": (
+        "Declare changes only on surface_wording, answer_contract or rubric; "
+        "do not also list a changed axis in held_constant."
+    ),
+}
 
 
 class AuthoringRejected(ValueError):
@@ -198,12 +213,25 @@ def build_context(
     )
 
 
-def request_authored_probe(client: Any, context: FollowupProbeContext) -> FollowupProbeAuthored:
+def request_authored_probe(client: Any, context: FollowupProbeContext, *, rejection_reason: str | None = None,
+                           retry_deadline: datetime | None = None, clock: Clock | None = None) -> FollowupProbeAuthored:
+    prompt = followup_probe_prompt(context)
+    if rejection_reason is not None:
+        prompt += (f"\n\nThe previous answer failed validation: {rejection_reason}. "
+                   f"{CONTRACT_REASK_REQUIREMENTS[rejection_reason]} "
+                   "Write the complete answer again, satisfying all the original requirements.")
+    timeout_seconds = None
+    if retry_deadline is not None:
+        timeout_seconds = (retry_deadline - (clock or SystemClock()).now()).total_seconds()
+        # Context building and queue delay consume the budget too; chat transports floor requests at one second.
+        if timeout_seconds < 1.0:
+            raise AuthoringRejected(str(rejection_reason))
     return execute_structured_operation(
         client,
         purpose=AUTHORING_PURPOSE,
-        prompt=followup_probe_prompt(context),
+        prompt=prompt,
         result_model=FollowupProbeAuthored,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -285,6 +313,7 @@ def resolve_author_client(vault: Any) -> Any | None:
 
 __all__ = [
     "AUTHORING_PURPOSE", "AUTHOR_AXES", "AUTHOR_ROUTE", "AuthoredProbe", "AuthoringRejected", "CAUSE_MATCHES_RESERVED",
+    "CONTRACT_REASK_REQUIREMENTS",
     "QUESTION_MATCHES_RESERVED", "RESERVED_MATCHES", "admissible_item", "build_context", "causes_coverage",
     "causes_match_reserved", "check_output", "reserved_view", "protection_view", "request_authored_probe", "resolve_author_client",
 ]

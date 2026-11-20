@@ -128,6 +128,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../tests/ih2_lessons_compete_helpers.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
+- [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]

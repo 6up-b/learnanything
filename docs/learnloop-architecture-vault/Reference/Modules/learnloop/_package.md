@@ -88,7 +88,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 10 | 2 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 423 | 612 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 424 | 613 |
 | [[Reference/Modules/learnloop/confidence_events|learnloop.confidence_events]] | [[Reference/Modules/learnloop/confidence_events#^module-purpose|purpose]] | `ACTIVE` | 6 | 5 |
 | [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] | [[Reference/Modules/learnloop/decider_judgments#^module-purpose|purpose]] | `ACTIVE` | 22 | 10 |
 | [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] | [[Reference/Modules/learnloop/delayed_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
@@ -222,7 +222,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 14 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 13 static module edges
-- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 12 static module edges
+- [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 13 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 12 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 11 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 11 static module edges

@@ -280,7 +280,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/followup_run/authoring|learnloop.followup_run.authoring]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/followup_run/lanes|learnloop.followup_run.lanes]] — imports `Clock`
 - [[Reference/Modules/learnloop/followup_run/lesson_probe|learnloop.followup_run.lesson_probe]] — imports `Clock`
 - [[Reference/Modules/learnloop/followup_run/marks|learnloop.followup_run.marks]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -518,7 +519,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 418 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 419 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1141,6 +1142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_an_open_after_the_horizon_is_not_an_outcome`
   - `test_r5_a_planned_visual_is_prebuilt_and_the_lesson_step_reuses_it_with_no_author_call`
 - [tests/test_first_questions_today.py](../../../../../tests/test_first_questions_today.py) — direct import
+- [tests/test_followup_authoring_retry.py](../../../../../tests/test_followup_authoring_retry.py) — direct import
+  - `test_expired_queued_correction_fails_without_a_new_request`
+  - `test_retry_uses_only_the_original_provider_time_left`
+  - `test_transport_retry_already_spent_the_only_second_attempt`
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f7_verify_a_crash_in_the_exit_leaves_all_of_it_open_for_the_next_run`
 - [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import

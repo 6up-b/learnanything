@@ -109,7 +109,7 @@ For system intent, use [[Learning System]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/diagnosis/__init__|learnloop.diagnosis]] | [[Reference/Modules/learnloop/diagnosis/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] | [[Reference/Modules/learnloop/diagnosis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 7 | 14 |
+| [[Reference/Modules/learnloop/diagnosis/ai_contracts|learnloop.diagnosis.ai_contracts]] | [[Reference/Modules/learnloop/diagnosis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 7 | 15 |
 | [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] | [[Reference/Modules/learnloop/diagnosis/calibration_sessions#^module-purpose|purpose]] | `ACTIVE` | 6 | 9 |
 | [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] | [[Reference/Modules/learnloop/diagnosis/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 10 | 9 |
 | [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] | [[Reference/Modules/learnloop/diagnosis/causal_attribution#^module-purpose|purpose]] | `ACTIVE` | 29 | 22 |

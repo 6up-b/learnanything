@@ -47,31 +47,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py) |
-| Source lines | 438 |
+| Source lines | 443 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AdmissionFailed(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 51) — No question passed the checks (§6.2).
-  - `__init__(self, reason: str, *, detail: Mapping[str, Any] | None=None) -> None` (line 54; internal)
-- `class OfferRefused(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 60) — A hard refusal arrived at the pin (an episode conflict): nothing is served.
-  - `__init__(self, reason: str) -> None` (line 63; internal)
-- `class AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 69)
-- `blind_generator(probe: AuthoredProbe) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 79) — Bundles over the deterministic sensor's vocabulary, uniform across hypotheses.
-- `manipulation_contract(probe: AuthoredProbe, *, system_axes: Iterable[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 131)
-- `author_probe(vault: Any, repository: Repository, *, workflow: Mapping[str, Any], factor_id: str, decision: Mapping[str, Any], client: Any, avoid_phrases: Sequence[str]=()) -> tuple[AuthoredProbe, Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 173) — The one authoring call for this workflow, and its output checks.
-- `persist_item(vault: Any, repository: Repository, probe: AuthoredProbe, *, template: Any, card: Any, workflow_id: str | None, episode_id: str | None=None, source: str='workflow', client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 227) — The mint's persistence and single-use handling, reused (§4.1).
-- `admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 327) — The machine admission receipt: the ladder, walked by what actually checked it.
-- `commission_only(vault: Any, repository: Repository, probe: AuthoredProbe, *, factor_id: str, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 339) — An entry or a failed lane's later generation: an active candidate, pinned by no one yet.
-- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, router_decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 376) — Commissioning of the explicit item, machine admission, and the pinned offer.
+- `class AdmissionFailed(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 52) — No question passed the checks (§6.2).
+  - `__init__(self, reason: str, *, detail: Mapping[str, Any] | None=None) -> None` (line 55; internal)
+- `class OfferRefused(RuntimeError)` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 61) — A hard refusal arrived at the pin (an episode conflict): nothing is served.
+  - `__init__(self, reason: str) -> None` (line 64; internal)
+- `class AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 70)
+- `blind_generator(probe: AuthoredProbe) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 80) — Bundles over the deterministic sensor's vocabulary, uniform across hypotheses.
+- `manipulation_contract(probe: AuthoredProbe, *, system_axes: Iterable[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 132)
+- `author_probe(vault: Any, repository: Repository, *, workflow: Mapping[str, Any], factor_id: str, decision: Mapping[str, Any], client: Any, avoid_phrases: Sequence[str]=(), rejection_reason: str | None=None, retry_deadline: datetime | None=None, clock: Clock | None=None) -> tuple[AuthoredProbe, Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 174) — The one authoring call for this workflow, and its output checks.
+- `persist_item(vault: Any, repository: Repository, probe: AuthoredProbe, *, template: Any, card: Any, workflow_id: str | None, episode_id: str | None=None, source: str='workflow', client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 232) — The mint's persistence and single-use handling, reused (§4.1).
+- `admit(repository: Repository, *, candidate_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 332) — The machine admission receipt: the ladder, walked by what actually checked it.
+- `commission_only(vault: Any, repository: Repository, probe: AuthoredProbe, *, factor_id: str, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 344) — An entry or a failed lane's later generation: an active candidate, pinned by no one yet.
+- `commission_and_pin(vault: Any, repository: Repository, probe: AuthoredProbe, *, workflow: Mapping[str, Any], factor_id: str, router_decision_id: str | None, practice_item_id: str, client: Any=None, clock: Clock | None=None) -> AdmittedProbe` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 381) — Commissioning of the explicit item, machine admission, and the pinned offer.
 
 ### Module constants
 
-- `MACHINE_REVIEWER` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 45)
-- `SYSTEM_AXES` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 47)
-- `OUTCOME_SCHEMA` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 48)
+- `MACHINE_REVIEWER` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 46)
+- `SYSTEM_AXES` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 48)
+- `OUTCOME_SCHEMA` ([src/learnloop/followup_run/admission.py](../../../../../../src/learnloop/followup_run/admission.py), line 49)
 
 ### Explicit exports
 
@@ -91,10 +91,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_task_feature_axes(vault: Any, repository: Repository, factor_id: str, practice_item_id: str) -> set[str]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 116) — Each task feature of the missed item or the new one is an axis of the audit's diff, and none is the author's to declare (``AUTHOR_AXES``).
-- `_template_and_card(vault: Any, repository: Repository, learning_object_id: str, clock: Clock | None) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 142)
-- `_restore_open_set_arm(repository: Repository, factor: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 156) — A factor written before the tag lost its ``H_OTHER`` arm when its episode was materialized a second time; every open factor on the owner's copies has.
-- `_reserved(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 218)
+- `_task_feature_axes(vault: Any, repository: Repository, factor_id: str, practice_item_id: str) -> set[str]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 117) — Each task feature of the missed item or the new one is an axis of the audit's diff, and none is the author's to declare (``AUTHOR_AXES``).
+- `_template_and_card(vault: Any, repository: Repository, learning_object_id: str, clock: Clock | None) -> tuple[Any, Any]` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 143)
+- `_restore_open_set_arm(repository: Repository, factor: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 157) — A factor written before the tag lost its ``H_OTHER`` arm when its episode was materialized a second time; every open factor on the owner's copies has.
+- `_reserved(vault: Any, repository: Repository) -> Any` ([source](../../../../../../src/learnloop/followup_run/admission.py), line 223)
 
 ## Who imports or calls it
 
@@ -127,7 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `json`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `datetime`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
