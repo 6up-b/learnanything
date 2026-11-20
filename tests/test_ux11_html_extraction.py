@@ -129,6 +129,13 @@ def test_ux11_the_chapter_keeps_all_34_display_equations_in_page_order(new_read)
     exercise = block_of("2 \\amp 0 \\amp 4 \\amp 4 \\amp 5 \\amp 3")
     assert exercise.startswith("\\begin{equation*}") and "\\begin{bmatrix}" in exercise
 
+    # The page's short paragraphs, which its permalink buttons made trafilatura drop: a definition and the
+    # Spectral Theorem's statement. (The definition's emphasised word is still split from its sentence, as in
+    # every reading of a page whose paragraphs are divs.)
+    assert _squeeze("A symmetric matrix \\(A\\) is one for which \\(A=A^T\\text{.}\\)") in _squeeze(text.replace("*", ""))
+    assert "The matrix \\(A\\) is orthogonally diagonalizable if and only if \\(A\\) is symmetric." in text
+    assert "\N{LINK SYMBOL}" not in text
+
     # The learner's exercise: the matrices follow its sentence, in its own section.
     intro = text.index("For each of the following matrices, determine whether there is a basis")
     assert "\\(\\begin{bmatrix} 3 \\amp -4 \\\\ 4 \\amp 3 \\end{bmatrix} \\text{.}\\)" in text[intro:intro + 400]

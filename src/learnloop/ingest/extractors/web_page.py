@@ -27,6 +27,9 @@ OLD_WEB_PAGE_EXTRACTOR_VERSION = "2"
 PAGE_FURNITURE = {
     "mw-editsection": "MediaWiki's [edit] link beside a section heading",
     "ambox": "MediaWiki's article maintenance notices (\"This article has multiple issues…\")",
+    # Inside a short paragraph, its link makes trafilatura drop the whole paragraph as link furniture: the sample
+    # chapter's Definition 7.1.5 and the Spectral Theorem's statement went that way.
+    "autopermalink": "PreTeXt's \"copy heading and permalink\" button after each paragraph and heading",
 }
 
 _HIDDEN_XPATH = (
