@@ -249,15 +249,15 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K10.6 | Centralize figure protection and cut its cycle | landed | `66cad2da41` | [refactor-k10.5-6.md](refactor-k10.5-6.md) | — |
 | K10.7 | Extract figure request and grounding functions | landed | `8d775a4456` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
 | K10.8 | Extract presentation, listing and predictions from build | landed | `150b14ae3e` | [refactor-k10.7-8.md](refactor-k10.7-8.md) | — |
-| K10.9 | Extract pure reading of the figure author's answer | not started | — | — | — |
-| K10.10 | Share the presentation chain and shown set | waiting on | — | — | K10.9 |
+| K10.9 | Extract pure reading of the figure author's answer | landed | this commit | [refactor-k10.9-17.md](refactor-k10.9-17.md) | `figures/author_answer.py` `read_answer` returns a verdict (retry, unsupported, spec, sketch, rich) with its record code; the loop went from 305 to 186 lines; 711 of 711 old-and-new loop pairs identical; the figure goldens and pins unchanged. Net +155 source lines, past the estimate: kept because the rules are now tested with literal answers and two whole-build tests became one call each |
+| K10.10 | Share the presentation chain and shown set | not started | — | — | — |
 | K10.11 | Record figure refusals, reuse and available tiers | waiting on | — | — | K10.10 |
 | K10.12 | Record each attempt by a rich figure job | waiting on | — | — | K10.11 |
 | K10.13 | Move attempt-host policy under the figures package | dropped | — | — | Owner ruled out figures on phone and MCP |
 | K10.14 | Read shown state and labels from the server | not started | — | [ledger K10-5](refactor-bug-ledger.md) | Due before the UX overhaul |
 | K10.15 | Write the Figures note and correct stale lines | landed | `53f330c743` | [Figures](../learnloop-architecture-vault/Concepts/Figures.md) | — (K10-4 fixed) |
 | K10.16 | Retire the eight figure content switches | waiting on | — | — | Owner's count for removing legacy reuse reads |
-| K10.17 | Remove the dormant JavaScript animation tier | not started | — | — | — |
+| K10.17 | Remove the dormant JavaScript animation tier | landed | this commit | [refactor-k10.9-17.md](refactor-k10.9-17.md) | 20 source lines in 7 files; no config field and no stored row ever named it; an answer with that status, which no menu offers, is now recorded as `other` |
 
 ## Measure and layout steps
 
