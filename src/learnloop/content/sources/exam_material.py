@@ -1282,7 +1282,7 @@ NO_EXAM_SET = "no_exam_set"
 SURFACE_SETS: Mapping[str, str] = MappingProxyType({
     # May a span ground a model's teaching, explanation or authoring, or become practice?
     "teaching": ALL_EXAM,                # corpus.teaching_exclusions (and model_reader_withheld on it)
-    "reader_ask": HELD_OUT,              # reader_dialogue.ask, tutor_qa.ask_question
+    "reader_ask": HELD_OUT,              # reader_dialogue.ask, tutor_qa.ask_question, reader_tutor's second guard
     "reader_presets": HELD_OUT,          # reader_requests.model_synthesis
     "reader_checks": HELD_OUT,           # jobs: the Reader's section, inquiry and selection checks
     "reader_guidance": HELD_OUT,         # reader_guidance.held_out_sections, reading_protection
@@ -1296,12 +1296,12 @@ SURFACE_SETS: Mapping[str, str] = MappingProxyType({
     "book_guide": ALL_EXAM,              # reading_paths.path_inputs
     "leakage_floor": HELD_OUT,           # practice_leakage.build_held_out_inventory (held_out_spans: the text)
     "reserved_questions": ALL_EXAM,      # practice_leakage.reserved_questions: stems of items made from exam material
-    "library_ask_anchor": HELD_OUT,      # library_ask.ask_library: the passage the ask is anchored on
+    "library_ask_anchor": HELD_OUT,      # library_ask.ask_library, open_comparison: the passage an ask is anchored on
     "library_ask": ALL_EXAM,             # library_ask.ask_library: the passages it finds (find_sources: exam_withheld)
     "library_result": ALL_EXAM,          # library_ask.withheld_now: kept asks, notes jobs, the organizer, tutor jobs
     "library_tutor_refusal": HELD_OUT,   # library_ask.ask_tutor: a held-out pin refuses the request
     "library_tutor_pins": ALL_EXAM,      # source_retrieval.tutor: an exam pin is dropped (exam_withheld)
-    "compare": ALL_EXAM,                 # compare.compare_sources (exam_withheld)
+    "compare": ALL_EXAM,                 # compare.compare_sources (exam_withheld), library_ask.open_comparison's anchor
     # May an item be served, picked or measured now?
     "routine_serving": HELD_OUT,         # serving_exclusions: routine and out-of-timing (held_out_items)
     "practice_pick": HELD_OUT,           # instructional.practice.refuse_protected_pick

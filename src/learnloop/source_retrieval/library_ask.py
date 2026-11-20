@@ -1126,12 +1126,12 @@ def open_comparison(
     if anchor and not extraction_id:
         raise LibraryAskError("validation_error", "An anchor names its source.")
     if extraction_id:
-        material = EM.held_out_material(vault, repository)
+        material = EM.surface_material(vault, repository, "library_ask_anchor")
         if material.covers(str(extraction_id)) or EM.held_out_among(material, extraction_id, anchor):
             raise LibraryAskError("exam_material", EM.held_out_refusal(material, extraction_id))
         # Exam material is assessment-only: an anchor on it is never compared
         # (the service would drop it; refusing first opens no row for it).
-        exam = EM.exam_material(vault, repository)
+        exam = EM.surface_exam_material(vault, repository, "compare")
         if any(exam.covers(str(extraction_id), span) for span in anchor) or (not anchor and exam.covers(str(extraction_id))):
             raise LibraryAskError("exam_material", "This passage is exam material, so it isn't compared.")
     words = words[:QUESTION_CHARS]
