@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/section_generation.py](../../../../../../src/learnloop/reader/section_generation.py) |
-| Source lines | 163 |
+| Source lines | 164 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Public API
 
 - `section_generation_candidates(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, target_items_per_lo: int=3, max_new_per_lo: int=3) -> list[str]` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 42) — LOs in the section that actually need items (dry-run of the expansion plan with the probe gate waived).
-- `section_reason(section_id: str) -> str` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 84) — The reason a finished section's writing is queued under.
-- `start_section_questions(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, enqueue: Enqueue, fresh_vault: Callable[[], LoadedVault], topics_settled: Callable[[], tuple[bool, str | None]], from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 90) — Start a finished section's question writing, once, or record why not yet.
+- `section_reason(section_id: str) -> str` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 85) — The reason a finished section's writing is queued under.
+- `start_section_questions(vault: LoadedVault, repository: Repository, *, extraction_id: str, section_id: str, enqueue: Enqueue, fresh_vault: Callable[[], LoadedVault], topics_settled: Callable[[], tuple[bool, str | None]], from_stamp: str | None=None, completed_at: str | None=None) -> str | None` ([source](../../../../../../src/learnloop/reader/section_generation.py), line 91) — Start a finished section's question writing, once, or record why not yet.
 
 ### Module constants
 
@@ -117,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_finished_on_the_phone_builds_its_questions_on_the_desktop_once`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_topic_order_follows_first_cited_span`
 
 ## Modification guidance
 

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py) |
-| Source lines | 1395 |
+| Source lines | 1397 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -116,9 +116,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `_refresh_batch(self, batch_id: str) -> None` (line 1232; internal)
   - `_lease_cutoff_iso(self) -> str` (line 1257; internal)
 - `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1270) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
-- `retries_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1327) — Whether a failed try of ``job`` is followed by one more in the same attempt: the model steps of an automatic build (not the zero-model repair of a kept candidate, and not a build the learner started elsewhere).
-- `a_retry_may_cure(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1340) — A failure a fresh try may cure: a model answer that was cut off, over its ceiling, invalid, late or not given.
-- `retried_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1355) — Whether a failed job was already tried once more on its own before it stopped: the rule above, read back from the stored row.
+- `retries_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1327) — Whether a failed try of ``job`` is followed by one more in the same attempt: a finished section's writing or the model steps of an automatic build (not the zero-model repair of a kept candidate, and not a build the learner started elsewhere).
+- `a_retry_may_cure(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1342) — A failure a fresh try may cure: a model answer that was cut off, over its ceiling, invalid, late or not given.
+- `retried_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1357) — Whether a failed job was already tried once more on its own before it stopped: the rule above, read back from the stored row.
 
 ### Module constants
 
@@ -147,8 +147,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1263)
 - `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1306)
 - `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1310)
-- `_curable_error_codes() -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1372) — The stored codes (``_error_code``) of the failures :func:`a_retry_may_cure` cures.
-- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1390)
+- `_curable_error_codes() -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1374) — The stored codes (``_error_code``) of the failures :func:`a_retry_may_cure` cures.
+- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1392)
 
 ## Who imports or calls it
 
@@ -208,6 +208,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/source_vector_backfill_helpers.py](../../../../../../../tests/source_vector_backfill_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
   - `test_a_generation_jobs_commission_expires_seven_days_after_the_job_finished`

@@ -125,6 +125,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generation_door_remediates_the_incident_payload`
   - `test_refresh_door_passes_the_remediated_payload`
   - `test_remediation_bails_when_the_stem_is_the_surface`
+- [tests/test_contrast_pairs.py](../../../../../../../tests/test_contrast_pairs.py) — direct import
+  - `test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict`
 
 ## Modification guidance
 

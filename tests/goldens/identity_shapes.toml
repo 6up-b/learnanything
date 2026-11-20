@@ -339,6 +339,23 @@ fields = [
   "ordinal: int = 0",
 ]
 
+["learnloop.content.proposals.ai_contracts:AuthoringContext"]
+sites = ["section_questions"]
+fields = [
+  "vault_root: str required",
+  "source_ids: list[str] required",
+  "instructions: str | None = null",
+  "subjects: list[str] = []",
+  "source_refs: list[dict] = []",
+  "concepts: list[dict] = []",
+  "notes: list[dict] = []",
+  "learning_objects: list[dict] = []",
+  "practice_items: list[dict] = []",
+  "goals: list[dict] = []",
+  "focus_concepts: list[str] = []",
+  "focus_facets: list[str] = []",
+]
+
 ["learnloop.content.synthesis.ai_contracts:AppendReconciliationContext"]
 sites = ["K3.4"]
 fields = [

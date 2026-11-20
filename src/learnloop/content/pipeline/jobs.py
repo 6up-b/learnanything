@@ -3541,7 +3541,9 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.authoring.practice_generation import (
         PracticeExpansionError,
         generate_post_probe_practice_proposal,
+        section_questions_key,
     )
+    from learnloop.ai.execution import ModelCheckpoint
 
     payload = ctx.payload
     lo_ids = [str(lo) for lo in (payload.get("learning_object_ids") or []) if str(lo).strip()]
@@ -3552,6 +3554,19 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
         return _handle_ad_commission(ctx, lo_ids, str(payload["ad_commission_id"]))
     ctx.report("generation", message=f"Generating practice for {len(lo_ids)} learning object(s)")
     client = ctx.services.synthesis_client(ctx)
+    saved = None
+    if str(payload.get("reason") or "").startswith("reader_section_completed:"):
+        key = section_questions_key(client, lo_ids, source_refs, payload["reason"])
+        saved = ModelCheckpoint(ctx.repo, key, "section_questions", dict)
+        completed = saved.load()
+        if completed is not None:
+            ctx.report("generation", current_window=len(lo_ids), total_windows=len(lo_ids))
+            return completed
+
+    def progress(done: int, total: int) -> None:
+        ctx.report("generation", message=f"Writing questions: {done} of {total} topics saved",
+                   current_window=done, total_windows=total)
+
     try:
         result = generate_post_probe_practice_proposal(
             ctx.vault_root,
@@ -3561,6 +3576,7 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
             target_items_per_lo=3,
             max_new_per_lo=3,
             source_refs=source_refs,
+            **({"checkpoint_scope": saved.key, "progress": progress} if saved is not None else {}),
             extra_instructions=(
                 "These items seed practice for material the learner just finished reading "
                 f"({payload.get('reason') or 'reader_section_completed'}). Ground every item in the "
@@ -3572,11 +3588,14 @@ def handle_practice_expansion(ctx: JobContext) -> dict[str, Any]:
     except PracticeExpansionError as exc:
         # All targeted LOs already supplied — a legitimate no-op for a trigger.
         return {"generated": 0, "skipped_reason": str(exc)}
-    return {
+    outcome = {
         "patch_id": result.patch_id,
         "generated": result.plan.requested_new_items,
         "rung_violations": result.rung_violations,
     }
+    if saved is not None:
+        saved.save(outcome)
+    return outcome
 
 
 def handle_goal_population(ctx: JobContext) -> dict[str, Any]:

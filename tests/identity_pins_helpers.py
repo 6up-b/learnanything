@@ -611,6 +611,25 @@ def _structuring_key(nominated: bool) -> Callable[[], Any]:
     return compute
 
 
+def _section_authoring_key() -> Any:
+    from learnloop.content.proposals.ai_contracts import AuthoringContext
+    from learnloop.content.proposals.proposals import _authoring_checkpoint
+
+    context = AuthoringContext(
+        vault_root=str(VAULT_ROOT), source_ids=["src_pin"], instructions="Write three questions for lo_pin_svd.",
+        subjects=["linear-algebra"], source_refs=[{"ref_type": "note", "ref_id": "src_pin"}],
+        learning_objects=[{"id": "lo_pin_svd", "title": "SVD"}],
+    )
+    return _authoring_checkpoint(None, FakeStructuredClient(), context).key
+
+
+def _section_questions_key() -> Any:
+    from learnloop.content.authoring.practice_generation import section_questions_key
+
+    return section_questions_key(FakeStructuredClient(), ["lo_pin_svd"],
+                                 [{"ref_type": "note", "ref_id": "src_pin"}], "reader_section_completed:u1")
+
+
 def _persona_fire_key() -> Any:
     from learnloop.diagnosis.diagnostic_gate import fire_checkpoint
 
@@ -1442,6 +1461,14 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "a cached structuring answer misses and is paid again on retry",
         {"key": _structuring_key(False), "key.nominated": _structuring_key(True)}),
     IdentitySite(
+        "section_questions", "section authoring answer and completed work checkpoints",
+        ("src/learnloop/content/proposals/ai_contracts.py::authoring_prompt",
+         "src/learnloop/content/proposals/proposals.py::_authoring_checkpoint",
+         "src/learnloop/content/authoring/practice_generation.py::section_questions_key"),
+        "section request snapshots, authoring/repair answers and completed section results",
+        "a saved section answer misses and is paid again on retry or rebuild",
+        {"answer": _section_authoring_key, "work": _section_questions_key}),
+    IdentitySite(
         "K2.1e", "persona fire judgement checkpoint key (rendered prompt, schema, grader settings, the trial)",
         ("src/learnloop/diagnosis/ai_contracts.py::diagnostic_fire_prompt",
          "src/learnloop/diagnosis/diagnostic_gate.py::fire_checkpoint"),
@@ -1690,6 +1717,7 @@ def current_digests() -> dict[str, str]:
 #: Each type a compared identity dumps whole (sweep §1E), with the sites that dump it. Nested pydantic models and
 #: dataclasses are pinned too, under the root that reaches them.
 SHAPE_ROOTS: dict[str, tuple[str, ...]] = {
+    "learnloop.content.proposals.ai_contracts:AuthoringContext": ("section_questions",),
     "learnloop.vault.models:TraceContract": ("K9.5b",),
     "learnloop.config.schema:FacetIdentityConfig": ("A1",),
     "learnloop.config.schema:GraphNominationConfig": ("A3",),
@@ -1832,7 +1860,8 @@ PROVENANCE_ONLY: dict[str, str] = {
         "reaches it through the dumped dict the quote is read from",
     "src/learnloop/content/authoring/ai_contracts.py::concept_animation_prompt": PROMPT_REASON,
     "src/learnloop/content/authoring/ai_contracts.py::video_storyboard_prompt": PROMPT_REASON,
-    "src/learnloop/content/proposals/ai_contracts.py::authoring_prompt": PROMPT_REASON,
+    "src/learnloop/content/proposals/proposals.py::generate_authoring_proposal":
+        "the inline hash records agent-run provenance; request replay uses the separately pinned authoring checkpoint",
     "src/learnloop/content/proposals/method_phrasing.py::judge_prompt": PROMPT_REASON,
     "src/learnloop/content/proposals/proposals.py::persist_authoring_proposal":
         "agent_runs.input_context_hash of purpose 'authoring', which nothing looks up (only canonical ingest, "

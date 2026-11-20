@@ -242,6 +242,7 @@ def learning_objects_for_section(
     *,
     extraction_id: str,
     section_id: str,
+    reading_order: bool = False,
 ) -> list[str]:
     """Active Learning Objects whose provenance cites spans inside the section (loads the IR; outside AD).
 
@@ -253,7 +254,7 @@ def learning_objects_for_section(
     if ir is None:
         return []
     return learning_objects_for_section_in_ir(vault, repository, ir, extraction_id=extraction_id,
-                                              section_id=section_id)
+                                              section_id=section_id, reading_order=reading_order)
 
 
 def learning_objects_for_section_in_ir(
@@ -263,12 +264,14 @@ def learning_objects_for_section_in_ir(
     *,
     extraction_id: str,
     section_id: str,
+    reading_order: bool = False,
 ) -> list[str]:
     """Active Learning Objects whose provenance cites spans inside the section of ``ir``.
 
     Reuses the guide plan's span resolution (`span_for_ref`) so item passages,
     quick-checks, and progression triggers agree on what belongs to a section.
-    Returns a sorted, de-duplicated id list; empty when the section has no
+    Returns a sorted, de-duplicated id list (first cited span, then id when
+    ``reading_order=True``); empty when the section has no
     provenance-linked LOs (thin citation — see the source-finished sweep).
     """
 
@@ -291,7 +294,8 @@ def learning_objects_for_section_in_ir(
     # section holds, even when its text changed.
     translator = SpanTranslator(repository, extraction_id)
 
-    matched: set[str] = set()
+    matched: dict[str, int] = {}
+    span_order = {span_id: index for index, span_id in enumerate(section["span_ids"])}
     for learning_object in vault.learning_objects.values():
         if learning_object.status != "active":
             continue
@@ -311,9 +315,10 @@ def learning_objects_for_section_in_ir(
                 accept_moved=True,
             )
             if span_id is not None and span_id in section_spans:
-                matched.add(learning_object.id)
-                break
-    return sorted(matched)
+                matched[learning_object.id] = min(matched.get(learning_object.id, len(span_order)), span_order[span_id])
+                if not reading_order:
+                    break
+    return sorted(matched, key=lambda lo_id: (matched[lo_id], lo_id)) if reading_order else sorted(matched)
 
 
 def learning_objects_by_section(

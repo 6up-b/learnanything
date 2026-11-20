@@ -810,3 +810,41 @@ def test_three_rows_claiming_one_pair_key_are_refused_together(tmp_path):
     assert all(
         row["audit"]["contrast_pair_gate"]["separates"] is False for row in everyone
     )
+
+
+def test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict(tmp_path):
+    from copy import deepcopy
+
+    from learnloop.content.authoring.authoring_gates import build_instrument_gates
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    rows = _pair_rows()
+    rows[0]["payload"]["discrimination_profiles"] = [{
+        "id": "dp_ignores_symmetry",
+        "hypothesis": "believes every square matrix is orthogonally diagonalizable",
+        "observable_signature": rows[0]["payload"]["expected_answer"],
+        "facet_id": FACET,
+    }]
+    earlier = deepcopy(rows)
+    later = deepcopy(rows[1])
+    later["client_item_id"] = "c_later_topic"
+    later["payload"]["learning_object_id"] = "lo_later_topic"
+    later["payload"]["expected_answer"] = "a third answer"
+    combined = [*rows, later]
+
+    def gates():
+        return build_instrument_gates(
+            vault, difficulty_band_by_lo={"lo_svd_definition": BAND, "lo_later_topic": BAND}
+        )
+
+    gates()(earlier)
+    gates()(combined)
+
+    # Applying the prefix would expose items the whole-proposal gate refuses;
+    # checking only the later duplicate cannot undo the learner seeing them.
+    assert all(row["_auto_apply"] for row in earlier)
+    assert all(not row["_auto_apply"] for row in combined)
+    assert {row["audit"]["contrast_pair_gate"]["reason"] for row in combined} == {
+        str(PairGateReason.PAIR_OVERSUBSCRIBED)
+    }

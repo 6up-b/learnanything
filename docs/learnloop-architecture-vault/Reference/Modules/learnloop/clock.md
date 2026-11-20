@@ -617,6 +617,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ro2_history_resolve_helpers.py](../../../../../tests/ro2_history_resolve_helpers.py) — direct import
 - [tests/route_rules_in_grader_helpers.py](../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../tests/router_probe_ties_helpers.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/serve_eligibility_helpers.py](../../../../../tests/serve_eligibility_helpers.py) — direct import
 - [tests/sidecar_quick_add_helpers.py](../../../../../tests/sidecar_quick_add_helpers.py) — direct import
 - [tests/sim_probe_validation_helpers.py](../../../../../tests/sim_probe_validation_helpers.py) — direct import
@@ -1921,6 +1922,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_harmful_write_rate_counts_a_surfaced_then_withdrawn_belief`
   - `test_supersession_is_not_harm_and_is_reported_separately`
 - [tests/test_secondary_attach.py](../../../../../tests/test_secondary_attach.py) — direct import
+- [tests/test_section_question_parts.py](../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_six_topics_resume_at_the_third_answer_and_match_the_old_proposal`
 - [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_when_label_already_rubric_fatal`

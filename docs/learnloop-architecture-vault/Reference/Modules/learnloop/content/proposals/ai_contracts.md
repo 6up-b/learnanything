@@ -133,7 +133,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PRACTICE_GENERATION_PROMPT_VERSION`
 - [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] — imports `_AUDIT_GUIDANCE`, `_DIFFICULTY_GUIDANCE`, `_PRACTICE_METADATA_GUIDANCE`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `AuthoringProposal`
-- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `AUTHORING_PROMPT_VERSION`, `AuthoringContext`, `AuthoringProposal`, `AuthoringProposalItem`, `DIAGNOSTIC_AUTHORING_PROMPT`, `DIAGNOSTIC_AUTHORING_PROMPT_VERSION`, `SourceRef`, `authoring_prompt`; statically calls `AuthoringContext`, `authoring_prompt`
+- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `AUTHORING_PROMPT_VERSION`, `AuthoringContext`, `AuthoringProposal`, `AuthoringProposalItem`, `DIAGNOSTIC_AUTHORING_PROMPT`, `DIAGNOSTIC_AUTHORING_PROMPT_VERSION`, `SourceRef`, `authoring_prompt`; statically calls `AuthoringContext`, `AuthoringProposal`, `authoring_prompt`
 - [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] — imports `TaskFeaturesPayload`
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `AuthoringProposal`, `AuthoringProposalItem`; statically calls `AuthoringProposal`
 - [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `AUTHORING_PROMPT_VERSION`
@@ -167,8 +167,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/ad23_contract_helpers.py](../../../../../../../tests/ad23_contract_helpers.py) — direct import
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/proposal_persistence_helpers.py](../../../../../../../tests/proposal_persistence_helpers.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
+- [tests/section_question_parts_helpers.py](../../../../../../../tests/section_question_parts_helpers.py) — direct import
 - [tests/source_ingestion_helpers.py](../../../../../../../tests/source_ingestion_helpers.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import
 - [tests/test_ad23_contract.py](../../../../../../../tests/test_ad23_contract.py) — direct import

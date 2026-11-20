@@ -1326,10 +1326,12 @@ _CURABLE_CODES = frozenset({"budget_exceeded"})
 
 def retries_on_its_own(job: Mapping[str, Any]) -> bool:
     """Whether a failed try of ``job`` is followed by one more in the same
-    attempt: the model steps of an automatic build (not the zero-model repair
+    attempt: a finished section's writing or the model steps of an automatic build (not the zero-model repair
     of a kept candidate, and not a build the learner started elsewhere)."""
 
     payload = job.get("payload") or {}
+    if job.get("job_type") == "practice_expansion" and str(payload.get("reason") or "").startswith("reader_section_completed:"):
+        return True
     return (
         job.get("job_type") in _RETRIED_ON_ITS_OWN
         and isinstance(payload.get("auto_build"), Mapping)

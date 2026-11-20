@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from math import log
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.content.proposals.ai_contracts import PRACTICE_GENERATION_PROMPT_VERSION
 
 from learnloop.ai.client import AIProviderClient
+from learnloop.ai.execution import content_key, model_settings
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.vault.repository import vault_repository
@@ -893,6 +894,28 @@ def generate_diagnostic_practice_proposal(
     )
 
 
+def section_questions_key(client: AIProviderClient, lo_ids: list[str], source_refs: list[dict[str, Any]], reason: str) -> str:
+    return content_key({"purpose": "section_questions", "topics": lo_ids, "source_refs": source_refs,
+                        "reason": reason, "settings": model_settings(client)})
+
+
+def _reject_duplicate_practice_prompts(rows: list[dict[str, Any]]) -> None:
+    # Separate answers cannot see each other's new prompts. Judge the whole
+    # collection: accepting a prefix makes a later duplicate impossible to undo.
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if row.get("item_type") == "practice_item" and row.get("operation") == "create":
+            prompt = str((row.get("payload") or {}).get("prompt") or "").strip()
+            if prompt:
+                groups.setdefault(prompt, []).append(row)
+    for group in groups.values():
+        if len(group) > 1:
+            for row in group:
+                row["_auto_apply"] = False
+                row["validation_status"] = "invalid"
+                row["validation_errors"] = [*row["validation_errors"], "duplicate_prompt"]
+
+
 def generate_post_probe_practice_proposal(
     root: Path,
     codex_client: AIProviderClient,
@@ -910,6 +933,8 @@ def generate_post_probe_practice_proposal(
     require_completed_probe: bool = True,
     source_refs: list[dict[str, Any]] | None = None,
     ad_commission_id: str | None = None,
+    checkpoint_scope: str | None = None,
+    progress: Callable[[int, int], None] | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
@@ -949,6 +974,25 @@ def generate_post_probe_practice_proposal(
     surface_gate = gates.surface_gate
     persona_gate = gates.persona_gate
     pair_gate = gates.pair_gate
+
+    def judge(rows: list[dict[str, Any]]) -> None:
+        gates(rows)
+        _reject_duplicate_practice_prompts(rows)
+
+    parts = None
+    if checkpoint_scope is not None:
+        targets = {target.learning_object_id: target for target in plan.targets}
+        parts = []
+        for lo_id in dict.fromkeys(learning_object_ids or list(targets)):
+            if lo_id not in targets:
+                continue
+            part = replace(plan, targets=[targets[lo_id]])
+            parts.append({
+                "subjects": _target_subjects(part, subjects),
+                "instructions": _practice_expansion_instructions(
+                    part, extra_instructions=extra_instructions, focus_facets=focus_facets, mode_mix=mode_mix,
+                ),
+            })
     patch_id = generate_authoring_proposal(
         root,
         codex_client,
@@ -964,7 +1008,9 @@ def generate_post_probe_practice_proposal(
         source_refs=source_refs,
         codex_revision=codex_revision,
         merge_context_source_refs=bool(source_refs),
-        row_transform=gates,
+        row_transform=judge,
+        **({"part_requests": parts, "checkpoint_scope": checkpoint_scope, "progress": progress}
+           if checkpoint_scope is not None else {}),
         **_ad_request_options(plan),
     )
     violations: list[str] = []
