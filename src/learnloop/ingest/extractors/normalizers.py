@@ -40,13 +40,18 @@ def markdown_to_ir(
     title: str | None,
     extractor_name: str,
     extractor_version: str = "2",
+    section_titles: bool = False,
 ) -> DocumentIR:
     """Build trivial IR from a markdown body: blocks by paragraph, units by
     top-level heading, with a level-2 (##) fallback when the level-1 structure
     collapses to a single unit (heading-path section trail, no geometry).
 
     Version history: "1" derived units from level-1 headings only; "2" adds the
-    level-2 fallback, so cached "1" extractions must not be reused for it."""
+    level-2 fallback, so cached "1" extractions must not be reused for it.
+
+    ``section_titles``: a unit's label is its heading's own words (a web page
+    read with ``html`` version 3); without it, the heading's slug. The slug
+    stays each block's section path and each unit's locator either way."""
 
     blocks: list[DocumentBlock] = []
     section_path: list[str] = ["root"]
@@ -54,6 +59,7 @@ def markdown_to_ir(
     current: list[str] = []
     in_fence = False
     fence_start = ""
+    titles: dict[tuple[str, ...], str] = {}
 
     def flush() -> None:
         text = "\n".join(current).strip()
@@ -91,6 +97,7 @@ def markdown_to_ir(
                     del path_by_level[existing]
             path_by_level[level] = slug
             section_path = [path_by_level[i] for i in sorted(path_by_level)]
+            titles.setdefault(tuple(section_path), heading.group(2))
             continue
         if line.startswith("```") or line.startswith("$$"):
             current.append(line)
@@ -106,7 +113,7 @@ def markdown_to_ir(
         current.append(line)
     flush()
 
-    units = _units_from_headings(blocks, title=title)
+    units = _units_from_headings(blocks, title=title, titles=titles if section_titles else None)
     return DocumentIR(
         ir_schema_version=IR_SCHEMA_VERSION,
         extractor=extractor_name,
@@ -116,7 +123,9 @@ def markdown_to_ir(
     )
 
 
-def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> list[DocumentUnit]:
+def _units_from_headings(
+    blocks: list[DocumentBlock], *, title: str | None, titles: dict[tuple[str, ...], str] | None = None
+) -> list[DocumentUnit]:
     if not blocks:
         return []
     # Group by top-level section. A level-1 heading replaces the synthetic
@@ -133,7 +142,7 @@ def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> l
         # A single level-1 heading (or none) collapses the whole document into one
         # unit, which makes unit selection useless. Before falling back to the
         # whole-document unit, try to derive units from the level-2 (##) structure.
-        level2 = _units_from_level2(blocks)
+        level2 = _units_from_level2(blocks, titles=titles)
         if level2 is not None:
             return level2
         return [
@@ -154,7 +163,7 @@ def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> l
             DocumentUnit(
                 unit_id=f"u{ordinal}",
                 parent_unit_id=None,
-                label=key,
+                label=(titles or {}).get(tuple(group[0].section_path[:1]), key),
                 ordinal=ordinal,
                 locator={"scheme": "heading_path", "path": f"root/{key}"},
                 semantic_hash=semantic_hash(group),
@@ -164,7 +173,9 @@ def _units_from_headings(blocks: list[DocumentBlock], *, title: str | None) -> l
     return units
 
 
-def _units_from_level2(blocks: list[DocumentBlock]) -> list[DocumentUnit] | None:
+def _units_from_level2(
+    blocks: list[DocumentBlock], *, titles: dict[tuple[str, ...], str] | None = None
+) -> list[DocumentUnit] | None:
     """Derive units from the level-2 (##) section trail.
 
     Used only when the level-1 heading structure yields a single unit. Groups
@@ -191,7 +202,7 @@ def _units_from_level2(blocks: list[DocumentBlock]) -> list[DocumentUnit] | None
             label = "(intro)"
             path = f"root/{l1}"
         else:
-            label = seg
+            label = (titles or {}).get(tuple(group[0].section_path[:2]), seg)
             path = f"root/{l1}/{seg}"
         units.append(
             DocumentUnit(

@@ -473,9 +473,12 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
     if category in ("web", "arxiv") or looks_like_html:
-        markdown = _html_to_markdown(text)
+        from learnloop.ingest.extractors.web_page import WEB_PAGE_EXTRACTOR_VERSION, page_markdown
+
+        markdown = page_markdown(text)
         if markdown:
-            return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="html")
+            return markdown_to_ir(markdown, title=ctx.payload.get("title"), extractor_name="html",
+                                  extractor_version=WEB_PAGE_EXTRACTOR_VERSION, section_titles=True)
 
     # Transcript-aware path: a standalone caption file (WebVTT/SRT) keeps its
     # cue timing + speaker turns instead of flattening to prose paragraphs.
@@ -585,7 +588,13 @@ def default_extraction_identity(
         re.match(r"\s*(?:<!doctype\s+html|<html)", text, re.IGNORECASE)
     )
     if category in ("web", "arxiv") or looks_html:
-        return {"extractor": "html", "extractor_version": "2", "model_versions": {}, "config": {}}
+        # The version is in the request hash: a page read with an earlier one
+        # is never served this reading from cache, and keeps its own until it
+        # is imported again (the card's "Read it again").
+        from learnloop.ingest.extractors.web_page import WEB_PAGE_EXTRACTOR_VERSION
+
+        return {"extractor": "html", "extractor_version": WEB_PAGE_EXTRACTOR_VERSION, "model_versions": {},
+                "config": {}}
     # Head-based transcript sniff — same 4 KB window default_extract uses, so the
     # identity and the actual extraction always agree.
     from learnloop.ingest.transcripts import detect_transcript_format
@@ -1065,19 +1074,6 @@ def _caption_cues(text: str) -> list[dict[str, Any]] | None:
             end = start + float(cue.get("duration") or 0.0)
         normalized.append({"start": start, "end": float(end), "text": cue["text"]})
     return normalized or None
-
-
-def _html_to_markdown(raw_html: str) -> str | None:
-    """Readable-body markdown from raw HTML (same engine as the legacy path)."""
-
-    try:
-        import trafilatura
-    except ImportError:  # pragma: no cover - trafilatura is a base dependency
-        return None
-    extracted = trafilatura.extract(
-        raw_html, output_format="markdown", include_tables=True, include_comments=False
-    )
-    return extracted or None
 
 
 def default_run_legacy_ingest(

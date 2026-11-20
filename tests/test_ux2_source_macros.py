@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
 from learnloop.reader.source_macros import (
@@ -22,14 +23,18 @@ from learnloop.reader.source_macros import (
     macros_from_original,
     parse_tex_macros,
 )
+from learnloop_sidecar.context import SidecarContext
 from tests.ux_phase1_add_source_helpers import _draining_ctx, call
-from tests.ux_phase1_support import fresh_library, grant_consent
+from tests.ux_phase1_support import CLOCK, fresh_library, grant_consent
+from tests.web_page_reading_helpers import old_web_reading_services
 
 SAMPLE = Path(__file__).resolve().parents[1] / "samples" / "understanding-linear-algebra-symmetric-matrices-and-variance.html"
 
 # Taken from the production path (add_source -> html extraction -> blocks -> reader.render_view) before UX-2.
 # The run's request and result hashes key on the revision's id, new at each import, so they are not pinned;
-# the blocks' own content hashes, and the render view's hash over them, are.
+# the blocks' own content hashes, and the render view's hash over them, are. Since UX-11 a new read of a web
+# page is extraction version 3: these pins are the sample as a library read it before (version 2), which is
+# what ``added_sample`` holds (``tests/web_page_reading_helpers.py``).
 EXTRACTOR = ("html", "2")
 BLOCK_COUNT = 59
 #: sha256 over "span_id<TAB>content_hash" lines in reading order.
@@ -41,13 +46,35 @@ RENDER_VIEW_CONTENT_HASH = "sha256:4d153455175b0d1ba1437e93a952d530b321c38b59534
 
 @pytest.fixture
 def added_sample(tmp_path):
+    """The sample in a library that read it before UX-11, opened by the current code."""
+
+    root = fresh_library(tmp_path)
+    grant_consent(root)
+    page = tmp_path / SAMPLE.name
+    page.write_bytes(SAMPLE.read_bytes())
+    before = SidecarContext()
+    before.load(root)
+    before.ingest_jobs.bind(before.repository, root, background=False, clock=CLOCK,
+                            services=old_web_reading_services(SAMPLE.name))
+    source_id = call(before, "add_source", {"sources": [str(page)]})["items"][0]["sourceId"]
+    ctx = _draining_ctx(root)
+    return root, ctx, source_id, resolve_extraction_id(ctx.repository, source_id)
+
+
+def test_ux2_a_new_read_of_the_sample_carries_the_pages_macros_and_stores_none_of_them(tmp_path):
     root = fresh_library(tmp_path)
     grant_consent(root)
     page = tmp_path / SAMPLE.name
     page.write_bytes(SAMPLE.read_bytes())
     ctx = _draining_ctx(root)
     source_id = call(ctx, "add_source", {"sources": [str(page)]})["items"][0]["sourceId"]
-    return root, ctx, source_id, resolve_extraction_id(ctx.repository, source_id)
+    extraction_id = resolve_extraction_id(ctx.repository, source_id)
+    run, rows = _stored_blocks(ctx, extraction_id)
+    assert run == ("html", "3")
+    assert any("\\vvec" in text for _, _, text in rows)
+    assert not any("\\newcommand" in text for _, _, text in rows)
+    view = call(ctx, "reader.render_view", {"extractionId": extraction_id})
+    assert view["mathMacros"]["\\vvec"] == "{\\mathbf v}" and len(view["mathMacros"]) == 61
 
 
 def _stored_blocks(ctx, extraction_id):
