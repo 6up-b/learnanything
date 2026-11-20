@@ -197,6 +197,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ingest_runner_helpers.py](../../../../../../../tests/ingest_runner_helpers.py) — direct import
 - [tests/learner_data_relax_2_helpers.py](../../../../../../../tests/learner_data_relax_2_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/source_vector_backfill_helpers.py](../../../../../../../tests/source_vector_backfill_helpers.py) — direct import
 - [tests/test_ad23_fix_r5.py](../../../../../../../tests/test_ad23_fix_r5.py) — direct import
@@ -367,6 +368,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_m1_every_relay_path_keeps_its_units_vault_and_epoch`
   - `test_m2_a_batch_resumed_after_a_restart_asks_again_as_its_origin`
   - `test_m3_any_response_that_reports_a_batch_shows_its_offer_once`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_query_student.py](../../../../../../../tests/test_query_student.py) — direct import
   - `test_a_due_replay_is_scheduled_for_a_fully_indexed_library`
 - [tests/test_question_promotion_jobs.py](../../../../../../../tests/test_question_promotion_jobs.py) — direct import

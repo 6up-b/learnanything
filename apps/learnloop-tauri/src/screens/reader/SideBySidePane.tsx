@@ -27,6 +27,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
 import { newActivityId } from "./activity";
 import { MarkdownMath } from "../../render/MarkdownMath";
+import { MathMacrosProvider } from "../../render/mathMacros";
 import { clip } from "./readerShared";
 import { MeaningLabel } from "./voices";
 import { IntentBox } from "./IntentBox";
@@ -234,7 +235,9 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
     </div>
   );
 
+  // The other book's own macros, never the open book's: the Reader's provider would otherwise reach this pane.
   return (
+    <MathMacrosProvider macros={section?.mathMacros ?? null}>
     <div
       data-side-by-side-pane={sheet ? "sheet" : "pane"}
       role="region"
@@ -374,5 +377,6 @@ export const SideBySidePane = forwardRef<HTMLDivElement, SideBySidePaneProps>(fu
       {foot ? <div data-sbs-foot="" style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}>{foot}</div> : null}
       {sheet ? null : <div style={{ padding: "4px 14px", borderTop: `1px solid ${COLOR.border}` }}><MeaningLabel>{SIDE_BY_SIDE_COPY.keys}</MeaningLabel></div>}
     </div>
+    </MathMacrosProvider>
   );
 });

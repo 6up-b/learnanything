@@ -24,6 +24,7 @@ import type {
   WorkbenchOpenProblemDto
 } from "../api/dto";
 import { aboutMinutes, wholeMinutes } from "./dailyPlan";
+import { plainMathLine } from "../render/mathSnippet";
 
 type Plan = DailyPlanBodyDto;
 
@@ -297,8 +298,9 @@ export type TodayThread =
   | { kind: "question"; key: string; text: string; place: string | null; question: QuestionQueueRowDto }
   | { kind: "problem"; key: string; text: string; steps: string; problem: WorkbenchOpenProblemDto };
 
+// Plain text, never rendered: a formula in it becomes readable words, or the line would show raw TeX.
 function oneLine(markdown: string, limit = 80): string {
-  const text = markdown.replace(/\s+/g, " ").replace(/[*_`#>]/g, "").trim();
+  const text = plainMathLine(markdown);
   return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
 }
 
@@ -308,7 +310,7 @@ export function questionThread(row: QuestionQueueRowDto): TodayThread {
     kind: "question",
     key: `q:${row.id}`,
     text: `“${oneLine(row.questionMd)}”`,
-    place: row.sourceCitation?.label ?? null,
+    place: row.sourceCitation?.label ? plainMathLine(row.sourceCitation.label) : null,
     question: row
   };
 }

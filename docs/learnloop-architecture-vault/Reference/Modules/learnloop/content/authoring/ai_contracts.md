@@ -126,6 +126,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/concept_animation_service_helpers.py](../../../../../../../tests/concept_animation_service_helpers.py) — direct import
 - [tests/exercise_authoring_helpers.py](../../../../../../../tests/exercise_authoring_helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../../tests/required_method_authority_helpers.py) — direct import
 - [tests/source_service_fakes.py](../../../../../../../tests/source_service_fakes.py) — direct import
 - [tests/structured_ai.py](../../../../../../../tests/structured_ai.py) — direct import

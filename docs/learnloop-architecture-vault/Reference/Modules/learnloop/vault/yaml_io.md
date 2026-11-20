@@ -172,6 +172,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
 - [tests/pfc_unverified_unassessed_helpers.py](../../../../../../tests/pfc_unverified_unassessed_helpers.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca1_as_printed_helpers.py](../../../../../../tests/reader_ca1_as_printed_helpers.py) — direct import
 - [tests/reader_ca1_astra_fixes_helpers.py](../../../../../../tests/reader_ca1_astra_fixes_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import

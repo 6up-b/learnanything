@@ -273,6 +273,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_edit_recheck_never_uses_the_grant`
   - `test_the_imports_time_boxed_key_check_carries_its_requests_grant`
   - `test_the_reader_imports_background_key_check_never_uses_the_grant`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca1_astra_codex_review.py](../../../../../../../tests/test_reader_ca1_astra_codex_review.py) — direct import
   - `test_a_named_solution_block_holding_part_of_the_statement_withholds_the_whole_crop`
 - [tests/test_reader_ca1_astra_fixes.py](../../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import

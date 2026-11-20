@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
   - `test_request_video_model_requires_a_ready_route`
@@ -137,6 +138,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_opened_with_the_opt_in_on_queues_its_linked_notes`
   - `test_f3_revoking_consent_before_dispatch_sends_nothing`
   - `test_f3_switched_off_before_the_final_write_writes_nothing`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
   - `test_detect_provider_capabilities_without_a_model_skips_the_network`
   - `test_start_import_batch_fails_fast_for_native_pdf_conflicts`

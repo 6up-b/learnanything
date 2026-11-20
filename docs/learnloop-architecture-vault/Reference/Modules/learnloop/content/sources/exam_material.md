@@ -275,6 +275,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; statically calls `held_out_among`, `held_out_material`, `held_out_refusal`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; statically calls `held_out_among`, `held_out_material`, `held_out_refusal`
 - [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `held_out_among`, `held_out_material`, `held_out_refusal`; statically calls `held_out_among`, `held_out_material`, `held_out_refusal`
+- [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] — imports `exam_material`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `module`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/reader/source_roles|learnloop.reader.source_roles]] — imports `module`; statically calls `exam_material`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `exam_material`; statically calls `exam_material`
@@ -325,7 +326,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 59 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 60 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -452,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_learning_context_fails_closed_when_protection_cannot_be_read`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_an_exam_reading_plans_nothing_through_its_path`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_a_quotes_reference_in_every_form`
 - [tests/test_reader_digest_narrative.py](../../../../../../../tests/test_reader_digest_narrative.py) — direct import
   - `test_a_session_on_exam_material_is_never_sent`
 - [tests/test_reader_pdf_selection.py](../../../../../../../tests/test_reader_pdf_selection.py) — direct import

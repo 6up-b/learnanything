@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/AskRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/AskRail.tsx) |
-| Source lines | 457 |
+| Source lines | 460 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,22 +54,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface AskRailProps` — interface, line 21
-- `export const ASK_ABOUT_COPY =` — const, line 102
-- `export const PERSONALIZED_COPY =` — const, line 107
-- `export function AskRail(` — function, line 151
+- `export interface AskRailProps` — interface, line 22
+- `export const ASK_ABOUT_COPY =` — const, line 103
+- `export const PERSONALIZED_COPY =` — const, line 108
+- `export function AskRail(` — function, line 152
 
 ## Internal implementation anchors
 
-- `function ShowMeThreadLine(` — function, line 113
-- `const link =` — const, line 114
-- `const peek = inquiry && peekPassage ? peekPassage : jumpToSpan` — const, line 199
-- `const next = new Set(ids)` — const, line 378
-- `const next = new Set(ids)` — const, line 387
-- `const seen = new Set<string>()` — const, line 388
-- `let cursor: ReaderExchange | undefined = exchange` — let, line 389
-- `const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id)` — const, line 411
-- `const next = new Set(ids)` — const, line 418
+- `function ShowMeThreadLine(` — function, line 114
+- `const link =` — const, line 115
+- `const peek = inquiry && peekPassage ? peekPassage : jumpToSpan` — const, line 200
+- `const next = new Set(ids)` — const, line 381
+- `const next = new Set(ids)` — const, line 390
+- `const seen = new Set<string>()` — const, line 391
+- `let cursor: ReaderExchange | undefined = exchange` — let, line 392
+- `const expanded = normalizedAskFind.length > 0 || !collapsedAskIds.has(exchange.id)` — const, line 414
+- `const next = new Set(ids)` — const, line 421
 
 ## Who imports or calls it
 
@@ -86,6 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/goldenpath/shared|src/components/goldenpath/shared.tsx]] — import-or-re-export; imports `AffectTap`, `PrimaryButton`, `SecondaryButton`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Card`, `Dim`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `clipMath`
 - [[Reference/Desktop/TypeScript/screens/reader/ModelActionState|src/screens/reader/ModelActionState.tsx]] — import-or-re-export; imports `ModelActionPhase`, `ModelActionState`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderAskBranches|src/screens/reader/ReaderAskBranches.tsx]] — import-or-re-export; imports `InquiryCommitment`, `ReaderAskBranches`, `ReaderExchange`, `aboutLine`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorAnswer|src/screens/reader/TutorAnswer.tsx]] — import-or-re-export; imports `TutorAnswer`, `TutorRailProps`

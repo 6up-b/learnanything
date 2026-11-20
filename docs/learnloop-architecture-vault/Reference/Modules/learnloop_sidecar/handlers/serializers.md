@@ -204,6 +204,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feedback_bundle_lacks_regrade_marker_without_regrade`
 - [tests/test_pfc_unverified_unassessed.py](../../../../../../tests/test_pfc_unverified_unassessed.py) — direct import
   - `test_feedback_shows_an_unverified_criterion_as_not_assessed`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca1_astra_fixes.py](../../../../../../tests/test_reader_ca1_astra_fixes.py) — direct import
   - `test_the_canonical_exercise_dto_names_the_book_by_its_learner_title`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import

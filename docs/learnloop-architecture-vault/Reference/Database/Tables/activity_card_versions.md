@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `tests/test_goal_contracts.py`
 - `tests/test_item_fingerprints.py`
 - `tests/test_reader_authoring.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_card_lineage.py`

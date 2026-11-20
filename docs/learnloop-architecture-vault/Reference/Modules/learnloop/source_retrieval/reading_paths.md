@@ -295,6 +295,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
   - `test_read_it_anyway_makes_a_section_core_and_skip_it_leaves_one_out`
   - `test_the_path_is_read_only_when_the_plan_is_built_and_ad_slot_facts_read_the_record`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_rw6b_p2_landing.py](../../../../../../tests/test_reader_rw6b_p2_landing.py) — direct import
   - `test_iii_the_narration_claim_and_the_reading_path_claims_are_distinct_and_independent`
 - [tests/test_reading_paths.py](../../../../../../tests/test_reading_paths.py) — direct import

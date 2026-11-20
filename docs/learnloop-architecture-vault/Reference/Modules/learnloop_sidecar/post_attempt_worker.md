@@ -139,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_post_attempt_worker.py](../../../../../tests/test_post_attempt_worker.py) — direct import
   - `test_busy_database_is_retried_with_backoff`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_each_post_attempt_job_gets_a_trace_of_its_own`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import

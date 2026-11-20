@@ -75,6 +75,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `useCheckHandoff`; references `useCheckHandoff`
 - [[Reference/Desktop/TypeScript/components/DialogueProbe|src/components/DialogueProbe.tsx]] — import-or-re-export: `CheckHandoff`, `STOP_AND_TEACH_LABEL`; references `CheckHandoff`, `STOP_AND_TEACH_LABEL`
+- [[Reference/Desktop/TypeScript/copy/refusals|src/copy/refusals.ts]] — import-or-re-export: `STOP_AND_TEACH_LABEL`; references `STOP_AND_TEACH_LABEL`
 - [[Reference/Desktop/TypeScript/screens/CalibrationScreen|src/screens/CalibrationScreen.tsx]] — import-or-re-export: `CheckHandoff`; references `CheckHandoff`
 - [[Reference/Desktop/TypeScript/screens/DiagnosticReviewScreen|src/screens/DiagnosticReviewScreen.tsx]] — import-or-re-export: `CheckHandoff`, `TEACH_AFTER_CHECK_LABEL`, `TUTOR_AFTER_CHECK_LABEL`, `handoffOpensLesson`; references `CheckHandoff`, `TEACH_AFTER_CHECK_LABEL`, `TUTOR_AFTER_CHECK_LABEL`, `handoffOpensLesson`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `CheckHandoff`, `STOP_AND_TEACH_LABEL`, `handoffOpensLesson`; references `CheckHandoff`, `STOP_AND_TEACH_LABEL`, `handoffOpensLesson`

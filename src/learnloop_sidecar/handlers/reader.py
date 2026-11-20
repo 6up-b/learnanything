@@ -710,6 +710,15 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
         ir = repository.load_document_ir(resolved)
         pages = {block.span_id: block.page for block in ir.blocks} if ir is not None else {}
         payload["blocks"] = [{**block, "page": pages.get(block.get("span_id"))} for block in payload["blocks"]]
+    # The source's own TeX macros, for the renderers (desktop and phone): the extraction keeps the formulas
+    # but not the page's definitions, so without them ``\vvec`` shows as a red raw command. Read from the
+    # stored original, beside the view: the stored blocks and the view's hash stay as they were. Absent when the
+    # source defines none, so every other reading's reply is byte for byte what it was.
+    from learnloop.reader.source_macros import extraction_math_macros
+
+    macros = extraction_math_macros(vault, repository, resolved)
+    if macros:
+        payload["math_macros"] = macros
     return versioned(payload)
 
 

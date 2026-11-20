@@ -7,6 +7,7 @@
 // and a selection on it offers no Ask, by the desktop's own rule.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommandError, ReaderDoseOfferDto, ReaderGuidePlanDto, ReaderProgressListDto } from "@desktop/api/dto";
+import { MathMacrosProvider } from "@desktop/render/mathMacros";
 import { accrueVisit, visitSeconds, type VisitClock } from "@desktop/screens/reader/visitClock";
 import { phone, type PhoneReaderBlock, type PhoneSectionDto } from "../api/phone";
 import { addReaderIntent, flushOutbox } from "../store/outbox";
@@ -301,7 +302,10 @@ export function ReaderScreen({
 
   const askOff = selection ? selectionProtected(section?.protection, selection.spanIds) : false;
 
+  // The book's own TeX macros (the desktop's reader.render_view sends them): its formulas write \vvec, defined
+  // where the extraction does not keep it.
   return (
+    <MathMacrosProvider macros={section?.mathMacros ?? null}>
     <div className="screen reader">
       {target.plan ? (
         <div className="banner" role="status">
@@ -347,6 +351,7 @@ export function ReaderScreen({
           protectionMessage={section.protection?.message ?? null} onClose={() => setSelection(null)} onError={onError} />
       ) : null}
     </div>
+    </MathMacrosProvider>
   );
 }
 

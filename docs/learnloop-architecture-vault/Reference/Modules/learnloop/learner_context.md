@@ -325,6 +325,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mcp_tools.py](../../../../../tests/test_mcp_tools.py) — direct import
   - `test_learning_context_is_the_apps_latent_state`
 - [tests/test_notes_c2b_review5.py](../../../../../tests/test_notes_c2b_review5.py) — direct import
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_ro1_availability_reads.py](../../../../../tests/test_ro1_availability_reads.py) — direct import
   - `test_the_learner_contexts_traces_exclude_an_exam_not_yet_imported`
 

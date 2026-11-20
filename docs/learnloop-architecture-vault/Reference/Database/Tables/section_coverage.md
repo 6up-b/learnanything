@@ -139,8 +139,8 @@ None found by exact static reference scan.
 - `tests/test_notes_c2b_review5.py`
 - `tests/test_notes_linked.py`
 - `tests/test_notes_vault_search.py`
+- `tests/test_protection_surface_matrix.py`
 - `tests/test_reader_ca5_also_in_books.py`
-- `tests/test_reader_ca5a_find_section.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

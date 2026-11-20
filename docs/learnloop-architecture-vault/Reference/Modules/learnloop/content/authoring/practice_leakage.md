@@ -161,6 +161,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cross_source_context_is_bounded_and_authority_first`
   - `test_held_out_inventory_flags_planted_phrase_and_passes_fresh_text`
   - `test_screen_practice_payload_catches_expected_answer_leak`
+- [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_teacher_exam_question_guard.py](../../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`
   - `test_distinctive_is_read_from_the_vaults_own_items_and_readable_passages`
