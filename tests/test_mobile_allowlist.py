@@ -887,11 +887,12 @@ UX_PHASE4_EXTENDED_RPCS = (
     "plan_reading_ended",
 )
 #: The book card's actions (source_action): UX Phase 1's, GLM-OCR's
-#: allow_upload, and re-read safety's restore_reading (the E1 repair) and
-#: mark_exam_material (a held-back reading's one action). Desktop only, with
-#: source_action itself.
+#: allow_upload, re-read safety's restore_reading (the E1 repair) and
+#: mark_exam_material (a held-back reading's one action), and read_again (a web
+#: page read before its equations were kept). Desktop only, with source_action
+#: itself.
 SOURCE_ACTION_ACTIONS = ("undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
-                         "allow_upload", "restore_reading", "mark_exam_material")
+                         "allow_upload", "restore_reading", "mark_exam_material", "read_again")
 
 
 def test_the_pinned_source_action_actions_are_all_of_them():
