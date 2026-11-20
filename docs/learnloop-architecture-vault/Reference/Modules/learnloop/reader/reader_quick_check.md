@@ -179,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_taken_extra_becomes_a_reading_opportunity_with_the_offer_id`
 - [tests/test_ad3_reading.py](../../../../../../tests/test_ad3_reading.py) — direct import
   - `test_a_question_counts_once_and_no_verdict_reaches_evidence`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_the_readers_inquiry_and_selection_checks_answer_as_its_section_check`
 - [tests/test_reader_active_reading.py](../../../../../../tests/test_reader_active_reading.py) — direct import
   - `test_answering_and_self_checking_write_no_attempt_or_evidence`
   - `test_nothing_after_the_line_means_no_next_step_and_no_call`

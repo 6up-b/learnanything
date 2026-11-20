@@ -97,7 +97,7 @@ describe("planSentence", () => {
         ]
       })
     );
-    expect(sentence).toBe("25 minutes today: new: Mixtures, then a step further on Convolutions and 1 short question from earlier days.");
+    expect(sentence).toBe("Up to 25 minutes today. Planned so far: new: Mixtures, then a step further on Convolutions and 1 short question from earlier days.");
     expect(sentence).not.toMatch(/maintain|repair|push|lane/);
   });
 
@@ -109,7 +109,7 @@ describe("planSentence", () => {
         currentBlockId: "b1"
       })
     );
-    expect(sentence).toBe("About 12 minutes left today: your pick, Bayes.");
+    expect(sentence).toBe("Room for about 12 more minutes today. Next: your pick, Bayes.");
   });
 
   it("is null when nothing is planned", () => {
@@ -119,14 +119,14 @@ describe("planSentence", () => {
   it("says the plan's minutes are a suggestion under the router objective (RO4), and the minutes past them", () => {
     const current = block({ id: "b1", learningObjectTitles: ["Bayes"] });
     expect(planSentence(plan({ minutesAreASuggestion: true, blocks: [current], currentBlockId: "b1" }))).toBe(
-      "About 25 minutes suggested today: 1 short question from earlier days."
+      "About 25 minutes suggested today. Planned so far: 1 short question from earlier days."
     );
     const begun = [block({ id: "b0", status: "done" }), block({ id: "b1", startedAt: "2026-10-26T10:00:00Z" })];
     expect(planSentence(plan({ minutesAreASuggestion: true, minutesLeft: -6, minutesPastPlan: 6, blocks: begun, currentBlockId: "b1" }))).toBe(
-      "About 6 minutes past today's suggested time: 1 short question from earlier days."
+      "About 6 minutes planned past today's suggested time. Next: 1 short question from earlier days."
     );
     expect(planSentence(plan({ minutesAreASuggestion: true, minutesLeft: 8, minutesPastPlan: 0, blocks: begun, currentBlockId: "b1" }))).toBe(
-      "About 8 minutes left of today's suggested time: 1 short question from earlier days."
+      "Room for about 8 more minutes of today's suggested time. Next: 1 short question from earlier days."
     );
   });
 
@@ -144,7 +144,7 @@ describe("re-entry and done", () => {
   });
 
   it("done says the time spent", () => {
-    expect(doneLine({ version: 1, enabled: true, plan: null, day: { plans: 1, kinds: [], complete: true, plannedMinutes: 0, plannedItems: 3, doneItems: 3, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 1 } })).toBe("Done for today · 1 minute.");
+    expect(doneLine({ version: 1, enabled: true, plan: null, day: { plans: 1, kinds: [], complete: true, plannedMinutes: 0, plannedItems: 3, doneItems: 3, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 1 } })).toBe("Done for today · 1 minute spent answering.");
     expect(doneLine({ version: 1, enabled: true, plan: null })).toBe("Done for today.");
   });
 });
@@ -226,5 +226,29 @@ describe("implicitSessionMinutes", () => {
     api.getDailyPlan.mockRejectedValue(new Error("down"));
     api.getStartSummary.mockRejectedValue(new Error("down"));
     expect(await implicitSessionMinutes()).toBeNull();
+  });
+});
+
+// UX fix stage 3 (audit F9): one clock. Each duration says what it measures, so
+// no two lines read as the same quantity with different values.
+describe("UX fix stage 3, F9: each duration says what it measures", () => {
+  it("the plan's time is its length, and the rows are what is planned so far, never the same clock", () => {
+    const current = block({ id: "b1", learningObjectTitles: ["Bayes"] });
+    const ro4 = planSentence(plan({ minutesAreASuggestion: true, blocks: [current], currentBlockId: "b1" }));
+    expect(ro4).toMatch(/^About 25 minutes suggested today\. Planned so far: /);
+    expect(planSentence(plan({ blocks: [current], currentBlockId: "b1" }))).toMatch(/^Up to 25 minutes today\. Planned so far: /);
+  });
+
+  it("once begun, the minutes not yet given to a block are room, not a countdown", () => {
+    const begun = [block({ id: "b0", status: "done" }), block({ id: "b1", startedAt: "2026-10-26T10:00:00Z" })];
+    const sentence = planSentence(plan({ minutesAreASuggestion: true, minutesLeft: 22, minutesPastPlan: 0, blocks: begun, currentBlockId: "b1" }));
+    expect(sentence).toMatch(/^Room for about 22 more minutes of today's suggested time\. Next: /);
+    expect(sentence).not.toMatch(/minutes left/);
+  });
+
+  it("done says the time spent answering (and reading, when there was reading), not the session's length", () => {
+    const day = { plans: 1, kinds: [], complete: true, plannedMinutes: 0, plannedItems: 6, doneItems: 6, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 2.2 };
+    expect(doneLine({ version: 1, enabled: true, plan: null, day })).toBe("Done for today · 2 minutes spent answering.");
+    expect(doneLine({ version: 1, enabled: true, plan: null, day: { ...day, readingBlocks: 1, readingBlocksEnded: 1 } })).toBe("Done for today · 2 minutes spent answering and reading.");
   });
 });

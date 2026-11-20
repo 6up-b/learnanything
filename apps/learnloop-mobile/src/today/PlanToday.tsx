@@ -33,6 +33,7 @@ export function PlanToday({
   onEnd,
   onMode,
   onSomethingElse,
+  onResume,
   onError
 }: {
   session: SessionSnapshot | null;
@@ -49,6 +50,8 @@ export function PlanToday({
   onMode: (mode: "plan" | "queue") => void;
   /** IH3: "Something else would help" was chosen and served (the plan's reply: an item opens, or Today shows it). */
   onSomethingElse?: (reply: PhoneSomethingElseDto) => void;
+  /** UX fix stage 4 (F19): a question left for Today has a draft; this reopens it as it was. */
+  onResume?: (() => void) | null;
   onError: (error: unknown) => void;
 }) {
   const sessionId = session?.sessionId ?? null;
@@ -65,6 +68,14 @@ export function PlanToday({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data, query.error]);
 
+  // UX fix stage 4 (F19): a draft left for Today is offered in every state of the plan, a failed read included, so it is
+  // never behind a screen that does not show it. In the thumb zone, above the primary action, which stays the same.
+  const resumeEntry = onResume ? (
+    <button className="plain block" type="button" disabled={busy || choosing} onClick={onResume}>
+      Resume your answer <span aria-hidden="true">▸</span>
+    </button>
+  ) : null;
+
   const data = query.data;
   const plan = data?.plan ?? null;
   if (!data || !plan) {
@@ -72,9 +83,12 @@ export function PlanToday({
       <div className="screen">
         <h1>Today</h1>
         <p className="dim" role="status">{query.error ? "Today's plan couldn't be read." : "Reading today's plan…"}</p>
-        {query.error ? (
+        {query.error || resumeEntry ? (
           <div className="actions">
-            <button className="primary block" type="button" onClick={() => void query.refetch().catch(() => undefined)}>Try again</button>
+            {resumeEntry}
+            {query.error ? (
+              <button className="primary block" type="button" onClick={() => void query.refetch().catch(() => undefined)}>Try again</button>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -112,6 +126,7 @@ export function PlanToday({
         <p data-testid="today-sentence">{doneLine(data)}</p>
         {waiting ? <p className="dim" role="status">{waiting}</p> : null}
         <div className="actions">
+          {resumeEntry}
           <button className="primary block" type="button" disabled={busy} onClick={() => onKeepGoing(false)}>Keep going</button>
           <div className="row">
             {session ? <button className="plain" type="button" disabled={busy} onClick={() => onKeepGoing(true)}>Done for today</button> : null}
@@ -155,6 +170,7 @@ export function PlanToday({
         </div>
       ) : null}
       <div className="actions">
+        {resumeEntry}
         {session ? (
           <button className="primary block" type="button" disabled={busy || choosing} onClick={() => onNext()}>Next</button>
         ) : (

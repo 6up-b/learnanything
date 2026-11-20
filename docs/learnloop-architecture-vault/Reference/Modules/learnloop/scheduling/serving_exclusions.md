@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cold_item_chosen_for_a_treatment_is_reserved_before_its_task_exists`
   - `test_the_learner_initiated_selectors_keep_the_wider_reservation`
 - [tests/test_placement_fixture_copies.py](../../../../../../tests/test_placement_fixture_copies.py) — direct import
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
   - `test_no_protected_or_exam_reserved_item_is_ever_eligible`
 - [tests/test_router_r2a_landing.py](../../../../../../tests/test_router_r2a_landing.py) — direct import

@@ -40,6 +40,8 @@ import {
 import { figureCostLine, PANEL_FIGURE_COPY, PanelFigureThreadLine, usePanelFigures, type PanelFigureEvent } from "./askFigures";
 import { isShowMeKey } from "../screens/reader/figures/showMe";
 import { passageKeys } from "../screens/reader/readerShared";
+// A citation label is the passage's first words as text: its formulas must read as words, never raw TeX.
+import { plainMathLine } from "../render/mathSnippet";
 
 /**
  * The Reader exchange a continued dialogue attaches to, when the sidecar
@@ -1002,7 +1004,7 @@ export function AskOverlay({
                             onClick={() => setOpenCitation(citation)} title="Open in source"
                             style={{ cursor: "pointer", fontSize: 11, fontFamily: FONT_MONO, color: COLOR.amberLink,
                               border: `1px solid ${COLOR.border}`, background: "transparent", padding: "1px 6px" }}>
-                            § {citation.label ?? citation.spanId}
+                            § {citation.label ? plainMathLine(citation.label) : citation.spanId}
                           </button>
                         ))}
                       </div>
@@ -1061,7 +1063,7 @@ export function AskOverlay({
                             padding: "1px 6px"
                           }}
                         >
-                          ❯ {citation.label ?? citation.spanId}
+                          ❯ {citation.label ? plainMathLine(citation.label) : citation.spanId}
                         </span>
                       ))}
                     </div>

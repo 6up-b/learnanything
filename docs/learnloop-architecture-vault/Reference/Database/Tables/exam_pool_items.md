@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protection.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/sources/exam_material.py"
-  - "src/learnloop/goals/exam_session.py"
+  - "src/learnloop/figures/protection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/adaptive_difficulty/protection.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/sources/exam_material.py`
+- `src/learnloop/figures/protection.py`
 - `src/learnloop/goals/exam_pool.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/learner_protection.py`
@@ -115,10 +116,12 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_tables.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_followups_batch5_recap_protection.py`
+- `tests/test_protection_surface_matrix.py`
 - `tests/test_teacher_exam_question_guard.py`
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/exam_scope_fixtures.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/teacher_fakes.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_deliverable_path.py`
@@ -130,7 +133,6 @@ Indexes and uniqueness:
 - `tests/test_practice_index_admission.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_quick_check.py`
-- `tests/test_router_r2a_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -160,6 +160,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_loaded_vault_follows_its_files`
 - [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — direct import
   - `test_today_shows_the_stored_plan_and_writes_nothing`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reread_safety_landing.py](../../../../../../tests/test_reread_safety_landing.py) — direct import
   - `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`
 - [tests/test_secondary_attach.py](../../../../../../tests/test_secondary_attach.py) — direct import

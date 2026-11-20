@@ -110,6 +110,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/exam_protection_identity_helpers.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/test_ad_protected_tables.py`
 - `tests/test_coordinated_migrations.py`
 - `tests/test_exam_protection_identity.py`

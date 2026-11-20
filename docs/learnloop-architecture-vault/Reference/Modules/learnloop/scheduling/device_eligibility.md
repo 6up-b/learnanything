@@ -189,6 +189,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_llpdf_pages_count_from_one`
   - `test_served_targets_lift_the_reason_only_with_the_reader_on`
   - `test_the_desktop_never_has_a_reason`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_the_phones_media_lift_admits_no_measurement`
 - [tests/test_te3b_offers.py](../../../../../../tests/test_te3b_offers.py) — direct import
   - `test_a_phone_step_holds_a_drawn_offer_for_the_desktop`
 

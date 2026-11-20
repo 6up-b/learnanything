@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_retrieval_search.py](../../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_ranks_units_by_their_text_not_only_their_labels`
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`
+- [tests/test_ux2_source_macros.py](../../../../../../../tests/test_ux2_source_macros.py) — direct import
 - [tests/test_ux_phase1_add_source.py](../../../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_reading_progress_reaches_the_reading_order_build`
 - [tests/test_ux_phase1_auto_build.py](../../../../../../../tests/test_ux_phase1_auto_build.py) — direct import

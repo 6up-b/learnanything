@@ -376,5 +376,7 @@ it("during a check, Ask's refusal names the control the card shows", async () =>
   render(<PracticeScreen {...callbacks} />);
   await screen.findByRole("button", { name: /Stop diagnosing and teach me/ });
   fireEvent.keyDown(window, { key: "?" });
-  expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining("“Stop diagnosing and teach me”"));
+  // UX fix stage 3 (item 5): said on the card as a status line, never the red error.
+  expect(screen.getByTestId("practice-refusal").textContent).toContain("“Stop diagnosing and teach me”");
+  expect(callbacks.onError).not.toHaveBeenCalled();
 });

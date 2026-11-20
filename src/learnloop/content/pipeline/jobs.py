@@ -3240,17 +3240,20 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
 
     vault = load_vault(ctx.vault_root)
     exam = exam_material(vault, ctx.repo)
-    held = [str(node.get("span_id")) for node in raw_selection.get("nodes") or ()
-            if isinstance(node, dict) and exam.is_held_out(extraction_id, str(node.get("span_id") or ""))]
+    render_view_id = str(payload.get("render_view_id") or "") or None
+    # The blocks the author will read, translated as the author translates them (either key spelling, a
+    # render view's display node, a quote re-anchored): a check of the raw nodes' keys misses a selection
+    # spelled ``spanId`` or named by its display node. Scope and provenance read the same blocks.
+    selected = EX.selected_span_ids(ctx.repo, extraction_id=extraction_id, raw_selection=raw_selection,
+                                    render_view_id=render_view_id)
+    held = [span for span in selected if exam.is_held_out(extraction_id, span)]
     if held:
         raise IngestRunnerError(
             "This passage is held out for evaluation (an exam you'll sit later), so it can't become practice.",
             code="exam_material", details={"extraction_id": extraction_id, "span_ids": held})
     # Curriculum C3 (Codex review F3): a syllabus only scopes a deliverable, never practice
     # (checked again at the write, ``exercise_authoring.write_draft``).
-    selected = [str(node.get("span_id") or node.get("spanId") or "") for node in raw_selection.get("nodes") or ()
-                if isinstance(node, dict)]
-    if scope_only_among(vault, ctx.repo, [(extraction_id, span) for span in selected if span]):
+    if scope_only_among(vault, ctx.repo, [(extraction_id, span) for span in selected]):
         raise IngestRunnerError(
             "This is your syllabus: LearnLoop uses it only to scope your deliverables, so it can't become practice.",
             code="scope_only", details={"extraction_id": extraction_id})
@@ -3265,21 +3268,23 @@ def handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]:
             client,
             extraction_id=extraction_id,
             raw_selection=raw_selection,
-            render_view_id=str(payload.get("render_view_id") or "") or None,
+            render_view_id=render_view_id,
             source_id=source_id,
             revision_id=revision_id,
             learning_object_hint=str(payload.get("learning_object_hint") or "") or None,
             clock=ctx.clock,
+            # The Reader's set: a held-out neighbor of the selection never reaches the author.
+            context_withheld=exam.held_out,
         )
     except EX.ExerciseAuthoringError as exc:
         raise IngestRunnerError(str(exc)) from exc
-    _record_reader_import_keys(ctx, result, extraction_id=extraction_id, raw_selection=raw_selection,
+    _record_reader_import_keys(ctx, result, extraction_id=extraction_id, span_ids=selected,
                                source_id=source_id, revision_id=revision_id)
     return result
 
 
 def _record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extraction_id: str,
-                               raw_selection: dict[str, Any], source_id: str | None,
+                               span_ids: list[str], source_id: str | None,
                                revision_id: str | None) -> None:
     """Canonical sources S1 (§7.3a): the Reader's import records its key status.
 
@@ -3297,12 +3302,11 @@ def _record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extra
         service = vault.config.source_service
         if not service.enabled:
             return
-        span_ids = [str(node.get("span_id") or node.get("spanId") or "") for node in raw_selection.get("nodes") or []]
         checking = bool(service.exercise_verification and ctx.services.background_key_checks)
         # The rows keep a durable pending-check marker until each check
         # commits, so startup recovery resumes one a dead process lost (F5).
         rows = SEI.record_reader_import(ctx.vault_root, ctx.repo, result, extraction_id=extraction_id,
-                                        span_ids=[span for span in span_ids if span], source_id=source_id,
+                                        span_ids=list(span_ids), source_id=source_id,
                                         revision_id=revision_id, clock=ctx.clock, pending_check=checking)
         if checking and rows:
             threading.Thread(

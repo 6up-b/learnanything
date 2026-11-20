@@ -160,6 +160,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tutor_provider_verifies_with_the_remediate_prompt`
   - `test_tutor_intent_is_remediate_only_with_an_active_misconception`
   - `test_verification_unavailable_falls_back_byte_identically`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca3_codex_rereview.py](../../../../../../tests/test_reader_ca3_codex_rereview.py) — direct import
 - [tests/test_reader_ca3_codex_review.py](../../../../../../tests/test_reader_ca3_codex_review.py) — direct import
 - [tests/test_reader_ca3_codex_round3.py](../../../../../../tests/test_reader_ca3_codex_round3.py) — direct import

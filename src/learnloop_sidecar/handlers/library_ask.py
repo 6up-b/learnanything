@@ -377,6 +377,29 @@ def deliver_passages(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, A
     return result
 
 
+def deliver_tutor(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any]:
+    """The pinned tutor's kept answer as it may go out NOW, at every read of the job: refused whole, with the
+    other kept library results' wording, when any passage it may quote is exam material now (a mark made since
+    it answered) or can't be checked. Those passages are the ones its result names (grounded and cited) and the
+    ones its stored question row names (``tutor_qa.reader_answer_places``: the anchor, every passage the tutor
+    was given, the excerpt); a row that names none refuses. The kept result and the stored rows are unchanged."""
+
+    from learnloop.tutor.tutor_qa import reader_answer_places
+
+    vault, repository = ctx.require_vault()
+    places = reader_answer_places(repository.question_event(str(result.get("event_id") or "")) or {})
+    if places is None:
+        raise SidecarError("exam_material", LA.RESULT_WITHHELD)
+    keys = [*(str(key) for key in result.get("grounded_keys") or ()),
+            *(f"{cited.get('extraction_id')}:{cited.get('span_id')}" for cited in result.get("citations") or ()),
+            *(f"{reading}:{span}" for reading, span in places)]
+    try:
+        LA.refuse_withheld(vault, repository, keys)
+    except LA.LibraryAskError as exc:
+        raise SidecarError(exc.code, str(exc)) from exc
+    return result
+
+
 def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
     """A comparison job's result as it may go out NOW (RW4d fix round 5, F2),
     at every delivery (the first one, and each cached read through
@@ -874,7 +897,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
         result["learner_gap"] = queue_tutor_question_gap(ctx, vault, worker_repo, result["event_id"], None)
         return result
 
-    return _start(ctx, "tutor", params.ask_id, work)
+    return _start(ctx, "tutor", params.ask_id, work, deliver=lambda result: deliver_tutor(ctx, result))
 
 
 __all__ = ["LIBRARY_ASK_RPCS", "LibraryJobs", "follow_up_caller", "prompt_contract_fields", "reader_caller"]

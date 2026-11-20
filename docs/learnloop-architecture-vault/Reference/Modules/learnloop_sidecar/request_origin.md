@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_switch_is_the_hosts_and_defaults_on`
 - [tests/test_mobile_v4_codex_review.py](../../../../../tests/test_mobile_v4_codex_review.py) — direct import
   - `test_f10_a_page_is_phone_eligible_exactly_when_the_page_endpoint_serves_it`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_request_origin.py](../../../../../tests/test_request_origin.py) — direct import
   - `test_an_origin_names_a_device_and_a_known_surface`
   - `test_another_paired_device_is_refused_on_the_phones_session`

@@ -60,6 +60,7 @@ from learnloop.substrate.activity_patterns import (
     validate_task_features,
 )
 from learnloop.reader.annotations import translate_selection
+from learnloop.content.sources.exam_material import Material, held_out_material
 from learnloop.curriculum.depth_rungs import TASK_FEATURE_SCHEMA_SLUG
 from learnloop.content.sources.math_text import contains_unicode_math, unicode_math_to_latex
 from learnloop.vault.loader import load_vault
@@ -305,8 +306,12 @@ def _figure_roles(claimed: Mapping[str, str], figures: Mapping[str, str | None],
     return roles
 
 
-def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
-    """The covered blocks plus one neighbor on each side, in document order."""
+def _context_blocks(ir: Any, span_ids: list[str], withheld: Callable[[str], bool]) -> list[dict[str, str]]:
+    """The covered blocks plus one neighbor on each side, in document order.
+
+    A neighbor ``withheld`` names (the caller's protected material) is left out: the selection was checked,
+    and without this the block beside it (a held-out unit's heading, an exam half of a split chapter) reaches
+    the author unchecked."""
 
     blocks = list(getattr(ir, "blocks", []) or [])
     index_by_span = {block.span_id: idx for idx, block in enumerate(blocks)}
@@ -316,7 +321,7 @@ def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
         if idx is None:
             continue
         for neighbor in (idx - 1, idx, idx + 1):
-            if 0 <= neighbor < len(blocks):
+            if 0 <= neighbor < len(blocks) and (neighbor == idx or not withheld(blocks[neighbor].span_id)):
                 wanted.setdefault(neighbor, None)
     view: list[dict[str, str]] = []
     total_chars = 0
@@ -332,6 +337,34 @@ def _context_blocks(ir: Any, span_ids: list[str]) -> list[dict[str, str]]:
             {"span_id": block.span_id, "kind": str(block.block_type or ""), "text": text}
         )
     return view
+
+
+def _anchored_segments(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any],
+                       render_view_id: str | None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """The selection as the author reads it: the translation (each node's block, by either key spelling, a render
+    view's display node or a quote re-anchored) and its segments with text."""
+
+    translation = translate_selection(
+        repository,
+        extraction_id=extraction_id,
+        raw_selection=raw_selection,
+        render_view_id=render_view_id,
+    )
+    return translation, [
+        segment
+        for segment in translation.get("segments", [])
+        if _normalize(str(segment.get("exact_quote") or ""))
+    ]
+
+
+def selected_span_ids(repository: Repository, *, extraction_id: str, raw_selection: Mapping[str, Any],
+                      render_view_id: str | None = None) -> list[str]:
+    """The blocks :func:`author_exercises` will read for ``raw_selection``, in order, each once: what a caller
+    checks before sending it (a check of the raw nodes' keys would miss ``spanId`` or a display node)."""
+
+    _translation, segments = _anchored_segments(repository, extraction_id=extraction_id,
+                                                raw_selection=raw_selection, render_view_id=render_view_id)
+    return list(dict.fromkeys(str(segment.get("span_id") or "") for segment in segments if segment.get("span_id")))
 
 
 def _catalog(vault: LoadedVault, hint: str | None) -> list[dict[str, Any]]:
@@ -478,6 +511,7 @@ def author_exercises(
     admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
     method_judge: Any = None,
     method_judge_owner: tuple[str, str] | None = None,
+    context_withheld: Material | None = None,
 ) -> AuthoredBatch:
     """Author the selected exercise(s) into validated drafts. Writes nothing.
 
@@ -495,19 +529,15 @@ def author_exercises(
     Decider, else the LLM judge; a metered LLM judge is priced at
     ``source_service.llm_price_per_million``). Its receipts are owned by
     ``method_judge_owner`` (default: the Reader import of ``extraction_id``).
+
+    ``context_withheld`` is the caller's protected material: the Reader's import names the held-out
+    partition, the canonical import all exam material. A selected block it covers refuses the whole request,
+    and a neighboring block it covers is left out of the author's context, before any model call; None reads
+    the Reader's set (``held_out_material``).
     """
 
-    translation = translate_selection(
-        repository,
-        extraction_id=extraction_id,
-        raw_selection=raw_selection,
-        render_view_id=render_view_id,
-    )
-    segments = [
-        segment
-        for segment in translation.get("segments", [])
-        if _normalize(str(segment.get("exact_quote") or ""))
-    ]
+    translation, segments = _anchored_segments(repository, extraction_id=extraction_id, raw_selection=raw_selection,
+                                               render_view_id=render_view_id)
     if not segments:
         raise ExerciseAuthoringError(
             "the selection could not be anchored to any source block; reselect the exercise text"
@@ -578,6 +608,9 @@ def author_exercises(
             span_ids.append(span_id)
 
     vault = load_vault(root)
+    withheld = context_withheld if context_withheld is not None else held_out_material(vault, repository)
+    if any(withheld.covers(extraction_id, span_id) for span_id in span_ids):
+        raise ExerciseAuthoringError("this exercise is exam or held-out material now, so it never becomes practice")
     judge = method_judge if method_judge is not None else _configured_method_judge(vault)
     ensure_capability_alias_registry(repository)
     schema_version_id = ensure_builtin_task_feature_schema(repository)
@@ -597,7 +630,8 @@ def author_exercises(
             for segment in segments
         ],
         section_path=list(segments[0].get("section_path") or []),
-        context_blocks=_context_blocks(ir, span_ids) if ir is not None else [],
+        context_blocks=_context_blocks(ir, span_ids, lambda span: withheld.covers(extraction_id, span))
+        if ir is not None else [],
         learning_objects=_catalog(vault, learning_object_hint),
         learning_object_hint=learning_object_hint or "",
         task_feature_schema=schema_dims,
@@ -935,6 +969,7 @@ def import_exercises(
     learning_object_hint: str | None = None,
     clock: Clock | None = None,
     method_judge: Any = None,
+    context_withheld: Material | None = None,
 ) -> dict[str, Any]:
     """Author the learner's selected exercise(s) into schedulable PracticeItems.
 
@@ -951,5 +986,6 @@ def import_exercises(
         root, repository, client, extraction_id=extraction_id, raw_selection=raw_selection,
         render_view_id=render_view_id, source_id=source_id, revision_id=revision_id,
         learning_object_hint=learning_object_hint, clock=clock, method_judge=method_judge,
+        context_withheld=context_withheld,
     )
     return write_exercises(root, repository, batch, clock=clock)

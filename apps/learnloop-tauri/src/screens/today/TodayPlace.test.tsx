@@ -7,7 +7,7 @@
 // the captures line; the first-run, done, loading and error states.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, WorkbenchOpenProblemDto } from "../../api/dto";
+import type { AiConnectionDto, DailyPlanBodyDto, DailyPlanDto, GoalDto, PlanBlockDto, QueueSnapshot, QuestionQueueRowDto, ScheduledItemDto, SessionSnapshot, SourceLibraryCard, SourceStatusLineDto, WorkbenchOpenProblemDto } from "../../api/dto";
 import { clear, invalidateAll } from "../../api/queryCache";
 import { setAlgoConfig, setRenderedShell } from "../../app/algoConfig";
 import { findJargon } from "../../copy/denyList";
@@ -41,7 +41,7 @@ vi.mock("../../components/GoalBanner", async () => {
 vi.mock("../../components/GoalWizard", () => ({ GoalWizard: () => <div data-testid="goal-wizard" /> }));
 
 import { TodayPlace, type TodayPlaceProps } from "./TodayPlace";
-import { KEEP_GOING_NOTHING } from "../../app/todayPlan";
+import { KEEP_GOING_NOTHING_LEAD } from "../../app/todayCause";
 
 /** No count of waiting things (rule 10), no lane names, no percentages (rule 9). */
 const WAITING_WORDS = /due now|probe queue|later today|follow-ups?\b|\bqueue\b|overdue|backlog|to review|pending|slipped|\bitems?\b/i;
@@ -457,7 +457,7 @@ describe("the plan as one sentence and Enter (3.1)", () => {
     show();
     const sentence = await screen.findByTestId("today-sentence");
     expect(sentence.textContent).toContain(
-      "25 minutes today: finish §5.4 Mixtures, then 2 short questions from earlier days and a fix for a mix-up."
+      "Up to 25 minutes today. Planned so far: finish §5.4 Mixtures, then 2 short questions from earlier days and a fix for a mix-up."
     );
     expect(screen.getByText("Tuesday evening")).toBeTruthy();
     const rows = screen.getAllByTestId("today-block").map((row) => row.textContent ?? "");
@@ -614,7 +614,7 @@ describe("the states (§7.1)", () => {
   it("one book, no answers yet: day one is a plan to start reading", async () => {
     apis(dto(body({ blocks: [readingBlock({ startedAt: null, reading: { ...readingBlock().reading!, sectionTitle: "Chapter 1", spansSeen: 0 } })], currentBlockId: "blk_r", projected: [], minutesBudget: 15, rememberedMinutes: 15 })));
     show();
-    expect((await screen.findByTestId("today-sentence")).textContent).toContain("15 minutes today: read Chapter 1.");
+    expect((await screen.findByTestId("today-sentence")).textContent).toContain("Up to 15 minutes today. Planned so far: read Chapter 1.");
     expect(screen.getByTestId("today-begin").textContent).toContain("Begin ↵");
   });
 
@@ -623,7 +623,7 @@ describe("the states (§7.1)", () => {
     const f = apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 26.2, doneItems: 9 } }));
     const props = show({ session: SESSION });
     const sentence = await screen.findByTestId("today-sentence");
-    expect(sentence.textContent).toBe("Done for today · 26 minutes.");
+    expect(sentence.textContent).toBe("Done for today · 26 minutes spent answering and reading.");
     expect(surface()).not.toMatch(/\b9 items?\b|Today complete/);
     await press({ key: "Enter" });
     await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
@@ -647,7 +647,8 @@ describe("the states (§7.1)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
     await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
     const line = await screen.findByTestId("today-keep-going-nothing");
-    expect(line.textContent).toBe(KEEP_GOING_NOTHING);
+    // UX fix stage 3 (item 6): the line now leads into the day's cause, said beside it.
+    expect(line.textContent).toBe(KEEP_GOING_NOTHING_LEAD);
     expect(line.getAttribute("role")).toBe("status");
     expect(findJargon(line.textContent ?? "")).toEqual([]);
   });
@@ -863,7 +864,8 @@ describe("the goal card (3.4)", () => {
     const card = await screen.findByTestId("goal-card");
     fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
     const line = await screen.findByTestId("goal-nothing-ready");
-    expect(line.textContent).toBe("Nothing for this goal is ready to practise yet.");
+    // UX fix stage 3: a goal with questions of its own that are not up today says so.
+    expect(line.textContent).toBe("Nothing for this goal is up today. Its questions come back on the days they're due.");
     expect(line.getAttribute("role")).toBe("status");
     expect(props.onError).not.toHaveBeenCalled();
     expect(f.planLearnerPick).not.toHaveBeenCalled();
@@ -1101,5 +1103,304 @@ describe("fix round 2: the shell owns Begin's start", () => {
     expect(f.nextPlanItem).not.toHaveBeenCalled();
     expect(props.onBeginSession).not.toHaveBeenCalled();
     expect(props.onError).not.toHaveBeenCalled();
+  });
+});
+
+// ── UX fix stage 3 (UX journey audit P1, F1): Today explains itself ────────
+
+const EMPTY_TOTALS = { plannedMinutes: 0, plannedItems: 0, doneItems: 0, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 0 };
+const emptyPlan = (overrides: Partial<DailyPlanBodyDto> = {}) =>
+  body({ status: "complete", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS, ...overrides });
+
+const WHAT_LEAVES = "LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback.";
+
+function connection(overrides: Partial<AiConnectionDto> = {}): AiConnectionDto {
+  return {
+    canAuthor: false,
+    provider: "codex_medium",
+    providerLabel: "ChatGPT",
+    consentKey: "codex",
+    consented: false,
+    consentedAt: null,
+    needs: "consent",
+    message: null,
+    whatLeaves: WHAT_LEAVES,
+    chatgptSignedIn: true,
+    openrouterKeyPresent: false,
+    ...overrides
+  };
+}
+
+function libraryCard(statusLine: SourceStatusLineDto | null, overrides: Partial<SourceLibraryCard> = {}): SourceLibraryCard {
+  return {
+    sourceId: "src_sym",
+    title: "Symmetric Matrices and Variance",
+    acquisitionKind: "web",
+    canonicalUri: "https://example.org/sym",
+    workId: null,
+    currentRevisionId: "rev_1",
+    revisionCount: 1,
+    readiness: "ready",
+    unitCount: 4,
+    blockCount: 120,
+    extractionStatus: "completed",
+    suggestedRole: null,
+    readerEnabled: true,
+    updateAvailable: false,
+    kindNoun: "article",
+    statusLine,
+    ...overrides
+  };
+}
+
+const LINE = {
+  waitingOk: { text: "Questions wait for your OK", tone: "quiet", action: { kind: "connect_ai", label: "Review" }, details: "Codex (your ChatGPT account)" },
+  needsAi: { text: "Questions need an AI connection", tone: "quiet", action: { kind: "connect_ai", label: "Connect" }, details: null },
+  writing: { text: "Writing questions for Ch. 1", tone: "working", action: null, details: null },
+  failed: { text: "Questions for Ch. 1 need another try", tone: "problem", action: { kind: "retry", label: "Retry" }, details: null },
+  costs: { text: "Building questions for Ch. 1 would cost about $0.40", tone: "quiet", action: { kind: "build_now", label: "Build them" }, details: null },
+  built: { text: "Questions for Ch. 1 come up as you read", tone: "quiet", action: null, details: null }
+} satisfies Record<string, SourceStatusLineDto>;
+
+function emptyToday(cards: SourceLibraryCard[], extra: Record<string, ReturnType<typeof vi.fn>> = {}, plan: DailyPlanBodyDto = emptyPlan()) {
+  return apis(dto(plan), {
+    getSourceLibrary: vi.fn(async () => ({ version: 1, sources: cards, pending: [] })),
+    getTodayQueue: vi.fn(async () => queue([])),
+    ...extra
+  });
+}
+
+function causeProps(overrides: Partial<TodayPlaceProps> = {}): Partial<TodayPlaceProps> {
+  return { aiConnection: connection(), onConnectAi: vi.fn(), onOpenBook: vi.fn(), onOpenLibrary: vi.fn(), ...overrides };
+}
+
+describe("UX fix stage 3, P1: an empty or finished Today names its cause and carries its one action", () => {
+  it("questions waiting for the OK: the cause, Give your OK (the one-time OK), and what's sent on demand", async () => {
+    emptyToday([libraryCard(LINE.waitingOk)]);
+    const props = show(causeProps({ session: SESSION }));
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Nothing planned for today.");
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.getAttribute("role")).toBe("status");
+    expect(cause.textContent).toContain("Questions for “Symmetric Matrices and Variance” are waiting for your OK.");
+    expect(cause.textContent).not.toContain(WHAT_LEAVES);
+    fireEvent.click(within(cause).getByRole("button", { name: "what's sent ▸" }));
+    expect(cause.textContent).toContain(WHAT_LEAVES);
+    fireEvent.click(within(cause).getByRole("button", { name: "Give your OK" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+    expect(findJargon(cause.textContent ?? "")).toEqual([]);
+  });
+
+  it("several books waiting: the first by name and how many more; with no AI connected, Connect", async () => {
+    emptyToday([libraryCard(LINE.waitingOk), libraryCard(LINE.waitingOk, { sourceId: "src_2", title: "Elevator Paradox" })]);
+    show(causeProps());
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("Questions for “Symmetric Matrices and Variance” and 1 more are waiting for your OK.");
+    cleanup();
+    clear();
+    emptyToday([libraryCard(LINE.needsAi)]);
+    const props = show(causeProps({ aiConnection: connection({ needs: "connect" }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("LearnLoop needs an AI connected to write questions for “Symmetric Matrices and Variance”.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Connect" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+  });
+
+  it("questions being written: on their way, keep reading, and Continue reading opens the book", async () => {
+    const card = libraryCard(LINE.writing);
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Questions for “Symmetric Matrices and Variance” are on their way. Keep reading meanwhile.");
+    expect(within(cause).queryByRole("button", { name: /what's sent/ })).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("question writing failed: Couldn't get questions ready, Try again retries on the card, with what's sent beside it", async () => {
+    const f = emptyToday([libraryCard(LINE.failed)], { sourceAction: vi.fn(async () => ({ sourceId: "src_sym", action: "retry" })) });
+    show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Couldn't get questions ready for “Symmetric Matrices and Variance”.");
+    expect(within(cause).getByRole("button", { name: "what's sent ▸" })).toBeTruthy();
+    fireEvent.click(within(cause).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(f.sourceAction).toHaveBeenCalledWith({ sourceId: "src_sym", action: "retry" }));
+  });
+
+  it("a card asking for something else (a cost to approve): the book needs a look, and Open Library goes there", async () => {
+    emptyToday([libraryCard(LINE.costs)]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("“Symmetric Matrices and Variance” needs a look in your Library.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Open Library" }));
+    expect(props.onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+
+  it("everything read has its questions: nothing more to add, and reading on brings more", async () => {
+    const card = libraryCard(LINE.built);
+    emptyToday([card]);
+    const props = show(causeProps({ aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Everything you've read has its questions. Reading on brings more.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(card);
+  });
+
+  it("today's list still has questions: says so (never 'nothing to practise') and opens the list", async () => {
+    emptyToday([libraryCard(LINE.waitingOk)], { getTodayQueue: vi.fn(async () => queue([scheduled(1)])) });
+    show(causeProps());
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Today's list still has questions, if you'd like some.");
+    fireEvent.click(within(cause).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("an open plan with no rows says its cause too", async () => {
+    emptyToday([libraryCard(LINE.writing)], {}, body({ blocks: [], currentBlockId: null, projected: [], deciding: false, totals: EMPTY_TOTALS }));
+    show(causeProps());
+    expect((await screen.findByTestId("today-cause")).textContent).toContain("are on their way");
+  });
+
+  it("a finished plan: nothing else is needed", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, actualMinutes: 6 } }), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] }))
+    });
+    show(causeProps({ session: SESSION }));
+    const line = await screen.findByTestId("today-finished");
+    expect(line.textContent).toBe("Nothing else is needed today.");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+  });
+
+  it("every cause line is in plain words", async () => {
+    const lines = [LINE.waitingOk, LINE.needsAi, LINE.writing, LINE.failed, LINE.costs, LINE.built];
+    for (const line of lines) {
+      emptyToday([libraryCard(line)]);
+      show(causeProps());
+      const cause = await screen.findByTestId("today-cause");
+      expect(findJargon(cause.textContent ?? "")).toEqual([]);
+      cleanup();
+      clear();
+    }
+  });
+});
+
+describe("UX fix stage 3: Practise for this goal with nothing ready says why, and offers the step", () => {
+  it("a goal with no questions yet: the same cause as an empty Today, for the goal, with its action", async () => {
+    const f = emptyToday([libraryCard(LINE.waitingOk)], {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal({ practicableItemCount: 0 })] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1)]))
+    }, body());
+    const props = show(causeProps({ session: SESSION }));
+    const card = await screen.findByTestId("goal-card");
+    fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
+    const line = await screen.findByTestId("goal-nothing-ready");
+    expect(line.getAttribute("role")).toBe("status");
+    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: questions for “Symmetric Matrices and Variance” are waiting for your OK.");
+    fireEvent.click(within(line).getByRole("button", { name: "what's sent ▸" }));
+    expect(line.textContent).toContain(WHAT_LEAVES);
+    fireEvent.click(within(line).getByRole("button", { name: "Give your OK" }));
+    expect(props.onConnectAi).toHaveBeenCalledTimes(1);
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(f.planLearnerPick).not.toHaveBeenCalled();
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+  });
+
+  it("a goal whose books' questions are all written: reading on brings more", async () => {
+    const book = libraryCard(LINE.built);
+    emptyToday([book], {
+      goalsList: vi.fn(async () => ({ version: 1, goals: [goal({ practicableItemCount: 0 })] })),
+      getTodayQueue: vi.fn(async () => queue([]))
+    }, body());
+    const props = show(causeProps({ session: SESSION, aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    const card = await screen.findByTestId("goal-card");
+    fireEvent.click(within(card).getByRole("button", { name: "Practise for this goal" }));
+    const line = await screen.findByTestId("goal-nothing-ready");
+    expect(line.textContent).toContain("Nothing for this goal is ready to practise yet: everything you've read has its questions. Reading on brings more.");
+    fireEvent.click(within(line).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(book);
+  });
+});
+
+describe("UX fix stage 3 (item 6): Keep going that comes back with nothing open says the right thing for each way", () => {
+  const finished = () => body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+  const extension = () => dto(body({ id: "plan_kg", kind: "keep_going", status: "complete", stopReason: "nothing more worth doing today", blocks: [], currentBlockId: null, projected: [], totals: EMPTY_TOTALS }));
+
+  it("nothing left to plan: says so where Keep going was pressed, and the day's cause with its action", async () => {
+    const book = libraryCard(LINE.built);
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [book], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([])),
+      planKeepGoing: vi.fn(async () => extension())
+    });
+    const props = show(causeProps({ session: SESSION, aiConnection: connection({ needs: null, consented: true, canAuthor: true }) }));
+    expect((await screen.findByTestId("today-finished")).textContent).toBe("Nothing else is needed today.");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledWith({ sessionId: "s1" }));
+    expect((await screen.findByTestId("today-keep-going-nothing")).textContent).toBe("Nothing more to plan today.");
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Everything you've read has its questions. Reading on brings more.");
+    expect(screen.queryByTestId("today-finished")).toBeNull();
+    fireEvent.click(within(cause).getByRole("button", { name: "Continue reading" }));
+    expect(props.onOpenBook).toHaveBeenCalledWith(book);
+  });
+
+  it("a stop with questions still on today's list: never 'nothing to add', the list is offered", async () => {
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      getTodayQueue: vi.fn(async () => queue([scheduled(1), scheduled(2)])),
+      planKeepGoing: vi.fn(async () => extension())
+    });
+    show(causeProps({ session: SESSION }));
+    await screen.findByTestId("today-done");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledOnce());
+    const cause = await screen.findByTestId("today-cause");
+    expect(cause.textContent).toContain("Today's list still has questions, if you'd like some.");
+    expect(surface()).not.toMatch(/everything you've read|Reading on, or adding a book/i);
+    fireEvent.click(within(cause).getByRole("button", { name: "Open today's list" }));
+    expect(await screen.findByTestId("today-list")).toBeTruthy();
+  });
+
+  it("the plan switched off meanwhile: no 'nothing more' line and no error (Today becomes the plan-off Begin)", async () => {
+    const f = apis(dto(finished()), {
+      getSourceLibrary: vi.fn(async () => ({ version: 1, sources: [libraryCard(LINE.built)], pending: [] })),
+      planKeepGoing: vi.fn(async () => dto(null, { reason: "plan_disabled" }))
+    });
+    const props = show(causeProps({ session: SESSION }));
+    await screen.findByTestId("today-done");
+    fireEvent.click(screen.getByRole("button", { name: /Keep going/ }));
+    await waitFor(() => expect(f.planKeepGoing).toHaveBeenCalledOnce());
+    await flush();
+    expect(screen.queryByTestId("today-keep-going-nothing")).toBeNull();
+    expect(screen.queryByTestId("today-cause")).toBeNull();
+    expect(props.onError).not.toHaveBeenCalled();
+  });
+});
+
+describe("UX fix stage 3 (item 3, F9): one clock on Today", () => {
+  it("a begun plan names its room, the rows their own estimates, and the minute chips the plan's length", async () => {
+    const begun = body({
+      minutesAreASuggestion: true,
+      minutesLeft: 22,
+      minutesPastPlan: 0,
+      blocks: [block({ id: "b0", status: "done" }), block({ id: "blk_2", ordinal: 2, status: "current", startedAt: "2026-10-26T18:05:00Z", estMinutes: 2 })],
+      currentBlockId: "blk_2",
+      projected: []
+    });
+    apis(dto(begun));
+    show({ session: SESSION });
+    const sentence = await screen.findByTestId("today-sentence");
+    expect(sentence.textContent).toContain("Room for about 22 more minutes of today's suggested time. Next: ");
+    expect(sentence.textContent).not.toMatch(/minutes left/);
+    expect(screen.getByTestId("today-block").textContent).toContain("about 2 min");
+    expect(screen.getByRole("radiogroup", { name: "minutes today" })).toBeTruthy();
+  });
+
+  it("after the plan is done the minute chips are not shown: today's length means nothing then", async () => {
+    const done = body({ status: "complete", blocks: [block({ status: "done" })], currentBlockId: null, projected: [] });
+    apis(dto(done, { day: { plans: 1, kinds: ["normal"], complete: true, ...done.totals, readingBlocks: 0, actualMinutes: 2.2 } }));
+    show({ session: SESSION });
+    expect((await screen.findByTestId("today-sentence")).textContent).toBe("Done for today · 2 minutes spent answering.");
+    expect(screen.queryByRole("radiogroup", { name: "minutes today" })).toBeNull();
   });
 });

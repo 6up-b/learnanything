@@ -235,6 +235,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_withdrawn_cold_retry_with_no_replacement_releases_its_reservation`
   - `test_the_cold_task_kinds_are_defined_once`
   - `test_the_learner_initiated_selectors_keep_the_wider_reservation`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_a_hinted_cold_check_converts`
   - `test_without_help_the_cold_rules_are_unchanged`

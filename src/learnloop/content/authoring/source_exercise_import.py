@@ -1266,6 +1266,8 @@ def _import_source_exercise(
                 # The one-time statement judgment (redesign 2026-10-14), receipted
                 # under this import so the service's daily cap counts it.
                 method_judge=_method_judge(vault, clients), method_judge_owner=(OWNER_KIND, str(import_id)),
+                # All exam material, this import's set: an exam neighbor of the region never reaches the author.
+                context_withheld=exam.material,
             )
     except ExerciseAuthoringError as exc:
         return fail("failed", str(exc))

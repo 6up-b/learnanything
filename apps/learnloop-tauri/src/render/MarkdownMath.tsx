@@ -1,7 +1,8 @@
-import { memo, type ComponentProps } from "react";
+import { memo, useMemo, type ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { useMathMacros } from "./mathMacros";
 import { normalizeMathDelimiters, REMARK_PLUGINS } from "./markdownPipeline";
 
 // The normalization and the remark plugins live in markdownPipeline.ts, because the check behind "matches the book's
@@ -26,8 +27,17 @@ export const MarkdownMath = memo(function MarkdownMath({
   components?: MarkdownProps["components"];
   urlTransform?: MarkdownProps["urlTransform"];
 }) {
+  // A source's own macros (mathMacros.tsx), when the screen shows its math. Without them the plugin list is the
+  // module constant: rehype-katex with no options, the settings the book-math check reads equations under.
+  // With them, a copy per value: KaTeX writes a formula's \gdef into the table it is given, and the source's
+  // table must not carry one formula's definition into the next render.
+  const macros = useMathMacros();
+  const rehypePlugins = useMemo<MarkdownProps["rehypePlugins"]>(
+    () => (macros ? [[rehypeKatex, { macros: { ...macros } }]] : REHYPE_PLUGINS),
+    [macros, value]
+  );
   return (
-    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} components={components}
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={rehypePlugins} components={components}
       urlTransform={urlTransform}>
       {normalizeMathDelimiters(value || "")}
     </ReactMarkdown>

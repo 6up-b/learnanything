@@ -262,7 +262,7 @@ def test_the_reader_imports_background_key_check_never_uses_the_grant(tmp_path, 
     # Inside the Reader-import job, which carries the learner's grant: its background check does not.
     with plan_fallback.job_grant(token):
         assert _planned(root)[0] == "openrouter"
-        jobs._record_reader_import_keys(ctx, {"items": []}, extraction_id="ext", raw_selection={"nodes": []},
+        jobs._record_reader_import_keys(ctx, {"items": []}, extraction_id="ext", span_ids=[],
                                         source_id=None, revision_id=None)
     _assert_on_the_plan(seen, done)
 

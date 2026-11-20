@@ -2,8 +2,8 @@
 // wireframe W4, §10 3.1-3.4). Start and Today merged into one place:
 //
 //   Tuesday evening                              10m  15m [25m] 40m  60m
-//   25 minutes today: finish §5.4 Mixtures, then 6 short questions from
-//   earlier days and a fix for a mix-up.                          why? ▸
+//   Up to 25 minutes today. Planned so far: finish §5.4 Mixtures, then 6
+//   short questions from earlier days and a fix for a mix-up.     why? ▸
 //   ▸ Continue §5.4 Mixtures                               about 12 min
 //     6 short questions · Conditional probability           about 8 min
 //                                                          [ Begin ↵ ]
@@ -24,6 +24,7 @@ import { api } from "../../api/client";
 import { TAG } from "../../api/queryTags";
 import { useCachedQuery } from "../../api/useCachedQuery";
 import type {
+  AiConnectionDto,
   DailyPlanDto,
   GoalDto,
   PlanReadingDto,
@@ -33,6 +34,7 @@ import type {
   SessionEndSummary,
   SessionSnapshot,
   SomethingElseChosenDto,
+  SourceLibraryCard,
   StreakSummary,
   WorkbenchOpenProblemDto
 } from "../../api/dto";
@@ -59,7 +61,6 @@ import {
   onYourOwnWhy,
   planSentence,
   GOAL_NOTHING_READY,
-  KEEP_GOING_NOTHING,
   planWasEmpty,
   reentrySentence,
   reentryWhy,
@@ -70,6 +71,18 @@ import {
   type TodayThread
 } from "../../app/todayPlan";
 import { errorMessage, type ErrorReport } from "../../errors";
+import {
+  GOAL_NOT_UP_TODAY,
+  KEEP_GOING_NOTHING_LEAD,
+  PLAN_FINISHED,
+  WHATS_SENT,
+  causeActionLabel,
+  causeSendsPassages,
+  causeSentence,
+  goalCauseSentence,
+  todayCause,
+  type TodayCause
+} from "../../app/todayCause";
 
 export interface TodayPlaceProps {
   session: SessionSnapshot | null;
@@ -99,6 +112,15 @@ export interface TodayPlaceProps {
   wrapUp?: ReactNode;
   /** Teacher TE1b: Start on Today's lesson suggestion card opens this lesson (absent: no card). */
   onStartLesson?: (entry: LessonEntry) => void;
+  /** UX fix stage 3 (audit P1): what an empty Today's cause line acts with.
+   *  The AI connection says which OK is missing and what is sent. */
+  aiConnection?: AiConnectionDto | null;
+  /** The one-time OK, or connecting an AI: the shelf's own sheet. */
+  onConnectAi?: () => void;
+  /** Open a book in the Reader, as its card's Continue does. */
+  onOpenBook?: (card: SourceLibraryCard) => void;
+  /** Go to the Library's books, where a card asks for something Today can't do. */
+  onOpenLibrary?: () => void;
   onError: (message: string, report?: ErrorReport) => void;
 }
 
@@ -117,6 +139,10 @@ const linkButton: CSSProperties = {
 };
 
 const dimLink: CSSProperties = { ...linkButton, color: COLOR.textDim };
+
+/** How often an empty day's cause is read again while a book's questions are
+ *  on their way (the shelf reads its cards every 3 s while one works). */
+const CAUSE_POLL_MS = 5000;
 
 function actionButton(primary = false): CSSProperties {
   return {
@@ -439,6 +465,10 @@ export function TodayPlace({
   subjects = [],
   wrapUp,
   onStartLesson,
+  aiConnection = null,
+  onConnectAi,
+  onOpenBook,
+  onOpenLibrary,
   onError
 }: TodayPlaceProps) {
   const planQuery = useDailyPlan(session?.sessionId ?? null);
@@ -464,8 +494,19 @@ export function TodayPlace({
   const minutes = plan ? plan.rememberedMinutes : offMinutes;
   const choices = plan ? plan.minuteChoices : summary.data?.minuteChoices ?? summary.data?.minutesPresets ?? [];
 
+  // UX fix stage 3 (P1): a plan with nothing in it (closed empty, or open with
+  // no block and nothing being chosen, waited on or held) says why, from the
+  // book cards and today's list.
+  const planDone = plan ? plan.status !== "open" : false;
+  const emptyDay =
+    data !== null &&
+    plan !== null &&
+    (planDone
+      ? planWasEmpty(data)
+      : todayRows(plan).length === 0 && plan.deciding !== true && !plan.waiting && !plan.questionInProgress);
+
   // The list is read only when it is shown, or while the plan is off (it
-  // names Begin's first question). With a session, or under the plan, it is
+  // names Begin's first question), or to tell an empty day's cause. With a session, or under the plan, it is
   // Today's own queue read (classic Today's input); with the plan off and no
   // session, the minutes Begin will start (classic Start's preview).
   const queueInput = useMemo(
@@ -479,7 +520,7 @@ export function TodayPlace({
     [session?.sessionId, session?.availableMinutes, planOff, offMinutes]
   );
   const queueQuery = useCachedQuery(
-    queueInput && (list || planOff) ? ["get_today_queue", queueInput] : null,
+    queueInput && (list || planOff || emptyDay || keptGoingToNothing) ? ["get_today_queue", queueInput] : null,
     () => api.getTodayQueue(queueInput!),
     { tags: [TAG.queue] }
   );
@@ -494,6 +535,24 @@ export function TodayPlace({
 
   const library = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
   const noBooks = library.data !== undefined && library.data.sources.length === 0 && (library.data.pending?.length ?? 0) === 0;
+  const listItems = queueQuery.error ? 0 : queue ? queue.sections.reduce((count, section) => count + section.items.length, 0) : null;
+  // Item 6: Keep going that came back with nothing open says the day's cause too.
+  const cause: TodayCause | null = emptyDay || (keptGoingToNothing && planOn)
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems })
+    : null;
+  // While a book's questions are on their way, the cause is read again as the
+  // shelf reads it, so the line never outlives its state.
+  const refetchLibrary = library.refetch;
+  const refetchQueue = queueQuery.refetch;
+  const onTheWay = cause?.kind === "on_the_way";
+  useEffect(() => {
+    if (!onTheWay) return;
+    const timer = window.setInterval(() => {
+      void refetchLibrary().catch(() => undefined);
+      void refetchQueue().catch(() => undefined);
+    }, CAUSE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [onTheWay, refetchLibrary, refetchQueue]);
 
   const goals = useCachedQuery(["goals_list"], () => api.goalsList(), { tags: [TAG.goals] });
   const primaryGoal: GoalDto | null = useMemo(() => {
@@ -648,8 +707,17 @@ export function TodayPlace({
     setKeptGoingToNothing(false);
     const result = await run(() => api.planKeepGoing({ sessionId: session?.sessionId ?? null }));
     // UX-4 (audit student-1 #44): an extension with nothing in it comes back
-    // closed, the same Today; say so rather than redraw it silently.
-    if (result && result.plan && result.plan.status !== "open") setKeptGoingToNothing(true);
+    // closed, the same Today; say so rather than redraw it silently. Stage 3
+    // (item 6): what follows the line is the day's cause, read from today's
+    // list and the books, the same for every way a plan comes back closed.
+    // The plan can't say which way it was (a stop the router chose with work
+    // left, or nothing left to plan: its stopReason is free text), so the
+    // list says whether there is more. Keep going never returns an abandoned
+    // plan (only an earlier day's open plan is abandoned) nor a stopped one
+    // (on a stopped plan it builds a new extension). With the plan off it
+    // answers `enabled: false` and no plan, and Today becomes the plan-off
+    // Begin: nothing to add there.
+    if (result && result.enabled !== false && result.plan && result.plan.status !== "open") setKeptGoingToNothing(true);
   }
 
   async function somethingNew(confirm: boolean) {
@@ -727,6 +795,48 @@ export function TodayPlace({
     }
     await openFromList(target);
   }
+
+  // P1: the one step beside an empty day's cause. A retry the sidecar wants
+  // confirmed (a re-read) is the Library's to ask.
+  async function retryFromToday(target: { sourceId: string } | { batchId: string }) {
+    const result = await run(() => api.sourceAction({ ...target, action: "retry" }));
+    if (result?.needsConfirmation) onOpenLibrary?.();
+  }
+
+  function causeAction(shown: TodayCause): (() => void) | null {
+    switch (shown.kind) {
+      case "list_has_more":
+        return () => setList(true);
+      case "waiting_ok":
+      case "needs_ai":
+        return onConnectAi ?? null;
+      case "failed":
+        return () => void retryFromToday(shown.target);
+      case "needs_look":
+        return onOpenLibrary ?? null;
+      case "on_the_way":
+      case "all_read": {
+        const card = shown.card;
+        return card && onOpenBook ? () => onOpenBook(card) : null;
+      }
+      case "no_reading":
+        return onAdd;
+    }
+  }
+
+  const causeLine = cause ? (
+    <CauseLine cause={cause} whatLeaves={aiConnection?.whatLeaves ?? null} busy={busy} onAction={causeAction(cause)} />
+  ) : null;
+
+  // Stage 3 (UX-6's line, now with its cause): "Practise for this goal" found
+  // nothing on today's list. A goal with questions of its own says they are
+  // not up today; one with none yet names the books' cause, as an empty Today
+  // does (Today cannot tell which books a goal reads from, so the line names
+  // the book it is about).
+  const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0;
+  const goalCause = goalNothingReady && !goalHasQuestions
+    ? todayCause({ cards: library.data?.sources, pending: library.data?.pending, ai: aiConnection, listItems: 0 })
+    : null;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -820,6 +930,11 @@ export function TodayPlace({
         <div data-testid="today-sentence" style={{ fontSize: 15, color: COLOR.text }}>
           {empty ? "Nothing planned for today." : plan.kind === "reentry" ? "Catch-up done." : doneLine(data)}
         </div>
+        {empty ? causeLine : keptGoingToNothing ? null : (
+          <div data-testid="today-finished" role="status" style={{ fontSize: 13, color: COLOR.textDim }}>
+            {PLAN_FINISHED}
+          </div>
+        )}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" style={actionButton(true)} disabled={busy} onClick={() => void keepGoing()}>
             Keep going ↵
@@ -836,6 +951,7 @@ export function TodayPlace({
           ) : null}
         </div>
         {keptGoingToNothing ? <KeepGoingNothing /> : null}
+        {keptGoingToNothing && !empty ? causeLine : null}
         {moreNew ? (
           <div data-testid="today-more-new" style={{ fontSize: 12, color: COLOR.textDim }}>
             {moreNew.available ? (
@@ -863,6 +979,7 @@ export function TodayPlace({
             why? {why ? "▾" : "▸"}
           </button>
         </div>
+        {causeLine}
         {inProgress ? (
           <QuestionInProgress
             question={inProgress}
@@ -941,9 +1058,21 @@ export function TodayPlace({
           <GoalCard goal={primaryGoal} onPractise={() => void practiseGoal()} onTakeExam={onTakeExam} onGoalChanged={() => void goals.refetch().catch(() => undefined)} onNewGoal={() => setWizard(true)} onError={onError} />
         ) : null}
         {!list && primaryGoal && goalNothingReady ? (
-          <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
-            {GOAL_NOTHING_READY}
-          </div>
+          goalCause ? (
+            <CauseLine
+              testId="goal-nothing-ready"
+              sentence={goalCauseSentence(goalCause)}
+              cause={goalCause}
+              whatLeaves={aiConnection?.whatLeaves ?? null}
+              busy={busy}
+              onAction={causeAction(goalCause)}
+              style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}
+            />
+          ) : (
+            <div data-testid="goal-nothing-ready" role="status" style={{ fontSize: 12, color: COLOR.textDim, marginTop: -10 }}>
+              {goalHasQuestions ? GOAL_NOT_UP_TODAY : GOAL_NOTHING_READY}
+            </div>
+          )
         ) : null}
         {!list ? <Threads wrapUp={wrapUp} onOpenPassage={onOpenPassage} onResumeProblem={onResumeProblem} onAsk={onAsk} /> : null}
         {!list ? <CapturesLine subjects={subjects} onAsk={onAsk} /> : null}
@@ -967,11 +1096,54 @@ export function TodayPlace({
   );
 }
 
+/** P1: an empty day's cause in one line, with its one action beside it and,
+ *  where that action sends passages to a model, what is sent on demand. A
+ *  status line, never an error. */
+function CauseLine({
+  cause,
+  whatLeaves,
+  busy,
+  onAction,
+  sentence,
+  testId = "today-cause",
+  style
+}: {
+  cause: TodayCause;
+  whatLeaves: string | null;
+  busy: boolean;
+  onAction: (() => void) | null;
+  /** The line's own words where it is not Today's (the goal card's). */
+  sentence?: string;
+  testId?: string;
+  style?: CSSProperties;
+}) {
+  const [sent, setSent] = useState(false);
+  const label = causeActionLabel(cause);
+  return (
+    <div data-testid={testId} role="status" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, color: COLOR.text, lineHeight: 1.5, ...style }}>
+      <div>
+        {sentence ?? causeSentence(cause)}{" "}
+        {label && onAction ? (
+          <button type="button" style={linkButton} disabled={busy} onClick={onAction}>
+            {label}
+          </button>
+        ) : null}
+        {whatLeaves && causeSendsPassages(cause) ? (
+          <button type="button" style={dimLink} aria-expanded={sent} onClick={() => setSent((open) => !open)}>
+            {WHATS_SENT} {sent ? "▾" : "▸"}
+          </button>
+        ) : null}
+      </div>
+      {sent && whatLeaves ? <div style={{ fontSize: 12, color: COLOR.textDim }}>{whatLeaves}</div> : null}
+    </div>
+  );
+}
+
 /** UX-4: said in place, where Keep going was pressed; a notice, never an error. */
 function KeepGoingNothing() {
   return (
     <div data-testid="today-keep-going-nothing" role="status" style={{ fontSize: 12, color: COLOR.textDim }}>
-      {KEEP_GOING_NOTHING}
+      {KEEP_GOING_NOTHING_LEAD}
     </div>
   );
 }

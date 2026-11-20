@@ -272,6 +272,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_reader_keeps_a_protection_of_its_own`
   - `test_the_card_and_the_chat_withhold_the_same_past_work_for_the_same_reasons`
   - `test_the_text_rule_is_each_readers_own`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_a_held_grade_is_held_while_its_question_and_answer_stay_eligible`
+  - `test_figure_prebuilds_are_all_withheld_when_exam_reservations_cannot_be_read`
 - [tests/test_reader_question_note_id_placement.py](../../../../../tests/test_reader_question_note_id_placement.py) — direct import
   - `test_a_legacy_reader_question_is_checked_against_exam_material`
   - `test_a_reader_question_that_still_cannot_be_placed_fails_closed`

@@ -9,7 +9,7 @@ import { TAG } from "@desktop/api/queryTags";
 import { committedAttempt, pollJob, refusedOutright } from "./api/http";
 import { phone, type OwnerSnapshot } from "./api/phone";
 import { useVisibleInterval } from "./util/useVisibleInterval";
-import { CaptureScreen } from "./capture/CaptureScreen";
+import { CaptureScreen, settleLastCapture, type LastCapture } from "./capture/CaptureScreen";
 import { FeedbackScreen } from "./practice/FeedbackScreen";
 import { PairScreen } from "./pair/PairScreen";
 import { GRADING_DOWN, QuestionScreen, type QuestionTarget, type SkipOutcome, type SkipSettled } from "./practice/QuestionScreen";
@@ -127,6 +127,12 @@ function restoredFrom(snapshot: SessionSnapshot, practiceItemId: string): NonNul
   };
 }
 
+/** UX fix stage 4 (F19): words typed for a question left for Today. Its own copy wins, as the question opens on it. */
+function draftWaits(sessionId: string, target: QuestionTarget): boolean {
+  const own = readQuestionDraft(sessionId, target.practiceItemId);
+  return Boolean((own ? own.answer : target.restored?.answer ?? "").trim());
+}
+
 /**
  * Today's stack, as the fragment names it. Only the tab and the path are mirrored: a question or a
  * feedback is never reopened from the fragment, because opening either writes (the serve, the
@@ -159,10 +165,19 @@ function Phone({ credential }: { credential: Credential }) {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState<SessionEndSummary | null>(null);
   const [outboxWaiting, setOutboxWaiting] = useState(0);
+  // UX fix stage 4 (F13): the last capture and what became of it, kept here so Capture says it again when reopened.
+  const [lastCapture, setLastCapture] = useState<LastCapture | null>(null);
   const [display, setDisplay] = useState(false);
   // A submit or a skip on its way: the question's own Back is disabled meanwhile, and so are the
   // frame's chevron and edge swipe, or its reply would land on whatever opened after (F1).
   const [questionBusy, setQuestionBusy] = useState(false);
+  // UX fix stage 4 (F19): Today's plan in front of an open question, after the Today tab from another place. The
+  // question stays mounted under it, hidden, as it does under the other places: its editor, its serve and its draft
+  // are as they were, and "Resume your answer" shows it again with no second serve (M2a's F5).
+  const [planFront, setPlanFront] = useState(false);
+  // F19: the question left by Back. It is gone from the screen (Back saves its draft at once), so "Resume your
+  // answer" reopens this same target on the draft. Gone as soon as any other view opens.
+  const [parked, setParked] = useState<QuestionTarget | null>(null);
   // Diagnostic checks this session left for the desktop. The next build holds them back and counts
   // them; this covers a list read before that build (§6.4).
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -214,11 +229,19 @@ function Phone({ credential }: { credential: Credential }) {
     setSession(next);
     cacheSessionId(next ? next.sessionId : null);
     clearQuestionDrafts();
+    setParked(null);
+    setPlanFront(false);
     setMoved(null);
     setElsewhere(null);
     setHeld(new Set());
     clearQueries();
   }, []);
+
+  // F19: any change of view ends both: the question is open again, or something else came after it.
+  useEffect(() => {
+    setPlanFront(false);
+    if (view.name !== "today") setParked(null);
+  }, [view]);
 
   /** §6.5, a checkpoint that carries a submission id: finished, under way, or a draft. */
   const viewOfCheckpoint = useCallback(async (next: SessionSnapshot): Promise<View> => {
@@ -346,7 +369,8 @@ function Phone({ credential }: { credential: Credential }) {
 
   // Today's token: a change refetches once, as the desktop's poll does, and re-reads the session.
   const seenRevision = useRef<number | null>(null);
-  const pollToday = view.name === "today" && tab === "today";
+  // F19: the plan in front of a question is Today on screen too.
+  const pollToday = (view.name === "today" || planFront) && tab === "today";
   const pollRevision = useCallback(() => {
     void phone.queueRevision().then(
       ({ revision }) => {
@@ -374,7 +398,11 @@ function Phone({ credential }: { credential: Credential }) {
           if (stop.reason === "forbidden") setNotice(stop.message);
           return listOutbox();
         })
-        .then((records) => setOutboxWaiting(records.filter((one) => !one.problem).length))
+        .then((records) => {
+          setOutboxWaiting(records.filter((one) => !one.problem).length);
+          // Sent while Capture was not on screen: the line says so, and when, once it is opened again.
+          setLastCapture((current) => settleLastCapture(current, records, false, Date.now()));
+        })
         .catch(() => undefined),
     []
   );
@@ -419,7 +447,7 @@ function Phone({ credential }: { credential: Credential }) {
   }, []);
 
   // §4.2: the current view, mirrored in the fragment.
-  const path = tab === "today" ? todayPath(view)
+  const path = tab === "today" ? (planFront ? [] : todayPath(view))
     : tab === "read" && readTarget ? [readTarget.extractionId, ...(readSection ? [readSection] : [])] : [];
   const pathKey = path.join("/");
   useEffect(() => {
@@ -733,7 +761,69 @@ function Phone({ credential }: { credential: Credential }) {
   // action owns the bottom. Capture stays one tap away in the top bar, and the practice side stays
   // mounted under it, as M2a's tab did: an open question keeps its editor, its serve and a submit.
   const reading = tab === "read" && readTarget !== null;
-  const covering = (tab === "today" && view.name !== "today") || reading;
+  // F19: the plan in front of a question is Today's own screen, with the tab bar.
+  const covering = (tab === "today" && view.name !== "today" && !planFront) || reading;
+
+  /** UX fix stage 4 (F19): Back from a question shows the plan; its draft waits behind "Resume your answer". */
+  function questionToToday() {
+    if (view.name === "question") setParked(view.target);
+    setView({ name: "today" });
+  }
+
+  /**
+   * F19 (phone-2 #40-43): the Today tab, from another place, opened whatever Today's stack held, so with a question
+   * open it opened the question, while Back to Today opened the plan. It now always opens the plan, the question kept
+   * under it, its draft behind "Resume your answer". Not while an answer or a skip is on its way: its reply lands on the
+   * question, as Back is disabled then (F1), and the question shows until it does. Feedback and the grading wait are
+   * not drafts and keep their place.
+   */
+  function selectTab(next: Tab) {
+    if (next === "today" && tab !== "today" && view.name === "question" && !questionBusy) setPlanFront(true);
+    setTab(next);
+  }
+
+  /**
+   * "Resume your answer" when a draft waits: the question under the plan, shown again as it is; or the question Back
+   * left, reopened on its draft (the phone's own copy, or the checkpoint's it opened with).
+   */
+  const resume = (() => {
+    if (!session) return null;
+    if (planFront && view.name === "question") {
+      return draftWaits(session.sessionId, view.target) ? () => setPlanFront(false) : null;
+    }
+    const target = view.name === "today" ? parked : null;
+    return target && draftWaits(session.sessionId, target) ? () => setView({ name: "question", target }) : null;
+  })();
+
+  /** Today's own screen: the plan, or (the plan off) M2a's queue. */
+  const todayHome = planMode !== "queue" ? (
+    <PlanToday
+      session={session}
+      finished={finished}
+      busy={busy}
+      choosing={choosing}
+      onBegin={(minutes) => void beginPlan(minutes)}
+      onNext={(skipId) => void planNext(skipId)}
+      onKeepGoing={(stop) => void keepGoing(stop)}
+      onEnd={() => void endSession()}
+      onMode={setPlanMode}
+      onSomethingElse={(reply) => session && openStep(reply, session.sessionId)}
+      onResume={resume}
+      onError={reportError}
+    />
+  ) : (
+    <TodayScreen
+      session={session}
+      held={held}
+      finished={finished}
+      busy={busy}
+      onBegin={(minutes) => void begin(minutes)}
+      onOpen={(row: ScheduledItemDto) => void openRow(row)}
+      onResume={resume}
+      onEnd={() => void endSession()}
+      onError={reportError}
+    />
+  );
   const toCapture: FrameAction = { label: "+", name: "Capture", onClick: () => setTab("capture") };
   const toDisplay: FrameAction = { label: "Aa", name: "Display", onClick: () => setDisplay(true) };
   const frame = reading
@@ -742,7 +832,7 @@ function Phone({ credential }: { credential: Credential }) {
         actions: [toCapture, toDisplay] }
     : covering
     ? view.name === "question"
-      ? { title: "Question", onBack: () => setView({ name: "today" }), backDisabled: questionBusy, actions: [toCapture] }
+      ? { title: "Question", onBack: questionToToday, backDisabled: questionBusy, actions: [toCapture] }
       : view.name === "feedback"
         ? // Mobile v2 V2 (V1's carried item 2): Feedback gets the back chevron. It goes to Today and
           // serves nothing; the plan's Next is there, and the feedback stays one Next behind it.
@@ -782,7 +872,7 @@ function Phone({ credential }: { credential: Credential }) {
           </div>
         ) : null}
         {notice ? <div className="banner bad" role="alert" onClick={() => setNotice(null)}>{notice}</div> : null}
-        {tab === "capture" ? <CaptureScreen onSaved={flushNow} outboxWaiting={outboxWaiting} /> : null}
+        {tab === "capture" ? <CaptureScreen onSaved={flushNow} outboxWaiting={outboxWaiting} last={lastCapture} onLast={setLastCapture} /> : null}
         {tab === "read" && readTarget ? (
           <ReaderScreen key={`${readTarget.extractionId}:${readTarget.plan ? "plan" : "book"}`} target={readTarget}
             onSection={setReadSection} onPlanBack={planReadingBack} onError={reportError} />
@@ -792,20 +882,26 @@ function Phone({ credential }: { credential: Credential }) {
         {/* The practice side stays mounted under the other places. */}
         <div style={{ display: tab === "today" ? "contents" : "none" }}>
           {view.name === "question" && session ? (
-            <QuestionScreen
-              key={`${session.sessionId}:${session.ownerGeneration ?? 0}:${view.target.practiceItemId}`}
-              session={session}
-              target={view.target}
-              frozen={frozen}
-              onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
-              onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
-              onDesktopOnly={leftForDesktop}
-              onSkipped={skip}
-              onSkipUnknown={settleSkip}
-              onBack={() => setView({ name: "today" })}
-              onBusy={setQuestionBusy}
-              onError={reportError}
-            />
+            <>
+              {/* F19: under the plan the question stays mounted, as under the other places; the wrapper never changes. */}
+              <div style={{ display: planFront ? "none" : "contents" }}>
+                <QuestionScreen
+                  key={`${session.sessionId}:${session.ownerGeneration ?? 0}:${view.target.practiceItemId}`}
+                  session={session}
+                  target={view.target}
+                  frozen={frozen}
+                  onFeedback={(attemptId, practiceItemId) => setView({ name: "feedback", attemptId, practiceItemId })}
+                  onWaiting={(submissionId, practiceItemId) => setView({ name: "waiting", submissionId, practiceItemId })}
+                  onDesktopOnly={leftForDesktop}
+                  onSkipped={skip}
+                  onSkipUnknown={settleSkip}
+                  onBack={questionToToday}
+                  onBusy={setQuestionBusy}
+                  onError={reportError}
+                />
+              </div>
+              {planFront ? todayHome : null}
+            </>
           ) : view.name === "waiting" ? (
             <div className="screen"><p className="dim" role="status">Your answer is being graded. The result will be here in a moment.</p></div>
           ) : view.name === "feedback" ? (
@@ -826,35 +922,10 @@ function Phone({ credential }: { credential: Credential }) {
               } : null}
               onError={reportError}
             />
-          ) : planMode !== "queue" ? (
-            <PlanToday
-              session={session}
-              finished={finished}
-              busy={busy}
-              choosing={choosing}
-              onBegin={(minutes) => void beginPlan(minutes)}
-              onNext={(skipId) => void planNext(skipId)}
-              onKeepGoing={(stop) => void keepGoing(stop)}
-              onEnd={() => void endSession()}
-              onMode={setPlanMode}
-              onSomethingElse={(reply) => session && openStep(reply, session.sessionId)}
-              onError={reportError}
-            />
-          ) : (
-            <TodayScreen
-              session={session}
-              held={held}
-              finished={finished}
-              busy={busy}
-              onBegin={(minutes) => void begin(minutes)}
-              onOpen={(row: ScheduledItemDto) => void openRow(row)}
-              onEnd={() => void endSession()}
-              onError={reportError}
-            />
-          )}
+          ) : todayHome}
         </div>
       </ScreenFrame>
-      {covering ? null : <TabBar current={tab} onSelect={setTab} />}
+      {covering ? null : <TabBar current={tab} onSelect={selectTab} />}
       {elsewhere ? (
         <Sheet title="A session is open elsewhere" onClose={() => setElsewhere(null)} closeLabel="Cancel">
           <p>You have a session open on {elsewhere.details.owner_label ?? "the desktop"}.</p>

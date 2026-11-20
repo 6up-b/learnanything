@@ -127,6 +127,7 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_tables.py`
 - `tests/test_migrations.py`
 - `tests/mobile_v4_reader_helpers.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/reread_safety_helpers.py`
 - `tests/reread_safety_landing_helpers.py`
 - `tests/test_ad1_reading_opportunities.py`

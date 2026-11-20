@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 
 ## Modification guidance
 

@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
+import { NOTE_NO_SUBJECT } from "../copy/refusals";
 import type {
   AnswerGradingClarificationResultDto,
   AttemptTraceEvidenceDto,
@@ -1850,6 +1851,7 @@ export function FeedbackScreen({
   // Quick note capture — files a learner_note in the vault, linked to this
   // item's subject and learning object, without leaving the feedback view.
   const [addingNote, setAddingNote] = useState(false);
+  const [noteRefused, setNoteRefused] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -2292,6 +2294,7 @@ export function FeedbackScreen({
   };
 
   const resetNote = () => {
+    setNoteRefused(false);
     setAddingNote(false);
     setNoteTitle("");
     setNoteBody("");
@@ -2313,9 +2316,12 @@ export function FeedbackScreen({
     }
     const subjectId = item?.subject ?? item?.subjects?.[0] ?? null;
     if (!subjectId) {
-      onError("Cannot add note: this item has no associated subject.");
+      // UX fix stage 3 (item 5): an explanation, not a failure: said in the
+      // note panel, and the words stay.
+      setNoteRefused(true);
       return;
     }
+    setNoteRefused(false);
     const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
     const noteId = `${feedback.learningObjectId}_${stamp}`;
     setSavingNote(true);
@@ -2986,6 +2992,11 @@ export function FeedbackScreen({
                 outline: "none",
               }}
             />
+            {noteRefused ? (
+              <div data-testid="note-refusal" role="status" style={{ fontFamily: MONO, fontSize: 12, color: C.textDim }}>
+                {NOTE_NO_SUBJECT}
+              </div>
+            ) : null}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <Faint>
                 files a learner_note in{" "}

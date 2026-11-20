@@ -114,10 +114,12 @@ describe("places (§4.2)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Capture" }));
     expect(await screen.findByLabelText("A thought, a problem or a link")).toBeTruthy();
     expect(tabBar()).not.toBeNull();
+    // UX fix stage 4 (F19): the Today tab opens Today's own screen, not the question (nothing was typed, so nothing to resume).
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
-    fireEvent.click(screen.getByRole("button", { name: "Back to Today" }));
     await screen.findByRole("button", { name: /^Next: Topic i1/ });
+    expect(screen.queryByRole("button", { name: "Back to Today" })).toBeNull();
     expect(tabBar()).not.toBeNull();
+    await waitFor(() => expect(window.location.hash).toBe("#/today"));
     // A reload on a question's fragment: the serve is not repeated from the address.
     window.history.replaceState(null, "", "/app/#/today/question/i1");
     unmount();

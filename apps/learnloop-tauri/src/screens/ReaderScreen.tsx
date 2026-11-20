@@ -46,6 +46,7 @@ import type {
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { MathMacrosProvider } from "../render/mathMacros";
 import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
@@ -3543,7 +3544,10 @@ export function ReaderScreen({
     );
   };
 
+  // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
+  // it): the extraction keeps \vvec but not the page's definition of it.
   return (
+    <MathMacrosProvider macros={render?.mathMacros ?? null}>
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -4696,5 +4700,6 @@ export function ReaderScreen({
     </div>
     </CompareKeepContext.Provider>
     </NotesContext.Provider>
+    </MathMacrosProvider>
   );
 }

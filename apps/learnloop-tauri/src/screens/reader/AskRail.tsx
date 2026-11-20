@@ -6,6 +6,7 @@ import type { ReaderAnswerMode, ReaderRenderBlockDto } from "../../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../../components/term";
 import { AffectTap, PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
 import { MarkdownMath } from "../../render/MarkdownMath";
+import { clipMath } from "../../render/mathSnippet";
 import type { InquiryResolution } from "../../api/dto";
 import { ModelActionState, type ModelActionPhase } from "./ModelActionState";
 import { ReaderAskBranches, aboutLine, type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
@@ -218,7 +219,8 @@ export function AskRail({
               {inquiry && parentExchange ? (
                 <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <Faint>FOLLOW-UP TO: {clip(parentExchange.question, 120)}</Faint>
-                  <Faint>{clip(parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage", 300)}</Faint>
+                  {/* The passage's own words, its formulas rendered whole (as the chip below renders them). */}
+                  <div style={{ color: COLOR.textFaint }}><MarkdownMath value={clipMath((parentExchange.selectionQuoteMd ?? blocks.find((block) => block.spanId === parentExchange.spanId)?.markdown ?? "Saved passage").replace(/\s+/g, " ").trim(), 300)} /></div>
                   {parentExchange.about ? null : <SecondaryButton onClick={() => peek(parentExchange.spanId)}>show inherited passage</SecondaryButton>}
                   <SecondaryButton disabled={busy} onClick={() => setParentExchange(null)}>new thread from current passage</SecondaryButton>
                 </Card>
@@ -226,7 +228,7 @@ export function AskRail({
                 <Card data-ask-about="" style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
                   <Faint style={{ fontSize: 10 }}>{ASK_ABOUT_COPY.heading} {composerAbout.label}</Faint>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                    <MarkdownMath value={clip(composerAbout.quote.replace(/\s+/g, " ").trim(), 300)} />
+                    <MarkdownMath value={clipMath(composerAbout.quote.replace(/\s+/g, " ").trim(), 300)} />
                   </div>
                   <SecondaryButton disabled={busy} onClick={composerAbout.onClear}>{ASK_ABOUT_COPY.clear}</SecondaryButton>
                 </Card>
@@ -234,14 +236,15 @@ export function AskRail({
                 <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
                   <Faint style={{ fontSize: 10 }}>ASKING ABOUT YOUR SELECTION</Faint>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                    <MarkdownMath value={clip((selection.editedText ?? selection.quote).replace(/\s+/g, " ").trim(), 300)} />
+                    <MarkdownMath value={clipMath((selection.editedText ?? selection.quote).replace(/\s+/g, " ").trim(), 300)} />
                   </div>
                 </Card>
               ) : activeBlock ? (
                 <Card style={{ display: "flex", flexDirection: "column", gap: 4, background: COLOR.bgElev }}>
                   <Faint style={{ fontSize: 10 }}>ASKING ABOUT</Faint>
                   <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
-                    <MarkdownMath value={clip(activeBlock.markdown.replace(/\s+/g, " "), 150)} />
+                    {/* Clipped between formulas: a cut inside one left a raw "\(\lambda = \…". */}
+                    <MarkdownMath value={clipMath(activeBlock.markdown.replace(/\s+/g, " "), 150)} />
                   </div>
                 </Card>
               ) : null}

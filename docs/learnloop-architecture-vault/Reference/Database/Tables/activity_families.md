@@ -109,6 +109,7 @@ Indexes and uniqueness:
 - `tests/test_judge_routes.py`
 - `tests/test_pf_generation.py`
 - `tests/test_pf_reports.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_card_lineage.py`

@@ -2,6 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
+import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK } from "../copy/refusals";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { setNextReaderVisitInitiator } from "../screens/reader/activity";
@@ -1618,11 +1619,11 @@ export function App() {
     if (tab === "today" && todayStage === "practice" && practiceItemId && session) {
       if (teachBackActiveRef.current) {
         // The tutor could leak answers into the graded transcript.
-        notify("ask-tutor is disabled during a teach-back conversation.");
+        notify(NO_ASK_TEACH_BACK);
         return false;
       }
       if (!practiceAskAllowedRef.current) {
-        notify("ask-tutor is unavailable until diagnostic safeguards are verified, and stays disabled during diagnostic checks.");
+        notify(NO_ASK_NOT_YET);
         return false;
       }
       if (practiceAskOpenRef.current) {
@@ -2046,6 +2047,13 @@ export function App() {
         subjects={subjectOptions}
         wrapUp={wrapUpLine("today")}
         {...(algoConfig().lessons ? { onStartLesson: setLessonEntry } : {})}
+        aiConnection={aiConnection}
+        onConnectAi={() => setConnectOpen(true)}
+        onOpenBook={openBook}
+        onOpenLibrary={() => {
+          setLibraryView("books");
+          gotoTab("library");
+        }}
         onError={onError}
       />
     );

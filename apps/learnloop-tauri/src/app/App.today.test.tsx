@@ -321,7 +321,7 @@ describe("T4: it's tomorrow, open LearnLoop and do today's learning (§11)", () 
 
   it("Today is understood without explanation and the plan starts with ↵: one key from launch to the first question", async () => {
     const { apis, sentence } = await tomorrow(plan());
-    expect(sentence.textContent).toContain("25 minutes today: 1 short question from earlier days, then a fix for a mix-up.");
+    expect(sentence.textContent).toContain("Up to 25 minutes today. Planned so far: 1 short question from earlier days, then a fix for a mix-up.");
     const place = screen.getByTestId("today-place");
     // Nothing to decide first: no dialog, no required choice, no count of waiting things, no jargon.
     expect(screen.queryByRole("dialog")).toBeNull();

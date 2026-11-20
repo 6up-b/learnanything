@@ -183,6 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
   - `test_the_ledger_holds_each_reading_the_folds_share`
+- [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
+  - `test_a_held_grade_is_held_while_its_question_and_answer_stay_eligible`
 - [tests/test_reader_recap_review_r3.py](../../../../../tests/test_reader_recap_review_r3.py) — direct import
   - `test_f1_r3_a_hold_released_after_the_cutoff_still_holds_at_the_cutoff`
 - [tests/test_regrade_contract_successor.py](../../../../../tests/test_regrade_contract_successor.py) — direct import

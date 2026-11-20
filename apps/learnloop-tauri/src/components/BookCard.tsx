@@ -7,6 +7,22 @@ import type { PendingAddDto, SourceActionKind, SourceLibraryCard, SourceStatusLi
 import { COLOR, FONT_MONO } from "./term";
 import { IntentControl } from "./IntentControl";
 
+/** The card's action that asks for the one-time OK to write questions (UX
+ *  fix stage 3, audit F7: it read "Review", which opened the OK while the
+ *  learner expected questions). Today's empty-day line uses the same words. */
+export const CONSENT_ACTION = "Give your OK";
+
+/** The sidecar's label on that action (add_source.py, `needs_consent`). */
+export const SIDECAR_CONSENT_LABEL = "Review";
+
+/** What a card's action reads: the OK's says what pressing it does at that
+ *  moment (it asks for the OK; the sheet, and when it is asked, are as they
+ *  were). Every other label is the sidecar's own: "Review" on changes to look
+ *  at opens those changes, and "Connect" with no AI connects one. */
+export function cardActionLabel(action: { kind: SourceActionKind; label: string }): string {
+  return action.kind === "connect_ai" && action.label === SIDECAR_CONSENT_LABEL ? CONSENT_ACTION : action.label;
+}
+
 /** UX-5 (audit student-1 #35-39): what "for practice only" means, in details. */
 export const PAST_EXAM_DETAILS = "A past exam or problem set, kept in your Library. It doesn't open in the Reader, and LearnLoop doesn't write questions from it.";
 
@@ -66,7 +82,7 @@ export function StatusLine({
       </span>
       {line.action ? (
         <button type="button" style={linkButton} onClick={() => onAction(line.action!.kind)}>
-          {line.action.label}
+          {cardActionLabel(line.action)}
         </button>
       ) : null}
     </div>

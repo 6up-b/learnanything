@@ -83,11 +83,13 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** "26 minutes · 9 questions", from the session's own window. */
+/** "26 minutes this session · 9 questions", from the session's own window.
+ *  UX fix stage 3 (audit F9): it shows on Today beside the plan's "Done for
+ *  today · N minutes spent answering", a different clock, so it says whose. */
 export function sessionLengthLine(summary: SessionEndSummary): string {
   const ms = new Date(summary.endedAt).getTime() - new Date(summary.startedAt).getTime();
   const minutes = Number.isFinite(ms) && ms > 0 ? Math.max(1, Math.round(ms / 60000)) : 1;
-  return `${plural(minutes, "minute", "minutes")} · ${plural(summary.itemsReviewed, "question", "questions")}`;
+  return `${plural(minutes, "minute", "minutes")} this session · ${plural(summary.itemsReviewed, "question", "questions")}`;
 }
 
 function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary; onDismiss: () => void }) {

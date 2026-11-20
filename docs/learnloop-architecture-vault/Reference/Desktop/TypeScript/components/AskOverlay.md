@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/AskOverlay.tsx](../../../../../../apps/learnloop-tauri/src/components/AskOverlay.tsx) |
-| Source lines | 1496 |
+| Source lines | 1498 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -54,91 +54,91 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface AskTarget` — interface, line 68
-- `export type AskVariant = "modal" | "docked" | "inline"` — type, line 120
-- `export function AskOverlay(` — function, line 232
+- `export interface AskTarget` — interface, line 70
+- `export type AskVariant = "modal" | "docked" | "inline"` — type, line 122
+- `export function AskOverlay(` — function, line 234
 
 ## Internal implementation anchors
 
-- `async function readerThreadParent(extractionId: string, spanId: string, questionEventId?: string): Promise<string | null>` — function, line 53
-- `const history = (api as` — const, line 55
-- `const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> =` — const, line 122
-- `interface ThreadEntry` — interface, line 129
-- `function restoredEntryFields(event: TutorQuestionEventDto): Partial<ThreadEntry>` — function, line 172
-- `const context = (event.sourceContext ??` — const, line 173
-- `const GAP_POLL_MS = 2000` — const, line 188
-- `const GAP_POLL_LIMIT = 45` — const, line 189
-- `const REVERSAL_LABEL: Record<LearnerTextGapReversal, string> =` — const, line 191
-- `interface SaveNotice` — interface, line 197
-- `function promotionChipLabel(promotion: QuestionPromotionDto): string` — function, line 203
-- `function promotionRequestLabel(request: QuestionPromotionRequestDto): string` — function, line 220
-- `function entityIdOf(target: AskTarget): string` — function, line 228
-- `const panelOn = algoConfig().ask !== null` — const, line 267
-- `const panel = panelOn && variant !== "modal"` — const, line 268
-- `const helpStyle = useStoredHelpStyle()` — const, line 269
-- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 294
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 295
-- `const boxRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 296
-- `const saveNoticeTimerRef = useRef<number | null>(null)` — const, line 297
-- `const promoteNoticeTimerRef = useRef<number | null>(null)` — const, line 298
-- `const routedCaptureRef = useRef<string | null>(null)` — const, line 299
-- `const captureNoteRef = useRef<string | null>(null)` — const, line 300
-- `const readerParentRef = useRef<string | null | undefined>(undefined)` — const, line 305
-- `const gapTimersRef = useRef<number[]>([])` — const, line 306
-- `const figures = usePanelFigures(panel ? target : null,` — const, line 309
-- `function setEntryGap(eventId: string, gap: LearnerTextGapViewDto | null)` — function, line 321
-- `function watchGap(eventId: string, queued: LearnerGapQueuedDto | undefined, attempt = 0)` — function, line 325
-- `const timer = window.setTimeout(async ()` — const, line 327
-- `const result = await api.getLearnerTextGap(` — const, line 329
-- `async function reverseGap(eventId: string, gapId: string, reversal: LearnerTextGapReversal)` — function, line 343
-- `const result = await api.reverseLearnerTextGap(` — const, line 345
-- `const open = target !== null` — const, line 353
-- `function clearSaveNoticeTimer()` — function, line 355
-- `function showSaveNotice(notice: SaveNotice)` — function, line 362
-- `function clearPromoteNoticeTimer()` — function, line 371
-- `function showPromoteNotice(notice: SaveNotice)` — function, line 378
-- `function saveNoteLabel(entry: ThreadEntry)` — function, line 387
-- `function canSaveNote(entry: ThreadEntry)` — function, line 393
-- `let cancelled = false` — let, line 399
-- `const entries: ThreadEntry[] = snapshot.events.map((event: TutorQuestionEventDto)` — const, line 446
-- `const onKey = (event: KeyboardEvent)` — const, line 521
-- `const focusOnLand = variant === "modal" ? thread.length : 0` — const, line 535
-- `const node = bodyRef.current` — const, line 541
-- `async function send(pinned?:` — function, line 547
-- `const text = (pinned?.text ?? question).trim()` — const, line 549
-- `let answer:` — let, line 572
-- `const readerAnswer = await api.readerAsk(` — const, line 593
-- `const input: AskTutorQuestionInput =` — const, line 615
-- `const draft = target.readDraft?.() ?? target.workMd ?? ""` — const, line 652
-- `const tutorAnswer = await api.askTutorQuestion(input)` — const, line 659
-- `const commandError = error as CommandError` — const, line 710
-- `async function rate(eventId: string, useful: boolean)` — function, line 725
-- `async function saveAsNote(eventId: string)` — function, line 736
-- `const result = await api.saveTutorAnswerNote(eventId)` — const, line 739
-- `const noteName = result.noteId ? ` $` — const, line 745
-- `async function promote(eventId: string, intent: PromotionIntent)` — function, line 757
-- `const result = await api.promoteTutorQuestion(eventId, intent)` — const, line 761
-- `const cold = Boolean(target.coldCheck) || serverCold` — const, line 782
-- `function inlineShows(entry: ThreadEntry): boolean` — function, line 786
-- `const hasDraft = target.context === "practice" && Boolean((target.readDraft?.() ?? target.workMd ?? "").trim())` — const, line 793
-- `const aboutChips: string[] = target.context === "feedback" ? ["your attempt", "its feedback"] : target.aboutStep ? [`step $` — const, line 794
-- `const sentList = [ target.context === "feedback" ? "the attempt you submitted, its grade and feedback" : "the question", ...(hasDraft && !dropDraft ? [target.workbenchSessionId ? "your steps, as you have them now" : "your draft, as it is now"] : []), ...(targ…` — const, line 799
-- `const panelHeader = panel ? ( <div style=` — const, line 806
-- `const earlierEntry = earlier.find((entry)` — const, line 855
-- `const askButton = ( <button type="button" aria-label=` — const, line 858
-- `const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? ( <div data-testid="ask-earlier" style=` — const, line 865
-- `const content = ( <>` — const, line 910
-- `const goal = question.trim()` — const, line 1257
-- `const goal = question.trim()` — const, line 1310
-- `const shell = !panel ? ( <div style=` — const, line 1368
-- `const dockedStyle: CSSProperties =` — const, line 1411
-- `const inlineStyle: CSSProperties =` — const, line 1422
-- `const backdropStyle: CSSProperties =` — const, line 1432
-- `const modalStyle: CSSProperties =` — const, line 1444
-- `const headerStyle: CSSProperties =` — const, line 1457
-- `const inputStyle: CSSProperties =` — const, line 1466
-- `const footerStyle: CSSProperties =` — const, line 1477
-- `const saveNoticeStyle: CSSProperties =` — const, line 1488
+- `async function readerThreadParent(extractionId: string, spanId: string, questionEventId?: string): Promise<string | null>` — function, line 55
+- `const history = (api as` — const, line 57
+- `const CONTEXT_PILL: Record<TutorQuestionContext, PillColor> =` — const, line 124
+- `interface ThreadEntry` — interface, line 131
+- `function restoredEntryFields(event: TutorQuestionEventDto): Partial<ThreadEntry>` — function, line 174
+- `const context = (event.sourceContext ??` — const, line 175
+- `const GAP_POLL_MS = 2000` — const, line 190
+- `const GAP_POLL_LIMIT = 45` — const, line 191
+- `const REVERSAL_LABEL: Record<LearnerTextGapReversal, string> =` — const, line 193
+- `interface SaveNotice` — interface, line 199
+- `function promotionChipLabel(promotion: QuestionPromotionDto): string` — function, line 205
+- `function promotionRequestLabel(request: QuestionPromotionRequestDto): string` — function, line 222
+- `function entityIdOf(target: AskTarget): string` — function, line 230
+- `const panelOn = algoConfig().ask !== null` — const, line 269
+- `const panel = panelOn && variant !== "modal"` — const, line 270
+- `const helpStyle = useStoredHelpStyle()` — const, line 271
+- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 296
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 297
+- `const boxRef = useRef<HTMLTextAreaElement | null>(null)` — const, line 298
+- `const saveNoticeTimerRef = useRef<number | null>(null)` — const, line 299
+- `const promoteNoticeTimerRef = useRef<number | null>(null)` — const, line 300
+- `const routedCaptureRef = useRef<string | null>(null)` — const, line 301
+- `const captureNoteRef = useRef<string | null>(null)` — const, line 302
+- `const readerParentRef = useRef<string | null | undefined>(undefined)` — const, line 307
+- `const gapTimersRef = useRef<number[]>([])` — const, line 308
+- `const figures = usePanelFigures(panel ? target : null,` — const, line 311
+- `function setEntryGap(eventId: string, gap: LearnerTextGapViewDto | null)` — function, line 323
+- `function watchGap(eventId: string, queued: LearnerGapQueuedDto | undefined, attempt = 0)` — function, line 327
+- `const timer = window.setTimeout(async ()` — const, line 329
+- `const result = await api.getLearnerTextGap(` — const, line 331
+- `async function reverseGap(eventId: string, gapId: string, reversal: LearnerTextGapReversal)` — function, line 345
+- `const result = await api.reverseLearnerTextGap(` — const, line 347
+- `const open = target !== null` — const, line 355
+- `function clearSaveNoticeTimer()` — function, line 357
+- `function showSaveNotice(notice: SaveNotice)` — function, line 364
+- `function clearPromoteNoticeTimer()` — function, line 373
+- `function showPromoteNotice(notice: SaveNotice)` — function, line 380
+- `function saveNoteLabel(entry: ThreadEntry)` — function, line 389
+- `function canSaveNote(entry: ThreadEntry)` — function, line 395
+- `let cancelled = false` — let, line 401
+- `const entries: ThreadEntry[] = snapshot.events.map((event: TutorQuestionEventDto)` — const, line 448
+- `const onKey = (event: KeyboardEvent)` — const, line 523
+- `const focusOnLand = variant === "modal" ? thread.length : 0` — const, line 537
+- `const node = bodyRef.current` — const, line 543
+- `async function send(pinned?:` — function, line 549
+- `const text = (pinned?.text ?? question).trim()` — const, line 551
+- `let answer:` — let, line 574
+- `const readerAnswer = await api.readerAsk(` — const, line 595
+- `const input: AskTutorQuestionInput =` — const, line 617
+- `const draft = target.readDraft?.() ?? target.workMd ?? ""` — const, line 654
+- `const tutorAnswer = await api.askTutorQuestion(input)` — const, line 661
+- `const commandError = error as CommandError` — const, line 712
+- `async function rate(eventId: string, useful: boolean)` — function, line 727
+- `async function saveAsNote(eventId: string)` — function, line 738
+- `const result = await api.saveTutorAnswerNote(eventId)` — const, line 741
+- `const noteName = result.noteId ? ` $` — const, line 747
+- `async function promote(eventId: string, intent: PromotionIntent)` — function, line 759
+- `const result = await api.promoteTutorQuestion(eventId, intent)` — const, line 763
+- `const cold = Boolean(target.coldCheck) || serverCold` — const, line 784
+- `function inlineShows(entry: ThreadEntry): boolean` — function, line 788
+- `const hasDraft = target.context === "practice" && Boolean((target.readDraft?.() ?? target.workMd ?? "").trim())` — const, line 795
+- `const aboutChips: string[] = target.context === "feedback" ? ["your attempt", "its feedback"] : target.aboutStep ? [`step $` — const, line 796
+- `const sentList = [ target.context === "feedback" ? "the attempt you submitted, its grade and feedback" : "the question", ...(hasDraft && !dropDraft ? [target.workbenchSessionId ? "your steps, as you have them now" : "your draft, as it is now"] : []), ...(targ…` — const, line 801
+- `const panelHeader = panel ? ( <div style=` — const, line 808
+- `const earlierEntry = earlier.find((entry)` — const, line 857
+- `const askButton = ( <button type="button" aria-label=` — const, line 860
+- `const panelFoot = panel && variant === "docked" && !cold && earlier.length > 0 ? ( <div data-testid="ask-earlier" style=` — const, line 867
+- `const content = ( <>` — const, line 912
+- `const goal = question.trim()` — const, line 1259
+- `const goal = question.trim()` — const, line 1312
+- `const shell = !panel ? ( <div style=` — const, line 1370
+- `const dockedStyle: CSSProperties =` — const, line 1413
+- `const inlineStyle: CSSProperties =` — const, line 1424
+- `const backdropStyle: CSSProperties =` — const, line 1434
+- `const modalStyle: CSSProperties =` — const, line 1446
+- `const headerStyle: CSSProperties =` — const, line 1459
+- `const inputStyle: CSSProperties =` — const, line 1468
+- `const footerStyle: CSSProperties =` — const, line 1479
+- `const saveNoticeStyle: CSSProperties =` — const, line 1490
 
 ## Who imports or calls it
 
@@ -171,6 +171,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `PillColor`
 - [[Reference/Desktop/TypeScript/queueEvents|src/queueEvents.ts]] — import-or-re-export; imports `notifyQueueChanged`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
+- [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `plainMathLine`
 - [[Reference/Desktop/TypeScript/screens/reader/figures/showMe|src/screens/reader/figures/showMe.ts]] — import-or-re-export; imports `isShowMeKey`
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export; imports `passageKeys`
 

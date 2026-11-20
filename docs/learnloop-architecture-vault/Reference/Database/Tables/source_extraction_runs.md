@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/source_documents.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/reader/phone_media.py`
+- `src/learnloop/reader/source_macros.py`
 - `src/learnloop/reader/source_objects.py`
 - `src/learnloop/source_retrieval/deliverables.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
@@ -155,12 +156,14 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
 - `tests/test_source_objects.py`
+- `tests/test_ux2_source_macros.py`
 - `tests/test_ux_phase1_landing.py`
 - `tests/daily_plan_reading_helpers.py`
 - `tests/exam_scope_fixtures.py`
 - `tests/facet_reword_confirm_helpers.py`
 - `tests/helpers.py`
 - `tests/mobile_v4_reader_helpers.py`
+- `tests/protection_matrix_helpers.py`
 - `tests/reread_safety_helpers.py`
 - `tests/reread_safety_landing_helpers.py`
 - `tests/sidecar_quick_add_helpers.py`
@@ -169,8 +172,6 @@ Indexes and uniqueness:
 - `tests/test_ad_protected_readings.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_glm_ocr.py`
-- `tests/test_ingest_m3.py`
-- `tests/test_mobile_v4_codex_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

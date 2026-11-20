@@ -92,7 +92,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] | [[Reference/Modules/learnloop/figures/prefetch#^module-purpose|purpose]] | `ACTIVE` | 1 | 16 |
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
-| [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] | [[Reference/Modules/learnloop/figures/protection#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
+| [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] | [[Reference/Modules/learnloop/figures/protection#^module-purpose|purpose]] | `ACTIVE` | 12 | 5 |
 | [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] | [[Reference/Modules/learnloop/figures/records#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] | [[Reference/Modules/learnloop/figures/request#^module-purpose|purpose]] | `ACTIVE` | 7 | 27 |
 | [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 7 | 19 |

@@ -114,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_p3_journeys.py](../../../../../../tests/test_p3_journeys.py) — direct import
   - `test_journey1_reading_first_session`
+- [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_render_views.py](../../../../../../tests/test_reader_render_views.py) — direct import
   - `test_reextraction_changes_render_version_not_content_hash_bytes`
   - `test_render_payload_states_six_authority_layers`

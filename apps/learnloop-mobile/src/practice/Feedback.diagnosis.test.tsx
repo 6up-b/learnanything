@@ -5,6 +5,7 @@ import {
   getAnswers, gets, installFakeHost, it, item, listOutbox, PLAN_OFF, queue, rememberPendingSubmit, render, respond, row, saveCredential,
   screen, session, vi, waitFor, type Call, type RpcAnswer
 } from "../test/fakeHost";
+import { findJargon } from "@desktop/copy/denyList";
 
 installFakeHost();
 
@@ -94,7 +95,20 @@ describe("the diagnosis on the feedback screen", () => {
     cacheSessionId(null);
     answers.get_feedback = { ...feedback(), diagnosisStatus: "failed", repairSuggestions: [] };
     await submitAnAnswer();
-    await screen.findByText("The look into this answer didn't finish. Your grade stands.");
+    await screen.findByText(/^The look into this answer didn't finish\. Your grade stands/);
+  });
+
+  // UX fix stage 4 (audit F13; phone-2 #11): the line said what failed and not what to do. The reply says only that
+  // the look failed (no retry is offered to the learner), so the next step is that nothing is needed: Next goes on.
+  it("F13: a look that didn't finish says nothing is needed and Next goes on, as a status line in plain words", async () => {
+    answers.get_feedback = { ...feedback(), diagnosisStatus: "failed", repairSuggestions: [] };
+    await submitAnAnswer();
+    const line = await screen.findByText(
+      "The look into this answer didn't finish. Your grade stands, and nothing is needed from you: Next goes on."
+    );
+    expect(line.getAttribute("role")).toBe("status");
+    expect(findJargon(line.textContent ?? "")).toEqual([]);
+    expect(screen.getByRole("button", { name: "Next" })).toBeTruthy();
   });
 });
 
