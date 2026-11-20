@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/source_documents.py](../../../../../../../src/learnloop/db/stores/source_documents.py) |
-| Source lines | 1371 |
+| Source lines | 1374 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -110,8 +110,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `all_notation_mappings(self, status: str | None='active') -> list[dict[str, Any]]` (line 1292; public)
   - `source_conflict(self, conflict_id: str) -> dict[str, Any] | None` (line 1303; public)
   - `source_conflicts_by_status(self, status: str='open') -> list[dict[str, Any]]` (line 1310; public)
-  - `resolve_source_conflict(self, conflict_id: str, *, status: str, resolution: Any, resolution_kind: str, actor: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> str` (line 1318; public) — Persist a conflict resolution + an immutable audit row (§10.2).
-  - `source_conflict_resolutions(self, conflict_id: str) -> list[dict[str, Any]]` (line 1357; public)
+  - `resolve_source_conflict(self, conflict_id: str, *, status: str, resolution: Any, resolution_kind: str, actor: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> str | None` (line 1318; public) — Persist a conflict resolution + an immutable audit row (§10.2).
+  - `source_conflict_resolutions(self, conflict_id: str) -> list[dict[str, Any]]` (line 1360; public)
 
 ## Internal implementation anchors
 

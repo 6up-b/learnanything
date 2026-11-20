@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/proposals/conflict_resolution.py](../../../../../../../src/learnloop/content/proposals/conflict_resolution.py) |
-| Source lines | 89 |
+| Source lines | 93 |
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `class ConflictResolutionError(ValueError)` ([source](../../../../../../../src/learnloop/content/proposals/conflict_resolution.py), line 28)
 - `resolve_conflict(repository: Repository, conflict_id: str, *, resolution_kind: str, resolution: dict[str, Any] | None=None, actor: str | None=None, rationale: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/proposals/conflict_resolution.py), line 32) — Resolve an open conflict; return the updated conflict row (§10.2).
-- `conflict_with_audit(repository: Repository, conflict_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/conflict_resolution.py), line 84)
+- `conflict_with_audit(repository: Repository, conflict_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/proposals/conflict_resolution.py), line 88)
 
 ### Module constants
 
@@ -103,6 +103,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_exam_readiness_and_conflict.py](../../../../../../../tests/test_exam_readiness_and_conflict.py) — direct import
   - `test_conflict_resolution_notation_mapping_materializes_mapping`
   - `test_conflict_resolution_preserves_locators_and_audit`
+  - `test_conflict_resolution_rejects_a_stale_open_read_without_writes`
+  - `test_conflict_resolution_rolls_back_every_write`
 
 ## Modification guidance
 

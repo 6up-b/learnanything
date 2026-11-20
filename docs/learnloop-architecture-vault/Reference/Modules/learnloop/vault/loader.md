@@ -197,6 +197,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`; statically calls `load_practice_item_file`, `load_vault`, `settled_load_vault`, `vault_content_fingerprint`
 - [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `add_note`, `move_note`; statically calls `add_note`, `move_note`
+- [[Reference/Modules/learnloop_sidecar/section_questions|learnloop_sidecar.section_questions]] — imports `load_vault`; statically calls `load_vault`
 
 ### Repository tooling consumers
 
@@ -229,7 +230,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 92 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 93 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/today/TodayPlace.tsx](../../../../../../../apps/learnloop-tauri/src/screens/today/TodayPlace.tsx) |
-| Source lines | 1305 |
+| Source lines | 1306 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/today/_area|TypeScript/screens/today]] |
 | Refactor status | `ACTIVE` |
@@ -195,26 +195,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const resumed = await run(()` — const, line 877
 - `function causeAction(shown: TodayCause): (()` — function, line 881
 - `const item = shown.itemId ? queue?.sections.flatMap((section)` — const, line 889
-- `const card = shown.card` — const, line 902
-- `const causeLine = cause ? ( <CauseLine cause=` — const, line 910
-- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 919
-- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 920
-- `const onKey = (event: KeyboardEvent)` — const, line 925
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 927
-- `const first = cause?.kind === "questions_ready" ? causeAction(cause) : null` — const, line 935
-- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 950
-- `const streak = data?.streak ?? snapshotStreak` — const, line 958
-- `const streakText = streakLine(streak)` — const, line 959
-- `let body: ReactNode` — let, line 962
-- `const head = queue?.sections.flatMap((section)` — const, line 1004
-- `const empty = planWasEmpty(data)` — const, line 1018
-- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 1075
-- `function CauseLine(` — function, line 1207
-- `const label = causeActionLabel(cause)` — const, line 1226
-- `const wait = sentence === undefined ? causeWait(cause) : null` — const, line 1227
-- `function OpenLessons(` — function, line 1271
-- `let cancelled = false` — let, line 1275
-- `function KeepGoingNothing()` — function, line 1299
+- `const card = shown.card` — const, line 903
+- `const causeLine = cause ? ( <CauseLine cause=` — const, line 911
+- `const goalHasQuestions = (primaryGoal?.practicableItemCount ?? 0) > 0` — const, line 920
+- `const goalCause = goalNothingReady && !goalHasQuestions ? todayCause(` — const, line 921
+- `const onKey = (event: KeyboardEvent)` — const, line 926
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 928
+- `const first = cause?.kind === "questions_ready" ? causeAction(cause) : null` — const, line 936
+- `const next = stepChoice(choices, minutes, event.key === "ArrowLeft" ? -1 : 1)` — const, line 951
+- `const streak = data?.streak ?? snapshotStreak` — const, line 959
+- `const streakText = streakLine(streak)` — const, line 960
+- `let body: ReactNode` — let, line 963
+- `const head = queue?.sections.flatMap((section)` — const, line 1005
+- `const empty = planWasEmpty(data)` — const, line 1019
+- `const sentence = plan.kind === "reentry" ? reentrySentence(plan) : planSentence(plan)` — const, line 1076
+- `function CauseLine(` — function, line 1208
+- `const label = causeActionLabel(cause)` — const, line 1227
+- `const wait = sentence === undefined ? causeWait(cause) : null` — const, line 1228
+- `function OpenLessons(` — function, line 1272
+- `let cancelled = false` — let, line 1276
+- `function KeepGoingNothing()` — function, line 1300
 
 ## Who imports or calls it
 

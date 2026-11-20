@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f9_a_self_hosted_glm_ocr_reread_is_named_and_priced_as_local`
   - `test_rereview_f10_a_place_is_translated_onto_the_reading_the_reader_has_open`
   - `test_the_reread_keeps_the_page_scope_and_carries_the_selection`
+- [tests/test_section_done_before_build.py](../../../../../../../tests/test_section_done_before_build.py) — direct import
+  - `test_a_section_the_phone_finished_before_the_build_waits_for_it_too`
 - [tests/test_source_retrieval_search.py](../../../../../../../tests/test_source_retrieval_search.py) — direct import
   - `test_quick_add_ranks_units_by_their_text_not_only_their_labels`
   - `test_quick_add_with_retrieval_off_plans_exactly_as_before`

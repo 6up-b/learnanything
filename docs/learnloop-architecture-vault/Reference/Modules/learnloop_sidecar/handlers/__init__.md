@@ -296,6 +296,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
 - [tests/test_router_r2a_serving.py](../../../../../../tests/test_router_r2a_serving.py) — direct import
 - [tests/test_router_r2b_serving.py](../../../../../../tests/test_router_r2b_serving.py) — direct import
+- [tests/test_section_done_before_build.py](../../../../../../tests/test_section_done_before_build.py) — direct import
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import
 - [tests/test_session_ownership.py](../../../../../../tests/test_session_ownership.py) — direct import
 - [tests/test_sidecar_adjudication.py](../../../../../../tests/test_sidecar_adjudication.py) — direct import

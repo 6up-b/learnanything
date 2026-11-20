@@ -46,19 +46,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/__init__.py](../../../../../../../src/learnloop/ingest/extractors/__init__.py) |
-| Source lines | 211 |
+| Source lines | 287 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ExtractionFallbackFailed(RuntimeError)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 72) — The chosen extractor failed and so did its local fallback.
-- `class NativeEngineNotLocalError(ValueError)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 76) — ``engine = "native"`` reached the local extractor registry.
-- `pdf_extractor_for(config: dict | None=None, *, local_only: bool=False) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 84) — Select the document extractor (§2.9) for a PDF, PNG or JPG.
-- `local_pdf_extractor(config: dict | None=None) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 146) — What reads a PDF without it leaving this computer: local Marker when installed, else pypdf (never hosted Marker, which needs its own OK).
-- `fallback_model_versions(extractor_name: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 154) — The model versions of the local extractor that stood in for the one chosen (:func:`extract_with_fallback`), for the stored extraction run.
-- `extract_with_fallback(raw_bytes: bytes, extractor: DocumentExtractor, config: dict, context: ExtractionContext)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 165) — Run ``extractor``; under ``engine = "auto"`` a runtime failure degrades to the next local extractor with a health flag naming why (§2.9).
+- `class ExtractionFallbackFailed(RuntimeError)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 76) — The chosen extractor failed and so did its local fallback.
+- `class NativeEngineNotLocalError(ValueError)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 80) — ``engine = "native"`` reached the local extractor registry.
+- `document_pdf_config(config: dict, raw_bytes: bytes) -> dict` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 88) — Only GLM-OCR reads a PNG/JPG: a PDF-only engine choice (the native PDF model, Marker, pypdf) reads an image the automatic way.
+- `class PdfExtractorConsent(NamedTuple)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 99)
+- `pdf_extractor_for(config: dict | None=None, *, local_only: bool=False, raw_bytes: bytes | None=None, upload_allowed: bool | Callable[[], bool]=False, require_upload_ok: bool=False) -> DocumentExtractor | tuple[DocumentExtractor | None, PdfExtractorConsent | None]` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 106) — Choose a reader and, when bytes are supplied, the consent it requires.
+- `local_pdf_extractor(config: dict | None=None) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 222) — What reads a PDF without it leaving this computer: local Marker when installed, else pypdf (never hosted Marker, which needs its own OK).
+- `fallback_model_versions(extractor_name: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 230) — The model versions of the local extractor that stood in for the one chosen (:func:`extract_with_fallback`), for the stored extraction run.
+- `extract_with_fallback(raw_bytes: bytes, extractor: DocumentExtractor, config: dict, context: ExtractionContext)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 241) — Run ``extractor``; under ``engine = "auto"`` a runtime failure degrades to the next local extractor with a health flag naming why (§2.9).
 
 ### Explicit exports
 
@@ -76,8 +78,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `MarkerUnavailableError`
 - `PyPdfDocumentExtractor`
 - `PyPdfExtractionError`
+- `PdfExtractorConsent`
 - `captions_to_ir`
 - `chunk_output_to_ir`
+- `document_pdf_config`
 - `extract_with_fallback`
 - `fallback_model_versions`
 - `local_pdf_extractor`
@@ -92,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_selected_pdf_extractor(config: dict | None=None, *, local_only: bool=False) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 160) — Select the document extractor (§2.9) for a PDF, PNG or JPG.
 
 ## Who imports or calls it
 
@@ -101,7 +105,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `marker_available`; statically calls `marker_available`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `datalab_api_key`, `marker_available`; statically calls `datalab_api_key`, `marker_available`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ExtractionFallbackFailed`, `MarkerUnavailableError`, `captions_to_ir`, `extract_with_fallback`, `fallback_model_versions`, `local_pdf_extractor`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`; statically calls `captions_to_ir`, `extract_with_fallback`, `fallback_model_versions`, `local_pdf_extractor`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ExtractionFallbackFailed`, `MarkerUnavailableError`, `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`; statically calls `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`
 - [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] — imports `ExtractionContext`, `pdf_extractor_for`; statically calls `ExtractionContext`, `pdf_extractor_for`
 
 ## Dependencies
@@ -118,7 +122,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `os`
+- Standard library: `__future__`, `collections`, `os`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -163,6 +167,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_marker_output_never_reaches_this_process_stdout`
   - `test_the_worker_carries_the_page_selection_and_torch_device_without_touching_this_process`
 - [tests/test_pdf_extractor_selection.py](../../../../../../../tests/test_pdf_extractor_selection.py) — direct import
+  - `test_image_without_upload_ok_returns_its_card_requirement`
   - `test_native_engine_never_resolves_to_a_local_extractor`
   - `test_pypdf_engine_resolves_locally`
   - `test_pypdf_text_with_lone_surrogates_reads_with_replacement_characters`

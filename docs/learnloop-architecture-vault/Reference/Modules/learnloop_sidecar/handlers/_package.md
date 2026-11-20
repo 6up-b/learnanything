@@ -118,7 +118,7 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 158 |
+| [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] | [[Reference/Modules/learnloop_sidecar/handlers/__init__#^module-purpose|purpose]] | `ACTIVE` | 1 | 159 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] | [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]] | [[Reference/Modules/learnloop_sidecar/handlers/adjudication#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] | [[Reference/Modules/learnloop_sidecar/handlers/ai_providers#^module-purpose|purpose]] | `ACTIVE` | 12 | 18 |
@@ -168,7 +168,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/proposals|learnloop_sidecar.handlers.proposals]] | [[Reference/Modules/learnloop_sidecar/handlers/proposals#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] | [[Reference/Modules/learnloop_sidecar/handlers/provenance#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] | [[Reference/Modules/learnloop_sidecar/handlers/queue#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
-| [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] | [[Reference/Modules/learnloop_sidecar/handlers/reader#^module-purpose|purpose]] | `ACTIVE` | 9 | 21 |
+| [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] | [[Reference/Modules/learnloop_sidecar/handlers/reader#^module-purpose|purpose]] | `ACTIVE` | 8 | 21 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] | [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] | [[Reference/Modules/learnloop_sidecar/handlers/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] | [[Reference/Modules/learnloop_sidecar/handlers/reader_intent#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
@@ -197,7 +197,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 323 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 325 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 52 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 50 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 41 static module edges
@@ -251,7 +251,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 6 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 5 static module edges
 
 ### Dependency neighborhood
 
@@ -270,8 +270,8 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_sidecar -->|6| center
-    center -->|323| n_learnloop_sidecar
+    n_learnloop_sidecar -->|5| center
+    center -->|325| n_learnloop_sidecar
     center -->|52| n_learnloop_reader
     center -->|50| n_learnloop
     center -->|41| n_learnloop_source_retrieval

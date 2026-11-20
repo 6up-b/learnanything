@@ -166,7 +166,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] | [[Reference/Modules/learnloop/db/stores/probes#^module-purpose|purpose]] | `ACTIVE` | 9 | 0 |
 | [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 18 | 7 |
 | [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] | [[Reference/Modules/learnloop/db/stores/questions#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] | [[Reference/Modules/learnloop/db/stores/reader#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] | [[Reference/Modules/learnloop/db/stores/reader#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
 | [[Reference/Modules/learnloop/db/stores/reader_digests|learnloop.db.stores.reader_digests]] | [[Reference/Modules/learnloop/db/stores/reader_digests#^module-purpose|purpose]] | `ACTIVE` | 4 | 13 |
 | [[Reference/Modules/learnloop/db/stores/reading_paths|learnloop.db.stores.reading_paths]] | [[Reference/Modules/learnloop/db/stores/reading_paths#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -209,17 +209,17 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 17 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 16 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 16 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 15 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 14 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 14 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 14 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 14 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 13 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 12 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 11 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 9 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 7 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 7 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges

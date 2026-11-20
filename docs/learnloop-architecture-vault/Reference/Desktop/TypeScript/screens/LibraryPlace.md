@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/LibraryPlace.tsx](../../../../../../apps/learnloop-tauri/src/screens/LibraryPlace.tsx) |
-| Source lines | 268 |
+| Source lines | 277 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -66,17 +66,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const cancelButton: CSSProperties =` — const, line 46
 - `function busyShelf(sources: SourceLibraryCard[] | undefined, pending: PendingAddDto[] | undefined): boolean` — function, line 58
 - `const library = useCachedQuery(["get_source_library"], ()` — const, line 100
-- `const sources = library.data?.sources` — const, line 102
-- `const pending = library.data?.pending ?? []` — const, line 103
-- `const refetchRef = useRef(library.refetch)` — const, line 104
-- `const working = busyShelf(sources, pending) || openWhenReady !== null` — const, line 108
-- `const timer = window.setInterval(()` — const, line 111
-- `const card = sources.find((entry)` — const, line 117
-- `const run = useCallback(async (input:` — const, line 134
-- `const result = await api.sourceAction(input)` — const, line 144
-- `const onAction = useCallback( (kind: SourceActionKind, card: SourceLibraryCard)` — const, line 155
-- `const chosen = confirming` — const, line 214
-- `const binding = chosen.confirmation.proposalHash ?` — const, line 219
+- `const sources = library.data?.sources` — const, line 104
+- `const pending = library.data?.pending ?? []` — const, line 105
+- `const refetchRef = useRef(library.refetch)` — const, line 106
+- `const working = busyShelf(sources, pending) || openWhenReady !== null` — const, line 110
+- `const timer = window.setInterval(()` — const, line 113
+- `const card = sources.find((entry)` — const, line 119
+- `const run = useCallback(async (input:` — const, line 136
+- `const result = await api.sourceAction(input)` — const, line 147
+- `const onAction = useCallback( (kind: SourceActionKind, card: SourceLibraryCard)` — const, line 159
+- `const chosen = confirming` — const, line 223
+- `const binding = chosen.confirmation.proposalHash ?` — const, line 228
 
 ## Who imports or calls it
 
@@ -113,6 +113,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/LibraryPlace.wholeBook.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LibraryPlace.wholeBook.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/LibraryPlace.reread.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/LibraryPlace.reread.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

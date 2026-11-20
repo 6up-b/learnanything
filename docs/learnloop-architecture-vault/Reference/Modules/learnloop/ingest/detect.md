@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/detect.py](../../../../../../src/learnloop/ingest/detect.py) |
-| Source lines | 13 |
+| Source lines | 14 |
 | Owning package | [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |

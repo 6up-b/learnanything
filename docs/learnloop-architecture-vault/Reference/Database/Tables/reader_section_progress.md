@@ -25,9 +25,9 @@ source_paths:
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/daily_plan/router_reader.py"
   - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/source_retrieval/deliverable_path.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -111,13 +111,16 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/reader/section_generation.py`
 - `src/learnloop/source_retrieval/deliverable_path.py`
 - `src/learnloop/source_retrieval/reading_paths.py`
 - `src/learnloop/source_retrieval/section_coverage.py`
 - `src/learnloop_sidecar/handlers/reader.py`
+- `src/learnloop_sidecar/section_questions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -143,7 +146,7 @@ Indexes and uniqueness:
 - `tests/test_rospeed2_section_map.py`
 - `tests/test_router_reader_activity.py`
 - `tests/test_salience_firewall.py`
-- `tests/test_te3a_migration.py`
+- `tests/test_section_done_before_build.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

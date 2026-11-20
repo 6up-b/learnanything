@@ -71,6 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; statically calls `source_refs_for_section`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
@@ -78,7 +79,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/reader_observations|learnloop.reader.reader_observations]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/reader/recap|learnloop.reader.recap]] — imports `learning_objects_by_section`, `learning_objects_for_span`; statically calls `learning_objects_by_section`, `learning_objects_for_span`
-- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `learning_objects_for_section`; statically calls `learning_objects_for_section`
+- [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] — imports `learning_objects_for_section`, `source_refs_for_section`; statically calls `learning_objects_for_section`, `source_refs_for_section`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `learning_objects_by_section`; statically calls `learning_objects_by_section`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/source_retrieval/library_ask|learnloop.source_retrieval.library_ask]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
@@ -89,7 +90,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/source_retrieval/suggest|learnloop.source_retrieval.suggest]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `learning_objects_for_span`, `source_refs_for_span`; statically calls `learning_objects_for_span`, `source_refs_for_span`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `learning_objects_for_span`, `source_refs_for_section`; statically calls `learning_objects_for_span`, `source_refs_for_section`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `learning_objects_for_span`; statically calls `learning_objects_for_span`
 
 ## Dependencies
@@ -114,7 +115,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] and 16 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

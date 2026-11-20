@@ -56,11 +56,11 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/pipeline/__init__|learnloop.content.pipeline]] | [[Reference/Modules/learnloop/content/pipeline/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] | [[Reference/Modules/learnloop/content/pipeline/acquisition_preview#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 15 | 32 |
+| [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] | [[Reference/Modules/learnloop/content/pipeline/add_source#^module-purpose|purpose]] | `ACTIVE` | 16 | 33 |
 | [[Reference/Modules/learnloop/content/pipeline/ai_contracts|learnloop.content.pipeline.ai_contracts]] | [[Reference/Modules/learnloop/content/pipeline/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 1 | 12 |
 | [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] | [[Reference/Modules/learnloop/content/pipeline/build_plan#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] | [[Reference/Modules/learnloop/content/pipeline/exam_marking#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] | [[Reference/Modules/learnloop/content/pipeline/jobs#^module-purpose|purpose]] | `ACTIVE` | 6 | 54 |
+| [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] | [[Reference/Modules/learnloop/content/pipeline/jobs#^module-purpose|purpose]] | `ACTIVE` | 7 | 54 |
 | [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] | [[Reference/Modules/learnloop/content/pipeline/quick_add#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] | [[Reference/Modules/learnloop/content/pipeline/reread#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] | [[Reference/Modules/learnloop/content/pipeline/revision_refresh#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
@@ -80,11 +80,11 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 9 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 8 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 8 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 7 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 7 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 4 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 6 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 2 static module edges
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 2 static module edges
@@ -98,9 +98,9 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 14 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 8 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 2 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 2 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
 
 ### Dependency neighborhood
