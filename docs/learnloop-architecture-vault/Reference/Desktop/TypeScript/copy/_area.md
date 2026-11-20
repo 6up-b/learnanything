@@ -37,7 +37,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/copy/denyList|denyList.ts]] | `ACTIVE` | Provides `DenyTerm`, `DENY_TERMS`, `findJargon` within the desktop's TypeScript/copy ownership area. | 0 | 0 |
 | [[Reference/Desktop/TypeScript/copy/ingestErrors|ingestErrors.ts]] | `ACTIVE` | Provides `PlainError`, `plainError` within the desktop's TypeScript/copy ownership area. | 1 | 4 |
 | [[Reference/Desktop/TypeScript/copy/refusals|refusals.ts]] | `ACTIVE` | Provides `NO_HINTS_ON_YOUR_OWN`, `NO_HINTS_SHORT_CHECK`, `NO_ASK_SHORT_CHECK`, `NO_ASK_TEACH_BACK` and related exports within the desktop's TypeScript/copy ownership area. | 2 | 3 |
-| [[Reference/Desktop/TypeScript/copy/waiting|waiting.ts]] | `ACTIVE` | Provides `WAITING_COPY` within the desktop's TypeScript/copy ownership area. | 0 | 9 |
+| [[Reference/Desktop/TypeScript/copy/waiting|waiting.ts]] | `ACTIVE` | Provides `WAITING_COPY` within the desktop's TypeScript/copy ownership area. | 0 | 10 |
 
 ## Modification guidance
 
