@@ -1325,24 +1325,27 @@ class SourceDocumentStoreMixin:
         actor: str | None = None,
         rationale: str | None = None,
         clock: Clock | None = None,
-    ) -> str:
+    ) -> str | None:
         """Persist a conflict resolution + an immutable audit row (§10.2).
 
         The conflict row's status/resolution advance; ``source_conflict_resolutions``
         preserves every decision so audit history is never overwritten. Both
-        evidence locators stay on the conflict row untouched."""
+        evidence locators stay on the conflict row untouched. A closed or missing
+        conflict returns None without adding an audit row."""
 
         now = utc_now_iso(clock)
         audit_id = new_ulid()
         with self.connection() as connection:
-            connection.execute(
+            updated = connection.execute(
                 """
                 UPDATE source_conflicts
                    SET status = ?, resolution_json = ?, resolved_at = ?
-                 WHERE id = ?
+                 WHERE id = ? AND status = 'open'
                 """,
                 (status, _json(resolution), now if status in {"resolved", "dismissed"} else None, conflict_id),
             )
+            if not updated.rowcount:
+                return None
             connection.execute(
                 """
                 INSERT INTO source_conflict_resolutions(

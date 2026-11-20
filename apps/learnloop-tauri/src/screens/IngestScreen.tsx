@@ -33,7 +33,7 @@ function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extr
   return `Text recognition ≈ $${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(2)}`;
 }
 
-// ── Source-kind detection (mirrors src/learnloop/services/source_ingestion.py) ──
+// Source-kind preview; backend classification is in learnloop/ingest/resolution.py.
 function detectKind(source: string): Kind | null {
   const s = (source || "").trim();
   if (!s) return null;

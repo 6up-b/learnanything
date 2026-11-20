@@ -35,3 +35,18 @@ def test_pypdf_text_with_lone_surrogates_reads_with_replacement_characters(monke
     monkeypatch.setattr(PageObject, "extract_text", lambda self, *a, **kw: " L = \ud835 ∑ p ")
     ir = PyPdfDocumentExtractor().extract(out.getvalue(), ExtractionContext("rev"))
     assert ir.blocks[0].text == "L = � ∑ p"
+
+
+@pytest.mark.parametrize("engine", ["auto", "native", "marker", "pypdf"])
+def test_image_without_upload_ok_returns_its_card_requirement(monkeypatch, engine):
+    monkeypatch.setenv("ZAI_API_KEY", "synthetic-key")
+    extractor, consent = pdf_extractor_for(
+        {"engine": engine}, raw_bytes=b"\x89PNG\r\n\x1a\n",
+        upload_allowed=False, require_upload_ok=False,
+    )
+    assert extractor.name == "glm_ocr"
+    assert consent.flow == "glm_ocr_upload"
+    assert consent.plain_message == (
+        "Reading this image with GLM-OCR sends it to z.ai, which needs your OK first. "
+        "Say OK on its card in the Library."
+    )

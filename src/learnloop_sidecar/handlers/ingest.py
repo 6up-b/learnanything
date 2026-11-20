@@ -30,7 +30,8 @@ _RECENT_LIMIT = 30
 # (min, max, label, error code). Three entry points let a ceiling be moved — the
 # failed-synthesis retry panel, the build-plan per-run override, and Settings →
 # Token budgets — and they previously carried their own copies of these numbers.
-# One table so they cannot drift; the frontend reads them off `get_settings`.
+# Backend validation bounds; SettingsScreen and OutlineAndPlan read them via `get_settings`.
+# IngestActivity still keeps its own bounds.
 BUDGET_BOUNDS: dict[str, tuple[int, int, str, str]] = {
     "inventory_input_tokens": (1_000, 2_000_000, "Inventory input ceiling", "invalid_inventory_budget"),
     "inventory_output_tokens": (1_000, 100_000, "Inventory output budget", "invalid_inventory_budget"),
