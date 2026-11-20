@@ -114,6 +114,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `retrievability`; statically calls `retrievability`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `retrievability`
 
+### Repository tooling consumers
+
+- [scripts/probe_router_report.py](../../../../../../scripts/probe_router_report.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -148,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fork_starts_new_lineage_and_state_without_inherited_stability`
   - `test_minor_successor_retains_lineage_and_state`
   - `test_rebuild_is_deterministic_and_independent_of_practice_item_cache`
+- [tests/test_diagnostic_probe_value.py](../../../../../../tests/test_diagnostic_probe_value.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
   - `test_report_on_real_session_flow`
 - [tests/test_family_evaluation.py](../../../../../../tests/test_family_evaluation.py) — direct import

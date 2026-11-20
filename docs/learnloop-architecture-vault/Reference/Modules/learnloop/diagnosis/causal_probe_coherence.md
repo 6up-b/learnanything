@@ -146,6 +146,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `repair_class_need_for_factor`; statically calls `repair_class_need_for_factor`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `candidate_has_current_blind_input_contract`, `transition_probe_candidate`; statically calls `candidate_has_current_blind_input_contract`, `transition_probe_candidate`
 
+### Repository tooling consumers
+
+- [scripts/probe_router_report.py](../../../../../../scripts/probe_router_report.py)
+
 ## Dependencies
 
 ### LearnLoop dependencies

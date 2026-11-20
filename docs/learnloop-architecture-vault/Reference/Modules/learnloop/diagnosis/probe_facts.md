@@ -108,6 +108,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `probe_facts`, `probe_verdict`; statically calls `probe_facts`, `probe_verdict`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `settled_by_repair_classes`; statically calls `settled_by_repair_classes`
 
+### Repository tooling consumers
+
+- [scripts/probe_router_report.py](../../../../../../scripts/probe_router_report.py); calls `probe_facts`, `probe_verdict`
+
 ## Dependencies
 
 ### LearnLoop dependencies

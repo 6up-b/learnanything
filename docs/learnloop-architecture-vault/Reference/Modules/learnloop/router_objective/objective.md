@@ -91,8 +91,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `numeric_choice`
 - [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]] — imports `module`
+- [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] — imports `Evaluation`, `Valued`, `_LEDGER_FIELDS`, `_Ledger`, `_terms`, `numeric_choice`; statically calls `Evaluation`, `Valued`, `_Ledger`, `_terms`, `numeric_choice`
 - [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]] — imports `Evaluation`, `Valued`, `_Ledger`, `_terms`; statically calls `Evaluation`, `Valued`, `_terms`
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `module`; statically calls `paired_standard_error`
+
+### Repository tooling consumers
+
+- [scripts/probe_router_report.py](../../../../../../scripts/probe_router_report.py); calls `numeric_choice`
 
 ## Dependencies
 
@@ -112,7 +117,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_job|learnloop.daily_plan.objective_job]], [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]], [[Reference/Modules/learnloop/router_objective/rollouts|learnloop.router_objective.rollouts]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -121,6 +126,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/rospeed_ad_link_helpers.py](../../../../../../tests/rospeed_ad_link_helpers.py) — direct import
 - [tests/test_action_kinds_complete.py](../../../../../../tests/test_action_kinds_complete.py) — direct import
   - `test_action_kind_has_a_rollout_effect`
+- [tests/test_diagnostic_probe_value.py](../../../../../../tests/test_diagnostic_probe_value.py) — direct import
+  - `test_the_probe_answer_is_not_also_a_binary_ability_observation`
 - [tests/test_objective_terms.py](../../../../../../tests/test_objective_terms.py) — direct import
   - `test_a_candidates_value_is_the_mean_of_its_draws_and_v_is_the_reference_rows`
   - `test_the_ledger_holds_every_term_and_nothing_else`
