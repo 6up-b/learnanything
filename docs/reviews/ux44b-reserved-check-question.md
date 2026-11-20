@@ -239,3 +239,149 @@ Five changed files; +380/-8 lines (net +372). Production is +15/-7 (net +8); the
 is +13, the new regression file +110, and the ledger status is +1/-1. The
 remaining additions are this record. UX-44b is marked fixed in the working tree
 of `fix/ux44b-reserved-check-question`, not yet committed or landed.
+
+## Round 2: a check that is dead by date reserves nothing
+
+The landing gate (the lane that runs over copies of real vaults; counts and
+field values only) found one test failed, deterministically, with round 1 and
+passes without it:
+`tests/test_sidecar_contract.py::test_sidecar_get_knowledge_map_deterministic_and_geometric`.
+It starts the sidecar twice on the same vault (initialize, then
+`get_knowledge_map`) and requires equal results. With round 1 exactly one of
+99 points differs in exactly one field, `queued`. The vault holds ONE
+`followup_tasks` row of kind `certification_cold_probe` whose status is still
+`pending` although its `expires_at` passed months ago (its `not_before` and
+`expires_at` are a week apart, both long past). In the first run the task is
+still pending when the map is computed, so round 1 withholds its selected
+question (`queued` false); during that same run the sidecar's housekeeping
+marks the task `expired` (the vault's `followup_tasks` row changes and a
+`goal_lifecycle_events` row is written); in the second run the question is
+queued again. Without round 1 the map does not depend on the task and both
+runs agree. Round 1 reserves the question of a task that is OPEN BY STATUS
+BUT DEAD BY DATE. A reservation must hold only while the check can still be
+administered. These are the supplied observations; no real vault was opened.
+
+The reused predicate is `serve_eligibility.FollowupTask.unexpired(at)`, via
+`FollowupTask.from_row(task)`. The follow-up lane's `_decide_cold_check` uses
+this predicate before its `due(at)` check. The latter additionally requires
+`not_before <= at`; requiring that for reservation would spend the question
+before its day, so reservation uses **unexpired**, including the future
+window. `open_followup_tasks_of_kind` supplies the `pending`/`served` status
+filter. Expiry is inclusive: exactly at `expires_at` still reserves; after
+it reserves nothing. No second date predicate was introduced.
+
+The store's `pending_followup_practice_items(clock=...)` calls
+`due_followup_tasks(clock=...)`. On a writable attach the latter lazily
+marks open tasks expired when `expires_at < utc_now_iso(clock)` and releases
+cold-retry episodes with no open replacement. On a read-only attach it
+performs the same dated selection without the marks. `_due_queue` reads
+routine exclusions before that follow-up read: this ordering explains the
+first-read discrepancy. The fix makes reservation independent of the lazy
+mark; it does not move or add housekeeping writes.
+
+At initialize, `SidecarContext.load` calls
+`schedule_certification_cold_probes` without a supplied clock (its existing
+`SystemClock` boundary). Certification scheduling cancels withdrawn or
+superseded certificates through `expire_followup_task`; an unchanged
+certificate's existing task is retained regardless of date. It is the lazy
+follow-up read that expires its elapsed window. Initialize also calls the
+separate `router_objective.goal_lifecycle.sweep`, whose events describe goal
+YAML changes, using its supplied clock or the existing system-clock default.
+The store's date-expiry update itself does not write a goal lifecycle event.
+
+Every routine-exclusion caller now passes an explicit instant:
+
+| Caller | Time passed |
+|---|---|
+| `scheduler._due_queue` | Its existing UTC `now`, resolved from the build/read caller's clock (or the scheduler entry's existing `SystemClock` default) |
+| `scheduler._outside_build_admission` | Its required `now` from the admission caller, also used to build its `FrozenClock` |
+| `daily_plan.objective_inputs.check_eligible_items` | New required keyword `now`; both engine callers, `_draw_randomized_checks` and `_checks_to_place`, supply `env.now()` |
+| `out_of_timing_serving_exclusions` | One `now = clock.now()` shared by its task filter, reveal window and routine exclusions; `clock` is now required |
+
+No exclusion function reads the wall clock or silently supplies a default.
+The out-of-timing callers also resolve time explicitly: plan `slot_facts`
+passes `FrozenClock(env.now())`; scheduler placement, `PracticeAdmission.load`
+and quick-check candidate selection pass their supplied clock, or explicitly
+construct `SystemClock()` at that caller boundary when the existing optional
+clock is absent. `PlanEnv.now()` already resolves its optional clock there.
+The objective reader previously had no clock argument and now requires one
+instant at its own entry point. Test callers pass their fixture's clock or
+instant; their existing assertions and protection matrix cells are unchanged.
+
+Point 3: the out-of-timing **task loop** had exactly the same status-only gap.
+It now uses the same one-line `FollowupTask.unexpired` filter, for all supplied
+cold task kinds. A standalone expired cold-retry task therefore stops reserving
+through that loop too. The **episode reservation** remains a separate gap:
+`pending_remediation_cold_item_ids` and `open_remediation_cold_item_ids` both
+use `_remediation_cold_item_ids`, an SQL `EXISTS` over pending/served retry
+rows without a date. They can reserve an episode's cold item until lazy
+expiry marks its last retry and `_release_cold_reservation` abandons its
+`cold_scheduled` episode. The wider method also intentionally holds pre-task
+episodes awaiting their primed attempt. Fixing these needs a dated episode
+query/API, not a one-line use of the shared task predicate, so it is listed
+and left unchanged under point 3. It can still contribute that item through
+the routine or out-of-timing episode union despite the corrected task loop.
+
+Fail-first regressions extend `test_certification_serving_reservation.py`:
+complete queue rows, plan candidate rows, and full-list handler sections equal
+the same vault's no-task baseline when a pending task has a past window.
+Each also asserts the selected item is available (pickability means the
+full-list availability boundary of round 1, not a new arbitrary-ID gate).
+Queue and direct knowledge-map handler reads agree before/after the actual
+lazy expiry, with the pending-to-expired transition asserted. These use the
+existing certified vault helper and no sockets or startup worker. Opposed
+wall/caller dates exercise the queue, outside-build admission, and
+out-of-timing selectors in both directions. The wall date is simulated for
+repeatability; the historical pinned-live case also predates the actual date
+of this review. The live controls and all eight round 1 tests still pass.
+
+The initial harness mistakenly supplied `clock` to `exclusion_now`, which
+has no such argument: `9 failed, 2 passed in 2.80s` included two TypeErrors.
+After using the actual clock-bearing `pool_admission(now=...)` entry, the
+final fail-first run on unchanged round 1 production code was **8 failed,
+3 passed in 2.76s**. All failures were behavioral assertions: the three
+baseline surfaces, queue and map equality across housekeeping, and the three
+expired-at-caller-time cases. The three pinned-live controls already passed.
+
+Round 1's `cold_check_reserved` reason, serving surfaces, certification matrix
+cell and no-tag decision remain. No schema, algorithm identity, certificate
+selection, due window, outcome meaning or replay derivation changes. UX-44b's
+ledger retains `fixed on fix/ux44b-reserved-check-question, not yet landed`
+(with the branch formatted as code in the ledger). Its regression wording now
+states that a task dead by date reserves nothing at the caller's clock.
+
+Validation commands use the supplied `{SCRATCH}/t.sh` and `{SCRATCH}/py.sh`
+wrappers, abbreviated below as `t.sh` and `py.sh`. Inspection used read-only
+`cat`, `sed`, `rg`, and `git status/diff`; no staging or commit command ran.
+The core sweep is the 33 explicit files in round 1's core command above plus
+`tests/test_knowledge_map_text_neighbors.py` (34 files, one chunk). It used
+`-q -n 2 -m 'not arc_close' -o faulthandler_timeout=60 --tb=short`.
+
+| Command / run | Result line |
+|---|---|
+| `t.sh tests/test_certification_serving_reservation.py -k 'dead_by_date or pinned_date' -q -n 2` (initial harness) | `9 failed, 2 passed in 2.80s`; two harness TypeErrors as above |
+| Same command plus `--tb=short` (corrected fail-first) | `8 failed, 3 passed in 2.76s` |
+| `t.sh tests/test_certification_serving_reservation.py tests/test_protection_surface_matrix.py -q -n 2 --tb=short` | `173 passed in 36.56s` |
+| `t.sh tests/test_identity_pins.py tests/test_diagnosis_journey_golden.py tests/test_structure_ratchets.py tests/test_mobile_allowlist.py -q -n 2 --tb=short` | `701 passed in 20.48s`; no moved pin or golden |
+| Core sweep (34 files, specified above) | `407 passed, 9 skipped, 1 xfailed in 68.59s (0:01:08)` |
+| `t.sh tests/test_ad23_inversion.py tests/test_attempt_content_state_successor.py tests/test_exam_protection_review.py tests/test_followup_single_use.py tests/test_ro5_checks.py tests/test_teacher_te2_probes.py -q -n 2 -m 'not arc_close' -o faulthandler_timeout=60 --tb=short` | `160 passed in 23.98s` |
+| `t.sh tests/test_test_layout.py -q -n 1 --tb=short` (alone) | `3 passed in 19.56s` |
+| `t.sh tests/test_architecture.py -q -n 1 --tb=short` (alone) | `18 passed in 30.59s` |
+| `py.sh ruff check` (initial and final) | `All checks passed!` |
+| `py.sh lint-imports --no-cache` (initial and final) | `Contracts: 43 kept, 0 broken.` |
+| `git diff --check` | Exit 0 |
+
+The nine core skips are absent optional fixture copies; the existing D-17
+xfail is not a pass. No socket-blocked test is counted as passing.
+
+Not verified: the copied-real-vault landing lane, the original sidecar
+subprocess gate on those vaults, live UI/phone transport, or real model calls.
+The new socket-free handler regression reproduces the queue/map discrepancy;
+it does not claim to have rerun that external gate. No personal vault,
+optional local fixture, global configuration, environment file, or credential
+was opened. No network/model calls, reference regeneration, staging, commit,
+landing, or edits to `refactor-status.md` or `CLAUDE.md` were performed.
+
+Round 2 diff from the committed round 1 plus references: 18 files, +283/-44 (net +239).
+Production: +28/-24 (net +4); tests: +108/-19 (net +89).
+All changes are unstaged; the branch remains fixed here, not yet landed.

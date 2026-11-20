@@ -35,7 +35,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-from learnloop.clock import Clock
+from learnloop.clock import Clock, SystemClock
 from learnloop.db.repositories import PracticeItemState, Repository
 from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
@@ -86,7 +86,7 @@ class PracticeAdmission:
         # shared with Today's queue and learner-field F2's quick check.
         exclusions = out_of_timing_serving_exclusions(
             vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock or SystemClock(),
         )
         return cls(
             item_states=repository.practice_item_states(),

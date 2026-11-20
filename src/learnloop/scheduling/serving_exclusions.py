@@ -63,16 +63,17 @@ from __future__ import annotations
 
 from contextlib import closing
 from dataclasses import dataclass
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from collections.abc import Iterable
 from typing import Any, Protocol
 
-from learnloop.clock import Clock, SystemClock
+from learnloop.clock import Clock
 from learnloop.content.sources.exam_material import held_out_items, held_out_selection_active
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.goals.exam_pool import reserved_item_ids
 from learnloop.scheduling import controller_ownership
+from learnloop.serve_eligibility import FollowupTask
 from learnloop.substrate.instrument_serving import unservable_reason
 from learnloop.vault.lifecycle import practice_item_servable
 
@@ -82,7 +83,7 @@ class ServingExclusions:
     reserved_exam_item_ids: frozenset[str]
     rung_variant_hold_ids: frozenset[str]
     staged_owned_item_ids: frozenset[str]
-    #: Routine serving holds pending remediation retries and open certification checks;
+    #: Routine serving holds pending remediation retries and unexpired open certification checks;
     #: :func:`out_of_timing_serving_exclusions` widens it to the open
     #: cold tasks' items and every live episode's chosen item (``open_remediation_cold_item_ids``).
     cold_check_reserved_item_ids: frozenset[str] = frozenset()
@@ -114,8 +115,8 @@ class ServingExclusions:
         return self.item_ids | self.cold_check_reserved_item_ids | self.revealed_recently_item_ids
 
 
-def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExclusions:
-    """The shared exclusion sets, each read once."""
+def routine_serving_exclusions(vault: Any, repository: Repository, *, now: datetime) -> ServingExclusions:
+    """The shared exclusion sets, each read once at the caller's instant."""
 
     from learnloop.followup_serve.identity import door_sets
 
@@ -125,7 +126,8 @@ def routine_serving_exclusions(vault: Any, repository: Repository) -> ServingExc
     cold_reserved = repository.pending_remediation_cold_item_ids() | {
         str(task["selected_item_id"])
         for task in repository.open_followup_tasks_of_kind("certification_cold_probe")
-        if task.get("selected_item_id")
+        # Not yet due still reserves; past expiry cannot be administered, even before housekeeping.
+        if task.get("selected_item_id") and FollowupTask.from_row(task).unexpired(_iso(now))
     }
     return ServingExclusions(
         reserved_exam_item_ids=frozenset(reserved_item_ids(repository)),
@@ -325,12 +327,12 @@ def out_of_timing_serving_exclusions(
     *,
     cold_followup_kinds: Iterable[str],
     reveal_window: timedelta,
-    clock: Clock | None = None,
+    clock: Clock,
     exclude_reveal_ids: Iterable[str] | None = None,
 ) -> ServingExclusions:
-    """The routine sets plus the items reserved by open cold follow-up tasks of
+    """The routine sets plus the items reserved by unexpired open cold follow-up tasks of
     ``cold_followup_kinds`` and the items revealed within ``reveal_window``
-    (the cold retrieval delay), read once.
+    (the cold retrieval delay), read once at the caller's clock.
 
     ``exclude_reveal_ids``: reveal rows the caller may not read (adaptive
     difficulty's material view withholds them); None reads every row, as the
@@ -338,19 +340,19 @@ def out_of_timing_serving_exclusions(
 
     from learnloop.db.stores.practice_index import items_revealed_between
 
-    now = (clock or SystemClock()).now()
+    now = clock.now()
     cold_reserved = {
         str(task["selected_item_id"])
         for kind in sorted(set(cold_followup_kinds))
         for task in repository.open_followup_tasks_of_kind(kind)
-        if task.get("selected_item_id")
+        if task.get("selected_item_id") and FollowupTask.from_row(task).unexpired(_iso(now))
     } | repository.open_remediation_cold_item_ids()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         revealed = items_revealed_between(
             connection, since=_iso(now - reveal_window), until=_iso(now),
             exclude_ids=exclude_reveal_ids,
         )
-    routine = routine_serving_exclusions(vault, repository)
+    routine = routine_serving_exclusions(vault, repository, now=now)
     return ServingExclusions(
         reserved_exam_item_ids=routine.reserved_exam_item_ids,
         rung_variant_hold_ids=routine.rung_variant_hold_ids,

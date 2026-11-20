@@ -7,11 +7,12 @@ from datetime import timedelta
 import pytest
 
 from learnloop import learner_protection, serve_eligibility
+from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.instructional.policy import cold_administration_open
 from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 from learnloop.vault.loader import load_vault
-from tests.helpers import create_basic_vault
+from tests.helpers import NOW, create_basic_vault
 
 
 @pytest.fixture
@@ -34,7 +35,7 @@ def test_a_cold_item_chosen_for_a_treatment_is_reserved_before_its_task_exists(w
     assert cold_administration_open(repository, cold_item)
     exclusions = out_of_timing_serving_exclusions(
         vault, repository, cold_followup_kinds=sorted(serve_eligibility.COLD_FOLLOWUP_TASK_KINDS),
-        reveal_window=timedelta(days=1))
+        reveal_window=timedelta(days=1), clock=FrozenClock(NOW))
     assert cold_item in exclusions.cold_check_reserved_item_ids
 
 
@@ -89,7 +90,7 @@ def test_the_learner_initiated_selectors_keep_the_wider_reservation(world):
 
     def held() -> bool:
         return cold_item in out_of_timing_serving_exclusions(
-            vault, repository, cold_followup_kinds=kinds, reveal_window=timedelta(days=1)).out_of_timing_item_ids
+            vault, repository, cold_followup_kinds=kinds, reveal_window=timedelta(days=1), clock=FrozenClock(NOW)).out_of_timing_item_ids
 
     assert held()
     repository.update_remediation_episode(episode["id"], state="cold_scheduled", primed_attempt_id=None)

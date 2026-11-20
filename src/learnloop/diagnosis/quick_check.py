@@ -43,7 +43,7 @@ import sqlite3
 from typing import Any
 
 from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.placement import insert_quick_check, insert_quick_check_item
 from learnloop.diagnosis.calibration_sessions import (
@@ -189,7 +189,7 @@ def _candidate_items(
     item_states = repository.practice_item_states()
     serving_excluded = out_of_timing_serving_exclusions(
         vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
-        reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+        reveal_window=COLD_RETRIEVAL_DELAY, clock=clock or SystemClock(),
     ).out_of_timing_item_ids
     # The one eligibility decision (``serve_eligibility``, QUICK_CHECK): never
     # an item submit would prime (a reveal of its answer, at any age, since it

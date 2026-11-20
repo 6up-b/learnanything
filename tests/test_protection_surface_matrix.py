@@ -452,7 +452,7 @@ def _routine(probe: Probe, target: Target) -> str:
     world = probe.world(target)
     vault, item = _item(world, target)
     try:
-        exclusions = probe.once(world, "RT", lambda: routine_serving_exclusions(vault, world.repository))
+        exclusions = probe.once(world, "RT", lambda: routine_serving_exclusions(vault, world.repository, now=CLOCK.now()))
     except Exception:  # noqa: BLE001
         return R
     return W if routine_withhold_reason(vault, item, None, exclusions) else S

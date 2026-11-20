@@ -74,7 +74,7 @@ def _served(vault, repository) -> bool:
 
     state = repository.practice_item_states().get(ITEM)
     reason = routine_withhold_reason(
-        vault, vault.practice_items[ITEM], state, routine_serving_exclusions(vault, repository)
+        vault, vault.practice_items[ITEM], state, routine_serving_exclusions(vault, repository, now=CLOCK.now())
     )
     return reason != "inactive_state"
 
