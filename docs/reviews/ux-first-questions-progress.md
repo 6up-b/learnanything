@@ -89,7 +89,7 @@ No existing assertion changed.
 
 ## What I ran
 
-Every npm/npx run through the scratch wrapper (`env -i`, empty `HOME`/`CODEX_HOME`/config dir, `npm_config_cache=/home/saturn/.npm`) in `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, one at a time.
+Every npm/npx run through the scratch wrapper (`env -i`, empty `HOME`/`CODEX_HOME`/config dir, the shared npm cache) in `systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=1G`, one at a time.
 
 - `npm ci`, desktop and phone: exit 0 (install scripts not run, as npm reports by default here; vitest and vite ran).
 - Fail-first, as above: desktop `npx vitest run --maxWorkers=4 src/screens/today/TodayPlace.test.tsx src/copy/denyList.test.tsx`: Test Files 2 failed, Tests 7 failed | 109 passed (116); phone `src/today/Today.plan.test.tsx`: Tests 4 failed | 33 passed (37); the copied-count test: Tests 1 failed | 3 passed | 113 skipped.
