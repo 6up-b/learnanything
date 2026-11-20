@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
+  - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/probe_remint.py"
-  - "src/learnloop/diagnosis/text_gaps/actions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -91,6 +91,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
@@ -107,7 +108,6 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/deliverables.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
-- `src/learnloop_sidecar/handlers/learner_gaps.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

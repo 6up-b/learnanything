@@ -928,6 +928,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_pair_must_satisfy_both_the_persona_gate_and_the_pair_gate`
   - `test_a_pair_the_persona_gate_cannot_plant_does_not_ship`
   - `test_a_pair_whose_members_fall_in_different_bands_is_rejected`
+  - `test_incremental_pair_judgment_keeps_applied_members_and_refuses_the_later_row`
   - `test_members_far_apart_inside_one_wide_band_are_also_rejected`
   - `test_the_doctor_catches_a_one_sided_pair_binding`
   - `test_three_rows_claiming_one_pair_key_are_refused_together`
@@ -3012,7 +3013,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cover_source_judges_and_caps_a_metered_run`
   - `test_cover_source_refuses_a_withheld_reading`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
-  - `test_six_topics_resume_at_the_third_answer_and_match_the_old_proposal`
+  - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
+  - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
+  - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_candidate_ranking_fuzzy_query_surfaces_match`

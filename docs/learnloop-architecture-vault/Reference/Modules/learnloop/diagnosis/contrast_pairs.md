@@ -47,68 +47,68 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py) |
-| Source lines | 1043 |
+| Source lines | 1051 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `pair_key(item_id: str, counterpart_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 94) — The shared key of one pair: the two ids, sorted, joined by ``|``.
-- `serving_seed(key: str, *, session_id: str | None, scope: str=SEED_PER_SESSION) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 116) — The seed of one pair's member-order draw (recorded on its serving rows).
-- `class ContrastPairDisposition(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 131) — What authoring may do about one identifiability finding.
-  - `authorable(self) -> bool` (line 166; public)
-- `class ContrastPairRequest` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 201) — One authoring request: separate these two things with one manipulation.
-  - `facet_ids(self) -> tuple[str, ...]` (line 224; public)
-  - `as_dict(self) -> dict[str, Any]` (line 227; public) — Payload handed to the authoring model — the request, not the report.
-- `class ContrastPairCommissionPlan` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 261) — The commissioning queue for A4, in finding order, deferrals included.
-  - `commissioned(self) -> tuple[ContrastPairRequest, ...]` (line 267; public)
-  - `deferred(self) -> tuple[ContrastPairRequest, ...]` (line 271; public)
-  - `for_subject(self, subject_id: str | None) -> tuple[ContrastPairRequest, ...]` (line 276; public)
-  - `summary(self) -> dict[str, Any]` (line 281; public)
-  - `as_dict(self) -> dict[str, Any]` (line 292; public)
-- `commission_contrast_pairs(vault: LoadedVault, repository: Repository | None=None, *, subject_id: str | None=None) -> ContrastPairCommissionPlan` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 300) — Turn identifiability findings into contrast-pair authoring requests.
-- `class PairGateReason(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 374) — Why a pair was refused.
-- `answer_skeleton(text: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 401) — The expected answer with every numeral masked (§3.A4 gate 2's test).
-- `class PairVerdict` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 431) — One pair's authoring verdict, and the numbers that decided it.
-  - `as_dict(self) -> dict[str, Any]` (line 438; public)
-- `judge_pair(first: Mapping[str, Any], second: Mapping[str, Any], *, difficulty_band: tuple[float, float] | None) -> PairVerdict` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 447) — §3.A4's three authoring gates over one pair's payloads.
-- `class ContrastPairGate` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 513) — §3.A4's authoring gates as a ``row_transform`` (the seam every gate rides).
-  - `__init__(self, vault: LoadedVault, *, difficulty_band_by_lo: Mapping[str, tuple[float, float]] | None=None) -> None` (line 528; internal)
-  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 539; internal)
-  - `_band_for(self, payload: Mapping[str, Any]) -> tuple[float, float] | None` (line 583; internal)
-  - `_resolve_single(self, key: str, row: dict[str, Any]) -> None` (line 586; internal) — A member whose counterpart is not in this batch.
-  - `_record(self, row: dict[str, Any], key: str, verdict: PairVerdict) -> None` (line 612; internal)
-- `class AdjacencyBasis(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 650) — Why the two members were or were not served adjacent (§3.A4).
-- `randomization_draw(seed: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 663) — A deterministic uniform draw in [0, 1) from a seed string.
-- `class PairServingDecision` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 679) — One pair's serving decision, before it is written or applied to a queue.
-  - `as_dict(self) -> dict[str, Any]` (line 690; public)
-- `plan_contrast_pair_serving(vault: LoadedVault, ordered_item_ids: Sequence[str], *, session_id: str | None, seed_scope: str=SEED_PER_SESSION) -> list[PairServingDecision]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 702) — Decide, for every pair in a queue, which member goes first and whether the two are separated.
-- `apply_serving_decisions(ordered_item_ids: Sequence[str], decisions: Sequence[PairServingDecision]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 781) — Reorder a queue so each pair's randomized first member precedes the other.
-- `record_contrast_pair_servings(repository: Repository, decisions: Iterable[PairServingDecision], *, session_id: str | None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 806) — Persist the serving decisions; returns rows written.
-- `contrast_pair_order_effect(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 864) — ``contrast_pair_order_effect``: A4's revert producer.
+- `pair_key(item_id: str, counterpart_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 96) — The shared key of one pair: the two ids, sorted, joined by ``|``.
+- `serving_seed(key: str, *, session_id: str | None, scope: str=SEED_PER_SESSION) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 118) — The seed of one pair's member-order draw (recorded on its serving rows).
+- `class ContrastPairDisposition(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 133) — What authoring may do about one identifiability finding.
+  - `authorable(self) -> bool` (line 168; public)
+- `class ContrastPairRequest` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 203) — One authoring request: separate these two things with one manipulation.
+  - `facet_ids(self) -> tuple[str, ...]` (line 226; public)
+  - `as_dict(self) -> dict[str, Any]` (line 229; public) — Payload handed to the authoring model — the request, not the report.
+- `class ContrastPairCommissionPlan` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 263) — The commissioning queue for A4, in finding order, deferrals included.
+  - `commissioned(self) -> tuple[ContrastPairRequest, ...]` (line 269; public)
+  - `deferred(self) -> tuple[ContrastPairRequest, ...]` (line 273; public)
+  - `for_subject(self, subject_id: str | None) -> tuple[ContrastPairRequest, ...]` (line 278; public)
+  - `summary(self) -> dict[str, Any]` (line 283; public)
+  - `as_dict(self) -> dict[str, Any]` (line 294; public)
+- `commission_contrast_pairs(vault: LoadedVault, repository: Repository | None=None, *, subject_id: str | None=None) -> ContrastPairCommissionPlan` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 302) — Turn identifiability findings into contrast-pair authoring requests.
+- `class PairGateReason(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 376) — Why a pair was refused.
+- `answer_skeleton(text: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 403) — The expected answer with every numeral masked (§3.A4 gate 2's test).
+- `class PairVerdict` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 433) — One pair's authoring verdict, and the numbers that decided it.
+  - `as_dict(self) -> dict[str, Any]` (line 440; public)
+- `judge_pair(first: Mapping[str, Any], second: Mapping[str, Any], *, difficulty_band: tuple[float, float] | None) -> PairVerdict` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 449) — §3.A4's three authoring gates over one pair's payloads.
+- `class ContrastPairGate` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 515) — §3.A4's authoring gates as a ``row_transform`` (the seam every gate rides).
+  - `__init__(self, vault: LoadedVault, *, difficulty_band_by_lo: Mapping[str, tuple[float, float]] | None=None) -> None` (line 530; internal)
+  - `__call__(self, rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]]=()) -> None` (line 541; internal)
+  - `_band_for(self, payload: Mapping[str, Any]) -> tuple[float, float] | None` (line 591; internal)
+  - `_resolve_single(self, key: str, row: dict[str, Any]) -> None` (line 594; internal) — A member whose counterpart is not in this batch.
+  - `_record(self, row: dict[str, Any], key: str, verdict: PairVerdict) -> None` (line 620; internal)
+- `class AdjacencyBasis(StrEnum)` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 658) — Why the two members were or were not served adjacent (§3.A4).
+- `randomization_draw(seed: str) -> float` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 671) — A deterministic uniform draw in [0, 1) from a seed string.
+- `class PairServingDecision` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 687) — One pair's serving decision, before it is written or applied to a queue.
+  - `as_dict(self) -> dict[str, Any]` (line 698; public)
+- `plan_contrast_pair_serving(vault: LoadedVault, ordered_item_ids: Sequence[str], *, session_id: str | None, seed_scope: str=SEED_PER_SESSION) -> list[PairServingDecision]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 710) — Decide, for every pair in a queue, which member goes first and whether the two are separated.
+- `apply_serving_decisions(ordered_item_ids: Sequence[str], decisions: Sequence[PairServingDecision]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 789) — Reorder a queue so each pair's randomized first member precedes the other.
+- `record_contrast_pair_servings(repository: Repository, decisions: Iterable[PairServingDecision], *, session_id: str | None, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 814) — Persist the serving decisions; returns rows written.
+- `contrast_pair_order_effect(vault: LoadedVault, repository: Repository, *, since: str | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 872) — ``contrast_pair_order_effect``: A4's revert producer.
 
 ### Module constants
 
-- `CONTRAST_PAIR_VERSION` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 91)
-- `SEED_PER_SESSION` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 112)
-- `SEED_PER_PAIR` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 113)
-- `DEFERRAL_REASON` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 172)
-- `PAIR_BAND_TOLERANCE` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 366)
-- `MAX_WITHIN_PAIR_DIFFICULTY_GAP` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 371)
-- `_DIGITS` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 398)
-- `ORDER_EFFECT_METRIC` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 847)
-- `MIN_COMPLETED_PAIRS` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 850)
-- `ORDER_DOMINANCE_CEILING` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 855)
-- `ORDER_EFFECT_ALPHA` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 861)
+- `CONTRAST_PAIR_VERSION` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 93)
+- `SEED_PER_SESSION` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 114)
+- `SEED_PER_PAIR` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 115)
+- `DEFERRAL_REASON` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 174)
+- `PAIR_BAND_TOLERANCE` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 368)
+- `MAX_WITHIN_PAIR_DIFFICULTY_GAP` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 373)
+- `_DIGITS` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 400)
+- `ORDER_EFFECT_METRIC` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 855)
+- `MIN_COMPLETED_PAIRS` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 858)
+- `ORDER_DOMINANCE_CEILING` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 863)
+- `ORDER_EFFECT_ALPHA` ([src/learnloop/diagnosis/contrast_pairs.py](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 869)
 
 ## Internal implementation anchors
 
-- `_disposition_for(finding: IdentifiabilityFinding) -> ContrastPairDisposition` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 186) — Total over the finding vocabulary.
-- `_expected_text(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 423)
-- `_payload_of(item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 627) — A persisted item rendered as the payload shape the gates read.
-- `_latest_correctness(attempts: Sequence[Mapping[str, Any]]) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 1021) — The most recent scored correctness on one item, or ``None``.
-- `_adjacency_tally(servings: Sequence[Mapping[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 1038)
+- `_disposition_for(finding: IdentifiabilityFinding) -> ContrastPairDisposition` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 188) — Total over the finding vocabulary.
+- `_expected_text(payload: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 425)
+- `_payload_of(item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 635) — A persisted item rendered as the payload shape the gates read.
+- `_latest_correctness(attempts: Sequence[Mapping[str, Any]]) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 1029) — The most recent scored correctness on one item, or ``None``.
+- `_adjacency_tally(servings: Sequence[Mapping[str, Any]]) -> dict[str, int]` ([source](../../../../../../src/learnloop/diagnosis/contrast_pairs.py), line 1046)
 
 ## Who imports or calls it
 
@@ -138,7 +138,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `enum`, `hashlib`, `typing`
+- Standard library: `__future__`, `copy`, `dataclasses`, `enum`, `hashlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

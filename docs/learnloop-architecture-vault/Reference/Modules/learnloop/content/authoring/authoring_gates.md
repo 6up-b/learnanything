@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/authoring_gates.py](../../../../../../../src/learnloop/content/authoring/authoring_gates.py) |
-| Source lines | 417 |
+| Source lines | 420 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,9 +61,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 98; internal)
 - `remediate_instrument_gate_failures(rows: list[dict[str, Any]], *, persona_gate: PersonaGate) -> None` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 219) — Mechanically repair the two remediable gate failures, then re-judge.
 - `class InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 293) — The composed Stage-5.3/6 instrument gates, with named handles.
-  - `__call__(self, rows: list[dict[str, Any]]) -> None` (line 307; internal)
-  - `diagnostics(self) -> list[dict[str, Any]]` (line 317; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
-- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 376) — The standard composition: leading → surface → rung → persona → pair.
+  - `__call__(self, rows: list[dict[str, Any]], *, applied_rows: Sequence[dict[str, Any]]=()) -> None` (line 307; internal)
+  - `diagnostics(self) -> list[dict[str, Any]]` (line 320; public) — Gate outcomes in the synthesis lanes' ``gate_diagnostics`` shape.
+- `build_instrument_gates(vault: Any, repository: Any | None=None, *, grading_client: Any=None, rung_gate: Any | None=None, difficulty_band_by_lo: dict[str, tuple[float, float]] | None=None, leading: Sequence[RowGate]=()) -> InstrumentGateChain` ([source](../../../../../../../src/learnloop/content/authoring/authoring_gates.py), line 379) — The standard composition: leading → surface → rung → persona → pair.
 
 ### Module constants
 
@@ -127,6 +127,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_remediation_bails_when_the_stem_is_the_surface`
 - [tests/test_contrast_pairs.py](../../../../../../../tests/test_contrast_pairs.py) — direct import
   - `test_a_later_topic_can_revoke_an_earlier_parts_pair_gate_verdict`
+  - `test_incremental_pair_judgment_keeps_applied_members_and_refuses_the_later_row`
 
 ## Modification guidance
 

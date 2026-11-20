@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_while_the_plan_serves_the_full_list_logs_no_system_choice_and_every_bind_is_a_pick`
 - [tests/test_router_r1_composition.py](../../../../../../tests/test_router_r1_composition.py) — direct import
   - `test_the_full_list_seam_reads_the_plan`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_a_learners_pick_of_a_cold_check_submit_would_prime_is_served_as_practice`
 

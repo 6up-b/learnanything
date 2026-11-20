@@ -462,6 +462,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_requested_item_pulled_to_front`
   - `test_requested_item_surfaces_and_respects_gates`
   - `test_stateless_requested_item_survives_eligibility`
+- [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
+  - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_it_honestly`
   - `test_the_real_serve_paths_agree_with_submit`

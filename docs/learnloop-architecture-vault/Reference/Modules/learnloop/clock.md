@@ -1923,7 +1923,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_supersession_is_not_harm_and_is_reported_separately`
 - [tests/test_secondary_attach.py](../../../../../tests/test_secondary_attach.py) — direct import
 - [tests/test_section_question_parts.py](../../../../../tests/test_section_question_parts.py) — direct import
-  - `test_six_topics_resume_at_the_third_answer_and_match_the_old_proposal`
+  - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
+  - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
 - [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_when_label_already_rubric_fatal`

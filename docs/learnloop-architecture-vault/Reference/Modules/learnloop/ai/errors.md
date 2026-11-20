@@ -124,7 +124,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `AIProviderUnavailable`, `CodexTurnTimeout`, `CodexUnavailable`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `AIInterrupted`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `AIInterrupted`
-- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `AIInvalidOutput`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; statically calls `AIInvalidOutput`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `AIOutputTruncated`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `AIInterrupted`, `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `AIInterrupted`, `AIProviderUnavailable`; statically calls `AIProviderUnavailable`
