@@ -380,3 +380,41 @@ it("during a check, Ask's refusal names the control the card shows", async () =>
   expect(screen.getByTestId("practice-refusal").textContent).toContain("“Stop diagnosing and teach me”");
   expect(callbacks.onError).not.toHaveBeenCalled();
 });
+
+// Broken controls, third round (UX-48): "Redo the part you missed" printed the repair suggestion's rationale, written
+// for the system ("elicit the omitted computations before revealing the repaired trace"), as "What to fix".
+const RATIONALE = "Preserve the correct setup and elicit the omitted computations before revealing the repaired trace.";
+function redoContext(overrides: Record<string, unknown> = {}) {
+  return {
+    version: 1, attemptId: "att_1", practiceItemId: ITEM_ID, prompt: "Compute det(A) for the 3x3 matrix A.",
+    learnerWorkPrefix: "Expanding along the first row:", redoInstruction: RATIONALE, failedCheckpointIds: [],
+    repairClassId: "rc_1", episodeId: null, coldItemId: null, coldUnmeasurableReason: null,
+    practiceItem: item(), ...overrides
+  } as unknown as NonNullable<ComponentProps<typeof PracticeScreen>["redo"]>;
+}
+
+it("the redo's 'What to fix' is the rubric lines the answer missed, in the feedback's words, never the system's rationale (UX-48)", async () => {
+  render(<PracticeScreen {...props({ redo: redoContext({ missedLines: [{ text: "Gets the value -3", partly: false }, { text: "Expands along a row with the right signs", partly: true }] }) })} />);
+  expect(await screen.findByText("Redo the part you missed")).toBeTruthy();
+  const fix = screen.getByTestId("redo-what-to-fix");
+  expect(fix.textContent).toContain("What to fix:");
+  expect(fix.textContent).toContain("✗ Gets the value -3");
+  expect(fix.textContent).toContain("◐ Expands along a row with the right signs");
+  expect(bodyText()).not.toContain(RATIONALE);
+  expect(bodyText()).not.toMatch(/elicit|repaired trace/);
+});
+
+it("a redo with no missed lines to show says no 'What to fix' rather than the rationale (UX-48)", async () => {
+  render(<PracticeScreen {...props({ redo: redoContext() })} />);
+  expect(await screen.findByText("Redo the part you missed")).toBeTruthy();
+  expect(screen.queryByTestId("redo-what-to-fix")).toBeNull();
+  expect(bodyText()).not.toContain(RATIONALE);
+});
+
+it("classic: the redo shows the missed lines too, never the rationale (UX-48)", async () => {
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
+  render(<PracticeScreen {...props({ redo: redoContext({ missedLines: [{ text: "Gets the value -3", partly: false }] }) })} />);
+  expect(await screen.findByText("guided redo")).toBeTruthy();
+  expect(screen.getByTestId("redo-what-to-fix").textContent).toContain("✗ Gets the value -3");
+  expect(bodyText()).not.toContain(RATIONALE);
+});

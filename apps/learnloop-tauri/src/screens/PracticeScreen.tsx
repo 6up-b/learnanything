@@ -1,13 +1,12 @@
 import { useCloseWithFlush } from "../app/useCloseWithFlush";
 import { registerVaultDraft } from "../app/vaultTransition";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   AttemptProgress,
   AttemptResultDto,
   AttemptType,
   CandidateErrorTypeDto,
-  GuidedRedoDto,
   PracticeItemDetail,
   ProbeBlockEndDto,
   ProbeContractDto,
@@ -33,7 +32,7 @@ import { errorMessage, getCommandError } from "../errors";
 import { expectedAnswerText, simplePracticeFeedback } from "../app/practiceFeedback";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
 import { useAnswerExposure, type RecordDisplay } from "./feedback/answerExposure";
-import { AnswerWaiting } from "./feedback/FeedbackSurface";
+import { AnswerWaiting, type RedoContext } from "./feedback/FeedbackSurface";
 import type { WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
 import { Workbench } from "./workbench/Workbench";
 import { HintPanel } from "./practice/HintPanel";
@@ -181,7 +180,7 @@ export function PracticeScreen({
   /** Fix 3 guided partial redo: the preserved learner work is rendered locked
    *  above the editor and the learner rewrites only the failed portion; the
    *  submit composes prefix + redo text as the primed answer. */
-  redo?: GuidedRedoDto | null;
+  redo?: RedoContext | null;
   gradingReady: boolean;
   gradingProvider: string;
   restoredAnswer?: string;
@@ -1892,9 +1891,7 @@ export function PracticeScreen({
             // measurement bookkeeping are receipts, not the learner's.
             <div style={{ marginTop: 10 }}>
               <div style={{ fontSize: 13, color: COLOR.text }}>Redo the part you missed</div>
-              {redo.redoInstruction ? (
-                <div style={{ ...quietLine, marginTop: 4 }}>What to fix: <span style={{ color: COLOR.text }}>{redo.redoInstruction}</span></div>
-              ) : null}
+              <RedoWhatToFix lines={redo.missedLines} label="What to fix:" style={{ ...quietLine, marginTop: 4 }} />
               <div
                 aria-label="your work so far, kept"
                 style={{
@@ -1921,11 +1918,7 @@ export function PracticeScreen({
                   your correct work is kept below — rewrite only the part that went wrong
                 </span>
               </div>
-              {redo.redoInstruction ? (
-                <div style={{ marginTop: 6, fontSize: 12, color: COLOR.text, lineHeight: 1.55 }}>
-                  <Faint>what to fix:</Faint> {redo.redoInstruction}
-                </div>
-              ) : null}
+              <RedoWhatToFix lines={redo.missedLines} label="what to fix:" style={{ marginTop: 6, fontSize: 12, color: COLOR.textDim, lineHeight: 1.55 }} />
               {redo.failedCheckpointIds.length > 0 ? (
                 <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   <Faint style={{ fontSize: 11 }}>failed steps</Faint>
@@ -3015,6 +3008,24 @@ function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType {
     if (!NON_RECORDING_ATTEMPT_TYPES.has(candidate)) return candidate;
   }
   return "independent_attempt";
+}
+
+/** What to fix in a guided redo: the rubric lines the answer missed, as its feedback showed them (✗, or ◐ for part).
+ *  Never the redo's `redoInstruction`: that is the repair suggestion's rationale, written for the system ("elicit the
+ *  omitted computations before revealing the repaired trace"), which a learner cannot act on. Nothing when the screen
+ *  that opened the redo had no lines to pass. */
+function RedoWhatToFix({ lines, label, style }: { lines: RedoContext["missedLines"]; label: string; style: CSSProperties }) {
+  if (!lines || lines.length === 0) return null;
+  return (
+    <div data-testid="redo-what-to-fix" style={style}>
+      {label}
+      {lines.map((line) => (
+        <div key={line.text} style={{ color: COLOR.text }}>
+          <span aria-hidden="true" style={{ color: line.partly ? COLOR.amber : COLOR.red }}>{line.partly ? "◐" : "✗"}</span> {line.text}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // Guided redo (Fix 3): compose the preserved prefix and the learner's rewritten

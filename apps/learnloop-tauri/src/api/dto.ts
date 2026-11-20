@@ -2206,7 +2206,8 @@ export interface GuidedRedoDto {
   practiceItemId: string;
   prompt: string;
   learnerWorkPrefix: string;
-  /** The repair op's rationale — what went wrong and what to fix. */
+  /** The repair suggestion's rationale: the diagnosis model's reason for its repair, written for the system, so never
+   *  shown to the learner (the redo shows the rubric lines the answer missed instead). */
   redoInstruction: string | null;
   failedCheckpointIds: string[];
   repairClassId: string | null;
