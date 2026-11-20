@@ -271,9 +271,12 @@ def test_the_post_miss_choice_serves_and_records_as_the_golden_says(monkeypatch)
         key = f"{spec.shape}:{outcome['chosen']}:{drawn}"
         served[key] = served.get(key, 0) + 1
     if WRITE:
-        GOLDEN.write_text(json.dumps({"digests": observed, "served": dict(sorted(served.items()))}, indent=0,
+        # One line per shape: the digests are a list only this test reads, and the golden stays a few lines long.
+        packed = {shape: " ".join(values) for shape, values in observed.items()}
+        GOLDEN.write_text(json.dumps({"digests": packed, "served": dict(sorted(served.items()))}, indent=0,
                                      sort_keys=True) + "\n", encoding="utf-8")
     golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    golden["digests"] = {shape: values.split(" ") for shape, values in golden["digests"].items()}
     assert {shape: len(values) for shape, values in observed.items()} == {
         shape: len(values) for shape, values in golden["digests"].items()}
     differ = [names[shape][index] for shape, values in observed.items()
@@ -291,3 +294,4 @@ def test_a_case_is_the_same_bytes_run_twice(case, monkeypatch):
     with monkeypatch.context() as patch:
         second = serialized(run_case(case, spec, patch))
     assert first == second and "0x" not in first
+
