@@ -208,7 +208,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K6 | Map Reader Ask and retrieval side effects | landed | `99707376c7` | [refactor-k6.md](refactor-k6.md) | Fourteen ledger rows (K6-1 to K6-14, nine high). Fix round A landed K6-2 to K6-9 and K6-14 (`659772cde4`, [refactor-k6-fixes-a.md](refactor-k6-fixes-a.md)); K6-1 goes with the Decider's first stage and K6-10 to K6-13 with G6 |
 | K7 | Review AI transport and network boundaries | deferred | — | — | Terminal app rebuild or MCP v2 |
 | K8 | Review sidecar handlers as the application layer | deferred | — | — | Terminal app rebuild or MCP v2 |
-| K11 | Map the daily plan engine before moving code | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Owner's call on placing the map before E2 |
+| K11 | Map the daily plan engine before moving code | waiting on | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | The owner: E2 has landed, so the question is now whether the map is made at all (now, at the close, or dropped) |
 
 ## Arc K: diagnosis
 
