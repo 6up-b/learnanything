@@ -8,6 +8,36 @@ import { normalizeMathDelimiters, REMARK_PLUGINS } from "./markdownPipeline";
 // The normalization and the remark plugins live in markdownPipeline.ts, because the check behind "matches the book's
 // equation (checked)" must find the equations this page finds.
 
+// A display environment KaTeX draws (it refuses them in inline math). The web-page extraction keeps some of a
+// page's display equations as bare environments, outside any $$, and remark-math leaves those as text.
+const DISPLAY_ENVIRONMENT = /^(equation|align|gather|alignat)\*?$/;
+// What a bare environment is looked for between: code (shown as written), an escaped dollar, and math already
+// delimited (an environment inside it is that formula's own). Then a \begin{…}.
+const AROUND_ENVIRONMENTS =
+  /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`|\\\$|\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$[^$\n]+?\$)|\\begin\{([A-Za-z]+\*?)\}/g;
+
+/** Each bare display environment, put in $$ on lines of its own, as the page's own \[ … \] are. One never
+ *  closed, or one KaTeX cannot draw, is left as written. Only the page's drawing changes: the text stored and
+ *  what the book-math check reads (markdownPipeline.ts, pageMathSegments.ts) are not this. */
+function bareEnvironmentsAsDisplayMath(value: string): string {
+  if (!value.includes("\\begin{")) return value;
+  let out = "";
+  let last = 0;
+  AROUND_ENVIRONMENTS.lastIndex = 0;
+  for (let match = AROUND_ENVIRONMENTS.exec(value); match; match = AROUND_ENVIRONMENTS.exec(value)) {
+    const name = match[2];
+    if (!name || !DISPLAY_ENVIRONMENT.test(name)) continue;
+    const close = `\\end{${name}}`;
+    const end = value.indexOf(close, match.index + match[0].length);
+    if (end < 0) continue;
+    const after = end + close.length;
+    out += `${value.slice(last, match.index)}\n$$\n${value.slice(match.index, after)}\n$$\n`;
+    last = after;
+    AROUND_ENVIRONMENTS.lastIndex = after;
+  }
+  return last === 0 ? value : out + value.slice(last);
+}
+
 // Module-level plugin list: a fresh array per render defeats react-markdown's
 // own memoisation, and the component is memoised because the markdown +
 // KaTeX pipeline is the most expensive render in the app (used from dozens
@@ -39,7 +69,7 @@ export const MarkdownMath = memo(function MarkdownMath({
   return (
     <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={rehypePlugins} components={components}
       urlTransform={urlTransform}>
-      {normalizeMathDelimiters(value || "")}
+      {normalizeMathDelimiters(bareEnvironmentsAsDisplayMath(value || ""))}
     </ReactMarkdown>
   );
 });
