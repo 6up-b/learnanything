@@ -187,3 +187,25 @@ it("UX-14: closing a lesson that has ended says nothing", async () => {
   expect(screen.queryByText(/Your lesson is kept/)).toBeNull();
 });
 
+it("UX-18: a quick check with nothing to ask says so where it was asked, opens no empty check, and leaves the lesson open", async () => {
+  const startQuickCheck = vi.fn(async () => quickCheckProgress(NOTHING_ASKED));
+  apis({ startQuickCheck });
+  render(<App />);
+  await click("open lesson");
+  await click("check first");
+  expect(startQuickCheck).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "s1", learningObjectIds: ["lo_cov"] }));
+  expect(screen.queryByTestId("calibration-stub")).toBeNull();
+  expect(screen.getByTestId("lesson-stub")).toBeTruthy();
+  const notice = await screen.findByText(/^Nothing to ask yet on “Covariance matrices”/);
+  expect(findJargon(notice.textContent ?? "")).toEqual([]);
+});
+
+it("UX-18: a quick check with a question to ask opens as before (the lesson closes for it)", async () => {
+  apis({ startQuickCheck: vi.fn(async () => quickCheckProgress({ ...NOTHING_ASKED, finished: false, results: null }, "active")) });
+  render(<App />);
+  await click("open lesson");
+  await click("check first");
+  expect(await screen.findByTestId("calibration-stub")).toBeTruthy();
+  expect(screen.queryByTestId("lesson-stub")).toBeNull();
+});
+

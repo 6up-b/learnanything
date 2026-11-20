@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
-import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK } from "../copy/refusals";
+import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK, quickCheckNothingToAsk } from "../copy/refusals";
 import { LESSON_KEPT } from "./todayCause";
 import type { AddSourceItemDto, AiConnectionDto, AppSnapshot, AttemptProgress, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot, SourceLibraryCard } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
@@ -1378,7 +1378,7 @@ export function App() {
   }
 
   // Learner field F2: "Check what I already know" from the LO inspector.
-  async function startQuickCheck(learningObjectIds: string[]) {
+  async function startQuickCheck(learningObjectIds: string[], beforeOpen?: () => void) {
     // F1: after an implicit start, the vault this check was asked on; the
     // start and the check both stop if another vault opened meanwhile.
     const generation = vaultGenRef.current;
@@ -1396,6 +1396,14 @@ export function App() {
       const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
       const progress = await api.startQuickCheck({ sessionId: current.sessionId, learningObjectIds, requestId });
       if (!stillOpen()) return;
+      // A check that could ask nothing ended as it started: said where it was asked, with the screen it was asked
+      // from left as it was, rather than an empty check that reads as if the learner had been asked.
+      const nothing = quickCheckNothingToAsk(progress);
+      if (nothing) {
+        notify(nothing);
+        return;
+      }
+      beforeOpen?.();
       setInspectorId(null);
       openCalibration(progress.calibrationSessionId, { quickCheck: true });
     } catch (error) {
@@ -2484,7 +2492,7 @@ export function App() {
               setLessonEntry(null);
               if (kept) notify(LESSON_KEPT);
             }}
-            onQuickCheck={(ids) => { setLessonEntry(null); void startQuickCheck(ids); }}
+            onQuickCheck={(ids) => void startQuickCheck(ids, () => setLessonEntry(null))}
             onLookInLibrary={lookInLibrary}
             {...(lessonFromCheckFailed ? { onOpenFailed: lessonFromCheckFailed } : {})}
             onError={onError}
