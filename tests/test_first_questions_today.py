@@ -372,6 +372,58 @@ def test_landed_parts_are_counted_while_writing_or_failed(tmp_path, status, done
     assert fact["failed"] == ([{"label": f"{label}: lo_five", "resume_id": batch}] if failed else [])
 
 
+def _written_by_the_section_job(tmp_path, topics, **held):
+    """A finished section of a built book whose questions the real section job writes, every one
+    grounded and audited, those ``held`` names marked review_required; the facts are read while it
+    writes (at each call after the first) and after."""
+
+    from learnloop.content.pipeline.runner import RunnerServices
+    from tests.section_question_parts_helpers import held_writer, topics_in
+    from tests.ux_phase1_review_fixes_helpers import _drain
+
+    root, repo, _jobs_, item, _batch = _book(tmp_path)
+    lo_ids, facet = topics_in(root, "probability-book", "lo_diagonalize_symmetric", topics)
+    writer = held_writer(facet=facet, **held)
+    (section_id, label), *_ = [(unit, label) for unit, label in _section_ids(repo, item) if label]
+    extraction_id = resolve_extraction_id(repo, item["source_id"])
+    repo.upsert_reader_section_progress(extraction_id=extraction_id, section_id=section_id,
+                                        spans_seen=3, span_count=3, completed=True, clock=CLOCK)
+    _repo, jobs = _jobs(root, RunnerServices(synthesis_client_factory=lambda ctx: writer), hold=True)
+    batch_id = jobs.enqueue_practice_expansion(learning_object_ids=lo_ids, source_refs=[],
+                                               reason=f"reader_section_completed:{section_id}")
+    repo.mark_section_generation(extraction_id=extraction_id, section_id=section_id, batch_id=batch_id, clock=CLOCK)
+    seen = []
+    writer.before = lambda: seen.append(_line(root, repo, item)["questions"]) if len(writer.calls) > 1 else None
+    _drain(jobs)
+    return root, repo, item, label, batch_id, seen
+
+
+def test_a_topic_whose_questions_wait_for_a_look_is_finished_not_failed(tmp_path):
+    root, repo, item, label, batch_id, seen = _written_by_the_section_job(tmp_path, 3)
+
+    # While the second and third topics are written, the first counts as finished.
+    assert [fact["progress"] for fact in seen] == [{"done": 1, "total": 3}, {"done": 2, "total": 3}]
+    assert [fact["failed"] for fact in seen] == [[], []]
+    assert [fact["to_look_at"] for fact in seen] == [3, 6]
+    job = repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "completed", job["error"]
+    fact = _line(root, repo, item)["questions"]
+    assert fact["failed"] == []
+    assert fact["writing"] == []
+    assert fact["to_look_at"] == 9
+    assert fact["count"] == 0
+    assert "progress" not in fact
+
+
+def test_two_questions_applied_and_one_to_look_at(tmp_path):
+    root, repo, item, label, batch_id, _seen = _written_by_the_section_job(tmp_path, 1, held=(2,))
+
+    assert repo.ingest_jobs_for_batch(batch_id)[0]["status"] == "completed"
+    fact = _line(root, repo, item)["questions"]
+    assert (fact["count"], fact["to_look_at"], fact["failed"]) == (2, 1, [])
+    assert fact["sections"] == [label]
+
+
 def _set_section_job(repo, batch_id, *, status, done, total):
     job = repo.ingest_jobs_for_batch(batch_id)[0]
     _set(repo, "ingest_jobs", job["id"], status=status, current_window=done,

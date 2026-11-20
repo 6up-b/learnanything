@@ -31,30 +31,58 @@ def section(tmp_path, count=8):
     return paths, Repository(paths.sqlite_path)
 
 
-def answer(topics, *, duplicate=False, invalid=False):
+def topics_in(root, subject, template, count):
+    """``count`` topics copied from ``template`` and the note their questions cite, in another
+    library (a built book's), so the section writer's answers resolve there too; with a facet of
+    that library's registry for them to measure."""
+
+    from learnloop.vault.paths import VaultPaths
+
+    vault = load_vault(root)
+    paths = VaultPaths(vault.root, vault.config)
+    add_note(root, subject, "section", "Section", "The topic definitions.", clock=FrozenClock(NOW))
+    data = read_yaml(paths.learning_object_path(subject, template))
+    for lo in TOPICS[:count]:
+        write_yaml(paths.learning_object_path(subject, lo), {**data, "id": lo, "title": lo})
+    return TOPICS[:count], sorted(vault.evidence_facets)[0]
+
+
+def answer(topics, *, duplicate=False, invalid=False, per_topic=1, held=(), repeated=(), facet="recall"):
+    """One topic's answer: ``per_topic`` grounded, audited questions per topic, each citing the
+    supplied note. ``held`` names the positions (0-based, within a topic) the model marks
+    ``review_required`` anyway, as the live route did for every question of a finished section;
+    ``repeated`` the positions whose prompt is the same in every topic (a later topic's is refused)."""
+
     items = []
     for lo in topics:
-        data = _generated_practice_proposal_payload({
-            "learning_object_id": lo,
-            "prompt": "Repeated prompt" if duplicate else f"Explain {lo}.",
-            "surface_family": lo,
-            "repair_targets": ["recall"],
-            "evidence_facets": ["recall"],
-            "evidence_weights": {"recall": 1.0},
-            "criterion_facet_weights": {"correctness": {"recall": 1.0}},
-            "difficulty": 0.25,
-        })
-        row = data["items"][0]
-        row.update(client_item_id=lo, proposed_entity_id=f"pi_{lo}", source_ref_ids=["note_section"])
-        if invalid:
-            row["payload"]["learning_object_id"] = "lo_missing"
-        items.append(row)
+        for position in range(per_topic):
+            name = lo if position == 0 else f"{lo}_{position}"
+            data = _generated_practice_proposal_payload({
+                "learning_object_id": lo,
+                "prompt": "Repeated prompt" if duplicate or position in repeated else (
+                    f"Explain {lo}." if position == 0 else f"Explain {lo}, case {position}."),
+                "surface_family": lo,
+                "repair_targets": [facet],
+                "evidence_facets": [facet],
+                "evidence_weights": {facet: 1.0},
+                "criterion_facet_weights": {"correctness": {facet: 1.0}},
+                "difficulty": 0.25,
+            })
+            row = data["items"][0]
+            row.update(client_item_id=name, proposed_entity_id=f"pi_{name}", source_ref_ids=["note_section"])
+            if position in held:
+                row.update(review_route="review_required",
+                           rationale="Grounded in the section's note; the audit passed. Marked for review.")
+            if invalid:
+                row["payload"]["learning_object_id"] = "lo_missing"
+            items.append(row)
     return AuthoringProposal.model_validate({"summary": "Section questions", "source_refs": [
         {"ref_type": "note", "ref_id": "note_section"}], "items": items})
 
 
 class Writer(StructuredClientFake):
-    def __init__(self, *, fail=(), duplicate=False, invalid=False, bad_topics=()):
+    def __init__(self, *, fail=(), duplicate=False, invalid=False, bad_topics=(), per_topic=1, held=(), repeated=(),
+                 facet="recall"):
         self.calls = []
         self.requests = []
         self.contexts = []
@@ -62,6 +90,10 @@ class Writer(StructuredClientFake):
         self.bad_topics = set(bad_topics)
         self.duplicate = duplicate
         self.invalid = invalid
+        self.per_topic = per_topic
+        self.held = set(held)
+        self.repeated = set(repeated)
+        self.facet = facet
         self.before = lambda: None
 
     def complete(self, request):
@@ -87,7 +119,15 @@ class Writer(StructuredClientFake):
         if repair:
             failing = json.loads(context.instructions.split("FAILING_ITEMS: ", 1)[1])
             return answer([entry["client_item_id"] for entry in failing], duplicate=self.duplicate)
-        return answer(topics, duplicate=self.duplicate, invalid=self.invalid)
+        return answer(topics, duplicate=self.duplicate, invalid=self.invalid, per_topic=self.per_topic,
+                      held=self.held, repeated=self.repeated, facet=self.facet)
+
+
+def held_writer(per_topic=3, held=(0, 1, 2), facet="recall"):
+    """The live route's answer: every question grounded in the section and audited, yet marked
+    review_required (by default all three of each topic)."""
+
+    return Writer(per_topic=per_topic, held=held, facet=facet)
 
 
 def request_digest(request):
