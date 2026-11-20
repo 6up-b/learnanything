@@ -15,7 +15,7 @@ from datetime import timedelta
 import logging
 from typing import Any
 
-from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.daily_plan.router_runtime import FOLLOWUP_GENERATION_OWNER
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
@@ -52,6 +52,10 @@ class GenerationDeferred(RuntimeError):
 class QuestionEcho(RuntimeError):
     """R10: a draft reproduced a reserved question and the job has its one retry left. Nothing
     was written, the phrases are noted, and the retry runs at once: no provider failed."""
+
+
+class AuthoringContractRetry(RuntimeError):
+    """The job's remaining attempt corrects an incomplete answer, inside its original deadline."""
 
 
 @dataclass
@@ -114,7 +118,7 @@ def process_next_job(
         _run(vault, repository, job, clients=clients, clock=clock)
         _finish(repository, job, "done", None, clock)
         return outcome
-    except QuestionEcho as echo:
+    except (QuestionEcho, AuthoringContractRetry) as echo:
         _finish(repository, job, "queued", str(echo), clock)
         outcome.state, outcome.error = "retry", str(echo)
         return outcome
@@ -379,7 +383,7 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
     """§5: the decision first and the item after it. One physical authoring call, on a plan route."""
 
     from learnloop.followup_run import admission, router
-    from learnloop.followup_run.authoring import QUESTION_MATCHES_RESERVED, RESERVED_MATCHES
+    from learnloop.followup_run.authoring import CONTRACT_REASK_REQUIREMENTS, QUESTION_MATCHES_RESERVED, RESERVED_MATCHES
     from learnloop.followup_run.lanes import settle_practice_lane
 
     workflow_id = str(row["id"])
@@ -428,10 +432,15 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
         raise GenerationDeferred("author_route_not_ready")
     item_id: str | None = None
     fresh = vault
+    retry = wf.noted(repository, workflow_id, reason="authoring_contract_retry")
+    author_clock = clock or SystemClock()
+    timeout = float(getattr(getattr(client, "profile", None), "timeout_seconds", None) or vault.config.ai.timeout_seconds)
+    deadline = parse_utc(retry["deadline"]) if retry else author_clock.now() + timedelta(seconds=timeout)
     try:
         probe, template, card = admission.author_probe(
             vault, repository, workflow=row, factor_id=factor_id, decision=decision.for_author(), client=client,
             avoid_phrases=wf.noted(repository, workflow_id, reason=QUESTION_MATCHES_RESERVED).get("phrases") or (),
+            rejection_reason=retry.get("rejection_reason"), retry_deadline=deadline if retry else None, clock=clock,
         )
         # The learner may have said "Not now" while the model wrote; nothing further was paid for.
         refusal = router.hard_refusal(vault, repository, row, factor_id=factor_id)
@@ -452,6 +461,13 @@ def _run_probe_lane(vault: Any, repository: Repository, row: Mapping[str, Any], 
             router.record_outcome(repository, row, decision, outcome="refused", clock=clock)
         return
     except admission.AdmissionFailed as failed:
+        if (failed.reason in CONTRACT_REASK_REQUIREMENTS and attempt < MAX_GENERATION_ATTEMPTS
+                and not retry and (deadline - author_clock.now()).total_seconds() >= 1.0):
+            # Share the existing retry slot: separate repair loops multiply paid calls after other failures.
+            wf.note(repository, workflow_id, reason="authoring_contract_retry",
+                    detail={"rejection_reason": failed.reason, "deadline": deadline.isoformat(),
+                            "rejected_attempt": attempt, "retry_attempt": attempt + 1}, clock=clock)
+            raise AuthoringContractRetry(failed.reason) from failed
         if failed.reason == QUESTION_MATCHES_RESERVED and attempt < MAX_GENERATION_ATTEMPTS:
             # R10: the job's one retry, told only the draft's own words. Nothing was written.
             wf.note(repository, workflow_id, reason=failed.reason, detail={"phrases": failed.detail.get("phrases") or []},
