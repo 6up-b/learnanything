@@ -205,6 +205,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_characterization_mastery_reliability.py](../../../../../../tests/test_characterization_mastery_reliability.py) — direct import
   - `test_error_impact_turns_reliability_into_observation_weight`
 - [tests/test_chat_total_transport_deadline.py](../../../../../../tests/test_chat_total_transport_deadline.py) — direct import
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_job_override_preserves_original_profile_as_idle_window`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_base_url_may_only_be_openai_or_loopback`
   - `test_readiness_reads_local_state_only`

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/errors.py](../../../../../../src/learnloop/ai/errors.py) |
-| Source lines | 62 |
+| Source lines | 66 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -60,9 +60,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class AIInterrupted(AIProviderUnavailable)` ([source](../../../../../../src/learnloop/ai/errors.py), line 12) — A LearnLoop-owned provider turn was explicitly interrupted.
 - `class AIOutputTruncated(AIInvalidOutput)` ([source](../../../../../../src/learnloop/ai/errors.py), line 16) — Generation exhausted its output budget; JSON repair cannot recover it.
 - `class AITurnTimeout(AIProviderUnavailable, TimeoutError)` ([source](../../../../../../src/learnloop/ai/errors.py), line 20) — A provider turn exceeded its wall-clock deadline.
-- `class VideoGenerationFailed(AIProviderUnavailable)` ([source](../../../../../../src/learnloop/ai/errors.py), line 24) — A video-generation job ended in a terminal non-success state.
-  - `__init__(self, message: str, *, status: str='failed', job_id: str | None=None, shot_index: int | None=None) -> None` (line 27; internal)
-- `class VideoGenerationTimeout(AITurnTimeout)` ([source](../../../../../../src/learnloop/ai/errors.py), line 41) — A storyboard did not finish within its wall-clock budget.
+  - `__init__(self, message: str, *, reason: str='deadline') -> None` (line 23; internal)
+- `class VideoGenerationFailed(AIProviderUnavailable)` ([source](../../../../../../src/learnloop/ai/errors.py), line 28) — A video-generation job ended in a terminal non-success state.
+  - `__init__(self, message: str, *, status: str='failed', job_id: str | None=None, shot_index: int | None=None) -> None` (line 31; internal)
+- `class VideoGenerationTimeout(AITurnTimeout)` ([source](../../../../../../src/learnloop/ai/errors.py), line 45) — A storyboard did not finish within its wall-clock budget.
 
 ### Explicit exports
 
@@ -122,7 +123,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `AIInterrupted`
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `AIProviderUnavailable`, `CodexTurnTimeout`, `CodexUnavailable`
-- [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `AIInterrupted`, `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `AIInterrupted`, `AIProviderUnavailable`, `AITurnTimeout`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `AIInterrupted`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `AIInvalidOutput`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; statically calls `AIInvalidOutput`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `AIOutputTruncated`
@@ -248,6 +249,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_slow_connect_and_upload_count_against_the_same_deadline`
   - `test_nov1_r1_an_environment_proxy_no_longer_routes_metered_calls`
   - `test_rw6b2_f3_a_dribbling_response_is_aborted_at_the_total_deadline`
+- [tests/test_chatgpt_plan_deadline.py](../../../../../../tests/test_chatgpt_plan_deadline.py) — direct import
+  - `test_background_token_wait_is_idle_bounded_and_sends_nothing`
+  - `test_idle_watchdog_can_shutdown_a_socket_detached_by_http_close`
+  - `test_interrupt_during_long_background_stream_is_immediate`
+  - `test_job_host_stops_long_background_stream`
+  - `test_same_live_foreground_stream_keeps_total_deadline`
+  - `test_silent_background_stream_is_cut`
+- [tests/test_chatgpt_plan_deadline_socket.py](../../../../../../tests/test_chatgpt_plan_deadline_socket.py) — direct import
+  - `test_background_blocked_read_wakes_on_idle_or_interrupt`
 - [tests/test_chatgpt_plan_provider.py](../../../../../../tests/test_chatgpt_plan_provider.py) — direct import
   - `test_a_deadline_that_passes_while_waiting_for_the_refresh_lock_sends_nothing`
   - `test_an_expired_deadline_is_never_extended_into_a_send`
@@ -298,6 +308,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_synthesis_that_fails_twice_stops_with_retry_and_the_card_says_so`
   - `test_an_inventory_that_fails_once_is_retried_once_without_asking_again_for_what_was_kept`
   - `test_an_inventory_that_fails_twice_stops_with_retry_and_the_card_says_so`
+  - `test_synthesis_timeout_reason_controls_retry_and_keeps_try_again`
 - [tests/test_first_questions_today.py](../../../../../../tests/test_first_questions_today.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_and_carries_its_id`
